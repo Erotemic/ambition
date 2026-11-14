@@ -29,10 +29,16 @@
 //! world) fails its rollout, by the kernel's own reset flag. A leg whose body
 //! enters an exit of [`NavGraph::build_avoiding`] fails too.
 //!
+//! A slope is modelled as one slope leg: an open surface chain whose two ends are
+//! at the tops of two surfaces joins them, and the body walks from one to the
+//! other along it, no jump. The chain itself is no standing surface, so a
+//! route is planned from the surfaces at its ends.
+//!
 //! NOT MODELLED: a drop through a one-way surface, a second air jump, an air
 //! jump in a drop, a dash on the ground or up, a wall jump off one wall onto
 //! its own top, permanent flight, a pogo bounce (a combat effect, which the
-//! kernel rollout does not run), a surface that moves, and a slope.
+//! kernel rollout does not run), a surface that moves, and standing on a
+//! slope (a route from the middle of a slope finds no surface under it).
 
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
@@ -218,7 +224,10 @@ impl NavGraph {
                 let wall_jump = can_wall_jump && rise > 1.0 && rise <= MAX_CLIMB && gap <= jump_reach + slack;
                 // Flight is for going up: a drop gets down.
                 let fly = can_fly && rise > 1.0;
-                if rise < -envelope.probe.max_drop || !(hop || drop || double || dash || climb || wall_jump || fly) {
+                let slopes = slope_proposals(world, nav, a, b, half.x);
+                if slopes.is_empty()
+                    && (rise < -envelope.probe.max_drop || !(hop || drop || double || dash || climb || wall_jump || fly))
+                {
                     continue;
                 }
                 let mut cost = BuildCost::default();
@@ -239,7 +248,11 @@ impl NavGraph {
                 // The cheaper leg first: one jump, then the air jump, then a
                 // dash, then a climb, then wall jumps, then flight, each only
                 // where the one before it does not arrive.
-                let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost)
+                // A walk up or down a slope first: it needs no verb at all.
+                let best = (!slopes.is_empty())
+                    .then(|| arrived(slopes, &mut cost))
+                    .flatten()
+                    .or_else(|| arrived(proposals(a, b, half.x, hop, drop), &mut cost))
                     .or_else(|| double.then(|| arrived(as_kind(NavLegKind::DoubleHop), &mut cost)).flatten())
                     .or_else(|| dash.then(|| arrived(as_kind(NavLegKind::DashHop), &mut cost)).flatten())
                     .or_else(|| climb.then(|| arrived(as_kind(NavLegKind::WallClimb), &mut cost)).flatten())
@@ -640,6 +653,48 @@ impl NavGraph {
 
 /// The legs worth a rollout from surface `a` to surface `b`, as (along, below)
 /// points. Few: each one costs a rollout.
+/// How near a surface's top, and its ends, a slope's end must be to join it.
+const SLOPE_END_REACH: f32 = 12.0;
+
+/// Walks from `a` to `b` along an open surface chain with one end at the top
+/// of each (points as (along, below) pairs, like [`proposals`]). An end
+/// joins a surface when it is at the surface's height and over it, or past
+/// one of its ends by no more than half a body: the bank path leaves the
+/// lane's floor at its end, and the cart's ramp comes down onto the middle of
+/// the workshop's floor.
+fn slope_proposals(world: &World, frame: NavFrame, a: &StandSurface, b: &StandSurface, half_width: f32) -> Vec<NavLeg> {
+    let reach = half_width + SLOPE_END_REACH;
+    let joins = |surface: &StandSurface, point: Vec2| {
+        let (along, below) = (frame.along(point), frame.below(point));
+        (below - surface.top).abs() <= SLOPE_END_REACH / 2.0
+            && along >= surface.left - reach
+            && along <= surface.right + reach
+    };
+    let mut legs = Vec::new();
+    for chain in world.chains.iter() {
+        if chain.closed || chain.points.len() < 2 {
+            continue;
+        }
+        let (first, last) = (chain.points[0], chain.points[chain.points.len() - 1]);
+        for (from, to) in [(first, last), (last, first)] {
+            if !(joins(a, from) && joins(b, to)) {
+                continue;
+            }
+            let direction = (frame.along(to) - frame.along(from)).signum();
+            let start = Vec2::new(a.clamp(frame.along(from)), a.top);
+            let onto = (half_width + 4.0).min(b.width() * 0.5);
+            legs.push(NavLeg {
+                kind: NavLegKind::Slope,
+                start,
+                takeoff: start,
+                land: Vec2::new(b.clamp(frame.along(to) + direction * onto), b.top),
+                land_span: [b.left - half_width, b.right + half_width],
+            });
+        }
+    }
+    legs
+}
+
 fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, drop: bool) -> Vec<NavLeg> {
     let mut legs = Vec::new();
     let leg = |kind, start: f32, takeoff: f32, land: f32| NavLeg {

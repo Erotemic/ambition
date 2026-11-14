@@ -79,6 +79,9 @@ pub enum NavLegKind {
     /// toggle flight off there and fall onto it. For a body that can toggle
     /// flight.
     Fly,
+    /// Walk from `start` up or down a slope to `land`, a surface at another
+    /// height: a hill path. No jump; the body stays on the ground.
+    Slope,
 }
 
 /// One leg of a route.
@@ -239,6 +242,24 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
             let running = LegInput { axis: direction, full_speed: true, ..Default::default() };
             match leg.kind {
                 NavLegKind::Walk => (LegInput::default(), LegProgress::Going(LegPhase::Approach)),
+                // Along the slope toward the landing, on the ground the whole
+                // way; done at the landing's height, in reach of it, at rest.
+                NavLegKind::Slope => {
+                    if direction == 0.0 {
+                        return (LegInput::default(), LegProgress::Failed);
+                    }
+                    let offset = along(leg.land);
+                    if facts.on_ground && below(leg.land).abs() <= LAND_TOLERANCE && offset.abs() <= ARRIVE_TOLERANCE {
+                        let progress = if speed.abs() < REST_SPEED {
+                            LegProgress::Arrived
+                        } else {
+                            LegProgress::Going(LegPhase::Commit)
+                        };
+                        return (LegInput::default(), progress);
+                    }
+                    let axis = offset.signum() * (offset.abs() / 32.0).clamp(0.3, 1.0);
+                    (LegInput { axis, ..LegInput::default() }, LegProgress::Going(LegPhase::Commit))
+                }
                 NavLegKind::Hop
                 | NavLegKind::DoubleHop
                 | NavLegKind::DashHop

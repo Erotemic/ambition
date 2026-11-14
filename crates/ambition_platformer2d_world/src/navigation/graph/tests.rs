@@ -680,6 +680,39 @@ fn a_body_drops_through_a_one_way_floor_to_the_floor_under_it() {
     assert_eq!(graph.next(loft, under), NavNext::Unreachable, "control: a solid loft has no road down");
 }
 
+/// A slope joins two floors no jump joins: a hill path. The body walks up it
+/// and down it with no verb but the walk, and the graph routes over it. The
+/// control: the same two floors with no slope have no road between them.
+#[test]
+fn a_body_walks_up_and_down_a_slope_between_two_floors() {
+    let apex = TraversalEnvelope::measure(&walker(), normal_frame(), EnvelopeProbe::default())
+        .expect("measured")
+        .apex_rise();
+    let rise = apex * 3.0;
+    let floors = || {
+        vec![
+            Block::solid("low", Vec2::new(0.0, FLOOR), Vec2::new(1000.0, 64.0)),
+            Block::solid("high", Vec2::new(1700.0, FLOOR - rise), Vec2::new(1000.0, rise + 64.0)),
+        ]
+    };
+    let slope = ae::SurfaceChain::open("hill path", vec![Vec2::new(1000.0, FLOOR), Vec2::new(1700.0, FLOOR - rise)]);
+    let world = World::new("a hill path", Vec2::new(4000.0, 3000.0), Vec2::ZERO, floors()).with_chains(vec![slope]);
+    let fixture = Fixture {
+        graph: NavGraph::build(&world, &walker(), normal_frame()).expect("an upright body has a graph"),
+        world,
+        body: walker(),
+    };
+    assert_eq!(fixture.linked("low", "high"), Some(NavLegKind::Slope), "up the slope");
+    assert_eq!(fixture.linked("high", "low"), Some(NavLegKind::Slope), "down the slope");
+    let (low, high) = (fixture.middle("low"), fixture.middle("high"));
+    fixture.travel(low, high).unwrap_or_else(|why| panic!("up the hill path: {why}"));
+    fixture.travel(high, low).unwrap_or_else(|why| panic!("down the hill path: {why}"));
+
+    let bare = World::new("no hill path", Vec2::new(4000.0, 3000.0), Vec2::ZERO, floors());
+    let graph = NavGraph::build(&bare, &walker(), normal_frame()).expect("a walker has a graph");
+    assert_eq!(graph.next(low, high), NavNext::Unreachable, "control: no slope, no road up");
+}
+
 /// A graph built on the compute pool is the graph one thread builds: the same
 /// links, in the same order, at the same cost. Peers build on pools of other
 /// sizes, and a rewind builds again.

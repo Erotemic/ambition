@@ -308,6 +308,38 @@ def section(lines: list[str], title: str) -> None:
     lines += [f"## {title}", ""]
 
 
+def frame_wait_focus_lines(bundle: "Bundle") -> list[str]:
+    """What `frame_wait.csv` says about window focus, or nothing without it.
+
+    An unfocused window is throttled by the compositor, so its frame gaps are
+    the desktop's and not the game's: a background sample must be named before
+    its gaps are read as cost."""
+    rows = bundle.rows("frame_wait.csv")
+    if not rows or "focused_frames" not in rows[0]:
+        return []
+    totals = {key: 0 for key in ("focused_frames", "unfocused_frames", "unknown_focus_frames", "focus_transitions")}
+    for row in rows:
+        for key in totals:
+            totals[key] += int(number(row, key))
+    sampled = totals["focused_frames"] + totals["unfocused_frames"] + totals["unknown_focus_frames"]
+    lines = [
+        f"{sampled} sampled frames: {totals['focused_frames']} focused, "
+        f"{totals['unfocused_frames']} unfocused, {totals['unknown_focus_frames']} unknown; "
+        f"{totals['focus_transitions']} focus change(s).",
+        "",
+    ]
+    if totals["unfocused_frames"] or totals["unknown_focus_frames"]:
+        lines.append(
+            "- **Background-window samples present.** Their frame gaps are the "
+            "compositor's throttle, not game cost; read the focused windows' "
+            "gaps (`focused_gap_ms`) instead."
+        )
+    else:
+        lines.append("- All sampled gameplay frames were focused.")
+    lines.append("")
+    return lines
+
+
 # ── Room reveal tells ────────────────────────────────────────────────────
 #
 # The hall-entry campaign named three host tells and nothing checked them, so a
@@ -1667,6 +1699,11 @@ def build_summary(bundle: Bundle) -> str:
     if bundle.exists("perf.data"):
         lines.append(f"- `perf.data`: {os.path.getsize(os.path.join(bundle.path, 'perf.data'))} bytes")
     lines.append("")
+
+    focus = frame_wait_focus_lines(bundle)
+    if focus:
+        section(lines, "Window focus during measured gameplay")
+        lines += focus
 
     section(lines, "Files in the local capture directory and shareable archive")
     known = [

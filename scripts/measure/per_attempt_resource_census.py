@@ -79,9 +79,13 @@ KNOWN_PER_ATTEMPT = {"BrokenBricks", "SpentPowerBlocks", "SpentMonitors"}
 #: the cost of adding one is a line and a sentence, and the alternative is the
 #: Sanic bug, which cost a whole run's speed shoes.
 NOT_PER_ATTEMPT = {
-    "TerminalUi": (
-        "frame-clock terminal controls; drive_gate_terminal resets them when the "
-        "network has no open terminal or names a different ring"
+    "FrameWaitProbe": (
+        "a capture tool's wall-clock frame-wait measurement over the whole run; "
+        "it times the process, not an attempt"
+    ),
+    "RigCard": (
+        "the vanity card's loaded manifest (canvas, sheet, frames), shown by the "
+        "shell before any session; nothing in it is played or spent"
     ),
     "AmbitionWornGear": "the gear ids the content pack registered; a death does not change the pack",
 
@@ -89,7 +93,6 @@ NOT_PER_ATTEMPT = {
     "VersusMatch": "per-MATCH scoreboard, and its own doc says it is rollback state",
     # Presentation caches that re-seed themselves when their subject changes.
     "AmbitionDialogPortraitPlayback": "re-seeds on a key change (`if self.key == Some(&key) { return }`)",
-    "CachedSystemMenu": "menu render cache, rebuilt from the model",
     "FrontFields": "the hub look's per-room front-field images, made with the room's look and retired with it",
     # Catalogs and registries: authored data, must SURVIVE a death.
     "AmbitionDialogPortraitCatalog": "authored catalog",
@@ -124,14 +127,6 @@ NOT_PER_ATTEMPT = {
         "re-seats it on the replay"
     ),
     # Load/asset plumbing scoped to a transition, not to an attempt.
-    "FirstRoomArtJobs": "in-flight art jobs for one load",
-    "RoomPreparationPrefetchState": (
-        "prefetch bookkeeping for the neighbours of the live rooms; it clears "
-        "itself when the session or the content epoch changes"
-    ),
-    "ContributedRoomAssets": "asset contributions for one room build",
-    "RoomTransitionTelemetry": "bounded ring of timing samples, accumulates on purpose",
-    # Developer tools: not gameplay state at all.
     "DebugOverlayLabels": "dev overlay",
     "GamepadProbes": "dev probe",
     "PresentationProbeState": "dev probe",

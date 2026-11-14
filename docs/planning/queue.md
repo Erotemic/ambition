@@ -149,7 +149,9 @@ or updating their source. Check with
 
 **Owner:** [motion diagnosis and fix](game/boss-cinematics-gnu2-and-motion.md), [semantic-part rendering](engine/semantic-part-rendering-and-ragdolls.md).
 
-**Next action:** the rendered part transforms and render-rate interpolation (the rest was captured frame by frame, see the owner). Identify root, animation or interpolation discontinuity; unify the responsible pose authority or shared render adapter rather than applying per-boss correction offsets.
+**Rendered parts measured and fixed in the source (2026-11-14, [owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)):** none of the giant's clips tweened, so its walk moved its legs 22-26 px at once every 0.08 s while its body slid smoothly; its publisher now tweens its four walking loops as every character's walk is tweened (renderer `81b31ac`).
+
+**Next action:** republish the giant on the publishing machine (this VM publishes no core art), then watch the walk in the fight at 60 and 144 Hz; turning, buck and rider remain as measured (smooth).
 
 **Acceptance:** walking, turning, buck, rider movement and portal strikes are visually continuous and align with collision, footholds, hits and camera, across fixed ticks, relevant render rates, reset/replay and quality levels.
 

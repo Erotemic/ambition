@@ -128,6 +128,25 @@ every jump.
    the blow's recover row ends on. **Fixed:** `Conductor::rest_t` counts the
    seconds at rest; measured after, each return to rest starts at 0.00 s.
 
+3. **The giant's walk stepped between frames (rendered parts, measured
+   2026-11-14).** The giant is drawn from its part flipbook
+   (`giant_gnu_parts.ron`), and none of its 56 clips tweened: its publisher
+   built the flipbook with no tween rows, where every other character's
+   walk tweens (`part_flipbook.LOCOMOTION_LOOPS`). Its walk is 12 frames of
+   0.08 s, and each frame moved its legs 22-26 sheet pixels at once (median
+   22.4, at the 840 x 680 frame) while the body slid smoothly at 135 world
+   units per second: at the giant's size that is the visible step. Its rest
+   loops move about 2 px a frame and read as still. **Fixed in the source**
+   (renderer `81b31ac`): `GIANT_TWEENED_ROWS` (walk, walk_back, armed_walk,
+   armed_walk_back) publish as tweened clips; built in-process, 276 of the
+   walk's 348 draws pair with their next frame and move between frames, the
+   rest change picture and hold. **It reaches the game with the giant's
+   next republish** (this VM publishes no core art). Render-rate
+   interpolation itself is the shared rigged path's (`frame_phase` of the
+   way to the next frame), so a tweened clip is interpolated at any render
+   rate; the root's own interpolation is `PresentedPose`, measured smooth
+   in the 2026-11-10 probe.
+
 **Measured and not changed.**
 
 - **Windups play slower than real time** (their clock steps 0.010–0.014 a

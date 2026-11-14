@@ -953,8 +953,12 @@ the body its `LocalSeat` drives as the `ControlledSubject`, whose own
 resolver sleeps in `PlayerInput` and names seat 0. In the assigned-seat
 witness the guest's camera follows seat 1.
 
-Not yet: the HUD still reads the `PrimaryPlayer` marker, which on a guest is
-the host's player. Both Apps must start in the same room. A windowed guest has not been played. A guest joins its body on the
+The HUD's meters follow the same subject: `rebuild_view_hud_facts` reads
+`ControlledSubject` before its `PrimaryPlayer` fallback, so a guest's own
+HUD shows its seat's body and the host's player shares the screen's HUD
+(read from the code, not yet witnessed on a guest).
+
+Not yet: both Apps must start in the same room. A windowed guest has not been played. A guest joins its body on the
 host by pressing Start (the local join road), which no headless run can
 press.
 

@@ -731,7 +731,7 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
         let world = app.world_mut();
         let mut q = world.query::<(
             &MatchSeat,
-            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            Option<&ambition_platformer2d::characters::actor::CharacterForm>,
             Option<&ambition_platformer2d::engine_core::BodyAbilities>,
             &Name,
         )>();
@@ -2127,7 +2127,7 @@ fn the_shipped_polygon_carries_both_halves_of_her_ranged_move() {
 
     let world = app.world_mut();
     let mut q = world.query::<(
-        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::characters::actor::CharacterForm,
         &ActorMoveset,
         Option<&ActionSet>,
     )>();
@@ -2260,7 +2260,7 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
     let seated: Vec<String> = {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
-            &ambition_platformer2d::character::WornCharacter,
+            &ambition_platformer2d::character::CharacterForm,
             With<ambition_platformer2d::versus_match::MatchSeat>,
         >();
         q.iter(world).map(|worn| worn.id().to_owned()).collect()
@@ -2366,7 +2366,7 @@ fn pick_and_start(app: &mut App, character_id: &str) {
 /// What the PRIMARY player's body is wearing, if there is one.
 fn primary_player_character(app: &mut App) -> Option<String> {
     app.world_mut()
-        .query_filtered::<&ambition_platformer2d::character::WornCharacter, ambition_platformer2d::actor::PrimaryPlayerOnly>()
+        .query_filtered::<&ambition_platformer2d::character::CharacterForm, ambition_platformer2d::actor::PrimaryPlayerOnly>()
         .iter(app.world())
         .next()
         .map(|worn| worn.id().to_owned())
@@ -2375,7 +2375,7 @@ fn primary_player_character(app: &mut App) -> Option<String> {
 /// How many bodies — of any kind — are wearing `character_id`.
 fn bodies_wearing(app: &mut App, character_id: &str) -> usize {
     app.world_mut()
-        .query::<&ambition_platformer2d::character::WornCharacter>()
+        .query::<&ambition_platformer2d::character::CharacterForm>()
         .iter(app.world())
         .filter(|worn| worn.id() == character_id)
         .count()
@@ -3008,7 +3008,7 @@ fn robot_v3_brings_its_pogo_to_smash_and_a_fighter_without_one_does_not() {
         wait_for_the_round_to_go_live(&mut app);
         let world = app.world_mut();
         let mut q = world.query::<(
-            &ambition_platformer2d::character::WornCharacter,
+            &ambition_platformer2d::character::CharacterForm,
             &ambition_platformer2d::engine_core::BodyAbilities,
         )>();
         let row = q
@@ -4342,7 +4342,7 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
 /// requires equal percent readings.
 #[test]
 fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
-    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 
     // The grid seats Tall Mary-O rather than the short form.
     const CROSSOVER: &str = "mary_o_tall";
@@ -4419,7 +4419,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
 
     let seated = |app: &mut App| -> Vec<(String, Entity, i32, i32, f32)> {
         let world = app.world_mut();
-        let mut q = world.query::<(Entity, &WornCharacter, &BodyHealth)>();
+        let mut q = world.query::<(Entity, &CharacterForm, &BodyHealth)>();
         let mut rows: Vec<(String, Entity, i32, i32, f32)> = q
             .iter(world)
             .map(|(entity, worn, health)| {
@@ -5992,7 +5992,7 @@ fn quitting_a_smash_match_gives_the_pad_back() {
 /// stage of the chain was healthy. The launch pointed down.
 mod launched {
     use super::*;
-    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyGroundState;
     use ambition_platformer2d::engine_core::Vec2 as EVec2;
@@ -6047,7 +6047,7 @@ mod launched {
         wait_for_the_round_to_go_live(app);
         let bodies: Vec<(String, Entity)> = {
             let world = app.world_mut();
-            let mut q = world.query::<(Entity, &WornCharacter)>();
+            let mut q = world.query::<(Entity, &CharacterForm)>();
             q.iter(world)
                 .map(|(e, w)| (w.id().to_string(), e))
                 .collect()
@@ -6464,7 +6464,7 @@ mod launched {
 /// match. Nine recent landings put `stale_scale` on its floor (0.55).
 mod ring_out {
     use super::*;
-    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::combat::moveset::MovePlayback;
     use ambition_platformer2d::combat::stale::{stale_move_hash, BodyStaleMoves};
@@ -6729,7 +6729,7 @@ mod ring_out {
         // whether the mirror failed to seat or seated somebody else.
         let cast: Vec<(String, Entity)> = {
             let world = app.world_mut();
-            let mut q = world.query::<(Entity, &WornCharacter)>();
+            let mut q = world.query::<(Entity, &CharacterForm)>();
             q.iter(world)
                 .map(|(e, worn)| (worn.id().to_string(), e))
                 .collect()
@@ -8579,7 +8579,7 @@ fn focus_pause_row(app: &mut App, label: &str) {
 /// silently put the robot back on its home damage.
 #[test]
 fn the_robot_deals_health_damage_at_home_and_percent_on_a_smash_stage() {
-    use ambition_platformer2d::characters::actor::{RecharacterizeBody, WornCharacter};
+    use ambition_platformer2d::characters::actor::{RecharacterizeBody, CharacterForm};
     use ambition_platformer2d::combat::moveset::ActorMoveset;
     use ambition_platformer2d::entity_catalog::MovesetContract;
 
@@ -8617,7 +8617,7 @@ fn the_robot_deals_health_damage_at_home_and_percent_on_a_smash_stage() {
     wait_for_the_round_to_go_live(&mut app);
     let seated = |app: &mut App| -> (bevy::prelude::Entity, MovesetContract) {
         let world = app.world_mut();
-        let mut q = world.query::<(bevy::prelude::Entity, &WornCharacter, &ActorMoveset)>();
+        let mut q = world.query::<(bevy::prelude::Entity, &CharacterForm, &ActorMoveset)>();
         q.iter(world)
             .find(|(_, worn, _)| worn.id() == ROBOT)
             .map(|(entity, _, moveset)| (entity, moveset.0.clone()))

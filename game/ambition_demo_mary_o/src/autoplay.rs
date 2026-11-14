@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::autopilot::{AutopilotOrder, NavGoal};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -36,7 +36,7 @@ pub fn play_mary_o(
     mut order: ResMut<AutopilotOrder>,
     mut state: Local<AutoplayState>,
     rooms: Option<LiveRoomSpecs>,
-    players: Query<(Entity, &WornCharacter), With<PrimaryPlayer>>,
+    players: Query<(Entity, &CharacterForm), With<PrimaryPlayer>>,
     flags: Query<&FlagSequence>,
 ) {
     state.frames_since_utility = state.frames_since_utility.saturating_add(1);

@@ -7,7 +7,7 @@
 //! offset for as long as the binding lives (`BodyPoseView::geometry`).
 
 use ambition_demo_mary_o_app::build_demo_app;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sim_view::{BodyPoseView, PoseGeometry};
@@ -33,7 +33,7 @@ fn the_pose_on_the_swap_tick_is_pending_and_settles_on_the_tall_body() {
     }
     let read = |app: &App| {
         let world = app.world();
-        let worn = world.get::<WornCharacter>(player).expect("worn").id().to_string();
+        let worn = world.get::<CharacterForm>(player).expect("worn").id().to_string();
         let pose = world.get::<BodyPoseView>(player).expect("pose");
         (worn, pose.geometry, pose.base_size, pose.authored_offset)
     };

@@ -250,7 +250,7 @@ impl PlayerSimulationBundle {
     /// stay EMPTY. The player box is otherwise untouched — same
     /// seat, same collision. The chosen character's
     /// SPRITE is bound presentation-side by the reusable `ambition_render`
-    /// binder, which reads the `WornCharacter` identity the spawn records — not
+    /// binder, which reads the `CharacterForm` identity the spawn records — not
     /// here, and not app-locally.
     ///
     /// An id the catalog does NOT know (a protagonist whose combat is a runtime

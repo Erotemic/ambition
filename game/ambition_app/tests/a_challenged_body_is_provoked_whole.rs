@@ -27,7 +27,7 @@
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actor::{ActorConfig, ActorPolicy};
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::combat::components::ActorDisposition;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use ambition_platformer2d::platformer::sim_id::SimId;
@@ -57,7 +57,7 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
     // (body, character, the provoked policy its character resolved)
     let bodies: Vec<(Entity, SimId, String, Option<ambition_platformer2d::characters::brain::BrainProfile>)> = {
         let world = sim.world_mut();
-        let mut q = world.query::<(Entity, &SimId, &WornCharacter, &ActorDisposition)>();
+        let mut q = world.query::<(Entity, &SimId, &CharacterForm, &ActorDisposition)>();
         let peaceful: Vec<_> = q
             .iter(world)
             .filter(|(.., disposition)| **disposition == ActorDisposition::Peaceful)
@@ -191,7 +191,7 @@ fn the_kernel_guide_has_the_two_attacks_its_provoked_mind_looks_for() {
     let mut sim = fixed_60hz_room_sim("central_hub_complex");
     sim.step_n(base(), 30);
     let world = sim.world_mut();
-    let mut q = world.query::<(&WornCharacter, &ActionSet)>();
+    let mut q = world.query::<(&CharacterForm, &ActionSet)>();
     let (melee, ranged) = q
         .iter(world)
         .find(|(worn, _)| worn.0.to_string() == "npc_kernel_guide")
@@ -217,7 +217,7 @@ fn every_person_in_the_hall_has_fists_to_be_provoked_with() {
     sim.step_n(base(), 90);
     let world = sim.world_mut();
     let kits: Vec<(String, bool)> = {
-        let mut q = world.query::<(&WornCharacter, &ActionSet)>();
+        let mut q = world.query::<(&CharacterForm, &ActionSet)>();
         q.iter(world).map(|(worn, actions)| (worn.0.to_string(), actions.melee.is_some())).collect()
     };
     let catalog = world.resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();

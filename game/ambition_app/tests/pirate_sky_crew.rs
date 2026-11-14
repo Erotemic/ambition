@@ -7,7 +7,7 @@
 //! sounding a landing on every tick.
 
 use crate::common::fixed_60hz_room_sim;
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::mount::RidingOn;
@@ -55,7 +55,7 @@ fn the_cove_crew_fights_together_and_nobody_rides_inside_the_ceiling() {
         let world = sim.world_mut();
         let mut players = world.query_filtered::<&ae::BodyKinematics, PrimaryPlayerOnly>();
         let player_y = players.iter(world).next().expect("a player stands in the room").pos.y;
-        let mut query = world.query::<(Entity, &WornCharacter, &ae::BodyKinematics, &BodyHealth, &ActorControl, &RidingOn)>();
+        let mut query = world.query::<(Entity, &CharacterForm, &ae::BodyKinematics, &BodyHealth, &ActorControl, &RidingOn)>();
         for (entity, worn, kin, health, control, _) in query.iter(world) {
             let rider = riders.entry(entity).or_insert_with(|| Rider { who: worn.0.to_string(), ..Default::default() });
             if !health.alive() {
@@ -235,7 +235,7 @@ fn a_ride_holds_its_rider_without_writing_its_gravity() {
         sim.step(ambition_app::AgentAction::default());
         let world = sim.world_mut();
         let mut riders = world.query::<(
-            &WornCharacter,
+            &CharacterForm,
             &ae::ActorSurfaceState,
             &ResolvedMotionFrame,
             &RidingOn,
@@ -273,7 +273,7 @@ fn a_rider_on_a_flying_mount_steers_in_flight_from_the_first_tick() {
     for _ in 0..2 * 60 {
         sim.step(ambition_app::AgentAction::default());
         let world = sim.world_mut();
-        let mut riders = world.query::<(Entity, &WornCharacter, &ActorControl, &RidingOn, &BodyHealth)>();
+        let mut riders = world.query::<(Entity, &CharacterForm, &ActorControl, &RidingOn, &BodyHealth)>();
         for (entity, worn, control, _, health) in riders.iter(world) {
             let row = still.entry(entity).or_insert_with(|| (worn.0.to_string(), 0));
             if health.alive() && control.0.velocity_target.vec().length() <= 1e-3 {

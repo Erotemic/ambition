@@ -187,12 +187,12 @@ impl SnapshotState for crate::actor::BodyHealth {
 /// gameplay/presentation are re-derived from the restored identity (and, for an
 /// id the catalog does not know, the restored `BodyAbilities`) the following
 /// tick.
-impl SnapshotState for crate::actor::WornCharacter {
+impl SnapshotState for crate::actor::CharacterForm {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, self.id());
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::actor::WornCharacter::new(r.str()?))
+        Some(crate::actor::CharacterForm::new(r.str()?))
     }
 }
 

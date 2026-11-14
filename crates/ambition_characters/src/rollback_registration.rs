@@ -26,7 +26,7 @@ where
 
     registrar.rollback_component_canonical::<crate::actor::BodyHealth>(OWNER, "body.health");
     registrar
-        .rollback_component_canonical::<crate::actor::WornCharacter>(OWNER, "actor.worn_character");
+        .rollback_component_canonical::<crate::actor::CharacterForm>(OWNER, "actor.worn_character");
     registrar
         .rollback_component_clone::<crate::equipment::WornEquipment>(OWNER, "actor.worn_equipment");
     // Art only, but it is spawned with a match seat, so a rewind that rebuilt

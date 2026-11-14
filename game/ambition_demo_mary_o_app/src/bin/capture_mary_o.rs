@@ -638,7 +638,7 @@ fn prepare_capture_form(
     mut bodies: Query<(
         Entity,
         Option<&mut ambition_platformer2d::characters::equipment::WornEquipment>,
-        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::characters::actor::CharacterForm,
     ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>,
 ) {
     if target.is_none_or(|target| target.adopted == 0) { return; }

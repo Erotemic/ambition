@@ -238,7 +238,7 @@ pub fn break_monitor_boxes(
         (
             Entity,
             &ae::BodyKinematics,
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
             &mut ae::MotionModel,
             Option<&crate::ball_dash::Rolling>,
             Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
@@ -533,7 +533,7 @@ mod tests {
                 canonical_size: ae::Vec2::new(20.0, 40.0),
                 facing: 1.0,
             },
-            ambition_platformer2d::characters::actor::WornCharacter::new("sanic"),
+            ambition_platformer2d::characters::actor::CharacterForm::new("sanic"),
             ae::MotionModel::default(),
             ambition_platformer2d::characters::actor::BodyWallet { balance: 0 },
             ambition_platformer2d::platformer::sim_id::SimId::player_slot(slot),

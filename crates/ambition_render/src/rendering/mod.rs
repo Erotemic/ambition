@@ -638,7 +638,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 features::spawn_dynamic_feature_visuals,
                 features::despawn_dead_dynamic_feature_visuals,
                 // The selected-character binder: install or rebind the worn
-                // character's sheet, animator, and anchor from `WornCharacter`.
+                // character's sheet, animator, and anchor from `CharacterForm`.
                 // Before the fallback, so a worn player never gets the neutral
                 // rectangle. The app and every demo use this one path.
                 actors::bind_worn_character_presentation,

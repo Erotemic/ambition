@@ -258,7 +258,7 @@ fn the_spawned(sim: &mut Platformer2dSimHarness, feature: &str) -> Option<(ambit
         .query::<(
             &ambition_platformer2d::combat::components::FeatureId,
             Option<&ambition_platformer2d::platformer::sim_id::SimId>,
-            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            Option<&ambition_platformer2d::characters::actor::CharacterForm>,
             Option<&Remote>,
             Option<&Health>,
             Option<&Beat>,

@@ -950,7 +950,7 @@ pub mod actor {
     /// Who the body is.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
     /// The query filter for "the body this player already has", which a game
-    /// needs to re-dress it — see `WornCharacter` and the seating contract.
+    /// needs to re-dress it — see `CharacterForm` and the seating contract.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 
     /// Which seat of the match a body is.
@@ -1138,7 +1138,7 @@ pub mod character {
     /// tests, procedural generation, unrepresentable schemas, and a cast whose
     /// behavior is supplied by host code as a deliberate authoring choice.
     pub use ambition_characters::actor::definition::{CharacterDefinition, Lineage, Vitals};
-    pub use ambition_characters::actor::{CharacterLocomotion, ContactDamage, Empowerment, WornCharacter};
+    pub use ambition_characters::actor::{CharacterLocomotion, ContactDamage, Empowerment, CharacterForm};
     /// Controller policy and locomotion vocabulary used by Rust-authored characters.
     ///
     /// These are CHARACTER-AUTHORING values, not runtime implementation types: a

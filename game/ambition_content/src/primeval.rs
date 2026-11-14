@@ -7,7 +7,7 @@ use ambition_held_items::{
     release_carried_item, take_ground_item, GroundItem, ItemCustody, Release, SettledItem,
     SupportedCarry,
 };
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -113,7 +113,7 @@ fn swallows_carry_coconuts(
     mut commands: Commands,
     bodies: Query<(
         Entity,
-        &WornCharacter,
+        &CharacterForm,
         &BodyHealth,
         &ae::BodyKinematics,
         &SimId,
@@ -523,7 +523,7 @@ mod tests {
     fn spawn_bird(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
         app.world_mut()
             .spawn((
-                WornCharacter::new("european_swallow"),
+                CharacterForm::new("european_swallow"),
                 BodyHealth::new(ambition_characters::actor::Health::new(1)),
                 ae::BodyKinematics {
                     pos,

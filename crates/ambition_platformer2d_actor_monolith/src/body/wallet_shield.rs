@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::actor::{BodyWalletShield, WornCharacter};
+use ambition_characters::actor::{BodyWalletShield, CharacterForm};
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhase, PlayerInputSet, SimScheduleExt,
 };
@@ -38,8 +38,8 @@ pub fn project_wallet_shields(
     // Only a body that wears a character or has the shield can change: with no
     // filter the query visited every entity of the world each tick.
     bodies: Query<
-        (Entity, Option<&WornCharacter>, Has<BodyWalletShield>),
-        Or<(With<WornCharacter>, With<BodyWalletShield>)>,
+        (Entity, Option<&CharacterForm>, Has<BodyWalletShield>),
+        Or<(With<CharacterForm>, With<BodyWalletShield>)>,
     >,
 ) {
     for (entity, worn, shielded) in &bodies {
@@ -129,7 +129,7 @@ mod tests {
     }
 
     fn shielded_after_a_tick(app: &mut App, wears: &str) -> bool {
-        let body = app.world_mut().spawn(WornCharacter::new(wears)).id();
+        let body = app.world_mut().spawn(CharacterForm::new(wears)).id();
         app.update();
         app.world().get::<BodyWalletShield>(body).is_some()
     }
@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn the_shield_leaves_with_the_rule() {
         let mut app = app("rings");
-        let body = app.world_mut().spawn(WornCharacter::new("shielded")).id();
+        let body = app.world_mut().spawn(CharacterForm::new("shielded")).id();
         app.update();
         assert!(app.world().get::<BodyWalletShield>(body).is_some(), "premise");
         enter_room_of(&mut app, "other_game");
@@ -193,7 +193,7 @@ mod tests {
         app.add_systems(Update, project_wallet_shields);
         let bodies = [hall, hall.next()].map(|room| {
             app.world_mut()
-                .spawn((WornCharacter::new("shielded"), InRoomInstance(room)))
+                .spawn((CharacterForm::new("shielded"), InRoomInstance(room)))
                 .id()
         });
         app.update();

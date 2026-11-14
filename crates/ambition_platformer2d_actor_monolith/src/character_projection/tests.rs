@@ -241,11 +241,11 @@ fn a_body_emits_under_its_own_characters_provider() {
 
     let sanic_body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("sanic"))
+        .spawn(ambition_characters::actor::CharacterForm::new("sanic"))
         .id();
     let mary_body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("mary_o"))
+        .spawn(ambition_characters::actor::CharacterForm::new("mary_o"))
         .id();
     let bare_body = app.world_mut().spawn_empty().id();
     finalize_and_update(&mut app);
@@ -286,13 +286,13 @@ fn changing_worn_identity_changes_the_bodys_source() {
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     let body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("sanic"))
+        .spawn(ambition_characters::actor::CharacterForm::new("sanic"))
         .id();
     finalize_and_update(&mut app);
 
     app.world_mut()
         .entity_mut(body)
-        .insert(ambition_characters::actor::WornCharacter::new("mary_o"));
+        .insert(ambition_characters::actor::CharacterForm::new("mary_o"));
     finalize_and_update(&mut app);
 
     assert_eq!(
@@ -318,7 +318,7 @@ fn a_projectile_keeps_its_firers_source_after_the_firer_is_gone() {
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     let firer = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("sanic"))
+        .spawn(ambition_characters::actor::CharacterForm::new("sanic"))
         .id();
     finalize_and_update(&mut app);
 
@@ -397,7 +397,7 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
     let mut app = session_app();
     let actor = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new(
+        .spawn(ambition_characters::actor::CharacterForm::new(
             "somebody_elses_fighter",
         ))
         .id();
@@ -452,7 +452,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
 
     let body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("armed"))
+        .spawn(ambition_characters::actor::CharacterForm::new("armed"))
         .id();
     settle(&mut app);
     assert!(
@@ -473,7 +473,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
 
     app.world_mut()
         .entity_mut(body)
-        .insert(ambition_characters::actor::WornCharacter::new("unarmed"));
+        .insert(ambition_characters::actor::CharacterForm::new("unarmed"));
     settle(&mut app);
 
     // NOT `is_none()`, which is what this asserted when it was written.
@@ -615,7 +615,7 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
     );
     let body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("hero"))
+        .spawn(ambition_characters::actor::CharacterForm::new("hero"))
         .id();
     settle(&mut app);
     assert_eq!(
@@ -672,7 +672,7 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
     );
     let body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("armored"))
+        .spawn(ambition_characters::actor::CharacterForm::new("armored"))
         .id();
     settle(&mut app);
     assert!(
@@ -739,7 +739,7 @@ fn a_character_that_stops_authoring_a_body_rig_has_it_retracted() {
     );
     let body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("jointed"))
+        .spawn(ambition_characters::actor::CharacterForm::new("jointed"))
         .id();
     settle(&mut app);
     let rig = app
@@ -816,7 +816,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     let body = app
         .world_mut()
         .spawn((
-            ambition_characters::actor::WornCharacter::new("serpent"),
+            ambition_characters::actor::CharacterForm::new("serpent"),
             ambition_platformer2d_core::BodyBaseSize { base_size: own_box },
             ambition_platformer2d_core::BodyKinematics {
                 canonical_size: own_box,
@@ -867,7 +867,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     // resolving its box off the previous one's art.
     app.world_mut()
         .entity_mut(body)
-        .insert(ambition_characters::actor::WornCharacter::new("plain"));
+        .insert(ambition_characters::actor::CharacterForm::new("plain"));
     settle(&mut app);
     assert!(
         app.world()
@@ -946,7 +946,7 @@ fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
     let wear = |app: &mut App, body: Entity, character: &str| {
         app.world_mut()
             .entity_mut(body)
-            .insert(ambition_characters::actor::WornCharacter::new(character));
+            .insert(ambition_characters::actor::CharacterForm::new(character));
         settle(app);
     };
     let mut app = session_app();
@@ -959,7 +959,7 @@ fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
     let body = app
         .world_mut()
         .spawn((
-            ambition_characters::actor::WornCharacter::new("guide"),
+            ambition_characters::actor::CharacterForm::new("guide"),
             ambition_platformer2d_core::BodyBaseSize { base_size: standing },
             ambition_platformer2d_core::BodyKinematics {
                 canonical_size: standing,
@@ -1007,7 +1007,7 @@ fn a_quad_the_spawn_stated_stands_until_the_body_wears_another_character() {
     let body = app
         .world_mut()
         .spawn((
-            ambition_characters::actor::WornCharacter::new("guide"),
+            ambition_characters::actor::CharacterForm::new("guide"),
             ambition_platformer2d_core::BodyBaseSize { base_size: standing },
             ambition_platformer2d_core::BodyKinematics {
                 canonical_size: standing,
@@ -1025,7 +1025,7 @@ fn a_quad_the_spawn_stated_stands_until_the_body_wears_another_character() {
     assert_eq!(quad(&app), Some(built), "the grant replaced the quad the spawn stated");
     app.world_mut()
         .entity_mut(body)
-        .insert(ambition_characters::actor::WornCharacter::new("dog"));
+        .insert(ambition_characters::actor::CharacterForm::new("dog"));
     settle(&mut app);
     assert_eq!(
         quad(&app),
@@ -1059,7 +1059,7 @@ fn a_carried_component_goes_when_the_body_stops_wearing_a_character_that_carries
     app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
     let body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("shelled"))
+        .spawn(ambition_characters::actor::CharacterForm::new("shelled"))
         .id();
     settle(&mut app);
     assert_eq!(app.world().get::<Shell>(body), Some(&Shell(0)), "the grant writes the default");
@@ -1083,7 +1083,7 @@ fn a_carried_component_goes_when_the_body_stops_wearing_a_character_that_carries
 
     app.world_mut()
         .entity_mut(body)
-        .insert(ambition_characters::actor::WornCharacter::new("also_shelled"));
+        .insert(ambition_characters::actor::CharacterForm::new("also_shelled"));
     settle(&mut app);
     assert_eq!(
         app.world().get::<Shell>(body),
@@ -1093,7 +1093,7 @@ fn a_carried_component_goes_when_the_body_stops_wearing_a_character_that_carries
 
     app.world_mut()
         .entity_mut(body)
-        .insert(ambition_characters::actor::WornCharacter::new("plain"));
+        .insert(ambition_characters::actor::CharacterForm::new("plain"));
     settle(&mut app);
     assert_eq!(
         app.world().get::<Shell>(body),

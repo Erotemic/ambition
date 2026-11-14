@@ -1,21 +1,21 @@
 //! S1/S4 — the playable-persona architecture, exercised by an assembled demo.
 //!
 //! A standalone demo (no `ambition_app`) proves the canonical path end to end:
-//! the selected character becomes a simulation-owned `WornCharacter` identity ON
+//! the selected character becomes a simulation-owned `CharacterForm` identity ON
 //! the canonical player, gameplay derives from it, and the identity does NOT
 //! depend on the session-owned `StartingCharacter` startup component. This is the same
-//! `WornCharacter` component + derive systems the full app uses — the demo just
+//! `CharacterForm` component + derive systems the full app uses — the demo just
 //! assembles them through the `ambition_platformer2d` umbrella.
 
 use bevy::prelude::*;
 
 use ambition_platformer2d::session::initial_body::StartingCharacter;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 
-fn worn_of_primary(app: &mut App) -> Option<WornCharacter> {
+fn worn_of_primary(app: &mut App) -> Option<CharacterForm> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&WornCharacter, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        .query_filtered::<&CharacterForm, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.iter(app.world()).next().cloned()
 }
 
@@ -37,7 +37,7 @@ fn settle_until_primary_player(app: &mut App) {
 }
 
 /// S1.1 + S1.2: after startup the canonical player carries the selected
-/// character as a `WornCharacter` identity, and gameplay (its display name) is
+/// character as a `CharacterForm` identity, and gameplay (its display name) is
 /// derived from that identity.
 #[test]
 fn canonical_player_carries_the_selected_identity_and_derives_gameplay() {
@@ -47,7 +47,7 @@ fn canonical_player_carries_the_selected_identity_and_derives_gameplay() {
         app.update();
     }
 
-    let worn = worn_of_primary(&mut app).expect("the primary player carries a WornCharacter");
+    let worn = worn_of_primary(&mut app).expect("the primary player carries a CharacterForm");
     assert_eq!(
         worn.id(),
         "sanic",
@@ -62,7 +62,7 @@ fn canonical_player_carries_the_selected_identity_and_derives_gameplay() {
 
 /// S1.4: the canonical identity is independent of the session world's
 /// startup-selection component. Once captured on the entity at spawn, changing
-/// that launch input does not rewrite the player's `WornCharacter`.
+/// that launch input does not rewrite the player's `CharacterForm`.
 #[test]
 fn identity_does_not_track_the_startup_selection_resource_after_spawn() {
     let mut app = ambition_demo_sanic_app::build_demo_app();
@@ -476,7 +476,7 @@ use ambition_platformer2d::character::Empowerment;
         let world = app.world();
         let empowerment = empowerment_of(
             world.get::<Empowered>(body),
-            world.get::<WornCharacter>(body),
+            world.get::<CharacterForm>(body),
             world.get_resource::<PreparedCharacterRegistry>(),
         );
         let untouchable = world
@@ -488,7 +488,7 @@ use ambition_platformer2d::character::Empowerment;
         (untouchable, empowerment.holds(Empowerment::HARMS_ON_CONTACT))
     };
     let wear = |app: &mut App, id: &str| {
-        *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new(id);
+        *app.world_mut().get_mut::<CharacterForm>(body).unwrap() = CharacterForm::new(id);
         for _ in 0..2 {
             app.update();
         }
@@ -596,7 +596,7 @@ fn the_ring_shield_is_stated_by_the_worn_row() {
         q.single(app.world()).expect("one primary player")
     };
     let wear = |app: &mut App, id: &str| {
-        *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new(id);
+        *app.world_mut().get_mut::<CharacterForm>(body).unwrap() = CharacterForm::new(id);
         for _ in 0..2 {
             app.update();
         }

@@ -387,7 +387,7 @@ pub fn tick_actor_brains(
                 &ambition_platformer2d_core::movement::MotionModel,
                 // The worn character and the drawn quad: what the strike
                 // spawn resolves the authored hit volume by.
-                Option<&ambition_characters::actor::WornCharacter>,
+                Option<&ambition_characters::actor::CharacterForm>,
                 Option<&ambition_combat::components::ActorRenderSize>,
             ),
         ),
@@ -668,7 +668,7 @@ pub fn tick_actor_brains(
                     // same inputs, same per-volume rule as the spawn.
                     if let Some(moveset) = moveset {
                         let character_id =
-                            worn_character.map(ambition_characters::actor::WornCharacter::id);
+                            worn_character.map(ambition_characters::actor::CharacterForm::id);
                         let quad = drawn_quad.map(|quad| quad.0);
                         let art_floor = room_rules
                             .of(this_actor_entity)

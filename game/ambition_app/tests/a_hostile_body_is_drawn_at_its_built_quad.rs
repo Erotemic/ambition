@@ -9,7 +9,7 @@
 //! and spawned with no `ActorRenderSize` at all.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::combat::components::ActorRenderSize;
 use bevy::prelude::*;
 
@@ -22,7 +22,7 @@ fn a_skirmisher_is_drawn_at_the_quad_its_character_resolves() {
 
     let world = sim.world_mut();
     let quads: Vec<Option<Vec2>> = world
-        .query::<(&WornCharacter, Option<&ActorRenderSize>)>()
+        .query::<(&CharacterForm, Option<&ActorRenderSize>)>()
         .iter(world)
         .filter(|(worn, _)| worn.id() == CHARACTER)
         .map(|(_, quad)| quad.map(|quad| quad.0))

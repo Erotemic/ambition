@@ -591,7 +591,7 @@ fn wears(app: &mut App, row_id: &str) -> bool {
 fn worn_character(app: &mut App) -> String {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::characters::actor::CharacterForm, With<PrimaryPlayer>>();
     query
         .iter(app.world())
         .next()

@@ -9,7 +9,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::combat::actor_tuning::{ActorConfig, ActorPolicy};
 use ambition_platformer2d::combat::components::{ActorDisposition, ActorIdentity};
 
@@ -29,7 +29,7 @@ struct IntrinsicBody {
 /// Read the one body WEARING `CHARACTER`, plus its disposition — which is
 /// CONTEXT and is read separately on purpose.
 ///
-/// `WornCharacter`, not `ActorIdentity`. The identity component carries
+/// `CharacterForm`, not `ActorIdentity`. The identity component carries
 /// the PLACEMENT's feature id and display label; the character a body IS is what
 /// it wears. Keying this test on the wrong one is how it would compare two
 /// bodies that merely share a name.
@@ -45,7 +45,7 @@ fn body_of(
 ) -> Option<(IntrinsicBody, ActorDisposition)> {
     let world = sim.world_mut();
     let mut q = world.query::<(
-        &WornCharacter,
+        &CharacterForm,
         &ActorIdentity,
         &ActorConfig,
         &BodyHealth,
@@ -158,7 +158,7 @@ fn a_hall_character_wears_the_abilities_its_catalog_row_grants() {
         hall.step(base());
     }
     let world = hall.world_mut();
-    let mut q = world.query::<(&WornCharacter, &ActorIdentity, &AbilityBase, &BodyAbilities)>();
+    let mut q = world.query::<(&CharacterForm, &ActorIdentity, &AbilityBase, &BodyAbilities)>();
     let found: Vec<_> = q
         .iter(world)
         .filter(|(worn, ..)| worn.id() == "mary_o")
@@ -193,7 +193,7 @@ fn every_hall_body_wears_the_actor_verbs_preparation_resolved() {
     }
     let world = hall.world_mut();
     let registry = world.resource::<PreparedCharacterRegistry>().clone();
-    let mut q = world.query::<(&WornCharacter, &ActorIdentity, &AbilityBase)>();
+    let mut q = world.query::<(&CharacterForm, &ActorIdentity, &AbilityBase)>();
     let mut unauthored = 0;
     let mut checked = 0;
     for (worn, identity, base) in q.iter(world) {
@@ -235,7 +235,7 @@ fn a_hall_goblin_carries_the_swing_pace_its_shared_policy_authors() {
         hall.step(base());
     }
     let world = hall.world_mut();
-    let mut q = world.query::<(&WornCharacter, &ActorPolicy)>();
+    let mut q = world.query::<(&CharacterForm, &ActorPolicy)>();
     let paces: Vec<f32> = q
         .iter(world)
         .filter(|(worn, _)| worn.id() == "goblin")

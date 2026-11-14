@@ -466,7 +466,7 @@ pub fn demand_rostered_character_sheets(
 
 pub fn demand_worn_character_sheets(
     worn: Query<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&ambition_characters::actor::WornSkin>,
     )>,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
@@ -476,7 +476,7 @@ pub fn demand_worn_character_sheets(
     let Some(mut demand) = demand else {
         return;
     };
-    // ⛔⛔ NOT `Changed<WornCharacter>`, WHICH THIS WAS, AND IT SAW NOTHING. A
+    // ⛔⛔ NOT `Changed<CharacterForm>`, WHICH THIS WAS, AND IT SAW NOTHING. A
     // room's bodies arrive with change ticks older than this system's last run
     // (measured in `gnu_ton_arena`: four worn bodies, `Changed` matched zero on
     // the very first frame they existed), so the one road for "a body appeared
@@ -558,7 +558,7 @@ pub fn converge_character_residency_to_active_quality(sprite_content: bevy::prel
     // in it as a skin. Only those are re-demanded; the rest stay retired until
     // something asks for them again.
     worn: Query<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&ambition_characters::actor::WornSkin>,
     )>,
 ) {

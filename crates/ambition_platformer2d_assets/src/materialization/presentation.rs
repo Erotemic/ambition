@@ -128,7 +128,7 @@ pub fn publish_body_presentation_sources(
     bodies: Query<
         (
             Entity,
-            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&ambition_characters::actor::CharacterForm>,
             Option<&ambition_sfx::BodyPresentationSource>,
         ),
         // Filtered, because this runs on the SIM clock and an all-`Option` tuple
@@ -142,14 +142,14 @@ pub fn publish_body_presentation_sources(
         // inherits its firer's, and matching on the source alone made the removal
         // arm delete exactly those inherited ones on the very next tick.
         Or<(
-            With<ambition_characters::actor::WornCharacter>,
+            With<ambition_characters::actor::CharacterForm>,
             With<ambition_combat::CombatTuning>,
             With<ambition_sfx::DerivedPresentationSource>,
         )>,
     >,
 ) {
     for (entity, worn, current) in &bodies {
-        let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
+        let character_id = worn.map(ambition_characters::actor::CharacterForm::id);
         let provider = character_id
             .and_then(|id| provider_of_character(registry.get(), id));
         match provider {

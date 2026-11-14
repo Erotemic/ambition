@@ -20,7 +20,7 @@ use ambition_app::Platformer2dSimHarness;
 use ambition_platformer2d::actor::{ActorFaction, ActorPolicy};
 use ambition_platformer2d::character::AutonomousSource;
 use ambition_platformer2d::character::BrainBinding;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::combat::components::{ActorAggression, ActorDisposition, ActorTarget};
 use ambition_platformer2d::combat::moveset::{ActorMoveset, MeleeSwingQuery, MovePlayback};
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -37,7 +37,7 @@ fn the_player(world: &mut World) -> Entity {
 }
 
 fn the_npc(world: &mut World, character: &str) -> Entity {
-    let mut q = world.query::<(Entity, &WornCharacter, &ActorDisposition)>();
+    let mut q = world.query::<(Entity, &CharacterForm, &ActorDisposition)>();
     q.iter(world)
         .find(|(_, worn, _)| worn.id() == character)
         .map(|(entity, ..)| entity)

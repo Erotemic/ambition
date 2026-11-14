@@ -1681,7 +1681,7 @@ mod reset_tests {
     /// authority owning that identity may write it.
     ///
     /// Her own `sync_grown_form` could not repair it, because it decides "am I in sync" by
-    /// comparing worn equipment against `WornCharacter` — both of which the reset left tall — and
+    /// comparing worn equipment against `CharacterForm` — both of which the reset left tall — and
     /// never looks at the collider.
     #[test]
     fn a_reset_restores_the_bodys_own_base_size_not_the_global_default() {

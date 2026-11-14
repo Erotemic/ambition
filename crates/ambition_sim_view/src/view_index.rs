@@ -859,7 +859,7 @@ pub fn rebuild_actor_render_index(
             // The art key: the skin the body wears, else its character.
             a.skin
                 .map(ambition_characters::actor::WornSkin::id)
-                .or_else(|| a.worn.map(ambition_characters::actor::WornCharacter::id)),
+                .or_else(|| a.worn.map(ambition_characters::actor::CharacterForm::id)),
             a.combat.training_dummy,
             render_size.map(|s| s.0),
             a.config.tuning.dream_seed,
@@ -1159,7 +1159,7 @@ pub fn rebuild_nameplate_index(
             // ⭐⭐ IS THIS BODY DRIVEN — asked of the body, not of the camera.
             bevy::prelude::Has<ambition_characters::control::DrivingParticipant>,
             Option<(&ambition_boss_encounter::BossConfig, &ambition_boss_encounter::BossEncounter)>,
-            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&ambition_characters::actor::CharacterForm>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -1553,7 +1553,7 @@ mod driven_nameplate_tests {
 mod nameplate_generation_tests {
     use super::*;
     use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogFragment};
-    use ambition_characters::actor::WornCharacter;
+    use ambition_characters::actor::CharacterForm;
     use ambition_characters::prepared::{CharacterCatalogAppExt, PreparedCharacterRegistry};
     use ambition_characters::session_cast::ActiveSessionCast;
     use bevy::prelude::*;
@@ -1597,7 +1597,7 @@ mod nameplate_generation_tests {
             FeatureId("body".to_owned()),
             ActorIdentity::new("body".to_owned(), "Alpha".to_owned()),
             CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::new(16.0, 32.0)),
-            WornCharacter::new("alpha"),
+            CharacterForm::new("alpha"),
         ));
         assert!(!has_label(&mut app), "the frozen cast suppresses the label without a catalog");
         app.insert_resource(new_catalog);

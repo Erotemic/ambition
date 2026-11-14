@@ -1,4 +1,4 @@
-use ambition_characters::actor::WornCharacter;
+use ambition_characters::actor::CharacterForm;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_characters::brain::ActionSet;
 use ambition_platformer2d_core::BodyAbilities;
@@ -291,7 +291,7 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
             PlayerEntity,
             PrimaryPlayer,
             DrivingParticipant(PlayerSlot::PRIMARY),
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -556,7 +556,7 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
             PlayerEntity,
             PrimaryPlayer,
             DrivingParticipant(PlayerSlot::PRIMARY),
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -600,7 +600,7 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
     // A character of the cast whose row authors the axis policy. An id outside
     // the cast is refused and leaves the body on the momentum policy (Q103).
     app.world_mut().entity_mut(entity).insert((
-        WornCharacter::new("player_robot_v3"),
+        CharacterForm::new("player_robot_v3"),
         ambition_characters::actor::RecharacterizeBody,
     ));
     app.update();

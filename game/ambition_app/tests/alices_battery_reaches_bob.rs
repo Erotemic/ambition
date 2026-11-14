@@ -10,7 +10,7 @@
 //! The test drives the shipped shell session with real key presses: Interact
 //! starts the conversation and `MenuSelect` (Enter) takes the first choice.
 
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::characters::control::PlayerSlot;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use bevy::prelude::{App, Entity, KeyCode};
@@ -64,7 +64,7 @@ pub(crate) fn tap(app: &mut App, key: KeyCode) {
 pub(crate) fn npc(app: &mut App, id: &str) -> Entity {
     let world = app.world_mut();
     world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == id)
         .map(|(entity, _)| entity)

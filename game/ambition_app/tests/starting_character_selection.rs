@@ -21,7 +21,7 @@ use ambition_app::AmbitionSim;
 use ambition_app::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::prelude::World;
@@ -56,7 +56,7 @@ fn a_selected_starting_character_activates_a_controllable_session() {
 
     let worn = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<&WornCharacter, PrimaryPlayerOnly>();
+        let mut q = world.query_filtered::<&CharacterForm, PrimaryPlayerOnly>();
         q.single(world).expect("primary player").id().to_string()
     };
     assert_eq!(
@@ -101,7 +101,7 @@ fn an_unselected_start_is_built_with_the_default_characters_authored_kit() {
     let world = sim.world_mut();
     let (worn, identity, abilities) = {
         let mut q = world.query_filtered::<(
-            &WornCharacter,
+            &CharacterForm,
             &ambition_platformer2d::characters::brain::action_set::IdentityKit,
             &ambition_platformer2d::engine_core::BodyAbilities,
         ), PrimaryPlayerOnly>();

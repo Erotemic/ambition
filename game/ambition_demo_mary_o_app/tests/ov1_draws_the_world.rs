@@ -320,7 +320,7 @@ fn the_windowed_demo_selects_its_libraries_part_pages() {
 /// and `scripts/measure/measure_rigged_parity.py`.
 #[test]
 fn mary_o_is_realized_from_her_parts_with_no_baked_page_requested() {
-    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::CharacterForm;
     use ambition_platformer2d::platformer::markers::PrimaryPlayer;
     use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
@@ -329,7 +329,7 @@ fn mary_o_is_realized_from_her_parts_with_no_baked_page_requested() {
     for _ in 0..300 {
         app.update();
         let world = app.world_mut();
-        let mut players = world.query_filtered::<&WornCharacter, With<PrimaryPlayer>>();
+        let mut players = world.query_filtered::<&CharacterForm, With<PrimaryPlayer>>();
         let id = players.iter(world).next().map(|worn| worn.id().to_string());
         if id.as_ref().is_some_and(|id| world.resource::<GameAssets>().characters.sheet(id).is_some()) {
             worn = id;

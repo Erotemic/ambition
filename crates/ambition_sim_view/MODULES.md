@@ -10,11 +10,13 @@
 | [`anim_index`](src/anim_index.rs) | The per-actor POSE index + the per-boss FRAME index (E4 slices 3, 7, 19): id-keyed read-models rebuilt once per sim tick; presentation animates from these snapshots and never borrows the live clusters. |
 | [`attack_vfx_view`](src/attack_vfx_view.rs) | Resolved attack-art facts for presentation. |
 | [`camera_snapshot`](src/camera_snapshot.rs) | Pure 2D camera-follow snapshot policy. |
+| [`combat_geometry_observer`](src/combat_geometry_observer.rs) | The combat read model's geometry, for observation (GOBS-1, `docs/planning/engine/geometry-observability-and-f1.md`). |
 | [`combat_geometry_view`](src/combat_geometry_view.rs) | Body-generic combat geometry for observers. |
 | [`control_prompt`](src/control_prompt.rs) | `ControlPrompt` — the read-model of "what does each on-screen control do right now, and what is it called," for whatever currently owns input. |
 | [`defense_view`](src/defense_view.rs) | Presentation-facing semantic causes of body untouchability. |
 | [`dialog_view`](src/dialog_view.rs) | `DialogView` — the dialogue overlay's per-frame read-model (recon C3). |
 | [`facts`](src/facts.rs) | The observation-boundary staging ground (E4): small sim-resolved view resources presentation consumes INSTEAD of querying live sim components. |
+| [`interaction_reach_observer`](src/interaction_reach_observer.rs) | What a body's interact press reaches, for observation (GOBS-3, `docs/planning/engine/geometry-observability-and-f1.md`). |
 | [`local_view`](src/local_view.rs) | Per-observer presentation state for one local simulation view. |
 | [`passage_view`](src/passage_view.rs) | What the passages through doors and gates look like this tick (`rooms::passage`): presentation reads these, never the passage. |
 | [`pose_view`](src/pose_view.rs) | Per-body presentation POSE read-model for player-bodied entities (E4). |
@@ -23,7 +25,7 @@
 | [`trail_snapshot`](src/trail_snapshot.rs) | Trail geometry captured on the presentation clock. |
 | [`view_index`](src/view_index.rs) | `FeatureViewIndex` resource and the per-frame rebuild pass. |
 
-_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_18 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

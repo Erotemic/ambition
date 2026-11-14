@@ -33,7 +33,7 @@ pub struct ConversationInstanceId {
     ///
     ///  not the same question as [`Self::initiator`]. That names a BODY;
     /// this names the character that body is being at the opening tick, which for
-    /// a body with no authored identity is its `WornCharacter` — rollback-owned
+    /// a body with no authored identity is its `CharacterForm` — rollback-owned
     /// and runtime-mutable.
     speaker: String,
     /// Who Yarn is told is being spoken to — published as `$listener_id`.
@@ -149,7 +149,7 @@ mod tests {
 
     /// The mirror: the same two BODIES, and a different `$speaker_id`.
     ///
-    /// A body with no authored identity speaks as the `WornCharacter` it currently wears —
+    /// A body with no authored identity speaks as the `CharacterForm` it currently wears —
     /// rollback-owned and runtime-mutable — so a correction can leave the tick, the node and
     /// both `SimId`s untouched while Yarn is entered as somebody else. The behavioural half of
     /// this, driven through the real opening, is

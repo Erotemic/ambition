@@ -1,7 +1,7 @@
 //! Body control acceptance through the real systems and rule resolver.
 
 use super::*;
-use ambition_characters::actor::WornCharacter;
+use ambition_characters::actor::CharacterForm;
 use ambition_platformer2d_core::{self as ae, movement::MotionModel};
 
 /// A peaceful authored persona must be peaceful at the final body-control seam,
@@ -31,7 +31,7 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
         .world_mut()
         .spawn((
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             MotionModel::default(),
             // The gate resolves the body's live authorities through the shared
             // scheme; a peaceful `ActionSet` (no melee/ranged/special) + no
@@ -134,7 +134,7 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     let spawn = |app: &mut App, id: &str| {
         let mut body = app.world_mut().spawn((
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-            WornCharacter::new(id),
+            CharacterForm::new(id),
             MotionModel::default(),
             ambition_platformer2d_core::BodyAbilities::new(
                 ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -208,7 +208,7 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
         .world_mut()
         .spawn((
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             ambition_platformer2d_core::BodyAbilities::new(
                 ambition_platformer2d_core::AbilitySet::sandbox_all(),
             ),
@@ -411,7 +411,7 @@ fn the_shield_verb_follows_the_ability_not_the_special() {
         app.world_mut()
             .spawn((
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-                WornCharacter::new("sanic"),
+                CharacterForm::new("sanic"),
                 MotionModel::default(),
                 ambition_platformer2d_core::BodyAbilities::new(abilities),
                 actions,
@@ -468,7 +468,7 @@ fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
         .world_mut()
         .spawn((
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             MotionModel::default(),
             ambition_platformer2d_core::BodyAbilities::new(abilities),
             ActionSet::peaceful(),
@@ -495,7 +495,7 @@ fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
 /// frame as the home avatar, and content grants techniques to whatever body is
 /// the controlled subject. A gate filtered to `PlayerEntity` left that body's
 /// frame raw: its technique never received its edge, and it kept a guard verb
-/// its abilities do not grant. No `WornCharacter` either, because a possessed
+/// its abilities do not grant. No `CharacterForm` either, because a possessed
 /// boss or a staged actor need not wear one.
 #[test]
 fn a_driven_actor_outside_the_player_population_is_gated_by_its_own_scheme() {

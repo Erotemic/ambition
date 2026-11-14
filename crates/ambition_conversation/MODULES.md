@@ -15,10 +15,11 @@
 | [`opening`](src/opening.rs) | Deciding that a conversation happens, and opening it. |
 | [`plugin`](src/plugin.rs) | Conversation-domain plugin registration and schedule ownership. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_conversation`. |
+| [`rooms`](src/rooms.rs) | The conversation's changes, dated in the room that made them (SIMULATION-ISLANDS ISL-1b, `docs/planning/engine/island-rollback-and-compact-peer-input.md`). |
 | [`rules`](src/rules.rs) | Conversation continuity rules and cut notifications. |
 | [`ui_bridge`](src/ui_bridge.rs) | Bridge conversation simulation authority and the presentation text runner. |
 
-_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

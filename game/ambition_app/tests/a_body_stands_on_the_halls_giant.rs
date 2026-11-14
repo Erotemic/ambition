@@ -3,7 +3,7 @@
 //! body stands on it (the level part of each horn, each shoulder, and the
 //! hump of its back).
 
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::mount::BackLedge;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
@@ -15,7 +15,7 @@ const GIANT: &str = "npc_giant_gnu_whole";
 
 fn giant(sim: &mut ambition_app::Platformer2dSimHarness) -> (ae::BodyKinematics, BackLedge, bool) {
     let world = sim.world_mut();
-    let mut q = world.query::<(&WornCharacter, &ae::BodyKinematics, Option<&BackLedge>, Has<ae::Unmirrored>)>();
+    let mut q = world.query::<(&CharacterForm, &ae::BodyKinematics, Option<&BackLedge>, Has<ae::Unmirrored>)>();
     let (_, kin, back, unmirrored) =
         q.iter(world).find(|(worn, ..)| worn.id() == GIANT).unwrap_or_else(|| panic!("the hall stages `{GIANT}`"));
     let back = back.unwrap_or_else(|| panic!("`{GIANT}` has the ledges of the giant's body"));

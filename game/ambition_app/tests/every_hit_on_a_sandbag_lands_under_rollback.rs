@@ -12,13 +12,13 @@
 
 use crate::common::{base, fixed_60hz_room_options};
 use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 
 fn sandbag(sim: &mut Platformer2dSimHarness) -> (ae::BodyKinematics, i32) {
     let world = sim.world_mut();
-    let mut q = world.query::<(&WornCharacter, &ae::BodyKinematics, &BodyHealth)>();
+    let mut q = world.query::<(&CharacterForm, &ae::BodyKinematics, &BodyHealth)>();
     q.iter(world)
         .find(|(worn, _, _)| worn.id() == "sandbag")
         .map(|(_, kin, health)| (*kin, health.health.current))

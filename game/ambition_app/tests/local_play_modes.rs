@@ -1339,13 +1339,13 @@ fn another_rooms_loading_keeps_combat_visible() {
 /// Place two existing actors on clear ground through the shared transit operation.
 fn place_loading_combat_pair(app: &mut App, fighter: Entity) -> Entity {
     use ambition_platformer2d::actor::{BodyHealth, Health};
-    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::CharacterForm;
     use ambition_platformer2d::engine_core::{Aabb, AabbExt as _};
     use crate::alices_battery_reaches_bob::put_body_at;
     let world = app.world_mut();
     let room = *world.get::<InRoomInstance>(fighter).unwrap();
     let victim = world.query::<(Entity, &InRoomInstance, Option<&DrivingParticipant>, &BodyKinematics,
-        &WornCharacter, &BodyHealth)>().iter(world)
+        &CharacterForm, &BodyHealth)>().iter(world)
         .filter(|(_, stamp, driver, body, _, health)| **stamp == room && driver.is_none()
             && body.size().x <= 32.0 && health.alive())
         .min_by_key(|(entity, ..)| entity.to_bits()).map(|(entity, ..)| entity)

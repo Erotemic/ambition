@@ -171,7 +171,7 @@ fn sim_tick(app: &App) -> u64 {
 fn worn_character(app: &mut App) -> Option<String> {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::characters::actor::CharacterForm, With<PrimaryPlayer>>();
     query
         .iter(app.world())
         .next()
@@ -3760,7 +3760,7 @@ fn a_session_that_replaces_its_own_experience_is_built_from_the_save_at_its_adop
 /// held the SAME 22 canonical identities at orders `0..21` against `74..95` — a
 /// constant offset of 74, the rollback entities Sanic and Mary-O registered and
 /// retired — and **59 of 146 real `ChecksumPart`s disagreed**, `BodyHealth`,
-/// `ActorPose`, `Brain` and `WornCharacter` among them. After the rebase: **2**,
+/// `ActorPose`, `Brain` and `CharacterForm` among them. After the rebase: **2**,
 /// `SimTick` (`Q128`) and `AmbitionGameSave` (`Q129`). After `Q128` was decided
 /// (2026-10-03, the tick is session-relative): **1**, the save. After the
 /// save was given to its experience at activation (the same day): **0**.

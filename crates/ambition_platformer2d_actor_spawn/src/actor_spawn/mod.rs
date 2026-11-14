@@ -881,7 +881,7 @@ impl NpcActorSpawnPlan {
                     attach_character_mount_role(sprite_content, &mut scope.entity_scope(), definition, body_size);
                 }
                 None => {
-                    scope.insert(ambition_characters::actor::WornCharacter::new(character));
+                    scope.insert(ambition_characters::actor::CharacterForm::new(character));
                 }
             }
         }
@@ -1482,7 +1482,7 @@ pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteC
     .spawn_into(&mut scope.reborrow());
     scope.insert(ambition_combat::components::EncounterMob::new(encounter_id));
     // A summon wears its character like a placement does, so its identity is
-    // `WornCharacter` rather than only the config's sprite id. The grant writes
+    // `CharacterForm` rather than only the config's sprite id. The grant writes
     // no health or contact tuning, so the per-summon overrides above stand.
     wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
     // The authored mount role captured above, on the body that now exists.
@@ -1525,7 +1525,7 @@ fn wear_prepared_character(sprite_content: &ambition_sprite_sheet::SpriteContent
     definition: &ambition_characters::prepared::PreparedCharacterDefinition,
     generation: ambition_characters::prepared::CharacterCatalogGeneration,
 ) {
-    scope.insert(ambition_characters::actor::WornCharacter::new(
+    scope.insert(ambition_characters::actor::CharacterForm::new(
         definition.id.as_str(),
     ));
     let held = definition.held_item.as_deref().and_then(|id| {
@@ -2273,7 +2273,7 @@ pub fn spawn_encounter_mob(sprite_content: &ambition_sprite_sheet::SpriteContent
     if let Some(definition) = definition {
         commands
             .entity(entity)
-            .insert(ambition_characters::actor::WornCharacter::new(
+            .insert(ambition_characters::actor::CharacterForm::new(
                 definition.id.as_str(),
             ));
     }

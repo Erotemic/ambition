@@ -635,7 +635,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         let world = sim.world_mut();
         let mut q = world.query::<(
             &MatchSeat,
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
         )>();
         let mut rows: Vec<(usize, String)> = q
             .iter(world)

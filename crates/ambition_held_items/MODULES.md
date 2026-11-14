@@ -7,10 +7,11 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`conditions`](src/conditions.rs) | What the item domain lets authored content ask about custody. |
+| [`motion`](src/motion.rs) | Loose-item motion and contacts are one admitted transaction. |
 | [`release`](src/release.rs) | Physical item release from custody into an admitted world chart. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
 
-_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

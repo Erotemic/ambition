@@ -6,7 +6,7 @@ use serde_json::json;
 
 pub fn snapshot(world: &World) -> serde_json::Value {
     let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
-    use engine::characters::actor::{BodyHealth, WornCharacter};
+    use engine::characters::actor::{BodyHealth, CharacterForm};
     use engine::sprite_sheet::character::CharacterAnimator;
     use engine::render::rendering::actors::{BoundActorArt, BoundSpriteQuality, PlayerSpriteCharacter};
     let carry_load = world.get_resource::<engine::portal_presentation::PortalCarryAtlas>().map(|atlas| json!({
@@ -126,7 +126,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                 "camera": entity.get::<Camera>().map(|camera| json!({"active":camera.is_active,"order":camera.order})),
             }));
         }
-        if let Some(worn) = entity.get::<WornCharacter>() {
+        if let Some(worn) = entity.get::<CharacterForm>() {
             bodies.push(json!({"character_id": worn.id(),
                 "stable_id": entity.get::<engine::observation::SimId>().map(|id| id.as_str()),
                 "session": entity.get::<engine::platformer::lifecycle::SessionScopedEntity>().map(|scope| scope.0.0),

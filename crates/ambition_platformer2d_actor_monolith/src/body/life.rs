@@ -63,7 +63,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use ambition_characters::actor::WornCharacter;
+use ambition_characters::actor::CharacterForm;
 use ambition_life_planning::{Facts, Refusal, Step};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
@@ -311,7 +311,7 @@ pub fn attach_lives(
     mut commands: Commands,
     book: Res<LifeBook>,
     ledger: Res<LifeLedger>,
-    bodies: Query<(Entity, &WornCharacter), Without<Life>>,
+    bodies: Query<(Entity, &CharacterForm), Without<Life>>,
 ) {
     for (body, worn) in &bodies {
         if let Some(spec) = book.lives.get(worn.id()) {
@@ -322,7 +322,7 @@ pub fn attach_lives(
 }
 
 /// Keep each living body's facts and plan hour in the ledger.
-pub fn keep_life_ledger(mut ledger: ResMut<LifeLedger>, bodies: Query<(&Life, &WornCharacter)>) {
+pub fn keep_life_ledger(mut ledger: ResMut<LifeLedger>, bodies: Query<(&Life, &CharacterForm)>) {
     for (life, worn) in &bodies {
         if life.returning {
             continue;
@@ -519,8 +519,8 @@ pub fn live_lives(
     specs: LiveRoomSpecs,
     rooms: LiveRooms,
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,
-    characters: Query<(Entity, &WornCharacter)>,
-    mut bodies: Query<(Entity, &mut Life, &WornCharacter, &ae::BodyKinematics, Option<&Visit>)>,
+    characters: Query<(Entity, &CharacterForm)>,
+    mut bodies: Query<(Entity, &mut Life, &CharacterForm, &ae::BodyKinematics, Option<&Visit>)>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     mut ledger: ResMut<LifeLedger>,
     tick: Option<Res<ambition_time::SimTick>>,
@@ -1072,7 +1072,7 @@ pub fn restore_lives_from_save(
     save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
     book: Res<LifeBook>,
     mut ledger: ResMut<LifeLedger>,
-    mut lives: Query<(&mut Life, &WornCharacter)>,
+    mut lives: Query<(&mut Life, &CharacterForm)>,
 ) {
     let (Some(restored), Some(save)) = (restored, save) else { return };
     if restored.0 || ready.single().is_err() || (save.data().lives().is_empty() && save.data().bookings().is_empty()) {

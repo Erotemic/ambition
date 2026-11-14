@@ -43,7 +43,7 @@ impl AttackVfxView {
 /// count is what every query in the app pays to match against.
 ///
 /// ⭐ THE FILTER IS A UNION ON PURPOSE. `BodyKinematics` is what makes something
-/// a simulation body, and `WornCharacter` is what resolves a sheet — the module
+/// a simulation body, and `CharacterForm` is what resolves a sheet — the module
 /// docs above turn on absent-vs-`None` being meaningful, so anything either
 /// consumer could reasonably ask about must still be published rather than
 /// silently reading as unresolved.
@@ -53,13 +53,13 @@ pub fn rebuild_attack_vfx_views(
     bodies: Query<
         (
             Entity,
-            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&ambition_characters::actor::CharacterForm>,
             Option<&ambition_characters::actor::StrikesAs>,
             Option<&AttackVfxView>,
         ),
         bevy::prelude::Or<(
             bevy::prelude::With<ambition_platformer2d_core::BodyKinematics>,
-            bevy::prelude::With<ambition_characters::actor::WornCharacter>,
+            bevy::prelude::With<ambition_characters::actor::CharacterForm>,
         )>,
     >,
 ) {

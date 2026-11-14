@@ -448,7 +448,7 @@ fn spawn_fighter(
             // carries a moveset and a silhouette from a provider it cannot name,
             // so every cue the body emitted was credited to whoever owned the
             // session.
-            ambition_characters::actor::WornCharacter::new(character_id),
+            ambition_characters::actor::CharacterForm::new(character_id),
             // The control seam + the gesture state §7.9 interprets.
             ActorControl(ActorControlFrame::default()),
             ambition_characters::actor::attack_gesture::AttackGestureState::default(),

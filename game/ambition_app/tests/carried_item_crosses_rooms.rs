@@ -1046,7 +1046,7 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
 fn declared_limbs(sim: &Platformer2dSimHarness, mount: Entity) -> usize {
     let world = sim.world();
     let worn = world
-        .get::<ambition_platformer2d::characters::actor::WornCharacter>(mount)
+        .get::<ambition_platformer2d::characters::actor::CharacterForm>(mount)
         .expect("the mount wears a character");
     world
         .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()

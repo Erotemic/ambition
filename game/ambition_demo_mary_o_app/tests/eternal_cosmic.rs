@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use ambition_demo_mary_o::cosmic::COSMIC_CHARACTER_ID;
 use ambition_demo_mary_o::test_course::TEST_COURSE_ROOM_ID;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeat;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -73,7 +73,7 @@ fn seated() -> (App, Entity) {
 }
 
 fn worn(app: &App, body: Entity) -> String {
-    app.world().get::<WornCharacter>(body).expect("she wears a character").id().to_string()
+    app.world().get::<CharacterForm>(body).expect("she wears a character").id().to_string()
 }
 
 fn kin(app: &App, body: Entity) -> BodyKinematics {
@@ -309,7 +309,7 @@ fn cosmic_requests_belong_to_each_body_without_a_primary_subject_lookup() {
     let forms = ambition_demo_mary_o::forms::mary_o_forms();
     let bodies: Vec<_> = forms.ladder.iter().take(2).map(|rung| {
         app.world_mut().spawn((
-            WornCharacter(rung.character.clone().into()),
+            CharacterForm(rung.character.clone().into()),
             BodyKinematics::default(),
             ResolvedTechniqueEdges(vec![("transform".into(), ambition_platformer2d::engine_core::Edge {
                 pressed: true, held: true, ..Default::default()

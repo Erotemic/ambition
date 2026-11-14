@@ -19,7 +19,7 @@ use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::render::rendering::projectile_visuals::{ProjectileVisual, VisualProjectile};
 use ambition_platformer2d::render::rendering::FeatureVisual;
-use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, CharacterForm};
 use ambition_platformer2d::render::rendering::PlayerVisual;
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
 use ambition_platformer2d::render::void_field::{VoidAura, VoidFieldPlugin, VoidWard};
@@ -120,7 +120,7 @@ fn set_aura(commands: &mut Commands, visual: Entity, current: Option<&VoidAura>,
 /// Give her the ward while she has the quasar, and take it away after.
 fn ward_her_with_the_quasar(
     mut commands: Commands,
-    bodies: Query<(Entity, &WornCharacter, &BodyHealth, Has<VoidWard>), With<PlayerVisual>>,
+    bodies: Query<(Entity, &CharacterForm, &BodyHealth, Has<VoidWard>), With<PlayerVisual>>,
 ) {
     for (body, worn, health, warded) in &bodies {
         // The quasar, or the form that is the quasar worn for good.

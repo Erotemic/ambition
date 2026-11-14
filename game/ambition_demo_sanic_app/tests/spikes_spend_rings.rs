@@ -7,7 +7,7 @@
 use ambition_demo_sanic::speedway_oracle::PIT_LEFT_X;
 use ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID;
 use ambition_demo_sanic_app::build_demo_app;
-use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, CharacterForm};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::*;
@@ -129,9 +129,9 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
     if super_form {
         let mut worn = app
             .world_mut()
-            .get_mut::<WornCharacter>(body)
+            .get_mut::<CharacterForm>(body)
             .expect("the player wears a character");
-        *worn = WornCharacter::new(SUPER_SANIC_CHARACTER_ID);
+        *worn = CharacterForm::new(SUPER_SANIC_CHARACTER_ID);
     }
     displace(&mut app, Vec2::new(from_x, FLOOR_TOP - size.y * 0.5));
     app.update();

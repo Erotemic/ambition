@@ -809,7 +809,7 @@ This is the production input path SIMULATION-ISLANDS' room rollback host
 waits on: a guest's input now reaches the host's seat over the link.
 
 What wears no character (probed 2026-11-13, the crossing scene at frame
-120): the hub's 17 replicated entities with no `WornCharacter` are all its
+120): the hub's 17 replicated entities with no `CharacterForm` are all its
 ground items (`placement:ground_*`, `placement:hub_portal_gun`), authored
 placements. A guest that builds the room itself (the room row, 2026-11-12)
 holds its own copies under the same `SimId`, and `Signature` continues

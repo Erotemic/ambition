@@ -13,7 +13,7 @@
 //! platform; two of those fell through it to the floor, 116 px.
 
 use ambition_app::{AmbitionSim, Platformer2dSimHarness};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::engine_core::{BodyGroundState, BodyKinematics};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -68,7 +68,7 @@ fn the_start_of_with(
             &BodyKinematics,
             Option<&BodyGroundState>,
             Option<&FeatureId>,
-            Option<&WornCharacter>,
+            Option<&CharacterForm>,
             Has<PrimaryPlayer>,
         )>();
         // (feet, name, it touched down this frame)
@@ -119,7 +119,7 @@ fn a_body_dropped_from_a_height_is_named() {
     let (landed, _, _) = the_start_of_with("hall_of_characters", |frame, sim| {
         if frame == 30 {
             let world = sim.world_mut();
-            let mut q = world.query::<(&mut BodyKinematics, &WornCharacter)>();
+            let mut q = world.query::<(&mut BodyKinematics, &CharacterForm)>();
             for (mut kin, worn) in q.iter_mut(world) {
                 if worn.id() == DROPPED {
                     kin.pos.y -= 60.0;

@@ -16,7 +16,7 @@ use ambition_platformer2d::actors::avatar::{HomeBodyAbilities};
 use ambition_platformer2d::session::initial_body::{HomeBodyResources, InitialBodyPolicy, StartingCharacter};
 use ambition_platformer2d::session::checkpoint::{CheckpointRestoreOutcome, SessionCheckpointOutcomes};
 use ambition_platformer2d::session::setup::{spawn_home_body, HomeBody};
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::engine_core::{BodyKinematics, RoomGeometry};
 use ambition_platformer2d::platformer::body::PrimaryBody;
@@ -72,7 +72,7 @@ pub(crate) fn build_a_home_body(sprite_content: &ambition_platformer2d::sprite_s
                   cast: Res<ambition_platformer2d::characters::prepared::ActiveSessionCast>,
                   roots: Query<(&InitialBodyPolicy, &HomeBodyResources, &HomeBodyAbilities)>,
                   rooms: Query<&RoomGeometry, With<RoomInstanceRoot>>,
-                  bodies: Query<(&BodyKinematics, &WornCharacter, Option<&InRoomInstance>)>| {
+                  bodies: Query<(&BodyKinematics, &CharacterForm, Option<&InRoomInstance>)>| {
                 let (policy, resources, abilities) =
                     roots.single().expect("one session root states the home body");
                 assert!(

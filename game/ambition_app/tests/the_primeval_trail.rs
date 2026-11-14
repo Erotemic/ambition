@@ -12,7 +12,7 @@ use crate::common::{base, fixed_60hz_room_options};
 use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 use ambition_content::bosses::trex::{conductor_of, TREX_ID};
 use ambition_platformer2d::boss_encounter::BossConfig;
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::ldtk_map::LdtkProject;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
@@ -40,7 +40,7 @@ fn room(id: &str) -> Platformer2dSimHarness {
 /// Where each living body that wears catalog character `id` is.
 fn wearing(sim: &mut Platformer2dSimHarness, id: &str) -> Vec<ae::Vec2> {
     let world = sim.world_mut();
-    let mut q = world.query::<(&WornCharacter, &BodyHealth, &ae::BodyKinematics)>();
+    let mut q = world.query::<(&CharacterForm, &BodyHealth, &ae::BodyKinematics)>();
     q.iter(world).filter(|(worn, health, _)| worn.id() == id && health.alive()).map(|(_, _, kin)| kin.pos).collect()
 }
 
@@ -143,7 +143,7 @@ fn an_african_swallow_takes_a_coconut_and_lets_it_go_over_the_player() {
         let mut items = world.query::<(Entity, &GroundItem, &ae::BodyKinematics, &ItemCustody)>();
         let coconuts: Vec<(Entity, f32, ItemCustody)> =
             items.iter(world).filter(|(_, item, _, _)| item.spec.id == COCONUT).map(|(e, _, body, custody)| (e, body.pos.y, *custody)).collect();
-        let mut worn = world.query::<&WornCharacter>();
+        let mut worn = world.query::<&CharacterForm>();
         let mut held_now = Vec::new();
         for (coconut, y, custody) in coconuts {
             match custody {
@@ -230,10 +230,10 @@ fn european_swallows_carry_one_coconut_together_and_drop_it_over_the_player() {
             let anchor = SupportedCarry::anchor(a, b, ae::Vec2::Y);
             airborne |= pickup_y - anchor.y > 40.0;
         } else {
-            let mut pairs = world.query::<(Entity, &WornCharacter, &SupportedCarry)>();
+            let mut pairs = world.query::<(Entity, &CharacterForm, &SupportedCarry)>();
             let pair = pairs.iter(world).find(|(_, worn, _)| worn.id() == "european_swallow").map(|(e, _, link)| (e, link.supporter));
             if let Some((leader, supporter)) = pair {
-                assert_eq!(world.get::<WornCharacter>(supporter).unwrap().id(), "european_swallow");
+                assert_eq!(world.get::<CharacterForm>(supporter).unwrap().id(), "european_swallow");
                 let mut items = world.query::<(Entity, &GroundItem, &ae::BodyKinematics, &ItemCustody)>();
                 let (item, _, ground, _) = items.iter(world).find(|(_, ground, _, custody)| ground.spec.id == "coconut" && custody.held_by(leader)).unwrap();
                 load = Some((item, leader, supporter, ground.pos.y));
@@ -278,8 +278,8 @@ fn rollback_european_sling_replays_pickup_and_release() {
             match custody {
                 ItemCustody::Held { holder } => {
                     if let Some(link) = world.get::<SupportedCarry>(holder) {
-                        assert_eq!(world.get::<WornCharacter>(holder).unwrap().id(), "european_swallow");
-                        assert_eq!(world.get::<WornCharacter>(link.supporter).unwrap().id(), "european_swallow");
+                        assert_eq!(world.get::<CharacterForm>(holder).unwrap().id(), "european_swallow");
+                        assert_eq!(world.get::<CharacterForm>(link.supporter).unwrap().id(), "european_swallow");
                         assert_ne!(holder, link.supporter);
                         carried = Some(id);
                     }

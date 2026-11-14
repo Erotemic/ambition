@@ -18,7 +18,7 @@ use ambition_demo_mary_o::test_course::{
 };
 use ambition_demo_mary_o::MaryOLevelState;
 use ambition_platformer2d::world_items::WorldItem;
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::combat::components::CenteredAabb;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};
@@ -292,7 +292,7 @@ fn wears_wand(app: &mut App) -> bool {
 fn worn_form(app: &mut App) -> Option<String> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&WornCharacter, With<PrimaryPlayer>>();
+        .query_filtered::<&CharacterForm, With<PrimaryPlayer>>();
     q.iter(app.world()).next().map(|worn| worn.id().to_string())
 }
 

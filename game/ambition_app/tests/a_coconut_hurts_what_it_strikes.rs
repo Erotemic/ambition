@@ -95,7 +95,7 @@ fn a_coconut_that_falls_on_a_sandbag_hurts_it() {
     }
     let sandbag = |sim: &mut Platformer2dSimHarness| {
         let world = sim.world_mut();
-        let mut q = world.query::<(&ambition_platformer2d::characters::actor::WornCharacter, &ae::BodyKinematics, &BodyHealth)>();
+        let mut q = world.query::<(&ambition_platformer2d::characters::actor::CharacterForm, &ae::BodyKinematics, &BodyHealth)>();
         q.iter(world)
             .find(|(worn, _, _)| worn.id() == "sandbag")
             .map(|(_, kin, health)| (*kin, health.health.current))

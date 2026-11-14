@@ -188,7 +188,7 @@ struct StartupAssetInputs<'w, 's> {
     worn: Query<
         'w,
         's,
-        &'static ambition_platformer2d::characters::actor::WornCharacter,
+        &'static ambition_platformer2d::characters::actor::CharacterForm,
         Or<(
             With<ambition_platformer2d::platformer::markers::PlayerEntity>,
             With<ambition_platformer2d::characters::control::DrivingParticipant>,

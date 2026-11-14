@@ -464,7 +464,7 @@ pub fn seat_character(app: &mut App, seat: usize) -> Option<String> {
     let world = app.world_mut();
     let mut q = world.query::<(
         &ambition_platformer2d::actor::MatchSeat,
-        &ambition_platformer2d::character::WornCharacter,
+        &ambition_platformer2d::character::CharacterForm,
     )>();
     q.iter(world)
         .find(|(at, _)| at.0 == seat)

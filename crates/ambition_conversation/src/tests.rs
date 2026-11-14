@@ -100,7 +100,7 @@ fn instance_wearing(worn: &str) -> super::ConversationInstanceId {
         .world_mut()
         .spawn((
             SimId::placement("player"),
-            ambition_characters::actor::WornCharacter::new(worn),
+            ambition_characters::actor::CharacterForm::new(worn),
         ))
         .id();
     let talker = app.world_mut().spawn(SimId::placement("npc_admiral")).id();
@@ -138,8 +138,8 @@ fn instance_wearing(worn: &str) -> super::ConversationInstanceId {
 /// A corrected timeline that re-wears the initiator is a DIFFERENT
 /// conversation.
 ///
-/// `WornCharacter` is rollback-owned and runtime-mutable — the rollback registration's own docs
-/// discuss *"a rewind that restores an EARLIER `WornCharacter`"* — and it is what decides the
+/// `CharacterForm` is rollback-owned and runtime-mutable — the rollback registration's own docs
+/// discuss *"a rewind that restores an EARLIER `CharacterForm`"* — and it is what decides the
 /// initiator's dialogue identity for a body with no authored one. So two authoritative openings can
 /// agree on the tick, the node and BOTH bodies' `SimId`s while Yarn is entered with a different
 /// `$speaker_id`. Under an id built from the four body facts alone those were one conversation, and
@@ -168,7 +168,7 @@ fn two_worn_characters_are_two_conversations() {
 }
 
 /// And the round trip still holds: a resimulation of the opening tick, with
-/// the restored `WornCharacter`, re-mints an EQUAL id.
+/// the restored `CharacterForm`, re-mints an EQUAL id.
 ///
 /// Without it every record from the original run stops matching its own conversation on the
 /// first replayed tick.

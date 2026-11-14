@@ -7,7 +7,7 @@
 //! sends a flyer up only delays its fall.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
 use bevy::prelude::*;
@@ -20,7 +20,7 @@ fn a_flyer_killed_in_the_air_falls_down() {
     sim.step_n(base(), 30);
     let world = sim.world_mut();
     let swallow = world
-        .query::<(Entity, &WornCharacter, &BodyHealth, &ae::ActorSurfaceState)>()
+        .query::<(Entity, &CharacterForm, &BodyHealth, &ae::ActorSurfaceState)>()
         .iter(world)
         .find(|(_, worn, health, surface)| {
             worn.id() == "european_swallow" && health.alive() && surface.gravity_scale <= 0.001

@@ -26,7 +26,7 @@ use bevy::math::Vec2;
 use bevy::prelude::*;
 
 use ambition_characters::actor::body_rig::PreparedBodyRig;
-use ambition_characters::actor::{BodyLandmarkTable, Landmark, WornCharacter};
+use ambition_characters::actor::{BodyLandmarkTable, Landmark, CharacterForm};
 use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d_core as ae;
 
@@ -131,7 +131,7 @@ pub struct BodyLandmarks<'w, 's> {
         'w,
         's,
         (
-            Option<&'static WornCharacter>,
+            Option<&'static CharacterForm>,
             Option<&'static ambition_sprite_sheet::character::SpritePosedBody>,
             Option<&'static crate::components::ActorRenderSize>,
             (Option<&'static BodyRig>, Option<&'static BodyRigPose>),

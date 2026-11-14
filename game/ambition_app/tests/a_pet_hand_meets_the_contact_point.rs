@@ -21,7 +21,7 @@ use ambition_app::Platformer2dSimHarness;
 use ambition_platformer2d::actors::body::PetBeat;
 use ambition_platformer2d::actors::body::PetStage;
 use ambition_platformer2d::characters::actor::body::{PETTED_CLIPS, PETTING_CLIPS};
-use ambition_platformer2d::characters::actor::{BodyAnimFacts, Landmark, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyAnimFacts, Landmark, CharacterForm};
 use ambition_platformer2d::combat::body_landmarks::{BodyLandmarks, LandmarkPose};
 use ambition_platformer2d::combat::components::ActorRenderSize;
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -54,7 +54,7 @@ fn pet_the_dog(sim: &mut Platformer2dSimHarness) -> Pet {
     sim.step_n(base(), 10);
     let dog = {
         let world = sim.world_mut();
-        let mut query = world.query::<(Entity, &WornCharacter)>();
+        let mut query = world.query::<(Entity, &CharacterForm)>();
         query
             .iter(world)
             .find(|(_, worn)| worn.id() == DOG)

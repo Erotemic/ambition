@@ -842,7 +842,7 @@ fn move_events_capture_character_provider_presentation_sources() {
     );
     app.world_mut()
         .entity_mut(worn)
-        .insert(ambition_characters::actor::WornCharacter::new("sanic"));
+        .insert(ambition_characters::actor::CharacterForm::new("sanic"));
 
     let actor = spawn_attacker(
         &mut app,
@@ -852,7 +852,7 @@ fn move_events_capture_character_provider_presentation_sources() {
     );
     app.world_mut()
         .entity_mut(actor)
-        .insert(ambition_characters::actor::WornCharacter::new("mary_o"));
+        .insert(ambition_characters::actor::CharacterForm::new("mary_o"));
 
     app.update();
 
@@ -904,7 +904,7 @@ fn the_strike_poly_comes_from_the_character_the_body_wears() {
     );
     app.world_mut()
         .entity_mut(attacker)
-        .insert(ambition_characters::actor::WornCharacter::new("sanic"));
+        .insert(ambition_characters::actor::CharacterForm::new("sanic"));
 
     // Cross the windup into the active window, where the volume resolves.
     run_seconds(&mut app, 0.14);
@@ -958,7 +958,7 @@ fn the_strike_poly_is_scaled_by_the_quad_the_body_is_drawn_at() {
         simple_melee(&SimpleMeleeParams::default()),
     );
     app.world_mut().entity_mut(attacker).insert((
-        ambition_characters::actor::WornCharacter::new("sanic"),
+        ambition_characters::actor::CharacterForm::new("sanic"),
         crate::components::ActorRenderSize(drawn),
     ));
 

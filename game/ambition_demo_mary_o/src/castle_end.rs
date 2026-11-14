@@ -17,7 +17,7 @@
 //! tally) reads it as it reads a pole. The level gives the bridge one view
 //! that does not move (`Level.arena`), so each beat is in it.
 
-use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, CharacterForm};
 use ambition_platformer2d::characters::control::{claim_control_hold, ControlHold, ControlHolds};
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::cutscene::{CutsceneBeat, CutsceneLibrary, CutsceneScript, CutsceneTriggerQueue};
@@ -391,7 +391,7 @@ pub fn run_castle_ending(
         Option<&mut ae::BodyModeState>,
         Option<&mut BodyHealth>,
         Option<&ActorConfig>,
-        Option<&WornCharacter>,
+        Option<&CharacterForm>,
     )>,
     mut holds: Query<&mut ControlHolds>,
 ) {
@@ -689,7 +689,7 @@ pub fn the_robot_thanks_her(
 pub fn he_looks_at_her(
     subject: Option<Res<ControlledSubject>>,
     live: LiveRooms,
-    mut bodies: Query<(Entity, &mut ae::BodyKinematics, Option<&WornCharacter>)>,
+    mut bodies: Query<(Entity, &mut ae::BodyKinematics, Option<&CharacterForm>)>,
 ) {
     let Some(her) = subject.as_deref().and_then(|subject| subject.0) else {
         return;

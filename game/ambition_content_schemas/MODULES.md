@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`area_cards`](src/area_cards.rs) | The `area_cards` schema: the areas of Ambition's world, by the rooms each holds, as data in its pack (`assets/data/area_cards.ron`). |
 | [`autoplay`](src/autoplay.rs) | Authored routes for Ambition's development input driver. |
 | [`flag_chains`](src/flag_chains.rs) | The `flag_chains` schema: save flags that set other save flags, as data in Ambition's pack (`assets/data/flag_chains.ron`). |
 | [`npc_lives`](src/npc_lives.rs) | The `npc_lives` schema: authored NPC lives as data in Ambition's pack (`assets/data/npc_lives.ron`). |
@@ -13,7 +14,7 @@
 | [`text`](src/text.rs) | The lines Ambition shows, as data in its pack (`data/ambition_text.ron`): its launcher row and the words of its dialogue box. |
 | [`yarn_dialogue`](src/yarn_dialogue.rs) | The `yarn_dialogue` schema: each Yarn file of the game's dialogue is a source of the pack (`(path: "dialogue/sandbox/intro.yarn", schema: "yarn_dialogue", version: 1)`). |
 
-_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

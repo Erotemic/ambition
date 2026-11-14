@@ -8,7 +8,7 @@
 //! player's own fighter.
 
 use ambition_platformer2d::actor::{ActiveSessionScope, BodyKinematics, MatchSeat};
-use ambition_platformer2d::character::WornCharacter;
+use ambition_platformer2d::character::CharacterForm;
 use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::sim::ControlFrame;
 use bevy::prelude::*;
@@ -45,7 +45,7 @@ fn a_match(fighter: &str) -> App {
 /// The body in `seat`, the character it wears, and its kinematics.
 fn seat(app: &mut App, seat: usize) -> Option<(Entity, String, BodyKinematics)> {
     let world = app.world_mut();
-    let mut seats = world.query::<(Entity, &MatchSeat, &WornCharacter, &BodyKinematics)>();
+    let mut seats = world.query::<(Entity, &MatchSeat, &CharacterForm, &BodyKinematics)>();
     seats.iter(world).find(|(_, at, ..)| at.0 == seat).map(|(body, _, worn, kin)| (body, worn.id().to_string(), *kin))
 }
 

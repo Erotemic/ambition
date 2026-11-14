@@ -8,7 +8,7 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, CharacterForm};
 use ambition_platformer2d::combat::actor_tuning::ContactThreatWithdrawn;
 use ambition_platformer2d::combat::components::DamageableVolumes;
 use ambition_platformer2d::engine_core as ae;
@@ -39,7 +39,7 @@ fn road() -> Platformer2dSimHarness {
 fn wolf(sim: &mut Platformer2dSimHarness) -> Entity {
     let world = sim.world_mut();
     world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == WOLF)
         .map(|(entity, _)| entity)

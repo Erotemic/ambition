@@ -120,13 +120,13 @@ fn synthetic_keyboard_moves_the_player_through_the_standard_path() {
 
 #[test]
 fn d_toggles_sanic_to_super_sanic_and_back_through_the_standard_path() {
-    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::CharacterForm;
     use ambition_demo_sanic::{SANIC_CHARACTER_ID, SUPER_SANIC_CHARACTER_ID};
 
     fn worn_id(app: &mut App) -> String {
         let mut q = app
             .world_mut()
-            .query_filtered::<&WornCharacter, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+            .query_filtered::<&CharacterForm, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.iter(app.world())
             .next()
             .expect("the demo spawned a primary worn character")

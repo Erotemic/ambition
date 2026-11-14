@@ -50,7 +50,7 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
     let worn = {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
             With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         >();
         q.iter(world).next().map(|w| w.0.as_str().to_owned())
@@ -150,7 +150,7 @@ fn a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphan
     let worn = {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
             With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         >();
         q.iter(world).next().map(|w| w.0.as_str().to_owned())

@@ -204,7 +204,7 @@ dog's nose and 43 from the point its head turns about.
 (`crates/ambition_combat/src/body_landmarks.rs`) answers "where is landmark L
 of body B", in the body's rig space or in the world, for this tick's pose or
 for a named row at a phase (a gesture a script will play). The rig answers
-first. Else the package table answers: body → `WornCharacter` → prepared sheet
+first. Else the package table answers: body → `CharacterForm` → prepared sheet
 → table, at the scale the body states (`SpritePosedBody.world_per_pixel`, else
 `ActorRenderSize` over the frame height). It holds no state: every input is
 rollback state already, so there is no component and no schema change.

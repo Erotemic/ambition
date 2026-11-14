@@ -312,17 +312,17 @@ fn a_worn_form_and_a_timed_grant_empower_a_body_independently() {
     app.add_plugins(EmpowermentLifecyclePlugin);
     let body = app
         .world_mut()
-        .spawn((WornCharacter::new("runner"), BodyHealth::new(Health::new(5))))
+        .spawn((CharacterForm::new("runner"), BodyHealth::new(Health::new(5))))
         .id();
     let wear = |app: &mut App, id: &str| {
-        *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new(id);
+        *app.world_mut().get_mut::<CharacterForm>(body).unwrap() = CharacterForm::new(id);
         app.update();
     };
     let harms = |app: &App| {
         let world = app.world();
         empowerment_of(
             world.get::<Empowered>(body),
-            world.get::<WornCharacter>(body),
+            world.get::<CharacterForm>(body),
             world.get_resource::<PreparedCharacterRegistry>(),
         )
         .holds(Empowerment::HARMS_ON_CONTACT)

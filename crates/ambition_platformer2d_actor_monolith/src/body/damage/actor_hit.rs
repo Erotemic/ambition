@@ -349,7 +349,7 @@ pub(crate) fn apply_actor_hit(
                 .worn
                 .get(actor_entity)
                 .ok()
-                .map(ambition_characters::actor::WornCharacter::id)
+                .map(ambition_characters::actor::CharacterForm::id)
                 .map(str::to_owned);
             let line = speaker
                 .as_deref()

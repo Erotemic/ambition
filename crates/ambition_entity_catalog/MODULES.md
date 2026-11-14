@@ -9,6 +9,7 @@
 | [`action_scheme`](src/action_scheme.rs) | Device-free character action vocabulary. |
 | [`authoring`](src/authoring.rs) | The primitives a character's move table is written with, shared so that a new character does not start by copying another. |
 | [`brain_profile_ref`](src/brain_profile_ref.rs) | Naming a shared autonomous-controller policy, in the two forms an authored reference and a resolved identity need to be. |
+| [`detonate`](src/detonate.rs) | The authored key of a move that ends its own mover in a detonation. |
 | [`hazard`](src/hazard.rs) | What an authored technique puts in the world that can hurt somebody, and the laws by which it gets there. |
 | [`launch`](src/launch.rs) | The launch law. |
 | [`mana`](src/mana.rs) | The main game's Mana, as authored data: its identity, its pool and its refill rate. |
@@ -35,7 +36,7 @@
 | [`smash_trapdoor`](src/smash_trapdoor.rs) | Authored payload for entering and leaving the submerged body mode. |
 | [`smash_vitality`](src/smash_vitality.rs) | Authored payload for changing the mover's own health. |
 
-_28 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_29 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

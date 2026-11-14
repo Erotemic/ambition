@@ -249,7 +249,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
         Entity,
         &ambition_platformer2d::engine_core::BodyKinematics,
         Option<&ambition_platformer2d::actor::MatchSeat>,
-        Option<&ambition_platformer2d::character::WornCharacter>,
+        Option<&ambition_platformer2d::character::CharacterForm>,
         Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
         Option<&ambition_platformer2d::mount::RidingOn>,
         Option<&ambition_platformer2d::mount::MountSlot>,

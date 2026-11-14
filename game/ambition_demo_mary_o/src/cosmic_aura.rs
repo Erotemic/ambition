@@ -28,7 +28,7 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d::render::rendering::PlayerVisual;
 
@@ -160,7 +160,7 @@ fn light_her_while_she_is_cosmic(
     mut materials: ResMut<Assets<MaryOCosmicAuraMaterial>>,
     asset_server: Res<AssetServer>,
     quality: Option<Res<ResolvedVisualQuality>>,
-    bodies: Query<(Entity, &WornCharacter, &Sprite, Option<&Anchor>, Option<&HasCosmicAura>), With<PlayerVisual>>,
+    bodies: Query<(Entity, &CharacterForm, &Sprite, Option<&Anchor>, Option<&HasCosmicAura>), With<PlayerVisual>>,
     mut quads: Query<&mut Transform>,
 ) {
     let in_budget = aura_is_in_budget(quality);

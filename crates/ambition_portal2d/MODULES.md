@@ -9,18 +9,16 @@
 | [`color`](src/color.rs) | Portal pair-linking identity. |
 | [`eviction`](src/eviction.rs) | Straddle eviction: a pushout for a plane that moved or closed under a body. |
 | [`extension`](src/extension.rs) | The portal domain's extension request adapters: a module's HELD pair of portals ([`HeldPortalPairPort`]), and its lines of light that are no portal ([`LightLinePort`]). |
-| [`gun`](src/gun.rs) | Compatibility state for Ambition's held portal gun. |
-| [`gun_construction`](src/gun_construction.rs) | Transactional construction owned by the optional portal-gun capability. |
-| [`gun_lifecycle`](src/gun_lifecycle.rs) | Compatibility lifecycle for gun-owned portals. |
-| [`gun_pickup`](src/gun_pickup.rs) | Compatibility pickup for Ambition's portal-gun workflow. |
+| [`generator`](src/generator.rs) | Whatever opens portals. |
+| [`generator_lifecycle`](src/generator_lifecycle.rs) | Portals a generator opened do not outlive it. |
 | [`gun_projectile`](src/gun_projectile.rs) | Compatibility projectile for portal-gun-style placement. |
 | [`lifecycle`](src/lifecycle.rs) | Portal lifecycle and persistence policy for placed portals and transit cooldowns. |
-| [`link`](src/link.rs) | Explicit portal linking by id, plus the min-aperture equalizer. |
+| [`link`](src/link.rs) | Explicit portal linking by id. |
 | [`messages`](src/messages.rs) | Portal intent and outcome messages. |
 | [`passages`](src/passages.rs) | Publish this tick's pairs and straddlers in core geometry ([`BodyGeometry`]), for a domain that is not the portal's (combat) to tell where a volume is. |
 | [`pieces`](src/pieces.rs) | Aperture geometry for portal placement, transit and host carving. |
 | [`placement`](src/placement.rs) | Portal-aware geometry and the surface-fit / aperture-crossing decision logic. |
-| [`plugin`](src/plugin.rs) | Portal plugin assembly: reusable simulation plus an optional portal-gun opener. |
+| [`plugin`](src/plugin.rs) | Portal plugin assembly: reusable simulation plus optional portal generators. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_portal2d`. |
 | [`rooms`](src/rooms.rs) | Which live room a portal is in, and the portals of each live room (OW1). |
 | [`schedule`](src/schedule.rs) | The portal-owned [`PortalSet`] schedule labels (carves, input warp, weapon, transit, room-reset ordering). |
@@ -30,7 +28,7 @@
 | [`types`](src/types.rs) | Shared portal types, geometry constants, and small helpers used across the portal submodules (placement, transit, presentation, …). |
 | [`view`](src/view.rs) | Pure through-portal view geometry. |
 
-_23 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

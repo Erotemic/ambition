@@ -849,7 +849,7 @@ fn ask_bodies_to_wear(
     config: Res<SceneCaptureConfig>,
     tick: Res<ambition_platformer2d::time::SimTick>,
     ids: ambition_platformer2d::platformer::lifecycle::LiveBodies,
-    bodies: Query<(Entity, &ambition_platformer2d::characters::actor::WornCharacter)>,
+    bodies: Query<(Entity, &ambition_platformer2d::characters::actor::CharacterForm)>,
     mut requests: MessageWriter<ambition_platformer2d::actors::body::WearRequested>,
 ) {
     for (wearer, look, on_tick) in &config.wears {
@@ -866,7 +866,7 @@ fn ask_bodies_to_wear(
         };
         requests.write(ambition_platformer2d::actors::body::WearRequested {
             body,
-            character: ambition_platformer2d::characters::actor::WornCharacter::new(look.as_str())
+            character: ambition_platformer2d::characters::actor::CharacterForm::new(look.as_str())
                 .character()
                 .clone(),
         });
@@ -2925,7 +2925,7 @@ fn place_player_beside(
     mut seats: ResMut<ambition_platformer2d::characters::control::SlotInteractionState>,
     others: Query<
         (
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
             &ambition_platformer2d::actor::BodyKinematics,
         ),
         Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,

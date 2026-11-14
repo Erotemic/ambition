@@ -72,7 +72,10 @@ class Spawn:
         aw, ah = self.size
         bx, by = other.px
         bw, bh = other.size
-        return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
+        # Closed edges: a rider standing on its mount's back shares the mount's
+        # top edge and overlaps it by nothing, and that is the pose the
+        # docstring promises stays valid.
+        return ax <= bx + bw and bx <= ax + aw and ay <= by + bh and by <= ay + ah
 
     def __str__(self) -> str:
         return (

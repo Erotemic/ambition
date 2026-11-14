@@ -13,12 +13,12 @@
 //! in (the choice itself is in `hall.yarn`, and the dialogue lint reads it).
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::characters::actor::{RecharacterizeBody, WornCharacter};
+use ambition_platformer2d::characters::actor::{RecharacterizeBody, CharacterForm};
 use bevy::prelude::{Entity, Name};
 
 fn wearers(sim: &mut ambition_app::Platformer2dSimHarness, character: &str) -> Vec<Entity> {
     let world = sim.world_mut();
-    let mut query = world.query::<(Entity, &WornCharacter)>();
+    let mut query = world.query::<(Entity, &CharacterForm)>();
     query
         .iter(world)
         .filter(|(_, worn)| worn.id() == character)
@@ -32,7 +32,7 @@ fn ask(sim: &mut ambition_app::Platformer2dSimHarness, body: Entity, character: 
     sim.world_mut()
         .write_message(ambition_platformer2d::actors::body::WearRequested {
             body: id,
-            character: WornCharacter::new(character).character().clone(),
+            character: CharacterForm::new(character).character().clone(),
         });
 }
 
@@ -50,7 +50,7 @@ fn the_hall_seats_a_character_once_and_a_transform_puts_each_look_on_that_body()
         assert_eq!(bodies.len(), 1, "the Hall seats `{character}` {} times", bodies.len());
         let body = bodies[0];
         let worn = |sim: &ambition_app::Platformer2dSimHarness| {
-            sim.world().get::<WornCharacter>(body).expect("the body stays").id().to_string()
+            sim.world().get::<CharacterForm>(body).expect("the body stays").id().to_string()
         };
         let name = |sim: &ambition_app::Platformer2dSimHarness| {
             sim.world().get::<Name>(body).map(|name| name.as_str().to_string())
@@ -195,7 +195,7 @@ fn the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him() {
         app.update();
     }
 
-    let worn = app.world().get::<WornCharacter>(hinter).expect("the body stays").id().to_string();
+    let worn = app.world().get::<CharacterForm>(hinter).expect("the body stays").id().to_string();
     assert_eq!(worn, "npc_jeff_hinter_armored", "the choice was taken and he wears `{worn}`");
     assert!(
         app.world().get::<TransformBeat>(hinter).is_some(),

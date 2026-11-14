@@ -2798,7 +2798,7 @@ fn a_seat_cannot_cross_back_inside_its_own_cooldown() {
 pub(crate) fn alice_talks_to_the_dog(sim: &mut Platformer2dSimHarness) -> bool {
     let dog = {
         let world = sim.world_mut();
-        let mut query = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::characters::actor::WornCharacter)>();
+        let mut query = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::characters::actor::CharacterForm)>();
         query
             .iter(world)
             .find(|(_, worn)| worn.id() == "npc_companion_dog")

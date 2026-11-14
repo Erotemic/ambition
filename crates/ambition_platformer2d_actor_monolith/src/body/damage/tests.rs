@@ -2604,7 +2604,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
         let e = spawn_hostile_actor(&mut app);
         app.world_mut()
             .entity_mut(e)
-            .insert(ambition_characters::actor::WornCharacter::new("kernel_guide",
+            .insert(ambition_characters::actor::CharacterForm::new("kernel_guide",
             ));
         app.world_mut()
             .get_mut::<BodyHealth>(e)
@@ -3057,7 +3057,7 @@ fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
         let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
         cast.insert_prepared(character);
         app.insert_resource(cast);
-        app.world_mut().entity_mut(body).insert(ambition_characters::actor::WornCharacter::new("alice"));
+        app.world_mut().entity_mut(body).insert(ambition_characters::actor::CharacterForm::new("alice"));
 
         let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
         for _ in 0..strikes {
@@ -3134,7 +3134,7 @@ fn capture_bubble_texts(
 
 /// ⛔ A STRUCK BODY BARKS AS THE CHARACTER IT IS WEARING, NOT THE ONE IT WAS
 /// SPAWNED AS. The bark once chose its lines by a sprite id the seed filled
-/// once and nothing updated, while `WornCharacter` is the identity a runtime
+/// once and nothing updated, while `CharacterForm` is the identity a runtime
 /// re-wear changes (a transformation, a power-up form).
 #[test]
 fn a_struck_body_barks_as_the_character_it_is_wearing() {
@@ -3173,7 +3173,7 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
         let e = spawn_hostile_actor(&mut app);
         app.world_mut()
             .entity_mut(e)
-            .insert(ambition_characters::actor::WornCharacter::new(worn));
+            .insert(ambition_characters::actor::CharacterForm::new(worn));
         app.world_mut().write_message(HitEvent {
             contact: None,
             pieces: Vec::new(),

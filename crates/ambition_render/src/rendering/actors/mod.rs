@@ -123,11 +123,11 @@ pub use overlays::*;
 
 /// Ensure every simulation-owned player visual has a renderable sprite.
 ///
-/// A player that carries the canonical [`WornCharacter`] identity is owned by
+/// A player that carries the canonical [`CharacterForm`] identity is owned by
 /// [`bind_worn_character_presentation`] (it installs the sheet or a fallback
 /// rectangle). This system is the safety net for a bare `PlayerVisual` with NO
 /// worn identity — a minimal test/demo shell — so `sync_visuals` always has a
-/// `Sprite` to query. The `Without<WornCharacter>` filter (a spawn-time fact, no
+/// `Sprite` to query. The `Without<CharacterForm>` filter (a spawn-time fact, no
 /// same-frame race) keeps the two systems from both claiming one entity.
 pub fn ensure_player_visual_sprite(
     mut commands: Commands,
@@ -136,7 +136,7 @@ pub fn ensure_player_visual_sprite(
         (
             With<PlayerVisual>,
             Without<Sprite>,
-            Without<ambition_characters::actor::WornCharacter>,
+            Without<ambition_characters::actor::CharacterForm>,
         ),
     >,
 ) {
@@ -151,7 +151,7 @@ pub fn ensure_player_visual_sprite(
 
 /// The reusable selected-character presentation binder.
 ///
-/// Observes the canonical simulation-owned [`WornCharacter`] identity on each
+/// Observes the canonical simulation-owned [`CharacterForm`] identity on each
 /// player body and installs the matching visual configuration — sprite sheet,
 /// animation cursor ([`CharacterAnimator`]), feet [`Anchor`], the crouch-squash
 /// [`PlayerSpriteBaseline`], and the [`PlayerSpriteCharacter`] marker recording
@@ -173,7 +173,7 @@ pub fn bind_worn_character_presentation(
     players: Query<
         (
             Entity,
-            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::CharacterForm,
             Option<&PlayerSpriteCharacter>,
             Has<CharacterAnimator>,
             // This body's own standing size, from the read-model. See the seed

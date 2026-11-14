@@ -137,7 +137,7 @@ fn deflected_attacker(attacker_at: ae::Vec2, attacker_down: ae::Vec2) -> (ae::Ve
     };
     let defender = app
         .world_mut()
-        .spawn((body(ae::Vec2::new(100.0, 100.0)), WornCharacter::new("npc_guard"), GuardState::default()))
+        .spawn((body(ae::Vec2::new(100.0, 100.0)), CharacterForm::new("npc_guard"), GuardState::default()))
         .id();
     let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
     frame.publish_resolved_frame(ae::MotionFrame::from_direction(attacker_down, 0.0));
@@ -300,7 +300,7 @@ fn a_refused_guard_response_commits_neither_body_nor_guard_state() {
     let initial = ae::BodyKinematics { pos: ae::Vec2::splat(100.0), vel: ae::Vec2::new(7.0, 9.0), ..Default::default() };
     let attacker = app.world_mut().spawn((initial, BodyCombat::default(), ae::BodyFlightState::default())).id();
     let defender = app.world_mut().spawn((initial, BodyCombat::default(), ae::BodyFlightState::default(),
-        WornCharacter::new("npc_guard"), GuardState::default())).id();
+        CharacterForm::new("npc_guard"), GuardState::default())).id();
     let volume = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::ONE));
     let piece = VolumePiece::from_material(ae::frame::thread::MaterialPrimitive { domain: &volume,
         to_world: ae::frame::Sim2::new(2.0, bevy::math::Mat2::IDENTITY, initial.pos).unwrap() }).unwrap();

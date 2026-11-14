@@ -125,7 +125,7 @@ fn body(app: &mut App) -> Option<Body> {
 fn worn_form(app: &mut App) -> Option<String> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::characters::actor::CharacterForm, With<PrimaryPlayer>>();
     q.iter(app.world()).next().map(|w| w.id().to_string())
 }
 

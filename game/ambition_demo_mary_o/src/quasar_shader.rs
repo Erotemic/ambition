@@ -31,7 +31,7 @@ use bevy::{
 };
 
 use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::platformer::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -215,7 +215,7 @@ fn attach_quasar_overlays(
     candidates: Query<
         (
             Entity,
-            &WornCharacter,
+            &CharacterForm,
             &BodyHealth,
             Option<&Visibility>,
             &Transform,
@@ -313,7 +313,7 @@ fn attach_quasar_overlays(
 /// `star` is whether she has the timed state the quasar gives (the
 /// `Empowered` component), which the row does not give.
 fn quasar_shows(
-    worn: &WornCharacter,
+    worn: &CharacterForm,
     health: &BodyHealth,
     star: bool,
     visibility: Option<&Visibility>,
@@ -345,7 +345,7 @@ fn quasar_shows(
 /// (`the_first_quasar_is_drawn::her_first_quasar_is_drawn_at_once`).
 fn declare_quasar_demand(
     settings: Res<MaryOQuasarShaderSettings>,
-    bodies: Query<(Entity, &WornCharacter, &BodyHealth, Option<&Visibility>, Has<ambition_platformer2d::actors::body::empowerment::Empowered>), With<PlayerVisual>>,
+    bodies: Query<(Entity, &CharacterForm, &BodyHealth, Option<&Visibility>, Has<ambition_platformer2d::actors::body::empowerment::Empowered>), With<PlayerVisual>>,
     demand: Option<ResMut<ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemand>>,
 ) {
     let Some(mut demand) = demand else {
@@ -367,7 +367,7 @@ fn sync_quasar_overlays(
     sources: Query<
         (
             Entity,
-            &WornCharacter,
+            &CharacterForm,
             &BodyHealth,
             &Transform,
             &Sprite,

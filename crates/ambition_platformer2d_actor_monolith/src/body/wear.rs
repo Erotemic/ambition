@@ -4,12 +4,12 @@
 //! A character with a transform is one character with more than one look
 //! (Jeff Hinter and his armor, Mary-O and her grown forms, Sanic and Super
 //! Sanic). Each look is a catalog row with its own sheet, and the body wears
-//! one of them at a time ([`WornCharacter`]). A game changes the worn row by
+//! one of them at a time ([`CharacterForm`]). A game changes the worn row by
 //! its own rules (a power-up, a technique). This request is the same change,
 //! asked for by a conversation: the hall of characters uses it to show each
 //! look of a character on the one body that stands there.
 //!
-//! The request changes [`WornCharacter`] and asks for the template to be
+//! The request changes [`CharacterForm`] and asks for the template to be
 //! applied again ([`RecharacterizeBody`]). It does not change what the body
 //! is to talk to: its conversation stays the one authored on its placement.
 //!
@@ -19,7 +19,7 @@
 //! once.
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_characters::actor::{RecharacterizeBody, WornCharacter};
+use ambition_characters::actor::{RecharacterizeBody, CharacterForm};
 use ambition_entity_catalog::CharacterId;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveBodies, LiveBodyId};
 use ambition_sprite_sheet::character::sheets::AuthoredSheets;
@@ -56,7 +56,7 @@ pub fn apply_wear_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sh
     ids: LiveBodies,
     catalog: Res<CharacterCatalog>,
     authored: Option<Res<AuthoredSheets>>,
-    mut worn: Query<&mut WornCharacter>,
+    mut worn: Query<&mut CharacterForm>,
 ) {
     for request in requests.read() {
         let Some(entity) = ids.entity_of(&request.body) else {
@@ -87,7 +87,7 @@ pub fn apply_wear_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sh
         if worn.character() == &request.character {
             continue;
         }
-        *worn = WornCharacter(request.character.clone());
+        *worn = CharacterForm(request.character.clone());
         let mut body = commands.entity(entity);
         body.try_insert(RecharacterizeBody);
         if let Some(beat) = arrival_beat(&sprite_content, authored.as_deref(), &catalog, request.character.as_str()) {
@@ -177,9 +177,9 @@ mod tests {
         let mut app = app();
         let body = app
             .world_mut()
-            .spawn((SimId::placement("exhibit"), WornCharacter::new("scholar")))
+            .spawn((SimId::placement("exhibit"), CharacterForm::new("scholar")))
             .id();
-        let worn = |app: &App| app.world().get::<WornCharacter>(body).unwrap().id().to_string();
+        let worn = |app: &App| app.world().get::<CharacterForm>(body).unwrap().id().to_string();
         let asked = |app: &App| app.world().get::<RecharacterizeBody>(body).is_some();
 
         // Control: with no request the body keeps its look.

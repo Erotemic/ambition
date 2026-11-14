@@ -74,7 +74,7 @@ pub struct ActorSpriteData {
     pub playback: Option<&'static ambition_combat::moveset::MovePlayback>,
     /// The character the body wears: its art identity. `None` for a body that
     /// renders from a kind-default sheet.
-    pub worn: Option<&'static ambition_characters::actor::WornCharacter>,
+    pub worn: Option<&'static ambition_characters::actor::CharacterForm>,
     /// The look the body is drawn in instead of its worn character's own
     /// sheet (a Smash skin). Art only: it replaces the art key, nothing else.
     pub skin: Option<&'static ambition_characters::actor::WornSkin>,

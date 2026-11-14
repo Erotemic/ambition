@@ -615,7 +615,7 @@ fn the_summon_road_builds_an_identified_minion() {
 ///
 /// The minion road built its body from a prepared character but put the
 /// identity only on `ActorConfig::sprite_character_id`, so every seam that asks
-/// `WornCharacter` first fell through to the config copy for this one road.
+/// `CharacterForm` first fell through to the config copy for this one road.
 /// Wearing opts a body into the persona derive, which rewrites `BodyHealth`
 /// from the character; the summon's `health` override (3 against the shark's
 /// authored 6) is what a derive that ran would clobber.
@@ -656,7 +656,7 @@ fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
     let world = sim.world_mut();
     let mut q = world.query::<(
         &SimId,
-        Option<&ambition_platformer2d::character::WornCharacter>,
+        Option<&ambition_platformer2d::character::CharacterForm>,
         &ambition_platformer2d::actor::BodyHealth,
     )>();
     let minions: Vec<(Option<String>, i32)> = q
@@ -691,7 +691,7 @@ fn every_worn_actor_publishes_its_worn_character_as_its_art_identity() {
     let world = sim.world_mut();
     let mut q = world.query::<(
         &ambition_platformer2d::combat::components::FeatureId,
-        &ambition_platformer2d::character::WornCharacter,
+        &ambition_platformer2d::character::CharacterForm,
     )>();
     let worn: Vec<(String, String)> = q
         .iter(world)

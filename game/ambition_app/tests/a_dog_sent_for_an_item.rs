@@ -14,7 +14,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::errand::Errand;
 use ambition_platformer2d::actors::body::errand::ErrandOutcome;
 use ambition_platformer2d::actors::body::errand::ErrandRefusal;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::combat::held_items::HeldItem;
 use ambition_platformer2d::held_items::{GroundItem, ItemCustody};
@@ -31,7 +31,7 @@ fn the_dog_and_the_blink() -> (ambition_app::Platformer2dSimHarness, Entity, Ent
     sim.step_n(base(), 10);
     let world = sim.world_mut();
     let dog = world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == "npc_companion_dog")
         .map(|(entity, _)| entity)
@@ -193,7 +193,7 @@ fn without_its_jump_the_dog_refuses_what_needs_one() {
 fn the_dog_and_the_blink_in(sim: &mut ambition_app::Platformer2dSimHarness) -> (Entity, Entity) {
     let world = sim.world_mut();
     let dog = world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == "npc_companion_dog")
         .map(|(entity, _)| entity)
@@ -469,7 +469,7 @@ fn a_dog_on_an_errand_waits_at_a_shut_gate_portal() {
 fn send_the_dog_next_door_from_inside_the_timeline(
     mut commands: bevy::prelude::Commands,
     dogs: bevy::prelude::Query<
-        (Entity, &WornCharacter, Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>),
+        (Entity, &CharacterForm, Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>),
         bevy::prelude::Without<Errand>,
     >,
     items: bevy::prelude::Query<(&SimId, &ItemCustody, Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>)>,
@@ -633,7 +633,7 @@ fn leave_the_blink_in_a_room_nobody_holds(
 fn the_dog_and_the_blink_in_hub_only(sim: &mut ambition_app::Platformer2dSimHarness) -> Entity {
     let world = sim.world_mut();
     world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == "npc_companion_dog")
         .map(|(entity, _)| entity)
@@ -687,7 +687,7 @@ fn a_dog_sent_for_an_item_in_a_room_nobody_holds_leaves_for_it() {
 /// no live room.
 fn send_the_dog_away_from_inside_the_timeline(
     mut commands: bevy::prelude::Commands,
-    dogs: bevy::prelude::Query<(Entity, &WornCharacter), bevy::prelude::Without<Errand>>,
+    dogs: bevy::prelude::Query<(Entity, &CharacterForm), bevy::prelude::Without<Errand>>,
     items: bevy::prelude::Query<&SimId, bevy::prelude::With<GroundItem>>,
     ledger: bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>,
 ) {

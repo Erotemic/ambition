@@ -11,7 +11,7 @@
 //! 1-hit fighters the room load had built one tick later.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::characters::brain::action_set::IdentityKit;
 use ambition_platformer2d::combat::moveset::ActorMoveset;
 use ambition_platformer2d::platformer::sim_id::SimId;
@@ -23,7 +23,7 @@ fn persona_facts(world: &mut World) -> BTreeMap<String, (Entity, String, String)
     let mut bodies = world.query::<(
         Entity,
         &SimId,
-        &WornCharacter,
+        &CharacterForm,
         &BodyHealth,
         &IdentityKit,
         &ActorMoveset,
@@ -51,7 +51,7 @@ fn persona_facts(world: &mut World) -> BTreeMap<String, (Entity, String, String)
 fn assert_built_as_prepared(world: &mut World, when: &str) -> usize {
     let mut bodies = world.query::<(
         &SimId,
-        &WornCharacter,
+        &CharacterForm,
         &BodyHealth,
         &ambition_platformer2d::combat::components::CombatCapabilities,
     )>();

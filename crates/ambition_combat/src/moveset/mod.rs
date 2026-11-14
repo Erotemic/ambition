@@ -1188,7 +1188,7 @@ pub fn advance_move_playback(
         Option<&ambition_characters::control::DrivingParticipant>,
         // §7.1: the character whose authored per-animation blade geometry the
         // App-local catalog resolves.
-        Option<&ambition_characters::actor::WornCharacter>,
+        Option<&ambition_characters::actor::CharacterForm>,
         // A13's published attribution. THE authority on who this body sounds
         // like: its prepared character's provider, which every catalog row and
         // every `register_character` definition has.
@@ -1287,7 +1287,7 @@ pub fn advance_move_playback(
             playback.aimed_stick = Some(asked);
         }
         let strike_faction = crate::targeting::effective_faction(*faction, driver);
-        let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
+        let character_id = worn.map(ambition_characters::actor::CharacterForm::id);
         // Read the published attribution first. Before it lands (a body that
         // strikes on the tick it is built), ask the one authority the publisher
         // asks: the owners map this read once answered registered-only

@@ -27,7 +27,7 @@ use ambition_app::rl_sim::{
     AgentAction, AgentObservation, AmbitionSim, Platformer2dSimHarness,
     Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::actors::body::dormancy::Dormant;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::actor::ActorFaction;
@@ -213,7 +213,7 @@ fn run(options: &Options, policy: Policy) -> Run {
             Entity,
             &FeatureId,
             &ae::BodyKinematics,
-            Option<&WornCharacter>,
+            Option<&CharacterForm>,
             Option<&RidingOn>,
             Option<&BodyHealth>,
             Option<&ActorFaction>,

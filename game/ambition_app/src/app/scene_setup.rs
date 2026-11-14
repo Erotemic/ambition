@@ -168,7 +168,7 @@ pub fn session_gameplay_dressing(
     // The player's character sprite is NO LONGER bound here. It is installed by
     // the reusable `bind_worn_character_presentation` system (in
     // `ambition_render::PresentationVisualAnimationPlugin`, which this app adds),
-    // which reads the canonical sim-owned `WornCharacter` identity carried by the
+    // which reads the canonical sim-owned `CharacterForm` identity carried by the
     // player entity. The app owns only the scene composition below (cameras, HUD,
     // audio); character presentation is engine-generic so demos share it.
 

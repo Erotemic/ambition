@@ -16,7 +16,7 @@ use ambition_platformer2d::characters::equipment::{
 
 use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
 use ambition_platformer2d::actors::body::BodyFrameOutput;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
@@ -831,14 +831,14 @@ fn beacon_reward() -> PowerReward {
 /// drives both directions.
 ///
 /// Growing is feet-anchored (she rises out of the ground, feet planted) to respect
-/// the no-pushout rule; shrinking lowers her the same way. Swapping [`WornCharacter`]
+/// the no-pushout rule; shrinking lowers her the same way. Swapping [`CharacterForm`]
 /// re-derives her kit/sprite through the engine's `apply_worn_character_gameplay`;
 /// the tall row's kit is byte-identical, so only her look and size change.
 pub fn sync_grown_form(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut players: Query<
         (
             bevy::prelude::Entity,
-            &mut WornCharacter,
+            &mut CharacterForm,
             &ae::BodyKinematics,
             Option<&WornEquipment>,
         ),
@@ -1585,7 +1585,7 @@ mod tests {
             .spawn((
                 PrimaryPlayer,
                 PlayerEntity,
-                WornCharacter::new(MARY_O_CHARACTER_ID),
+                CharacterForm::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
@@ -1603,7 +1603,7 @@ mod tests {
             .insert(WornEquipment::new(vec![star_wand()]));
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().id(),
+            app.world().get::<CharacterForm>(body).unwrap().id(),
             character(1),
             "wearing the wand grows her to the tall SHEET"
         );
@@ -1615,7 +1615,7 @@ mod tests {
             .consume_armor();
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().id(),
+            app.world().get::<CharacterForm>(body).unwrap().id(),
             MARY_O_CHARACTER_ID,
             "losing the wand shrinks her back to small"
         );
@@ -1644,7 +1644,7 @@ mod tests {
             .spawn((
                 PrimaryPlayer,
                 PlayerEntity,
-                WornCharacter::new(MARY_O_CHARACTER_ID),
+                CharacterForm::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
@@ -1660,7 +1660,7 @@ mod tests {
         // block hands a lantern to.
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().id(),
+            app.world().get::<CharacterForm>(body).unwrap().id(),
             MARY_O_CHARACTER_ID,
             "she starts small"
         );
@@ -1670,7 +1670,7 @@ mod tests {
             .insert(WornEquipment::new(vec![cinder_beacon()]));
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().id(),
+            app.world().get::<CharacterForm>(body).unwrap().id(),
             character(2),
             "ONE tick after taking the beacon she is the fire form — not tall, \
              and not tall-then-fire"
@@ -1687,7 +1687,7 @@ mod tests {
             .insert(WornEquipment::new(vec![star_wand(), cinder_beacon()]));
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().id(),
+            app.world().get::<CharacterForm>(body).unwrap().id(),
             character(2),
             "holding the wand AND the beacon is the fire form — the beacon is \
              the higher rung and the check has to read it first"
@@ -1713,7 +1713,7 @@ mod tests {
             .spawn((
                 PrimaryPlayer,
                 PlayerEntity,
-                WornCharacter::new(MARY_O_CHARACTER_ID),
+                CharacterForm::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
@@ -1728,7 +1728,7 @@ mod tests {
 
         let form = |app: &App| {
             app.world()
-                .get::<WornCharacter>(body)
+                .get::<CharacterForm>(body)
                 .unwrap()
                 .id()
                 .to_string()
@@ -1786,7 +1786,7 @@ mod tests {
             .spawn((
                 PrimaryPlayer,
                 PlayerEntity,
-                WornCharacter::new(MARY_O_CHARACTER_ID),
+                CharacterForm::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,

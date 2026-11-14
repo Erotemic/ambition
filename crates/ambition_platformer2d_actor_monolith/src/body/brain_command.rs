@@ -197,7 +197,7 @@ fn apply_brain_selection(
                 target: "crate::body::brain_command",
                 "BrainCommand RestoreDefault for {}: its binding says the CHARACTER \
                  owns the default policy, and the character could not be resolved \
-                 (no WornCharacter, or no prepared cast containing it, or it \
+                 (no CharacterForm, or no prepared cast containing it, or it \
                  authors no autonomous_profile); command rejected",
                 sim_id.as_str(),
             );
@@ -266,7 +266,7 @@ pub fn apply_brain_commands(
         Option<&ambition_platformer2d_core::BodyAbilities>,
         // Which character this body IS — the gameplay identity its durable
         // autonomous policy is recovered through.
-        Option<&ambition_characters::actor::WornCharacter>,
+        Option<&ambition_characters::actor::CharacterForm>,
     )>,
 ) {
     let mut by_id: BTreeMap<&LiveBodyId, Vec<&BrainCommandKind>> = BTreeMap::new();

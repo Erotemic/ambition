@@ -20,7 +20,7 @@ use std::collections::BTreeSet;
 
 use crate::common::{base, fixed_60hz_room_options, finish_passages};
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::ldtk_map::LdtkProject;
 
@@ -58,7 +58,7 @@ fn flag(sim: &mut Platformer2dSimHarness, id: &str) -> bool {
 /// How many bodies in the room wear catalog character `id`.
 fn wearing(sim: &mut Platformer2dSimHarness, id: &str) -> usize {
     let world = sim.world_mut();
-    let mut q = world.query::<&WornCharacter>();
+    let mut q = world.query::<&CharacterForm>();
     q.iter(world).filter(|worn| worn.id() == id).count()
 }
 

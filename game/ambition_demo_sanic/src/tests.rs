@@ -783,7 +783,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
         .world_mut()
         .spawn((
             ambition_platformer2d::characters::control::ActorControl::default(),
-            ambition_platformer2d::characters::actor::WornCharacter::new(SANIC_CHARACTER_ID),
+            ambition_platformer2d::characters::actor::CharacterForm::new(SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
             ae::MotionModel::surface_momentum(ae::MomentumParams::default()),
             // `#[require]` pulls in `ResolvedTechniqueEdges` — the seam the gate
@@ -833,7 +833,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
 
     let worn = |app: &App| {
         app.world()
-            .get::<ambition_platformer2d::characters::actor::WornCharacter>(entity)
+            .get::<ambition_platformer2d::characters::actor::CharacterForm>(entity)
             .unwrap()
             .id()
             .to_string()
@@ -890,7 +890,7 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
                 ambition_platformer2d::characters::actor::Health::new(3),
             ),
             ambition_platformer2d::characters::control::ActorControl::default(),
-            ambition_platformer2d::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
+            ambition_platformer2d::characters::actor::CharacterForm::new(SUPER_SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
             // What `publish_body_presentation_sources` derives in production; the
             // derivation itself is tested in `character_runtime::presentation`.
@@ -2550,7 +2550,7 @@ fn every_painted_joint_can_be_ridden_past() {
 /// that is not Sanic's.
 #[test]
 fn the_ring_shield_follows_the_rules_scope() {
-    use ambition_platformer2d::characters::actor::{BodyWallet, BodyWalletShield, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyWallet, BodyWalletShield, CharacterForm};
 
     /// Whether Sanic's body is shielded after a visit to each room in turn.
     fn shielded_through(rules: SanicRulesPlugin, rooms: &[Option<&str>]) -> Vec<bool> {
@@ -2567,7 +2567,7 @@ fn the_ring_shield_follows_the_rules_scope() {
             .spawn((
                 ambition_platformer2d::platformer::markers::PlayerEntity,
                 ambition_platformer2d::platformer::markers::PrimaryPlayer,
-                WornCharacter::new(SANIC_CHARACTER_ID),
+                CharacterForm::new(SANIC_CHARACTER_ID),
                 BodyWallet { balance: 10 },
             ))
             .id();

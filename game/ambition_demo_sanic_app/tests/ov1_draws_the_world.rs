@@ -243,14 +243,14 @@ fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
 
     {
         let mut q = app.world_mut().query_filtered::<
-            &mut ambition_platformer2d::characters::actor::WornCharacter,
+            &mut ambition_platformer2d::characters::actor::CharacterForm,
             With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         >();
         let mut worn = q
             .iter_mut(app.world_mut())
             .next()
             .expect("the visible demo spawned its canonical player");
-        *worn = ambition_platformer2d::characters::actor::WornCharacter::new(
+        *worn = ambition_platformer2d::characters::actor::CharacterForm::new(
             ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
         );
     }

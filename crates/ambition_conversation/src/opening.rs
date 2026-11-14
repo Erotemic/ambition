@@ -47,10 +47,10 @@ pub struct DialogueDispatch<'w, 's> {
     /// rather than a wrong one — see [`ConversationInstanceId`].
     pub sim_ids: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
     /// The character a speaking body is WEARING — read from the ENTITY's
-    /// canonical `WornCharacter` identity, not the app-local startup selection
+    /// canonical `CharacterForm` identity, not the app-local startup selection
     /// resource, so after a runtime re-wear or snapshot restore the home avatar
     /// speaks as the character it currently IS.
-    pub worn: Query<'w, 's, &'static ambition_characters::actor::WornCharacter>,
+    pub worn: Query<'w, 's, &'static ambition_characters::actor::CharacterForm>,
 }
 
 impl DialogueDispatch<'_, '_> {
@@ -116,7 +116,7 @@ impl DialogueDispatch<'_, '_> {
             // conversation.
             // `SimId`, never these entities: `LoadWorld` remaps handles.
             // and the CONTEXT, not just the bodies. `speaker_id` above
-            // falls back to the initiator's `WornCharacter`, which is
+            // falls back to the initiator's `CharacterForm`, which is
             // rollback-owned: two corrected timelines can agree on the tick, the
             // node and both `SimId`s while entering Yarn as different characters.
             instance: ConversationInstanceId::mint(

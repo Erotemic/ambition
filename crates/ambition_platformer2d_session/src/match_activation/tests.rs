@@ -148,7 +148,7 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
 
     let world = app.world_mut();
     let mut q = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &ambition_platformer2d_core::BodyKinematics,
         &ambition_characters::actor::ActorFaction,
         Option<&ambition_combat::targeting::MatchTeam>,
@@ -248,7 +248,7 @@ fn seating_runs_once_however_many_ticks_pass() {
     }
 
     let world = app.world_mut();
-    let mut q = world.query::<&ambition_characters::actor::WornCharacter>();
+    let mut q = world.query::<&ambition_characters::actor::CharacterForm>();
     assert_eq!(
         q.iter(world).count(),
         1,
@@ -281,7 +281,7 @@ fn an_unbuildable_character_is_refused_by_name() {
 
     {
         let world = app.world_mut();
-        let mut q = world.query::<&ambition_characters::actor::WornCharacter>();
+        let mut q = world.query::<&ambition_characters::actor::CharacterForm>();
         assert_eq!(
             q.iter(world).count(),
             0,
@@ -338,7 +338,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
                 ),
                 ambition_characters::actor::Health::new(5),
             ),
-            ambition_characters::actor::WornCharacter::new("sanic"),
+            ambition_characters::actor::CharacterForm::new("sanic"),
         ))
         .id();
     app.insert_resource(MatchParticipantRoster {
@@ -371,7 +371,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
     // The bystander is untouched: same costume, same place.
     assert_eq!(
         app.world()
-            .get::<ambition_characters::actor::WornCharacter>(bystander)
+            .get::<ambition_characters::actor::CharacterForm>(bystander)
             .map(|worn| worn.id().to_owned()),
         Some("sanic".to_owned()),
         "the match re-dressed a body outside its own cast"
@@ -423,7 +423,7 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&ambition_characters::control::DrivingParticipant>,
     )>();
     let mut seats: Vec<(String, Option<u8>)> = bodies
@@ -520,7 +520,7 @@ fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&DrivingParticipant>,
     )>();
     let seated: Vec<(String, Option<PlayerSlot>)> = bodies
@@ -819,7 +819,7 @@ fn a_seated_charger_is_built_able_to_charge_and_a_verb_fighter_is_not() {
 
     let world = app.world_mut();
     let mut seated = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Has<ChargesProjectiles>,
         Has<ambition_projectiles::PlayerProjectileState>,
     )>();
@@ -1113,7 +1113,7 @@ fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
     )>();
     let found: Vec<(String, Option<f32>)> = bodies
@@ -1227,7 +1227,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
     )>();
     let found: Vec<(String, Option<ambition_platformer2d_core::MovementTuning>)> = bodies
@@ -1278,7 +1278,7 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&ambition_characters::control::ControlHolds>,
     )>();
     let seated: Vec<_> = bodies
@@ -1460,7 +1460,7 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
     let mut bodies = world.query::<(
         &ambition_characters::brain::ActionSet,
         &ambition_characters::brain::action_set::IdentityKit,
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
     )>();
     let (live, durable, _) = bodies
         .iter(world)
@@ -1586,7 +1586,7 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&ambition_characters::control::ControlHolds>,
     )>();
     let suspended: Vec<_> = bodies.iter(world).map(|(_, s)| s.is_some()).collect();
@@ -1624,7 +1624,7 @@ fn a_match_that_declares_fighter_contact_seats_solid_fighters_and_no_other() {
 
         let world = app.world_mut();
         let mut bodies = world.query::<(
-            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::CharacterForm,
             Option<&BodyContact>,
         )>();
         let contact: Vec<_> = bodies
@@ -1728,7 +1728,7 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &ambition_characters::brain::ActionSet,
     )>();
     let (_, set) = bodies
@@ -1799,7 +1799,7 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
     fn melee_damage(app: &mut App) -> Option<i32> {
         let world = app.world_mut();
         let mut bodies = world.query::<(
-            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::CharacterForm,
             &ambition_characters::brain::ActionSet,
         )>();
         match bodies.iter(world).next().map(|(_, set)| set.melee.clone()) {
@@ -1832,7 +1832,7 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
         melee_damage(&mut app),
         Some(9),
         "the seated fighter kept the retired cast's kit. `apply_worn_character_gameplay` \
-         is the only writer for it and runs on `Changed<WornCharacter>` / \
+         is the only writer for it and runs on `Changed<CharacterForm>` / \
          `Changed<BodyAbilities>` — a cast replacement changes neither, so nothing \
          refreshed it. Worse, the projection stamped the body with the NEW generation \
          anyway, so it now reads as current and no later pass will revisit it"
@@ -1870,7 +1870,7 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
                 ),
                 ambition_characters::actor::Health::new(999),
             ),
-            ambition_characters::actor::WornCharacter::new("tank"),
+            ambition_characters::actor::CharacterForm::new("tank"),
         ))
         .id();
     app.insert_resource(MatchParticipantRoster {
@@ -1939,7 +1939,7 @@ fn a_declared_match_pool_levels_two_fighters_their_home_games_sized_differently(
 
         let world = app.world_mut();
         let mut q = world.query::<(
-            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::CharacterForm,
             &ambition_characters::actor::BodyHealth,
         )>();
         let mut rows: Vec<(String, i32)> = q
@@ -2182,7 +2182,7 @@ fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
 /// the test above is not sufficient, and believing it was is the mistake
 /// this one exists for. Removing `RecharacterizeBody`
 /// silences the PERSONA derive. `project_prepared_character_definitions` is a
-/// SECOND observer, it fires on `Changed<WornCharacter>`, and a seated body with
+/// SECOND observer, it fires on `Changed<CharacterForm>`, and a seated body with
 /// no `ProjectedCharacterKit` was still being finished by it a tick after
 /// construction — hurtboxes, posed body, movement tuning, motion model.
 ///
@@ -2444,7 +2444,7 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &ambition_platformer2d_core::BodyKinematics,
     )>();
     let (_, kin) = bodies
@@ -2503,7 +2503,7 @@ fn a_roster_with_an_unseatable_participant_never_latches() {
          run and the round goes live one fighter short"
     );
     let world = app.world_mut();
-    let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+    let mut worn = world.query::<&ambition_characters::actor::CharacterForm>();
     assert_eq!(
         worn.iter(world).count(),
         0,
@@ -2622,7 +2622,7 @@ fn activation_publishes_every_seated_body_in_seat_order() {
     let worn: Vec<String> = world
         .run_system_cached(
             |seated: Query<(Entity, &MatchSeat)>,
-             worn: Query<&ambition_characters::actor::WornCharacter>| {
+             worn: Query<&ambition_characters::actor::CharacterForm>| {
                 ambition_match::match_participants(&seated)
                     .into_iter()
                     .map(|body| {
@@ -2672,7 +2672,7 @@ fn a_seated_fighter_carries_its_authored_mass() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &ambition_platformer2d_shared_tangle::body::Mass,
     )>();
     let (_, mass) = bodies
@@ -2711,7 +2711,7 @@ fn a_seated_fighter_that_authors_no_kit_is_seated_without_an_invented_one() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &ambition_characters::brain::ActionSet,
     )>();
     let (_, action_set) = bodies
@@ -2753,7 +2753,7 @@ fn a_seated_body_matches_every_column_the_persona_writer_requires() {
 
     let world = app.world_mut();
     let mut visible_to_the_derive = world.query_filtered::<Entity, (
-        With<ambition_characters::actor::WornCharacter>,
+        With<ambition_characters::actor::CharacterForm>,
         With<Name>,
         With<ambition_characters::brain::ActionSet>,
         With<ambition_combat::moveset::ActorMoveset>,
@@ -2809,7 +2809,7 @@ fn a_seat_naming_an_unknown_brain_profile_is_not_seated() {
         "a match activated with a fighter the roster could not describe"
     );
     let world = app.world_mut();
-    let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+    let mut worn = world.query::<&ambition_characters::actor::CharacterForm>();
     assert_eq!(
         worn.iter(world).count(),
         0,
@@ -2842,7 +2842,7 @@ mod activation_transaction {
                     ),
                     ambition_characters::actor::Health::new(PLAYER_POOL),
                 ),
-                ambition_characters::actor::WornCharacter::new("mary_o"),
+                ambition_characters::actor::CharacterForm::new("mary_o"),
             ))
             .id()
     }
@@ -2912,7 +2912,7 @@ mod activation_transaction {
             "the latch closed on an incomplete roster"
         );
         let world = app.world_mut();
-        let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+        let mut worn = world.query::<&ambition_characters::actor::CharacterForm>();
         assert_eq!(
             worn.iter(world).count(),
             1,
@@ -3043,7 +3043,7 @@ fn one_character_definition_seats_two_independent_fighters() {
     let world = app.world_mut();
     let mut q = world.query::<(
         Entity,
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &MatchSeat,
         &ambition_platformer2d_core::BodyKinematics,
     )>();
@@ -3131,7 +3131,7 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
     let world = app.world_mut();
     let mut q = world.query::<(
         Entity,
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         Option<&ambition_combat::CombatCapabilities>,
     )>();
     let mut seen: Vec<(Entity, String, bool)> = q
@@ -3160,9 +3160,9 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
     // above and makes a character swap permanently immortalising.
     let sandbag_body = seen[1].0;
     *app.world_mut()
-        .get_mut::<ambition_characters::actor::WornCharacter>(sandbag_body)
+        .get_mut::<ambition_characters::actor::CharacterForm>(sandbag_body)
         .expect("the seated body wears its character") =
-        ambition_characters::actor::WornCharacter::new("duelist");
+        ambition_characters::actor::CharacterForm::new("duelist");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the body
     // : a re-wear is an explicit request now, the way
     // Mary-O's powerup already made it.
@@ -3225,7 +3225,7 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
 
     let world = app.world_mut();
     let mut q = world.query::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &ambition_combat::CombatTuning,
     )>();
     let mut seen: Vec<(String, f32)> = q

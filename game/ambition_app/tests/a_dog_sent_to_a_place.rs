@@ -10,7 +10,7 @@
 
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::visit::{Visit, VisitOutcome};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::world::navigation::NavGraph;
 use bevy::prelude::Entity;
@@ -22,7 +22,7 @@ const PATIENCE: u32 = 1800;
 fn the_dog(sim: &mut ambition_app::Platformer2dSimHarness) -> Entity {
     let world = sim.world_mut();
     world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == "npc_companion_dog")
         .map(|(entity, _)| entity)

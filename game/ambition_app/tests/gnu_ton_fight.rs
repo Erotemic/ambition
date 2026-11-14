@@ -1815,7 +1815,7 @@ fn the_gnu_is_built_unmirrored_and_only_its_arena_stands_it_behind() {
         for _ in 0..300 {
             let world = sim.world_mut();
             let found = world
-                .query::<(&ambition_platformer2d::characters::actor::WornCharacter, Has<ae::Unmirrored>, Option<&ae::DepthPlane>)>()
+                .query::<(&ambition_platformer2d::characters::actor::CharacterForm, Has<ae::Unmirrored>, Option<&ae::DepthPlane>)>()
                 .iter(world)
                 .find(|(worn, ..)| worn.id() == id)
                 .map(|(_, unmirrored, plane)| (unmirrored, plane.copied()));

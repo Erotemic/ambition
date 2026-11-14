@@ -495,7 +495,7 @@ pub enum PoseGeometry {
 
 impl PoseGeometry {
     pub fn of(
-        worn: Option<&ambition_characters::actor::WornCharacter>,
+        worn: Option<&ambition_characters::actor::CharacterForm>,
         granted: Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
         registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     ) -> Self {
@@ -702,7 +702,7 @@ pub fn rebuild_body_pose_views(
                 // owns the mechanic. See `BodyPoseView::line_anchor`.
                 Option<&ambition_platformer2d_core::BodyLineAnchor>,
                 // WHO the body is and whose body it was GRANTED — see `PoseGeometry`.
-                Option<&ambition_characters::actor::WornCharacter>,
+                Option<&ambition_characters::actor::CharacterForm>,
                 Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
                 bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
                 bevy::prelude::Has<TakenByDeathLook>,

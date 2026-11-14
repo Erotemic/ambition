@@ -378,7 +378,7 @@ pub fn spawn_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
                 // rediscovering the selection from separate authorities. Resolved to
                 // a concrete id (the content default when unset) so the identity is
                 // never empty on the entity.
-                ambition_characters::actor::WornCharacter::new(
+                ambition_characters::actor::CharacterForm::new(
                     character.effective_id(default_character_id),
                 ),
                 player_bundle,

@@ -148,7 +148,7 @@ fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
 
 /// S1: gameplay configuration is DERIVED from the worn identity, at spawn
 /// (Added) and on any later re-wear (Changed). A body carrying only the
-/// `WornCharacter` identity plus the mutable gameplay components has its name
+/// `CharacterForm` identity plus the mutable gameplay components has its name
 /// and movement identity re-derived by `apply_worn_character_gameplay`.
 #[test]
 fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
@@ -175,7 +175,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     let e = app
         .world_mut()
         .spawn((
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -208,7 +208,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
         "the display name is derived from the worn identity"
     );
 
-    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
+    *app.world_mut().get_mut::<CharacterForm>(e).unwrap() = CharacterForm::new("player_robot_v3");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
@@ -252,7 +252,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
     let entity = app
         .world_mut()
         .spawn((
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -286,7 +286,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
 
     // Assigning the equivalent identity still creates a real Changed edge. The
     // derive must refresh name/kit without replacing the matching motion model.
-    *app.world_mut().get_mut::<WornCharacter>(entity).unwrap() = WornCharacter::new("sanic");
+    *app.world_mut().get_mut::<CharacterForm>(entity).unwrap() = CharacterForm::new("sanic");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
@@ -304,7 +304,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
     }
 }
 
-/// S1 poison / non-vacuity: with no change to either `WornCharacter` or
+/// S1 poison / non-vacuity: with no change to either `CharacterForm` or
 /// `BodyAbilities`, the derive system does not fire, so a hand-set movement model
 /// is left untouched. This proves the assertions above are driven by the two
 /// `Changed` edges, not by the system running unconditionally every frame.
@@ -329,7 +329,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
     let e = app
         .world_mut()
         .spawn((
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -392,7 +392,7 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
     let e = app
         .world_mut()
         .spawn((
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             Name::new("placeholder"),
             ambition_characters::brain::ActionSet::peaceful(),
             ambition_combat::moveset::ActorMoveset(Default::default()),
@@ -412,12 +412,12 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
     );
 
     // ⇥ STEP ONE: change the identity, ask nothing.
-    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
+    *app.world_mut().get_mut::<CharacterForm>(e).unwrap() = CharacterForm::new("player_robot_v3");
     app.update();
     assert_eq!(
         app.world().get::<Name>(e).unwrap().as_str(),
         "Sanic",
-        "writing the worn id rebuilt the body, so `WornCharacter` still means \
+        "writing the worn id rebuilt the body, so `CharacterForm` still means \
          'please re-apply me' and the split is nominal"
     );
 
@@ -459,7 +459,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
     let e = app
         .world_mut()
         .spawn((
-            WornCharacter::new("npc_pirate_admiral"),
+            CharacterForm::new("npc_pirate_admiral"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -489,7 +489,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
     );
 
     // Re-wear a DIFFERENT known character: the kit fully swaps — no stale pistol.
-    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("goblin");
+    *app.world_mut().get_mut::<CharacterForm>(e).unwrap() = CharacterForm::new("goblin");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
@@ -544,7 +544,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
     let e = app
         .world_mut()
         .spawn((
-            WornCharacter::new("npc_pirate_admiral"),
+            CharacterForm::new("npc_pirate_admiral"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -575,7 +575,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
 
     // Re-wear the catalog's protagonist row ("player_robot_v3"): NO stale
     // pistol, and exactly the kit that row authors.
-    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
+    *app.world_mut().get_mut::<CharacterForm>(e).unwrap() = CharacterForm::new("player_robot_v3");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
@@ -592,7 +592,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
     // THE INVARIANT, WHICH IS ABOUT STALENESS AND NOT ABOUT THE ROBOT.
     // The pistol must be GONE: a kit is a function of identity plus persisted
     // abilities, never of mutation history, and that is also the snapshot-restore
-    // contract — restoring a `WornCharacter` onto a survivor must rebuild rather
+    // contract — restoring a `CharacterForm` onto a survivor must rebuild rather
     // than inherit.
     //
     assert!(
@@ -646,7 +646,7 @@ fn a_rewear_to_an_unprepared_id_keeps_the_previous_character() {
     let e = app
         .world_mut()
         .spawn((
-            WornCharacter::new("npc_pirate_admiral"),
+            CharacterForm::new("npc_pirate_admiral"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -679,8 +679,8 @@ fn a_rewear_to_an_unprepared_id_keeps_the_previous_character() {
         .clone();
     let baseline = app.world().get::<PersonaBaseline>(e).unwrap().clone();
 
-    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() =
-        WornCharacter::new("ghost_not_in_catalog");
+    *app.world_mut().get_mut::<CharacterForm>(e).unwrap() =
+        CharacterForm::new("ghost_not_in_catalog");
     app.world_mut()
         .entity_mut(e)
         .insert(ambition_characters::actor::RecharacterizeBody);
@@ -690,7 +690,7 @@ fn a_rewear_to_an_unprepared_id_keeps_the_previous_character() {
 
     let world = app.world();
     assert_eq!(
-        world.get::<WornCharacter>(e).unwrap().id(),
+        world.get::<CharacterForm>(e).unwrap().id(),
         "npc_pirate_admiral",
         "the body names a character it does not wear"
     );
@@ -1437,7 +1437,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
     let body = app
         .world_mut()
         .spawn((
-            WornCharacter::new("sanic"),
+            CharacterForm::new("sanic"),
             MotionModel::default(),
             Name::new("unset"),
             // What the bundle leaves behind: the catalog-derived kit, applied
@@ -1519,7 +1519,7 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
     let body = app
         .world_mut()
         .spawn((
-            WornCharacter::new("anvil"),
+            CharacterForm::new("anvil"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -1733,7 +1733,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     let body = app
         .world_mut()
         .spawn((
-            WornCharacter::new("heavy_duelist"),
+            CharacterForm::new("heavy_duelist"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -1778,7 +1778,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
         }
     );
 
-    *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("silent_persona");
+    *app.world_mut().get_mut::<CharacterForm>(body).unwrap() = CharacterForm::new("silent_persona");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
@@ -1857,7 +1857,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
     let body = app
         .world_mut()
         .spawn((
-            WornCharacter::new("heavy_duelist"),
+            CharacterForm::new("heavy_duelist"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -1879,7 +1879,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
         Some(2.0)
     );
 
-    *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("silent_persona");
+    *app.world_mut().get_mut::<CharacterForm>(body).unwrap() = CharacterForm::new("silent_persona");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
@@ -1937,7 +1937,7 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
     let body = app
         .world_mut()
         .spawn((
-            WornCharacter::new("quiet_one"),
+            CharacterForm::new("quiet_one"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -1967,7 +1967,7 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
         health.health.current = 3;
     }
 
-    *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("quiet_two");
+    *app.world_mut().get_mut::<CharacterForm>(body).unwrap() = CharacterForm::new("quiet_two");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
@@ -2056,7 +2056,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     let body = app
         .world_mut()
         .spawn((
-            WornCharacter::new("heavy_duelist"),
+            CharacterForm::new("heavy_duelist"),
             MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
@@ -2091,7 +2091,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
 
     // The reload: the SAME character, re-prepared with both lines removed.
     // `insert_prepared` publishes, which moves the generation the derive
-    // compares against — the body's `WornCharacter` is never touched.
+    // compares against — the body's `CharacterForm` is never touched.
     app.world_mut()
         .resource_mut::<ambition_characters::prepared::PreparedCharacterRegistry>()
         .insert_prepared(prepared_duelist(

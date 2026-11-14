@@ -557,7 +557,7 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
             character_first_config(),
             ambition_combat::actor_tuning::ActorPolicy(provoked_policy()),
             villager(),
-            ambition_characters::actor::WornCharacter::new("npc_villager"),
+            ambition_characters::actor::CharacterForm::new("npc_villager"),
         ))
         .id()
 }
@@ -682,7 +682,7 @@ fn a_release_during_temporary_control_still_changes_the_source() {
 /// COVERED FOR.
 ///
 /// `ActorPolicy` is the policy the body is running NOW and provocation writes it, so
-/// on a body whose `WornCharacter` or prepared cast went missing, "ask the character, and otherwise
+/// on a body whose `CharacterForm` or prepared cast went missing, "ask the character, and otherwise
 /// trust whatever mind is installed" restores the PROVOKED policy and labels it the character's
 /// own. Silently. Forever.
 ///
@@ -692,7 +692,7 @@ fn a_release_during_temporary_control_still_changes_the_source() {
 ///
 /// the fixture removes the identity rather than the cast, because that is the
 /// half a composition can lose without noticing: a body spawned by a road that
-/// forgot to attach `WornCharacter` still has a perfectly good registry sitting
+/// forgot to attach `CharacterForm` still has a perfectly good registry sitting
 /// beside it.
 #[test]
 fn a_character_first_default_that_cannot_be_resolved_is_rejected() {
@@ -700,7 +700,7 @@ fn a_character_first_default_that_cannot_be_resolved_is_rejected() {
     let e = spawn_provoked_character_first(&mut app, "villager");
     app.world_mut()
         .entity_mut(e)
-        .remove::<ambition_characters::actor::WornCharacter>();
+        .remove::<ambition_characters::actor::CharacterForm>();
 
     send(
         &mut app,

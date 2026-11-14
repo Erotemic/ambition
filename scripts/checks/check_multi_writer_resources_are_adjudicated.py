@@ -393,6 +393,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_persistence/src/save.rs",
     ),
     "PendingLifecycleCommit": (
+        "crates/ambition_hosted_world/src/lib.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_departure.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
@@ -2653,6 +2654,11 @@ ADJUDICATED: dict[str, str] = {
         "is a further armer and honours the ladder like the others: it returns "
         "while the slot holds anything (`peek`) and arms only through `record`, "
         "keeping its `admitted()` answer."
+        "\n      ⭐ 2026-11-13: `ambition_hosted_world::follow_own_crossing` arms it "
+        "on a hosted GUEST only (a `PreUpdate` exclusive system, gated on the "
+        "guest's `LocalSeat`), through the same `record` and honouring its "
+        "refusal; a guest's simulation is gated, so no other armer competes on "
+        "that App, and it is never installed on a host or a GGRS peer"
     ),
     "CutsceneLibrary": (
         "CORRECT — ONE MAP, AND EACH PROVIDER WRITES THE ROWS OF ITS OWN IDS. "

@@ -103,7 +103,7 @@ fn realize_seat(sprite_content: &ambition_sprite_sheet::SpriteContent,
                         // the registration gap and the couch crosstalk came out of.
                         //
                         // a body's render/simulation identity is the BODY.
-                        // What it WEARS is `WornCharacter`, and a mirror match is
+                        // What it WEARS is `CharacterForm`, and a mirror match is
                         // an ordinary thing a platform fighter must allow.
                         seat.feature_id.as_str(),
                         seat.definition.display_name.clone(),
@@ -126,7 +126,7 @@ fn realize_seat(sprite_content: &ambition_sprite_sheet::SpriteContent,
                 // The body WEARS the character. Everything that makes it that
                 // fighter rather than a generic actor follows from this one
                 // component.
-                ambition_characters::actor::WornCharacter::new(seat.character_id.as_str()),
+                ambition_characters::actor::CharacterForm::new(seat.character_id.as_str()),
                 // Both applied-template records are stamped by `grant_prepared_character_body`
                 // below, which is also what installs the hurtboxes, the posed body, the movement
                 // tuning and the motion model — see the call for why they are not here. The MATCH
@@ -184,7 +184,7 @@ fn realize_seat(sprite_content: &ambition_sprite_sheet::SpriteContent,
     );
     // removing `RecharacterizeBody` silences the PERSONA derive and nothing else.
     // `project_prepared_character_definitions` is a SECOND template observer, it fires on
-    // `Changed<WornCharacter>`, and a seated body had no `ProjectedCharacterKit` — so a seat
+    // `Changed<CharacterForm>`, and a seated body had no `ProjectedCharacterKit` — so a seat
     // that asked the derive for nothing was still finished a tick later by the projector:
     // hurtboxes, the authored posed body, movement tuning, the motion model. ⛔ TWO
     // observers reach this body, so silencing one settles nothing.

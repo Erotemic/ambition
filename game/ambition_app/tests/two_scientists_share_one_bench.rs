@@ -12,7 +12,7 @@
 
 use crate::common::{base, fixed_60hz_room_options, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::life::{Doing, Life, LifeStop, Value};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::time::{DayClock, DayCycle};
 use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
 use bevy::prelude::{Entity, Messages};
@@ -29,7 +29,7 @@ const BY_HOUR: f32 = 10.75;
 fn scientists(sim: &mut ambition_app::Platformer2dSimHarness) -> [Entity; 2] {
     let world = sim.world_mut();
     let bodies: Vec<(String, Entity)> = world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .map(|(entity, worn)| (worn.id().to_string(), entity))
         .collect();

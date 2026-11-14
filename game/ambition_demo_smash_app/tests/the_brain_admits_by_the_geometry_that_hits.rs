@@ -119,7 +119,7 @@ fn seated_bodies(app: &mut App) -> Vec<SeatedBody> {
                 entity,
                 seat,
                 character: world
-                    .get::<ambition_platformer2d::characters::actor::WornCharacter>(entity)
+                    .get::<ambition_platformer2d::characters::actor::CharacterForm>(entity)
                     .map(|w| w.id().to_string()),
                 size: kin.canonical_size,
                 drawn_quad: world.get::<ActorRenderSize>(entity).map(|quad| quad.0),

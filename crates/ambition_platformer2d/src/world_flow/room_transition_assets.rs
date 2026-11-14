@@ -186,7 +186,7 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     pub(crate) worn: bevy::prelude::Query<
         'w,
         's,
-        &'static crate::characters::actor::WornCharacter,
+        &'static crate::characters::actor::CharacterForm,
         bevy::prelude::Or<(
             bevy::prelude::With<crate::platformer::markers::PlayerEntity>,
             bevy::prelude::With<crate::characters::control::DrivingParticipant>,
@@ -199,7 +199,7 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     pub(crate) actor_worn: bevy::prelude::Query<
         'w,
         's,
-        &'static crate::characters::actor::WornCharacter,
+        &'static crate::characters::actor::CharacterForm,
         bevy::prelude::With<crate::combat::actor_tuning::ActorConfig>,
     >,
     pub(crate) authored_sheets:
@@ -517,7 +517,7 @@ impl RoomResidencyOwners {
 pub(crate) fn residency_claims<'a>(
     roster: Option<&crate::actor::MatchParticipantRoster>,
     actor_worn: impl IntoIterator<
-        Item = &'a crate::characters::actor::WornCharacter,
+        Item = &'a crate::characters::actor::CharacterForm,
     >,
 ) -> Vec<String> {
     let mut claims: Vec<String> = roster

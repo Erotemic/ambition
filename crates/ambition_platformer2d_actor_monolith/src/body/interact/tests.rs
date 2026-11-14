@@ -51,13 +51,13 @@ fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) -> Entity {
 }
 
 /// Like [`spawn_interaction_player`], but also gives the home avatar the canonical
-/// `WornCharacter` identity `simulation_world` attaches in production — so dialogue
+/// `CharacterForm` identity `simulation_world` attaches in production — so dialogue
 /// speaks as the ENTITY's worn character, not an app-local resource.
 fn spawn_interaction_player_wearing(app: &mut App, pos: ae::Vec2, worn: &str) -> Entity {
     let player = spawn_interaction_player(app, pos);
     app.world_mut()
         .entity_mut(player)
-        .insert(ambition_characters::actor::WornCharacter::new(worn));
+        .insert(ambition_characters::actor::CharacterForm::new(worn));
     player
 }
 

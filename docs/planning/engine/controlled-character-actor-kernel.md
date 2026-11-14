@@ -33,7 +33,7 @@ This close relationship may justify one package with internal cycles.
 
 Body, form, skin, possession and body mode are distinct (Q159, ruled
 2026-10-19). The physical body is the world instance: position, collision
-geometry, health, custody, identity. The character form (`WornCharacter`) is
+geometry, health, custody, identity. The character form (`CharacterForm`) is
 the authored physical and mechanical configuration the body instantiates; a
 change of form updates the same body's geometry, moveset, movement and
 appearance. The skin (`WornSkin`) is presentation only. Possession moves a

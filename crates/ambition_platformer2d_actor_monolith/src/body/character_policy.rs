@@ -1,10 +1,10 @@
 //! Resolve a body's character-authored autonomous policy.
 //!
-//! Character defaults come from the prepared character selected by [`WornCharacter`].
+//! Character defaults come from the prepared character selected by [`CharacterForm`].
 //! `ActorPolicy` is mutable live policy and must not be used to restore a
 //! character default after temporary overrides such as provocation.
 
-use ambition_characters::actor::WornCharacter;
+use ambition_characters::actor::CharacterForm;
 use ambition_characters::brain::{Brain, BrainProfile};
 
 use ambition_characters::prepared::PreparedCharacterRegistry;
@@ -16,7 +16,7 @@ use ambition_combat::actor_tuning::ActorConfig;
 /// caller's fallback.
 pub(crate) fn character_autonomous_profile(
     registry: &PreparedCharacterRegistry,
-    worn: &WornCharacter,
+    worn: &CharacterForm,
 ) -> Option<BrainProfile> {
     registry.get(worn.id())?.autonomous_profile
 }

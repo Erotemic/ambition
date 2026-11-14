@@ -1456,7 +1456,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // placeholder, so rewinding a decode would change nothing a checksum can see.
     //
     // Re-triggering is safe by construction rather than by luck. A rollback that
-    // re-inserts `WornCharacter` marks it `Changed`, so the demand system asks
+    // re-inserts `CharacterForm` marks it `Changed`, so the demand system asks
     // again; `request` is idempotent, decoding an already-decoded sheet is a
     // no-op, and demand order is a `BTreeSet`. If materialization ever gains a
     // gameplay consequence — art-derived hitboxes would be exactly that, and

@@ -124,12 +124,12 @@ fn the_spur_hatch_opens_with_the_pass() {
 /// lever whose press is a fact of the save.
 #[test]
 fn the_damaged_spur_has_foes_and_a_breaker() {
-    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
     let mut sim = room_with(SPUR, with_flags(&["orbital_spur_pass"]));
     let foes: Vec<String> = {
         let world = sim.world_mut();
         world
-            .query::<(&WornCharacter, &BodyHealth)>()
+            .query::<(&CharacterForm, &BodyHealth)>()
             .iter(world)
             .filter(|(_, health)| health.alive())
             .map(|(worn, _)| worn.id().to_string())

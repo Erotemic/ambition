@@ -130,7 +130,7 @@ pub(crate) fn draw_debug_overlay(
         &ae::MotionModel,
         Option<&ambition_platformer2d::characters::actor::BodyHealth>,
         ambition_platformer2d::combat::moveset::MeleeSwingQuery,
-        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::characters::actor::CharacterForm,
         Option<&ambition_platformer2d::sim_view::PresentedPose>,
         Option<&ambition_platformer2d::combat::components::ActorRenderSize>,
         Option<&ambition_platformer2d::characters::control::DrivingParticipant>,

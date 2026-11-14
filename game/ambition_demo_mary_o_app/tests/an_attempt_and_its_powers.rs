@@ -163,7 +163,7 @@ fn a_death_takes_back_her_powers() {
     let form_of = |app: &mut App| -> String {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
             With<PrimaryPlayer>,
         >();
         q.iter(world).next().map_or("-".into(), |w| w.id().to_string())

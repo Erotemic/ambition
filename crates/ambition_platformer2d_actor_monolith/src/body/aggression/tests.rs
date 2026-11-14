@@ -412,7 +412,7 @@ fn spawn_character_npc(
     let npc = spawn_actor_from_seed(app, seed, "parrot", aabb, interactable, 0);
     app.world_mut()
         .entity_mut(npc)
-        .insert(ambition_characters::actor::WornCharacter::new("npc_test_parrot"));
+        .insert(ambition_characters::actor::CharacterForm::new("npc_test_parrot"));
     npc
 }
 
@@ -949,7 +949,7 @@ fn authored_provocation_app() -> (
     let npc = spawn_character_npc(&mut app, &cast);
     app.insert_resource(cast);
     app.world_mut().entity_mut(npc).insert((
-        ambition_characters::actor::WornCharacter::new("npc_test_parrot"),
+        ambition_characters::actor::CharacterForm::new("npc_test_parrot"),
         ambition_characters::control::brain_binding::BrainBinding::from_character_profile(),
     ));
     (app, npc, profile, id)

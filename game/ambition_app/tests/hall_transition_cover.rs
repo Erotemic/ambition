@@ -559,7 +559,7 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     let worn: String = {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
             bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         >();
         q.iter(world)

@@ -207,7 +207,7 @@ fn a_snake_is_built_with_its_shell_state() {
     #[derive(Resource, Default)]
     struct FirstSeen(Vec<(Entity, bool)>);
     fn sample(
-        bodies: Query<(Entity, &ambition_platformer2d::characters::actor::WornCharacter, Has<SnakeShell>)>,
+        bodies: Query<(Entity, &ambition_platformer2d::characters::actor::CharacterForm, Has<SnakeShell>)>,
         mut seen: ResMut<FirstSeen>,
     ) {
         for (body, worn, shelled) in &bodies {
@@ -239,12 +239,12 @@ fn a_snake_is_built_with_its_shell_state() {
 
 #[test]
 fn two_walkers_meet_without_overlap_and_turn_away() {
-    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::CharacterForm;
     use ambition_platformer2d::engine_core::BodyKinematics;
     let mut app = ambition_demo_mary_o_app::build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
     for _ in 0..120 { app.update(); }
-    let mut q = app.world_mut().query::<(Entity, &WornCharacter)>();
+    let mut q = app.world_mut().query::<(Entity, &CharacterForm)>();
     let mut slops: Vec<_> = q.iter(app.world()).filter(|(_, worn)| worn.id() == "ai_slop").map(|(entity, _)| entity).collect();
     slops.sort();
     assert!(slops.len() >= 2, "the real level must supply the pair");
@@ -309,7 +309,7 @@ fn authored_enemy_starts_do_not_overlap_their_constructed_bodies() {
 
 #[test]
 fn a_walker_hurts_mary_o_without_turning_away() {
-    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::platformer::markers::PrimaryPlayer;
     let mut app = ambition_demo_mary_o_app::build_demo_app();
@@ -317,7 +317,7 @@ fn a_walker_hurts_mary_o_without_turning_away() {
     for _ in 0..120 { app.update(); }
     let mut q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
     let player = q.single(app.world()).unwrap();
-    let mut q = app.world_mut().query::<(Entity, &WornCharacter, &BodyKinematics)>();
+    let mut q = app.world_mut().query::<(Entity, &CharacterForm, &BodyKinematics)>();
     let enemy = q.iter(app.world()).filter(|(_, worn, _)| worn.id() == "ai_slop")
         .min_by(|a, b| a.2.pos.x.total_cmp(&b.2.pos.x)).unwrap().0;
     retain_contact_walkers(&mut app, &[enemy]);
@@ -342,7 +342,7 @@ fn a_walker_hurts_mary_o_without_turning_away() {
 
 #[test]
 fn walking_into_a_boxed_snake_still_kicks_it() {
-    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::CharacterForm;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::platformer::markers::PrimaryPlayer;
     let mut app = ambition_demo_mary_o_app::build_demo_app();
@@ -352,7 +352,7 @@ fn walking_into_a_boxed_snake_still_kicks_it() {
     for _ in 0..120 { app.update(); }
     let mut q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
     let player = q.single(app.world()).unwrap();
-    let mut q = app.world_mut().query::<(Entity, &WornCharacter)>();
+    let mut q = app.world_mut().query::<(Entity, &CharacterForm)>();
     let snake = q.iter(app.world()).find(|(_, worn)| worn.id() == "solid_snake").unwrap().0;
     *app.world_mut().get_mut::<SnakeShell>(snake).unwrap() = SnakeShell::Boxed(100.0);
     app.world_mut().entity_mut(snake).insert(
@@ -379,14 +379,14 @@ fn walking_into_a_boxed_snake_still_kicks_it() {
 }
 
 fn contact_course() -> (App, Entity, Vec<Entity>) {
-    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::CharacterForm;
     use ambition_platformer2d::platformer::markers::PrimaryPlayer;
     let mut app = ambition_demo_mary_o_app::build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..120 { app.update(); }
     let player = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>().single(app.world()).unwrap();
-    let mut walkers: Vec<_> = app.world_mut().query::<(Entity, &WornCharacter)>().iter(app.world())
+    let mut walkers: Vec<_> = app.world_mut().query::<(Entity, &CharacterForm)>().iter(app.world())
         .filter(|(_, worn)| matches!(worn.id(), "ai_slop" | "solid_snake"))
         .map(|(entity, _)| entity).collect();
     walkers.sort();
@@ -395,7 +395,7 @@ fn contact_course() -> (App, Entity, Vec<Entity>) {
 }
 
 fn retain_contact_walkers(app: &mut App, keep: &[Entity]) {
-    let removed: Vec<_> = app.world_mut().query::<(Entity, &ambition_platformer2d::characters::actor::WornCharacter)>()
+    let removed: Vec<_> = app.world_mut().query::<(Entity, &ambition_platformer2d::characters::actor::CharacterForm)>()
         .iter(app.world()).filter(|(entity, worn)| matches!(worn.id(), "ai_slop" | "solid_snake") && !keep.contains(entity))
         .map(|(entity, _)| entity).collect();
     for entity in removed { app.world_mut().despawn(entity); }
@@ -416,7 +416,7 @@ fn a_dead_walker_does_not_block_or_turn_a_live_walker() {
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
     let (mut app, _, walkers) = contact_course();
-    let slops: Vec<_> = walkers.into_iter().filter(|body| app.world().get::<ambition_platformer2d::characters::actor::WornCharacter>(*body).unwrap().id() == "ai_slop").collect();
+    let slops: Vec<_> = walkers.into_iter().filter(|body| app.world().get::<ambition_platformer2d::characters::actor::CharacterForm>(*body).unwrap().id() == "ai_slop").collect();
     let (live, dead) = (slops[0], slops[1]);
     retain_contact_walkers(&mut app, &[live, dead]);
     place_contact_body(&mut app, live, 350.0, 1.0);
@@ -437,15 +437,15 @@ fn a_dead_walker_does_not_block_or_turn_a_live_walker() {
 #[test]
 fn cosmic_and_quasar_contact_kill_walkers_that_approach_or_walk_away() {
     use ambition_platformer2d::actors::body::empowerment::Empowered;
-    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::input::ControlFrame;
     for (cosmic, character, facing) in [(true, "ai_slop", -1.0), (true, "solid_snake", 1.0), (false, "ai_slop", 1.0), (false, "solid_snake", -1.0)] {
         let (mut app, player, walkers) = contact_course();
-        let enemy = *walkers.iter().find(|body| app.world().get::<WornCharacter>(**body).unwrap().id() == character).unwrap();
+        let enemy = *walkers.iter().find(|body| app.world().get::<CharacterForm>(**body).unwrap().id() == character).unwrap();
         retain_contact_walkers(&mut app, &[enemy]);
         if cosmic {
-            app.world_mut().entity_mut(player).insert(WornCharacter::new(ambition_demo_mary_o::cosmic::COSMIC_CHARACTER_ID));
+            app.world_mut().entity_mut(player).insert(CharacterForm::new(ambition_demo_mary_o::cosmic::COSMIC_CHARACTER_ID));
         } else {
             app.world_mut().entity_mut(player).insert(Empowered::for_seconds(ambition_demo_mary_o::star::COSMIC_QUASAR_SUPER_STATE, 10.0));
         }

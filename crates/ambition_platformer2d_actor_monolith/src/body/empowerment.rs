@@ -7,7 +7,7 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::actor::{BodyCombat, BodyHealth, Invulnerability, WornCharacter};
+use ambition_characters::actor::{BodyCombat, BodyHealth, Invulnerability, CharacterForm};
 use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_combat::components::CenteredAabb;
 use ambition_characters::actor::ActorFaction;
@@ -28,7 +28,7 @@ use ambition_characters::actor::Empowerment;
 /// pickup's grant or keep a form's traits after the form is gone.
 pub fn empowerment_of(
     grant: Option<&Empowered>,
-    worn: Option<&WornCharacter>,
+    worn: Option<&CharacterForm>,
     cast: Option<&PreparedCharacterRegistry>,
 ) -> Empowerment {
     let form = worn
@@ -113,10 +113,10 @@ pub fn run_empowerments(
         (
             Entity,
             Option<&mut Empowered>,
-            Option<&WornCharacter>,
+            Option<&CharacterForm>,
             &mut BodyHealth,
         ),
-        Or<(With<Empowered>, With<WornCharacter>)>,
+        Or<(With<Empowered>, With<CharacterForm>)>,
     >,
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
@@ -183,14 +183,14 @@ pub fn apply_contact_harm(
     empowered: Query<
         (
             Entity,
-            (Option<&Empowered>, Option<&WornCharacter>),
+            (Option<&Empowered>, Option<&CharacterForm>),
             &ae::BodyKinematics,
             &ActorFaction,
             Option<&ambition_characters::control::DrivingParticipant>,
             Option<&ContactHarm>,
             Option<&ambition_combat::targeting::MatchTeam>,
         ),
-        Or<(With<Empowered>, With<WornCharacter>)>,
+        Or<(With<Empowered>, With<CharacterForm>)>,
     >,
     victims: Query<(
         Entity,
@@ -341,7 +341,7 @@ impl Plugin for EmpowermentLifecyclePlugin {
 fn release_empowerment_projection(
     removal: On<bevy::ecs::lifecycle::Remove, Empowered>,
     cast: ambition_characters::prepared::SessionCast,
-    mut bodies: Query<(&mut BodyHealth, Option<&WornCharacter>)>,
+    mut bodies: Query<(&mut BodyHealth, Option<&CharacterForm>)>,
 ) {
     if let Ok((mut health, worn)) = bodies.get_mut(removal.entity) {
         let form_stays = empowerment_of(None, worn, cast.get()).holds(Empowerment::UNTOUCHABLE);

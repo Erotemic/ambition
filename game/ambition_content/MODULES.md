@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`area_cards`](src/area_cards.rs) | Ambition's areas (`data/area_cards.ron`): the card shown on entering each. |
 | [`audio_registries`](src/audio_registries.rs) | Ambition's authored audio registries — CONTENT data, evicted from the engine core (R3.2: the engine ships no tracks and no cues). |
 | [`authored_movesets`](src/authored_movesets.rs) | Every move table this crate ships, in one list, read from the content pack. |
 | [`autoplay`](src/autoplay.rs) | Ambition plays itself, for unattended profiling: `AMBITION_AUTOPLAY=ambition`. |
@@ -46,7 +47,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_39 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_40 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

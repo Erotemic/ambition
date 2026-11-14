@@ -44,7 +44,7 @@ fn an_empty_cast() -> ambition_platformer2d::character::PreparedCharacterRegistr
 
 /// Every CHARACTER id the live world has a body for.
 ///
-/// ⛔⛤ **`WornCharacter`, NOT `ActorIdentity` — AND THE FIRST VERSION OF THIS ARM
+/// ⛔⛤ **`CharacterForm`, NOT `ActorIdentity` — AND THE FIRST VERSION OF THIS ARM
 /// USED THE WRONG ONE AND FAILED FOR IT.** `ActorIdentity.id` is the PLACEMENT's
 /// identity (`NpcSpawn-0017`, or a bare UUID), so comparing it to a cast's ids
 /// compares two different vocabularies and answers "no overlap" for every room
@@ -54,7 +54,7 @@ fn an_empty_cast() -> ambition_platformer2d::character::PreparedCharacterRegistr
 /// a devastating finding about nothing.
 fn constructed_characters(sim: &mut ambition_app::Platformer2dSimHarness) -> Vec<String> {
     let world = sim.world_mut();
-    let mut query = world.query::<&ambition_platformer2d::characters::actor::WornCharacter>();
+    let mut query = world.query::<&ambition_platformer2d::characters::actor::CharacterForm>();
     let mut out: Vec<String> = query.iter(world).map(|worn| worn.0.to_string()).collect();
     out.sort();
     out.dedup();
@@ -289,7 +289,7 @@ fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
     // statement about a room that never had anyone.
     let before_entities = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::characters::actor::WornCharacter>>();
+        let mut q = world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::characters::actor::CharacterForm>>();
         let mut v: Vec<String> = q.iter(world).map(|e| format!("{e:?}")).collect();
         v.sort();
         v
@@ -329,7 +329,7 @@ fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
 
     let after_entities = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::characters::actor::WornCharacter>>();
+        let mut q = world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::characters::actor::CharacterForm>>();
         let mut v: Vec<String> = q.iter(world).map(|e| format!("{e:?}")).collect();
         v.sort();
         v
@@ -345,7 +345,7 @@ fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
         let world = sim.world_mut();
         let mut query = world.query_filtered::<(
             bevy::prelude::Entity,
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
         ), ()>();
         let mut out: Vec<String> = query
             .iter(world)
@@ -431,7 +431,7 @@ fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
 
     let before_entities = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::characters::actor::WornCharacter>>();
+        let mut q = world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::characters::actor::CharacterForm>>();
         let mut v: Vec<String> = q.iter(world).map(|e| format!("{e:?}")).collect();
         v.sort();
         v
@@ -452,7 +452,7 @@ fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
         let world = sim.world_mut();
         let mut query = world.query_filtered::<(
             bevy::prelude::Entity,
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
         ), ()>();
         let mut out: Vec<String> = query
             .iter(world)
@@ -616,7 +616,7 @@ fn an_ordinary_room_transition_stamps_its_roots_with_the_session_content() {
 /// world reload rather than being rebuilt, so counting it would make "the room
 /// was rebuilt with its cast intact" true of a reload that built an empty room.
 ///
-/// ⚠ **AND `WornCharacter` ALONE IS NOT A PROBE FOR THE PREPARED CAST — MEASURED
+/// ⚠ **AND `CharacterForm` ALONE IS NOT A PROBE FOR THE PREPARED CAST — MEASURED
 /// 2026-09-20.** The first version of the arm below replaced the App's
 /// `PreparedCharacterRegistry` with [`an_empty_cast`], the way the three arms
 /// above do, and the poison PASSED: `npc_kernel_guide` still had a body. These
@@ -627,7 +627,7 @@ fn an_ordinary_room_transition_stamps_its_roots_with_the_session_content() {
 /// before `plan_room` and therefore decides whether the row exists.
 fn app_room_scoped_characters(app: &mut bevy::prelude::App) -> Vec<String> {
     let world = app.world_mut();
-    let mut query = world.query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, With<ambition_platformer2d::platformer::lifecycle::RoomScopedEntity>>();
+    let mut query = world.query_filtered::<&ambition_platformer2d::characters::actor::CharacterForm, With<ambition_platformer2d::platformer::lifecycle::RoomScopedEntity>>();
     let mut out: Vec<String> = query.iter(world).map(|worn| worn.0.to_string()).collect();
     out.sort();
     out

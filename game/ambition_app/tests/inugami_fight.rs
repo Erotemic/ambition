@@ -340,10 +340,10 @@ fn sealed(sim: &mut Platformer2dSimHarness) -> bool {
 
 /// Kagero's body, while she is in the world.
 fn kagero(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
-    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::CharacterForm;
     let world = sim.world_mut();
     world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == "npc_ninja_kagero")
         .map(|(entity, _)| entity)

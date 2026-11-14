@@ -38,7 +38,7 @@ fn protect_the_walker(app: &mut bevy::prelude::App) {
 
 #[test]
 fn the_haunted_wing_is_walkable_and_its_service_lift_opens_from_the_far_end() {
-    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::CharacterForm;
     let mut app = a_session_in(CORRIDOR);
     protect_the_walker(&mut app);
     go(&mut app, SPECTRAL_LANDING, Some("math_hotel_corridor_spectral"));
@@ -49,7 +49,7 @@ fn the_haunted_wing_is_walkable_and_its_service_lift_opens_from_the_far_end() {
             go(&mut app, room, None);
         }
         let world = app.world_mut();
-        let mut q = world.query::<&WornCharacter>();
+        let mut q = world.query::<&CharacterForm>();
         cast.extend(q.iter(world).map(|worn| worn.id().to_owned()));
     }
     for enemy in ["eigenghost", "decomposing_specter", "spectral_perturbation", "shift_operator"] {

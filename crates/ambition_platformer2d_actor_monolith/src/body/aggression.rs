@@ -45,7 +45,7 @@ pub fn apply_actor_stimuli(
             &ambition_platformer2d_core::BodyAbilities,
             // WHICH CHARACTER THIS BODY IS — the gameplay identity, not
             // the sprite's. See `provoke_actor_in_place`.
-            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&ambition_characters::actor::CharacterForm>,
         ),
         With<FeatureSimEntity>,
     >,

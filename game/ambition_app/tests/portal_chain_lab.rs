@@ -2,7 +2,7 @@
 
 use ambition_app::{AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 use ambition_platformer2d::engine_core::{self as ae, BodyKinematics, ControlFrame};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::combat::{hitbox::strike_pieces, strike::{Hitbox, HitboxHits}};
 use ambition_platformer2d::item::{GroundItem, ItemCustody};
 use ambition_platformer2d::platformer::{body::geometry::BodyGeometry,
@@ -32,7 +32,7 @@ fn station(max_hops: u8) {
         let player = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
         let axe = world.query::<(Entity, &GroundItem)>().iter(world)
             .find(|(_, item)| item.spec.id == "axe").unwrap().0;
-        let target = world.query::<(Entity, &WornCharacter)>().iter(world)
+        let target = world.query::<(Entity, &CharacterForm)>().iter(world)
             .find(|(_, worn)| worn.id() == "sandbag_infinite").unwrap().0;
         (player, axe, target)
     };

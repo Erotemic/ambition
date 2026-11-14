@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use ambition_demo_mary_o::cosmic::COSMIC_CHARACTER_ID;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeat;
-use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth, Invulnerability, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth, Invulnerability, CharacterForm};
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::combat::impact_hitstop::ImpactHitstop;
 use ambition_platformer2d::engine_core as ae;
@@ -45,7 +45,7 @@ fn in_the_form() -> (App, Entity) {
     idle(&mut app, 4);
     press_utility(&mut app);
     idle(&mut app, 8);
-    let worn = app.world().get::<WornCharacter>(body).unwrap().id().to_string();
+    let worn = app.world().get::<CharacterForm>(body).unwrap().id().to_string();
     assert_eq!(worn, COSMIC_CHARACTER_ID, "the premise: she is in the form");
     assert!(app.world().get::<TransformBeat>(body).is_none(), "the premise: her transformation is done");
     (app, body)

@@ -9,6 +9,7 @@
 | [`checkpoint`](src/checkpoint.rs) | Restoring a session to its checkpoint: the startup resume and the death/retry reset. |
 | [`death`](src/death.rs) | Actor death withdrawal and participant death consequences. |
 | [`durable_horizon`](src/durable_horizon.rs) | Durable persistence for occurrence, custody, and minted-item checkpoint state. |
+| [`fact_horizon`](src/fact_horizon.rs) | The world facts' checkpoint (Q164): the save's flags and quest steps go back with a death as the bag does, so a fact never stays while the object it came with is lost. |
 | [`initial_body`](src/initial_body.rs) | Session startup body selection and its prepared resource bank. |
 | [`join`](src/join.rs) | Start admits an unjoined participant and constructs its home body. |
 | [`leave`](src/leave.rs) | A participant leaves the session: membership ends and its body retires. |
@@ -24,7 +25,7 @@
 | [`setup`](src/setup.rs) | Initial session bodies from prepared or live session inputs. |
 | [`teardown`](src/teardown.rs) | Re-establish the process-global mirrors of live-session state at BOTH edges of a gameplay session. |
 
-_17 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_18 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -1655,7 +1655,7 @@ fn a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests
         .world_mut()
         .query::<(
             &ambition_combat::components::ActorIdentity,
-            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&ambition_characters::actor::CharacterForm>,
         )>()
         .iter(app.world())
         .filter(|(identity, _)| identity.id.starts_with("duel_"))

@@ -787,8 +787,8 @@ boss catalog), which reads no character standing height: one form, two
 sizing roads, open for GNUTON-GNU2-FINALE's summoned GNU.
 
 **Slice 3 (2026-11-13), the four operations exist on shared seams:**
-transformation is `WornCharacter` (with `RecharacterizeBody` for the
-gameplay half), witnessed by `a_player_that_changes_form_takes_the_size_of_that_form`;
+transformation is `CharacterForm` (renamed from `WornCharacter` the same day;
+with `RecharacterizeBody` for the gameplay half), witnessed by `a_player_that_changes_form_takes_the_size_of_that_form`;
 possession is `PossessionPlugin` (`possession_end_to_end`, the original body
 stays in the world); a skin is `WornSkin`, art only; a body mode is
 `BodyMode` on the same body and form. New witness
@@ -802,8 +802,12 @@ with no authored hurtboxes, the body kept the old form's resolved hurtbox (a
 whatever an authored document or a rig put there is taken back, and the dog
 is damageable through its own box.
 
-**Next action:** investigate the rename `WornCharacter` → `CharacterForm`
-now that the operations are distinct.
+**Renamed 2026-11-13:** `WornCharacter` is `CharacterForm` (172 files, no
+alias; the rollback row keeps its label `actor.worn_character`, so saves and
+the codec are unchanged). The four operations are now named for what they
+are: a form, a skin (`WornSkin`), possession, a body mode.
+
+**Next action:** none; the acceptance's arms each have a witness.
 
 **Acceptance:** the robot becomes the dog: the body is the dog's built size,
 with the dog's moves and abilities, the same entity and identity, and its

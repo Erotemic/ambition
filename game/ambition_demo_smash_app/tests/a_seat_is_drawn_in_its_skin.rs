@@ -11,7 +11,7 @@ use ambition_demo_smash_app::build_demo_app;
 fn a_seat_wearing_a_skin_is_its_fighter_drawn_from_the_skins_sheet() {
     use ambition_demo_smash::{SMASH_CHARACTER_ID as FIGHTER, SMASH_OPPONENT_ID as LOOK};
     use ambition_platformer2d::actor::MatchSeat;
-    use ambition_platformer2d::characters::actor::{WornCharacter, WornSkin};
+    use ambition_platformer2d::characters::actor::{CharacterForm, WornSkin};
 
     let mut app = build_demo_app();
     for _ in 0..30 {
@@ -31,7 +31,7 @@ fn a_seat_wearing_a_skin_is_its_fighter_drawn_from_the_skins_sheet() {
     let world = app.world_mut();
     let mut seats = world.query::<(
         &MatchSeat,
-        &WornCharacter,
+        &CharacterForm,
         Option<&WornSkin>,
         &ambition_platformer2d::combat::components::FeatureId,
     )>();

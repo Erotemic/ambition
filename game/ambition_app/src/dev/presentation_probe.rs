@@ -19,7 +19,7 @@
 use std::collections::VecDeque;
 
 use ambition_platformer2d::actor::{BodyKinematics, BodyPoseView};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::platformer::camera_layers::MainCamera;
 use ambition_platformer2d::platformer::lifecycle::{
@@ -387,7 +387,7 @@ fn collect_players(world: &mut World) -> Vec<PlayerProbe> {
         Entity,
         Option<&PlayerEntity>,
         Option<&PlayerVisual>,
-        Option<&WornCharacter>,
+        Option<&CharacterForm>,
         Option<&BodyKinematics>,
         Option<&BodyPoseView>,
         Option<&PresentedPose>,

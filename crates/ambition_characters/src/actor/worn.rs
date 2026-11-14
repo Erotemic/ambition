@@ -3,12 +3,12 @@
 //! A player entity is a *control box*: it carries `DrivingParticipant(slot)`, the
 //! movement clusters, and the player markers. WHICH catalog character that box
 //! wears — its movement identity, its moveset, its name, and its sprite — is a
-//! single simulation-owned relationship recorded by [`WornCharacter`].
+//! single simulation-owned relationship recorded by [`CharacterForm`].
 //!
-//! [`WornCharacter`] is the ONE identity both derive from:
+//! [`CharacterForm`] is the ONE identity both derive from:
 //!
 //! ```text
-//! selected/worn character identity  (WornCharacter, on the canonical player)
+//! selected/worn character identity  (CharacterForm, on the canonical player)
 //!     → character gameplay configuration  (moveset + movement identity)
 //!     → generic selected-character presentation  (sprite + animation)
 //! ```
@@ -28,9 +28,9 @@ use bevy::ecs::component::Component;
 /// baseline. Runtime instance identity remains separate in `SimId`.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 #[require(crate::brain::action_set::IdentityKit)]
-pub struct WornCharacter(pub ambition_entity_catalog::CharacterId);
+pub struct CharacterForm(pub ambition_entity_catalog::CharacterId);
 
-impl WornCharacter {
+impl CharacterForm {
     pub fn new(id: impl Into<ambition_entity_catalog::CharacterId>) -> Self {
         Self(id.into())
     }

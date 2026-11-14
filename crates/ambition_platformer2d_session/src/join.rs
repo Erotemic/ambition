@@ -34,7 +34,7 @@ pub fn seat_a_joining_participant(sprite_content: Res<ambition_sprite_sheet::Spr
     rooms: LiveRoomOf<ae::RoomGeometry>,
     collision: CollisionWorld,
     primary: Query<
-        (Entity, &ae::BodyKinematics, &ambition_characters::actor::WornCharacter, Option<&InRoomInstance>, Option<&ae::SweepSample>),
+        (Entity, &ae::BodyKinematics, &ambition_characters::actor::CharacterForm, Option<&InRoomInstance>, Option<&ae::SweepSample>),
         (With<PrimaryPlayer>, Without<ambition_combat::death_rules::OutOfPlay>),
     >,
     bodies: Query<(

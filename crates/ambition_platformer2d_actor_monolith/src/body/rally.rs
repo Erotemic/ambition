@@ -88,7 +88,7 @@ pub fn rally_allies_to_the_fight(
             &ambition_combat::actor_tuning::ActorConfig,
             &ambition_combat::components::ActorIdentity,
             &ambition_platformer2d_core::BodyAbilities,
-            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::CharacterForm,
             Option<&BrainBinding>,
         ),
         (

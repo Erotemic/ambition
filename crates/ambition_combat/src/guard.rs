@@ -20,7 +20,7 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::actor::{BodyCombat, GuardFaces, GuardSpec, WornCharacter};
+use ambition_characters::actor::{BodyCombat, GuardFaces, GuardSpec, CharacterForm};
 use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d_core as ae;
 
@@ -247,7 +247,7 @@ pub struct DeflectedBodyHit {
 }
 
 /// The authored guards of a body: its worn character's.
-fn guards_of<'a>(characters: Option<&'a PreparedCharacterRegistry>, worn: Option<&WornCharacter>) -> &'a [GuardSpec] {
+fn guards_of<'a>(characters: Option<&'a PreparedCharacterRegistry>, worn: Option<&CharacterForm>) -> &'a [GuardSpec] {
     characters
         .zip(worn)
         .and_then(|(characters, worn)| characters.get(worn.id()))
@@ -266,7 +266,7 @@ pub fn publish_guard_volumes(
     landmarks: BodyLandmarks,
     mut bodies: Query<(
         Entity,
-        &WornCharacter,
+        &CharacterForm,
         &ae::BodyKinematics,
         Option<&crate::body_rig::RigFeetOffset>,
         Option<&ambition_characters::actor::BodyHealth>,
@@ -343,7 +343,7 @@ pub fn resolve_deflects(
     mut commands: Commands,
     mut deflects: MessageReader<DeflectedBodyHit>,
     characters: Option<Res<PreparedCharacterRegistry>>,
-    worn: Query<&WornCharacter>,
+    worn: Query<&CharacterForm>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     mut bodies: Query<(
         &mut ae::BodyKinematics,

@@ -12,7 +12,7 @@
 use crate::breakable_respawn_across_rooms::cross_to;
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::life::{Life, Value};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::time::{DayClock, DayCycle};
 use bevy::prelude::Entity;
@@ -25,7 +25,7 @@ const WORKBENCH_X: f32 = 1072.0;
 
 fn body(sim: &mut ambition_app::Platformer2dSimHarness, character: &str) -> Option<Entity> {
     let world = sim.world_mut();
-    world.query::<(Entity, &WornCharacter)>().iter(world).find(|(_, worn)| worn.id() == character).map(|(entity, _)| entity)
+    world.query::<(Entity, &CharacterForm)>().iter(world).find(|(_, worn)| worn.id() == character).map(|(entity, _)| entity)
 }
 
 fn set_the_clock(sim: &mut ambition_app::Platformer2dSimHarness, hour: f32) {

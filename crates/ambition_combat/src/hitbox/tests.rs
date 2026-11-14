@@ -3814,7 +3814,7 @@ fn a_guard_keeps_its_exact_material_and_coverage_through_a_scaled_portal() {
 #[test]
 fn a_guard_rebounds_a_portal_strike_in_the_chart_where_they_meet() {
     use crate::guard::{GuardPiece, GuardState, GuardVolumes};
-    use ambition_characters::actor::{BodyCombat, GuardFaces, GuardSpec, WornCharacter};
+    use ambition_characters::actor::{BodyCombat, GuardFaces, GuardSpec, CharacterForm};
     use ambition_characters::prepared::PreparedCharacterRegistry;
     use ae::frame::{MapConvention, PortalAperture, PortalFrame, Sim2};
     for ratio in [0.5, 2.0] {
@@ -3846,7 +3846,7 @@ fn a_guard_rebounds_a_portal_strike_in_the_chart_where_they_meet() {
             app.world_mut().get_mut::<ae::BodyKinematics>(owner).unwrap().vel = contact_map.inverse().unwrap().vector(boost).unwrap();
             app.world_mut().get_mut::<ae::BodyKinematics>(defender).unwrap().vel = boost;
             app.world_mut().entity_mut(owner).insert(ae::BodyFlightState::default());
-            app.world_mut().entity_mut(defender).insert((WornCharacter::new("npc_guard"), GuardState::default(),
+            app.world_mut().entity_mut(defender).insert((CharacterForm::new("npc_guard"), GuardState::default(),
                 ae::BodyFlightState::default(), GuardVolumes { pieces: vec![GuardPiece { guard: 0,
                     domain: ae::Aabb::new(ae::Vec2::new(20.0, -20.0) * ratio, ae::Vec2::new(10.0, 20.0) * ratio),
                     material: Ok(Sim2::new(1.0, bevy::math::Mat2::IDENTITY, defender_at).unwrap()),

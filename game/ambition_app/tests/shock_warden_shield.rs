@@ -149,9 +149,9 @@ fn a_strike_down_from_over_his_shield_gets_through() {
 
 fn wear(sim: &mut Platformer2dSimHarness, character: &str) {
     let world = sim.world_mut();
-    let mut q = world.query::<(&FeatureId, &mut ambition_platformer2d::characters::actor::WornCharacter)>();
+    let mut q = world.query::<(&FeatureId, &mut ambition_platformer2d::characters::actor::CharacterForm)>();
     let (_, mut worn) = q.iter_mut(world).find(|(id, _)| id.as_str() == WARDEN).expect("the warden was built");
-    *worn = ambition_platformer2d::characters::actor::WornCharacter::new(character);
+    *worn = ambition_platformer2d::characters::actor::CharacterForm::new(character);
 }
 
 /// A BROKEN GUARD IS THE BODY'S, ACROSS A CHANGE OF FORM (review, integration

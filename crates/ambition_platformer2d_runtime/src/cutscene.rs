@@ -318,7 +318,7 @@ pub fn tick_active_cutscene(
         Option<Res<ambition_time::SimTick>>,
         ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
         // The bodies a `Fall` beat can name: by the character they wear.
-        Query<(Entity, &ambition_characters::actor::WornCharacter, &mut ambition_characters::actor::BodyHealth)>,
+        Query<(Entity, &ambition_characters::actor::CharacterForm, &mut ambition_characters::actor::BodyHealth)>,
     ),
 ) {
     let written = active.room.zip(tick.as_deref()).map(|(room, tick)| {

@@ -586,7 +586,7 @@ fn wounded_it_sends_noodlings() {
     }
     let noodlings = |sim: &mut Platformer2dSimHarness| -> Vec<i32> {
         let world = sim.world_mut();
-        let mut q = world.query::<(&ambition_platformer2d::characters::actor::WornCharacter, &BodyHealth)>();
+        let mut q = world.query::<(&ambition_platformer2d::characters::actor::CharacterForm, &BodyHealth)>();
         q.iter(world).filter(|(worn, _)| worn.id() == "npc_fsm_noodling").map(|(_, h)| h.damage_taken()).collect()
     };
     assert!(!noodlings(&mut sim).is_empty(), "the lesser appendages sent no noodlings");

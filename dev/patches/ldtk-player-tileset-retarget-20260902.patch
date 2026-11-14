@@ -1,13 +1,135 @@
 PROPOSED, NOT APPLIED — retarget the LDtk player-preview tileset to sprites_0_25x
 
-    cd <repo root> && git apply dev/patches/ldtk-player-tileset-retarget-20260902.patch
-    # regenerate: scripts/propose_ldtk_tileset_retarget.py --out dev/patches/ldtk-player-tileset-retarget-20260902.patch
+    cd <repo root> && git apply /home/local/KHQ/jon.crall/code/ambition/dev/patches/ldtk-player-tileset-retarget-20260902.patch
+    # regenerate: tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py --out /home/local/KHQ/jon.crall/code/ambition/dev/patches/ldtk-player-tileset-retarget-20260902.patch
 
 ⛔ THE FILES ARE IN `game/ambition_map_assets`, WHICH IS A SUBMODULE.
 Applying this changes the submodule's working tree and needs a commit
 there plus a pointer bump in the superproject. That is why it is a
 patch and not a commit.
 
+--- a/game/ambition_map_assets/ambition_content/worlds/art.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/art.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7310,11 +7310,11 @@
+ 			"__cHei": 16,
+ 			"identifier": "sprite_player_robot_v3",
+ 			"uid": 6852,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"embedAtlas": null,
+-			"pxWid": 4096,
+-			"pxHei": 3876,
+-			"tileGridSize": 256,
++			"pxWid": 1280,
++			"pxHei": 959,
++			"tileGridSize": 80,
+ 			"spacing": 0,
+ 			"padding": 0,
+ 			"tags": ["sprite"],
+--- a/game/ambition_map_assets/ambition_content/worlds/boss.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/boss.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7387,11 +7387,11 @@
+ 			"__cHei": 16,
+ 			"identifier": "sprite_player_robot_v3",
+ 			"uid": 6852,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"embedAtlas": null,
+-			"pxWid": 4096,
+-			"pxHei": 3876,
+-			"tileGridSize": 256,
++			"pxWid": 1280,
++			"pxHei": 959,
++			"tileGridSize": 80,
+ 			"spacing": 0,
+ 			"padding": 0,
+ 			"tags": ["sprite"],
+--- a/game/ambition_map_assets/ambition_content/worlds/dinosaur.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/dinosaur.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7314,14 +7314,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 3876,
+-			"pxWid": 4096,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 959,
++			"pxWid": 1280,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 80,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [
+--- a/game/ambition_map_assets/ambition_content/worlds/evil.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/evil.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7351,14 +7351,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 3876,
+-			"pxWid": 4096,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 959,
++			"pxWid": 1280,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 80,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [
 --- a/game/ambition_map_assets/ambition_content/worlds/hall_of_characters.ldtk
 +++ b/game/ambition_map_assets/ambition_content/worlds/hall_of_characters.ldtk
 @@ -255,8 +255,8 @@
@@ -16,8 +138,8 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 76, "h": 62 },
-+			"uiTileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"tileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 108504, "x": 0, "y": 0, "w": 80, "h": 63 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
@@ -25,21 +147,50 @@ patch and not a commit.
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3769,
+-			"pxHei": 3876,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
-+			"pxHei": 915,
-+			"pxWid": 1216,
++			"pxHei": 959,
++			"pxWid": 1280,
 +			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
  			"savedSelections": [],
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 76,
++			"tileGridSize": 80,
  			"uid": 108504
  		}
  	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+--- a/game/ambition_map_assets/ambition_content/worlds/history.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/history.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7310,11 +7310,11 @@
+ 			"__cHei": 16,
+ 			"identifier": "sprite_player_robot_v3",
+ 			"uid": 6852,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"embedAtlas": null,
+-			"pxWid": 4096,
+-			"pxHei": 3876,
+-			"tileGridSize": 256,
++			"pxWid": 1280,
++			"pxHei": 959,
++			"tileGridSize": 80,
+ 			"spacing": 0,
+ 			"padding": 0,
+ 			"tags": ["sprite"],
 --- a/game/ambition_map_assets/ambition_content/worlds/intro.ldtk
 +++ b/game/ambition_map_assets/ambition_content/worlds/intro.ldtk
 @@ -290,8 +290,8 @@
@@ -48,30 +199,62 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 76, "h": 62 },
-+			"uiTileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"tileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 104928, "x": 0, "y": 0, "w": 80, "h": 63 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6437,14 +6437,14 @@
+@@ -6554,14 +6554,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3769,
+-			"pxHei": 3876,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
-+			"pxHei": 915,
-+			"pxWid": 1216,
++			"pxHei": 959,
++			"pxWid": 1280,
 +			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
  			"savedSelections": [],
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 76,
++			"tileGridSize": 80,
  			"uid": 104928
  		}
- 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+ 	], "enums": [
+--- a/game/ambition_map_assets/ambition_content/worlds/magical.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/magical.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7314,14 +7314,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 3876,
+-			"pxWid": 4096,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 959,
++			"pxWid": 1280,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 80,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [
 --- a/game/ambition_map_assets/ambition_content/worlds/math.ldtk
 +++ b/game/ambition_map_assets/ambition_content/worlds/math.ldtk
 @@ -290,8 +290,8 @@
@@ -80,30 +263,94 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -7037,14 +7037,14 @@
+@@ -7163,14 +7163,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3769,
+-			"pxHei": 3876,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
-+			"pxHei": 915,
-+			"pxWid": 1216,
++			"pxHei": 959,
++			"pxWid": 1280,
 +			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
  			"savedSelections": [],
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 76,
++			"tileGridSize": 80,
  			"uid": 6852
  		}
- 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+ 	], "enums": [
+--- a/game/ambition_map_assets/ambition_content/worlds/noodle.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/noodle.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7240,14 +7240,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 3876,
+-			"pxWid": 4096,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 959,
++			"pxWid": 1280,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 80,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [
+--- a/game/ambition_map_assets/ambition_content/worlds/pvn.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/pvn.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7240,14 +7240,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 3876,
+-			"pxWid": 4096,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 959,
++			"pxWid": 1280,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 80,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [
 --- a/game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk
 +++ b/game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk
 @@ -290,8 +290,8 @@
@@ -112,30 +359,59 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -7185,14 +7185,14 @@
+@@ -7310,11 +7310,11 @@
+ 			"__cHei": 16,
+ 			"identifier": "sprite_player_robot_v3",
+ 			"uid": 6852,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"embedAtlas": null,
+-			"pxWid": 4096,
+-			"pxHei": 3876,
+-			"tileGridSize": 256,
++			"pxWid": 1280,
++			"pxHei": 959,
++			"tileGridSize": 80,
+ 			"spacing": 0,
+ 			"padding": 0,
+ 			"tags": ["sprite"],
+--- a/game/ambition_map_assets/ambition_content/worlds/science.ldtk
++++ b/game/ambition_map_assets/ambition_content/worlds/science.ldtk
+@@ -290,8 +290,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 63 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -7314,14 +7314,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3769,
+-			"pxHei": 3876,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
-+			"pxHei": 915,
-+			"pxWid": 1216,
++			"pxHei": 959,
++			"pxWid": 1280,
 +			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
  			"savedSelections": [],
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 76,
++			"tileGridSize": 80,
  			"uid": 6852
  		}
- 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+ 	], "enums": [
 --- a/game/ambition_map_assets/ambition_content/worlds/you_have_to_cut_the_rope.ldtk
 +++ b/game/ambition_map_assets/ambition_content/worlds/you_have_to_cut_the_rope.ldtk
 @@ -255,8 +255,8 @@
@@ -144,8 +420,8 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 76, "h": 62 },
-+			"uiTileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"tileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 80, "h": 63 },
++			"uiTileRect": { "tilesetUid": 105835, "x": 0, "y": 0, "w": 80, "h": 63 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
@@ -153,18 +429,18 @@ patch and not a commit.
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 3769,
+-			"pxHei": 3876,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
-+			"pxHei": 915,
-+			"pxWid": 1216,
++			"pxHei": 959,
++			"pxWid": 1280,
 +			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
  			"savedSelections": [],
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 76,
++			"tileGridSize": 80,
  			"uid": 105835
  		}
  	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
@@ -176,8 +452,8 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 65 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 65 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
@@ -188,15 +464,15 @@ patch and not a commit.
 -			"pxHei": 3776,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
-+			"pxHei": 915,
-+			"pxWid": 1216,
++			"pxHei": 959,
++			"pxWid": 1280,
 +			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
  			"savedSelections": [],
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 76,
++			"tileGridSize": 80,
  			"uid": 6852
  		},
  		{
@@ -208,8 +484,8 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 65 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 65 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
@@ -220,15 +496,15 @@ patch and not a commit.
 -			"pxHei": 3776,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
-+			"pxHei": 915,
-+			"pxWid": 1216,
++			"pxHei": 959,
++			"pxWid": 1280,
 +			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
  			"savedSelections": [],
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 76,
++			"tileGridSize": 80,
  			"uid": 6852
  		},
  		{
@@ -240,8 +516,8 @@ patch and not a commit.
  			"tileRenderMode": "Cover",
 -			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
 -			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 76, "h": 62 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 65 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 80, "h": 65 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
@@ -252,15 +528,15 @@ patch and not a commit.
 -			"pxHei": 3776,
 -			"pxWid": 4096,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
-+			"pxHei": 915,
-+			"pxWid": 1216,
++			"pxHei": 959,
++			"pxWid": 1280,
 +			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
  			"savedSelections": [],
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
 -			"tileGridSize": 256,
-+			"tileGridSize": 76,
++			"tileGridSize": 80,
  			"uid": 6852
  		},
  		{

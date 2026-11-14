@@ -186,6 +186,21 @@ ADJUDICATED: dict[str, str] = {
         "the kind of true-today sentence a later edit falsifies in silence "
         "(read 2026-09-18, found by a review 2026-09-18)"
     ),
+    "remember_who_struck_it": (
+        "NEVER WRITTEN, the same binding as `tick_actor_brains`: its only `Local` "
+        "is `PerceivedWorld.empty_relations` (`body/perception.rs:1351`), the "
+        "borrowable all-peaceful table nothing writes (read 2026-11-13)"
+    ),
+    "mark_bodies_the_death_look_took": (
+        "NOT ROLLBACK STATE: nothing rollback-registered is downstream. `out_for` counts how long each "
+        "body has been out of play on the presentation's own clock (`Res<Time>`, "
+        "the wall delta) and its only output is the `TakenByDeathLook` marker, "
+        "which `rebuild_body_pose_views` turns into the view's "
+        "`taken_by_death_look` and which the simulation never reads "
+        "(`sim_view/src/pose_view.rs:583`; no registration names it). A rewind "
+        "across a death can draw the body taken a little early or late; no "
+        "simulated value moves (read 2026-11-13)"
+    ),
     # ── A LOG LATCH: decides only whether a line is printed ─────────────────
     "publish_portal_apertures": (
         "A LOG LATCH. `rings_said` stores the rings last logged in each room. "
@@ -237,7 +252,7 @@ ADJUDICATED: dict[str, str] = {
         "NOT ROLLBACK STATE. `reported` holds the (body, cast generation) pairs "
         "whose refused wear was already written to the log, and its only reader "
         "is the condition on that `error!`. The refusal itself (the request "
-        "consumed, `WornCharacter` put back to `PersonaBaseline::id`) does not "
+        "consumed, `CharacterForm` put back to `PersonaBaseline::id`) does not "
         "read it. After a rewind a replayed tick can leave one refusal out of "
         "the log, a missing line, not a divergence. ⛔ If anything but the log "
         "ever reads it, this entry is void (read 2026-10-03)"

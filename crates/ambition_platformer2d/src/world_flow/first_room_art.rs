@@ -149,7 +149,7 @@ pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<c
                 };
                 // The home body wears the starting character into the room; the
                 // room's placements never list the player, and pre-activation
-                // there is no body whose `WornCharacter` would ask. Folded into
+                // there is no body whose `CharacterForm` would ask. Folded into
                 // the staged names so ONE list demands it, waits for its
                 // realization AND puts its pages in the manifest (a transition
                 // re-demands a worn sheet only when it retired one).

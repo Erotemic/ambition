@@ -27,7 +27,7 @@ fn session_room_and_worn(app: &mut App) -> Option<(String, String)> {
         .next()
         .map(|set| set.spec(live_definition).id.clone())?;
     let mut worn = world.query_filtered::<
-        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::characters::actor::CharacterForm,
         With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >();
     let worn = worn.iter(world).next()?.0.as_str().to_string();

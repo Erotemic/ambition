@@ -7,7 +7,7 @@
 //! fact, so only the driver's command can keep it still.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core::{BodyKinematics, Vec2};
 use bevy::prelude::*;
 
@@ -16,7 +16,7 @@ use bevy::prelude::*;
 fn actors(sim: &mut ambition_app::Platformer2dSimHarness) -> Vec<(Entity, String, Vec2)> {
     let world = sim.world_mut();
     let mut query = world.query_filtered::<
-        (Entity, &WornCharacter, &BodyKinematics),
+        (Entity, &CharacterForm, &BodyKinematics),
         Without<ambition_platformer2d::characters::control::DrivingParticipant>,
     >();
     query

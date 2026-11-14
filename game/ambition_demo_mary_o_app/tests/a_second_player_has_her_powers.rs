@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::body::empowerment::Empowered;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
@@ -35,7 +35,7 @@ fn after_equipping(app: &mut App, body: Entity, row: ambition_platformer2d::char
     for _ in 0..10 {
         app.update();
     }
-    let worn = app.world().get::<WornCharacter>(body).unwrap().id().to_string();
+    let worn = app.world().get::<CharacterForm>(body).unwrap().id().to_string();
     (worn, app.world().get::<Empowered>(body).is_some())
 }
 
@@ -49,7 +49,7 @@ fn a_player_who_is_not_the_first_player_has_her_powers() {
         if !first {
             app.world_mut().entity_mut(body).remove::<PrimaryPlayer>();
         }
-        let before = app.world().get::<WornCharacter>(body).unwrap().id().to_string();
+        let before = app.world().get::<CharacterForm>(body).unwrap().id().to_string();
         let (grown, _) = after_equipping(&mut app, body, ambition_demo_mary_o::powerups::star_wand());
         let (_, star) = after_equipping(&mut app, body, ambition_demo_mary_o::star::pocket_quasar());
         seen.push((first, before != grown, star));

@@ -12,7 +12,7 @@
 
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::life::{Doing, Life, Value};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::time::{DayClock, DayCycle};
 use bevy::prelude::Entity;
@@ -30,7 +30,7 @@ const START_HOUR: f32 = 9.5;
 fn body(sim: &mut ambition_app::Platformer2dSimHarness, character: &str) -> Entity {
     let world = sim.world_mut();
     world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == character)
         .map(|(entity, _)| entity)

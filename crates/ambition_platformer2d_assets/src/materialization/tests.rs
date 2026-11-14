@@ -178,9 +178,9 @@ fn every_worn_body_demands_its_own_art_not_just_the_primary_player() {
     app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(CharacterMaterializationPlugin);
     app.world_mut()
-        .spawn(ambition_characters::actor::WornCharacter("mary_o".into()));
+        .spawn(ambition_characters::actor::CharacterForm("mary_o".into()));
     app.world_mut()
-        .spawn(ambition_characters::actor::WornCharacter("sanic".into()));
+        .spawn(ambition_characters::actor::CharacterForm("sanic".into()));
     finalize_and_update(&mut app);
 
     // No asset pipeline in this fixture, so the demand is still pending — which is
@@ -200,7 +200,7 @@ fn a_later_identity_swap_demands_the_new_sheet() {
     app.add_plugins(CharacterMaterializationPlugin);
     let body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter("mary_o".into()))
+        .spawn(ambition_characters::actor::CharacterForm("mary_o".into()))
         .id();
     finalize_and_update(&mut app);
     app.world_mut().resource_mut::<CharacterLoadDemand>().take();
@@ -208,7 +208,7 @@ fn a_later_identity_swap_demands_the_new_sheet() {
     // A runtime form change (Mary-O growing into `mary_o_tall`) is a new sheet.
     app.world_mut()
         .entity_mut(body)
-        .insert(ambition_characters::actor::WornCharacter(
+        .insert(ambition_characters::actor::CharacterForm(
             "mary_o_tall".into(),
         ));
     finalize_and_update(&mut app);
@@ -689,7 +689,7 @@ mod live_quality_apply {
     /// left retired — so every "already on screen" arm puts a body there.
     fn wear(app: &mut App, cid: &str) {
         app.world_mut()
-            .spawn(ambition_characters::actor::WornCharacter::new(
+            .spawn(ambition_characters::actor::CharacterForm::new(
                 cid.to_string(),
             ));
     }

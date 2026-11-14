@@ -80,7 +80,7 @@ Do not mutate playback state ad hoc from a tool.
 | diagnostic sheet | `tools/ambition_moveset_inspector/render_take_diagnostic.py` | key-frame filmstrip |
 | inspector | `tools/ambition_moveset_inspector/` (server `ambition_moveset_inspector/server.py`, browser `web/app.js`) | draws recorded observations; derives no geometry |
 
-Artifact identity (`SimId`, `MatchSeat`, `WornCharacter`) may be joined at the
+Artifact identity (`SimId`, `MatchSeat`, `CharacterForm`) may be joined at the
 tool boundary; geometry and combat state come from the sim-view.
 
 ## Standing rules from the closed milestones

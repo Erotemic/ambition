@@ -1708,7 +1708,7 @@ mod tests {
     #[test]
     fn a_same_tick_kit_swap_cannot_drift_the_prompt_from_the_gate() {
         use ambition_characters::action_scheme::ResolvedTechniqueEdges;
-        use ambition_characters::actor::WornCharacter;
+        use ambition_characters::actor::CharacterForm;
         use ambition_characters::actor::character_catalog::CharacterCatalog;
         use ambition_characters::actor::control::ActorControlFrame;
         use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
@@ -1751,7 +1751,7 @@ mod tests {
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                WornCharacter::new("hero"),
+                CharacterForm::new("hero"),
                 BodyAbilities::new(AbilitySet::sandbox_all()),
                 kit_a,
                 kit_a_moves,

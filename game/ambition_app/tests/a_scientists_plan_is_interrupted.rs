@@ -15,7 +15,7 @@
 
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::life::{Life, LifeStop, Value};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::time::{DayClock, DayCycle};
 use bevy::prelude::Entity;
@@ -30,7 +30,7 @@ fn the_lab() -> (ambition_app::Platformer2dSimHarness, Entity) {
     sim.step(base());
     let world = sim.world_mut();
     let nikobolt = world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == NIKOBOLT)
         .map(|(entity, _)| entity)

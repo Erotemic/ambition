@@ -21,11 +21,11 @@ pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res
     changed_bodies: Query<
         (
             Entity,
-            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&ambition_characters::actor::CharacterForm>,
             Option<&ProjectedCharacterKit>,
         ),
         Or<(
-            Changed<ambition_characters::actor::WornCharacter>,
+            Changed<ambition_characters::actor::CharacterForm>,
             Added<ambition_combat::CombatTuning>,
         )>,
     >,
@@ -37,7 +37,7 @@ pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res
     // The bodies `apply_worn_character_gameplay` can actually see.
     //
     // Its required columns, spelled out, because "does the derive match this
-    // entity" has no shorter honest form. `WornCharacter` looks like the answer
+    // entity" has no shorter honest form. `CharacterForm` looks like the answer
     // and is not — it REQUIRES `IdentityKit`, so gating on either one silently
     // means "does it wear a character", which is a different and wrong question:
     // a hand-assembled body wearing a character without a moveset column matches
@@ -47,7 +47,7 @@ pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res
     persona_bodies: Query<
         Entity,
         (
-            With<ambition_characters::actor::WornCharacter>,
+            With<ambition_characters::actor::CharacterForm>,
             With<Name>,
             With<ambition_characters::brain::ActionSet>,
             With<ambition_combat::moveset::ActorMoveset>,
@@ -60,7 +60,7 @@ pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res
     // reload; the ordinary tick still pays only for identities that moved.
     all_bodies: Query<(
         Entity,
-        Option<&ambition_characters::actor::WornCharacter>,
+        Option<&ambition_characters::actor::CharacterForm>,
         Option<&ProjectedCharacterKit>,
     )>,
     // The hand a re-granted kit is folded with.
@@ -78,7 +78,7 @@ pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res
         changed_bodies.iter().collect()
     };
     for (entity, worn, projected) in candidates {
-        let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
+        let character_id = worn.map(ambition_characters::actor::CharacterForm::id);
         let resolved = character_id.filter(|id| registry.get(id).is_some());
         let unchanged = projected.is_some_and(|projected| {
             Some(projected.id.as_str()) == resolved && projected.generation == registry.generation()

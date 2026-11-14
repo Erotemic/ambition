@@ -131,7 +131,7 @@ fn seat_the_cast(participants: Vec<MatchParticipant>) -> Vec<Seat> {
 
     let world = app.world_mut();
     let mut q = world.query_filtered::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &ActorConfig,
         &ambition_platformer2d_core::BodyAbilities,
     ), With<MatchSeat>>();
@@ -291,7 +291,7 @@ fn a_creature_with_one_verb_still_seats_and_simulates() {
 
     let world = app.world_mut();
     let mut q = world.query_filtered::<(
-        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::actor::CharacterForm,
         &ambition_platformer2d_core::BodyKinematics,
     ), With<MatchSeat>>();
     let rows: Vec<(String, Vec2)> = q

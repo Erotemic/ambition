@@ -805,7 +805,7 @@ fn transform_technique() -> ambition_platformer2d::entity_catalog::action_scheme
 ///
 /// The super row authors the boosted movement and the traits (`empowered:
 /// [Untouchable, HarmsOnContact]`), and `sync_super_form_traits` presents the
-/// form (sparkles, the transform cue), so `WornCharacter` is the single
+/// form (sparkles, the transform cue), so `CharacterForm` is the single
 /// authority. No timer.
 ///
 /// It also ends the speed shoes, because the super form takes none.
@@ -815,7 +815,7 @@ fn toggle_sanic_form(
     >,
     mut bodies: bevy::prelude::Query<(
         &ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges,
-        &mut ambition_platformer2d::characters::actor::WornCharacter,
+        &mut ambition_platformer2d::characters::actor::CharacterForm,
         &mut ambition_platformer2d::engine_core::MotionModel,
     )>,
 ) {
@@ -837,7 +837,7 @@ fn toggle_sanic_form(
     // The transform sound fires from the worn-identity edge in
     // `sync_super_form_traits`. This only wears the form and ends any live
     // shoes.
-    *worn = ambition_platformer2d::characters::actor::WornCharacter::new(next);
+    *worn = ambition_platformer2d::characters::actor::CharacterForm::new(next);
     if let ambition_platformer2d::engine_core::MotionModel::SurfaceMomentum(momentum) = &mut *model {
         momentum.boost = None;
     }
@@ -875,7 +875,7 @@ fn sync_super_form_traits(
     mut players: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
             &ae::BodyKinematics,
             Option<&SuperFormLatch>,
         ),

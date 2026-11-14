@@ -673,7 +673,7 @@ fn a_content_file_saved_under_a_local_timeline_rebases_it() {
 fn goblin_max_hps(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec<i32> {
     let world = sim.world_mut();
     let mut q = world.query::<(
-        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::characters::actor::CharacterForm,
         &ambition_platformer2d::characters::actor::BodyHealth,
     )>();
     q.iter(world)
@@ -690,7 +690,7 @@ fn goblin_materials(
 ) -> Vec<ambition_platformer2d::vfx::vfx::ImpactMaterial> {
     let world = sim.world_mut();
     let mut q = world.query::<(
-        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::characters::actor::CharacterForm,
         &ambition_platformer2d::combat::components::CombatTuning,
     )>();
     q.iter(world)

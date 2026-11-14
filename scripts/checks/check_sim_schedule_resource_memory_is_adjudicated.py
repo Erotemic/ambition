@@ -306,8 +306,11 @@ ADJUDICATED: dict[str, str] = {
         "nothing reads either field (read 2026-09-18)"
     ),
     "observe_damageable_body_identity": (
-        "BodyIdentityCensus reports missing identities. No simulation system "
-        "reads this diagnostic report; its observations stay outside replay."
+        "AN OBSERVATION CENSUS. `BodyIdentityCensus` reports missing "
+        "identities; outside its own file "
+        "(`platformer2d_runtime/src/sim_identity/damageable.rs`, writer, "
+        "`init_resource` and test module) only the app test "
+        "`every_damageable_body_is_identified.rs` reads it (read 2026-11-13)"
     ),
     "observe_unminted_bodies": (
         "⭐ AN OBSERVATION CENSUS, A2's witness surface. `UnmintedBodyCensus` is "

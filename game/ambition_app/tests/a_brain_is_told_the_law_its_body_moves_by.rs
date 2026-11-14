@@ -14,7 +14,7 @@
 //! asked Mary-O for 100 px/s got 111.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::characters::brain::state_machine::{PatrolCfg, PatrolState};
 use ambition_platformer2d::characters::brain::{AuthoredWorldPatrolLane, Brain, StateMachineCfg};
 use ambition_platformer2d::engine_core::{AuthoredMovementTuning, BodyKinematics};
@@ -28,7 +28,7 @@ fn walks_at(character: &str) -> (f32, bool) {
     sim.step_n(base(), 30);
     let (body, at, authors_its_feel) = {
         let world = sim.world_mut();
-        let mut query = world.query::<(Entity, &WornCharacter, &BodyKinematics, Option<&AuthoredMovementTuning>)>();
+        let mut query = world.query::<(Entity, &CharacterForm, &BodyKinematics, Option<&AuthoredMovementTuning>)>();
         query
             .iter(world)
             .find(|(_, worn, ..)| worn.id() == character)

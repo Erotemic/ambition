@@ -126,10 +126,10 @@ pub fn retract_room_conversations(world: &mut World, room: LiveRoomInstance, sav
     else {
         return;
     };
-    if let Some(mut conversation) = world.get_resource_mut::<ActiveConversation>() {
-        match put_back {
-            Some(live) => conversation.open(live),
-            None => conversation.close(),
-        }
+    // `ConversationPlugin` installs both resources, so a log means a conversation.
+    let mut conversation = world.resource_mut::<ActiveConversation>();
+    match put_back {
+        Some(live) => conversation.open(live),
+        None => conversation.close(),
     }
 }

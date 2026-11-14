@@ -686,7 +686,7 @@ fn mashing_breaks_his_jaw_grab() {
 /// The bodies wearing catalog character `id`, alive: where each is.
 fn kin(sim: &mut Platformer2dSimHarness, id: &str) -> Vec<ae::Vec2> {
     let world = sim.world_mut();
-    let mut q = world.query::<(&ambition_platformer2d::characters::actor::WornCharacter, &BodyHealth, &ae::BodyKinematics)>();
+    let mut q = world.query::<(&ambition_platformer2d::characters::actor::CharacterForm, &BodyHealth, &ae::BodyKinematics)>();
     q.iter(world)
         .filter(|(worn, health, _)| worn.id() == id && health.alive())
         .map(|(_, _, kin)| kin.pos)
@@ -782,7 +782,7 @@ fn alone_with_him(sim: &mut Platformer2dSimHarness) {
 /// End every living body that wears catalog character `id`.
 fn end_kin(sim: &mut Platformer2dSimHarness, id: &str) {
     let world = sim.world_mut();
-    let mut q = world.query::<(&ambition_platformer2d::characters::actor::WornCharacter, &mut BodyHealth)>();
+    let mut q = world.query::<(&ambition_platformer2d::characters::actor::CharacterForm, &mut BodyHealth)>();
     for (worn, mut health) in q.iter_mut(world) {
         if worn.id() == id {
             health.health.current = 0;

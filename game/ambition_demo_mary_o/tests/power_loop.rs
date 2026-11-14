@@ -28,7 +28,7 @@ use ambition_platformer2d::actors::body::transform_beat::TransformBeat;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested;
 use ambition_platformer2d::world_items::{collect_world_items, WorldItem};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::characters::brain::action_set::{ActionSet, IdentityKit};
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::characters::equipment::WornEquipment;
@@ -109,7 +109,7 @@ impl Loop {
                 // nothing, exactly as an autonomous actor standing on a
                 // mushroom collects nothing.
                 ambition_platformer2d::platformer::markers::PlayerEntity,
-                WornCharacter::new(MARY_O_CHARACTER_ID),
+                CharacterForm::new(MARY_O_CHARACTER_ID),
                 BodyBaseSize { base_size: size },
                 ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 0.0),
@@ -243,7 +243,7 @@ impl Loop {
         // "tall" is "wearing any power sheet" rather than one specific sheet.
         self.app
             .world()
-            .get::<WornCharacter>(self.body)
+            .get::<CharacterForm>(self.body)
             .unwrap()
             .id()
             != MARY_O_CHARACTER_ID
@@ -251,7 +251,7 @@ impl Loop {
     fn worn_character(&self) -> String {
         self.app
             .world()
-            .get::<WornCharacter>(self.body)
+            .get::<CharacterForm>(self.body)
             .unwrap()
             .id()
             .to_string()

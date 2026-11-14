@@ -25,7 +25,7 @@ fn home() -> Platformer2dSimHarness {
         sim.step(AgentAction::default());
     }
     let world = sim.world_mut();
-    let mut worn = world.query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, PrimaryPlayerOnly>();
+    let mut worn = world.query_filtered::<&ambition_platformer2d::characters::actor::CharacterForm, PrimaryPlayerOnly>();
     let id = worn.iter(world).next().expect("the player wears a character").id().to_string();
     assert_eq!(id, "player_robot_v3", "the premise: the player is robot v3");
     sim

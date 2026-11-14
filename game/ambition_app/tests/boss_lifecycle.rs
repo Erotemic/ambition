@@ -695,7 +695,7 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
 #[test]
 fn a_new_game_brings_back_a_person_the_run_killed() {
     use ambition_app::Platformer2dSimHarnessOptions;
-    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
     use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::construction::PersistedFates;
     use ambition_platformer2d::persistence::save_data::enemy_dead_flag;
@@ -712,7 +712,7 @@ fn a_new_game_brings_back_a_person_the_run_killed() {
     // The placement id of the guide and whether its body is alive.
     let guide = |sim: &mut Platformer2dSimHarness| -> Option<(String, bool)> {
         let world = sim.world_mut();
-        let mut q = world.query::<(&WornCharacter, &ActorIdentity, &BodyHealth)>();
+        let mut q = world.query::<(&CharacterForm, &ActorIdentity, &BodyHealth)>();
         q.iter(world)
             .find(|(worn, ..)| worn.0.to_string() == GUIDE)
             .map(|(_, identity, health)| (identity.id.clone(), health.alive()))

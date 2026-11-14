@@ -3,7 +3,7 @@
 use bevy::ecs::system::{Commands, Local, Query};
 use bevy::prelude::{Component, Entity, Has, Name, Res, With};
 
-use ambition_characters::actor::WornCharacter;
+use ambition_characters::actor::CharacterForm;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 
 use ambition_body_seed::PersonaBaseline;
@@ -272,7 +272,7 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
         Entity,
         // Written only to put back the previous character when a wear is
         // refused.
-        &mut WornCharacter,
+        &mut CharacterForm,
         &mut Name,
         &mut ambition_characters::brain::action_set::IdentityKit,
         // The one transition seam (`switch_motion_model`): a cross-model
@@ -378,7 +378,7 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
                     );
                 }
                 if let Some(previous) = previous {
-                    *character = WornCharacter::new(previous);
+                    *character = CharacterForm::new(previous);
                 }
                 continue;
             };

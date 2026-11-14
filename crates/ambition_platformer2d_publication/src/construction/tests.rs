@@ -932,7 +932,7 @@ mod authored_enemy_reads_its_character {
 
     /// The NPC road is a character road too: a placement naming a PREPARED
     /// character is stamped current in its construction batch, like the enemy
-    /// road above. It inserted `WornCharacter` alone, so the persona derive
+    /// road above. It inserted `CharacterForm` alone, so the persona derive
     /// found no baseline and completed the body (name, kit, physical baseline)
     /// on its first tick. Same fixture: no derive runs here.
     #[test]
@@ -988,7 +988,7 @@ mod authored_enemy_reads_its_character {
 
         let world = app.world_mut();
         let mut q = world.query::<(
-            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::CharacterForm,
             Option<&ambition_body_seed::PersonaBaseline>,
         )>();
         let (worn, baseline) = q.iter(world).next().expect("the NPC was built");
@@ -1078,7 +1078,7 @@ mod authored_enemy_reads_its_character {
 
         let world = app.world_mut();
         let mut q = world.query::<(
-            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::CharacterForm,
             Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
             Option<&ambition_body_seed::PersonaBaseline>,
         )>();
@@ -1172,7 +1172,7 @@ mod authored_enemy_reads_its_character {
 
         let world = app.world_mut();
         let mut q = world.query::<(
-            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::CharacterForm,
             &ae::AbilityBase,
             &ae::BodyAbilities,
         )>();
@@ -1458,7 +1458,7 @@ mod authored_enemy_reads_its_character {
             let mut q = world.query_filtered::<(
                 bevy::prelude::Has<ambition_characters::brain::ChargesProjectiles>,
                 bevy::prelude::Has<ambition_projectiles::PlayerProjectileState>,
-            ), bevy::prelude::With<ambition_characters::actor::WornCharacter>>();
+            ), bevy::prelude::With<ambition_characters::actor::CharacterForm>>();
             q.single(world).expect("the placement built one body")
         };
         assert_eq!(
@@ -1827,7 +1827,7 @@ mod authored_enemy_reads_its_character {
         let world = app.world_mut();
         let mut q = world.query::<(
             &BodyHealth,
-            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&ambition_characters::actor::CharacterForm>,
         )>();
         let (health, worn) = q.iter(world).next().expect("one enemy body");
         (health.health.max, worn.map(|worn| worn.id().to_string()))

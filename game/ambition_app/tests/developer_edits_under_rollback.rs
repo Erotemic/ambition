@@ -270,7 +270,7 @@ fn publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same() {
     let worn: Option<String> = {
         let world = sim.world_mut();
         let mut q = world.query_filtered::<
-            &ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::CharacterForm,
             ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
         >();
         q.single(world).ok().map(|worn| worn.0.as_str().to_string())

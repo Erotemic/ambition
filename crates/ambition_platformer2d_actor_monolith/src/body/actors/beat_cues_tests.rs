@@ -2,7 +2,7 @@
 
 use super::ActorDecisionFrames;
 use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogFragment};
-use ambition_characters::actor::WornCharacter;
+use ambition_characters::actor::CharacterForm;
 use ambition_characters::brain::BrainBeat;
 use ambition_characters::prepared::{CharacterCatalogAppExt, PreparedCharacterRegistry};
 use ambition_characters::session_cast::ActiveSessionCast;
@@ -54,7 +54,7 @@ fn beat_sounds_change_at_cast_activation_and_keep_the_bodys_source() {
     app.insert_resource(ActiveSessionCast(Some(old)));
     app.add_systems(Update, crate::body::beat_cues::play_beat_cues);
     let body = app.world_mut().spawn((
-        WornCharacter::new("alpha"),
+        CharacterForm::new("alpha"),
         ae::BodyKinematics { pos: ae::Vec2::new(12.0, 34.0), ..Default::default() },
         BodyPresentationSource("fixture-voice".into()),
     )).id();

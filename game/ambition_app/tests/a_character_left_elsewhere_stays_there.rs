@@ -13,7 +13,7 @@
 
 use crate::common::{base, door_to, fixed_60hz_room_sim};
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use bevy::prelude::Entity;
 
@@ -27,7 +27,7 @@ fn dogs(
     let world = sim.world_mut();
     let mut query = world.query::<(
         Entity,
-        &WornCharacter,
+        &CharacterForm,
         &ambition_platformer2d::platformer::sim_id::SimId,
         &BodyKinematics,
     )>();

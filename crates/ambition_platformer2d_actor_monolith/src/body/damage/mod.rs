@@ -159,7 +159,7 @@ pub struct FeatureHitWriters<'w, 's> {
     pub live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
     /// Which character a struck body IS right now, by entity — the gameplay
     /// identity a bark speaks in, which a runtime re-wear changes.
-    pub worn: Query<'w, 's, &'static ambition_characters::actor::WornCharacter>,
+    pub worn: Query<'w, 's, &'static ambition_characters::actor::CharacterForm>,
 }
 
 impl FeatureHitWriters<'_, '_> {

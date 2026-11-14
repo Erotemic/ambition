@@ -16,7 +16,7 @@
 use ambition_demo_mary_o_app::build_demo_app;
 use ambition_platformer2d::character::{AuthoredSheets, CharacterCatalog};
 
-/// Every form Mary-O can wear, by the id `WornCharacter` carries.
+/// Every form Mary-O can wear, by the id `CharacterForm` carries.
 const FORMS: [&str; 4] = ["mary_o", "mary_o_tall_classic", "mary_o_fire", "mary_o_cosmic"];
 
 #[test]

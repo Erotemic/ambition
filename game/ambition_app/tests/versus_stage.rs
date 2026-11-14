@@ -133,7 +133,7 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
     settle_into_a_live_round(&mut app);
 
     let world = app.world_mut();
-    let mut worn = world.query::<&ambition_platformer2d::characters::actor::WornCharacter>();
+    let mut worn = world.query::<&ambition_platformer2d::characters::actor::CharacterForm>();
     let mut characters: Vec<String> = worn.iter(world).map(|worn| worn.id().to_string()).collect();
     characters.sort();
 
@@ -302,7 +302,7 @@ fn two_controllers_make_versus_a_two_player_game() {
 /// A seated fighter wears its character all the way down.
 ///
 /// Wearing a character is not a label: `apply_worn_character_gameplay` is the one writer that
-/// turns `WornCharacter` into a persona — the body's name, its action set, its moveset and its
+/// turns `CharacterForm` into a persona — the body's name, its action set, its moveset and its
 /// identity kit. It is a QUERY, and a body missing any required column does not match it,
 /// silently.
 ///
@@ -335,7 +335,7 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
     let world = app.world_mut();
     let mut seated = world.query::<(
         &ambition_platformer2d::versus_match::MatchSeat,
-        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::characters::actor::CharacterForm,
         &Name,
         &ActionSet,
     )>();

@@ -125,7 +125,7 @@ pub fn break_bricks(
             Option<&ambition_platformer2d::platformer::sim_id::SimId>,
             // Her ultimate form is not a rung of her ladder, so her equipment
             // does not say she is in it.
-            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            Option<&ambition_platformer2d::characters::actor::CharacterForm>,
         ),
         With<PlayerEntity>,
     >,

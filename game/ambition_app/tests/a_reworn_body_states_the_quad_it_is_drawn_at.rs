@@ -9,7 +9,7 @@
 //! entity, and the damage it took stays. The posed robot brings its own box,
 //! as before. The renderer draws the quad the simulation states.
 
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::combat::components::ActorRenderSize;
 use ambition_platformer2d::engine_core::{AbilityBase, BodyBaseSize, BodyKinematics};
 use ambition_platformer2d::game_shell::ShellCommand;
@@ -79,8 +79,8 @@ fn a_player_that_changes_form_takes_the_size_of_that_form() {
     ];
     let mut boxes = Vec::new();
     for (character, posed) in wears {
-        *app.world_mut().get_mut::<WornCharacter>(player).expect("the player wears a character") =
-            WornCharacter::new(character);
+        *app.world_mut().get_mut::<CharacterForm>(player).expect("the player wears a character") =
+            CharacterForm::new(character);
         // The wear lands, the art binds, and the animator draws a frame.
         for _ in 0..60 {
             app.update();
@@ -155,7 +155,7 @@ fn sim_geometry(sim: &mut ambition_app::rl_sim::Platformer2dSimHarness, body: En
 /// CHARACTER-FORM slice 3: a skin is presentation only. The player puts on the
 /// dog's look (`WornSkin`) and its standing box, collision size, hurtboxes and
 /// movement tuning stay as they were. The control is the dog's FORM
-/// (`WornCharacter`) on the same body, which moves them.
+/// (`CharacterForm`) on the same body, which moves them.
 #[test]
 fn a_skin_change_moves_no_collider_hurtbox_or_movement_value() {
     use ambition_app::rl_sim::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
@@ -180,12 +180,12 @@ fn a_skin_change_moves_no_collider_hurtbox_or_movement_value() {
     sim.world_mut().entity_mut(body).insert(WornSkin(LOOK.into()));
     sim.step_n(AgentAction::default(), 30);
     let skinned = sim_geometry(&mut sim, body);
-    let wears = sim.world().get::<WornCharacter>(body).map(|worn| worn.id().to_owned());
+    let wears = sim.world().get::<CharacterForm>(body).map(|worn| worn.id().to_owned());
     let skin = sim.world().get::<WornSkin>(body).map(|skin| skin.id().to_owned());
 
     let (mut control, control_body) = boot();
-    *control.world_mut().get_mut::<WornCharacter>(control_body).expect("the player wears a character") =
-        WornCharacter::new(LOOK);
+    *control.world_mut().get_mut::<CharacterForm>(control_body).expect("the player wears a character") =
+        CharacterForm::new(LOOK);
     control.step_n(AgentAction::default(), 30);
     let formed = sim_geometry(&mut control, control_body);
 

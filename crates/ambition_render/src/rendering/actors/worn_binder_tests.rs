@@ -1,13 +1,13 @@
 //! Tests for the reusable selected-character presentation binder.
 //!
-//! The binder derives presentation from the canonical `WornCharacter`
+//! The binder derives presentation from the canonical `CharacterForm`
 //! identity, generically (two character profiles, no per-character branch):
 //! it binds on first appearance, rebinds on identity change, and leaves no
 //! stale or duplicate sheet components. Uses deterministic sheet fixtures and
 //! nothing from `ambition_app`.
 use super::bind_worn_character_presentation;
 use super::{PlayerSpriteCharacter, PlayerVisual};
-use ambition_characters::actor::WornCharacter;
+use ambition_characters::actor::CharacterForm;
 use ambition_sprite_sheet::character::{
     try_load_spec_for_character_id, CharacterAnimator, CharacterSpriteAsset,
 };
@@ -50,7 +50,7 @@ fn spawn_worn(app: &mut App, id: &str) -> Entity {
     app.world_mut()
         .spawn((
             PlayerVisual,
-            WornCharacter::new(id),
+            CharacterForm::new(id),
             ambition_sim_view::BodyPoseView {
                 base_size: ambition_platformer2d_core::Vec2::new(
                     ambition_platformer2d_core::DEFAULT_PLAYER_BODY_WIDTH,
@@ -65,7 +65,7 @@ fn spawn_worn(app: &mut App, id: &str) -> Entity {
 /// A worn player in the window before the sim has published its pose.
 fn spawn_worn_before_its_pose(app: &mut App, id: &str) -> Entity {
     app.world_mut()
-        .spawn((PlayerVisual, WornCharacter::new(id)))
+        .spawn((PlayerVisual, CharacterForm::new(id)))
         .id()
 }
 
@@ -132,7 +132,7 @@ fn rebinds_and_leaves_no_stale_sheet_components_on_identity_change() {
     // Re-wear to an identity with no sheet: the binder must replace the
     // stale animator, anchor, and baseline with the coloured-rectangle
     // fallback, not add a duplicate.
-    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("no_such_sheet");
+    *app.world_mut().get_mut::<CharacterForm>(e).unwrap() = CharacterForm::new("no_such_sheet");
     app.update();
     assert_eq!(
         app.world().get::<PlayerSpriteCharacter>(e).unwrap().id,
@@ -252,7 +252,7 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
         .world_mut()
         .spawn((
             PlayerVisual,
-            WornCharacter::new("robot"),
+            CharacterForm::new("robot"),
             // The read model, not the sim's `BodyBaseSize`: presentation reads
             // `ambition_sim_view`.
             ambition_sim_view::BodyPoseView {
@@ -319,7 +319,7 @@ fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
         .world_mut()
         .spawn((
             PlayerVisual,
-            WornCharacter::new("robot"),
+            CharacterForm::new("robot"),
             ambition_sim_view::BodyPoseView {
                 base_size: small,
                 ..Default::default()
@@ -330,7 +330,7 @@ fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
 
     // The frame she grows: the identity swaps, and the pose still carries
     // the old form and says so.
-    *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("goblin");
+    *app.world_mut().get_mut::<CharacterForm>(body).unwrap() = CharacterForm::new("goblin");
     app.world_mut()
         .get_mut::<ambition_sim_view::BodyPoseView>(body)
         .unwrap()

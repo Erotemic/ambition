@@ -14,6 +14,8 @@
 | [`combat_schedule`](src/combat_schedule.rs) | Combat-phase schedule plugin. |
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
+| [`death_fee`](src/death_fee.rs) | What a participant's death costs (PLAYER-DEATH, Q174's default): the gate network's insurance takes its fee ([`DeathFee`]) from the wallet, and the coins it took lie where the body was taken until someone fetches them. |
+| [`death_look`](src/death_look.rs) | A participant's death, drawn: the game's [`DeathLook`] effect where the body is taken when its death window opens, and the other where it comes back into play (PLAYER-DEATH). |
 | [`durable_save_horizon`](src/durable_save_horizon.rs) | Host installation of the durable save horizon. |
 | [`effect_bus`](src/effect_bus.rs) | Apply typed flag, quest, switch, and audio effects. |
 | [`extension_composition`](src/extension_composition.rs) | The extension host in the platformer composition (fast-iteration I4). |
@@ -28,6 +30,7 @@
 | [`module_save_road`](src/module_save_road.rs) | The session durable save road of the extension host ([`SaveRoad::SessionDurable`]): a module's session record whose schema says `SaveEligibility::Durable` is kept in the durable world save, and comes back when that save loads. |
 | [`player_schedule`](src/player_schedule.rs) | Engine-generic per-frame player lifecycle and its host extension slots. |
 | [`portal_body`](src/portal_body.rs) | Runtime witnesses for atomic portal body transfer. |
+| [`portal_fault`](src/portal_fault.rs) | The visible face of a numeric portal refusal (PSIM-5). |
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly and schedule placement. |
 | [`portal_seat`](src/portal_seat.rs) | What a portal transit means for the body a seat drives. |
 | [`profile`](src/profile.rs) | Named supported engine profiles: capability contracts, not plugin lists. |
@@ -52,7 +55,7 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_45 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_48 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

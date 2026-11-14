@@ -688,7 +688,7 @@ pub fn publish_smash_hud(
         Option<&ambition_platformer2d::characters::actor::BodyCombat>,
         &bevy::prelude::Name,
         // The character id, for the portrait. `Name` is only a display string.
-        Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+        Option<&ambition_platformer2d::characters::actor::CharacterForm>,
     )>,
     // The game resolves the portrait, not the renderer: "which character" is
     // content (see `HudStanding::portrait`).

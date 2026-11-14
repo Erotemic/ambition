@@ -63,7 +63,7 @@ pub fn defeat_badniks(
             // What is true of this body: its grant and the character it
             // wears. Optional so the thin test harnesses need not dress the body.
             Option<&ambition_platformer2d::actors::body::empowerment::Empowered>,
-            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            Option<&ambition_platformer2d::characters::actor::CharacterForm>,
             Option<&ambition_platformer2d::platformer::sim_id::SimId>,
         ),
         With<PlayerEntity>,
@@ -269,7 +269,7 @@ mod tests {
         app.world_mut().spawn((
             PrimaryPlayer,
             PlayerEntity,
-            ambition_platformer2d::characters::actor::WornCharacter::new(
+            ambition_platformer2d::characters::actor::CharacterForm::new(
                 crate::SUPER_SANIC_CHARACTER_ID,
             ),
             kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
@@ -290,7 +290,7 @@ mod tests {
         app.world_mut().spawn((
             PrimaryPlayer,
             PlayerEntity,
-            ambition_platformer2d::characters::actor::WornCharacter::new(crate::SANIC_CHARACTER_ID),
+            ambition_platformer2d::characters::actor::CharacterForm::new(crate::SANIC_CHARACTER_ID),
             kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
         ));
         app.update();

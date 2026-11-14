@@ -1,0 +1,16 @@
+# `ambition_geometry_observation` — module map
+
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
+
+**ambition_geometry_observation** — Read-only observation of the geometry gameplay tests (GOBS-1, `docs/planning/engine/geometry-observability-and-f1.md`).
+
+| Module | Its ONE concern (from the module's own `//!` header) |
+|---|---|
+
+_0 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+
+<!-- END generated module map -->
+
+## Notes
+
+_Hand-written notes live here and survive regeneration: the crate's authoritative state, its seams, and anything the module headers cannot say._

@@ -47,7 +47,7 @@
 use ambition_characters::actor::{BodyHealth, Corpse};
 use ambition_combat::components::DeathBeat;
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_characters::actor::{ActorFaction, WornCharacter};
+use ambition_characters::actor::{ActorFaction, CharacterForm};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_combat::components::FeatureId;
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
@@ -273,7 +273,7 @@ fn mark_hosted_bodies(
 fn write_spawn_rows(
     mut commands: Commands,
     bodies: Query<
-        (Entity, &SimId, &FeatureId, Option<&Name>, &WornCharacter, &BodyKinematics, Option<&ActorFaction>),
+        (Entity, &SimId, &FeatureId, Option<&Name>, &CharacterForm, &BodyKinematics, Option<&ActorFaction>),
         (With<Replicated>, Without<SpawnRow>, Without<DrivingParticipant>),
     >,
 ) {

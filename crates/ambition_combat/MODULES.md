@@ -24,6 +24,7 @@
 | [`crowd`](src/crowd.rs) | Crowding classification used by fighter spacing logic. |
 | [`damage_box`](src/damage_box.rs) | Damage-box requests capture their source context before deferred construction. |
 | [`death_rules`](src/death_rules.rs) | Game-scoped consequences of participant death (ADR 0033). |
+| [`detonate`](src/detonate.rs) | A move that ends its own mover: the handler of [`ambition_entity_catalog::detonate::DETONATE`]. |
 | [`dormancy_rule`](src/dormancy_rule.rs) | How near an observer must be for a hostile's brain to keep thinking: one game's rule for its own rooms (`room_rules`, field `hostile_wake_radius`). |
 | [`events`](src/events.rs) | Combat message/event vocabulary and small shared value types. |
 | [`extension`](src/extension.rs) | The combat domain's extension request adapters. |
@@ -37,6 +38,7 @@
 | [`hazards`](src/hazards.rs) | Hazard tick: patrol motion and contact damage. |
 | [`held_items`](src/held_items.rs) | ECS-owned held item capability for actors. |
 | [`hit_camera_shake`](src/hit_camera_shake.rs) | Camera-shake intents derived from landed hits. |
+| [`hit_feel`](src/hit_feel.rs) | How a landed hit answers in one game's rooms: how long both bodies freeze and how far a strike pushes back the body that landed it (HIT-FEEL). |
 | [`hit_reaction`](src/hit_reaction.rs) | Body-generic hit reaction: knockback, directional influence, and reaction timers. |
 | [`hitbox`](src/hitbox/mod.rs) | Hitbox-entity lifecycle: spawn, resolve overlaps, then despawn. |
 | [`hurtbox_resolution`](src/hurtbox_resolution.rs) | Hurtboxes resolved from simulation state and clocks, independent of rendering. |
@@ -62,7 +64,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_55 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_57 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

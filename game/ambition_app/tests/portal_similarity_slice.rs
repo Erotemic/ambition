@@ -24,7 +24,7 @@ fn slice() -> Platformer2dSimHarness {
     sim.rebase_rollback_history().unwrap();
     for _ in 0..12 { sim.step(crate::common::base()); }
     let (entity, mut pose) = body(&mut sim);
-    assert_eq!(sim.world().get::<ambition_platformer2d::characters::actor::WornCharacter>(entity).unwrap().id(), "player_robot_v3");
+    assert_eq!(sim.world().get::<ambition_platformer2d::characters::actor::CharacterForm>(entity).unwrap().id(), "player_robot_v3");
     let world = sim.world_mut();
     let mut portals = world.query::<&PlacedPortal>();
     let endpoints: Vec<_> = portals.iter(world).filter(|p| p.half_length == 40.0 || p.half_length == 20.0)

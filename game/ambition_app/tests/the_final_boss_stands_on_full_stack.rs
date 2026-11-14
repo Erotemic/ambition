@@ -4,7 +4,7 @@
 //! guitar.
 
 use ambition_platformer2d::boss_encounter::BossConfig;
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::mount::BackLedge;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
@@ -17,7 +17,7 @@ const STACK: &str = "npc_full_stack";
 
 fn stack(sim: &mut ambition_app::Platformer2dSimHarness) -> (ae::BodyKinematics, BackLedge, bool) {
     let world = sim.world_mut();
-    let mut q = world.query::<(&WornCharacter, &ae::BodyKinematics, Option<&BackLedge>, Has<ae::Unmirrored>)>();
+    let mut q = world.query::<(&CharacterForm, &ae::BodyKinematics, Option<&BackLedge>, Has<ae::Unmirrored>)>();
     let (_, kin, back, unmirrored) =
         q.iter(world).find(|(worn, ..)| worn.id() == STACK).unwrap_or_else(|| panic!("the stage stands `{STACK}`"));
     (kin.clone(), back.expect("Full Stack's body has its top and its guitar").clone(), unmirrored)
@@ -102,7 +102,7 @@ fn thrown_over(sim: &mut ambition_app::Platformer2dSimHarness, ticks: usize) -> 
         let world = sim.world_mut();
         let mut q = world.query::<&ambition_platformer2d::projectiles::ProjectileVisualId>();
         seen.extend(q.iter(world).map(|id| id.as_str().to_string()));
-        let mut rows = world.query::<(&WornCharacter, &PinnedRow)>();
+        let mut rows = world.query::<(&CharacterForm, &PinnedRow)>();
         seen.extend(
             rows.iter(world)
                 .filter(|(worn, _)| worn.id() == STACK)
@@ -154,7 +154,7 @@ fn the_agent_plays_first_and_then_he_types() {
 /// The catalog characters worn by the bodies on the stage now.
 fn worn_on_stage(sim: &mut ambition_app::Platformer2dSimHarness) -> std::collections::BTreeSet<String> {
     let world = sim.world_mut();
-    let mut q = world.query::<&WornCharacter>();
+    let mut q = world.query::<&CharacterForm>();
     q.iter(world).map(|worn| worn.id().to_string()).collect()
 }
 
@@ -162,7 +162,7 @@ fn worn_on_stage(sim: &mut ambition_app::Platformer2dSimHarness) -> std::collect
 fn band_rows(sim: &mut ambition_app::Platformer2dSimHarness) -> std::collections::BTreeMap<String, String> {
     use ambition_platformer2d::sprite_sheet::character::PinnedRow;
     let world = sim.world_mut();
-    let mut q = world.query::<(&WornCharacter, Option<&PinnedRow>)>();
+    let mut q = world.query::<(&CharacterForm, Option<&PinnedRow>)>();
     q.iter(world)
         .filter(|(worn, _)| worn.id().ends_with("_band"))
         .map(|(worn, pin)| (worn.id().to_string(), pin.and_then(|pin| pin.rows.first().cloned()).unwrap_or_default()))

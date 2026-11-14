@@ -12,7 +12,7 @@
 //! is a function of the tick, so a rewind draws the same frame.
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_characters::actor::WornCharacter;
+use ambition_characters::actor::CharacterForm;
 use ambition_sprite_sheet::character::PinnedRow;
 use ambition_time::SimTick;
 use bevy::prelude::*;
@@ -40,7 +40,7 @@ pub const REST_ROW_WRITER: &str = "rest_row";
 pub fn pin_rest_rows(
     tick: Res<SimTick>,
     catalog: Res<CharacterCatalog>,
-    mut bodies: Query<(&WornCharacter, Option<&mut PinnedRow>, Entity)>,
+    mut bodies: Query<(&CharacterForm, Option<&mut PinnedRow>, Entity)>,
     mut commands: Commands,
 ) {
     let elapsed = tick.get() as f32 * TICK_S;
@@ -105,11 +105,11 @@ mod tests {
         app.init_resource::<SimTick>();
         app.add_systems(Update, pin_rest_rows);
         // A body no conductor draws has no pin of its own.
-        let whole = app.world_mut().spawn(WornCharacter::new("giant_whole")).id();
-        let plain = app.world_mut().spawn((WornCharacter::new("giant"), PinnedRow::default())).id();
+        let whole = app.world_mut().spawn(CharacterForm::new("giant_whole")).id();
+        let plain = app.world_mut().spawn((CharacterForm::new("giant"), PinnedRow::default())).id();
         let mut conducted = PinnedRow::default();
         conducted.pin(&["buck"], 0.2, false);
-        let fought = app.world_mut().spawn((WornCharacter::new("giant_whole"), conducted)).id();
+        let fought = app.world_mut().spawn((CharacterForm::new("giant_whole"), conducted)).id();
         app.update();
         app.update();
 
@@ -120,7 +120,7 @@ mod tests {
         assert_eq!(rows(&app, fought), vec!["buck".to_string()], "a conductor's pin was replaced");
 
         // It changes to the look with no rest row: the pin goes with the look.
-        *app.world_mut().get_mut::<WornCharacter>(whole).expect("the body") = WornCharacter::new("giant");
+        *app.world_mut().get_mut::<CharacterForm>(whole).expect("the body") = CharacterForm::new("giant");
         app.update();
         assert!(rows(&app, whole).is_empty(), "the rest row of a look the body no longer wears stayed");
     }
@@ -130,7 +130,7 @@ mod tests {
     #[derive(Resource, Default)]
     struct Attacking(bool);
 
-    fn conductor(attacking: Res<Attacking>, mut pins: Query<&mut PinnedRow, With<WornCharacter>>) {
+    fn conductor(attacking: Res<Attacking>, mut pins: Query<&mut PinnedRow, With<CharacterForm>>) {
         for mut pin in &mut pins {
             if attacking.0 {
                 pin.pin(&["attack"], 0.0, false);
@@ -150,7 +150,7 @@ mod tests {
         app.insert_resource(catalog());
         app.init_resource::<SimTick>();
         app.add_systems(Update, pin_rest_rows);
-        let body = app.world_mut().spawn(WornCharacter::new("giant_whole")).id();
+        let body = app.world_mut().spawn(CharacterForm::new("giant_whole")).id();
         app.update();
         app.update();
         assert!(
@@ -194,7 +194,7 @@ mod tests {
             } else {
                 app.add_systems(Update, (pin_rest_rows, conductor).chain());
             }
-            let body = app.world_mut().spawn(WornCharacter::new("giant_whole")).id();
+            let body = app.world_mut().spawn(CharacterForm::new("giant_whole")).id();
             let rows = |app: &App| app.world().get::<PinnedRow>(body).expect("a pin").rows.clone();
             app.update();
             app.update();

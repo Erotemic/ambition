@@ -1,7 +1,7 @@
 #![cfg(feature = "rl_sim")]
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::combat::components::ActorDisposition;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::engine_core::{BodyAbilities, BodyKinematics};
@@ -32,7 +32,7 @@ fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
     let dog: Entity = {
         let world = sim.world_mut();
         let mut query =
-            world.query::<(Entity, &WornCharacter, &ActorDisposition, &BodyAbilities)>();
+            world.query::<(Entity, &CharacterForm, &ActorDisposition, &BodyAbilities)>();
         let (entity, _, disposition, abilities) = query
             .iter(world)
             .find(|(_, worn, ..)| worn.id() == "npc_companion_dog")
@@ -135,7 +135,7 @@ fn act_from_outside_the_timeline(
     mut navigation: bevy::prelude::ResMut<
         ambition_platformer2d::actors::body::navigation::RoomNavigation,
     >,
-    mut bodies: bevy::prelude::Query<(&mut BodyKinematics, &WornCharacter)>,
+    mut bodies: bevy::prelude::Query<(&mut BodyKinematics, &CharacterForm)>,
 ) {
     *runs += 1;
     match *what {
@@ -198,7 +198,7 @@ fn the_dog_under_a_sync_test(
             break;
         }
         let world = sim.world_mut();
-        let mut dogs = world.query::<(&WornCharacter, &BodyKinematics, &BodyGroundState)>();
+        let mut dogs = world.query::<(&CharacterForm, &BodyKinematics, &BodyGroundState)>();
         let Some((_, kin, ground)) =
             dogs.iter(world).find(|(worn, ..)| worn.id() == "npc_companion_dog")
         else {
@@ -393,7 +393,7 @@ fn the_dog_and_the_player() -> (ambition_app::Platformer2dSimHarness, Entity, En
     sim.step_n(base(), 10);
     let dog = {
         let world = sim.world_mut();
-        let mut query = world.query::<(Entity, &WornCharacter)>();
+        let mut query = world.query::<(Entity, &CharacterForm)>();
         query
             .iter(world)
             .find(|(_, worn)| worn.id() == "npc_companion_dog")

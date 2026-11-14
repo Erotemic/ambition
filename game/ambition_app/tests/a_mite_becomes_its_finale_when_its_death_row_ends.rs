@@ -6,7 +6,7 @@
 
 use crate::common::{base, fixed_60hz_room_options};
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
-use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
 use ambition_platformer2d::combat::components::DeathBeat;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use bevy::prelude::*;
@@ -17,7 +17,7 @@ const ROOM: &str = "volatile_cache";
 fn mites(sim: &mut Platformer2dSimHarness, id: &str) -> Vec<(Entity, BodyKinematics, bool, Option<DeathBeat>)> {
     let world = sim.world_mut();
     world
-        .query::<(Entity, &WornCharacter, &BodyHealth, &BodyKinematics, Option<&DeathBeat>)>()
+        .query::<(Entity, &CharacterForm, &BodyHealth, &BodyKinematics, Option<&DeathBeat>)>()
         .iter(world)
         .filter(|(_, worn, ..)| worn.id() == id)
         .map(|(entity, _, health, kin, beat)| (entity, kin.clone(), health.alive(), beat.copied()))

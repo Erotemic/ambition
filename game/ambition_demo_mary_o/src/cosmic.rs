@@ -30,7 +30,7 @@ use ambition_platformer2d::actors::body::transform_beat::TransformBeat;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested;
 use ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges;
-use ambition_platformer2d::characters::actor::{RecharacterizeBody, WornCharacter};
+use ambition_platformer2d::characters::actor::{RecharacterizeBody, CharacterForm};
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
@@ -120,7 +120,7 @@ pub fn toggle_cosmic_form(sprite_content: bevy::prelude::Res<ambition_platformer
     mut bodies: Query<(
         Entity,
         &ResolvedTechniqueEdges,
-        &mut WornCharacter,
+        &mut CharacterForm,
         &ae::BodyKinematics,
         Option<&WornEquipment>,
         Option<&mut TransformBeat>,
@@ -188,7 +188,7 @@ pub fn update_cosmic_return_clip(
     content: Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     catalog: Option<Res<ambition_platformer2d::character::CharacterCatalog>>,
     authored: Option<Res<ambition_platformer2d::character::AuthoredSheets>>,
-    mut bodies: Query<(&WornCharacter, Option<&WornEquipment>, &mut TransformBeat)>,
+    mut bodies: Query<(&CharacterForm, Option<&WornEquipment>, &mut TransformBeat)>,
 ) {
     for (worn, equipment, mut beat) in &mut bodies {
         if !is_cosmic(worn.id()) || !is_leaving(&beat) { continue; }
@@ -213,7 +213,7 @@ pub fn update_cosmic_return_clip(
 /// longer than the hold: a beat is not gone before this sees its end.
 pub fn come_back_from_the_form(
     time: Res<ambition_platformer2d::time::WorldTime>,
-    mut bodies: Query<(Entity, &mut WornCharacter, Option<&WornEquipment>, &TransformBeat)>,
+    mut bodies: Query<(Entity, &mut CharacterForm, Option<&WornEquipment>, &TransformBeat)>,
     mut commands: Commands,
 ) {
     for (body, mut worn, equipment, beat) in &mut bodies {
@@ -279,7 +279,7 @@ fn lent_verbs() -> ae::AbilitySet {
 /// Lend her the jump in the air while she wears the form, and take it back
 /// after. The entry is read from the character she wears on each tick, so it
 /// is no state of its own. How many jumps she has is the form's tuning.
-pub fn lend_the_jump_in_the_air(mut bodies: Query<(&WornCharacter, &mut ae::AbilityContributions)>) {
+pub fn lend_the_jump_in_the_air(mut bodies: Query<(&CharacterForm, &mut ae::AbilityContributions)>) {
     for (worn, mut contributions) in &mut bodies {
         let lent = contributions.get(COSMIC_ABILITY_SOURCE).is_some();
         let wanted = is_cosmic(worn.id());
@@ -295,7 +295,7 @@ pub fn lend_the_jump_in_the_air(mut bodies: Query<(&WornCharacter, &mut ae::Abil
 /// runs after the hits of the tick are resolved, and the clock reads the
 /// timer on the next tick. Each body in the form, not only the first player.
 pub fn shorten_her_hit_stop(
-    mut bodies: Query<(&WornCharacter, &mut ambition_platformer2d::characters::actor::BodyCombat)>,
+    mut bodies: Query<(&CharacterForm, &mut ambition_platformer2d::characters::actor::BodyCombat)>,
 ) {
     for (worn, mut combat) in &mut bodies {
         if is_cosmic(worn.id()) && combat.hitstop_timer > crate::rules::mary_o_rules().cosmic.hit_stop_max_seconds {
@@ -307,7 +307,7 @@ pub fn shorten_her_hit_stop(
 /// Run condition of [`play_cosmic_music`]: a body is in the form, or a cosmic
 /// claim stands that may be owed a release.
 pub fn cosmic_music_is_owed(
-    bodies: Query<&WornCharacter>,
+    bodies: Query<&CharacterForm>,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
             ambition_platformer2d::encounter::EncounterMusicRequest,
@@ -323,7 +323,7 @@ pub fn cosmic_music_is_owed(
 /// that room is in it, so the theme of the level comes back with no record
 /// here of what it was.
 pub fn play_cosmic_music(
-    bodies: Query<(Entity, &WornCharacter)>,
+    bodies: Query<(Entity, &CharacterForm)>,
     live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<

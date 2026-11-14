@@ -10,7 +10,7 @@
 //! anew from the edited pack (measured: another entity, with no plan yet).
 
 use ambition_platformer2d::actors::body::life::{Life, LifeBook, Value};
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::time::{DayClock, DayCycle};
 use bevy::prelude::*;
@@ -21,7 +21,7 @@ const NIKOBOLT: &str = "npc_science_nikobolt";
 fn nikobolt(app: &mut App) -> Entity {
     let world = app.world_mut();
     world
-        .query::<(Entity, &WornCharacter)>()
+        .query::<(Entity, &CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == NIKOBOLT)
         .map(|(entity, _)| entity)

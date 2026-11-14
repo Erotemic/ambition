@@ -28,7 +28,7 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d::render::rendering::actors::rigged::{ask_for_parts, forget_parts, PartSetDraws, PartSetRequest};
 use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual};
@@ -218,7 +218,7 @@ fn raise_her_barrier(
     bodies: Query<
         (
             Entity,
-            &WornCharacter,
+            &CharacterForm,
             Option<&PartSetDraws>,
             Option<&PartSetRequest>,
             Option<&HasCosmicBarrier>,

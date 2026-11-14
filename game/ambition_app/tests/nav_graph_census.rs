@@ -19,7 +19,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 fn the_dog(sim: &mut ambition_app::Platformer2dSimHarness) -> ae::BodyClusterScratch {
     let world = sim.world_mut();
     let dog: Entity = world
-        .query::<(Entity, &ambition_platformer2d::characters::actor::WornCharacter)>()
+        .query::<(Entity, &ambition_platformer2d::characters::actor::CharacterForm)>()
         .iter(world)
         .find(|(_, worn)| worn.id() == "npc_companion_dog")
         .map(|(entity, _)| entity)

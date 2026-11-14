@@ -578,9 +578,7 @@ entity is gone and writes the same stamped `ParticipantLeaveRequested`
 `a_hosted_guest_that_disconnects_leaves_the_session`: seat 1 joined the
 host's session, a guest seated as seat 1 disconnects, and seat 1's
 membership and body end; a guest naming no seat (the control) leaves seat 1
-in. Measured on the way: a leave on the tick after a join retires nothing
-(the witness settles 15 frames first, as the local one does); not
-investigated. A GGRS peer's leave is not built (Smash keeps GGRS, and
+in. A GGRS peer's leave is not built (Smash keeps GGRS, and
 Ambition's remote play is the hosted world).
 
 **Slice 4 (presentation) is met by existing witnesses (checked 2026-11-10):**
@@ -594,8 +592,7 @@ the leave brings the single-player presentation back (`a_seat_leaves_the_session
 
 **Next action:** none required. Nice to have: a portal that Player 2 drops
 out of, presentation only. A remote guest's leave is built for the hosted
-world (2026-11-13); a leave on the tick after a join retires nothing
-(measured, not investigated).
+world (2026-11-13).
 
 **Acceptance:** the controller and multiplayer tests of the 2026-10-19
 assignment (section 11), each a simulation-level witness with a negative

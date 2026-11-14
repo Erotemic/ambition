@@ -628,8 +628,8 @@ fn a_guest_disconnects(seated: bool) -> ((bool, usize), (bool, usize)) {
     let mut guest = boot(HostedRole::Guest);
     simulate_nothing(&mut guest);
     crate::a_second_seat_joins_the_session::join(&mut host, 240).expect("premise: seat 1 joins the host's session");
-    // Settle the join first: a leave on the tick after a join retires
-    // nothing (measured; the local seat's witness settles too).
+    // `join` returns with seat 1 still holding Start, which would join it
+    // again on the tick it leaves: release it first.
     host.drive_seat(1, Default::default());
     for _ in 0..15 {
         host.app_mut().update();

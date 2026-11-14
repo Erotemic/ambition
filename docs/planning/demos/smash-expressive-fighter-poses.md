@@ -266,8 +266,22 @@ pose. Two of the six are contacts the art should keep sharp (`land`,
 `land_hard`: the impact is the point); `hit -> fall`, `fall -> ledge_catch`,
 `fall -> wall_slide` and `ledge_climb -> idle` are the candidates for a
 short blend on the shared path, and the interrupt pops are what a blend
-from the current frame (not from frame 0) would remove. The next slice is
-that blend for the four candidates, with the sharp list left stepping.
+from the current frame (not from frame 0) would remove.
+
+**The clip blend landed (2026-11-14)** on the shared rigged path
+(`drive_rigged_presentations`, so human and CPU bodies alike): when a body's
+authored row changes (facing alone is not a change) into one of its carriage
+poses (`CharacterAnim::blends_in`: idle, walk, run, jump, fall, fly, glide,
+ledge grab/climb/getup, wall grab, crouch, crawl, ladder, swim, hit), each
+part of the new pose starts where its track was last drawn and slides to its
+place over `CLIP_BLEND_SECONDS` (0.07 s, smoothstep), keeping the new pose's
+picture (`rigged::blend_from`). It blends from the pose last DRAWN, so an
+interrupted blend goes on from where it is. A move clip and the poses that
+read by being sharp (slash and the attacks, land hard, blink, death, dodge)
+step as before; a body out of view starts clean when it is seen. Witnesses:
+`a_clip_blend_slides_the_new_poses_parts_from_where_the_old_pose_drew_them`,
+`a_change_between_carriage_poses_blends_and_a_strike_does_not`. Still open:
+planted contacts (item 2) and follow-through (item 3).
 
 ## Phase 4 - Expand expressive coverage after the first playable pass
 

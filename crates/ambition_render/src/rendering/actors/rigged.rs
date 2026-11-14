@@ -538,7 +538,23 @@ pub struct RiggedPresentation {
     /// a body not drawn into that render (on a baked clip of a hybrid) lost
     /// its pixels. `None` until first rendered.
     pub shown: Option<(Vec<PartDraw>, Vec3, u64)>,
+    /// POSE-CONTINUITY's clip blend: the pose drawn before the last change of
+    /// row, the seconds of the blend left, and the authored row (before
+    /// facing) and draws of the last frame drawn. See [`CLIP_BLEND_SECONDS`].
+    pub blend_from: Vec<PartDraw>,
+    pub blend_left: f32,
+    pub last_row: Option<usize>,
+    pub last_draws: Vec<PartDraw>,
 }
+
+/// How long a change between two of the body's carriage poses
+/// ([`CharacterAnim::blends_in`]) slides from the old pose to the new: a few
+/// frames, so a fall into a ledge catch reads as one motion and a strike or a
+/// landing, which do not blend, stay sharp. Measured on the reference fighter
+/// (`scripts/measure/pose_transitions.py`): the pops were 14 to 44 px.
+///
+/// [`CharacterAnim::blends_in`]: ambition_sprite_sheet::character::CharacterAnim::blends_in
+pub const CLIP_BLEND_SECONDS: f32 = 0.07;
 
 /// One reusable part sprite of a rigged presentation.
 #[derive(Component)]
@@ -1020,6 +1036,10 @@ fn spawn_presentation(
         posed,
         posed_draws: Vec::new(),
         shown: None,
+        blend_from: Vec::new(),
+        blend_left: 0.0,
+        last_row: None,
+        last_draws: Vec::new(),
     });
     owner
 }
@@ -1227,6 +1247,10 @@ pub fn drive_rigged_presentations(
             && !seen_by_a_view(&views, root_transform, &root_sprite, root_layers)
         {
             owner_visibility.set_if_neq(Visibility::Hidden);
+            // Unseen, it draws nothing to blend from: the frame it is seen
+            // again is drawn as it is.
+            presentation.last_row = None;
+            presentation.blend_left = 0.0;
             // The root draws nothing on the direct road, hidden or not: a
             // writer that gives it a baked frame (`animate_bosses`) does not
             // draw it under no parts.
@@ -1242,14 +1266,39 @@ pub fn drive_rigged_presentations(
         let mut drawn = std::mem::take(&mut presentation.drawn);
         let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
         let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
+        // POSE-CONTINUITY: a change of row between two carriage poses slides
+        // from the pose last drawn (blended or not, so an interrupted blend
+        // goes on from where it is) over `CLIP_BLEND_SECONDS`. A turn to face
+        // the other way is not a change of row here (the authored row, before
+        // facing), and a strike or an impact does not blend.
+        let authored_row = animator.authored_slot();
+        let blends = animator.drawn_clip().is_none() && animator.current.blends_in();
+        if !blends {
+            presentation.blend_left = 0.0;
+        } else if presentation.last_row.is_some_and(|last| last != authored_row) && !presentation.last_draws.is_empty() {
+            let RiggedPresentation { blend_from, last_draws, .. } = &mut *presentation;
+            blend_from.clone_from(last_draws);
+            presentation.blend_left = CLIP_BLEND_SECONDS;
+        }
+        let blend_t = 1.0 - presentation.blend_left / CLIP_BLEND_SECONDS;
+        let blend_t = blend_t * blend_t * (3.0 - 2.0 * blend_t);
+        let blend_from = std::mem::take(&mut presentation.blend_from);
         let draws = frame_draws(
             &flipbook,
             animator,
             pose,
             presentation.posed.as_deref(),
+            (presentation.blend_left > 0.0).then_some((blend_from.as_slice(), blend_t)),
             &mut drawn,
             &mut posed_draws,
         );
+        presentation.blend_from = blend_from;
+        presentation.blend_left = (presentation.blend_left - time.as_ref().map_or(0.0, |time| time.delta_secs())).max(0.0);
+        presentation.last_row = Some(authored_row);
+        presentation.last_draws.clear();
+        if let Some(draws) = draws {
+            presentation.last_draws.extend_from_slice(draws);
+        }
         // A root that draws some of its tracks draws those only, on either
         // road and into its cell.
         let masked: Vec<PartDraw>;
@@ -1488,6 +1537,7 @@ fn frame_draws<'a>(
     animator: &CharacterAnimator,
     pose: Option<&PartPose>,
     posed: Option<&PosedParts>,
+    blend: Option<(&[PartDraw], f32)>,
     drawn: &'a mut Vec<PartDraw>,
     posed_draws: &'a mut Vec<PartDraw>,
 ) -> Option<&'a [PartDraw]> {
@@ -1514,6 +1564,10 @@ fn frame_draws<'a>(
     }
     // Its wounds, as much as it is hurt (eyes that go bloodshot).
     flipbook.wounded_by(animator.wounds, drawn);
+    // Sliding from the pose before a change of row, when it blends.
+    if let Some((from, t)) = blend {
+        ambition_sprite_sheet::character::rigged::blend_from(from, t, drawn);
+    }
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {
             posed.place(drawn, &pose.joints, posed_draws);
@@ -1535,7 +1589,7 @@ fn posed_reach(presentation: &mut RiggedPresentation, animator: &CharacterAnimat
     let flipbook = presentation.pages.flipbook.clone();
     let mut drawn = std::mem::take(&mut presentation.drawn);
     let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
-    let reach = frame_draws(&flipbook, animator, Some(pose), Some(&posed), &mut drawn, &mut posed_draws)
+    let reach = frame_draws(&flipbook, animator, Some(pose), Some(&posed), None, &mut drawn, &mut posed_draws)
         .map(|draws| flipbook.reach_past_frame(draws));
     presentation.drawn = drawn;
     presentation.posed_draws = posed_draws;

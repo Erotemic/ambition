@@ -521,11 +521,12 @@ visual bindings. Design: [expressive poses, Phase 3](demos/smash-expressive-figh
 [Phase 3 table](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish),
 `scripts/measure/pose_transitions.py`): 6 of 34 transitions pop at their
 end, all out of the airborne `fall` pose or the ledge climb, and 7 more only
-when interrupted. Next: a short blend on the shared presentation path for
-`hit -> fall`, `fall -> ledge_catch`, `fall -> wall_slide` and
-`ledge_climb -> idle`, blending from the current frame; `land` and
-`land_hard` stay sharp. Establish stable visual bindings only where that
-needs them, then planted contacts.
+when interrupted. The blend landed the same day: a change between two
+carriage poses slides from the pose last drawn over 0.07 s on the shared
+rigged path; strikes, move clips and the hard landing stay sharp. Next:
+planted contacts (a foot that stays put through a stop, a teeter, a landing),
+then follow-through; establish stable visual bindings only where those need
+them.
 Measure campaign sheet gaps before authoring more rows.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp

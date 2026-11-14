@@ -255,7 +255,7 @@ impl CharacterAnimator {
 
     /// The row slot the authored drawing comes from (clip or pose), before
     /// facing.
-    fn authored_slot(&self) -> usize {
+    pub fn authored_slot(&self) -> usize {
         self.clip_slot
             .unwrap_or_else(|| self.spec.slot_for_anim(self.current))
     }

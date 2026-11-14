@@ -293,6 +293,28 @@ fn tween_draw(draw: &PartDraw, target: &PartDraw, t: f32) -> PartDraw {
     }
 }
 
+/// Draw `onto` (a new pose's draws) `t` (0..1) of the way from `from` (the
+/// pose drawn before the change), POSE-CONTINUITY's clip blend: each draw
+/// whose track `from` also draws starts at that draw's place, scale and angle
+/// and moves to its own. It keeps its own part and colour, so the new pose's
+/// pictures slide into place rather than the old ones lingering. A draw of a
+/// track `from` does not draw appears where it is.
+pub fn blend_from(from: &[PartDraw], t: f32, onto: &mut [PartDraw]) {
+    let t = t.clamp(0.0, 1.0);
+    if t >= 1.0 {
+        return;
+    }
+    for draw in onto.iter_mut() {
+        let Some(track) = draw.track else { continue };
+        let Some(before) = from.iter().find(|before| before.track == Some(track)) else {
+            continue;
+        };
+        draw.at = before.at.lerp(draw.at, t);
+        draw.scale = before.scale.lerp(draw.scale, t);
+        draw.rotation = before.rotation + shorter_turn(before.rotation, draw.rotation) * t;
+    }
+}
+
 /// The turn from angle `from` to angle `to` the shorter way, in `[-PI, PI)`.
 fn shorter_turn(from: f32, to: f32) -> f32 {
     (to - from + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI

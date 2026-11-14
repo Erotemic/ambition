@@ -842,6 +842,11 @@ fn a_tweened_clip_draws_between_its_frames() {
             .duration_secs
     };
     app.update();
+    // The change from idle to walk starts a clip blend (POSE-CONTINUITY), and
+    // this clock does not run it down: settle it, so the frames measured are
+    // the walk's own.
+    app.world_mut().get_mut::<RiggedPresentation>(owner).unwrap().blend_left = 0.0;
+    app.update();
     let at_frame = slots(&app, owner);
     app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().elapsed = duration * 0.5;
     app.update();
@@ -857,6 +862,51 @@ fn a_tweened_clip_draws_between_its_frames() {
         moved += usize::from(target.at != draw.at);
     }
     assert!(moved > 0, "the walk's first two frames move no part, so this tests nothing");
+}
+
+/// POSE-CONTINUITY: a change between two carriage poses is drawn as a blend
+/// from the pose before it, and a strike is not. From idle to walk, the first
+/// frame after the change is the idle pose; once the blend has run its time,
+/// the walk's own. The same body changing into a slash draws the slash at once.
+#[test]
+fn a_change_between_carriage_poses_blends_and_a_strike_does_not() {
+    use ambition_sprite_sheet::character::CharacterAnim;
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "mary_o_v2_tall").expect("a published flipbook");
+    let (mut app, root) = app_with(&sprite_content, true, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook)));
+    app.update();
+    let owner = owner(&app, root);
+    let set = |app: &mut App, anim: CharacterAnim| {
+        let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+        animator.request(anim);
+        animator.frame = 0;
+        animator.elapsed = 0.0;
+    };
+    set(&mut app, CharacterAnim::Idle);
+    app.update();
+    app.update();
+    let idle = slots(&app, owner);
+
+    set(&mut app, CharacterAnim::Walk);
+    app.update();
+    let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+    assert!(presentation.blend_left > 0.0, "idle to walk starts a blend");
+    let first = slots(&app, owner);
+    app.world_mut().get_mut::<RiggedPresentation>(owner).unwrap().blend_left = 0.0;
+    app.update();
+    let walk = slots(&app, owner);
+    assert_ne!(idle, walk, "premise: the walk's first frame is not the idle pose");
+    let from_idle = first.iter().zip(&idle).filter(|(a, b)| close(a.0, b.0)).count();
+    let from_walk = first.iter().zip(&walk).filter(|(a, b)| close(a.0, b.0)).count();
+    assert!(from_idle > from_walk, "the first frame of the change is drawn from the idle pose ({from_idle} parts) more than the walk ({from_walk})");
+
+    set(&mut app, CharacterAnim::Slash);
+    app.update();
+    assert_eq!(
+        app.world().get::<RiggedPresentation>(owner).unwrap().blend_left,
+        0.0,
+        "a strike is drawn sharp, with no blend"
+    );
 }
 
 /// The impostor lands where the baked frame would, whatever the root's anchor:

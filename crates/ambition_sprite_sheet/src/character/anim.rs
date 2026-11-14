@@ -189,6 +189,33 @@ pub enum CharacterAnim {
 }
 
 impl CharacterAnim {
+    /// May a change INTO this pose be drawn as a short blend from the pose
+    /// before it (POSE-CONTINUITY)? Yes for the body's carriage between
+    /// actions: standing, moving, airborne, on a wall or a ledge, reeling.
+    /// No for a strike, a landing impact, a blink, a death or a dodge: those
+    /// read by being sharp, and a blend would smooth away the contact.
+    pub const fn blends_in(self) -> bool {
+        matches!(
+            self,
+            Self::Idle
+                | Self::Walk
+                | Self::Run
+                | Self::Jump
+                | Self::Fall
+                | Self::Fly
+                | Self::FloatGlide
+                | Self::LedgeGrab
+                | Self::LedgeClimb
+                | Self::LedgeGetup
+                | Self::WallGrab
+                | Self::Crouch
+                | Self::Crawl
+                | Self::LadderClimb
+                | Self::Swim
+                | Self::Hit
+        )
+    }
+
     /// Map a generator row name (`rows[*].animation` in `*_spritesheet.ron`)
     /// to its variant. Returns `None` for unknown names; the sheet spec drops
     /// that row.

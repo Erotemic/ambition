@@ -990,3 +990,36 @@ fn a_limb_track_is_named_by_its_slot() {
     assert!(!is_limb_track("limb:hand_right:fist", "hand_left"));
     assert!(!is_limb_track("arm-left-fist", "hand_left"));
 }
+
+/// POSE-CONTINUITY: a clip blend starts each draw of the new pose where its
+/// track was drawn before the change and ends where the new pose puts it,
+/// keeping the new pose's picture; a track the old pose did not draw appears
+/// in place, and a finished blend leaves the new pose as it is.
+#[test]
+fn a_clip_blend_slides_the_new_poses_parts_from_where_the_old_pose_drew_them() {
+    let draw = |track: u16, part: u16, x: f32, rotation: f32| PartDraw {
+        at: Vec2::new(x, -20.0),
+        scale: Vec2::ONE,
+        rotation,
+        part,
+        track: Some(track),
+        color: [255; 4],
+    };
+    let before = [draw(0, 1, 0.0, 0.0), draw(1, 2, 10.0, 3.0)];
+    let after = [draw(0, 7, 40.0, 0.0), draw(1, 8, 10.0, -3.0), draw(2, 9, 5.0, 0.0)];
+
+    let mut halfway = after;
+    blend_from(&before, 0.5, &mut halfway);
+    assert_eq!(halfway[0].at.x, 20.0, "halfway between where the old pose drew the track and where the new one does");
+    assert_eq!(halfway[0].part, 7, "the new pose's picture, not the old one's");
+    let turned = halfway[1].rotation;
+    assert!((turned.rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI).abs() < 0.2, "turned the shorter way: {turned}");
+    assert_eq!(halfway[2], after[2], "a track the old pose did not draw appears where it is");
+
+    let mut done = after;
+    blend_from(&before, 1.0, &mut done);
+    assert_eq!(done, after, "a finished blend is the new pose");
+    let mut started = after;
+    blend_from(&before, 0.0, &mut started);
+    assert_eq!(started[0].at, before[0].at, "a blend begins at the old pose");
+}

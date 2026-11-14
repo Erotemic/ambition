@@ -407,7 +407,14 @@ impl NavGraph {
         let mut moved_at = (0, self.frame.along(body.kinematics.pos));
         // Where the feet were when the body last moved in flight.
         let mut flown_at = (0, body.kinematics.pos + self.frame.down * self.half.y);
-        for index in 0..MAX_LEG_STEPS {
+        // A slope is walked, and a long one (a freight track down a hill)
+        // takes longer than the step limit at a walk: it has a step per two
+        // pixels of its length, at least the limit.
+        let steps = match leg.kind {
+            ae::navigation::NavLegKind::Slope => MAX_LEG_STEPS.max(((leg.land - leg.start).length() / 2.0) as usize),
+            _ => MAX_LEG_STEPS,
+        };
+        for index in 0..steps {
             let feet = body.kinematics.pos + self.frame.down * self.half.y;
             // A body that runs into a wall in `Commit` stands there until the
             // step limit: a walk-off with a wall past the edge. Measured, that
@@ -460,7 +467,7 @@ impl NavGraph {
                 return (None, index + 4);
             }
         }
-        (None, MAX_LEG_STEPS + 3)
+        (None, steps + 3)
     }
 
     /// How this body stops on a point ([`ae::navigation::ApproachLaw`]):

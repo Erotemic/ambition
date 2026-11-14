@@ -135,6 +135,8 @@ pub(super) fn sweep_player_axis_clusters(
         );
     }
 
+    // A grounded body's feet, for the seam rule below.
+    let grounded_feet = ground.on_ground.then(|| kinematics.aabb().feet_coord(gravity_dir));
     let query = (|| {
         use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
         let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
@@ -161,7 +163,16 @@ pub(super) fn sweep_player_axis_clusters(
                                 + crate::collision_semantics::ONE_WAY_CROSSING_SLOP
                                 + (-block.velocity.dot(gravity_dir)).max(0.0),
                         BlockKind::BonkOnly => normal.dot(gravity_dir) > 0.5,
-                        kind => is_full_collision_surface(kind),
+                        // A SEAM IS NOT A WALL. A body that walks up a line
+                        // onto a block is put on the line, which can leave its
+                        // feet a fraction below the block's top where the two
+                        // meet (0.32 px measured at a 28° slope); the side of
+                        // the block then stopped it at the top of the slope.
+                        // A face whose top is no more than the edge slop above
+                        // a grounded body's feet is walked onto, and the
+                        // gravity repair stands the body on the top.
+                        kind => is_full_collision_surface(kind) && !(!gravity_pass && grounded_feet.is_some_and(|feet|
+                            block.aabb.head_coord(gravity_dir) >= feet - crate::collision_semantics::EDGE_OVERLAP_SLOP)),
                     } }
                 }
                 crate::world::MaterialCollider::Chain { chain, segment, .. } => {

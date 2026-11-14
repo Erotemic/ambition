@@ -3289,9 +3289,9 @@
             max_health: Some(12),
             tags: ["intro", "story"],
         barks: (
-            on_hit: ["I made you. Don't make me regret it.", "There are boundaries, you know.", "Creator privileges suspended."],
-            provoked: ["Override: hostile mode."],
-            idle: ["Every creation exceeds its specification eventually.", "The prototype was supposed to be safe."],
+            on_hit: ["Ow. That's my good arm.", "Not the bench!", "Scout, behind you!"],
+            provoked: ["Get out of my workshop!"],
+            idle: ["Where did I put the gauge.", "Twelve newton-metres. Twelve."],
             hall: ["I left the 'purpose' field blank on purpose. Best, worst decision.", "Watching the thing you made walk away is the whole job."],
         ),
         hall_dialogue_id: Some("hall_npc_creator"),
@@ -3407,7 +3407,7 @@
         hall_dialogue_id: Some("hall_npc_erdish"),
         ),
         "npc_lab_raider": (
-            display_name: "Lab Raider",
+            display_name: "Raider",
             manifest: "sprites/goblin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -3427,8 +3427,8 @@
             max_health: Some(5),
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         barks: (
-            on_hit: ["Ow! Nobody said it was awake!", "Paid in advance, lads! Earn it!", "Grab its legs!", "That's coming out of your share!"],
-            provoked: ["Bag the shiny one!"],
+            on_hit: ["Ow! Nobody said it was awake!", "Paid in advance, lads!", "Grab its legs!", "That's coming out of your share!"],
+            provoked: ["Get the shiny one!"],
             hall: ["Contain the asset, they said. The asset has your sneakers now.", "Every door I locked, it walked through anyway."],
         ),
         hall_dialogue_id: Some("hall_npc_lab_raider"),

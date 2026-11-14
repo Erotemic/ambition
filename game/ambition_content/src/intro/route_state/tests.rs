@@ -88,7 +88,7 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
 /// should advance `intro_cartography_route` through its three
 /// steps.
 #[test]
-fn cartography_quest_advances_through_alice_bob_and_the_notebooks() {
+fn alices_message_quest_advances_through_alice_bob_and_alice_again() {
     use crate::quest::{apply_quest_advance_events, shipped_quest_specs, QuestRegistry};
     use ambition_combat::events::SetFlagRequested;
     use ambition_persistence::quest::QuestAdvanceRequested;
@@ -166,20 +166,18 @@ use ambition_platformer2d_runtime::effect_bus::apply_quest_effects;
     let save = app.world().resource::<AmbitionGameSave>();
     assert!(save.data().flag("map_private_marks_unlocked"));
 
-    // Step 3: the creator's notebooks, taken back in the freight yard.
+    // Step 3: Alice hears that Bob is moving.
     app.world_mut()
         .resource_mut::<AmbitionGameSave>()
         .data_mut()
-        .set_flag("intro_creator_notes_recovered", true);
+        .set_flag("alice_heard_bob_moved", true);
     app.world_mut().resource_mut::<QuestRegistry>().push_event(
-        ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
-            "intro_creator_notes_recovered".into(),
-        ),
+        ambition_persistence::quest::QuestAdvanceEvent::FlagSet("alice_heard_bob_moved".into()),
     );
     app.update();
     let registry = app.world().resource::<QuestRegistry>();
     let q = registry.quests.get("intro_cartography_route").unwrap();
-    assert!(q.is_complete(), "after the notebooks, quest should be complete");
+    assert!(q.is_complete(), "after Alice hears it, the quest should be complete");
 }
 
 /// Setting `intro_p5_route_memory_received` should chain to
@@ -278,10 +276,8 @@ fn the_intro_world_authors_the_flag_that_opens_each_gated_wall() {
             .collect::<Vec<_>>(),
         vec![
             ("alice_survey_line", "bob_field_survey_received"),
-            ("bob_grate", "bob_field_survey_received"),
-            ("gate_checkpoint_barrier", "world.switch_on gate_checkpoint_release"),
-            ("intro_bay_door", "encounter.cleared intro_bay_raid"),
-            ("intro_yard_inner_gate", "encounter.cleared intro_freight_yard_fight"),
+            ("hobford_barrier", "world.switch_on hobford_barrier_lever"),
+            ("intro_barn_door", "encounter.cleared intro_workshop_raid"),
         ],
         "the level says which fact opens each gated wall, and losing it there is \
          silent"

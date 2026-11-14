@@ -706,41 +706,88 @@ fn gate_solid_names(walker: &mut impl Walker, player: Entity) -> Vec<String> {
     the_players_overlay(walker.world_mut(), player).gate_solids.iter().map(|solid| solid.name.clone()).collect()
 }
 
-/// The bay door of the basement lab (`intro_wake_room`): it stands until the
-/// raid in the loading bay is beaten (`encounter.cleared intro_bay_raid`).
-pub const BAY_DOOR: &str = "intro_bay_door";
+/// The barn door of the workshop (`intro_wake_room`): it stands until the
+/// raid is beaten (`encounter.cleared intro_workshop_raid`).
+pub const BARN_DOOR: &str = "intro_barn_door";
 
-/// Fight through the raid of the basement lab with the player's own inputs:
-/// walk into the loading bay (the raid's cutscene plays, and its waves come),
-/// and fight the raiders until the bay door is down. Returns the frames it
-/// took. The route out of the lab to the service stair is open after it.
-pub fn through_the_raid(walker: &mut impl Walker) -> Result<usize, String> {
+/// Is a conversation or a cutscene holding the seat?
+/// The raiders of the workshop's raid alive in the room.
+fn raiders_in(world: &mut World) -> usize {
+    let mut forms = world.query::<&ambition_platformer2d::characters::actor::CharacterForm>();
+    forms.iter(world).filter(|form| form.id() == "npc_lab_raider").count()
+}
+
+fn held_by_talk(world: &World) -> bool {
+    world.get_resource::<ambition_platformer2d::dialog::DialogState>().is_some_and(|dialog| dialog.active())
+        || world
+            .get_resource::<ambition_platformer2d::cutscene::ActiveCutscene>()
+            .is_some_and(|cutscene| cutscene.is_playing())
+}
+
+/// How the raid of the workshop starts: in the Creator's conversation, or at
+/// the barn door, which Scout walks to without talking to him.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RaidStart {
+    /// Talk to him and take each first choice: his questions, until the
+    /// raiders come in at the barn door and break the conversation. Needs a
+    /// walker whose confirm answers a dialogue box (the keys of the shipped
+    /// App; the sim's agent action has no menu select).
+    Talk,
+    /// Walk past him to the barn door, into the raid's trigger.
+    Door,
+}
+
+/// Live through the raid of the workshop with the player's own inputs:
+/// start it as `start` says, then fight the raiders until the barn door is
+/// down. Returns the frames it took. The way out to the lane is open after it.
+pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<usize, String> {
     let player = the_player(walker.world_mut());
     let room = the_players_room_id(walker.world(), player);
     if room != "intro_wake_room" {
         return Err(format!("the raid is in `intro_wake_room`, and the player is in `{room}`"));
     }
-    // The floor of the lab and the bay (`intro.ldtk`).
+    // The floor of the workshop, and the place beside the Creator, between
+    // his bench and him (`intro.ldtk`).
     let floor = 352.0_f32;
-    let walked = walk_to(walker, ae::Vec2::new(1440.0, floor - 24.0))?;
-    // A raider is a body that wears the raid's look; the fight is over when the
-    // door that the raid holds shut is down.
+    let mut frames = 0;
+    match start {
+        RaidStart::Talk => {
+            frames += walk_to(walker, ae::Vec2::new(1218.0, floor - 24.0))?;
+            // Interact opens his conversation, and confirm takes each line and
+            // each first choice until the talk and the raid's interruption
+            // are over.
+            let mut talked = false;
+            for step in 0..FRAMES_FOR_A_ROOM {
+                let held = held_by_talk(walker.world());
+                talked |= held;
+                if talked && !held {
+                    break;
+                }
+                walker.step(Press { interact: !talked && step % 20 < 2, confirm: held && step % 10 == 0, ..Press::default() });
+                frames += 1;
+            }
+            if !talked {
+                return Err("Interact beside the Creator did not open his conversation".into());
+            }
+        }
+        // The trigger is between him and the door. The raiders come in on
+        // the walk, which can cut it short.
+        RaidStart::Door => match walk_to(walker, ae::Vec2::new(1296.0, floor - 24.0)) {
+            Ok(walked) => frames += walked,
+            Err(_) if raiders_in(walker.world_mut()) > 0 => {}
+            Err(why) => return Err(why),
+        },
+    }
     let raider = |world: &World, entity: Entity| {
         world
             .get::<ambition_platformer2d::characters::actor::CharacterForm>(entity)
             .is_some_and(|form| form.id() == "npc_lab_raider")
     };
-    let mut frames = walked;
     for _ in 0..FRAMES_FOR_A_ROOM {
-        if !gate_solid_names(walker, player).iter().any(|name| name.contains(BAY_DOOR)) {
+        if !gate_solid_names(walker, player).iter().any(|name| name.contains(BARN_DOOR)) {
             return Ok(frames);
         }
-        // A cutscene holds the seat: dismiss its beats, as a player does.
-        if walker
-            .world()
-            .get_resource::<ambition_platformer2d::cutscene::ActiveCutscene>()
-            .is_some_and(|cutscene| cutscene.is_playing())
-        {
+        if held_by_talk(walker.world()) {
             walker.step(Press { confirm: frames % 10 == 0, ..Press::default() });
             frames += 1;
             continue;
@@ -749,11 +796,11 @@ pub fn through_the_raid(walker: &mut impl Walker) -> Result<usize, String> {
             ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
                 ambition_platformer2d::world::FeatureEcsWorldOverlay,
             >(world)
-            .is_none_or(|overlay| !overlay.gate_solids.iter().any(|solid| solid.name.contains(BAY_DOOR)))
+            .is_none_or(|overlay| !overlay.gate_solids.iter().any(|solid| solid.name.contains(BARN_DOOR)))
         };
-        // A raider up on the crates is out of the walker's routes: wait on the
-        // floor, blade out, for it to come down to the player.
-        frames += match fight(walker, raider, door_down, ae::Vec2::new(1720.0, floor - 24.0), 600) {
+        // A raider up on the bench is out of the walker's routes for a
+        // moment: wait on the floor, blade out, for it to come down.
+        frames += match fight(walker, raider, door_down, ae::Vec2::new(1250.0, floor - 24.0), 600) {
             Ok(fought) => fought,
             Err(why) if why.contains("not over") => 600,
             Err(why) if why.contains("no route to a foe") => {
@@ -765,67 +812,5 @@ pub fn through_the_raid(walker: &mut impl Walker) -> Result<usize, String> {
             Err(why) => return Err(why),
         };
     }
-    Err(format!("the bay door still stands after {frames} frames of the raid"))
-}
-
-/// The culvert's raft (`under_town_pipes`): it carries a body over the widest
-/// stretch of the sump, between its middle stepping stone and its far one.
-pub const CULVERT_RAFT: &str = "under_town_pipes_raft";
-
-/// Cross the culvert's sump on its raft, either way, with the player's own
-/// inputs: the surface graph has no moving platforms, so walk to the stone on
-/// the player's side, wait for the raft at that end, step on, ride it to the
-/// other end and step off onto the far stone. Returns the frames it took. The
-/// rest of the culvert is walked by the graph.
-pub fn across_the_raft(walker: &mut impl Walker) -> Result<usize, String> {
-    let player = the_player(walker.world_mut());
-    let room = the_players_room_id(walker.world(), player);
-    if room != "under_town_pipes" {
-        return Err(format!("the raft is in `under_town_pipes`, and the player is in `{room}`"));
-    }
-    // The stones the raft runs between (`intro.ldtk`): their tops, and the
-    // near edge of each, which the raft comes up to at each end of its run.
-    let stone_top = 448.0_f32;
-    let (west_stone_edge, east_stone_edge) = (1040.0_f32, 1296.0_f32);
-    let raft_box = |world: &mut World| -> Option<ae::Aabb> {
-        let room = the_players_room(world, player)?;
-        let mut roots = world.query::<(
-            &ambition_platformer2d::world::rooms::LiveRoomInstance,
-            &ambition_platformer2d::world::collision::MovingPlatformSet,
-        )>();
-        roots
-            .iter(world)
-            .find(|(live, _)| **live == room)
-            .and_then(|(_, set)| set.0.iter().find(|platform| platform.id == CULVERT_RAFT).map(|platform| platform.aabb()))
-    };
-    let feet_x = |world: &World| world.get::<ae::BodyKinematics>(player).map(|body| body.pos.x);
-    let x = feet_x(walker.world()).ok_or("the player has no body")?;
-    let toward = if x < west_stone_edge + 40.0 { 1.0_f32 } else { -1.0_f32 };
-    // The raft is at an end of its run: 16 px short of the west stone, against
-    // the east one.
-    let at_west = |raft: ae::Aabb| raft.min.x <= west_stone_edge + 20.0;
-    let at_east = |raft: ae::Aabb| raft.max.x >= east_stone_edge - 4.0;
-    let (at_near, at_far): (&dyn Fn(ae::Aabb) -> bool, &dyn Fn(ae::Aabb) -> bool) =
-        if toward > 0.0 { (&at_west, &at_east) } else { (&at_east, &at_west) };
-    let (near_edge, far_edge) = if toward > 0.0 { (west_stone_edge, east_stone_edge) } else { (east_stone_edge, west_stone_edge) };
-    let mut frames = walk_to(walker, ae::Vec2::new(near_edge - toward * 16.0, stone_top - 24.0))?;
-    #[derive(PartialEq)]
-    enum Leg { Wait, Board, Ride, Alight }
-    let mut leg = Leg::Wait;
-    for _ in 0..FRAMES_FOR_A_ROOM {
-        let raft = raft_box(walker.world_mut()).ok_or("the culvert has no raft")?;
-        let x = feet_x(walker.world()).ok_or("the player has no body")?;
-        let on_the_raft = x > raft.min.x + 18.0 && x < raft.max.x - 18.0;
-        leg = match leg {
-            Leg::Wait if at_near(raft) => Leg::Board,
-            Leg::Board if on_the_raft => Leg::Ride,
-            Leg::Ride if at_far(raft) => Leg::Alight,
-            Leg::Alight if (x - far_edge) * toward > 18.0 => return Ok(frames),
-            leg => leg,
-        };
-        let axis = if matches!(leg, Leg::Board | Leg::Alight) { toward } else { 0.0 };
-        walker.step(Press { axis, ..Press::default() });
-        frames += 1;
-    }
-    Err(format!("the player did not get across the raft in {frames} frames"))
+    Err(format!("the barn door still stands after {frames} frames of the raid"))
 }

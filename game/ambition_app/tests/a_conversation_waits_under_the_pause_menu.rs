@@ -63,7 +63,7 @@ fn a_conversation_waits_under_the_pause_menu() {
     // A pinned frame so the typewriter moves a known amount per update.
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)));
     let body = primary_body(&mut app);
-    cross(&mut app, body, PlayerSlot(0), "alice_relay");
+    cross(&mut app, body, PlayerSlot(0), "intro_hobford_lane");
     let alice = npc(&mut app, "npc_alice");
     let at = app.world().get::<BodyKinematics>(alice).expect("a live NPC").pos;
     put_body_at(&mut app, body, at);

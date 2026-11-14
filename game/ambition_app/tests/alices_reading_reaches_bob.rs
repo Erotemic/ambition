@@ -1,9 +1,9 @@
-//! WORLD-ACCEPTANCE, first slice: Alice's reading reaches Bob by one road.
+//! WORLD-ACCEPTANCE, first slice: Alice's message reaches Bob by one road.
 //!
-//! The level-1 quest `intro_cartography_route` reads two flags: Alice's talk
-//! writes the first (the robot carries her last reading), and Bob's writes the
-//! second when he hears the reading with the word, and gives his survey. A
-//! talk with Bob before Alice's writes nothing.
+//! The level-1 quest `intro_cartography_route` reads Alice's talk first (Scout
+//! says it will take her message to Bob), then Bob's (he hears it, moves his
+//! camp and gives his survey sheet). A talk with Bob before Alice's, about
+//! something else, writes nothing.
 //!
 //! The test drives the shipped shell session with real key presses: Interact
 //! starts the conversation and `MenuSelect` (Enter) takes the first choice.
@@ -19,10 +19,14 @@ use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross, room
 pub(crate) const QUEST: &str = "intro_cartography_route";
 pub(crate) const NOTE_FLAG: &str = "alice_route_note_carried";
 pub(crate) const SURVEY_FLAG: &str = "bob_field_survey_received";
-/// Alice's first choice: it gives the robot her reading.
-pub(crate) const ALICE_CHOICE: &str = "Goblins came this way with a crate.";
-/// Bob's first choice once the robot has Alice's reading: the word and the reading.
-pub(crate) const BOB_CHOICE: &str = "\"Bramble.\" The reading is four-one-seven.";
+/// Alice's first choice when she first meets Scout: it leads to her request,
+/// whose first choice takes her message.
+pub(crate) const ALICE_CHOICE: &str = "He's dead. Goblins came in.";
+/// Bob's first choice once Scout has Alice's message.
+pub(crate) const BOB_CHOICE: &str = "Alice says move your camp off the trail. There are goblins at the siding.";
+/// Alice's room (the lane outside the workshop) and Bob's (the woods).
+const ALICE_ROOM: &str = "intro_hobford_lane";
+const BOB_ROOM: &str = "intro_woods";
 
 /// The shipped shell session, in the hub.
 pub(crate) fn the_shipped_session() -> App {
@@ -164,30 +168,30 @@ pub(crate) fn quest_step(app: &App) -> Option<u8> {
         .map(|state| state.step)
 }
 
-/// ⭐ THE READING IS THE ROAD. Each fact the quest reads is written by a
-/// conversation: Alice's gives the reading, Bob's takes it with the word and
-/// gives the survey. Control: before Alice's, Bob has nothing to take, and
-/// talking to him writes nothing and gives nothing.
+/// ⭐ THE MESSAGE IS THE ROAD. Each fact the quest reads is written by a
+/// conversation: Alice's gives the message, Bob's hears it and gives the
+/// survey. Control: before Alice's, a talk with Bob about something else
+/// writes nothing and gives nothing.
 #[test]
 fn alices_reading_reaches_bob() {
     let mut app = the_shipped_session();
     let body = primary_body(&mut app);
-    cross(&mut app, body, PlayerSlot(0), "bob_relay");
-    assert_eq!(room_of(&app, body).as_deref(), Some("bob_relay"));
+    cross(&mut app, body, PlayerSlot(0), BOB_ROOM);
+    assert_eq!(room_of(&app, body).as_deref(), Some(BOB_ROOM));
     let start_step = quest_step(&app).expect("the intro quest starts by itself");
     // ⛔ THE BAG STARTS WITHOUT A SURVEY. A starting bag that unlocked the
     // key items too (2026-10-30) passed every reading below, because a grant
     // of one to a bag that holds one leaves one.
     assert_eq!(bag(&app, "fieldsurvey"), 0, "surveys in the bag before Bob gives one");
 
-    talk_and_choose(&mut app, "npc_bob", "What are you doing?");
+    talk_and_choose(&mut app, "npc_bob", "Just walking through.");
     assert_eq!(
         (bag(&app, "fieldsurvey"), flag(&app, SURVEY_FLAG), quest_step(&app)),
         (0, false, Some(start_step)),
-        "control: before Alice's reading, Bob takes nothing and gives nothing"
+        "control: before Alice's message, a talk with Bob gives nothing"
     );
 
-    cross(&mut app, body, PlayerSlot(0), "alice_relay");
+    cross(&mut app, body, PlayerSlot(0), ALICE_ROOM);
     talk_and_choose(&mut app, "npc_alice", ALICE_CHOICE);
     assert_eq!(
         (flag(&app, NOTE_FLAG), quest_step(&app)),
@@ -195,7 +199,7 @@ fn alices_reading_reaches_bob() {
         "(Alice's flag, quest step) after Alice's choice"
     );
 
-    cross(&mut app, body, PlayerSlot(0), "bob_relay");
+    cross(&mut app, body, PlayerSlot(0), BOB_ROOM);
     talk_and_choose(&mut app, "npc_bob", BOB_CHOICE);
     assert_eq!(
         (bag(&app, "fieldsurvey"), flag(&app, SURVEY_FLAG), quest_step(&app)),

@@ -21,10 +21,11 @@
     (name: "The Military Tower", rooms: ["military_tower", "military_gate_annex"]),
 
     // ---- the intro ----
-    (name: "The Basement Lab", subtitle: Some("Where you woke"), rooms: ["intro_wake_room", "intro_escape_shaft"]),
-    (name: "The Drain Market", subtitle: Some("Under the gate stack"), rooms: [
-        "drain_alley", "under_town_pipes", "alice_relay", "bob_relay",
+    (name: "Hobford", subtitle: Some("The hill country"), rooms: [
+        "intro_wake_room", "intro_hobford_lane", "intro_high_meadow", "intro_gate_clearing",
+        "intro_freight_yard", "intro_millstream", "intro_hobford", "intro_woods",
     ]),
+    (name: "The Drain Market", subtitle: Some("Under the gate stack"), rooms: ["drain_alley", "under_town_pipes"]),
     (name: "The Gate Stack", rooms: ["gate_stack_lower", "combat_calibration_lab", "first_system_boss"]),
 
     // ---- the Dinosaur dimension ----

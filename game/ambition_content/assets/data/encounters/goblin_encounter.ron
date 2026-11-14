@@ -57,36 +57,40 @@
             ],
         ),
     ],
-    // Level 1's raid (`intro_wake_room`, the loading bay; floor y=352): the
-    // goblins hired for the prototype and the research come in from the bay.
-    // The bay door to the stair stands until this is cleared
-    // (`encounter.cleared intro_bay_raid`).
-    "intro_bay_raid": [
+    // Level 1's raid (`intro_wake_room`, the workshop; floor y=352). The
+    // Creator's conversation starts it (`encounter.start` in
+    // `creator_intro__questions`); its trigger is in the roof, where no body
+    // walks, so it cannot start again. The raiders come in at the barn door
+    // beside his bench (x 1320), inside earshot (128 px) of the conversation
+    // they break (`creator_intro__interrupted`). The barn door stands until
+    // this is cleared (`encounter.cleared intro_workshop_raid`).
+    "intro_workshop_raid": [
         (
-            label: "two more from the bay",
+            label: "in through the barn door",
             mobs: [
-                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1760.0, 324.0), size: (22.0, 38.0), delay: 0.0),
-                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (2020.0, 324.0), size: (22.0, 38.0), delay: 0.8),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1290.0, 324.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1306.0, 324.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1170.0, 276.0), size: (22.0, 38.0), delay: 0.0),
             ],
         ),
     ],
-    // Level 1's freight yard (`intro_freight_yard`; floor y=480): the goblins'
-    // camp behind the gate stack. The Salvage Lead is a brute: a slow hammer
-    // that goes through a hit once committed, so strike him early or after.
-    // The yard's inner gate opens on `encounter.cleared intro_freight_yard_fight`.
+    // Level 1's freight siding (`intro_freight_yard`; floor y=512): the
+    // goblins wait there for the freight window. The foreman is a brute: a
+    // slow hammer that goes through a hit once committed, so strike him early
+    // or after. The platform bell keeps the fight won.
     "intro_freight_yard_fight": [
         (
             label: "wave 1 — the crew",
             mobs: [
-                (kind: "medium_striker", character: Some("goblin"), spawn: (760.0, 452.0), size: (22.0, 38.0), delay: 0.0),
-                (kind: "medium_striker", character: Some("goblin"), spawn: (1200.0, 452.0), size: (22.0, 38.0), delay: 0.5),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (900.0, 484.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1180.0, 484.0), size: (22.0, 38.0), delay: 0.5),
             ],
         ),
         (
-            label: "wave 2 — the Salvage Lead",
+            label: "wave 2 — the foreman",
             mobs: [
-                (kind: "npc_goblin_brute", character: Some("npc_goblin_brute"), spawn: (1240.0, 434.0), size: (32.0, 56.0), delay: 0.0),
-                (kind: "medium_striker", character: Some("goblin"), spawn: (900.0, 452.0), size: (22.0, 38.0), delay: 1.5),
+                (kind: "npc_goblin_brute", character: Some("npc_goblin_brute"), spawn: (1420.0, 466.0), size: (32.0, 56.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1100.0, 484.0), size: (22.0, 38.0), delay: 1.5),
             ],
         ),
     ],

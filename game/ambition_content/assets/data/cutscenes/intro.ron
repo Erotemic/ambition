@@ -16,25 +16,29 @@
 // long cutscene wall.
 
 [
-    // The creator's last words, at the volume in the doorway of the bay door
-    // (`intro_wake_room`). The door stands until the raid is beaten, so the
-    // fight is over and the creator, who keeps beside the robot, is near. He
-    // was hurt in the fight. If he fell in it already, these are the words he
-    // had left (Q173: he always dies here).
+    // The Creator's last words (`intro_wake_room`), at the volume just past
+    // the barn door. The door stands until the raid is beaten, so the fight is
+    // over and he is near: he works at the bench beside the door. He was hurt
+    // in the fight. If he fell in it already, these are the words he had
+    // left (Q173: he always dies here).
     (
         id: "creator_final_fragment",
         beats: [
             Dialogue(
                 speaker: "Creator",
-                text: "That's all of them. Good. No, leave me. I need to sit a minute.",
+                text: "Scout. Over here. Are you damaged?",
             ),
             Dialogue(
                 speaker: "Creator",
-                text: "Go up the stair. They took my notebooks. Don't let them take you.",
+                text: "Good. They took the case off the bench. Your logs are in it. Every answer since Tuesday.",
             ),
             Dialogue(
                 speaker: "Creator",
-                text: "I made you to ask a question. Find out what it—",
+                text: "I have to sit down for a minute.",
+            ),
+            Dialogue(
+                speaker: "Creator",
+                text: "You answered like yourself, all the way through. I want to write that d—",
             ),
             Fall(
                 character: "npc_creator",
@@ -107,51 +111,8 @@
         ],
         seen_flag: Some("first_ripple_seen"),
     ),
-    // Started by the volume where the lab opens on the loading bay
-    // (`intro_wake_room`), so the creator who woke the robot is there for it.
-    // The goblins were hired for the robot and the research; their foreman
-    // has already gone up the stair with the notebooks. The room holds the
-    // fight while it plays; the room is `dangerous`, so the creator fights
-    // beside the robot.
-    (
-        id: "intro_raid",
-        beats: [
-            Banner(
-                text: "// PERIMETER BREACH",
-                seconds: 1.2,
-            ),
-            Dialogue(
-                speaker: "Lab Raider",
-                text: "There it is. The order said one prototype, switched off. That one's walking.",
-            ),
-            Dialogue(
-                speaker: "Creator",
-                text: "What order? Nobody knows this lab is here.",
-            ),
-            Dialogue(
-                speaker: "Lab Raider",
-                text: "Somebody does. Paid in advance. The boss already took your notebooks up the stairs.",
-            ),
-            Dialogue(
-                speaker: "Creator",
-                text: "Stay by me. Hit them before they hit you.",
-            ),
-            SetFlag(
-                id: "intro_raid_started",
-                on: true,
-            ),
-            SetFlag(
-                id: "wrong_list_clue_1",
-                on: true,
-            ),
-            SetFlag(
-                id: "intro_raid_seen",
-                on: true,
-            ),
-        ],
-        seen_flag: Some("intro_raid_seen"),
-    ),
-    // intro_wake_room's `entry_cutscene`. The fade comes up from black.
+    // intro_wake_room's `entry_cutscene`: Scout wakes on the charging cart.
+    // The fade comes up from black.
     (
         id: "intro_wake",
         beats: [
@@ -160,13 +121,13 @@
                 to_alpha: 0.0,
                 seconds: 0.8,
             ),
-            Banner(
-                text: "// boot",
-                seconds: 1.0,
+            Dialogue(
+                speaker: "Creator",
+                text: "Hey you, you're finally awake.",
             ),
             Dialogue(
                 speaker: "Creator",
-                text: "Hey you, you\'re finally awake.",
+                text: "Don't sit up fast. The left knee servo is new and I haven't set its torque yet.",
             ),
             SetFlag(
                 id: "intro_started",
@@ -179,53 +140,42 @@
         ],
         seen_flag: Some("intro_wake_seen"),
     ),
-    // The freight yard (`intro_freight_yard`): the volume past its west gate.
-    // The goblins' foreman has the crate; the fight follows.
+    // The freight siding (`intro_freight_yard`): the volume at the foot of
+    // the stair, before the fight. The foreman is on the far side of the
+    // freight with the crate.
     (
-        id: "salvage_lead_yard",
+        id: "foreman_siding",
         beats: [
             Dialogue(
-                speaker: "Salvage Lead",
-                text: "Well, look who walked here on its own. Saves us carrying it.",
+                speaker: "Foreman",
+                text: "That's the robot from the barn. It walked here.",
             ),
             Dialogue(
-                speaker: "Salvage Lead",
-                text: "The crate goes through the gate at six. You go in the crate. Lads!",
+                speaker: "Foreman",
+                text: "Window's tomorrow, lads. We're not sitting next to that all night. Get it.",
             ),
             SetFlag(
-                id: "salvage_lead_yard_seen",
+                id: "foreman_siding_seen",
                 on: true,
             ),
         ],
-        seen_flag: Some("salvage_lead_yard_seen"),
+        seen_flag: Some("foreman_siding_seen"),
     ),
-    // The crate behind the yard's inner gate, which opens when the fight is
-    // won. The work order on the crate names an address; the stair door of the
-    // lab names another (`14 CULVERT LANE`). The last page stays unread.
+    // The goblins' crate at the siding (`intro_freight_yard`): the volume in
+    // front of it. The work order is pasted on its lid; the address on it is
+    // not the Creator's barn.
     (
-        id: "creator_notebooks",
+        id: "work_order",
         beats: [
             Dialogue(
                 speaker: "Work Order",
-                text: "ONE PROTOTYPE, SWITCHED OFF. ONE LAB OF RESEARCH. 14 CULVERT ROW. PAID IN ADVANCE.",
-            ),
-            Dialogue(
-                speaker: "Notebook",
-                text: "The creator's notebooks are under the order. The last page starts: THE QUESTION I WANT IT TO ASK IS",
-            ),
-            Dialogue(
-                speaker: "Notebook",
-                text: "The rest of the page is torn off.",
-            ),
-            SetFlag(
-                id: "intro_creator_notes_recovered",
-                on: true,
+                text: "ONE PROTOTYPE, SWITCHED OFF. ONE LAB OF RESEARCH. THE WORKSHOP AT THE OLD MILL, HOBFORD. PAID IN ADVANCE.",
             ),
             SetFlag(
                 id: "wrong_list_clue_2",
                 on: true,
             ),
         ],
-        seen_flag: Some("creator_notebooks_seen"),
+        seen_flag: Some("work_order_seen"),
     ),
 ]

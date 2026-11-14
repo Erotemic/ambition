@@ -1,8 +1,9 @@
 //! WORLD-ACCEPTANCE: one headless playthrough of the shipped game.
 //!
 //! The player takes the Blink in the hub's basement (a held item: Attack
-//! becomes a blink), goes from the hub to Alice through the real exits of each
-//! room, takes her last reading, carries it to Bob, and gives it with the word. The player
+//! becomes a blink), goes from the hub into the workshop, lives through the
+//! raid, meets Alice in the lane outside, takes her message, and carries it to
+//! Bob in the woods past Hobford. The player
 //! walks by keys (`common::walk`): to the Blink, and to and through each exit,
 //! with Interact at a door and confirm on a cutscene's beats. The room
 //! transition after that is the shipped one, and no step puts the body
@@ -12,7 +13,7 @@
 //! custody of the one Blink.
 //!
 //! A second participant joins on a second pad, stays at Alice while the
-//! player carries the reading to Bob, and sees Alice's survey line come down in
+//! player carries the message to Bob, and sees Alice's survey line come down in
 //! its own live room. A death with the Blink in hand sends it back to where it
 //! lay.
 
@@ -26,14 +27,16 @@ use crate::alices_reading_reaches_bob::{
     NOTE_FLAG, SURVEY_FLAG,
 };
 
-/// The rooms from the hub to Alice, each through an exit of the room before.
-const ROUTE_TO_ALICE: &[&str] = &[
-    "intro_wake_room",
-    "intro_escape_shaft",
-    "drain_alley",
-    "under_town_pipes",
-    "alice_relay",
-];
+/// The rooms from the hub to Alice, each through an exit of the room before:
+/// she is in the lane outside the workshop.
+const ROUTE_TO_ALICE: &[&str] = &["intro_wake_room", ALICE];
+/// Alice's room and Bob's.
+const ALICE: &str = "intro_hobford_lane";
+const BOB: &str = "intro_woods";
+/// From Alice to Bob: down the bank path to the millstream, through Hobford,
+/// into the woods; and back.
+const TO_BOB: &[&str] = &["intro_millstream", "intro_hobford", BOB];
+const BACK_TO_ALICE: &[&str] = &["intro_hobford", "intro_millstream", ALICE];
 
 /// The Blink lying in the hub's basement: a held item, so it has one identity
 /// and one custody wherever it goes.
@@ -116,8 +119,9 @@ fn the_blink_carries_the_body_where_a_strike_does_not() {
     );
 }
 
-/// The survey line across Alice's high walk (`alice_relay`): it comes down
-/// when Bob has the last reading (`gated_by`).
+/// The survey line across the ridge path above Alice's station
+/// (`intro_hobford_lane`): it comes down when Bob has moved his camp and
+/// closed his end of the survey (`gated_by`).
 const RETURN_LOCK: &str = "alice_survey_line";
 
 fn live_room(app: &mut App) -> String {
@@ -130,16 +134,11 @@ fn live_room(app: &mut App) -> String {
 /// door takes Interact. The crossing is the shipped room transition.
 fn go_through(app: &mut App, target: &str) {
     let from = live_room(app);
-    // The lab's way out is shut until its raid is beaten.
-    if from == "intro_wake_room" {
-        if let Err(why) = crate::common::walk::through_the_raid(&mut crate::common::walk::Keys::new(app)) {
+    // The workshop's way out is shut until its raid is beaten. A save that
+    // has the raid beaten already has the door down.
+    if from == "intro_wake_room" && gate_stands(app, crate::common::walk::BARN_DOOR) {
+        if let Err(why) = crate::common::walk::through_the_raid(&mut crate::common::walk::Keys::new(app), crate::common::walk::RaidStart::Talk) {
             panic!("the player did not get through the raid: {why}");
-        }
-    }
-    // The widest stretch of the culvert's sump is crossed on its raft.
-    if from == "under_town_pipes" {
-        if let Err(why) = crate::common::walk::across_the_raft(&mut crate::common::walk::Keys::new(app)) {
-            panic!("the player did not cross the culvert's raft: {why}");
         }
     }
     if let Err(why) = crate::common::walk::walk_through(&mut crate::common::walk::Keys::new(app), target) {
@@ -147,6 +146,13 @@ fn go_through(app: &mut App, target: &str) {
     }
     for _ in 0..30 {
         app.update();
+    }
+}
+
+/// [`go_through`] each room of `rooms` in turn.
+fn go_route(app: &mut App, rooms: &[&str]) {
+    for room in rooms {
+        go_through(app, room);
     }
 }
 
@@ -161,8 +167,8 @@ fn gate_stands(app: &App, block: &str) -> bool {
     .any(|solid| solid.name.contains(block))
 }
 
-/// ⭐ ONE PLAYTHROUGH: from the hub to Alice through six real exits, the reading to
-/// Bob, the wall the survey opens is open when the player comes back, and a
+/// ⭐ ONE PLAYTHROUGH: from the hub to Alice through the workshop and its raid,
+/// the message to Bob, the line the survey opens is down when the player comes back, and a
 /// save taken in another room is written to its file, and a new App in this
 /// process reads that file with all of it: the bag, the flags, the quest step,
 /// and the open wall at the end of the route.
@@ -190,7 +196,7 @@ fn the_note_reaches_bob_and_opens_alices_return() {
         "(Alice's flag, quest step) after Alice's choice"
     );
 
-    go_through(&mut app, "bob_relay");
+    go_route(&mut app, TO_BOB);
     talk_and_choose(&mut app, "npc_bob", BOB_CHOICE);
     assert_eq!(
         (bag(&app, "fieldsurvey"), flag(&app, SURVEY_FLAG), quest_step(&app)),
@@ -198,16 +204,15 @@ fn the_note_reaches_bob_and_opens_alices_return() {
         "(surveys, survey flag, quest step) after Bob's choice"
     );
 
-    go_through(&mut app, "alice_relay");
+    go_route(&mut app, BACK_TO_ALICE);
     assert!(
         !gate_stands(&app, RETURN_LOCK),
-        "the survey was handed over and Alice's survey line still stands"
+        "Bob moved his camp and Alice's survey line still stands"
     );
 
     // Leave, and save in another room: the autosave writes the file, and a
     // new App reads it.
-    go_through(&mut app, "bob_relay");
-    go_through(&mut app, "drain_alley");
+    go_through(&mut app, "intro_millstream");
     let (root, written) = the_save_file(&mut app);
     drop(app);
     let mut app = a_session_loaded_from(&root);
@@ -298,9 +303,9 @@ fn the_playthrough_runs_in_the_composition_that_draws_it() {
     }
     assert!(the_player_holds(&mut app, &blink), "the Blink did not come along to Alice");
     talk_and_choose(&mut app, "npc_alice", ALICE_CHOICE);
-    go_through(&mut app, "bob_relay");
+    go_route(&mut app, TO_BOB);
     talk_and_choose(&mut app, "npc_bob", BOB_CHOICE);
-    go_through(&mut app, "alice_relay");
+    go_route(&mut app, BACK_TO_ALICE);
     assert!(
         flag(&app, SURVEY_FLAG) && !gate_stands(&app, RETURN_LOCK),
         "in the drawn game, the survey was handed over and Alice's survey line still stands"
@@ -382,7 +387,7 @@ fn gates_by_live_room(app: &mut App, block: &str) -> Vec<(String, bool)> {
 }
 
 /// ⭐ TWO PARTICIPANTS, APART: a second seat joins beside the player at Alice
-/// and stays there while the player carries the reading to Bob in the next room.
+/// and stays there while the player carries the message to Bob in the woods.
 /// The hand-over opens Alice's survey line in the second participant's live
 /// room, while the two rooms are live at once and neither body moves between
 /// them.
@@ -396,14 +401,14 @@ fn the_hand_over_opens_the_wall_in_the_other_participants_room() {
     talk_and_choose(&mut app, "npc_alice", ALICE_CHOICE);
 
     let second = join_the_second_seat(&mut app);
-    assert_eq!(room_of(&app, second).as_deref(), Some("alice_relay"), "the second seat joins in the player's room");
+    assert_eq!(room_of(&app, second).as_deref(), Some(ALICE), "the second seat joins in the player's room");
 
-    go_through(&mut app, "bob_relay");
-    assert_eq!(room_of(&app, second).as_deref(), Some("alice_relay"), "the second participant stayed at Alice");
+    go_route(&mut app, TO_BOB);
+    assert_eq!(room_of(&app, second).as_deref(), Some(ALICE), "the second participant stayed at Alice");
     let apart = gates_by_live_room(&mut app, RETURN_LOCK);
     assert_eq!(
         apart,
-        vec![("alice_relay".to_string(), true), ("bob_relay".to_string(), false)],
+        vec![(ALICE.to_string(), true), (BOB.to_string(), false)],
         "(live room, survey line stands) with the two participants apart, before the hand-over"
     );
 
@@ -415,12 +420,12 @@ fn the_hand_over_opens_the_wall_in_the_other_participants_room() {
     let player = primary_body(&mut app);
     assert_eq!(
         (room_of(&app, player).as_deref(), room_of(&app, second).as_deref()),
-        (Some("bob_relay"), Some("alice_relay")),
+        (Some(BOB), Some(ALICE)),
         "the two participants are still apart"
     );
     assert_eq!(
         gates_by_live_room(&mut app, RETURN_LOCK),
-        vec![("alice_relay".to_string(), false), ("bob_relay".to_string(), false)],
+        vec![(ALICE.to_string(), false), (BOB.to_string(), false)],
         "(live room, survey line stands) after the hand-over in the other room"
     );
 }
@@ -461,27 +466,27 @@ fn die(app: &mut App) {
 /// was found, and it can be taken again. Alice's survey line agrees with the
 /// survey flag, which the death takes back with the survey (Q164).
 ///
-/// The two doors on the way (the hub's into the wake room, and the gate
-/// stack's back into the hub) are taken by their passage: a door opens, the
-/// player goes in by it and comes out of the door it leads to, and the door
-/// shuts behind it.
+/// The hub's door into the workshop is taken by its passage: a door opens,
+/// the player goes in by it and comes out of the door it leads to, and the
+/// door shuts behind it. The hill country's one road home is its ring, behind
+/// the gate office's barrier; this test goes home by the save instead (with
+/// no checkpoint, a load starts in the hub), which is where the Blink's place
+/// is kept.
 #[test]
 fn a_death_sends_the_blink_back_to_where_it_lay() {
     let mut app = the_shipped_session();
     let blink = SimId::placement(BLINK);
     let found_at = take(&mut app, &blink);
     come_out_of_the_door_to(&mut app, ROUTE_TO_ALICE[0]);
-    for room in &ROUTE_TO_ALICE[1..] {
-        go_through(&mut app, room);
-    }
+    go_route(&mut app, &ROUTE_TO_ALICE[1..]);
     talk_and_choose(&mut app, "npc_alice", ALICE_CHOICE);
-    go_through(&mut app, "bob_relay");
+    go_route(&mut app, TO_BOB);
     talk_and_choose(&mut app, "npc_bob", BOB_CHOICE);
-    go_through(&mut app, "alice_relay");
+    go_route(&mut app, BACK_TO_ALICE);
     assert!(the_player_holds(&mut app, &blink), "control: the Blink is in hand when the player dies");
 
     die(&mut app);
-    assert_eq!(live_room(&mut app), "alice_relay", "with no checkpoint, the player comes back in the room of the death");
+    assert_eq!(live_room(&mut app), ALICE, "with no checkpoint, the player comes back in the room of the death");
     assert_eq!(
         occurrences(&mut app, &blink),
         vec![],
@@ -493,15 +498,13 @@ fn a_death_sends_the_blink_back_to_where_it_lay() {
         "after the death, Alice's survey line disagrees with the survey flag"
     );
 
-    // The wake room is the start of the game, and no door leads back from it
-    // to the hub (Jon, 2026-10-10: the hub's door to it is one way). The road
-    // home is the gate stack beside the drain alley, through its portal.
-    for room in ["under_town_pipes", "drain_alley", "gate_stack_lower"] {
-        go_through(&mut app, room);
-    }
-    // The gate stack's door to the hub (its rings are dialed gates) comes out
-    // of the hub's door to the gate stack.
-    come_out_of_the_door_to(&mut app, "central_hub_complex");
+    // Home by the save: the autosave writes it on the next crossing, and a
+    // new App reads it in the hub.
+    go_through(&mut app, "intro_millstream");
+    let (root, _) = the_save_file(&mut app);
+    drop(app);
+    let mut app = a_session_loaded_from(&root);
+    assert_eq!(live_room(&mut app), "central_hub_complex");
     let lying: Vec<ae::Vec2> = {
         let world = app.world_mut();
         world

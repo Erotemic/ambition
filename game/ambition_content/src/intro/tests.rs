@@ -114,14 +114,14 @@ fn each_intro_room_says_its_cutscene_in_data_and_the_library_has_it() {
         );
         assert!(lib.get(cutscene).is_some(), "`{cutscene}` is not in the cutscene library");
     }
-    // The raid starts where its people are: a volume in the corridor, which is
-    // one room with the lab, so the creator who woke the robot walks into it.
-    let lab = rooms.iter().find(|spec| spec.id == "intro_wake_room").expect("the lab is a shipped room");
+    // The Creator's last words play past the barn door, which stands until
+    // the raid is beaten, and play once.
+    let workshop = rooms.iter().find(|spec| spec.id == "intro_wake_room").expect("the workshop is a shipped room");
     assert!(
-        lab.cutscene_triggers.iter().any(|trigger| trigger.cutscene == "intro_raid"),
-        "the lab's room has no volume that starts `intro_raid`"
+        workshop.cutscene_triggers.iter().any(|trigger| trigger.cutscene == "creator_final_fragment"),
+        "the workshop has no volume that starts `creator_final_fragment`"
     );
-    assert!(lib.get("intro_raid").is_some_and(|script| script.seen_flag.is_some()));
+    assert!(lib.get("creator_final_fragment").is_some_and(|script| script.seen_flag.is_some()));
     // And Oiler speaks when the player comes up to him, not at the door.
     let alley = rooms.iter().find(|spec| spec.id == "drain_alley").expect("the alley is a shipped room");
     assert!(
@@ -146,7 +146,7 @@ fn the_intro_rows_are_in_their_registries_before_the_first_tick() {
 
     let world = app.world();
     let library = world.resource::<CutsceneLibrary>();
-    for cutscene in ["intro_wake", "intro_raid", "drain_market_arrival"] {
+    for cutscene in ["intro_wake", "creator_final_fragment", "drain_market_arrival"] {
         assert!(
             library.get(cutscene).is_some(),
             "the intro cutscene `{cutscene}` is not in the library"

@@ -135,7 +135,7 @@ fn a_body_dropped_from_a_height_is_named() {
 
 #[test]
 fn no_placed_walker_lands_when_its_room_starts() {
-    let rooms: [(&str, usize, &[&str]); 4] = [
+    let rooms: [(&str, usize, &[&str]); 5] = [
         (
             "hall_of_characters",
             100,
@@ -143,7 +143,8 @@ fn no_placed_walker_lands_when_its_room_starts() {
         ),
         ("basement_enemies", 8, &["EnemySpawn-0143", "player"]),
         ("pirate_cove", 9, &[]),
-        ("intro_wake_room", 3, &[]),
+        ("intro_wake_room", 1, &[]),
+        ("intro_hobford_lane", 3, &[]),
     ];
     for (room, at_least, still) in rooms {
         let (landed, placed, unexplained) = the_start_of(room);

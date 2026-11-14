@@ -77,6 +77,12 @@
         portal_sprite_name: "Port Gate (Plaza) Portal",
         ring_sprite_name: "Port Gate (Plaza) Ring",
     ),
+    // Level 1's ring, in the clearing above Hobford.
+    "hobford_gate_zone": (
+        command: Dialed,
+        portal_sprite_name: "Hobford Portal",
+        ring_sprite_name: "Hobford Ring",
+    ),
     // The ninja village's gate shrine.
     "ninja_village_gate_arrival": (
         command: Dialed,

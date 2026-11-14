@@ -73,7 +73,7 @@ fn crossing(rooms: &RoomSet, room: usize, zone: &str) -> Option<usize> {
 fn a_route_over_rooms_goes_by_zones_that_cross_where_it_says() {
     let rooms = shipped_rooms();
     let id = |name: &str| rooms.room_index_by_id(name).unwrap_or_else(|| panic!("no room `{name}`"));
-    let (hub, alice) = (id("central_hub_complex"), id("alice_relay"));
+    let (hub, alice) = (id("central_hub_complex"), id("intro_hobford_lane"));
 
     let route = rooms.route(hub, alice).expect("the hub reaches Alice");
     assert!(!route.is_empty());
@@ -121,7 +121,7 @@ fn a_room_that_no_zone_leads_into_has_no_route() {
     let rooms = shipped_rooms();
     let hub = rooms.room_index_by_id("central_hub_complex").expect("hub");
     let reached: Vec<usize> = (0..rooms.rooms.len()).filter(|room| rooms.route(hub, *room).is_some()).collect();
-    let alice = rooms.room_index_by_id("alice_relay").expect("alice");
+    let alice = rooms.room_index_by_id("intro_hobford_lane").expect("alice");
     assert!(reached.contains(&alice), "control: the hub reaches Alice");
     // Every room some route reaches is reached by its last hop's zone.
     for room in &reached {

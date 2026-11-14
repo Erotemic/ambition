@@ -23,7 +23,7 @@ fn kit_in(room: &str) -> (AbilitySet, AbilitySet) {
 
 #[test]
 fn level_one_withholds_the_large_kit() {
-    let (authored, effective) = kit_in("drain_alley");
+    let (authored, effective) = kit_in("intro_hobford_lane");
     assert!(
         authored.double_jump && authored.dash && authored.pogo,
         "premise: the robot's authored kit has the air jump, the dash and the pogo"

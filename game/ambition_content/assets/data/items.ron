@@ -222,7 +222,7 @@
     ),
     (
         display_name: "Field Survey",
-        description: "Bob\'s survey sheet of the drains under the Drain Market, in pencil. Some of the drains are not on the official map.",
+        description: "Bob\'s survey sheet of Hobford woods, in pencil. It marks the paths people walk, not the ones on the official map.",
         category: KeyItem,
         held_item_id: None,
         dialog_id: "fieldsurvey",

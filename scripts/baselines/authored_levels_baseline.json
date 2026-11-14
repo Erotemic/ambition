@@ -150,15 +150,18 @@
     "history_yellow_river"
   ],
   "intro.ldtk": [
-    "alice_relay",
-    "bob_relay",
     "combat_calibration_lab",
     "drain_alley",
     "first_system_boss",
     "gate_stack_lower",
-    "intro_escape_shaft",
     "intro_freight_yard",
+    "intro_gate_clearing",
+    "intro_high_meadow",
+    "intro_hobford",
+    "intro_hobford_lane",
+    "intro_millstream",
     "intro_wake_room",
+    "intro_woods",
     "pirate_sky_arena",
     "under_town_pipes"
   ],

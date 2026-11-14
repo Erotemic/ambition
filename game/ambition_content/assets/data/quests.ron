@@ -141,19 +141,33 @@
     // the second; the third is the notebooks in the freight yard.
     (
         id: "intro_cartography_route",
-        title: "The Last Reading",
-        summary: "Alice and Bob are surveying the drains under the Drain Market. Bob's end of the survey goes under the checkpoint.",
+        title: "A Message for Bob",
+        summary: "Alice is surveying the hills above Hobford. Bob, the other surveyor, is camped in the woods on the goblins' trail and does not know they are here.",
         steps: [
             (
-                description: "Find Alice in the drains and take her last reading.",
+                description: "Say you'll take Alice's message.",
                 condition: FlagSet("alice_route_note_carried"),
             ),
             (
-                description: "Take the reading to Bob, with the word.",
+                description: "Tell Bob, in the woods past Hobford, to move his camp.",
                 condition: FlagSet("bob_field_survey_received"),
             ),
             (
-                description: "Follow the goblins under the checkpoint and take back the notebooks.",
+                description: "Tell Alice that Bob is moving.",
+                condition: FlagSet("alice_heard_bob_moved"),
+            ),
+        ],
+        auto_start: true,
+    ),
+    // Level 1: the case the goblins took from the Creator's bench. It is in
+    // their crate at the freight siding.
+    (
+        id: "intro_creator_case",
+        title: "The Creator's Case",
+        summary: "The goblins took the Creator's case off his bench. Scout's logs are in it.",
+        steps: [
+            (
+                description: "Get the case back from the goblins.",
                 condition: FlagSet("intro_creator_notes_recovered"),
             ),
         ],

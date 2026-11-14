@@ -128,11 +128,14 @@ def _writable() -> set[str]:
                             if field.get("__identifier") == "id" and isinstance(value, str) and value.strip():
                                 names.add(f"switch_{value.strip()}_used")
                         continue
-                    if entity.get("__identifier") != "PickupSpawn":
+                    # A `ChestSpawn`'s `reward` is a pickup kind too, granted
+                    # when the chest is opened (`grant_pickup` in `chests.rs`).
+                    field_name = {"PickupSpawn": "kind", "ChestSpawn": "reward"}.get(entity.get("__identifier"))
+                    if field_name is None:
                         continue
                     for field in entity.get("fieldInstances", []):
                         value = field.get("__value")
-                        if field.get("__identifier") == "kind" and isinstance(value, str):
+                        if field.get("__identifier") == field_name and isinstance(value, str):
                             kind = value.strip()
                             if kind.startswith("flag:") and kind[len("flag:"):]:
                                 names.add(kind[len("flag:"):])

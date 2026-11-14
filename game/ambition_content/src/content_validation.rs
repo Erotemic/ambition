@@ -711,6 +711,12 @@ fn composed_quest_ids(
                     flags.insert(flag.clone());
                 }
             }
+            // A chest whose reward is a story flag sets it when it is opened.
+            PlacementSchema::Chest(chest) => {
+                if let Some(PickupKind::StoryFlag { flag }) = &chest.reward {
+                    flags.insert(flag.clone());
+                }
+            }
             _ => {}
         }
     }

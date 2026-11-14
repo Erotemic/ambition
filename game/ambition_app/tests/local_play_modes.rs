@@ -278,9 +278,9 @@ fn player_two_dialogue_at_choices(mut app: App, pads: Vec<Entity>, together: boo
     for _ in 0..6 { app.update(); }
     let two = seat_one_bodies(&mut app)[0];
     let one = the_primary(&mut app);
-    cross(&mut app, two, PlayerSlot(1), "alice_relay");
+    cross(&mut app, two, PlayerSlot(1), "intro_hobford_lane");
     if together {
-        cross(&mut app, one, PlayerSlot(0), "alice_relay");
+        cross(&mut app, one, PlayerSlot(0), "intro_hobford_lane");
     }
     let alice = npc(&mut app, "npc_alice");
     let at = app.world().get::<BodyKinematics>(alice).unwrap().pos;
@@ -1356,7 +1356,7 @@ fn place_loading_combat_pair(app: &mut App, fighter: Entity) -> Entity {
     let room = ambition_platformer2d::world::rooms::live_room_spec_of(world, fighter).unwrap();
     let floor = room.world.blocks.iter().filter(|block|
         ambition_platformer2d::engine_core::collision_semantics::is_full_collision_surface(block.kind)
-            && block.aabb.width() >= 256.0 && block.aabb.height() <= 64.0
+            && block.aabb.width() >= 256.0 && block.aabb.height() <= 128.0
             && block.aabb.top() >= 96.0 && block.aabb.top() < room.world.size.y)
         .map(|block| block.aabb).find(|floor| halves.iter().zip([-20.0, 20.0]).all(|(half, dx)|
             room.embeds(Aabb::new(ambition_platformer2d::engine_core::Vec2::new(
@@ -1383,7 +1383,7 @@ fn loading_combat_witness(host: App, loading_slot: u8, capture: bool) {
     let fighting_slot = 1 - loading_slot;
     let fighter = bodies[usize::from(fighting_slot)];
     crate::neighbor_prefetch_prepares_rooms::cross(&mut app, bodies[usize::from(loading_slot)], PlayerSlot(loading_slot), "switch_lab");
-    crate::neighbor_prefetch_prepares_rooms::cross(&mut app, fighter, PlayerSlot(fighting_slot), "alice_relay");
+    crate::neighbor_prefetch_prepares_rooms::cross(&mut app, fighter, PlayerSlot(fighting_slot), "intro_hobford_lane");
     for _ in 0..1200 {
         if app.world().resource::<RoomTransitionLoadState>().presentations().next().is_none() { break; }
         app.update();

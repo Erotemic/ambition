@@ -1,227 +1,340 @@
-# Level 1: the wrong basement and the Drain Market
+# Level 1: Hobford
 
-**State:** OPEN. Design written 2026-11-14. Rooms 1-7 and 9 and the
-checkpoint of room 8 are built (2026-11-14); queue row
+**State:** OPEN. Rebuilt 2026-11-14 around a rural gate settlement. The
+eight rooms of the level are built by the generator
+(`generators/intro/make_specs.py`): the workshop and its raid, the lane and
+Alice, the meadow, the gate clearing and its ring, the freight siding fight,
+the millstream, the village and Bob in the woods. The rooms are still drawn
+with the lab and forest looks; the level's own looks (`hobford`,
+`hobford_woods`, `creator_workshop`) are drawn in the renderer and not yet
+published. A new game still starts in the hub (D3). Queue row
 [LEVEL-1](../queue.md#level-1--the-lab-raid-and-the-first-level-after-it)
 holds what remains.
 
-Jon, 2026-11-14: "redesign the entire thing so it feels like a real game.
-Not just a demo, I want to start building the real intro sequences and world
-structure, basically everything in that first level after the lab raid needs
-to get completely redone", "really making the lab raid work is included",
-and "we are basically looking to build level 1 tutorial level, meet some of
-the cast, learn some mechanics, and start meeting some challenges". Then:
-it is not a tutorial, only situations that make the player learn the basic
-mechanics. Assume one jump, no projectiles and no ranged items; the player
-can pogo, "although maybe pogo is advanced for that zone".
+Jon, 2026-11-14, first: "redesign the entire thing so it feels like a real
+game", "really making the lab raid work is included", and "we are basically
+looking to build level 1 tutorial level, meet some of the cast, learn some
+mechanics, and start meeting some challenges"; it is not a tutorial, only
+situations that make the player learn the basic mechanics, with one jump,
+no projectiles and no ranged items. Then the brief that this page follows:
+a rural region newly joined to the gate network, the robot named Scout, the
+raid as an interruption, an escape into open country, Alice as the first
+friendly character, and three directions the player chooses between. On
+decisions: "For any decisions you need input on, make a reversible decision
+with your best judgement." Each one is under **Provisional decisions**.
+None of it is canon (`docs/storylines/cannon.md` is not touched).
 
-This page replaces the old intro chain (the stabilizer kit on the floor,
-Alice's battery for Bob, the system boss's "P5 route memory", the labels
-that said `P2:`, `MAP_SECRET:` and `Task 08`).
+This page replaces the basement lab, the service stair and the drain level
+(the Drain Market and the culvert stay, as town rooms past the ring).
 
-## Rules for this level
+## Canon this level stands on
 
-- **The place gives the obstacle.** A gap, a wrecked stair, a shut
-  checkpoint, a goblin in the way. No lever that needs a story, and no sign
-  that tells the player which button to press.
-- **One jump, a blade, and the eyes.** Every required route is possible
-  with run, one jump (it rises about 88 px; a level gap of about 110 px is
-  safe), drop through a one-way floor (down + jump) and the melee strike.
-  No required route uses the air jump, a wall jump, the dash, the blink,
-  flight, a projectile or the pogo. A pogo can reach an extra, never a
-  required way.
-- **Each room asks one new thing, then asks it again harder.** The first
-  time is safe (a fall costs a climb, not a life); the second time has a
-  cost.
-- **Levels, not shafts.** Rooms are tiered, with platforms between the
-  tiers. No ladders.
-- **Signs are what people in the place wrote.** Room titles and short
-  in-world signs only.
-- **Fia is not in this level.** No line names her, so the level stands if
-  the character is reworked or cut.
+- "Alice and Bob are cartographers. They gate the map system. They provide
+  quests."
+- "The military and other factions control various larger
+  'dimension-gates'. There happens to be one nearby the creator's lab."
+- "Oiler is the lead mechanic in the largest town." The largest town is not
+  in this level, so Oiler is not either (D4).
 
 ### The kit
 
 Every room of the level withholds a player's kit past run, one jump, drop
 through and the strike: the level field `withheld_verbs`
 (`RoomMetadata::withheld_verbs`), which the generator writes into each room
-it makes (`SMALL_KIT_WITHHELD`) and the gate stack carries by hand. The
-engine writes it into the player's body as a ceiling each tick
-(`room.withheld_verbs`, `docs/planning/engine/capability-progression-and-world-gating.md`),
-so the robot has its whole kit again past the level. The basement lab is
-the exception until the rural opening replaces it: under the small kit the
-playthrough's fight carried the player back over the raid's trigger, the
-raid started again and shut the bay door. Withheld: the air jump,
-the wall verbs and the ledge grab, the dash and the dodge, flight and the
-glide, blink, the pogo (the level teaches the plain strike first), the
-special verb, the shield, the grab and the morph. Witness:
-`level_one_withholds_the_large_kit`, with the hub as its control.
+of the level (`SMALL_KIT_WITHHELD`). The engine writes it into the player's
+body as a ceiling each tick (`room.withheld_verbs`,
+`docs/planning/engine/capability-progression-and-world-gating.md`), so the
+robot has its whole kit again past the level. Withheld: the air jump, the
+wall verbs and the ledge grab, the dash and the dodge, flight and the
+glide, blink, the pogo, the special verb, the shield, the grab and the
+morph. Witness: `level_one_withholds_the_large_kit`, with the hub as its
+control. The town rooms (the gate stack, the Drain Market, the culvert) are
+past the level and keep the whole kit.
 
 Not yet: shots. The Hadouken is the projectile kit's, which no verb gates,
 so the robot can still fire in the level (follow-up in the queue row).
 
-## The story in one paragraph
+## The level in one paragraph
 
-The robot wakes in a basement lab. Its creator has just finished it. Hired
-goblins break in for "one prototype, one lab of research, paid in advance";
-the creator and the robot fight them off, but the creator is hurt and falls
-at the foot of the stair. His last words do not finish ("I made you to ask
-a question. Find out what it—"). The goblins' foreman, the Salvage Lead,
-is already gone up the stair with the creator's notebooks. Up on the street
-nobody is shocked: the Drain Market is busy, the news board already
-prints the official version, and Oiler, a mechanic, comes over to look at
-the robot's knee. The goblins took their crate east toward the gate stack,
-where a checkpoint lets through only what is on a manifest; the robot is on
-none. The cartographers Alice and Bob know the drains under the checkpoint.
-At the far end the robot finds the goblins' freight yard and takes the
-notebooks back from the Salvage Lead. The notebooks do not answer the
-question; they show that the raid was sent to the wrong address.
+Hobford is a farming settlement in hill country that was connected to the
+gate network last year. The old stone ring in the clearing above the village
+has new steel on it: a freight siding, a guard post, cables, a timetable on
+the notice board. The Creator rents a barn outside the village as a robotics
+workshop. He is testing a new fine-tuning method on a robot he calls Scout.
+Scout wakes on the charging cart, he runs ordinary checks, they talk, and
+goblin raiders break in partway through. The goblins were hired to rob a lab
+from a list that had the wrong address. They take what they can carry anyway.
+The Creator is hurt in the fight and dies before he finishes his last
+sentence. Scout leaves the barn into open country. Alice, a cartographer
+whose survey station is on the slope above the barn, comes down because she
+heard the fight. She tells Scout what she saw if asked, warns that following
+the goblins is dangerous, and asks Scout to take a message to Bob, who is
+camped in the woods on the goblins' route. Scout can do that, go after the
+goblins (they are waiting at the freight siding for the next freight window),
+or walk around the country. Every way is open from the start.
 
-## Rooms
+## Rules
 
-Room ids that tests and other worlds already name are kept; titles change.
-A room in `intro.ldtk` that this level rebuilds is written by
-`game/ambition_map_assets/ambition_content/generators/intro/make_specs.py`.
+- **The place gives the obstacle.** A stream, a hedge bank, a loft, a
+  shut barrier, a goblin. No sign tells the player which button to press.
+- **The small kit.** Run, one jump (rises about 88 px), drop through a
+  one-way floor, the strike. Every room carries `withheld_verbs`
+  (`SMALL_KIT_WITHHELD`). Swimming is not withheld: water slows, it does not
+  kill.
+- **No route is gated on a story fact.** A door changes because a lock, a
+  lever or an obstruction changes. One shortcut is the exception (D21). Knowing a route (Alice's map, Bob's marks)
+  helps find it; every passage is walkable without it.
+- **Any order.** The three directions (Alice's request, the goblins, the
+  country) are reachable from the first exterior room, and each can be done
+  first, last or never. Later lines read what happened (world facts and
+  items), so returning anywhere never contradicts.
+- **Every required route is walked by the census** with the level's own
+  kit (`walked_route_census`, the robot's abilities intersected with
+  `AbilitySet::all_but_listed(SMALL_KIT_WITHHELD)`), not only checked by
+  `check_reach`, which compares heights and nothing else.
+- **Writing** follows `docs/authoring/anti-llmism-style-guide.md`. The
+  Creator is a practical engineer: no destiny speech. Gem, Dil and Harper
+  are not in the opening and are not named in it.
 
-| # | room id | title | what the place asks | cast |
-|---|---|---|---|---|
-| 1 | `intro_wake_room` (lab half) | THE BASEMENT LAB | walk, the first jump (down the cart's ramp; the creator's bench, a step of 48; a cable trench) | the Creator |
-| 2 | `intro_wake_room` (raid half; `intro_raid_corridor` is merged into it) | THE LOADING BAY | the strike: two raiders, then two more, and the bay door shut until the last falls | the Creator, goblin raiders |
-| 3 | `intro_escape_shaft` | THE SERVICE STAIR | single jumps up a wrecked stair in tiers; a raider on a landing; vermin that do not fight | puppy slugs |
-| 4 | `drain_alley` | THE DRAIN MARKET | the street: talk, Oiler's bench (a shrine), the awnings up to a purse, the drain cover down | Oiler, the news board |
-| 5 | `under_town_pipes` | THE CULVERT | gaps over the sump (a fall stings and puts you back), a raft that crosses the wide one | a goblin lookout |
-| 6 | `alice_relay` | ALICE'S STATION | the survey line across the high walk; the low walk on to Bob | Alice |
-| 7 | `bob_relay` | BOB'S END | the wet stretch (jumps over sump pits); the way on | Eve (listening at a pipe), Bob |
-| 8 | `gate_stack_lower` | THE GATE STACK | the rings; the checkpoint that stops the robot | the Gate Janitor, the Manifest Clerk |
-| 9 | `intro_freight_yard` (new) | THE FREIGHT YARD | a fight that shuts the yard; the Salvage Lead (a brute: read the windup, strike early or after) | the Salvage Lead, goblins |
+## Map
 
-Room 8 is LDtk-owned: it keeps its rings and gate network
-(`data/gate_network.ron`), and the checkpoint was added to it by hand.
-Every other room is written by the generator.
+```
+                       (ridge path, secret high way) ----------------------.
+                      /                                                     \
+[THE WORKSHOP]--[HOBFORD LANE]------[THE HIGH MEADOW]------[THE GATE CLEARING]
+ intro_wake_room  intro_hobford_lane  intro_high_meadow      intro_gate_clearing
+                      | bank down          | hill path              | siding stair
+                 [THE MILLSTREAM]----[HOBFORD]----------[HOBFORD WOODS]---[THE FREIGHT SIDING]
+                  intro_millstream    intro_hobford      intro_woods         intro_freight_yard
+                                                          (Bob's camp)
+```
 
-### 1-2. The basement lab and the loading bay (`intro_wake_room`)
+Ids: `intro_wake_room` and `intro_freight_yard` are kept (tests, the gate
+network and saves name them). The rest are new. Removed from the intro
+world: `intro_escape_shaft`, `alice_relay`, `bob_relay`. The Drain Market
+(`drain_alley`) and the culvert (`under_town_pipes`) stay as town rooms
+under the gate stack, outside level 1 (D5).
 
-One room, one floor, so that the creator can keep beside the robot (in the
-old build he stopped at the head of the 128 px stair between the two
-levels and died 1400 px behind the player).
+| room | title | what the place asks | who is there |
+|---|---|---|---|
+| `intro_wake_room` | THE WORKSHOP | walk, the first jump (the test plinth), up to the parts loft and back down (drop through) | the Creator |
+| `intro_hobford_lane` | HOBFORD LANE | the first open air; three ways out; terraces up the slope | Alice, hens |
+| `intro_high_meadow` | THE HIGH MEADOW | dry-stone walls and banks in tiers; the cart track | a farm dog |
+| `intro_gate_clearing` | THE GATE CLEARING | the ring, the guard post, the barrier and its lever | the gate clerk (not built, D20) |
+| `intro_freight_yard` | THE FREIGHT SIDING | the goblins' camp: a fight in tiers of stacked freight | goblin raiders, their foreman |
+| `intro_millstream` | THE MILLSTREAM | stepping stones, the mill wheel, the pond (swim), a cracked wall behind the wheel | the miller (not built, D20) |
+| `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | villagers (not built, D20) |
+| `intro_woods` | HOBFORD WOODS | roots and fallen trunks, the goblins' trail, a hollow tree | Bob |
 
-- Wake on the diagnostic cart (`intro_wake`). The cart's ramp is the first
-  slope; the creator's bench (a step of 48) is the first jump that is
-  needed; a cable trench (96 wide, 48 deep) is the first gap, and falling in
-  costs a jump.
-- The raid starts at a volume where the lab opens into the loading bay
-  (`intro_raid`). The goblins say why they came. The bay door at the far
-  end is shut (a `LockWall` gated on the raid's last raider:
-  `encounter.cleared intro_bay_raid`; the waves are in
-  `data/encounters/goblin_encounter.ron`).
-- The fight: two raiders in front, then two more from the bay. The creator fights
-  too (`follows_closely`, and the room is `dangerous`).
-- The raid stays won: its clear greens the raiders' whistle (a `Switch`
-  linked to the encounter), and an encounter with no linked switch would
-  start again each time the player walked back into its trigger. Blowing
-  the whistle calls the raid again, for practice.
-- When the bay is clear, the creator's last words play at a volume in front
-  of the bay door (`creator_final_fragment`), ending on his `Fall`. He was
-  hurt in the fight; he dies when it is quiet. Q173's default stands (he
-  always dies here).
+## Scene by scene
 
-### 3. The service stair (`intro_escape_shaft`)
+What is built. Ids of dialogue nodes are in
+`assets/dialogue/sandbox/intro.yarn`, cutscenes in
+`assets/data/cutscenes/intro.ron`, fights in
+`assets/data/encounters/goblin_encounter.ron`.
 
-The raid wrecked the stair. The room is wide, in three tiers: broken
-flights (steps of 48), a pit, a hole in the middle landing, a gap where a
-girder fell. One raider waits on the middle landing. Puppy slugs live in the
-rubble; they do not fight. A fall through a hole costs a climb, not a life.
-The sign on the lab's door says `14 CULVERT LANE`. The top landing opens on
-the market.
+### The workshop (`intro_wake_room`)
 
-### 4. The Drain Market (`drain_alley`)
+A converted barn, one floor: the charging cart and its ramp, the test plinth
+(a step of 48), a crate up to the parts loft (one-way boards), the bench,
+the barred barn door at the east end.
 
-A street under the gate stack. Stalls with awnings (one-way ledges) make a
-second level over the street. The area card names the place (the old
-arrival banner is gone). Oiler comes to meet
-the robot (`oiler_notices`, his `meets_the_player` brain). His bench is a
-shrine (the first save point). In talk he straightens the knee, says where
-the goblins went (east, with a crate, toward the checkpoint) and that the
-cartographers know the drains. The news board prints the official version
-and can be fought (the Easter egg is kept). Ways out: east to the gate
-stack; the manhole down to the culvert; Alice's hatch (shut until her
-survey is done); the freight yard's shortcut door (later).
+1. `intro_wake` (entry cutscene): fade up on the cart. The Creator: "Hey
+   you, you're finally awake." Then "Don't sit up fast. The left knee servo
+   is new and I haven't set its torque yet."
+2. `creator_intro`: he asks for the torque gauge, which is up on the loft
+   ("Use the crate."). Scout can ask who he is and where this is, go for the
+   gauge, or ask for the questions first. The gauge is a pickup that writes
+   `intro_torque_gauge_found` (D15); his next talk reads it, reads both
+   knees ("Twelve. They match.") and sets `intro_joints_checked`.
+3. `creator_intro__questions`: the evaluation of his method. Scout's name
+   (`scout_gave_its_name` when it answers "Scout."), the wrench and the
+   hammer, then "Is there anything you want to ask me?". That line starts
+   the raid (`encounter.start encounter:intro_workshop_raid`, and
+   `intro_raid_started`); Scout's question is cut off by a cart outside.
+4. `creator_intro__interrupted`: the raiders join the conversation
+   (`conversation.join npc_lab_raider`). One reads the job sheet: "It says a
+   lab with a big sign. This is a barn." (`wrong_list_clue_1`). The Creator:
+   "Who sent you? Put that d—". The conversation ends and the fight is on.
+5. The raid starts the other way too: Scout walks past the Creator to the
+   barn door without talking to him, into the raid's trigger (D19). The
+   goblins are coming either way.
+6. The raid: three raiders in one wave, two at the door and one on the
+   bench. Its clear greens a raider's dropped whistle (a `Switch`,
+   `ResetEncounter`), so the fight stays won when bodies cross its trigger
+   again; blowing the whistle calls the raid back.
+7. The barn door (`LockWall`, `encounter.cleared intro_workshop_raid`) is
+   down. Just past it, `creator_final_fragment`: "Scout. Over here. Are you
+   damaged?", the case taken off the bench with Scout's logs in it, "I have
+   to sit down for a minute.", "You answered like yourself, all the way
+   through. I want to write that d—". He falls (`Fall npc_creator`,
+   `intro_creator_dead`). Q173's default (D6).
 
-### 5. The culvert (`under_town_pipes`)
+### Hobford Lane (`intro_hobford_lane`)
 
-A storm drain under the market. The sump at the bottom stings
-(`DamageVolume`, one damage and a knock back out, painted murky water).
-Gaps between stepping stones, each a single jump; the widest is crossed on
-a raft (`MovingPlatform`). A goblin lookout stands on the far walk. A
-cracked wall at the west end of the middle walk breaks to the strike and
-hides a can of oil (health).
+The first open air: the lane outside the barn, hens, a hedge bank, and the
+slope above in one-way terraces up to the ridge path (a high way east to the
+gate clearing). Alice's survey line is strung across the ridge path at its
+foot (`alice_survey_line`, a `LockWall` on `bob_field_survey_received`):
+the low ways east and down the bank are open; the ridge path opens when her
+survey is closed. A door goes down the bank to the millstream.
 
-### 6-7. Alice's station and Bob's end (`alice_relay`, `bob_relay`)
+**Alice** (`meets_the_player`), `alice_lane`:
 
-Alice and Bob are surveyors in the middle of a traverse: Alice at the
-instrument at one end, Bob at the staff at the other. Neither can leave
-their station without losing three days of readings, and they do not shout,
-because the drains carry every word up into the market. (The listener in
-the drain is Eve.) Alice asks the robot to take her reading to Bob, and
-gives it the second word that Bob will ask for. Bob checks the word, takes
-the reading, closes the traverse and gives the robot his field survey (the
-private marks of the drains, including the way under the checkpoint). The
-robot can also give Bob a wrong number; Bob notices the missing word.
+- First meeting (`alice_met_scout`): "Hello? I heard shouting from the barn.
+  Is he...?" Scout answers "He's dead. Goblins came in." or "Who are you?".
+- `alice_lane__topics` (optional, any order): what she saw (five goblins,
+  a handcart with a crate, up the track toward the ring; they will sit at the
+  siding until the freight window; "One of them had a hammer as long as I
+  am. I'd leave them alone.", `alice_told_goblins`); what she is measuring;
+  her request; or go.
+- `alice_lane__ask`: Bob is camped in the woods past the village, on the
+  trail from the siding, and does not know the goblins are here. "I'll tell
+  him." sets `alice_route_note_carried` (the flag chain adds
+  `map_basic_unlocked`); "Not now." sets nothing.
+- Later lines read what happened: Bob told (`alice_lane__bob_told` sets
+  `alice_heard_bob_moved`, and thanks Scout differently if she never asked),
+  the case recovered (`intro_creator_notes_recovered`), the siding fight won
+  (`encounter.cleared intro_freight_yard_fight`).
 
-Facts (kept from the old chain, because the save and the quest use them):
-`alice_route_note_carried` (the robot carries Alice's reading, and her
-map: `map_basic_unlocked`), `bob_field_survey_received` (Bob has the
-reading; the robot has the survey: `map_private_marks_unlocked`). The
-survey line across Alice's high walk is a `LockWall` gated on
-`bob_field_survey_received`: when the traverse is closed, the line comes
-down and the high walk leads to Alice's hatch up into the market. Bob's
-grate, past his station, is gated on the same fact: Bob opens it when the
-traverse is closed, and the drain beyond runs under the checkpoint to the
-freight yard.
+### The high meadow (`intro_high_meadow`)
 
-### 8. The gate stack (`gate_stack_lower`)
+Pasture in tiers: two stone walls, a turf bank, a shepherd's hut whose roof
+is reached up an oak's limbs, the ridge path along the top. The farm dog
+(`companion_dog_roam`). A door down to Hobford; east to the clearing, low
+and high.
 
-The rings, the janitor and the manifest clerk stay. The checkpoint: a
-barrier east of ring 7, before the way east (`gate_checkpoint_barrier`,
-gated on `world.switch_on gate_checkpoint_release`). Unmanifested hardware
-is refused. The freight yard's door comes up in the pocket behind the
-barrier, where its lever is; after that the barrier is a shortcut. The
-labels that said `MAP_PRIVATE`, `MAP_WATCHED` and `[official report]`, the
-wall gated on Bob's survey and the "submit private route data" switch are
-gone.
+### The gate clearing (`intro_gate_clearing`)
 
-### 9. The freight yard (new)
+Standing stones, the guard post (its roof a ledge), the barrier
+(`hobford_barrier`, a `LockWall` on `world.switch_on hobford_barrier_lever`)
+and its lever on the far side, reached over the post's roof. Behind it the
+ring of the new facility `hobford_ring` (address TILLAGE, D18), its dialer
+and terminal. A door down the siding stair, and the post's back door into
+the siding's far end.
 
-The goblins' camp, where the crate waits for a gate. The Salvage Lead
-speaks at the yard's west gate (`salvage_lead_yard`); an encounter shuts
-the yard (`intro_freight_yard_fight`): two goblins, then the Salvage Lead
-(`npc_goblin_brute`'s body: a slow, armored hammer; strike before the
-windup is committed, or after the swing) with one more goblin. The inner
-gate opens when it is won, and the yard bell (linked to the fight, as the
-whistle is to the raid) keeps it won until it is rung. Behind it is the crate (`creator_notebooks`):
-the work order names `14 CULVERT ROW`, the notebooks' last page starts "THE
-QUESTION I WANT IT TO ASK IS" and the rest is torn off
-(`intro_creator_notes_recovered`, the quest's last step). The yard's door
-comes up behind the checkpoint.
+### The freight siding (`intro_freight_yard`)
 
-## Dialogue and cutscenes
+Stacked freight and pallets on the platform. `foreman_siding` at the foot of
+the stair ("That's the robot from the barn. It walked here."). The fight
+(`intro_freight_yard_fight`): two raiders, then the brute and another
+raider. The platform bell is its linked switch. The work order on the
+goblins' crate (`work_order`): "THE WORKSHOP AT THE OLD MILL, HOBFORD", not
+the barn (`wrong_list_clue_2`, D17). The crate holds the Creator's case
+(`intro_creator_notes_recovered`, a story-flag reward, D8); the quest
+`intro_creator_case` reads it. West, the trail into the woods.
 
-- `assets/data/cutscenes/intro.ron`: `intro_wake`, `intro_raid`,
-  `creator_final_fragment`, `drain_market_arrival`, `oiler_notices`,
-  `salvage_lead_yard`, `creator_notebooks`, `first_ripple` (unwired).
-- `assets/dialogue/sandbox/intro.yarn`: the creator, the raiders, Oiler,
-  the news board, Alice, Bob, Eve's cameo, the gate janitor and the manifest
-  clerk.
-- Kept unresolved: the creator's sentence. Allowed clues: the raid had a
-  paid order and a manifest; the address was wrong; the official story
-  thanks both factions.
+### The millstream (`intro_millstream`)
 
-## Validation
+A west bank with a hollow under it behind a cracked wall (breaks to the
+strike; coins inside), the stream with stepping stones flush with the bank
+(a miss drops Scout in the water, which slows and costs a climb out), the
+mill's porch, upper floor and loft window (coins). East is Hobford.
 
-- The world validates at boot; the content lib tests read the intro rooms
-  (`intro::tests`).
-- The walked route (`a_walked_route_of_the_persistent_world`) and the
-  playthrough (`a_playthrough_of_the_persistent_world`) walk the rooms with
-  the player's own inputs; a room that a body cannot cross fails them.
-- Single-jump reach is checked in the generator: a required step up is at
-  most 64 px and a required gap at most 112 px.
+### Hobford (`intro_hobford`)
+
+Cottage, smithy and inn with porches and roofs to climb (coins in the
+smithy loft), the well, signs for the gate goods shed and the inn, the
+notice board (the freight window, a lost hen, strangers at the ring). A door
+up to the meadow; west the millstream, east the woods.
+
+### Hobford woods (`intro_woods`)
+
+Roots, a fallen trunk, a hollow oak with ledges inside (a health pickup),
+the lost hen, a goblin lookout at the far end. **Bob**, `bob_woods`:
+
+- Without Alice's message: "Just walking through." (the noise on the
+  trail), "What are you doing out here?", "There are goblins at the
+  siding." (he moves anyway), or leave.
+- With it: "Alice says move your camp off the trail. There are goblins at
+  the siding."
+- `bob_woods__warned`: he moves up by the hollow oak, gives his survey sheet
+  (`fieldsurvey`) and sets `bob_field_survey_received` (the flag chain adds
+  `map_private_marks_unlocked`). That takes Alice's line off the ridge path.
+
+East, the trail to the siding.
+
+### Choices
+
+From the lane the player can, in any order or not at all: talk to Alice and
+take her message (`intro_cartography_route`, "A Message for Bob": Alice,
+Bob, Alice again); go after the goblins at the siding (the fight, the work
+order, the Creator's case); walk the country (the meadow, the clearing and
+its barrier, the millstream's hollow, the village roofs, the woods' hollow
+oak). Bob can be warned without Alice's message. One way changes on a
+story fact: Alice's line across the ridge path comes down when Bob's survey
+is closed (D21). It is a high shortcut; the low way to the clearing is
+always open.
+
+## Systems used
+
+- `withheld_verbs` on every level-1 room (`SMALL_KIT_WITHHELD`).
+- Encounters with waves, each with a linked switch, so a won fight stays
+  won (the whistle, the bell).
+- `encounter.start` as an authored command: the raid starts at a line of
+  the conversation.
+- Multi-party conversation: `conversation.join` brings the raiders into
+  `creator_intro__interrupted` (the coordinator's PRIORITY 2, landed).
+- Gated `LockWall`s on `encounter.cleared`, `world.switch_on` and
+  `world.flag_set`.
+- Story-flag pickups and chest rewards (`flag:` kinds); content validation
+  counts a chest's story-flag reward as a writer of its flag.
+- The gate network: a facility and ring row in `gate_network.ron`, the zone
+  in `gate_portals.ron`.
+
+Requests to the engine, none needed for the level to work:
+
+1. **Item custody for stolen property** (a raider who spawns carrying an
+   item and drops it where it falls). Coordinator: not now; the case is in
+   the goblins' crate (D8).
+2. **A looter's goal** (a raider who leaves with an item). Not now.
+3. Multi-party conversation: landed and used.
+4. A "take" verb in dialogue: not needed. The gauge is a story flag, so the
+   Creator reads it and nothing leaves the bag.
+
+## Art
+
+Drawn in `tools/ambition_sprite2d_renderer` and registered in `SCENES`
+(`backgrounds/hobford.py`):
+
+- `hobford`: hill country on a clear morning. Cumulus, far hills, fields
+  and hedgerows, the village roofs, the mill and its wheel, the ring on its
+  hill with scaffold and a crane, cable poles, a fence, an oak and hedge in
+  front.
+- `hobford_woods`: trunks, canopy and light shafts.
+- `creator_workshop`: the barn's plank wall, trusses, windows, shelves and
+  a tool board.
+
+Not yet: the terrain skins, motes, doors and decor rows for the three looks,
+the props (the barn front, the mill, houses, the guard post and barrier,
+the ring's scaffold, freight and the handcart, Alice's tripod and tent,
+Bob's staff and camp), villagers, the publication
+(`scripts/regen/backgrounds.sh` and the sprite publish, all targets in one
+run, `--jobs 6`) and the switch of the rooms' looks (`WORKSHOP_LOOK`,
+`COUNTRY_LOOK`, `WOODS_LOOK` in the generator).
+
+## Provisional decisions
+
+| # | decision | how to undo it |
+|---|---|---|
+| D1 | The settlement is **Hobford** (a hob is a household sprite in English folklore; the village had no goblins until the gate opened). The region has no name of its own yet. | rename titles and lines; ids carry `hobford`, so rename the rooms too if the name goes |
+| D2 | **Scout** is the robot's name in the dialogue only. The protagonist row keeps `display_name` "Player Robot v3", which engine crates' tests pin (`ambition_platformer2d_actor_monolith`). | set the row's `display_name` and update those tests |
+| D3 | A new game still starts in the hub (`worlds.ron` `entry_room`); the hub's door into the workshop is the way in. Moving the start to the workshop is the next slice. | set `entry_room: "intro_wake_room"` and update the tests that boot the hub |
+| D4 | Oiler is not in level 1. He stays at the Drain Market under the gate stack (canon: the largest town's mechanic). His lines name Hobford. | put his `NpcSpawn` back in a level-1 room |
+| D5 | `drain_alley` and `under_town_pipes` stay as town rooms outside level 1; their ways to the removed rooms are walled. The culvert's raft walk (`across_the_raft`) is deleted with its crossing. | regenerate the old rooms from the previous generator in git history |
+| D6 | The Creator dies (Q173's default). Open: whether something the player does could keep him alive. | a branch in `creator_final_fragment` on a world fact |
+| D7 | The raid starts at a line of the conversation (`encounter.start`), and the raiders join it at `creator_intro__interrupted`. | move the start back to a trigger volume |
+| D8 | Until item custody can carry it, the Creator's case is a story flag (`intro_creator_notes_recovered`) in the goblins' crate at the siding, with its own quest (`intro_creator_case`). | move it into a raider's hands when custody lands |
+| D9 | Alice's message: move the camp off the goblins' trail. Bob returns her chain himself. | rewrite her node |
+| D10 | The clearing's ring is a ring of a new facility (`hobford_ring`, dimension `hobford`); its barrier and lever stand in front of it. | delete the facility and ring rows; wall the clearing |
+| D11 | Music: `something_worth_building` (the workshop), `first_goblin_tune_v2_radio` (the siding), `a_possible_morning` (the country), `doves_of_the_commons` (Hobford). | change the room fields |
+| D12 | Wildlife from the existing cast: hens and the farm dog. No puppy slugs in the country. | add rows to the rooms |
+| D13 | `intro_wake_room` and `intro_freight_yard` keep their ids with new contents; the other level-1 rooms get new ids. | none needed: ids are internal |
+| D14 | The town rooms (the gate stack, the Drain Market, the culvert) do not withhold the kit: they are past the level. The gate stack's old checkpoint (barrier, release switch, the door from the yard) is removed: it shut the combat lab's edge. | write `withheld_verbs` into those rooms |
+| D15 | The torque gauge is a story-flag pickup (`intro_torque_gauge_found`) and the Creator reads the flag; no take verb. | an item and a take verb |
+| D16 | Eve's cameo in the Drain Market is cut (her room went with the drains). | place `npc_eve` in a town room |
+| D17 | The goblins' work order names "THE WORKSHOP AT THE OLD MILL, HOBFORD": they hit the barn because it had a robot in it. The mill in the millstream room is the address they meant. | change the work order's text |
+| D18 | The Hobford ring's address is TILLAGE (inscription letters only). Its posted list is LEGAL; the note: "Freight window daily at noon. Persons by appointment." | change the ring row |
+| D19 | The raid also starts when Scout walks to the barn door without talking to the Creator (its trigger is between him and the door), so the barn cannot be a dead end. The sim's agent action has no menu select, so the walked route takes this start and the playthrough the conversation. | put the trigger out of reach again (the raid then needs the talk) |
+| D20 | Not built yet: the gate clerk, the miller and villagers (the notice board and signs carry the village's lines). | add `NpcSpawn` rows and nodes |
+| D21 | Alice's survey line across the ridge path is a `LockWall` on `bob_field_survey_received`, against the brief's "no story-fact gates": the Alice/Bob acceptance tests (`the_note_reaches_bob_and_opens_alices_return`, `the_hand_over_opens_the_wall_in_the_other_participants_room`) pin a wall that opens on Bob's survey. It shuts only a shortcut. | a lever or a cut for the line, and port the two tests to another fact |

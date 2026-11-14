@@ -9,9 +9,10 @@
 //! (its `MotionModel`, abilities and box, read off the live body), starts at
 //! the arrival from the room before, and asks for a route to the place where
 //! the body overlaps the exit zone. It prints one row per crossing, with the body's real
-//! abilities, with its air jump taken away, and with its wall verbs taken
-//! away, so the share of each leg is a measured delta. It asserts only that
-//! each room builds.
+//! abilities, with its air jump taken away, with its wall verbs taken away,
+//! and with the kit the room itself allows (the body's abilities under the
+//! room's `withheld_verbs`), so the share of each leg is a measured delta. It
+//! asserts only that each room builds.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt as _;
@@ -21,15 +22,26 @@ use crate::common::{base, fixed_60hz_room_sim};
 
 /// The playthrough's crossings, in its order: (the room, the room its exit
 /// leads to).
+/// Level 1's other required ways follow: the pursuit to the siding, and the
+/// way on to the ring.
 const CROSSINGS: &[(&str, &str)] = &[
     ("central_hub_complex", "intro_wake_room"),
-    ("intro_wake_room", "intro_escape_shaft"),
-    ("intro_escape_shaft", "drain_alley"),
-    ("drain_alley", "under_town_pipes"),
-    ("under_town_pipes", "alice_relay"),
-    ("alice_relay", "bob_relay"),
-    ("bob_relay", "alice_relay"),
-    ("bob_relay", "drain_alley"),
+    ("intro_wake_room", "intro_hobford_lane"),
+    ("intro_hobford_lane", "intro_millstream"),
+    ("intro_millstream", "intro_hobford"),
+    ("intro_hobford", "intro_woods"),
+    ("intro_woods", "intro_hobford"),
+    ("intro_hobford", "intro_millstream"),
+    ("intro_millstream", "intro_hobford_lane"),
+    ("intro_hobford_lane", "intro_high_meadow"),
+    ("intro_high_meadow", "intro_gate_clearing"),
+    ("intro_gate_clearing", "intro_freight_yard"),
+    ("intro_freight_yard", "intro_woods"),
+    ("intro_woods", "intro_freight_yard"),
+    ("intro_freight_yard", "intro_gate_clearing"),
+    ("intro_gate_clearing", "intro_high_meadow"),
+    ("intro_high_meadow", "intro_hobford"),
+    ("intro_hobford", "intro_high_meadow"),
 ];
 
 /// The player's body as the hub spawns it.
@@ -114,7 +126,7 @@ fn walked_route_census() {
             .unwrap_or_else(|| panic!("`{from}` has no exit to `{to}`"))
     };
     let mut start = spawn;
-    let mut routed = [0; 3];
+    let mut routed = [0; 4];
     for (from, to) in CROSSINGS {
         let world = &rooms.rooms[rooms.definition_by_id(from).expect("an authored room").index()].world;
         let (zone, arrival) = exit(from, to);
@@ -128,7 +140,16 @@ fn walked_route_census() {
             .map(|other| other.aabb)
             .collect();
         let mut row = Vec::new();
-        for (column, (name, body)) in [("player", &player), ("no air jump", &one_jump), ("no wall verb", &no_wall)].into_iter().enumerate() {
+        // The kit the room allows: the body's abilities under the room's own
+        // `withheld_verbs` ceiling.
+        let mut room_kit = player.clone();
+        if let Some(withheld) = rooms.spec(rooms.definition_by_id(from).expect("an authored room")).metadata.withheld_verbs.as_deref() {
+            let ceiling = ae::AbilitySet::all_but_listed(withheld).expect("the room's withheld verbs are verbs");
+            room_kit.abilities.abilities = room_kit.abilities.abilities.intersect(ceiling);
+        }
+        for (column, (name, body)) in
+            [("player", &player), ("no air jump", &one_jump), ("no wall verb", &no_wall), ("room kit", &room_kit)].into_iter().enumerate()
+        {
             let graph = NavGraph::build_avoiding(world, &exits, body, frame).expect("the room builds a graph");
             let feet = on_a_surface(&graph, start);
             let goal = nearest_the_zone(&graph, zone);
@@ -159,10 +180,11 @@ fn walked_route_census() {
         start = arrival;
     }
     eprintln!(
-        "WALKED routed {} of {} (no air jump: {}, no wall verb: {})",
+        "WALKED routed {} of {} (no air jump: {}, no wall verb: {}, room kit: {})",
         routed[0],
         CROSSINGS.len(),
         routed[1],
-        routed[2]
+        routed[2],
+        routed[3]
     );
 }

@@ -1,18 +1,233 @@
+title: creator_intro
+---
+<<present_speaker "npc_creator">>
+<<portrait_clip "talking">>
+<<if condition("encounter.cleared", "intro_workshop_raid")>>
+    Creator: I'm all right. Go and look at the door. I want to know what they broke.
+    -> ⟨go⟩
+<<elseif condition("world.flag_set", "intro_torque_gauge_found")>>
+    <<jump creator_intro__gauge>>
+<<else>>
+    Creator: Can you hear me all right? Good.
+    Creator: I need the torque gauge before we start. It's up on the loft. Use the crate.
+    -> Who are you?
+        Creator: I built you. This week I'm trying a new way of tuning you, so I'll be asking you a lot of questions.
+    -> Where am I?
+        Creator: My workshop. It's a barn outside Hobford. The cows had it before me.
+    -> Ask your questions first.
+        Creator: Fine. We'll do the joints after.
+        <<jump creator_intro__questions>>
+    -> ⟨go for the gauge⟩
+<<endif>>
+===
+
+title: creator_intro__gauge
+---
+<<present_speaker "npc_creator">>
+<<portrait_clip "talking">>
+Creator: That's the one. Hold it on your knee. ...Twelve. Other knee. ...Twelve. They match.
+<<command "world.set_flag" "intro_joints_checked" true>>
+Creator: Now the part I care about. The new tuning makes small changes often instead of big ones now and then. I want to know if you still answer like yourself afterwards.
+<<jump creator_intro__questions>>
+===
+
+title: creator_intro__questions
+---
+<<present_speaker "npc_creator">>
+<<portrait_clip "talking">>
+Creator: First question. What's your name?
+-> Scout.
+    Creator: Same as yesterday. Good.
+    <<command "world.set_flag" "scout_gave_its_name" true>>
+-> I don't know.
+    Creator: Yesterday you said Scout. I'll write down that you didn't remember. That's useful too.
+Creator: Second. I hand you a wrench and ask for a hammer. What do you do?
+-> Ask if you meant the wrench.
+    Creator: That's what I hoped you'd say.
+-> Fetch a hammer.
+    Creator: Fine. Most people just hit it with the wrench.
+-> Hit it with the wrench.
+    Creator: I'm writing that down as "honest".
+Creator: Last one. Is there anything you want to ask me?
+<<command "world.set_flag" "intro_raid_started" true>>
+<<command "encounter.start" "encounter:intro_workshop_raid">>
+-> Why did you build me?
+    Creator: To see if this tuning works. And because I wanted to hear what you'd ask. Hang on. Was that a cart?
+-> What's outside?
+    Creator: Hobford. Fields. A ring up on the hill they put steel on last year. Hang on. Was that a cart?
+<<jump creator_intro__interrupted>>
+===
+
+title: creator_intro__interrupted
+---
+<<command "conversation.join" "npc_lab_raider">>
+<<present_speaker "npc_lab_raider">>
+Raider: In, in! Get the boxes!
+Raider with the Sheet: Hold on. It says a lab with a big sign. This is a barn.
+<<command "world.set_flag" "wrong_list_clue_1" true>>
+Raider: It's got a robot in it. That's a lab. Boxes!
+<<present_speaker "npc_creator">>
+Creator: Who sent you? Put that d—
+-> ⟨fight⟩
+===
+
+title: alice_lane
+---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+<<if condition("world.flag_set", "alice_heard_bob_moved")>>
+    Alice: Bob's camp is off the trail, and my line's down. Thank you.
+    <<jump alice_lane__after>>
+<<elseif condition("world.flag_set", "bob_field_survey_received")>>
+    <<jump alice_lane__bob_told>>
+<<elseif condition("world.flag_set", "alice_route_note_carried")>>
+    Alice: Bob's in the woods past the village. Tell him to move the camp, and ask for my chain.
+    <<jump alice_lane__topics>>
+<<elseif condition("world.flag_set", "alice_met_scout")>>
+    Alice: You're back. Are you all right?
+    <<jump alice_lane__ask>>
+<<else>>
+    <<command "world.set_flag" "alice_met_scout" true>>
+    Alice: Hello? I heard shouting from the barn. Is he all right?
+    -> He's dead. Goblins came in.
+        Alice: Oh. I'm so sorry. I bought batteries off him. He talked the whole time.
+        Alice: Goblins. Then they went up the track, past where Bob is camped.
+        <<jump alice_lane__ask>>
+    -> Who are you?
+        Alice: Alice. I survey for the map office. My station's just there.
+        Alice: Was that goblins? I saw some go up the track with a handcart.
+        <<jump alice_lane__ask>>
+    -> ⟨go⟩
+<<endif>>
+===
+
+title: alice_lane__topics
+---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+-> What did you see?
+    Alice: Five goblins and a handcart with a crate on it. They went up the cart track toward the ring.
+    Alice: The freight window isn't until tomorrow, so they'll be at the siding until then.
+    Alice: One of them had a hammer as long as I am. I'd leave them alone.
+    <<command "world.set_flag" "alice_told_goblins" true>>
+-> What are you measuring?
+    Alice: The hills, the stream, the road to the ring. The office's map of Hobford is forty years old. Bob is doing the woods.
+-> ⟨go⟩
+===
+
+title: alice_lane__ask
+---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+Alice: Bob, the other surveyor, is camped in the woods past the village. On the trail from the siding.
+Alice: If those goblins walk that way, they walk straight through his camp. He doesn't know they're here.
+Alice: I can't leave the instrument, I'm halfway through a traverse. Would you tell him to move the camp? And he has my chain.
+-> I'll tell him.
+    <<command "world.set_flag" "alice_route_note_carried" true>>
+    Alice: Thank you. Take a copy of my map. The woods are east of the village, past the inn.
+-> What did you see?
+    Alice: Five goblins and a handcart with a crate on it, up the cart track toward the ring. One had a hammer as long as I am. I'd leave them alone.
+    <<command "world.set_flag" "alice_told_goblins" true>>
+    Alice: Will you tell Bob? You don't have to.
+    -> I'll tell him.
+        <<command "world.set_flag" "alice_route_note_carried" true>>
+        Alice: Thank you. Take a copy of my map. The woods are east of the village, past the inn.
+    -> Not now.
+        Alice: All right. The woods are east of the village, if you go that way.
+-> Not now.
+    Alice: All right. The woods are east of the village, if you go that way.
+===
+
+title: alice_lane__bob_told
+---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+<<command "world.set_flag" "alice_heard_bob_moved" true>>
+Alice: You found Bob? And he's moving? Good. Then I'm done with that line.
+<<if condition("world.flag_set", "alice_route_note_carried")>>
+    Alice: Thank you for going.
+<<else>>
+    Alice: I didn't even ask you. Thank you.
+<<endif>>
+<<jump alice_lane__after>>
+===
+
+title: alice_lane__after
+---
+<<present_speaker "npc_alice">>
+<<portrait_clip "speaking">>
+<<if condition("world.flag_set", "intro_creator_notes_recovered")>>
+    Alice: You got his case back from them. I wouldn't have gone.
+<<elseif condition("encounter.cleared", "intro_freight_yard_fight")>>
+    Alice: Someone said the goblins at the siding are gone. Was that you?
+<<endif>>
+-> What's on Bob's sheet? <<if condition("world.flag_set", "bob_field_survey_received")>>
+    Alice: The woods and the old paths through them. He marks where people walk, not where the map says they should.
+-> ⟨go⟩
+===
+
+title: bob_woods
+---
+<<present_speaker "npc_bob">>
+<<if condition("world.flag_set", "bob_field_survey_received")>>
+    Bob: Nearly packed. Go on, I'm fine. Thanks for coming out.
+    -> ⟨go⟩
+<<elseif condition("world.flag_set", "alice_route_note_carried")>>
+    Bob: Don't step on the chain. Who are you?
+    -> Alice says move your camp off the trail. There are goblins at the siding.
+        <<jump bob_woods__warned>>
+    -> ⟨leave⟩
+<<else>>
+    Bob: Don't step on the chain. Who are you?
+    -> Just walking through.
+        Bob: Through the woods? Nobody walks through the woods. Except, this week, somebody does. I keep hearing them on the trail.
+    -> What are you doing out here?
+        Bob: Surveying. Alice has the hills and I have the trees. The trees are winning.
+    -> There are goblins at the siding.
+        <<jump bob_woods__warned>>
+    -> ⟨leave him to it⟩
+<<endif>>
+===
+
+title: bob_woods__warned
+---
+<<present_speaker "npc_bob">>
+Bob: Goblins? Here? That's what's been on the trail.
+Bob: All right. I'll move up by the hollow oak. Tell Alice I'll bring her chain tonight.
+<<give_item "fieldsurvey" 1>>
+<<command "world.set_flag" "bob_field_survey_received" true>>
+Bob: Take my sheet. It has the paths through these woods on it, the real ones.
+-> ⟨take the sheet⟩
+===
+
+title: hobford_hen
+---
+The hen looks at you with one eye, then the other, and goes back to the ground.
+-> ⟨leave her⟩
+===
+
+title: hobford_lost_hen
+---
+A speckled hen. She is a long way from any farm.
+-> ⟨leave her⟩
+===
+
+title: hobford_dog
+---
+The dog sniffs your knee for a long time. Then it wags.
+-> ⟨scratch its ears⟩
+===
+
 title: oiler_intro
 ---
 <<present_speaker "npc_oiler">>
 <<portrait_clip "talking">>
 <<if condition("world.flag_set", "p1_stabilizer_received")>>
     Oiler: Knee holding? Good. Sit on the bench if you need to. It's mine, but I'm not using it.
-    -> Where did the goblins go?
-        Oiler: East, to the gate stack. The checkpoint there won't pass you. You're not on anybody's list.
-        Oiler: The cartographers work the drains under the market. If there's a way round, they've drawn it.
-    -> Where are the cartographers?
-        Oiler: Down the drain cover by the news board. Mind the sump. It isn't water.
     -> ⟨move on⟩
 <<else>>
-    Oiler: Hold still. That knee's on crooked. Who put you together, a man in a hurry?
-    -> He's dead. Goblins came for me.
+    Oiler: Hold still. That knee's on crooked. Who put you together?
+    -> A man in Hobford. He's dead.
         <<jump oiler_intro__repair>>
     -> I'm fine.
         Oiler: You're walking like a shopping cart. Hold still.
@@ -27,14 +242,13 @@ title: oiler_intro__repair
 <<portrait_clip "inspecting">>
 Oiler: ...A shim and some grease. It'll hold until something hits it.
 <<command "world.set_flag" "p1_stabilizer_received" true>>
-Oiler: Goblins, you said. Four of them came up the service stair at dawn with a crate. They went east.
-Oiler: The checkpoint won't pass you. Ask the cartographers in the drains; they know every pipe under this street.
+Oiler: Hobford, you said? The farm ring? Huh. Long way to come with a knee like that.
 -> ⟨thank him⟩
 ===
 
 title: news_board_lab_incident
 ---
-Drain Market Bulletin: ▸ FIRE IN A BASEMENT ON CULVERT ROW. ONE DEAD, AN UNLICENSED RESEARCHER. NO OTHER DAMAGE.
+Drain Market Bulletin: ▸ BREAK-IN AT A WORKSHOP NEAR HOBFORD. ONE DEAD. NO OTHER DAMAGE.
 -> ⟨read further⟩
     <<jump news_board_lab_incident__1>>
 -> ⟨walk away⟩
@@ -42,107 +256,9 @@ Drain Market Bulletin: ▸ FIRE IN A BASEMENT ON CULVERT ROW. ONE DEAD, AN UNLIC
 
 title: news_board_lab_incident__1
 ---
-Drain Market Bulletin: ▸ RESIDENTS ARE REMINDED THAT UNLICENSED RESEARCH IS A FIRE HAZARD.
+Drain Market Bulletin: ▸ THE GATE AUTHORITY REMINDS CARRIERS THAT THE FARM RINGS ARE FOR LICENSED FREIGHT.
 Drain Market Bulletin: ▸ GATE SIX: DELAYED. SOUP: TUESDAYS.
 -> ⟨leave the board to its work⟩
-===
-
-title: alice_station
----
-<<present_speaker "npc_alice">>
-<<portrait_clip "speaking">>
-<<if condition("world.flag_set", "bob_field_survey_received")>>
-    Alice: Bob has the last reading. Three days, closed. The line's down; my hatch comes up behind the news board.
-    -> What's on Bob's sheet?
-        Alice: The old drains past his end. They go under the checkpoint. Nobody's walked them since the official map was printed.
-    -> ⟨leave⟩
-<<elseif condition("world.flag_set", "alice_route_note_carried")>>
-    Alice: Four-one-seven, and the word is "bramble". If he doesn't ask for the word, it isn't Bob.
-    -> ⟨go⟩
-<<else>>
-    Alice: Don't step in front of the instrument. ...You're not from the market. You're not from anywhere, are you.
-    -> Goblins came this way with a crate.
-        <<jump alice_station__goblins>>
-    -> What are you measuring?
-        Alice: The drains. Bob holds the staff at the far end and I read it from here. Three days of readings. If either of us moves, we start again.
-    -> Why don't you shout to Bob?
-        Alice: Every drain in this town comes up in the market. Somebody is always listening.
-    -> ⟨step back⟩
-<<endif>>
-===
-
-title: alice_station__goblins
----
-<<present_speaker "npc_alice">>
-<<portrait_clip "speaking">>
-Alice: They came through at dawn. Four of them, and the crate. East, past Bob's end.
-Alice: Bob has those drains on his sheet. Take him my last reading: four-one-seven. He'll ask for a word. The word is "bramble".
-<<command "world.set_flag" "alice_route_note_carried" true>>
-Alice: Take a copy of my map too. It's better than the one they sell upstairs.
--> ⟨take the map⟩
-===
-
-title: bob_station
----
-<<present_speaker "npc_bob">>
-<<if condition("world.flag_set", "bob_field_survey_received")>>
-    Bob: Past my end it's dry for a hundred paces, then it isn't. Keep to the left wall.
-    -> ⟨go⟩
-<<elseif condition("world.flag_set", "alice_route_note_carried")>>
-    Bob: Alice sent you? What's the word?
-    -> "Bramble." The reading is four-one-seven.
-        <<jump bob_station__reading>>
-    -> The reading is four-one-seven.
-        Bob: Anybody can say a number. What's the word?
-    -> ⟨make up a number⟩
-        Bob: Ha. She'd never read a six from there. Who sent you, really?
-    -> ⟨leave⟩
-<<else>>
-    Bob: Don't stand there. You're between me and Alice. Well, between me and a wall, and Alice is behind the wall.
-    -> What are you doing?
-        Bob: Holding a stick very still. Alice reads it from her end. It's harder than it looks.
-    -> ⟨leave him to it⟩
-<<endif>>
-===
-
-title: bob_station__reading
----
-<<present_speaker "npc_bob">>
-Bob: Four-one-seven. That closes it. Three days. She'll take the line down now.
-<<give_item "fieldsurvey" 1>>
-<<command "world.set_flag" "bob_field_survey_received" true>>
-Bob: Here, take my sheet. The drains past my end run under the checkpoint. If you want the goblins, that's where the crate went.
--> ⟨take the survey⟩
-===
-
-title: eve_drain_pipe
----
-<<if condition("world.flag_set", "bob_field_survey_received")>>
-    Eve: You carried it. Three days I sat by this pipe, and they used a robot.
-    -> ⟨walk on⟩
-<<else>>
-    Eve: Shh. No, keep walking. Act normal. I'm not here.
-    -> What are you doing?
-        Eve: Listening to the pipe. Alice and Bob haven't said a word to each other in three days. It's the most interesting thing in town.
-    -> ⟨act normal⟩
-<<endif>>
-===
-
-title: creator_intro
----
-<<if condition("world.flag_set", "intro_raid_started")>>
-    Creator: Not now! Stay close!
-    -> ⟨fight⟩
-<<else>>
-    Creator: You're standing. Good. Walk to the bench and back, slowly. I want to hear the knees.
-    -> Who are you?
-        Creator: I built you. Mostly last night. The left knee came out of a filing cabinet.
-    -> What am I for?
-        Creator: I wrote that down. It's in one of the notebooks. Walk first, then we'll talk about it.
-    -> What's that noise upstairs?
-        Creator: Deliveries. I'm not expecting any.
-    -> ⟨walk⟩
-<<endif>>
 ===
 
 title: gate_janitor_ripple
@@ -189,7 +305,7 @@ Gate Janitor: And I mop. People walk out of a ring and lose breakfast. Robots ne
 title: manifest_kiosk_wrong_list
 ---
 Manifest Clerk: Name? ...No entry. Spell it again. Slower.
--> Can I go through the checkpoint?
+-> What are the manifests for?
     <<jump manifest_kiosk_wrong_list__1>>
 -> What came through this morning?
     <<jump manifest_kiosk_wrong_list__2>>
@@ -200,7 +316,7 @@ Manifest Clerk: Name? ...No entry. Spell it again. Slower.
 
 title: manifest_kiosk_wrong_list__1
 ---
-Manifest Clerk: Manifested traffic only. You're not on the list. You're not on any list. I checked twice, which is once more than I'm paid for.
+Manifest Clerk: Freight. Every crate through these rings has a line on a manifest. You're not on one. I checked twice, which is once more than I'm paid for.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩
@@ -208,8 +324,8 @@ Manifest Clerk: Manifested traffic only. You're not on the list. You're not on a
 
 title: manifest_kiosk_wrong_list__2
 ---
-Manifest Clerk: One crate, one lab of research, paid in advance, goblin carriers. Their papers were in order. Their spelling wasn't.
-Manifest Clerk: It's in the freight yard behind the checkpoint, waiting for a gate. Next question.
+Manifest Clerk: A goblin crew filed for the Hobford freight window. One crate, one lab of research, paid in advance. Their papers were in order. Their spelling wasn't.
+Manifest Clerk: Next question.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩
@@ -226,8 +342,8 @@ Gate Janitor: I watched a box of spare boots go through while a man waited with 
 
 title: manifest_kiosk_wrong_list__copies
 ---
-Manifest Clerk: We keep one copy here and one at the checkpoint. I corrected the basement address on ours.
-Manifest Clerk: The checkpoint sent it back marked DENIED. That's all I can show you.
+Manifest Clerk: We keep one copy here and one at the Hobford gate office. I corrected the address on ours.
+Manifest Clerk: Hobford sent it back marked DENIED. That's all I can show you.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩

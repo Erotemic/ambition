@@ -70,14 +70,17 @@ def test_the_page_full_of_quoted_spans_still_yields_its_own_links(mod):
     links to 943, gaining three and losing none.
 
     ⚠ Pinned by naming them rather than by counting, because a total moves for
-    honest reasons every time someone edits a page.
+    honest reasons every time someone edits a page. The names are the page's
+    links after the 2026-11-10 docs consolidation rewrote it; its code spans
+    still sit between them.
     """
     page = REPO / "docs/recipes/checks-that-did-not-run.md"
     targets = {t for _, t in mod.collect_links(page.read_text(errors="replace"))}
     for expected in (
-        "../planning/engine/headless-verification.md",
         "cheapest-sufficient-check.md",
-        "../reviewer-guide.md",
+        "../concepts/testing-and-validation.md",
+        "re-measuring-a-planning-claim.md",
+        "../../dev/journals/blind-checks-2026-09-03.md",
     ):
         assert expected in targets, (
             f"{expected} is not collected from a page whose own links were being "

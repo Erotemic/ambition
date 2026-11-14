@@ -59,22 +59,34 @@ def test_the_reader_triage_sees_a_static_borrow_and_ignores_a_probe():
 
     A Bevy `SystemParam` type alias spells every borrow `&'static T`, so a
     pattern without the lifetime reported `OwnedPortalGunPair` as having NO
-    READER when its reader is a menu query. And `fn seat_credit_probe(credit:
+    READER when its reader was a menu query. And `fn seat_credit_probe(credit:
     &SeatCredit)` is the CHECKSUM PROBE, not a reader — counting it made the one
     component nothing in production consults look well used, hiding the exact
     case this census exists to surface.
+
+    On a fixture since 2026-11-13: `OwnedPortalGunPair` went with the portal
+    gun's own item code, and no row of the census is borrowed `&'static` now.
     """
+    import tempfile
+
     module = _module()
-    per_tick, _ = module.reader_sites("OwnedPortalGunPair")
-    assert any("menu/effects.rs" in site for site in per_tick), (
-        "the menu's `Option<&'static ..OwnedPortalGunPair>` is the only production "
-        "reader of that row and the triage must see it; missing it reports the row "
-        "as unread, which is a claim about the scan"
+    # Not pytest's `tmp_path`: its name holds "test", and the scan skips test
+    # paths by design.
+    source = pathlib.Path(tempfile.mkdtemp(prefix="census_")) / "menu_effects.rs"
+    source.write_text(
+        "type Pairs<'w, 's> = Query<'w, 's, (Entity, Option<&'static menu::FixtureRow>)>;\n"
+        "fn seat_credit_probe(credit: &FixtureCredit) -> u64 { 0 }\n"
     )
-    seat_tick, seat_gated = module.reader_sites("SeatCredit")
+    module._MENTION_INDEX["FixtureRow"] = [f"{source}:1:{source.read_text().splitlines()[0]}"]
+    module._MENTION_INDEX["FixtureCredit"] = [f"{source}:2:{source.read_text().splitlines()[1]}"]
+    per_tick, _ = module.reader_sites("FixtureRow")
+    assert per_tick, (
+        "a `Query<.. Option<&'static T>>` is a reader and the triage must see it; "
+        "missing it reports the row as unread, which is a claim about the scan"
+    )
+    seat_tick, seat_gated = module.reader_sites("FixtureCredit")
     assert not seat_tick and not seat_gated, (
-        f"`SeatCredit` has no production reader; the triage found {seat_tick + seat_gated}. "
-        "A checksum probe taking `&T` is not a reader."
+        f"a checksum probe taking `&T` is not a reader; the triage found {seat_tick + seat_gated}"
     )
 
 

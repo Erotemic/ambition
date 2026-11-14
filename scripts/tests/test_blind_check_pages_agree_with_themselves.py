@@ -69,8 +69,10 @@ def test_the_row_numbers_are_unique_and_contiguous(page: Path):
 
 
 def test_the_recipe_heading_states_its_own_row_count():
-    heading = re.search(r"## The ([a-z-]+), and what each one teaches", RECIPE.read_text())
-    assert heading, "the section heading no longer states a count in words"
+    # The 2026-11-10 consolidation moved the count from the heading into the
+    # section's first sentence.
+    heading = re.search(r"These ([a-z-]+) cases explain", RECIPE.read_text())
+    assert heading, "the section no longer states its count in words"
     stated = word_to_int(heading.group(1))
     assert stated == len(numbers(RECIPE)), (
         f"heading says {heading.group(1)} ({stated}); the table has "
@@ -78,13 +80,15 @@ def test_the_recipe_heading_states_its_own_row_count():
     )
 
 
-def test_the_recipe_quotes_the_journals_real_total():
-    quoted = re.search(r"([a-z-]+) instances, each with the commit", RECIPE.read_text())
-    assert quoted, "the recipe no longer quotes the journal's total"
-    stated = word_to_int(quoted.group(1))
-    assert stated == len(numbers(JOURNAL)), (
-        f"the recipe says {quoted.group(1)} ({stated}); the journal has "
-        f"{len(numbers(JOURNAL))} rows"
+def test_the_recipe_routes_to_the_journal_without_restating_its_total():
+    """One fact, one owner (flipped 2026-11-13, as the index test below was):
+    the recipe quoted "thirty-seven instances" of a journal that had grown to
+    46. The 2026-11-10 consolidation replaced the quote with a link, so the
+    journal's size has one owner, the journal."""
+    text = RECIPE.read_text()
+    assert "dev/journals/blind-checks-2026-09-03.md" in text, "the recipe no longer routes to the journal"
+    assert not re.search(r"([a-z-]+) instances, each with the commit", text), (
+        "the recipe restates the journal's total again; link to it instead"
     )
 
 

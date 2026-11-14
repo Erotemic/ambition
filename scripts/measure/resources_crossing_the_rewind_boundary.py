@@ -137,6 +137,11 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # writers (the inventory menu since e5c60f8975 and Smash's select screen)
     # publish on host frames, so nothing in the simulation writes it.
     "ActorTraceBuffer": "dev trace ring, never read as authority",
+    # `ControlledSubject`'s `Update`-side writer besides the session edge is
+    # `view_own_seat` (`ambition_hosted_world`), which writes only on a hosted
+    # guest whose simulation sleeps: nothing rewinds there, and its resolver in
+    # the sim is asleep.
+    "ControlledSubject": "a sleeping hosted guest's camera subject; nothing rewinds on a guest",
     "CameraShakeState": "presentation; the sim requests, the camera decays it",
     # ✅ `DeveloperRuntimeState` left 2026-09-24 because it stopped crossing:
     # AP17 (5539d8667) moved its HUD-flash decay out of the simulation into

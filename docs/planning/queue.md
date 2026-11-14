@@ -143,13 +143,13 @@ or updating their source. Check with
 
 ### GNU-MOTION-PARTS — diagnose and fix non-smooth giant motion
 
-**Measured and partly fixed 2026-11-10** ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): the walk row's clock now follows distance walked, so the hooves stand still as the body speeds up and slows down, and rest starts at its first frame after a blow. Measured 2026-11-11 ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): phases 2 and 3 walk at the same 135 per row second, the rider's rows start at 0 and step by one frame, and the stomp plays stretched like the windups. Two hitches are portal transit's (the portals work): the giant falling out of the well's exit portal stands still on every second or third frame for about a quarter second, and a free fist in a portal pair jumps about 280 units between the pair's ends every frame. Rendered part transforms are not measured yet.
+**Measured and partly fixed 2026-11-10** ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): the walk row's clock now follows distance walked, so the hooves stand still as the body speeds up and slows down, and rest starts at its first frame after a blow. Measured 2026-11-11 ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): phases 2 and 3 walk at the same 135 per row second, the rider's rows start at 0 and step by one frame, and the stomp plays stretched like the windups. The two hitches read as portal transit's are settled (2026-11-12): the giant falling out of the well's exit collided with its own slope, now fixed (a body does not collide with the lines it carries), and the free fist's 280-unit jump was the probe swapping two fists' names, not a jump. Rendered part transforms are not measured yet.
 
 **Failure:** GNU-ton's giant appears to move non-smoothly. It already has part-sheet assets, but the conductor pins mount animation rows separately from its `MountWalk` motion, rider and fist poses. Root/interpolation/part-pose timing has not been measured; missing runtime part use is a hypothesis, not a confirmed cause.
 
 **Owner:** [motion diagnosis and fix](game/boss-cinematics-gnu2-and-motion.md), [semantic-part rendering](engine/semantic-part-rendering-and-ragdolls.md).
 
-**Next action:** capture frame-by-frame mount motion, row clocks, rendered part transforms, portal clipping, rider and fists. Identify root, animation or interpolation discontinuity; unify the responsible pose authority or shared render adapter rather than applying per-boss correction offsets.
+**Next action:** the rendered part transforms and render-rate interpolation (the rest was captured frame by frame, see the owner). Identify root, animation or interpolation discontinuity; unify the responsible pose authority or shared render adapter rather than applying per-boss correction offsets.
 
 **Acceptance:** walking, turning, buck, rider movement and portal strikes are visually continuous and align with collision, footholds, hits and camera, across fixed ticks, relevant render rates, reset/replay and quality levels.
 

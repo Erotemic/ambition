@@ -24,68 +24,14 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
     use ambition_platformer2d::mount::{MountReservedFor, Mountable, RideLease, RidingOn};
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    // BOTH seats the admiral: seat 0 is the human this test drives, and seat 1
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
     // is a CPU that simply has to exist for the match to stage.
-    // ⛔⛔ `smash_roster`, NOT `smash_roster_at_levels`. The levelled helper
-    // overwrites EVERY participant as a CPU, so the first version of this test
-    // drove `drive_control_frame` at a slot nobody owned and measured a fighter
-    // that never received the press. It looked exactly like a broken up-B.
-    // `smash_roster` is the one that seats slot 0 as a human.
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
-    // was a little longer than the 3-second opening ceremony, so it encoded the
-    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
-    // turned every one of these settles into a different starting world. The
-    // condition is observable: a cast exists, and nothing in it is still held by
-    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
-    // not a cast whose hold has come off.
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(
-            live,
-            "the opening ceremony never released the cast, so nothing below is \
-             about a live round"
-        );
-    }
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
 
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    let seat0 = crate::common::smash::seat(&mut app, 0);
     // ⛔⛔ THE PREMISE THAT COST A DAY. The first version used
     // `smash_roster_at_levels`, which overwrites EVERY participant as a CPU —
     // including seat 0 — so `drive_control_frame` drove `PlayerSlot::PRIMARY`
@@ -342,52 +288,12 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
     use ambition_platformer2d::mount::{MountReservedFor, Mountable, RidingOn};
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
-    // was a little longer than the 3-second opening ceremony, so it encoded the
-    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
-    // turned every one of these settles into a different starting world. The
-    // condition is observable: a cast exists, and nothing in it is still held by
-    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
-    // not a cast whose hold has come off.
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(
-            live,
-            "the opening ceremony never released the cast, so nothing below is \
-             about a live round"
-        );
-    }
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
 
     let seat = |app: &mut App, want: usize| -> Entity {
         let world = app.world_mut();
@@ -534,15 +440,10 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
 #[test]
 fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect};
-    use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::mount::{Mountable, RidingOn};
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
+    let mut app = crate::common::smash::shipped_host();
     // ── ONTO THE SELECT SCREEN, the way the title screen sends you. ──
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
@@ -587,50 +488,12 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     // ── AND PRESS START, through the screen's own request. ──
     app.world_mut()
         .insert_resource(ambition_demo_smash::select_screen::StartRequested(true));
-    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for 300 frames. The fixed count was
-    // a number that happened to be a little longer than the 3-second opening
-    // ceremony, so it silently encoded the ceremony's LENGTH: shortening the
-    // ceremony (D248's dev mode) handed every CPU on the stage ~2.7 extra
-    // seconds of free play before the press below, and the charge-crash NPC
-    // used them to kill the shark this test is about.
-    //
-    // ⭐ the condition is observable — a fighter still held by the ceremony
-    // carries `ControlHolds` — so the press now happens right after GO
-    // however long GO takes.
-    let mut live = false;
-    for _ in 0..900 {
-        app.update();
-        let (seated, held) = {
-            let world = app.world_mut();
-            let mut all = world.query::<&MatchSeat>();
-            let seated = all.iter(world).count();
-            let mut q = world.query_filtered::<
-                &MatchSeat,
-                With<ambition_platformer2d::characters::control::ControlHolds>,
-            >();
-            (seated, q.iter(world).count())
-        };
-        // BOTH halves: a cast that does not exist yet is not a cast whose hold
-        // has come off.
-        if seated > 0 && held == 0 {
-            live = true;
-            break;
-        }
-    }
-    assert!(
-        live,
-        "the opening ceremony never released the cast, so nothing below is \
-         about a live round"
-    );
+    // Wait for the round to go live, not for a frame count: a fixed 300 handed
+    // every CPU the seconds a shortened ceremony saved, and the charge-crash
+    // NPC used them to kill the shark this test is about.
+    crate::common::smash::wait_for_live_round(&mut app);
 
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the select screen started a match that seats a first fighter")
-    };
+    let seat0 = crate::common::smash::seat(&mut app, 0);
     assert!(
         app.world().get::<DrivingParticipant>(seat0).is_some(),
         "seat 0 is not driven, so the press below reaches nobody"
@@ -872,65 +735,17 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
 /// of its threshold is a rule the next refactor is free to move.
 #[test]
 fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
-    use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::mount::{Mountable, RidingOn};
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
-    // was a little longer than the 3-second opening ceremony, so it encoded the
-    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
-    // turned every one of these settles into a different starting world. The
-    // condition is observable: a cast exists, and nothing in it is still held by
-    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
-    // not a cast whose hold has come off.
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(
-            live,
-            "the opening ceremony never released the cast, so nothing below is \
-             about a live round"
-        );
-    }
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
 
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    let seat0 = crate::common::smash::seat(&mut app, 0);
     assert!(
         app.world().get::<DrivingParticipant>(seat0).is_some(),
         "seat 0 is not driven, so the press below reaches nobody"
@@ -938,14 +753,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     // ⛔ THE ATTACKER MUST NOT BE THE VICTIM. A hitbox skips self-hits, so a
     // strike owned by the rider cannot land on the rider — the first version of
     // this test did exactly that and measured a fighter at full health.
-    let rival = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a second fighter")
-    };
+    let rival = crate::common::smash::seat(&mut app, 1);
 
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,
@@ -1226,65 +1034,17 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
 /// not "at frame 300".
 #[test]
 fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
-    use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::mount::{Mountable, RideLease, RidingOn};
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
-    // was a little longer than the 3-second opening ceremony, so it encoded the
-    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
-    // turned every one of these settles into a different starting world. The
-    // condition is observable: a cast exists, and nothing in it is still held by
-    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
-    // not a cast whose hold has come off.
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(
-            live,
-            "the opening ceremony never released the cast, so nothing below is \
-             about a live round"
-        );
-    }
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
 
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    let seat0 = crate::common::smash::seat(&mut app, 0);
     assert!(
         app.world().get::<DrivingParticipant>(seat0).is_some(),
         "seat 0 is not driven, so the press below reaches nobody"
@@ -1435,65 +1195,17 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
 /// occurrence DECLINES the trait, and that is the thing worth pinning.
 #[test]
 fn the_summoned_shark_carries_no_contact_hazard() {
-    use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::mount::Mountable;
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
-    // was a little longer than the 3-second opening ceremony, so it encoded the
-    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
-    // turned every one of these settles into a different starting world. The
-    // condition is observable: a cast exists, and nothing in it is still held by
-    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
-    // not a cast whose hold has come off.
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(
-            live,
-            "the opening ceremony never released the cast, so nothing below is \
-             about a live round"
-        );
-    }
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
 
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    let seat0 = crate::common::smash::seat(&mut app, 0);
     assert!(
         app.world().get::<DrivingParticipant>(seat0).is_some(),
         "seat 0 is not driven, so the press below reaches nobody"
@@ -1557,61 +1269,14 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
     use ambition_platformer2d::mount::{Mountable, RidingOn};
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
-    // was a little longer than the 3-second opening ceremony, so it encoded the
-    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
-    // turned every one of these settles into a different starting world. The
-    // condition is observable: a cast exists, and nothing in it is still held by
-    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
-    // not a cast whose hold has come off.
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(
-            live,
-            "the opening ceremony never released the cast, so nothing below is \
-             about a live round"
-        );
-    }
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
 
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    let seat0 = crate::common::smash::seat(&mut app, 0);
     assert!(
         app.world().get::<DrivingParticipant>(seat0).is_some(),
         "seat 0 is not driven, so the press below reaches nobody"
@@ -1776,52 +1441,12 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
     use ambition_platformer2d::mount::{MountSlot, Mountable, RidingOn};
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
-    // was a little longer than the 3-second opening ceremony, so it encoded the
-    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
-    // turned every one of these settles into a different starting world. The
-    // condition is observable: a cast exists, and nothing in it is still held by
-    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
-    // not a cast whose hold has come off.
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(
-            live,
-            "the opening ceremony never released the cast, so nothing below is \
-             about a live round"
-        );
-    }
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
 
     let seat = |app: &mut App, want: usize| -> Entity {
         let world = app.world_mut();
@@ -1982,11 +1607,7 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
     // character screen draws its grid from, so what it returns is exactly what a
     // player can bring to the stage. Asking it costs one live app and removes a
     // whole class of "the census is stale" defect.
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
+    let app = crate::common::smash::shipped_host();
     let registry = app
         .world()
         .get_resource::<PreparedCharacterRegistry>()
@@ -2139,17 +1760,13 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
 #[test]
 fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect};
-    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+    use ambition_platformer2d::actor::BodyKinematics;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::ControlFrame;
     use ambition_platformer2d::mount::RidingOn;
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
+    let mut app = crate::common::smash::shipped_host();
     // ── THE ROAD A PLAYER TRAVELS: pick off the grid, not `smash_roster`. The
     //    up-B shipped broken twice on this road while the shortcut stayed green.
     app.world_mut()
@@ -2185,35 +1802,8 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     }
     app.world_mut()
         .insert_resource(ambition_demo_smash::select_screen::StartRequested(true));
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(live, "the opening ceremony never released the cast");
-    }
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    crate::common::smash::wait_for_live_round(&mut app);
+    let seat0 = crate::common::smash::seat(&mut app, 0);
     assert!(
         app.world().get::<DrivingParticipant>(seat0).is_some(),
         "seat 0 is not driven, so every control frame below reaches nobody"
@@ -2229,14 +1819,7 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     // ⭐ ONLY SEAT 1. Seat 0 is the rider every `drive_control_frame` below
     // speaks to, and standing it down would delete the flight being measured.
     {
-        let seat1 = {
-            let world = app.world_mut();
-            let mut q = world.query::<(Entity, &MatchSeat)>();
-            q.iter(world)
-                .find(|(_, seat)| seat.0 == 1)
-                .map(|(entity, _)| entity)
-                .expect("the match seats a second fighter")
-        };
+        let seat1 = crate::common::smash::seat(&mut app, 1);
         app.world_mut()
             .entity_mut(seat1)
             .insert(ambition_platformer2d::characters::brain::Brain::stand_still());
@@ -2491,18 +2074,13 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
 #[test]
 fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
     use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect};
-    use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::ControlFrame;
     use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
+    let mut app = crate::common::smash::shipped_host();
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_SELECT_ROUTE,
@@ -2543,27 +2121,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
     }
     app.world_mut()
         .insert_resource(ambition_demo_smash::select_screen::StartRequested(true));
-    {
-        let mut live = false;
-        for _ in 0..900 {
-            app.update();
-            let (seated, held) = {
-                let world = app.world_mut();
-                let mut all = world.query::<&MatchSeat>();
-                let seated = all.iter(world).count();
-                let mut q = world.query_filtered::<
-                    &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ControlHolds>,
-                >();
-                (seated, q.iter(world).count())
-            };
-            if seated > 0 && held == 0 {
-                live = true;
-                break;
-            }
-        }
-        assert!(live, "the opening ceremony never released the cast");
-    }
+    crate::common::smash::wait_for_live_round(&mut app);
     // ⛔⛔ THE FLAG THE OLD POLICY WOULD HAVE WRITTEN, keyed the way the death
     // path keys it: `enemy_<config.id>_dead`, and the summon's `config.id` is the
     // `SummonSpec` id — one fixed string for every shark this move ever makes.
@@ -2605,14 +2163,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
          shark nothing was ever going to kill"
     );
 
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    let seat0 = crate::common::smash::seat(&mut app, 0);
     let up_special = ControlFrame {
         axis_y: -1.0,
         special_pressed: true,
@@ -2723,48 +2274,16 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
 #[test]
 #[ignore = "PROBE, print-only: the recovery charge across the shark handoff"]
 fn probe_the_recovery_charge_across_the_shark_handoff() {
-    use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::mount::RidingOn;
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    for _ in 0..900 {
-        app.update();
-        let (seated, held) = {
-            let world = app.world_mut();
-            let mut all = world.query::<&MatchSeat>();
-            let seated = all.iter(world).count();
-            let mut q = world.query_filtered::<
-                &MatchSeat,
-                With<ambition_platformer2d::characters::control::ControlHolds>,
-            >();
-            (seated, q.iter(world).count())
-        };
-        if seated > 0 && held == 0 {
-            break;
-        }
-    }
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
+    let seat0 = crate::common::smash::seat(&mut app, 0);
 
     let report = |app: &App, tag: &str, i: usize| {
         let jump = app
@@ -2883,36 +2402,12 @@ fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i
     use ambition_platformer2d::mount::RidingOn;
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    for _ in 0..900 {
-        app.update();
-        let (seated, held) = {
-            let world = app.world_mut();
-            let mut all = world.query::<&MatchSeat>();
-            let seated = all.iter(world).count();
-            let mut q = world.query_filtered::<
-                &MatchSeat,
-                With<ambition_platformer2d::characters::control::ControlHolds>,
-            >();
-            (seated, q.iter(world).count())
-        };
-        if seated > 0 && held == 0 {
-            break;
-        }
-    }
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
     let seat = |app: &mut App, want: usize| -> Entity {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
@@ -3074,48 +2569,16 @@ fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i
 /// ```
 #[test]
 fn a_saddled_body_advances_its_clocks_and_none_of_its_displacement() {
-    use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::mount::RidingOn;
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            "npc_pirate_admiral",
-            "npc_pirate_admiral",
-        ]));
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(
-            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-        )));
-    for _ in 0..900 {
-        app.update();
-        let (seated, held) = {
-            let world = app.world_mut();
-            let mut all = world.query::<&MatchSeat>();
-            let seated = all.iter(world).count();
-            let mut q = world.query_filtered::<
-                &MatchSeat,
-                With<ambition_platformer2d::characters::control::ControlHolds>,
-            >();
-            (seated, q.iter(world).count())
-        };
-        if seated > 0 && held == 0 {
-            break;
-        }
-    }
-    let seat0 = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the match seats a first fighter")
-    };
+    // Both seats the admiral: seat 0 is the human this test drives, and seat 1
+    // is a CPU that simply has to exist for the match to stage.
+    let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+        "npc_pirate_admiral",
+        "npc_pirate_admiral",
+    ]));
+    let seat0 = crate::common::smash::seat(&mut app, 0);
 
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,

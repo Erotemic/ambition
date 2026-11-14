@@ -1554,6 +1554,21 @@ Remove obsolete diagnostics only after checking their actual callers. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 
+**Smash fixture shared (2026-11-14):** `common::smash` holds the Smash
+setup `smash_ride` repeated in each test: `shipped_host` (the shipped
+composition, 30 frames in), `wait_for_live_round` (a cast exists and none of
+it is held), `live_round(roster)` and `seat(app, n)`. Ten copies of the
+admiral setup, three of the live wait and twelve seat lookups in
+`smash_ride.rs` now call it (3274 → about 2770 lines); each arm keeps its own
+premise and assertions, and the three print-only probes that waited without
+asserting now refuse a round that never went live. On this VM every
+live-round arm of `smash_ride` fails at that premise, before and after
+(checked on the unedited file: `the_summoned_shark_carries_no_contact_hazard`
+fails at the same "opening ceremony never released the cast"): the VM has no
+music registry and the round waits for its entry music. Next candidates:
+`smash_reaction_poses::seated_as` and `smash_cpus_damage_each_other`'s
+seating, which wait on different conditions and are left as they are.
+
 **Measured 2026-11-10 (boot cost):** in a sample of 152 `app_it` tests, the mean
 was 29 s and ten took 100 s or more. A harness boot costs about 11 s, and most
 tests boot at least once. Two pure parses ran again on every boot in one

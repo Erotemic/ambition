@@ -6,6 +6,7 @@
 //! end-to-end scripts, but the neutral `AgentAction` and fixed-60Hz sim setup are
 //! common enough that copying them into every test obscures the scenario logic.
 
+pub mod smash;
 pub mod walk;
 
 use ambition_app::rl_sim::TimestepMode;

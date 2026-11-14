@@ -791,6 +791,23 @@ link's. Renet reports 3,982 bytes a second sent to the guest, about 66 bytes
 a frame at 60 updates a second, against 53 counted inside replicon on the
 test link: the difference is renet's and netcode's packet framing.
 
+### The guest's input (2026-11-13)
+
+`GuestInput(ControlFrame)`, a replicon client message on the reliable
+ordered channel: each frame the guest sends the raw frame of its
+`LocalSeat`, and the host drives the seat the sender's `GuestSeat` names
+through `drive_slot_frame`, the seam a device or a test driver uses (on a
+device host it folds into the seat's latch, so two frames in one update keep
+both presses; on the harness the later frame wins).
+
+Witness `a_hosted_guest_drives_its_seat_on_the_host`: Bob is driven only on
+the guest App, and the host's bodies equal those of a reference App that
+drives Bob locally with the same frames on all 90 frames. With no seat named
+(the control), the host differs on 78, from the frame Bob first turns.
+
+This is the production input path SIMULATION-ISLANDS' room rollback host
+waits on: a guest's input now reaches the host's seat over the link.
+
 Next in the prototype: spawn rows for what wears no character, a guest App
 composed from fewer plugins, and each NPC life's step as a row.
 

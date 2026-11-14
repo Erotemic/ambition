@@ -22,6 +22,12 @@
 //! in another room. Leaving a guest's view removes the body there, which is
 //! the general rule the measurement used.
 //!
+//! The guest's input goes the other way: each frame it sends the raw control
+//! frame of its own seat ([`LocalSeat`]) as a [`GuestInput`] message, on the
+//! reliable ordered channel so no press is lost, and the host drives the seat
+//! the sender's [`GuestSeat`] names with it, through the same seam a local
+//! device or a test driver uses (`drive_slot_frame`).
+//!
 //! The link is the caller's: `bevy_replicon` has no I/O of its own.
 
 use ambition_characters::actor::{BodyHealth, Corpse};
@@ -145,6 +151,14 @@ impl VisibilityFilter for RoomOf {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GuestSeat(pub PlayerSlot);
 
+/// On the guest: the seat this App's player drives, whose input it sends.
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LocalSeat(pub PlayerSlot);
+
+/// One frame of a guest's input for its seat.
+#[derive(Message, Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct GuestInput(pub ambition_platformer2d_core::ControlFrame);
+
 /// Which end of a hosted world this App is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HostedRole {
@@ -162,10 +176,14 @@ pub struct HostedWorldPlugin {
 
 impl Plugin for HostedWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.replicate::<BodyRow>().replicate::<LifeRow>().replicate::<SpawnRow>();
+        app.replicate::<BodyRow>()
+            .replicate::<LifeRow>()
+            .replicate::<SpawnRow>()
+            .add_client_message::<GuestInput>(Channel::Ordered);
         match self.role {
             HostedRole::Host => {
                 app.add_visibility_filter::<RoomOf>();
+                app.add_systems(PreUpdate, apply_guest_inputs.after(ServerSystems::Receive));
                 app.add_systems(Update, (mark_hosted_bodies, write_spawn_rows));
                 app.add_systems(
                     PostUpdate,
@@ -174,6 +192,7 @@ impl Plugin for HostedWorldPlugin {
             }
             HostedRole::Guest => {
                 app.add_systems(Update, sign_own_bodies);
+                app.add_systems(PostUpdate, send_local_input.before(ClientSystems::Send));
                 app.add_systems(
                     PreUpdate,
                     (build_spawned_bodies, (apply_body_rows, apply_life_rows))
@@ -295,6 +314,28 @@ fn write_body_rows(
                 commands.entity(entity).insert(now);
             }
         }
+    }
+}
+
+/// Drive each guest's seat with the input it sent, in the order sent.
+fn apply_guest_inputs(world: &mut World) {
+    let received: Vec<FromClient<GuestInput>> = world.resource_mut::<Messages<FromClient<GuestInput>>>().drain().collect();
+    for input in received {
+        let Some(seat) = input.client_id.entity().and_then(|client| world.get::<GuestSeat>(client)).copied() else {
+            continue;
+        };
+        ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, seat.0, input.message.0);
+    }
+}
+
+/// Send this guest's seat's raw frame to the host.
+fn send_local_input(
+    seat: Option<Res<LocalSeat>>,
+    raw: Option<Res<ambition_characters::control::SeatRawFrames>>,
+    mut inputs: MessageWriter<GuestInput>,
+) {
+    if let (Some(seat), Some(raw)) = (seat, raw) {
+        inputs.write(GuestInput(raw.get(seat.0)));
     }
 }
 

@@ -248,3 +248,86 @@ fn a_hosted_guest_is_sent_its_own_room() {
         "the control: with no seat named the guest was sent no more than the scoped one, so the filter is not what scoped it"
     );
 }
+
+/// What `sim` holds of the body with feature id `feature`: its `SimId`, the
+/// character it wears, whether replication made it, and whether it is a
+/// whole actor (health and a death beat, as the staged-actor road builds).
+fn the_spawned(sim: &mut Platformer2dSimHarness, feature: &str) -> Option<(ambition_platformer2d::platformer::sim_id::SimId, String, bool, bool)> {
+    let world = sim.world_mut();
+    world
+        .query::<(
+            &ambition_platformer2d::combat::components::FeatureId,
+            Option<&ambition_platformer2d::platformer::sim_id::SimId>,
+            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            Option<&Remote>,
+            Option<&Health>,
+            Option<&Beat>,
+        )>()
+        .iter(world)
+        .find(|(id, ..)| id.0 == feature)
+        .and_then(|(_, sim_id, worn, remote, health, beat)| {
+            Some((sim_id?.clone(), worn?.0.as_str().to_owned(), remote.is_some(), health.is_some() && beat.is_some()))
+        })
+}
+
+/// NA-2b's spawn row through `bevy_replicon`: the host spawns an enemy beside
+/// Alice on frame 5, which the guest never built. The guest builds it from its
+/// spawn row through the staged-actor road, into the replicated entity, and
+/// then holds every body the host holds with the host's rows, the enemy's
+/// included. The control is the unlinked guest, which never has the enemy.
+#[test]
+fn a_hosted_guest_builds_what_the_host_spawned() {
+    const ENEMY: &str = "na_spawn_row";
+    const CHARACTER: &str = "npc_puppy_slug";
+    let mut host = booted(HostedRole::Host);
+    let mut guest = booted(HostedRole::Guest);
+    let mut alone = booted(HostedRole::Guest);
+    simulate_nothing(&mut guest);
+    simulate_nothing(&mut alone);
+    host.app_mut().connect_client(guest.app_mut());
+    for frame in 1..=FRAMES {
+        if frame == 5 {
+            let at = {
+                let world = host.world_mut();
+                world
+                    .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                    .single(world)
+                    .expect("Alice has a body")
+                    .pos
+            };
+            host.spawn_enemy_character_at(
+                ENEMY,
+                "Target",
+                (at.x + 96.0, at.y),
+                (12.0, 16.0),
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+                CHARACTER,
+            );
+        }
+        host.drive_seat(0, alice_fights(frame));
+        host.app_mut().update();
+        host.app_mut().exchange_with_client(guest.app_mut());
+        guest.app_mut().update();
+        alone.app_mut().update();
+    }
+    let on_host = bodies(&mut host, None);
+    let on_guest = bodies(&mut guest, None);
+    let spawned_on_host = the_spawned(&mut host, ENEMY);
+    let spawned_on_guest = the_spawned(&mut guest, ENEMY);
+    println!(
+        "[hosted spawn] the host's {spawned_on_host:?}; the guest's {spawned_on_guest:?}; bodies host {} guest {}",
+        on_host.len(),
+        on_guest.len()
+    );
+    let (id, character, _, _) = spawned_on_host.expect("premise: the host spawned the enemy");
+    assert_eq!(character, CHARACTER, "premise: the host's enemy wears its character");
+    assert_eq!(
+        spawned_on_guest,
+        Some((id, CHARACTER.to_owned(), true, true)),
+        "the guest did not build the host's enemy, with its SimId and character, as a whole actor in the replicated entity"
+    );
+    let differ: Vec<_> = on_host.iter().filter(|(id, row)| on_guest.get(*id) != Some(*row)).collect();
+    assert!(differ.is_empty(), "the guest does not hold the host's bodies: {differ:?}");
+    assert_eq!(on_guest.len(), on_host.len(), "the guest holds bodies the host does not");
+    assert!(the_spawned(&mut alone, ENEMY).is_none(), "the control: the unlinked guest has the enemy, so its arrival is not the link's");
+}

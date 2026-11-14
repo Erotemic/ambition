@@ -756,8 +756,27 @@ included, at 66.4 bytes a frame. The 17 hub entities it was sent there are
 rows with no body to land on: the guest has not built the hub, which is the
 spawn row's job.
 
-Next in the prototype: spawn rows (a replicated entity the guest builds by
-its spawn row's character), and a real transport.
+### The spawn row (2026-11-13)
+
+`SpawnRow` (the body's `SimId`, feature id, name, character, half size, and
+whether it is an NPC), written once for each replicated body that no seat
+drives. The guest builds each replicated entity that has one and no body
+through the engine's staged-actor road (`spawn_staged_actor_into`, with a
+passive brain the gated guest never runs anyway) into the replicated entity
+itself, and gives it the host's `SimId`; its body and life rows then land on
+it like on a body it built. The guest does not sign replicated entities.
+
+Witness `a_hosted_guest_builds_what_the_host_spawned` (`switch_lab`; the host
+spawns a puppy slug beside Alice on frame 5): the guest ends with the enemy
+as a whole actor (health and death beat), with the host's `SimId`
+(`placement:na_spawn_row`) and character, and holds all three bodies with
+the host's rows. The unlinked guest never has it. In the crossing control
+(no seat named) the guest now also builds two of the hub's bodies; the rest
+of the 19 replicated entities there wear no character, and no spawn row is
+written for them.
+
+Next in the prototype: a real transport, and spawn rows for what wears no
+character.
 
 ## Next
 

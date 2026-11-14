@@ -9,6 +9,13 @@
 //! how it moves and which way it faces; and its life row (NA-2b): its health
 //! and its death's beat, which is what draws a defeat.
 //!
+//! A body the guest did not build (one the host spawned, or one of a room the
+//! guest has not built) arrives with its spawn row ([`SpawnRow`]): its
+//! `SimId`, feature id, name, character and size. The guest builds it through
+//! the engine's staged-actor road into the replicated entity, so its rows land
+//! on it like on any other body. Its brain does not run there: the guest
+//! simulates nothing.
+//!
 //! A guest is sent the bodies of its player's room only (NA-2b's interest):
 //! each body and each guest's client entity carry the live room they are in
 //! ([`RoomOf`]), and replicon's visibility filter hides a body from a client
@@ -20,7 +27,9 @@
 use ambition_characters::actor::{BodyHealth, Corpse};
 use ambition_combat::components::DeathBeat;
 use ambition_platformer2d_core::BodyKinematics;
+use ambition_characters::actor::{ActorFaction, WornCharacter};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+use ambition_combat::components::FeatureId;
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
@@ -95,6 +104,24 @@ fn corpse_of(byte: u8) -> Corpse {
     }
 }
 
+/// What a guest needs to build a body it does not hold: its identity, the
+/// character it wears and its size. Written once, when the body is marked; a
+/// player's body is not built from one (the guest's own seats build theirs).
+#[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SpawnRow {
+    pub sim_id: String,
+    pub feature: String,
+    pub name: String,
+    pub character: String,
+    pub half_size: [f32; 2],
+    pub npc: bool,
+}
+
+/// On the guest: a replicated entity its spawn row has been built into (or
+/// refused), so it is not built twice.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct BuiltFromSpawnRow;
+
 /// The live room (its ordinal) a body is in, or a guest's player is in.
 /// Immutable, as replicon's filters require: a move re-inserts it.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,11 +162,11 @@ pub struct HostedWorldPlugin {
 
 impl Plugin for HostedWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.replicate::<BodyRow>().replicate::<LifeRow>();
+        app.replicate::<BodyRow>().replicate::<LifeRow>().replicate::<SpawnRow>();
         match self.role {
             HostedRole::Host => {
                 app.add_visibility_filter::<RoomOf>();
-                app.add_systems(Update, mark_hosted_bodies);
+                app.add_systems(Update, (mark_hosted_bodies, write_spawn_rows));
                 app.add_systems(
                     PostUpdate,
                     (write_body_rows, write_life_rows, place_bodies, place_guests).before(ServerSystems::Send),
@@ -147,7 +174,12 @@ impl Plugin for HostedWorldPlugin {
             }
             HostedRole::Guest => {
                 app.add_systems(Update, sign_own_bodies);
-                app.add_systems(PreUpdate, (apply_body_rows, apply_life_rows).after(ClientSystems::Receive));
+                app.add_systems(
+                    PreUpdate,
+                    (build_spawned_bodies, (apply_body_rows, apply_life_rows))
+                        .chain()
+                        .after(ClientSystems::Receive),
+                );
             }
         }
     }
@@ -168,11 +200,80 @@ fn mark_hosted_bodies(
     }
 }
 
+/// Write the spawn row of each replicated body that is not a player's.
+fn write_spawn_rows(
+    mut commands: Commands,
+    bodies: Query<
+        (Entity, &SimId, &FeatureId, Option<&Name>, &WornCharacter, &BodyKinematics, Option<&ActorFaction>),
+        (With<Replicated>, Without<SpawnRow>, Without<DrivingParticipant>),
+    >,
+) {
+    for (body, id, feature, name, worn, kinematics, faction) in &bodies {
+        let half = kinematics.canonical_size * 0.5;
+        commands.entity(body).insert(SpawnRow {
+            sim_id: id.as_str().to_owned(),
+            feature: feature.0.clone(),
+            name: name.map_or_else(|| feature.0.clone(), |name| name.as_str().to_owned()),
+            character: worn.0.as_str().to_owned(),
+            half_size: [half.x, half.y],
+            npc: faction == Some(&ActorFaction::Npc),
+        });
+    }
+}
+
+/// Build each replicated body the guest does not hold from its spawn row,
+/// into the replicated entity, through the engine's staged-actor road.
+#[allow(clippy::too_many_arguments)]
+fn build_spawned_bodies(
+    mut commands: Commands,
+    rows: Query<(Entity, &SpawnRow, Option<&BodyRow>), (With<Remote>, Without<BodyKinematics>, Without<BuiltFromSpawnRow>)>,
+    sprite_content: Res<ambition_sprite_sheet::SpriteContent>,
+    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
+    prepared: ambition_characters::prepared::SessionCast,
+    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
+    active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
+) {
+    let Some(session) =
+        ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+    let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    for (root, row, at) in &rows {
+        let request = ambition_platformer2d_actor_spawn::SpawnActorRequest {
+            id: row.feature.clone(),
+            name: row.name.clone(),
+            pos: at.map_or(Vec2::ZERO, |at| Vec2::from(at.pos)),
+            half_size: Vec2::from(row.half_size),
+            faction: if row.npc { ActorFaction::Npc } else { ActorFaction::Enemy },
+            grudge_against: None,
+            kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
+                brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+                character: ambition_entity_catalog::CharacterId::from(row.character.as_str()),
+            },
+        };
+        ambition_platformer2d_actor_spawn::spawn_staged_actor_into(
+            &sprite_content,
+            &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(&mut commands, session, root),
+            &character_catalog,
+            &authored_sheets,
+            prepared.get().unwrap_or(&empty_cast),
+            &boss_catalog,
+            &request,
+            ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
+        );
+        commands
+            .entity(root)
+            .insert((SimId::from_snapshot(row.sim_id.clone()), BuiltFromSpawnRow));
+    }
+}
+
 /// The guest signs the bodies it built, so the host's replication continues
 /// into them.
 fn sign_own_bodies(
     mut commands: Commands,
-    bodies: Query<Entity, (With<SimId>, With<BodyKinematics>, Without<Signature>)>,
+    bodies: Query<Entity, (With<SimId>, With<BodyKinematics>, Without<Signature>, Without<Remote>)>,
 ) {
     for body in &bodies {
         commands.entity(body).insert(signature());
@@ -250,14 +351,16 @@ fn write_life_rows(
 }
 
 /// Put each received life row on the guest's body.
-fn apply_life_rows(mut bodies: Query<(&LifeRow, &mut BodyHealth, Option<&mut DeathBeat>), Changed<LifeRow>>) {
+fn apply_life_rows(
+    mut bodies: Query<(&LifeRow, &mut BodyHealth, Option<&mut DeathBeat>), Or<(Changed<LifeRow>, Added<BodyHealth>)>>,
+) {
     for (row, mut health, beat) in &mut bodies {
         row.write_into(&mut health, beat.map(|beat| beat.into_inner()));
     }
 }
 
 /// Put each received row on the guest's body.
-fn apply_body_rows(mut bodies: Query<(&BodyRow, &mut BodyKinematics), Changed<BodyRow>>) {
+fn apply_body_rows(mut bodies: Query<(&BodyRow, &mut BodyKinematics), Or<(Changed<BodyRow>, Added<BodyKinematics>)>>) {
     for (row, mut body) in &mut bodies {
         row.write_into(&mut body);
     }

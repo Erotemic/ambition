@@ -20,7 +20,9 @@ pub fn describe(pack: &PreparedContentPack) -> Value {
                     for room in &set.rooms {
                         let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::named_by_room_metadata(&room.metadata)
                             .map(|theme| theme.key());
-                        rooms.insert(room.id.clone(), json!({"source": path, "world": world.id, "spec": room, "theme": theme}));
+                        let backdrop = room.metadata.visual_profile.backdrop.is_some()
+                            .then(|| ambition_sprite_sheet::game_assets::ParallaxTheme::backdrop_of_room(&room.metadata).key());
+                        rooms.insert(room.id.clone(), json!({"source": path, "world": world.id, "spec": room, "theme": theme, "backdrop": backdrop}));
                     }
                 }
                 Err(error) => failures.push(json!({"source": path, "error": error})),

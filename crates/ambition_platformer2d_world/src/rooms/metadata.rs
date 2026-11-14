@@ -22,6 +22,11 @@ pub struct RoomVisualProfile {
     /// Explicit parallax/background theme. Prefer this over inferring from
     /// biome, music, or loose color-theme strings.
     pub parallax_theme: Option<String>,
+    /// The theme of the background alone, when it is not the room's (level
+    /// field `backdrop`): the skin, dressing, doors and motes stay
+    /// `parallax_theme`'s. The room where a region's landmark stands in the
+    /// play draws a variant of the region's background without it.
+    pub backdrop: Option<String>,
     /// Palette / color-grading hint for future renderer passes.
     pub palette: Option<String>,
     /// Lighting mood hint for future post-process / shader passes.
@@ -39,6 +44,7 @@ impl RoomVisualProfile {
     pub fn is_empty(&self) -> bool {
         self.id.is_none()
             && self.parallax_theme.is_none()
+            && self.backdrop.is_none()
             && self.palette.is_none()
             && self.lighting_hint.is_none()
             && self.foreground_treatment.is_none()
@@ -51,6 +57,9 @@ impl RoomVisualProfile {
         }
         if self.parallax_theme.is_none() {
             self.parallax_theme = other.parallax_theme;
+        }
+        if self.backdrop.is_none() {
+            self.backdrop = other.backdrop;
         }
         if self.palette.is_none() {
             self.palette = other.palette;

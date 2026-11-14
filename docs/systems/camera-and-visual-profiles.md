@@ -40,6 +40,7 @@ The LDtk level's fields lower through
 | --- | --- |
 | `visual_profile` or `visual_profile_id` | Named presentation profile |
 | `parallax_theme` | Explicit theme for background layers, terrain skin, and motes |
+| `backdrop` | The background layers' theme alone, when it is not `parallax_theme`'s (the skin, dressing, doors and motes stay with `parallax_theme`) |
 | `palette` | Named architectural look (`clean_corrupted` or `debug_beautiful`) |
 | `lighting_hint`, `foreground_treatment` | Optional presentation hints |
 | `sky_scroll` | Optional nonzero sky-scroll rate |
@@ -49,7 +50,8 @@ The LDtk level's fields lower through
 `ParallaxTheme::named_by_room_metadata` reads only
 `visual_profile.parallax_theme`. It does not infer a theme from `biome`,
 `visual_profile.id`, `music_track`, or `visual_theme`.
-`from_room_metadata` returns `default` when no theme is named. A room without an
+`backdrop_of_room` gives the background's theme: the room's `backdrop` when it
+names one, else its own theme, else `default`. A room without an
 explicit theme can retain its own authored block art rather than acquiring
 another game's terrain dressing. See
 [parallax backgrounds](parallax-backgrounds.md).

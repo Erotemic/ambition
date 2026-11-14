@@ -654,7 +654,7 @@ mod tests {
     #[test]
     fn a_theme_the_loader_resolved_to_nothing_settles_instead_of_retrying() {
         let (mut app, _) = app_with_an_active_session();
-        let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(
+        let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::backdrop_of_room(
             &room_set_wanting_a_theme().activation_spec().metadata,
         );
         let mut attempts = crate::rendering::ParallaxThemeAttempts::default();
@@ -781,7 +781,7 @@ mod tests {
         // library catalog do not name this room's theme, so staging them
         // staged nothing for this room.
         app.insert_resource(crate::rendering::ParallaxThemeAttempts {
-            without_art: vec![ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(
+            without_art: vec![ambition_sprite_sheet::game_assets::ParallaxTheme::backdrop_of_room(
                 &room_set_wanting_a_theme().activation_spec().metadata,
             )],
         });

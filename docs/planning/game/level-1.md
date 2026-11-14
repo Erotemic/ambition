@@ -319,6 +319,8 @@ Drawn in `tools/ambition_sprite2d_renderer` and registered in `SCENES`
   and hedgerows, the village roofs, the mill and its wheel, the ring on its
   hill with scaffold and a crane, cable poles, a fence, an oak and hedge in
   front.
+- `hobford_gateside`: the same country without the ring and its steel, behind
+  the gate clearing and the siding (level field `backdrop`).
 - `hobford_woods`: trunks, canopy and light shafts.
 - `creator_workshop`: the barn's plank wall, trusses, windows, shelves and
   a tool board.

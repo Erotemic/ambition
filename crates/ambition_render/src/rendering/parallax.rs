@@ -240,7 +240,7 @@ pub fn spawn_parallax_layers(
     if assets.parallax_layers.is_empty() {
         return;
     }
-    let theme = ParallaxTheme::from_room_metadata(metadata);
+    let theme = ParallaxTheme::backdrop_of_room(metadata);
     if quality.is_some_and(|q| !q.enabled) {
         spawn_flat_backdrop(commands, session_scope, world, theme, assets);
         return;
@@ -429,7 +429,7 @@ pub fn present_live_room_parallax(
         let spec = rooms.rooms().spec(definition);
         // A tier with no parallax draws the flat backdrop, so each tier waits
         // for what it draws.
-        let theme = ParallaxTheme::from_room_metadata(&spec.metadata);
+        let theme = ParallaxTheme::backdrop_of_room(&spec.metadata);
         let loaded = assets
             .as_deref()
             .is_some_and(|assets| assets.parallax_layers.has_drawn_layers(theme, budget));
@@ -509,7 +509,7 @@ pub fn ensure_active_room_parallax_theme(sprite_content: Res<ambition_sprite_she
     }
     for (_, definition) in rooms.live_rooms() {
         let metadata = rooms.rooms().spec(definition).metadata.clone();
-        let theme = ParallaxTheme::from_room_metadata(&metadata);
+        let theme = ParallaxTheme::backdrop_of_room(&metadata);
         if attempts.without_art.contains(&theme) {
             continue;
         }

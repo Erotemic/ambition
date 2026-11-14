@@ -157,7 +157,9 @@ def prepare(prepared: dict, products: dict, *, worlds=(), rooms=(), characters=(
                     diagnostics.append({"code": "unknown-boss-art", "subject": bid, "source": rid, "use": "gameplay"})
         metadata = spec.get("metadata") or {}
         theme = known_rooms[rid].get("theme")
-        for prefix, name in (("theme", theme), ("skin", theme)):
+        # The background is the room's `backdrop` when it names one; the skin is always its own theme's.
+        backdrop = known_rooms[rid].get("backdrop") or theme
+        for prefix, name in (("theme", backdrop), ("skin", theme)):
             if name:
                 require(prefix + ":" + name, "presentation", f"room:{rid}/metadata")
         for field in ("music_track", "fight_music_track"):

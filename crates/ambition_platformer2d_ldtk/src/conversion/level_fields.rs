@@ -41,6 +41,7 @@ impl LdtkLevel {
             visual_profile: ambition_platformer2d_world::rooms::RoomVisualProfile {
                 id: take("visual_profile").or_else(|| take("visual_profile_id")),
                 parallax_theme: take("parallax_theme"),
+                backdrop: take("backdrop"),
                 palette: take("palette"),
                 lighting_hint: take("lighting_hint"),
                 foreground_treatment: take("foreground_treatment"),

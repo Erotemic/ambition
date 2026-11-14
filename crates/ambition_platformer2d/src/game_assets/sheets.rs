@@ -332,7 +332,7 @@ pub fn load_game_assets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // fallback body above stays eager: it is one sheet and every boss may need
     // it.
     let boss_sprites: HashMap<String, sprites::BossSpriteAsset> = HashMap::new();
-    let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
+    let active_parallax_theme = ParallaxTheme::backdrop_of_room(active_room_metadata);
     let parallax_layers =
         load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme, quality);
 

@@ -378,6 +378,9 @@ OPTIONAL_LEVEL_FIELDS = (
     # The condition line that holds `while_live` back until it is yes
     # (`RoomMetadata::while_live_when`).
     "while_live_when",
+    # The background's own theme when it is not the room's
+    # (`RoomVisualProfile::backdrop`).
+    "backdrop",
     # A boss practice room (`RoomMetadata::practice`).
     "practice",
     # The backdrop scrolls on its own and wraps, world px/s

@@ -19,9 +19,15 @@ Author the LDtk level field `parallax_theme`. The conversion stores it in
 `RoomMetadata::visual_profile.parallax_theme`, and
 `ParallaxTheme::named_by_room_metadata` reads **only that field**.
 `biome`, `visual_theme`, `music_track` and `visual_profile` do not silently
-select a scenery theme. `ParallaxTheme::from_room_metadata` uses `default` when
+select a scenery theme. `ParallaxTheme::backdrop_of_room` uses `default` when
 none is specified; skin and mote setup can choose not to dress an unnamed room.
 This matters for games such as Mary-O that use their own room art.
+
+A room can take another theme's background and keep its own skin: the level
+field `backdrop` names the background layers' theme alone. The room where a
+region's landmark stands in the play uses it. Level 1's gate clearing has the
+country's skin and `backdrop: "hobford_gateside"`, the country's background
+without the gate, so the gate is not painted far off behind itself.
 
 Parallax assets are registered in the game's asset catalog. The theme key is
 a content key, so new themes require corresponding published imagery and

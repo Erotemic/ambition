@@ -76,7 +76,7 @@ pub(crate) fn parallax_keep_set(
     let mut keep = Vec::new();
     let mut add = |index: usize| {
         if let Some(room) = rooms.rooms.get(index) {
-            let theme = ParallaxTheme::from_room_metadata(&room.metadata);
+            let theme = ParallaxTheme::backdrop_of_room(&room.metadata);
             // A theme with a corrupted state is loaded with it
             // (`ensure_parallax_layers_for_room`), and is kept with it.
             for theme in std::iter::once(theme).chain(themes.alternate(theme)) {

@@ -714,7 +714,7 @@ pub fn build_loaded_room_asset_manifest(
 
     // A theme with a corrupted state draws both (`ensure_parallax_layers_for_room`
     // loads both): a corrupted or balanced room waits for the second too.
-    let theme = ParallaxTheme::from_room_metadata(&room.metadata);
+    let theme = ParallaxTheme::backdrop_of_room(&room.metadata);
     for theme in std::iter::once(theme).chain(assets.room_themes.alternate(theme)) {
         for &layer in ParallaxLayerAsset::ALL {
             if let Some(handle) = assets.parallax_layers.get(theme, layer) {

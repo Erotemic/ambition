@@ -87,8 +87,9 @@ pub fn light_the_world(
     let target = match (clock.as_deref(), cycle.as_deref(), rooms, primary) {
         (Some(clock), Some(cycle), Some(rooms), Some(primary)) if clock.day > 0 => {
             let sunlit = rooms.definition_named(primary.get()).is_some_and(|definition| {
-                let theme = ParallaxTheme::from_room_metadata(&rooms.rooms().spec(definition).metadata);
-                style.sunlit.contains(&theme)
+                // The place is sunlit, not its background: the room's own theme.
+                ParallaxTheme::named_by_room_metadata(&rooms.rooms().spec(definition).metadata)
+                    .is_some_and(|theme| style.sunlit.contains(&theme))
             });
             if sunlit { style.light_at(clock.hour(cycle)) } else { Color::NONE }
         }

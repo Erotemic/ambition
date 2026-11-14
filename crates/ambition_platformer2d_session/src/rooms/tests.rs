@@ -821,6 +821,7 @@ fn room_visual_profile_merge_prefers_existing_values() {
     let mut a = RoomVisualProfile {
         id: Some("intro".into()),
         parallax_theme: None,
+        backdrop: None,
         palette: Some("warm".into()),
         lighting_hint: None,
         foreground_treatment: None,
@@ -829,6 +830,7 @@ fn room_visual_profile_merge_prefers_existing_values() {
     let b = RoomVisualProfile {
         id: Some("conflict".into()),
         parallax_theme: Some("basement".into()),
+        backdrop: Some("basement_far".into()),
         palette: Some("cool".into()),
         lighting_hint: Some("low_key".into()),
         foreground_treatment: Some("dust".into()),
@@ -837,6 +839,7 @@ fn room_visual_profile_merge_prefers_existing_values() {
     a.merge(b);
     assert_eq!(a.id.as_deref(), Some("intro"));
     assert_eq!(a.parallax_theme.as_deref(), Some("basement"));
+    assert_eq!(a.backdrop.as_deref(), Some("basement_far"));
     assert_eq!(a.palette.as_deref(), Some("warm"));
     assert_eq!(a.lighting_hint.as_deref(), Some("low_key"));
     assert_eq!(a.foreground_treatment.as_deref(), Some("dust"));

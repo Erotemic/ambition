@@ -199,11 +199,21 @@ impl ParallaxTheme {
         (!value.is_empty()).then(|| Self(crate::published_tree::kept(value)))
     }
 
-    pub fn from_room_metadata(metadata: &RoomMetadata) -> Self {
-        Self::named_by_room_metadata(metadata).unwrap_or(Self::new("default"))
+    /// The theme of the room's background: its `backdrop` when it names
+    /// one, else its own theme, else `default`.
+    pub fn backdrop_of_room(metadata: &RoomMetadata) -> Self {
+        metadata
+            .visual_profile
+            .backdrop
+            .as_deref()
+            .and_then(Self::from_key)
+            .or_else(|| Self::named_by_room_metadata(metadata))
+            .unwrap_or(Self::new("default"))
     }
 
-    /// Only the explicit theme field selects a background and terrain skin.
+    /// The room's own theme: its terrain skin, dressing, doors and motes,
+    /// and its background unless it names a `backdrop`. Only the explicit
+    /// theme field selects one.
     pub fn named_by_room_metadata(metadata: &RoomMetadata) -> Option<Self> {
         metadata.visual_profile.parallax_theme.as_deref().and_then(Self::from_key)
     }
@@ -621,7 +631,7 @@ pub fn ensure_parallax_layers_for_room(content: &crate::SpriteContent,
     quality: Option<&VisualQualityBudget>,
 ) {
     assets.room_themes = crate::baked_sheet_rons::current(content).room_themes().clone();
-    let theme = ParallaxTheme::from_room_metadata(metadata);
+    let theme = ParallaxTheme::backdrop_of_room(metadata);
     let mut added = assets
         .parallax_layers
         .ensure_theme_loaded(catalog, asset_server, theme, quality);
@@ -763,7 +773,7 @@ mod authored_theme_tests {
     fn a_new_theme_key_and_its_alternate_need_only_authored_data() {
         let mut metadata = RoomMetadata::default();
         metadata.visual_profile.parallax_theme = Some("other_game.cloud_city".into());
-        let theme = ParallaxTheme::from_room_metadata(&metadata);
+        let theme = ParallaxTheme::backdrop_of_room(&metadata);
         assert_eq!(theme.key(), "other_game.cloud_city");
         let themes: RoomThemes = serde_json::from_str(r#"{"alternates":{"other_game.cloud_city":"other_game.night"}}"#).unwrap();
         assert_eq!(themes.alternate(theme).unwrap().key(), "other_game.night");
@@ -771,5 +781,18 @@ mod authored_theme_tests {
         metadata.visual_profile.parallax_theme = None;
         metadata.biome = Some("forest".into());
         assert_eq!(ParallaxTheme::named_by_room_metadata(&metadata), None);
+    }
+
+    /// A room's `backdrop` names its background and nothing else: the skin
+    /// and dressing stay with its own theme.
+    #[test]
+    fn a_backdrop_names_the_background_and_leaves_the_skin() {
+        let mut metadata = RoomMetadata::default();
+        metadata.visual_profile.parallax_theme = Some("hills".into());
+        metadata.visual_profile.backdrop = Some("hills_without_the_tower".into());
+        assert_eq!(ParallaxTheme::backdrop_of_room(&metadata).key(), "hills_without_the_tower");
+        assert_eq!(ParallaxTheme::named_by_room_metadata(&metadata).map(ParallaxTheme::key), Some("hills"));
+        metadata.visual_profile.backdrop = None;
+        assert_eq!(ParallaxTheme::backdrop_of_room(&metadata).key(), "hills");
     }
 }

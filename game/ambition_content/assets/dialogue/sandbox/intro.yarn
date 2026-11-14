@@ -3,7 +3,7 @@ title: creator_intro
 <<present_speaker "npc_creator">>
 <<portrait_clip "talking">>
 <<if condition("encounter.cleared", "intro_workshop_raid")>>
-    Creator: I'm all right. Go and look at the door. I want to know what they broke.
+    Creator: Scout. Over here. Give me a minute, I have to sit down.
     -> ⟨go⟩
 <<elseif condition("world.flag_set", "intro_torque_gauge_found")>>
     <<jump creator_intro__gauge>>

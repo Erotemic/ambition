@@ -1356,7 +1356,8 @@ fn place_loading_combat_pair(app: &mut App, fighter: Entity) -> Entity {
     let room = ambition_platformer2d::world::rooms::live_room_spec_of(world, fighter).unwrap();
     let floor = room.world.blocks.iter().filter(|block|
         ambition_platformer2d::engine_core::collision_semantics::is_full_collision_surface(block.kind)
-            && block.aabb.width() >= 256.0 && block.aabb.height() <= 128.0
+            // Any height: a hill room's ground is earth down to the room's floor.
+            && block.aabb.width() >= 256.0
             && block.aabb.top() >= 96.0 && block.aabb.top() < room.world.size.y)
         .map(|block| block.aabb).find(|floor| halves.iter().zip([-20.0, 20.0]).all(|(half, dx)|
             room.embeds(Aabb::new(ambition_platformer2d::engine_core::Vec2::new(

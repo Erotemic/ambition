@@ -20,28 +20,23 @@ use ambition_platformer2d::world::navigation::NavGraph;
 
 use crate::common::{base, fixed_60hz_room_sim};
 
-/// The playthrough's crossings, in its order: (the room, the room its exit
-/// leads to).
-/// Level 1's other required ways follow: the pursuit to the siding, and the
-/// way on to the ring.
+/// Level 1's crossings, each arriving from the one before: out along the
+/// line from the hub to the siding below the gate, and back to the lane.
 const CROSSINGS: &[(&str, &str)] = &[
     ("central_hub_complex", "intro_wake_room"),
     ("intro_wake_room", "intro_hobford_lane"),
     ("intro_hobford_lane", "intro_millstream"),
     ("intro_millstream", "intro_hobford"),
     ("intro_hobford", "intro_woods"),
+    ("intro_woods", "intro_high_meadow"),
+    ("intro_high_meadow", "intro_gate_clearing"),
+    ("intro_gate_clearing", "intro_freight_yard"),
+    ("intro_freight_yard", "intro_gate_clearing"),
+    ("intro_gate_clearing", "intro_high_meadow"),
+    ("intro_high_meadow", "intro_woods"),
     ("intro_woods", "intro_hobford"),
     ("intro_hobford", "intro_millstream"),
     ("intro_millstream", "intro_hobford_lane"),
-    ("intro_hobford_lane", "intro_high_meadow"),
-    ("intro_high_meadow", "intro_gate_clearing"),
-    ("intro_gate_clearing", "intro_freight_yard"),
-    ("intro_freight_yard", "intro_woods"),
-    ("intro_woods", "intro_freight_yard"),
-    ("intro_freight_yard", "intro_gate_clearing"),
-    ("intro_gate_clearing", "intro_high_meadow"),
-    ("intro_high_meadow", "intro_hobford"),
-    ("intro_hobford", "intro_high_meadow"),
 ];
 
 /// The player's body as the hub spawns it.

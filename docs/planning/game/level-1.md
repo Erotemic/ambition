@@ -106,15 +106,18 @@ or walk around the country. Every way is open from the start.
 ## Map
 
 ```
-                       (ridge path, secret high way) ----------------------.
-                      /                                                     \
-[THE WORKSHOP]--[HOBFORD LANE]------[THE HIGH MEADOW]------[THE GATE CLEARING]
- intro_wake_room  intro_hobford_lane  intro_high_meadow      intro_gate_clearing
-                      | bank down          | hill path              | siding stair
-                 [THE MILLSTREAM]----[HOBFORD]----------[HOBFORD WOODS]---[THE FREIGHT SIDING]
-                  intro_millstream    intro_hobford      intro_woods         intro_freight_yard
-                                                          (Bob's camp)
+[THE WORKSHOP]--[HOBFORD LANE]                                          [THE HIGH MEADOW]--[THE GATE CLEARING]
+ intro_wake_room  intro_hobford_lane                                     intro_high_meadow   intro_gate_clearing
+                        \ the bank path down             the hill path up /                   \ the freight track down
+                         [THE MILLSTREAM]--[HOBFORD]--[HOBFORD WOODS]                             [THE FREIGHT SIDING]
+                          intro_millstream  intro_hobford intro_woods (Bob's camp)                 intro_freight_yard
 ```
+
+One line of rooms, west to east: the barn on the west hill, the valley, the
+gate on the east hill. Each join is an edge at one height; the lane, the
+meadow and the clearing are hill rooms that climb between the hilltops'
+height and the valley's on slopes. The design and its reasons are in
+[Hobford polish](hobford-polish.md) ("The land").
 
 Ids: `intro_wake_room` and `intro_freight_yard` are kept (tests, the gate
 network and saves name them). The rest are new. Removed from the intro
@@ -125,9 +128,9 @@ under the gate stack, outside level 1 (D5).
 | room | title | what the place asks | who is there |
 |---|---|---|---|
 | `intro_wake_room` | THE WORKSHOP | walk, the first jump (the test plinth), up to the parts loft and back down (drop through) | the Creator |
-| `intro_hobford_lane` | HOBFORD LANE | the first open air; three ways out; terraces up the slope | Alice, hens |
-| `intro_high_meadow` | THE HIGH MEADOW | dry-stone walls and banks in tiers; the cart track | a farm dog |
-| `intro_gate_clearing` | THE GATE CLEARING | the ring, the guard post, the barrier and its lever | the gate clerk (not built, D20) |
+| `intro_hobford_lane` | HOBFORD LANE | the first open air, high on the west hill; the bank path down to the mill | Alice, hens |
+| `intro_high_meadow` | THE HIGH MEADOW | the hill path up from the woods, the shepherd's terrace, a dry-stone wall | a farm dog |
+| `intro_gate_clearing` | THE GATE CLEARING | the gate on the hilltop, the guard post, the barrier and its lever, the freight track down | the gate clerk (not built, D20) |
 | `intro_freight_yard` | THE FREIGHT SIDING | the goblins' camp: a fight in tiers of stacked freight | goblin raiders, their foreman |
 | `intro_millstream` | THE MILLSTREAM | stepping stones, the mill wheel, the pond (swim), a cracked wall behind the wheel | the miller (not built, D20) |
 | `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | villagers (not built, D20) |
@@ -188,12 +191,12 @@ of it (staging rules: [level design guide](../../authoring/level-design-guide.md
 
 ### Hobford Lane (`intro_hobford_lane`)
 
-The first open air: the lane outside the barn, hens, a hedge bank, and the
-slope above in one-way terraces up to the ridge path (a high way east to the
-gate clearing). Alice's survey line is strung across the ridge path at its
-foot (`alice_survey_line`, a `LockWall` on `bob_field_survey_received`):
-the low ways east and down the bank are open; the ridge path opens when her
-survey is closed. A door goes down the bank to the millstream.
+The first open air: the lane outside the barn, high on the west hill, hens,
+and the valley below with the gate far off on the east hill. Alice's survey
+line is pegged across the lane west of her station (`alice_survey_line`, a
+24 px `LockWall` on `bob_field_survey_received`): a step over, until Bob's
+survey is in. Past her the bank path goes down to the mill in two pitches
+with a landing between; the lane's east edge is at the stream's height.
 
 **Alice** (`meets_the_player`), `alice_lane`:
 
@@ -215,31 +218,31 @@ survey is closed. A door goes down the bank to the millstream.
 
 ### The high meadow (`intro_high_meadow`)
 
-Pasture in tiers: two stone walls, a turf bank, a shepherd's hut whose roof
-is reached up an oak's limbs, the ridge path along the top. The farm dog
-(`companion_dog_roam`). A door down to Hobford; east to the clearing, low
-and high.
+The hill path climbs out of the woods in two pitches. Halfway up is the
+shepherd's terrace, with his hut (a step of 64), the oak and the farm dog
+(`companion_dog_roam`). At the top a dry-stone wall to hop and the road on
+to the clearing.
 
 ### The gate clearing (`intro_gate_clearing`)
 
-Standing stones, the guard post (its roof a ledge), the barrier
-(`hobford_barrier`, a `LockWall` on `world.flag_set hobford_barrier_lifted`)
-and its lever on the far side, reached over the post's roof. The lever sets
-the flag and nothing clears it, so the barrier stays up once lifted. Behind
-it the gate of the new facility `hobford_ring` (address TILLAGE, D18), its
-dialer and terminal. A door down the siding stair, and the post's back door into
-the siding's far end.
+Standing stones, the guard post, the barrier (`hobford_barrier`, a
+`LockWall` on `world.flag_set hobford_barrier_lifted`) and its lever beside
+it on the road's side. The lever sets the flag and nothing clears it, so
+the barrier stays up once lifted. Behind it the gate of the new facility
+`hobford_ring` (address TILLAGE, D18), its dialer and terminal. Past the
+gate the freight track goes down the hill to the siding.
 
 ### The freight siding (`intro_freight_yard`)
 
 Stacked freight and pallets on the platform. `foreman_siding` at the foot of
-the stair ("That's the robot from the barn. It walked here."). The fight
+the freight track ("That's the robot from the barn. It walked here."). The fight
 (`intro_freight_yard_fight`): two raiders, then the brute and another
 raider. The platform bell is its linked switch. The work order on the
 goblins' crate (`work_order`): "THE WORKSHOP AT THE OLD MILL, HOBFORD", not
 the barn (`wrong_list_clue_2`, D17). The crate holds the Creator's case
 (`intro_creator_notes_recovered`, a story-flag reward, D8); the quest
-`intro_creator_case` reads it. West, the trail into the woods.
+`intro_creator_case` reads it. It is a dead end below the gate; the way
+out is back up the track.
 
 ### The millstream (`intro_millstream`)
 
@@ -252,8 +255,8 @@ mill's porch, upper floor and loft window (coins). East is Hobford.
 
 Cottage, smithy and inn with porches and roofs to climb (coins in the
 smithy loft), the well, signs for the gate goods shed and the inn, the
-notice board (the freight window, a lost hen, strangers at the ring). A door
-up to the meadow; west the millstream, east the woods.
+notice board (the freight window, a lost hen, strangers at the ring). West
+the millstream, east the woods.
 
 ### Hobford woods (`intro_woods`)
 
@@ -267,9 +270,9 @@ the lost hen, a goblin lookout at the far end. **Bob**, `bob_woods`:
   the siding."
 - `bob_woods__warned`: he moves up by the hollow oak, gives his survey sheet
   (`fieldsurvey`) and sets `bob_field_survey_received` (the flag chain adds
-  `map_private_marks_unlocked`). That takes Alice's line off the ridge path.
+  `map_private_marks_unlocked`). That takes up Alice's line across the lane.
 
-East, the trail to the siding.
+East, the goblins' trail out of the trees and up the hill path.
 
 ### Choices
 
@@ -279,9 +282,8 @@ Bob, Alice again); go after the goblins at the siding (the fight, the work
 order, the Creator's case); walk the country (the meadow, the clearing and
 its barrier, the millstream's hollow, the village roofs, the woods' hollow
 oak). Bob can be warned without Alice's message. One way changes on a
-story fact: Alice's line across the ridge path comes down when Bob's survey
-is closed (D21). It is a high shortcut; the low way to the clearing is
-always open.
+story fact: Alice's line across the lane comes up when Bob's survey is
+closed (D21). It is a step over, so no way waits on it.
 
 ## Systems used
 
@@ -365,4 +367,4 @@ freight is turf blocks.
 | D18 | The Hobford ring's address is TILLAGE (inscription letters only). Its posted list is LEGAL; the note: "Freight window daily at noon. Persons by appointment." | change the ring row |
 | D19 | The raid also starts when Scout walks to the barn door without talking to the Creator (its trigger is between him and the door), so the barn cannot be a dead end. The sim's agent action has no menu select, so the walked route takes this start and the playthrough the conversation. | put the trigger out of reach again (the raid then needs the talk) |
 | D20 | Not built yet: the gate clerk, the miller and villagers (the notice board and signs carry the village's lines). | add `NpcSpawn` rows and nodes |
-| D21 | Alice's survey line across the ridge path is a `LockWall` on `bob_field_survey_received`, against the brief's "no story-fact gates": the Alice/Bob acceptance tests (`the_note_reaches_bob_and_opens_alices_return`, `the_hand_over_opens_the_wall_in_the_other_participants_room`) pin a wall that opens on Bob's survey. It shuts only a shortcut. | a lever or a cut for the line, and port the two tests to another fact |
+| D21 | Alice's survey line across the lane is a low `LockWall` (a step over) on `bob_field_survey_received`, against the brief's "no story-fact gates": the Alice/Bob acceptance tests (`the_note_reaches_bob_and_opens_alices_return`, `the_hand_over_opens_the_wall_in_the_other_participants_room`) pin a wall that opens on Bob's survey. It shuts nothing. | a lever or a cut for the line, and port the two tests to another fact |

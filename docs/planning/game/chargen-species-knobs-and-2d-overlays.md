@@ -145,8 +145,8 @@ Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
   so the mirrored views stay right. Kept as the dog's and pigeon's were: at
   the defaults a cat draws byte for byte as before (12 seeds, the spec record
   in the SVG's CDATA aside); 2816 generated records keep every older field
-  and only cats gained fields; every non-cat SVG and all 243 resident
-  records are unchanged; the one cat resident (Mina) pins the defaults.
+  and only cats gained fields; no non-cat SVG changed; the one cat
+  resident (Mina) pins the defaults. (The resident check is below.)
 - **horse** (`spec.SPECIES_KNOBS["horse"]`, 2026-11-14, renderer 85f728e):
   `head.face_length` (1 as drawn, 0.7 to 1.5; every height on the head
   moves as `f ** length`, so the crown and chin stay and the brow, eyes and
@@ -155,10 +155,39 @@ Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
   the same on both sides). A front mark is edge-on in the pure side view,
   as the dog's blaze is. Kept as the cat's was: 12/12 default horses draw
   byte for byte as before, 2816 records keep every older field, no
-  non-horse SVG or resident record changed; no resident is a horse.
-- Next: **bird**: crest style.
-  **sea lion**: whisker pads. **alligator**: snout length and width, scute
-  rows.
+  non-horse SVG changed; no resident is a horse.
+- **bird** (`spec.SPECIES_KNOBS["bird"]`, 2026-11-14): `head.crest`
+  (`CRESTS`: `tuft`, the three raked feathers as drawn; `swept`, a long
+  point laid back off the crown; `fan`, five feathers opening from the brow
+  to the nape, broad in profile; `none`, a smooth crown) and
+  `head.crest_size` (the feathers' length, 1 as drawn, 0.6 to 1.6). Kept as
+  the horse's was: 12/12 default birds draw byte for byte as before, 2816
+  records keep every older field, no non-bird SVG changed; no resident
+  is a bird.
+- **sea lion** (`spec.SPECIES_KNOBS["sea_lion"]`, 2026-11-14):
+  `head.whisker_pads` (how full the pads stand out, 1 as drawn, 0 flat, up
+  to 2.5: a relief on the head) and `head.whiskers` (their length, 1 as
+  drawn, 0.5 to 1.6). The pads change the outline only a little at any
+  value; the whiskers read at game scale.
+- **alligator** (`spec.SPECIES_KNOBS["alligator"]`, 2026-11-14):
+  `head.snout_width` (the head's rings' breadth, 1 as drawn, 0.8 to 1.25;
+  the skull rows that hats and hair fit keep their width; the snout's
+  length stays `muzzle`) and `head.scute_rows` (`SCUTE_ROWS`: `two`, the
+  rows beside the spine as drawn; `four`; `none`). The one alligator
+  resident (Nagisa) pins the defaults.
+- **The resident check, redone (2026-11-14).** The comparison script used
+  for the cat, horse and bird loaded each `.chargen.yaml` without dropping
+  its `game:` block, so 239 of the 243 residents failed to load in both the
+  before and after runs, and "resident records unchanged" compared error
+  strings. Rerun with the `game:` block dropped, against the renderer
+  before the cat (81b31ac) and after the alligator: all 243 load, all 243
+  drawings are identical (the SVG with its spec CDATA stripped), and only
+  Mina's and Nagisa's records changed, each gaining its species' knobs at
+  the defaults it pins. Defaults draw byte for byte for each species
+  (12 generated seeds each; 25/25 for the sea lion, the alligator and
+  Nagisa), and 2816 generated records keep every older field.
+- Every species named in the queue row now has its own knobs. None is
+  one-sided, so no left cells were needed.
 
 ## Traps (measured while making the dog and pigeon, renderer 5d0f0bf)
 

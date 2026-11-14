@@ -72,7 +72,7 @@ A layer is not a corridor. The rules:
 | science | planet | 25 | 17472 x 12224 | 1.4 | all four: Eureka surface, collider/plant under, elevator sky, station in space |
 | evil | planet | 22 | 19280 x 8064 | 2.4 | surface moor/hamlet, castle floors, crypt/catacombs under, ridge over |
 | pvn | planet | 22 | 11136 x 16656 | 0.7 | port/village surface, cellars/tunnel under, sky lookout; boss arenas apart |
-| magical | planet | 14 | 17408 x 2688 | 6.5 | surface row, hollow under, void under the castle; no sky |
+| magical (2026-11-14) | planet | 15 | 17408 x 3456 | 5.0 | surface row, hollow under, void under the castle; the Starlight Heights over the square and the road's west end |
 | art (2026-11-03) | planet | 15 | 12400 x 4960 | 2.5 | stacks, plaza and garden surface; amphitheatre, cliffs and reach over; caverns and workshop deeps under; seven buildings |
 | dinosaur (Jungle) | planet | 12 | 25792 x 1888 | 13.7 | one line: the trail, a sinkhole to the fossil beds |
 | math | topological | 19 | 16960 x 4144 | 4.1 | free |
@@ -122,17 +122,25 @@ from the known destination list under discovery policy; the same-dimension
 chain works from a live Jungle room. Extend `the_gate_network.rs` or a
 focused Jungle integration fixture. Do not change the interdimensional gates.
 
-### MG-1 — Magical sky and region loop
+### MG-1 — Magical sky and region loop (done 2026-11-14)
 
-**Owner:** `game/ambition_map_assets/ambition_content/generators/magical/make_specs.py`,
-existing garden/square/hollow/void `.ron` rooms, plus newly authored sky
-rooms. Add a *playable* sky layer and at least two distinct ways to ascend or
-descend, so the ground, high route and hollow/void are connected without a
-one-way corridor.
+`magical_starlight_heights` (generator `magical/make_specs.py`) is the
+clouds over Starlight Square and the Dune Road's west end, 3840 wide, joined
+two different ways: the beanstalk beside the square's well (a climb, both
+ways), and on the road the star spring hanging over the road (jump on: it
+throws a body up through the clouds' floor) with a gap in the clouds east of
+it to drop back down. With the square-to-road side exit that is a loop; the
+hollow joins the square and the garden as before. No room ID changed and the
+gate's arrival is untouched. `the_magical_dimension.rs`
+`the_heights_join_the_square_and_the_road_two_different_ways` walks it by
+keys: square, beanstalk, heights, gap, road, spring, heights, beanstalk,
+square, road. The spring hangs 128 px over the road because on the floor it
+threw every body walking east to the castle into the sky.
 
-**Pass:** Extend `game/ambition_app/tests/the_magical_dimension.rs`: player
-walks/climbs both connections, shortcuts work after their authored triggers,
-and a return path remains. Preserve existing room IDs and authored gate entry.
+Left: the heights have no prop art of their own (clouds are the one-way
+platforms; the bg is the sky colour) and no authored shortcut, since the
+loop needed none. A cloud prop sheet and the beanstalk's art go with the
+next Magical prop publish.
 
 ### MG-2 — Magical arch travel (after MG-1)
 

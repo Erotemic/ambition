@@ -9,11 +9,14 @@
 //! stair of the keep to the lizard's bridge and up the other, and the lizard
 //! talks. Past the bridge, the Void (black and white): the rift, the gallery
 //! under it, the falls, the heart, walked round; its void stars talk. Mary-O
-//! meets the robot in the gate garden.
+//! meets the robot in the gate garden. Over the square and the road, the
+//! Starlight Heights: up the beanstalk, down through a gap in the clouds, and
+//! thrown back up off the star spring.
 
 use ambition_platformer2d::engine_core as ae;
 
-use crate::the_pirate_port::{a_session_in, break_the_wall, go, talk};
+use crate::the_pirate_port::{a_session_in, break_the_wall, go, live_room, talk};
+use crate::neighbor_prefetch_prepares_rooms::alice as primary_body;
 
 const GARDEN: &str = "magical_gate_garden";
 const SQUARE: &str = "magical_starlight_square";
@@ -29,6 +32,7 @@ const NURSERY: &str = "magical_void_nursery";
 const LEDGES: &str = "magical_void_ledges";
 const COLISEUM: &str = "magical_void_coliseum";
 const WASTES: &str = "magical_void_wastes";
+const HEIGHTS: &str = "magical_starlight_heights";
 
 #[test]
 fn the_square_the_hollow_and_the_garden_are_a_loop() {
@@ -119,4 +123,61 @@ fn the_unlit_is_a_loop_from_the_rift_back_to_the_falls() {
     go(&mut app, COLISEUM, Some("ledges_down"));
     go(&mut app, WASTES, Some("coliseum_west"));
     go(&mut app, FALLS, Some("wastes_west"));
+}
+
+/// The Starlight Heights are the region's high route (WORLD-LAYERS MG-1),
+/// joined to the ground two different ways: a climb up the beanstalk by the
+/// square's well, and on the road a gap in the clouds to drop through with
+/// the star spring beside it to be thrown back up. With the square-to-road
+/// exit that is a loop, and no step of it is one way.
+#[test]
+fn the_heights_join_the_square_and_the_road_two_different_ways() {
+    let mut app = a_session_in(SQUARE);
+    go(&mut app, HEIGHTS, Some("square_beanstalk"));
+    go(&mut app, ROAD, Some("heights_cloud_gap"));
+    ride_the_star_spring(&mut app);
+    go(&mut app, SQUARE, Some("heights_beanstalk"));
+    go(&mut app, ROAD, Some("square_east"));
+}
+
+/// From where the cloud gap lets a body down on the road, walk by keys to
+/// beside the star spring, which hangs over the road, jump onto it from the
+/// east and let it throw the body up into the heights.
+fn ride_the_star_spring(app: &mut bevy::prelude::App) {
+    use crate::common::walk::{Keys, Press, Walker};
+    // The spring's middle, in the road's own frame (`make_specs.py` `PAD`).
+    const SPRING_X: f32 = 928.0;
+    let body = primary_body(app);
+    // One set of keys throughout: dropping it lets every key up.
+    let mut keys = Keys::new(app);
+    let x_of = |keys: &Keys| keys.world().get::<ae::BodyKinematics>(body).expect("the player has a body").pos.x;
+    for attempt in 0..3 {
+        // Stand clear of the spring on its east side.
+        for _ in 0..300 {
+            let x = x_of(&keys);
+            if (x - (SPRING_X + 120.0)).abs() < 8.0 {
+                break;
+            }
+            keys.step(Press { axis: if x > SPRING_X + 120.0 { -1.0 } else { 1.0 }, ..Press::default() });
+        }
+        for _ in 0..10 {
+            keys.step(Press::default());
+        }
+        // Jump west onto it, and stop steering once over its middle.
+        for frame in 0..240 {
+            if live_room(keys.app) == HEIGHTS {
+                drop(keys);
+                for _ in 0..60 {
+                    app.update();
+                }
+                assert_eq!(live_room(app), HEIGHTS, "the throw ends in the heights, not back on the road");
+                return;
+            }
+            let x = x_of(&keys);
+            let axis = if x > SPRING_X + 10.0 { -1.0 } else if x < SPRING_X - 10.0 { 1.0 } else { 0.0 };
+            keys.step(Press { axis, jump_pressed: frame == 0, jump_held: frame < 20, ..Press::default() });
+        }
+        eprintln!("the jump onto the star spring missed (attempt {attempt})");
+    }
+    panic!("the star spring never threw the player up into the heights");
 }

@@ -256,9 +256,19 @@ defaults, so nothing was republished.
 strip, blaze or snip face mark; defaults draw the old head byte for byte,
 older records keep every field, and no resident is a horse.
 
-**Next action:** the other listed species (bird, sea lion, alligator). Keep parameter defaults, generation and studio controls
-at their canonical owners. Add explicit left cells for asymmetric details;
-reuse the existing overlay mechanism. New random draws follow existing draws.
+**Bird done 2026-11-14:** a tuft, swept, fan or no crest and its size;
+defaults draw the old head byte for byte, and no resident is a bird.
+
+**Sea lion and alligator done 2026-11-14:** whisker pads and whisker
+length; snout width and two, four or no scute rows. Nagisa pins the
+alligator defaults. A redone resident check (the old one loaded 239 of 243
+residents as errors) finds all 243 drawings identical to the renderer
+before the cat, and only Mina's and Nagisa's records gain their pins.
+
+**Next action:** every listed species has its knobs. What is left is the
+acceptance at game scale: posed clips per species with the new knobs, and
+left cells for a one-sided detail when one is first wanted (none is yet).
+Nothing published changed, so nothing is republished.
 
 **Acceptance:** head crops and posed clips show distinct valid shapes in every
 view; heads stay attached and asymmetric features keep their side. Existing
@@ -416,8 +426,13 @@ reach checks and same-dimension rules already landed in `c818c0801`.
 [Art dimension follow-up](game/art-dimension.md#ideas-for-later), and
 [History dimension follow-up](game/history-dimension.md#the-road-ahead).
 
+**Magical's sky done 2026-11-14 (MG-1):** the Starlight Heights over the
+square and the road, joined by the beanstalk and by the star spring and its
+cloud gap; walked by keys in `the_magical_dimension.rs`
+([MG-1](game/world-layers-and-travel.md#mg-1--magical-sky-and-region-loop-done-2026-11-14)).
+
 **Next action:** fold Jungle into surface, underground and canopy regions,
-then add Magical's sky and local arch network. Reuse the existing portal and
+then add Magical's local arch network (MG-2). Reuse the existing portal and
 gate machinery. Keep authored rooms editable in LDtk. Recheck old room-detail
 counts before selecting missing props, secrets or region links. Then recheck
 Art's remaining publication, cues and places against the live assets. Keep its

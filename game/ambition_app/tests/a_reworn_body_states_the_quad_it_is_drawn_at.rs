@@ -137,3 +137,61 @@ fn a_player_that_changes_form_takes_the_size_of_that_form() {
         "a change of form built another body"
     );
 }
+
+/// What the simulation reads of a body's geometry and motion: its standing
+/// box, its collision size, its resolved hurtboxes and its movement tuning.
+fn sim_geometry(sim: &mut ambition_app::rl_sim::Platformer2dSimHarness, body: Entity) -> String {
+    let world = sim.world();
+    format!(
+        "{:?} {:?} {:?} {:?} {:?}",
+        world.get::<BodyBaseSize>(body).map(|size| size.base_size),
+        world.get::<BodyKinematics>(body).map(|kin| kin.canonical_size),
+        world.get::<ambition_platformer2d::combat::hurtbox_resolution::ResolvedHurtboxes>(body),
+        world.get::<ambition_platformer2d::engine_core::AuthoredMovementTuning>(body).map(|tuning| tuning.0),
+        world.get::<ambition_platformer2d::engine_core::ActiveMovementTuning>(body).map(|tuning| tuning.0),
+    )
+}
+
+/// CHARACTER-FORM slice 3: a skin is presentation only. The player puts on the
+/// dog's look (`WornSkin`) and its standing box, collision size, hurtboxes and
+/// movement tuning stay as they were. The control is the dog's FORM
+/// (`WornCharacter`) on the same body, which moves them.
+#[test]
+fn a_skin_change_moves_no_collider_hurtbox_or_movement_value() {
+    use ambition_app::rl_sim::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
+    use ambition_platformer2d::characters::actor::WornSkin;
+    const LOOK: &str = "npc_companion_dog";
+    let boot = || {
+        let mut sim = Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_room_options("switch_lab"))
+            .expect("the room boots");
+        sim.step_n(AgentAction::default(), 10);
+        let body = {
+            let world = sim.world_mut();
+            world
+                .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                .single(world)
+                .expect("a player")
+        };
+        (sim, body)
+    };
+
+    let (mut sim, body) = boot();
+    let before = sim_geometry(&mut sim, body);
+    sim.world_mut().entity_mut(body).insert(WornSkin(LOOK.into()));
+    sim.step_n(AgentAction::default(), 30);
+    let skinned = sim_geometry(&mut sim, body);
+    let wears = sim.world().get::<WornCharacter>(body).map(|worn| worn.id().to_owned());
+    let skin = sim.world().get::<WornSkin>(body).map(|skin| skin.id().to_owned());
+
+    let (mut control, control_body) = boot();
+    *control.world_mut().get_mut::<WornCharacter>(control_body).expect("the player wears a character") =
+        WornCharacter::new(LOOK);
+    control.step_n(AgentAction::default(), 30);
+    let formed = sim_geometry(&mut control, control_body);
+
+    println!("[skin] before {before}\n[skin] skinned {skinned}\n[skin] the dog's form {formed}");
+    assert_eq!(skin.as_deref(), Some(LOOK), "premise: the body wears the skin");
+    assert_ne!(wears.as_deref(), Some(LOOK), "premise: the skin did not change the worn character");
+    assert_eq!(skinned, before, "a skin change moved the body's geometry or motion");
+    assert_ne!(formed, before, "the control: the dog's form did not move the body's geometry, so the reading cannot tell a skin from a form");
+}

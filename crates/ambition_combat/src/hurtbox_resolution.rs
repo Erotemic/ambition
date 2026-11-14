@@ -280,10 +280,10 @@ pub fn resolve_body_hurtboxes(
 ) {
     for (authored, rig, playback, pose, kin, feet, mut resolved) in &mut bodies {
         if authored.is_none() && rig.is_none() {
-            // Nothing authors this body's hurtboxes. Only what a RIG put here
-            // is taken back: a body that loses its rig must not keep its last
-            // rig pose as a hurt shape.
-            if resolved.source == HurtboxSelection::RigDefault {
+            // Nothing authors this body's hurtboxes now. Whatever an authored
+            // document or a rig put here is taken back: a body that changes
+            // to a form with neither must not keep the last form's hurt shape.
+            if resolved.source != HurtboxSelection::Unauthored {
                 *resolved = ResolvedHurtboxes::default();
             }
             continue;

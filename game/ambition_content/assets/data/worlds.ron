@@ -17,8 +17,9 @@
         // The dinosaur dimension: the primeval trail, from the trailhead's
         // ring (gate address GENESIS) east to the tyrant's hall.
         (id: "world.dinosaur_ldtk", file: "dinosaur.ldtk"),
-        // The noodle dimension: the Noodly Temple, from its narthex's ring
-        // (gate address ALDENTE) to the sanctum.
+        // The noodle dimension: the village of Brothlehem, whose square holds
+        // the ring (gate address ALDENTE); the Pilgrims' Way up to the Noodly
+        // Temple; and the road east to Mount Fizzuvius, the soda volcano.
         (id: "world.noodle_ldtk", file: "noodle.ldtk"),
         // The Math dimension: a gate in `gate_stack_lower` is the way in.
         (id: "world.math_ldtk", file: "math.ldtk"),

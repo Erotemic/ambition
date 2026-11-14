@@ -142,7 +142,7 @@ from the start.
 | `GALACTIC` | `orbital_station_gate_arrival` | `orbital_station_gate_dock` | the station's decks | yes |
 | `SAILING` | `pirate_port_gate_arrival` | `pirate_port_gate_plaza` | the port's docks and the cove | yes |
 | `SILENT` | `ninja_village_gate_arrival` | `ninja_village_gate_shrine` | the village, the forest, the dojo | yes |
-| `ALDENTE` | `noodly_narthex_gate` | `noodly_narthex` | the Noodly Temple | yes |
+| `ALDENTE` | `noodle_village_gate` | `noodle_village_square` | Brothlehem's market, the Pilgrims' Way up to the Noodly Temple, the road east to Mount Fizzuvius | yes |
 | `DESTINY` | `magical_gate_zone` | `magical_gate_garden` | east to Starlight Square, down its well to the Starless Hollow, out along the Dune Road | yes |
 | `EASEL` | `art_plaza_gate` | `art_painters_plaza` | east to the Sculpture Garden, west to the Story Stacks, the lift up to the Sketchbook Cliffs (the Amphitheatre west of them, the Resonant Reach east), down to the Inkfall Caverns and on to the Workshop Deeps | yes |
 | `DYNASTIC` | `history_cradle_gate` | `history_cradle` | the grid of history: east through the ages, ladders between the regions, from the Cradle out of Africa to every land mass | yes |

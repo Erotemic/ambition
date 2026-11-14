@@ -10,14 +10,17 @@ that the character can pick up and use as a weapon."
 
 ## What it is
 
-Seven rooms round one hall, from a door in the central hub ("to the Noodly
-Temple"). The rooms are written by
+Seven rooms round one hall. The front door of the narthex opens on the top
+of the Pilgrims' Way, up from Brothlehem, the village of the dimension
+([noodle-dimension.md](noodle-dimension.md)); a door in the central hub ("to
+the Noodly Temple") also leads in. The dimension's ring (ALDENTE) is in the
+village. The rooms are written by
 `game/ambition_map_assets/ambition_content/generators/noodly_temple/make_specs.py`. Change the
 script and run it with `--apply`; do not change the rooms in the map.
 
 | Room | Behind | What it asks | What it gives |
 | --- | --- | --- | --- |
-| `noodly_narthex` | the hub door | nothing: Ramen-nujan says what the temple is | (the alms, behind a green door) |
+| `noodly_narthex` | the front door (from the stair) and the hub door | nothing: Ramen-nujan says what the temple is | (the alms, behind a green door) |
 | `noodly_nave` | open | the hall, with a shrine | a way to each other room |
 | `noodly_scullery` | open | a fight of three waves that shuts the room | the Marinara Key (red) |
 | `noodly_cistern` | a red door | three wheels and five gates | the Pesto Key (green) |
@@ -115,8 +118,9 @@ with a `GroundItem` (`held_item: "pool_noodle"`).
 
 `python game/ambition_map_assets/ambition_content/generators/noodly_temple/check_temple.py` (from `tools/ambition_ldtk_tools`)
 walks a model of the level. It fails when the monster, a key or a room can
-not be reached, and when the player can be in a place from which the door of
-the hub can not be reached again. Run it after each change of the rooms.
+not be reached, and when the player can be in a place from which no way out
+(the door of the hub, or the front door) can be reached again. Run it
+after each change of the rooms.
 `game/ambition_app/tests/the_noodly_temple.rs` asks the game what the model
 takes as given. Its `a_player_walks_in_takes_the_four_keys_and_beats_the_monster`
 plays the level from the hub to the monster's defeat with the player's own

@@ -113,11 +113,11 @@
         portal_sprite_name: "Lobby Gate Portal",
         ring_sprite_name: "Lobby Gate Ring",
     ),
-    // The Noodly Temple's narthex.
-    "noodly_narthex_gate": (
+    // The Noodle dimension's ring, in the square of Brothlehem.
+    "noodle_village_gate": (
         command: Dialed,
-        portal_sprite_name: "Noodly Gate (Narthex) Portal",
-        ring_sprite_name: "Noodly Gate (Narthex) Ring",
+        portal_sprite_name: "Brothlehem Gate Portal",
+        ring_sprite_name: "Brothlehem Gate Ring",
     ),
     // The military gate annex, off the General's tower (SENTINEL).
     "military_gate_zone": (

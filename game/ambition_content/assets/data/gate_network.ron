@@ -50,7 +50,7 @@
         (id: "eureka_gate_court", name: "Eureka Gate Court", dimension: "science"),
         (id: "pirate_port_plaza", name: "Pirate Port Gate Plaza", dimension: "pvn"),
         (id: "ninja_village_shrine", name: "Ninja Village Gate Shrine", dimension: "pvn"),
-        (id: "noodly_temple_narthex", name: "Noodly Temple Narthex", dimension: "noodle"),
+        (id: "noodle_village_square", name: "Brothlehem Gate Square", dimension: "noodle"),
         (id: "starlight_gate_garden", name: "Starlight Gate Garden", dimension: "magical"),
         (id: "art_painters_plaza", name: "Painter's Plaza Ring", dimension: "art"),
         (id: "history_cradle", name: "Cradle Ring", dimension: "history"),
@@ -229,17 +229,18 @@
             note: "Shrine ring. Bow to the keeper; the keeper keeps the log.",
         ),
         // ── Noodle (the Noodly Temple) ────────────────────────────────────
-        // The temple's own ring, in its narthex: the way to the Noodle
-        // dimension.
+        // The Noodle dimension's ring, in the square of Brothlehem, the
+        // village under the temple's hill: the hub of the dimension. The
+        // temple is up the Pilgrims' Way, and the soda volcano is east.
         (
-            zone: "noodly_narthex_gate",
-            name: "Noodly Temple narthex",
-            facility: "noodly_temple_narthex",
-            room: "noodly_narthex",
+            zone: "noodle_village_gate",
+            name: "Brothlehem gate square",
+            facility: "noodle_village_square",
+            room: "noodle_village_square",
             address: Some("ALDENTE"),
-            terminal: Some("noodly_gate_terminal"),
+            terminal: Some("noodle_village_gate_terminal"),
             posted: ["LEGAL"],
-            note: "Temple ring. The pilgrims keep it clean; the sauce does not.",
+            note: "Pilgrims' ring. The pilgrims keep it clean; the sauce does not.",
         ),
         // ── Magical (Mary-O's dimension) ─────────────────────────────────
         (

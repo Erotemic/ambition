@@ -105,7 +105,7 @@ mod tests {
             ("SAILING", "pirate_port_gate_plaza"),
             ("SILENT", "ninja_village_gate_shrine"),
             ("GALACTIC", "orbital_station_gate_dock"),
-            ("ALDENTE", "noodly_narthex"),
+            ("ALDENTE", "noodle_village_square"),
         ] {
             let ring = catalog.ring_named(address).unwrap_or_else(|| panic!("no ring answers `{address}`"));
             assert_eq!(ring.room, room, "`{address}`");

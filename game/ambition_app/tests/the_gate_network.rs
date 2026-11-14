@@ -267,7 +267,7 @@ fn each_destination_is_reached_from_the_hub_and_its_terminal_leads_home() {
         ("GALACTIC", "orbital_station_gate_dock", "orbital_station_gate_arrival", "orbital_station_gate_terminal"),
         ("SAILING", "pirate_port_gate_plaza", "pirate_port_gate_arrival", "pirate_port_gate_terminal"),
         ("SILENT", "ninja_village_gate_shrine", "ninja_village_gate_arrival", "ninja_village_gate_terminal"),
-        ("ALDENTE", "noodly_narthex", "noodly_narthex_gate", "noodly_gate_terminal"),
+        ("ALDENTE", "noodle_village_square", "noodle_village_gate", "noodle_village_gate_terminal"),
         ("DESTINY", "magical_gate_garden", "magical_gate_zone", "magical_gate_terminal"),
         ("EASEL", "art_painters_plaza", "art_plaza_gate", "art_gate_terminal"),
         ("DYNASTIC", "history_cradle", "history_cradle_gate", "history_gate_terminal"),

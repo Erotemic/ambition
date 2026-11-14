@@ -1,0 +1,54 @@
+title: noodle_context
+---
+// The Noodle dimension round the Noodly Temple (gate address ALDENTE): the
+// village of Brothlehem, the Pilgrims' Way up to the temple, and Mount
+// Fizzuvius, the soda volcano. One node per resident, named
+// `noodle_<place>_<resident>`. The rooms are written by
+// `game/ambition_map_assets/ambition_content/generators/noodle_village/make_specs.py`.
+// Ramen-nujan, in the temple's narthex, is in `kernel.yarn`.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: noodle_village_duckling
+---
+Duckling: Ah. A new arrival. Stand still, I am counting you.
+-> What are you counting?
+    Duckling: Pilgrims. Two hundred came through the ring this week. Each one copied the pilgrim before him: the colander hat, the bow, the word "Ramen" at the end of every sentence.
+    Duckling: Nobody taught them. They caught it. That is what a meme is. I named the thing, you know.
+-> Do you believe in Him?
+    Duckling: I believe that people believe in Him. It is the most successful replicator I have ever seen, and it is made of pasta.
+    Duckling: I came to study it. Three weeks later I own a colander. Draw your own conclusions.
+-> Where do the roads go?
+    Duckling: West is the Pilgrims' Way: through the wheat, up the stair, to the temple's door. Everyone goes west.
+    Duckling: East is the market, then the springs, then Mount Fizzuvius. Nobody goes east twice. The soda stings.
+-> Carry on.
+===
+
+title: noodle_village_curry
+---
+Marie Curry: Sit. The udon is ready. The curry is nearly ready. Do not touch the pot that glows.
+-> What is the soda on the mountain?
+    Marie Curry: Carbonic acid: water with carbon dioxide forced into it. The mountain makes the gas, and the springs carry it up.
+    Marie Curry: It is a weak acid. Weak is not the same as nothing. It will sting you and throw you out, and you will not float in it.
+-> Why does it erupt?
+    Marie Curry: A nucleation event. The gas waits for a rough surface to form bubbles on. A mint is very rough, at a small scale.
+    Marie Curry: A thousand years ago someone dropped a mint in the vent. Someone else took it out. The mountain has been calm since. I have checked.
+-> Why curry, in a temple town?
+    Marie Curry: The pilgrims eat noodles three times a day. I add a variable. Precision matters in both science and cooking.
+-> Thank you.
+===
+
+title: noodle_fizzy_hermit
+---
+Weird Hermit: Stop. Do you have mints?
+-> No mints.
+    Weird Hermit: Good. Good. The mountain listens for mints. It heard one, a thousand years ago, and the sky was soda for a week.
+-> Why do you live by the springs?
+    Weird Hermit: Someone has to watch them. They bubble in patterns. Three small, one large. Three small, one large.
+    Weird Hermit: The village says it is gas. The village does not watch the patterns.
+-> What is up the mountain?
+    Weird Hermit: Rock candy, and the soda running down through it. At the top, the crater, and the lake, and the corks that float on it.
+    Weird Hermit: And the Mint. They left it up there on the rim, where the mountain can see it and be calm. Do not put it back in.
+-> Goodbye.
+===

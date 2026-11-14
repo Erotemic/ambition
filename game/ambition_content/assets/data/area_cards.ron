@@ -32,6 +32,9 @@
 
     // ---- the Noodle dimension ----
     (name: "The Noodly Temple", subtitle: Some("The Noodle Dimension"), rooms: ["noodly_*"]),
+    (name: "Brothlehem", subtitle: Some("The Noodle Dimension"), rooms: ["noodle_village_*"]),
+    (name: "The Pilgrims' Way", subtitle: Some("The Noodle Dimension"), rooms: ["noodle_durum_terraces", "noodle_temple_stair"]),
+    (name: "Mount Fizzuvius", subtitle: Some("The Noodle Dimension"), rooms: ["noodle_fizzy_flats", "noodle_fizzuvius_*"]),
 
     // ---- the Math dimension ----
     (name: "Math Town", subtitle: Some("The Math Dimension"), rooms: ["math_*"]),

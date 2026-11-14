@@ -777,12 +777,11 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_content_schemas::rules::AMBITION_RULES_SCHEMA,
         publish: publish_ambition_tuning,
     },
-    // The launcher row is read once, when the provider builds the launcher,
-    // so it keeps its start words until the next start. The dialogue box
-    // reads the selected pack each time it is drawn.
+    // The launcher row is restated from the candidate; the dialogue box reads
+    // the selected pack each time it is drawn.
     PackDerivedFamily {
         domain: ambition_content_schemas::text::AMBITION_TEXT_SCHEMA,
-        publish: publish_nothing_the_selection_carries,
+        publish: publish_launcher_words,
     },
     PackDerivedFamily {
         domain: ambition_content_schemas::flag_chains::FLAG_CHAINS_SCHEMA,
@@ -843,12 +842,27 @@ fn publish_nothing_a_running_game_reads(
 ) {
 }
 
-/// A family whose running readers read the selected pack where they use it:
-/// selecting the new pack is its publication.
-fn publish_nothing_the_selection_carries(
-    _world: &mut bevy::ecs::world::World,
-    _pack: &ambition_content_pack::PreparedContentPack,
+
+/// Ambition's launcher row and preparation label, restated from the
+/// candidate's text: the launcher draws its rows from the experience registry,
+/// and the next preparation names itself from the route catalog, so the edited
+/// words are shown without a restart. A candidate without the text keeps the
+/// running words (the provider's build refuses such a pack at the start).
+fn publish_launcher_words(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
 ) {
+    use ambition_platformer2d::game_shell::{ShellExperienceId, ShellExperienceRegistry, ShellRouteCatalog};
+    let Some(text) = ambition_content_schemas::text::lowered_ambition_text(pack) else {
+        return;
+    };
+    let id = ShellExperienceId::new(crate::provider::AMBITION_EXPERIENCE);
+    if let Some(mut registry) = world.get_resource_mut::<ShellExperienceRegistry>() {
+        registry.restate_words(&id, &text.line("launcher.label"), &text.line("launcher.description"));
+    }
+    if let Some(mut routes) = world.get_resource_mut::<ShellRouteCatalog>() {
+        routes.restate_preparation_label(&id, &text.line("launcher.preparing"));
+    }
 }
 
 /// The dialogue publishes nothing at the commit: the running Yarn project

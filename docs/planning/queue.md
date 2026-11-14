@@ -1535,6 +1535,18 @@ delete any duplicate Rust value. The [packet catalog](engine/fast-iteration-impl
 owns candidate ports and checks; recheck the current source rather than using
 the 2026-10-16 declaration count as a new inventory.
 
+**Launcher words restated (2026-11-14):** Ambition's launcher row and its
+preparation's name (`data/ambition_text.ron`: `launcher.label`,
+`launcher.description`, `launcher.preparing`) were read once, when the
+provider registered, and kept their start words until the next start; the
+reload table said so (`publish_nothing_the_selection_carries`). The text
+family now restates them from the candidate at the activation
+(`publish_launcher_words`, through `ShellExperienceRegistry::restate_words`
+and `ShellRouteCatalog::restate_preparation_label`); the launcher draws its
+rows from the registry, so the edited words are the next frame's. Witness:
+`a_candidate_that_changes_only_the_launcher_words_restates_the_row` (edit
+the file, reload, activate: about 15 s, with no Cargo build of the content).
+
 **Deferred:** game-specific movement VFX overrides have an agreed optional
 `room_rules` policy but no game currently authors a different look. Promote
 only for such a customer; do not copy the engine's defaults into every pack.

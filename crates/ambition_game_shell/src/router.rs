@@ -78,6 +78,22 @@ impl ShellRouteCatalog {
         self.routes.contains_key(id)
     }
 
+    /// Restate the preparation label of every route of `experience` that
+    /// prepares (the words its loading screen names the preparation by), as a
+    /// content reload does. Returns how many routes took it.
+    pub fn restate_preparation_label(&mut self, experience: &ShellExperienceId, label: &str) -> usize {
+        let mut restated = 0;
+        for spec in self.routes.values_mut().filter(|spec| &spec.experience == experience) {
+            if let Some(plan) = spec.preparation.as_mut() {
+                if plan.label != label {
+                    plan.label = label.to_owned();
+                }
+                restated += 1;
+            }
+        }
+        restated
+    }
+
     /// Every registered route id, in id order. A refusal uses this to list the
     /// routes that exist.
     pub fn ids(&self) -> impl Iterator<Item = &str> {

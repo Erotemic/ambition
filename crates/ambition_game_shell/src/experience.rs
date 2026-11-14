@@ -171,6 +171,23 @@ impl ShellExperienceRegistry {
         self.entries.iter().find(|e| &e.id == id)
     }
 
+    /// Restate the launcher words of experience `id` (its name and
+    /// description), as a content reload does when the provider's authored
+    /// words change. Everything else about the registration stays. Returns
+    /// whether `id` is registered.
+    pub fn restate_words(&mut self, id: &ShellExperienceId, display_name: &str, description: &str) -> bool {
+        let Some(entry) = self.entries.iter_mut().find(|e| &e.id == id) else {
+            return false;
+        };
+        if entry.display_name != display_name {
+            entry.display_name = display_name.to_owned();
+        }
+        if entry.description != description {
+            entry.description = description.to_owned();
+        }
+        true
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &ExperienceRegistration> {
         self.entries.iter()
     }

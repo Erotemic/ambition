@@ -1,8 +1,8 @@
 // The lines Ambition shows (schema `ambition_text`, owned by
-// `ambition_content_schemas::text`). An edit here needs no Rust build: the
-// launcher row is read at the start, and the dialogue box's words each time a
-// box is drawn, so a content reload shows them in the next box. A key names a
-// line, not its words.
+// `ambition_content_schemas::text`). An edit here needs no Rust build: a
+// content reload restates the launcher row and the preparation's name, and the
+// dialogue box reads its words each time a box is drawn, so the next box shows
+// them. A key names a line, not its words.
 //
 // Not here: dialogue (the Yarn files), quest words (`quests.ron`), names
 // (the character catalog), the host's cover (`ambition_app`'s

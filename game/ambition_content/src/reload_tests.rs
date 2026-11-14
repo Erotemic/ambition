@@ -4673,6 +4673,68 @@ fn a_candidate_that_changes_only_voiceprints_publishes_the_voice_catalog() {
     assert_eq!(resolve_bob(&app), Some(ROBOT), "the activation did not publish the candidate's voices");
 }
 
+/// CONTENT-AS-DATA: a reload that changes only the launcher words restates
+/// Ambition's launcher row and its preparation's name at the activation. They
+/// were read once, when the provider registered, and kept their start words
+/// until the next start.
+#[test]
+fn a_candidate_that_changes_only_the_launcher_words_restates_the_row() {
+    use ambition_platformer2d::game_shell::{
+        ExperienceRegistration, ShellExperienceId, ShellExperienceRegistry, ShellRouteCatalog, ShellRouteId,
+        ShellRouteSpec, standard_platformer_preparation_plan,
+    };
+    let id = ShellExperienceId::new(crate::provider::AMBITION_EXPERIENCE);
+    let mut app = host_with_the_shipped_cast();
+    let live = live_pack(&app);
+    let words = ambition_content_schemas::text::lowered_ambition_text(&live).expect("the shipped words").clone();
+    let mut registry = ShellExperienceRegistry::default();
+    registry.register(
+        ExperienceRegistration::new(id.clone(), words.line("launcher.label"), "ambition.route")
+            .with_description(words.line("launcher.description")),
+    );
+    app.world_mut().insert_resource(registry);
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        crate::pack::compile_pack_with(|declared, text| {
+            if declared != "data/ambition_text.ron" {
+                return text;
+            }
+            edited = true;
+            text.replacen(r#""launcher.label": "Ambition","#, r#""launcher.label": "Ambition, edited","#, 1)
+                .replacen(r#""launcher.preparing": "Prepare Ambition","#, r#""launcher.preparing": "Wake Scout","#, 1)
+        })
+        .unwrap_or_else(|failure| panic!("{}", failure.render())),
+    );
+    assert!(edited, "the edit reached no `ambition_text` source");
+    let row = |app: &bevy::app::App| app.world().resource::<ShellExperienceRegistry>().get(&id).unwrap().display_name.clone();
+    let preparing = |app: &bevy::app::App| {
+        app.world().resource::<ShellRouteCatalog>().get(&ShellRouteId::new("ambition.route")).unwrap().preparation.as_ref().unwrap().label.clone()
+    };
+
+    shell_active_on(&mut app, true);
+    // Ambition's own route beside the fixture's: the one whose preparation
+    // the words name.
+    app.world_mut().resource_mut::<ShellRouteCatalog>().register(
+        ShellRouteSpec::new("ambition.route", id.clone())
+            .preparing_with(standard_platformer_preparation_plan(words.line("launcher.preparing"))),
+    );
+    app.add_systems(bevy::app::Update, (adopt_preparation_transaction, commit_content_generation).chain());
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(std::sync::Arc::clone(&candidate), Some(live.fingerprint)),
+    );
+    assert!(matches!(outcome, ReloadRequest::Requested { .. }), "a words-only candidate was not requested; got {outcome:?}");
+    assert_eq!(preparing(&app), "Prepare Ambition", "control: generation N's preparation name");
+    assert_eq!(row(&app), "Ambition", "the REQUEST restated the row; generation N stays until activation");
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut().write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_eq!(row(&app), "Ambition, edited", "the activation did not restate the launcher row");
+    assert_eq!(preparing(&app), "Wake Scout", "the activation did not restate the preparation's name");
+    let description = app.world().resource::<ShellExperienceRegistry>().get(&id).unwrap().description.clone();
+    assert_eq!(description, words.line("launcher.description"), "a word the edit did not touch moved");
+}
+
 /// A reload that changes only the projectile looks restates Ambition's rows at
 /// the activation: an edited look is drawn with its new art, and a withdrawn
 /// one leaves the catalog. A look another provider registered stays.

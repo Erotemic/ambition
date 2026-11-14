@@ -615,6 +615,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_provider/src/composition.rs",
         "game/ambition_app/src/app/shell_host.rs",
         "game/ambition_app_tools/src/bin/preview_vanity_card.rs",
+        "game/ambition_content/src/reload.rs",
     ),
     "ShellRouteHolds": (
         "crates/ambition_game_shell/src/plugin.rs",
@@ -3546,7 +3547,16 @@ ADJUDICATED: dict[str, str] = {
         "standalone `[[bin]]` tool with its own catalog instance. No two of "
         "these calls ever target the same route id, and every call happens "
         "once during single-threaded App construction before any system "
-        "runs. Measured by CalculexAmbition, 2026-09-18."
+        "runs. Measured by CalculexAmbition, 2026-09-18. "
+        "ADDENDUM 2026-11-14: `game/ambition_content/src/reload.rs` "
+        "(`publish_launcher_words`) writes after assembly, at a content "
+        "generation's activation, and only `ShellRouteCatalog::"
+        "restate_preparation_label`: the `label` of the preparation plan of "
+        "the routes of AMBITION's experience, from the candidate pack's "
+        "`launcher.preparing`. It registers no route, removes none, and "
+        "touches no other field, so the keyed-registry verdict stands; the "
+        "label it writes is the one the provider's build wrote from the same "
+        "file, and a route request reads it when it mints its preparation."
     ),
     "ShellRouteHolds": (
         "A KEYED LEDGER (route, hold id) WHERE EVERY WRITER OWNS A DISTINCT "

@@ -2,8 +2,8 @@
 
 **State:** remaining topology is selected in
 [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions).
-Travel portal mechanics are built (`c818c0801`); Jungle and Magical still need
-the layout pass. Their counts and bounds were rechecked on 2026-10-31.
+Travel portal mechanics are built (`c818c0801`); Magical's sky and arches
+are authored (MG-1, MG-2, 2026-11-14); the Jungle still needs the layout pass. Their counts and bounds were rechecked on 2026-10-31.
 
 Still binding: dense interconnected regions with loops, shortcuts and
 secrets (`world-composition.md`); side exits join the world and doors enter
@@ -84,7 +84,7 @@ A layer is not a corridor. The rules:
 Portal kinds, same-dimension reach checks, attunement and shared gate transit
 already ship (`ambition_platformer2d_world::rooms::gate_network`). The
 Ambition catalog `game/ambition_content/assets/data/gate_network.ron`
-currently has no `kind: Portal` rings. Add **authored regions and arch
+holds Magical's three arches (MG-2), its first `kind: Portal` rings. Add **authored regions and arch
 routes**, not another travel engine. Take one packet per change, in order;
 delete each packet when its acceptance passes.
 
@@ -142,12 +142,30 @@ platforms; the bg is the sky colour) and no authored shortcut, since the
 loop needed none. A cloud prop sheet and the beanstalk's art go with the
 next Magical prop publish.
 
-### MG-2 — Magical arch travel (after MG-1)
+### MG-2 — Magical arch travel (done 2026-11-14)
 
-Author a reachable local arch web among garden, high route/castle and void
-using the same portal rules as JL-2. The existing dimension gate remains the
-interdimensional arrival. **Pass:** real portal hop, out-of-reach refusal and
-valid multi-hop chain in `the_magical_dimension.rs` or `the_gate_network.rs`.
+Three portal rings (`kind: Portal`, each its own facility in
+`gate_network.ron`, `Dialed` in `gate_portals.ron`): STEADY on the heights'
+west end, CASTLE at the Void Keep's east end, CANDLE in the Heart of the
+Void. The heights' arch reaches the keep's (about 7700 px on the flat map)
+and not the heart's (about 9200, past `DEFAULT_PORTAL_REACH`), so the
+heights to the heart is two hops by way of the keep. The heights' terminal
+posts nothing, the keep's posts STEADY (back toward town), the heart's
+CASTLE (the way out); under the `Discovered` rule an arch is listed once its
+address is learned. `the_gate_network.rs`
+`magicals_arches_hop_within_their_reach_and_chain_past_it` plays it: from
+the heights a gate address is `wrong_kind` and CANDLE `out_of_reach`;
+CASTLE crosses to the keep, and from there CANDLE (a redial of the keep's
+open arch) crosses to the heart. `ambition_content`
+`magicals_arches_list_only_the_arches_they_reach` holds the lists and the
+discovery rule. Two gate-era tests now say they cover gates: a gate's list
+holds only gates, and an arch is not held to posting a home address (no
+home ring answers an arch; its way home is the walk to its world's gate).
+A void star that stood on the keep's arrival moved west: the press that
+carries a traveller through the arch started its conversation.
+
+Left: the arches use the round gate ring's art; an arch's own drawing goes
+with the next prop publish.
 
 **Every geometry packet:** run
 `python tools/ambition_ldtk_tools/specs/check_flat_map.py <world.ldtk>`

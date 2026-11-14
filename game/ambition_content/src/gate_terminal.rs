@@ -549,14 +549,16 @@ mod tests {
 
     /// Under discovery, a terminal away from home lists its way home with no
     /// knowledge, and a learned address joins the list. With every address
-    /// known (the development default), each is listed.
+    /// known (the development default), each gate is listed.
     #[test]
     fn a_terminal_lists_its_posted_address_and_what_the_save_knows() {
         use ambition_platformer2d::world::rooms::{gate_address_known_flag, GateStartKnowledge};
         let mut catalog = catalog();
         let all = known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
         if catalog.start_known == GateStartKnowledge::All {
-            assert_eq!(all.len(), catalog.rings.len() - 1, "every other ring is listed: {all:?}");
+            // A gate lists gates: the portal arches are not on its list.
+            let gates = catalog.rings.iter().filter(|ring| ring.kind == ambition_platformer2d::world::rooms::RingKind::Gate).count();
+            assert_eq!(all.len(), gates - 1, "every other gate is listed: {all:?}");
         }
         catalog.start_known = GateStartKnowledge::Discovered;
         let spell = |word: &str| catalog.spell(word).unwrap();

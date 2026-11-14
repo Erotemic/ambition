@@ -55,6 +55,11 @@
         (id: "ninja_village_shrine", name: "Ninja Village Gate Shrine", dimension: "pvn"),
         (id: "noodle_village_square", name: "Brothlehem Gate Square", dimension: "noodle"),
         (id: "starlight_gate_garden", name: "Starlight Gate Garden", dimension: "magical"),
+        // Magical's local arches (WORLD-LAYERS MG-2): each its own facility,
+        // so one arch can reach another.
+        (id: "starlight_heights_arch", name: "Starlight Heights Arch", dimension: "magical"),
+        (id: "void_keep_arch", name: "Void Keep Arch", dimension: "magical"),
+        (id: "void_heart_arch", name: "Void Heart Arch", dimension: "magical"),
         (id: "art_painters_plaza", name: "Painter's Plaza Ring", dimension: "art"),
         (id: "history_cradle", name: "Cradle Ring", dimension: "history"),
         // Haiti's ring, its own facility so it can dial the Cradle.
@@ -268,6 +273,44 @@
             terminal: Some("magical_gate_terminal"),
             posted: ["LEGAL"],
             note: "Garden ring. The hills are round on purpose; please do not roll down them.",
+        ),
+        // Magical's arches: portals, which reach only Magical's own arches
+        // and only within their reach. The heights' arch reaches the keep's;
+        // the keep's reaches both; the heart is too far from the heights, so
+        // that trip is two hops. An arch lists what it reaches once its
+        // address is learned (an arch is attuned by opening its terminal);
+        // the keep's posts the way back to town and the heart's the way out.
+        (
+            zone: "magical_heights_arch",
+            name: "Starlight Heights arch",
+            facility: "starlight_heights_arch",
+            room: "magical_starlight_heights",
+            address: Some("STEADY"),
+            terminal: Some("magical_heights_arch_terminal"),
+            note: "Cloud arch. Mind the gap on the way out.",
+            kind: Portal,
+        ),
+        (
+            zone: "magical_keep_arch",
+            name: "Void Keep arch",
+            facility: "void_keep_arch",
+            room: "magical_void_keep",
+            address: Some("CASTLE"),
+            terminal: Some("magical_keep_arch_terminal"),
+            posted: ["STEADY"],
+            note: "The castle's arch. The void left it working; it likes visitors.",
+            kind: Portal,
+        ),
+        (
+            zone: "magical_heart_arch",
+            name: "Void Heart arch",
+            facility: "void_heart_arch",
+            room: "magical_void_heart",
+            address: Some("CANDLE"),
+            terminal: Some("magical_heart_arch_terminal"),
+            posted: ["CASTLE"],
+            note: "The arch at the bottom of the void. Shh.",
+            kind: Portal,
         ),
         // ── Art (the Painter's Plaza) ────────────────────────────────────
         // The plaza's ring, on its easel: the way to the Art dimension. The

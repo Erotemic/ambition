@@ -91,6 +91,35 @@ mod tests {
         assert!(unplaced.is_empty(), "rings whose zone no level of their room holds: {unplaced:?}");
     }
 
+    /// Magical's local arches (WORLD-LAYERS MG-2) list only what they reach:
+    /// the heights' arch lists the keep's and not the heart's, which is
+    /// farther than a portal reaches, nor any gate; the keep's lists both.
+    /// When the catalog lists only what was discovered, the heart's arch is
+    /// absent from the keep's list until its address is learned, while the
+    /// heights' arch, posted on the keep's terminal, is listed from the start.
+    #[test]
+    fn magicals_arches_list_only_the_arches_they_reach() {
+        use ambition_platformer2d::world::rooms::GateStartKnowledge;
+        let mut catalog = lowered_gate_network(crate::pack::shipped());
+        let manifest = crate::worlds::world_manifest();
+        let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let positions = ring_positions(&catalog, &project);
+        let words = |catalog: &GateNetworkCatalog, ring: &str, learned: &[&str]| -> Vec<String> {
+            let learned: Vec<String> = learned.iter().map(|word| ambition_platformer2d::world::rooms::gate_address_known_flag(word)).collect();
+            crate::gate_terminal::known_addresses(catalog, &positions, ring, |flag| learned.iter().any(|known| known == flag))
+                .into_iter()
+                .filter_map(|address| catalog.ring_at(&address).and_then(|ring| ring.address.clone()))
+                .collect()
+        };
+        let reach = |a: &str, b: &str| positions.distance(a, b).expect("both arches are placed");
+        assert!(reach("magical_heights_arch", "magical_heart_arch") > ambition_platformer2d::world::rooms::DEFAULT_PORTAL_REACH as f32);
+        assert_eq!(words(&catalog, "magical_heights_arch", &[]), ["CASTLE"]);
+        assert_eq!(words(&catalog, "magical_keep_arch", &[]), ["STEADY", "CANDLE"]);
+        catalog.start_known = GateStartKnowledge::Discovered;
+        assert_eq!(words(&catalog, "magical_keep_arch", &[]), ["STEADY"], "an arch nobody attuned is not listed");
+        assert_eq!(words(&catalog, "magical_keep_arch", &["CANDLE"]), ["STEADY", "CANDLE"]);
+    }
+
     /// The working addresses of the network are stable: a save, a sign and a
     /// speedrun route all name them. Each reaches the ring of its place.
     #[test]
@@ -154,7 +183,9 @@ mod tests {
     }
 
     /// Every terminal lists a way home: each ring with a terminal outside the
-    /// home dimension posts an address of a home ring.
+    /// home dimension posts an address of a home ring. A portal arch is not
+    /// held to it: it reaches only its own world's arches, so no home address
+    /// would answer it, and its way home is the walk to its world's gate.
     #[test]
     fn every_terminal_away_from_home_posts_a_way_home() {
         let catalog = lowered_gate_network(crate::pack::shipped());
@@ -163,7 +194,7 @@ mod tests {
             catalog.facility(&ring.facility).expect("a facility").dimension.clone()
         };
         for ring in catalog.rings.iter().filter(|ring| ring.terminal.is_some()) {
-            if dimension(&ring.zone) == "home" {
+            if dimension(&ring.zone) == "home" || ring.kind == ambition_platformer2d::world::rooms::RingKind::Portal {
                 continue;
             }
             assert!(

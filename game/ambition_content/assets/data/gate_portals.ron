@@ -95,6 +95,22 @@
         portal_sprite_name: "Starlight Gate Portal",
         ring_sprite_name: "Starlight Gate Ring",
     ),
+    // Magical's local arches (portal rings).
+    "magical_heights_arch": (
+        command: Dialed,
+        portal_sprite_name: "Heights Arch Portal",
+        ring_sprite_name: "Heights Arch Ring",
+    ),
+    "magical_keep_arch": (
+        command: Dialed,
+        portal_sprite_name: "Keep Arch Portal",
+        ring_sprite_name: "Keep Arch Ring",
+    ),
+    "magical_heart_arch": (
+        command: Dialed,
+        portal_sprite_name: "Heart Arch Portal",
+        ring_sprite_name: "Heart Arch Ring",
+    ),
     // The Art dimension's Painter's Plaza (EASEL).
     "art_plaza_gate": (
         command: Dialed,

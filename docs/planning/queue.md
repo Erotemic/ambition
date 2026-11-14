@@ -431,8 +431,12 @@ square and the road, joined by the beanstalk and by the star spring and its
 cloud gap; walked by keys in `the_magical_dimension.rs`
 ([MG-1](game/world-layers-and-travel.md#mg-1--magical-sky-and-region-loop-done-2026-11-14)).
 
-**Next action:** fold Jungle into surface, underground and canopy regions,
-then add Magical's local arch network (MG-2). Reuse the existing portal and
+**Magical's arches done 2026-11-14 (MG-2):** STEADY (heights), CASTLE
+(keep) and CANDLE (heart); the heart is two hops from the heights
+([MG-2](game/world-layers-and-travel.md#mg-2--magical-arch-travel-done-2026-11-14)).
+
+**Next action:** fold Jungle into surface, underground and canopy regions
+(JL-1), then its arches (JL-2). Reuse the existing portal and
 gate machinery. Keep authored rooms editable in LDtk. Recheck old room-detail
 counts before selecting missing props, secrets or region links. Then recheck
 Art's remaining publication, cues and places against the live assets. Keep its

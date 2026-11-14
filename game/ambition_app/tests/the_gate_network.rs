@@ -647,3 +647,35 @@ fn a_dial_and_a_crossing_hold_under_rollback() {
     assert_eq!(travel(&mut sim, HUB_TERMINAL, HUB_RING, "TANGENT"), MATH);
     assert!(standing_in(&mut sim, MATH_RING));
 }
+
+/// Magical's local arches (WORLD-LAYERS MG-2), played: from the heights' arch
+/// a gate address is the wrong kind and the heart's arch is out of reach; the
+/// keep's arch answers and the traveller comes out of it in the Void Castle;
+/// from there the heart's arch answers, so the heart is two hops from the
+/// heights.
+#[test]
+fn magicals_arches_hop_within_their_reach_and_chain_past_it() {
+    const HEIGHTS_ARCH: &str = "magical_heights_arch";
+    const KEEP_ARCH: &str = "magical_keep_arch";
+    let mut sim = room("magical_starlight_heights");
+    open_terminal(&mut sim, "magical_heights_arch_terminal", HEIGHTS_ARCH);
+    assert_eq!(dial(&mut sim, HEIGHTS_ARCH, "DESTINY"), "wrong_kind", "an arch does not dial a gate");
+    assert_eq!(dial(&mut sim, HEIGHTS_ARCH, "CANDLE"), "out_of_reach", "the heart is farther than the heights' arch reaches");
+    ask(&mut sim, HEIGHTS_ARCH, GateTerminalAction::Close);
+    assert_eq!(travel(&mut sim, "magical_heights_arch_terminal", HEIGHTS_ARCH, "CASTLE"), "magical_void_keep");
+    assert!(standing_in(&mut sim, KEEP_ARCH), "the traveller comes out of the keep's arch");
+    // The keep's arch is still the open end of the link the traveller came
+    // by, so this dial is a redial: the old wormhole closes before the new
+    // one opens (GATE-REDIAL), longer than `travel` waits.
+    open_terminal(&mut sim, "magical_keep_arch_terminal", KEEP_ARCH);
+    assert_eq!(dial(&mut sim, KEEP_ARCH, "CANDLE"), "link", "the keep's arch reaches the heart's");
+    ask(&mut sim, KEEP_ARCH, GateTerminalAction::Close);
+    for _ in 0..300 {
+        if portal_on(&mut sim, KEEP_ARCH) && network(&mut sim).route_from(KEEP_ARCH).is_some() {
+            break;
+        }
+        sim.step(base());
+    }
+    assert_eq!(go_through(&mut sim, KEEP_ARCH), "magical_void_heart");
+    assert!(standing_in(&mut sim, "magical_heart_arch"), "and out of the heart's arch");
+}

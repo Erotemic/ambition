@@ -209,6 +209,10 @@ from scripts.measure import multi_writer_resource_census as census  # noqa: E402
 #: than a second recorded fact that can disagree with the first — which is the
 #: rule this whole census exists to enforce, applied to the census.
 BASELINE: dict[str, tuple[str, ...]] = {
+    "Time": (
+        "crates/ambition_hosted_world/src/room_rollback.rs",
+        "game/ambition_app/src/dev/frame_step.rs",
+    ),
     "ConversationBagSinceCheckpoint": (
         "crates/ambition_platformer2d_items/src/narrative.rs",
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
@@ -688,6 +692,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash_app/src/tools/select_walkthrough.rs",
     ),
     "SlotControlLatches": (
+        "crates/ambition_hosted_world/src/room_rollback.rs",
         "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
@@ -1015,6 +1020,16 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "Time": (
+        "CORRECT -- TWO TYPES UNDER ONE NAME (SIMULATION-ISLANDS, 2026-11-14). "
+        "The census reads the generic parameter away: `dev/frame_step.rs` writes "
+        "`Time<Virtual>` (the developer frame step pauses and steps the virtual "
+        "clock), and the hosted world's room rollback host "
+        "(`hosted_world/src/room_rollback.rs`) writes the default `Time`, as "
+        "Bevy's own fixed-main runner does: it puts `Time<Fixed>` in "
+        "for each replayed fixed tick and `Time<Virtual>` back after it. "
+        "Neither file writes the other's type."
+    ),
     "ConversationBagSinceCheckpoint": (
         "CORRECT — ONE LOG, ONE RECORDER, ONE RETRACTOR, ONE RESET (DIALOGUE-CHECKPOINT 3, "
         "2026-11-13). `narrative.rs` only `record`s a conversation's grant or sale with "
@@ -1679,6 +1694,13 @@ ADJUDICATED: dict[str, str] = {
         "deleting the installer outright, because `drive_slot_frame` writes "
         "`SlotControls` directly when the composition has no latch, so a test "
         "that introduces input that way cannot witness the seam either way."
+        "\n    ⭐ 2026-11-14 (SIMULATION-ISLANDS): a fourth file, the hosted "
+        "world's room rollback host (`hosted_world/src/room_rollback.rs`). "
+        "While it replays a guest's room it gives each host seat in that room "
+        "what its devices gave on the replayed tick: `latches.reset(seat)`, "
+        "then the recorded frame through `drive_slot_frame`. Around the replay "
+        "it puts back the table as it stood, so the frame being run keeps its "
+        "own presses. It is a replay of the accumulator, not a third drain."
     ),
     "BaseGravity": (
         "CORRECT, AND THE SIXTH WRITER IS GONE — Q137 RULED AND THE DEAD PLATE "
@@ -3849,6 +3871,10 @@ ADJUDICATED: dict[str, str] = {
 #: `dict[str, int]` and a same-cardinality writer swap on
 #: `EncounterMusicRequest` left the guard green. The file set is the owner.
 SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
+    "GameplayElapsed": (
+        "crates/ambition_hosted_world/src/room_rollback.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session_time.rs",
+    ),
     # The facts a death goes back to (DIALOGUE-CHECKPOINT 1, 2026-11-13). In a
     # session only `fact_horizon.rs` writes it (a checkpoint commit, the save a
     # session applies); a New Game (`reset/mod.rs`) puts the fresh run's facts
@@ -3938,6 +3964,15 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 #: different lifetime: a session boundary reclaims these, so "two writers" is a
 #: question about one session's state rather than about the App's.
 SESSION_WORLD_ADJUDICATED: dict[str, str] = {
+    "GameplayElapsed": (
+        "CORRECT -- ONE ADVANCER PLUS A REWIND OF IT (SIMULATION-ISLANDS, "
+        "2026-11-14). `session_time.rs` advances the session's elapsed seconds "
+        "each tick. The hosted world's room rollback host (`room_rollback.rs`) "
+        "puts the value it saved at a tick's start back when it rewinds a "
+        "guest's room to that tick, with the rest of the shared clock, and the "
+        "replay advances it again through the same advancer. Nothing else "
+        "writes it, and the host's rewind runs only between ticks."
+    ),
     "FactsBaseline": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE NEW-GAME WIPE (DIALOGUE-CHECKPOINT 1, "
         "2026-11-13). In a session only `fact_horizon.rs` adopts it: at a checkpoint "

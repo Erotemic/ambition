@@ -880,11 +880,14 @@ shared clock. When an input arrives for a tick already run and differs from
 the one used, that room alone is restored to its save. The rollback-cleared
 channels are emptied, the clock is put back, the room's world writes are
 retracted (ISL-2d), the other rooms are hidden (`Disabled`), and the
-simulation replays to now (`FixedMain`, as Bevy's fixed loop runs it). A
-room that also holds a host seat is not rewound, because its seat's input is
-the host's devices, which a replay cannot ask again: there a past input
-drives the guest's seat from the next tick. Inputs and saves are kept for
-`REWIND_HORIZON` (60 ticks).
+simulation replays to now through the simulation schedule (`FixedMain`, as
+Bevy's fixed loop runs it, on a fixed-tick host). A host seat in the room is
+replayed with what its devices gave each tick: the head records the seat's
+latch, or on a host without latches its raw row, and the replay drives the
+seat with that record; the input tables are put back after the replay. The
+impact freeze (`ImpactHitstop`) is saved with the clock: while one room is
+live it stops the shared clock, so a connect the replay takes back must take
+its freeze back. Inputs and saves are kept for `REWIND_HORIZON` (60 ticks).
 
 Witness `a_guests_late_input_rewinds_only_its_room_on_the_host`: Alice (the
 host's seat 0) leaves for the hub, and Bob, a guest at seat 1, stays in
@@ -894,8 +897,15 @@ end exactly where the run with his inputs on time ends (that run rewinds
 nothing). The control, the same late inputs applied as they arrive, ends
 with Bob elsewhere.
 
-Not yet: a rewind in a room the host's player shares; per-room message
-channels (a rewind empties the rollback-cleared channels of every room);
+Witness `a_guests_late_input_rewinds_a_room_the_host_shares`: the same with
+Alice beside Bob, fighting him. 26 rewinds, 78 ticks replayed, and both
+bodies end exactly where the on-time run ends. Two misses, measured on the
+way: with only latches recorded, a headless host (no latches) replayed Alice
+with her current frame on every tick, and with her inputs right she still
+ended 22.5 units behind, because a mispredicted connect's freeze outlived the
+replay (the freeze merges expiries with `max`).
+
+Not yet: per-room message channels (a rewind empties the rollback-cleared channels of every room);
 the cost of a rewind on a release build over a real link.
 
 ## Order, exclusions and integration

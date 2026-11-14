@@ -19,7 +19,7 @@ use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::{Messages, PluginGroup as _, PostUpdate};
 
 use crate::common::fixed_60hz_room_options;
-use crate::hosted_world::{alice_leaves, alice_on_the_hub_door, bobs, bodies, LATENCY};
+use crate::hosted_world::{alice_fights, alice_leaves, alice_on_the_hub_door, bobs, bodies, LATENCY};
 use crate::two_players_two_live_rooms::{bob_beside_alice, where_they_are, ROOM};
 
 /// Frames after the rooms part.
@@ -38,7 +38,16 @@ struct Run {
     apart: bool,
 }
 
-fn run(arrival: Arrival, rewinds: bool) -> Run {
+/// Where Alice plays while Bob's inputs arrive.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Alice {
+    /// In the hub, standing: Bob's room holds only guests.
+    Apart,
+    /// Beside Bob, fighting: his room holds a host seat.
+    Beside,
+}
+
+fn run(alice: Alice, arrival: Arrival, rewinds: bool) -> Run {
     let mut host = Platformer2dSimHarness::build(fixed_60hz_room_options(ROOM), |app, options| {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         app.add_plugins((RepliconPlugins.set(ServerPlugin::new(PostUpdate)), HostedWorldPlugin { role: HostedRole::Host }));
@@ -48,11 +57,13 @@ fn run(arrival: Arrival, rewinds: bool) -> Run {
     })
     .expect("the room boots");
     bob_beside_alice(&mut host, ROOM, Some(PlayerSlot(1)));
-    alice_on_the_hub_door(&mut host);
-    for frame in 1..=60 {
-        host.drive_seat(0, alice_leaves(frame));
-        host.drive_seat(1, ControlFrame::default());
-        host.app_mut().update();
+    if alice == Alice::Apart {
+        alice_on_the_hub_door(&mut host);
+        for frame in 1..=60 {
+            host.drive_seat(0, alice_leaves(frame));
+            host.drive_seat(1, ControlFrame::default());
+            host.app_mut().update();
+        }
     }
     let (hub, lab) = where_they_are(&mut host);
     let apart = hub.is_some() && lab.flatten().is_some() && hub != lab.flatten();
@@ -77,7 +88,7 @@ fn run(arrival: Arrival, rewinds: bool) -> Run {
             let (_, input) = in_flight.pop_front().expect("checked");
             deliver(&mut host, input);
         }
-        host.drive_seat(0, ControlFrame::default());
+        host.drive_seat(0, if alice == Alice::Beside { alice_fights(frame) } else { ControlFrame::default() });
         host.app_mut().update();
     }
     // The last inputs arrive after the last frame; one more frame takes them
@@ -99,18 +110,18 @@ fn differing(expected: &BTreeMap<SimId, [f32; 5]>, got: &BTreeMap<SimId, [f32; 5
         .collect()
 }
 
-/// A host that rewinds a guest's room ends where the host that had the
-/// guest's inputs on time ends; without it the late inputs move Bob
-/// elsewhere.
-#[test]
-fn a_guests_late_input_rewinds_only_its_room_on_the_host() {
-    let on_time = run(Arrival::OnTime, true);
-    let late = run(Arrival::Late, true);
-    let control = run(Arrival::Late, false);
+/// One scene's three runs: on time, late with rewinds, late applied on
+/// arrival. Returns the late run's stats and the bodies each late run gets
+/// wrong.
+fn scene(alice: Alice) -> (Run, Run, Vec<String>, Vec<String>) {
+    let on_time = run(alice, Arrival::OnTime, true);
+    let late = run(alice, Arrival::Late, true);
+    let control = run(alice, Arrival::Late, false);
     let wrong = differing(&on_time.ending, &late.ending);
     let control_wrong = differing(&on_time.ending, &control.ending);
     println!(
-        "[room rollback host] rewinds {}, ticks replayed {}, not rewound {}; {} of {} bodies differ from on time (control: {}); on time rewinds {}",
+        "[room rollback host] {}: rewinds {}, ticks replayed {}, not rewound {}; {} of {} bodies differ from on time (control: {}); on time rewinds {}",
+        if alice == Alice::Apart { "Alice in the hub" } else { "Alice beside Bob" },
         late.stats.rewinds,
         late.stats.replayed,
         late.stats.not_rewound,
@@ -122,9 +133,30 @@ fn a_guests_late_input_rewinds_only_its_room_on_the_host() {
     for line in wrong.iter().take(4) {
         println!("[room rollback host]   {line}");
     }
-    assert!(on_time.apart && late.apart, "premise: Alice and Bob are in two rooms");
     assert_eq!(on_time.stats.rewinds, 0, "premise: inputs on time rewind nothing");
     assert!(late.stats.rewinds > 0, "premise: the late inputs were rewound for");
+    (on_time, late, wrong, control_wrong)
+}
+
+/// A host that rewinds a guest's room ends where the host that had the
+/// guest's inputs on time ends, while the host's player plays in another
+/// room; without it the late inputs move Bob elsewhere.
+#[test]
+fn a_guests_late_input_rewinds_only_its_room_on_the_host() {
+    let (on_time, late, wrong, control_wrong) = scene(Alice::Apart);
+    assert!(on_time.apart && late.apart, "premise: Alice and Bob are in two rooms");
     assert!(wrong.is_empty(), "the rewinding host does not end where the on-time host ends: {wrong:?}");
     assert!(!control_wrong.is_empty(), "the control: late inputs applied on arrival ended where on-time ones do");
 }
+
+/// The same with the host's player in the guest's room, fighting: the replay
+/// gives her seat what her devices gave each tick, and the room ends where
+/// the on-time run ends.
+#[test]
+fn a_guests_late_input_rewinds_a_room_the_host_shares() {
+    let (on_time, _, wrong, control_wrong) = scene(Alice::Beside);
+    assert!(!on_time.apart, "premise: Alice and Bob share a room");
+    assert!(wrong.is_empty(), "the rewinding host does not end where the on-time host ends: {wrong:?}");
+    assert!(!control_wrong.is_empty(), "the control: late inputs applied on arrival ended where on-time ones do");
+}
+

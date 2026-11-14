@@ -11,10 +11,14 @@
 //! known: the world records the room wrote are retracted first, so the replay
 //! writes them again (ISL-2d).
 //!
-//! A room with a host seat in it is not rewound: its seat's input is the
-//! host's devices, which a replay cannot ask again. There the guest's input
-//! is applied for the tick it names, or at once if that tick is past. The
-//! measurements and witnesses are in
+//! A host seat in a guest's room is replayed with what its devices handed
+//! each tick: the head records the seat's latch (or, on a host without
+//! latches, its raw row) for the tick, and a replay drives the seat with that
+//! record. The input tables as they stood are put back after the replay, so
+//! what the devices gave this frame still reaches the next tick. The impact
+//! freeze is saved with the clock: while one room is live it stops the shared
+//! clock, and a connect the replay takes back takes its freeze back too.
+//! The measurements and witnesses are in
 //! `docs/planning/engine/island-rollback-and-compact-peer-input.md`.
 
 use std::collections::BTreeMap;
@@ -22,6 +26,7 @@ use std::collections::BTreeMap;
 use bevy::ecs::entity_disabling::Disabled;
 use bevy::prelude::*;
 
+use ambition_combat::impact_hitstop::ImpactHitstop;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core::ControlFrame;
 use ambition_platformer2d_runtime::rollback::room_snapshot::{RoomSnapshot, RoomSnapshotRows};
@@ -47,14 +52,17 @@ pub struct RoomRollbackStats {
     pub rewinds: u32,
     /// Ticks re-simulated by those rewinds.
     pub replayed: u32,
-    /// Late inputs older than the horizon, or for a room with a host seat.
+    /// Late inputs older than the horizon, applied from the next tick.
     pub not_rewound: u32,
 }
 
 /// The shared clock at the start of a tick: the timeline, the frame's time,
-/// the day, the scale, and the session's elapsed seconds.
+/// the day, the scale, the session's elapsed seconds, and the impact freeze.
+/// The freeze is an expiry against the timeline that stops the shared clock
+/// while one room is live: a connect the replay takes back must take its
+/// freeze back with it.
 #[derive(Clone, Copy, Debug)]
-struct Clock(SimTick, WorldTime, DayClock, ClockState, GameplayElapsed);
+struct Clock(SimTick, WorldTime, DayClock, ClockState, GameplayElapsed, ImpactHitstop);
 
 fn clock(world: &World) -> Option<Clock> {
     Some(Clock(
@@ -63,6 +71,7 @@ fn clock(world: &World) -> Option<Clock> {
         *world.get_resource::<DayClock>()?,
         *world.get_resource::<ClockState>()?,
         *ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<GameplayElapsed>(world)?,
+        world.get_resource::<ImpactHitstop>().copied().unwrap_or_default(),
     ))
 }
 
@@ -71,6 +80,7 @@ fn set_clock(world: &mut World, clock: Clock) {
     world.insert_resource(clock.1);
     world.insert_resource(clock.2);
     world.insert_resource(clock.3);
+    world.insert_resource(clock.5);
     if let Some(mut elapsed) =
         ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<GameplayElapsed>(world)
     {
@@ -83,8 +93,12 @@ fn set_clock(world: &mut World, clock: Clock) {
 pub(crate) struct GuestInputs {
     /// Each seat's arrived inputs, by the tick they name.
     arrived: BTreeMap<PlayerSlot, BTreeMap<u64, ControlFrame>>,
-    /// The input each seat was driven with, by tick.
+    /// The input each guest seat was driven with, by tick.
     used: BTreeMap<PlayerSlot, BTreeMap<u64, ControlFrame>>,
+    /// What each host seat in a guest's room was handed, by tick.
+    local: BTreeMap<PlayerSlot, BTreeMap<u64, ControlFrame>>,
+    /// While a rewind replays: host seats take their records.
+    replaying: bool,
     /// Each guest room's state at the start of a tick, by tick.
     saved: BTreeMap<LiveRoomInstance, BTreeMap<u64, (RoomSnapshot, Clock)>>,
 }
@@ -102,6 +116,9 @@ impl GuestInputs {
 
     fn forget_before(&mut self, tick: u64) {
         let keep = tick.saturating_sub(REWIND_HORIZON);
+        for history in self.local.values_mut() {
+            history.retain(|at, _| *at >= keep);
+        }
         for history in self.arrived.values_mut().chain(self.used.values_mut()) {
             // The latest arrived input before the horizon stays: it is the
             // prediction for every tick after it.
@@ -132,21 +149,22 @@ fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
     entities
 }
 
-/// Each guest seat's room, and whether a host seat stands in it too.
-fn guest_rooms(world: &mut World) -> BTreeMap<PlayerSlot, (LiveRoomInstance, bool)> {
+/// Each guest seat's room, and the host seats standing in those rooms.
+fn guest_rooms(world: &mut World) -> (BTreeMap<PlayerSlot, LiveRoomInstance>, Vec<PlayerSlot>) {
     let guests: Vec<PlayerSlot> = world.query::<&GuestSeat>().iter(world).map(|seat| seat.0).collect();
     let seated: Vec<(PlayerSlot, LiveRoomInstance)> = world
         .query::<(&DrivingParticipant, &InRoomInstance)>()
         .iter(world)
         .map(|(driver, room)| (driver.0, room.0))
         .collect();
-    let hosted: Vec<LiveRoomInstance> =
-        seated.iter().filter(|(seat, _)| !guests.contains(seat)).map(|(_, room)| *room).collect();
-    seated
+    let rooms: BTreeMap<PlayerSlot, LiveRoomInstance> =
+        seated.iter().filter(|(seat, _)| guests.contains(seat)).copied().collect();
+    let local = seated
         .iter()
-        .filter(|(seat, _)| guests.contains(seat))
-        .map(|(seat, room)| (*seat, (*room, hosted.contains(room))))
-        .collect()
+        .filter(|(seat, room)| !guests.contains(seat) && rooms.values().any(|at| at == room))
+        .map(|(seat, _)| *seat)
+        .collect();
+    (rooms, local)
 }
 
 /// At the head of each tick (before the clock): drive every guest seat with
@@ -156,24 +174,43 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
         return;
     }
     let tick = world.resource::<SimTick>().0 + 1;
-    let rooms = guest_rooms(world);
+    let (rooms, local) = guest_rooms(world);
     let mut inputs = world.remove_resource::<GuestInputs>().unwrap_or_default();
     for seat in rooms.keys() {
         let frame = inputs.input_for(*seat, tick);
         inputs.used.entry(*seat).or_default().insert(tick, frame);
         ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, *seat, frame);
     }
+    // A host seat in a guest's room: record what its devices gave this tick,
+    // and give it that again when the tick is replayed. A device host folds
+    // presses into latches; a host without them (headless drivers) writes the
+    // seat's raw row.
+    for seat in &local {
+        use ambition_characters::control::{SeatRawFrames, SlotControlLatches};
+        if inputs.replaying {
+            let recorded = inputs.local.get(seat).and_then(|record| record.get(&tick)).copied().unwrap_or_default();
+            if let Some(mut latches) = world.get_resource_mut::<SlotControlLatches>() {
+                latches.reset(*seat);
+            }
+            ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, *seat, recorded);
+        } else {
+            let given = match world.get_resource::<SlotControlLatches>() {
+                Some(latches) => latches.peek(*seat),
+                None => world.get_resource::<SeatRawFrames>().map(|raw| raw.get(*seat)).unwrap_or_default(),
+            };
+            inputs.local.entry(*seat).or_default().insert(tick, given);
+        }
+    }
     if let (Some(rows), Some(now)) = (world.remove_resource::<RoomSnapshotRows>(), clock(world)) {
-        let mut alone: Vec<LiveRoomInstance> =
-            rooms.values().filter(|(_, hosted)| !hosted).map(|(room, _)| *room).collect();
-        alone.sort();
-        alone.dedup();
-        for room in alone {
+        let mut guest_rooms: Vec<LiveRoomInstance> = rooms.values().copied().collect();
+        guest_rooms.sort();
+        guest_rooms.dedup();
+        for room in guest_rooms {
             let entities = of_room(world, room);
             let snapshot = rows.save(world, &entities);
             inputs.saved.entry(room).or_default().insert(tick, (snapshot, now));
         }
-        inputs.saved.retain(|room, _| rooms.values().any(|(at, _)| at == room));
+        inputs.saved.retain(|room, _| rooms.values().any(|at| at == room));
         world.insert_resource(rows);
     }
     inputs.forget_before(tick);
@@ -184,15 +221,14 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
 /// past input arrived different from the one used.
 pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u64, ControlFrame)>) {
     let now = world.resource::<SimTick>().0;
-    let rooms = guest_rooms(world);
+    let (rooms, _) = guest_rooms(world);
     let mut inputs = world.remove_resource::<GuestInputs>().unwrap_or_default();
     let mut stats = world.remove_resource::<RoomRollbackStats>().unwrap_or_default();
     let mut rewind: BTreeMap<LiveRoomInstance, u64> = BTreeMap::new();
     for (seat, tick, frame) in arrived {
-        // An input for a tick before the horizon has no save to go back to,
-        // and one for a room with a host seat cannot be replayed: either is
-        // the guest's input from the next tick on.
-        let rewindable = matches!(rooms.get(&seat), Some((_, false))) && tick + REWIND_HORIZON > now;
+        // An input for a tick before the horizon has no save to go back to:
+        // it is the guest's input from the next tick on.
+        let rewindable = rooms.contains_key(&seat) && tick + REWIND_HORIZON > now;
         if !rewindable && tick <= now {
             stats.not_rewound += 1;
         }
@@ -205,7 +241,7 @@ pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u
         if used.is_none_or(|used| used == frame) {
             continue;
         }
-        if let Some((room, false)) = rooms.get(&seat) {
+        if let Some(room) = rooms.get(&seat) {
             let earliest = rewind.entry(*room).or_insert(tick);
             *earliest = (*earliest).min(tick);
         }
@@ -255,10 +291,26 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     for entity in &hidden {
         world.entity_mut(*entity).insert(Disabled);
     }
+    // The replay drives the host seats with their records; the frame being
+    // run keeps what its devices gave it.
+    let latches = world.get_resource::<ambition_characters::control::SlotControlLatches>().copied();
+    let raw = world.get_resource::<ambition_characters::control::SeatRawFrames>().copied();
+    let slots = world.get_resource::<ambition_characters::control::SlotControls>().copied();
+    world.resource_mut::<GuestInputs>().replaying = true;
     let mut ticks = 0;
     while world.resource::<SimTick>().0 < now {
         run_one_tick(world);
         ticks += 1;
+    }
+    world.resource_mut::<GuestInputs>().replaying = false;
+    if let Some(latches) = latches {
+        world.insert_resource(latches);
+    }
+    if let Some(raw) = raw {
+        world.insert_resource(raw);
+    }
+    if let Some(slots) = slots {
+        world.insert_resource(slots);
     }
     for entity in &hidden {
         if let Ok(mut entity) = world.get_entity_mut(*entity) {

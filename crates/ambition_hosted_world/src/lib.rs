@@ -37,6 +37,11 @@
 //! the sender's [`GuestSeat`] names with it, through the same seam a local
 //! device or a test driver uses (`drive_slot_frame`).
 //!
+//! A guest that disconnects leaves: its client entity goes, and the host
+//! retires its seat through the same stamped leave a local seat's "Leave
+//! Game" writes (`ParticipantLeaveRequested`): its bodies retire and what they
+//! held is put down.
+//!
 //! The link is the caller's: `bevy_replicon` has no I/O of its own.
 
 use ambition_characters::actor::{BodyHealth, Corpse};
@@ -220,7 +225,10 @@ impl Plugin for HostedWorldPlugin {
         match self.role {
             HostedRole::Host => {
                 app.add_visibility_filter::<RoomOf>();
-                app.add_systems(PreUpdate, (apply_guest_inputs, note_guest_rooms).after(ServerSystems::Receive));
+                app.add_systems(
+                    PreUpdate,
+                    (apply_guest_inputs, note_guest_rooms, retire_departed_guests).after(ServerSystems::Receive),
+                );
                 app.add_systems(Update, (mark_hosted_bodies, write_spawn_rows));
                 app.add_systems(
                     PostUpdate,
@@ -373,6 +381,24 @@ fn name_body_rooms(
             commands.entity(body).insert(RoomNamed(spec.id.clone()));
         }
     }
+}
+
+/// A seated guest whose client entity is gone (it disconnected) leaves the
+/// session: its seat's leave is written as a host intent for the next tick.
+fn retire_departed_guests(
+    guests: Query<(Entity, &GuestSeat)>,
+    mut seated: Local<std::collections::BTreeMap<Entity, PlayerSlot>>,
+    mut leave: ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter<
+        ambition_platformer2d_session::leave::ParticipantLeaveRequested,
+    >,
+) {
+    let now: std::collections::BTreeMap<Entity, PlayerSlot> = guests.iter().map(|(client, seat)| (client, seat.0)).collect();
+    for (client, seat) in seated.iter() {
+        if !now.contains_key(client) {
+            leave.write(ambition_platformer2d_session::leave::ParticipantLeaveRequested { participant: *seat });
+        }
+    }
+    *seated = now;
 }
 
 /// Keep the room each guest last said it holds.

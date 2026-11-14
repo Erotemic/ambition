@@ -597,3 +597,78 @@ fn a_hosted_guest_follows_its_players_crossing() {
     assert_eq!(twice, 0, "the guest holds a body twice: replication made its own beside the one the guest built");
     assert_eq!(control_room.as_deref(), Some(ROOM), "the control: a guest naming no seat followed anyway");
 }
+
+/// One run of a guest leaving: seat 1 joins the host's session in the hub; a
+/// guest connects (as seat 1 with `seated`) and then disconnects. Returns
+/// seat 1's membership and bodies on the host before and after.
+fn a_guest_disconnects(seated: bool) -> ((bool, usize), (bool, usize)) {
+    use ambition_platformer2d::session::participants::SessionParticipants;
+    const HUB: &str = "central_hub_complex";
+    let boot = |role: HostedRole| {
+        Platformer2dSimHarness::build(fixed_60hz_room_options(HUB), |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.add_plugins((RepliconPlugins.set(ServerPlugin::new(PostUpdate)), HostedWorldPlugin { role }));
+            app.finish();
+            app.cleanup();
+            Ok(())
+        })
+        .expect("the hub boots")
+    };
+    let seat_one = |sim: &mut Platformer2dSimHarness| {
+        let member = {
+            let world = sim.world_mut();
+            world
+                .query::<&SessionParticipants>()
+                .iter(world)
+                .any(|members| members.contains(ambition_platformer2d::characters::control::PlayerSlot(1)))
+        };
+        (member, crate::a_second_seat_joins_the_session::bodies_of_the_seat(sim).len())
+    };
+    let mut host = boot(HostedRole::Host);
+    let mut guest = boot(HostedRole::Guest);
+    simulate_nothing(&mut guest);
+    crate::a_second_seat_joins_the_session::join(&mut host, 240).expect("premise: seat 1 joins the host's session");
+    // Settle the join first: a leave on the tick after a join retires
+    // nothing (measured; the local seat's witness settles too).
+    host.drive_seat(1, Default::default());
+    for _ in 0..15 {
+        host.app_mut().update();
+    }
+    host.app_mut().connect_client(guest.app_mut());
+    if seated {
+        let world = host.world_mut();
+        let client = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ConnectedClient>>()
+            .single(world)
+            .expect("one guest is connected");
+        world
+            .entity_mut(client)
+            .insert(ambition_hosted_world::GuestSeat(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    }
+    for _ in 0..10 {
+        host.app_mut().update();
+        host.app_mut().exchange_with_client(guest.app_mut());
+        guest.app_mut().update();
+    }
+    let before = seat_one(&mut host);
+    host.app_mut().disconnect_client(guest.app_mut());
+    for _ in 0..10 {
+        host.app_mut().update();
+    }
+    (before, seat_one(&mut host))
+}
+
+/// LOCAL-PLAY-MODES' remote leave, on the hosted world: a guest seated as
+/// seat 1 disconnects, and the host retires seat 1 through the stamped leave
+/// a local seat's "Leave Game" writes (membership ends, its body retires).
+/// The control is a guest that names no seat: its disconnect leaves seat 1
+/// in the session.
+#[test]
+fn a_hosted_guest_that_disconnects_leaves_the_session() {
+    let (before, after) = a_guest_disconnects(true);
+    let (_, unseated_after) = a_guest_disconnects(false);
+    println!("[hosted leave] seat 1 (member, bodies): before {before:?}, after {after:?}; with no seat named after {unseated_after:?}");
+    assert_eq!(before, (true, 1), "premise: seat 1 is a member with one body before the guest leaves");
+    assert_eq!(after, (false, 0), "the departed guest's seat is still in the session");
+    assert_eq!(unseated_after, (true, 1), "the control: a guest naming no seat took seat 1 with it");
+}

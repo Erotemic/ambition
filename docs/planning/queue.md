@@ -569,7 +569,19 @@ under a two-seat sync test),
 `lunex_kaleidoscope_app_tests::remove_player_writes_a_stamped_leave_and_frees_the_pad`,
 `system::tests::departure_rows_are_attached_per_seat_above_quit_to_title`.
 The menu already answered to the seat that opened it (`SeatMenuFrames`, one
-menu per member). Open: a remote peer's leave (this is local seats only).
+menu per member).
+
+**Built 2026-11-13 (a remote guest's leave, hosted world):** a guest of the
+hosted world that disconnects leaves: the host notices its seated client
+entity is gone and writes the same stamped `ParticipantLeaveRequested`
+(`ambition_hosted_world::retire_departed_guests`). Witness
+`a_hosted_guest_that_disconnects_leaves_the_session`: seat 1 joined the
+host's session, a guest seated as seat 1 disconnects, and seat 1's
+membership and body end; a guest naming no seat (the control) leaves seat 1
+in. Measured on the way: a leave on the tick after a join retires nothing
+(the witness settles 15 frames first, as the local one does); not
+investigated. A GGRS peer's leave is not built (Smash keeps GGRS, and
+Ambition's remote play is the hosted world).
 
 **Slice 4 (presentation) is met by existing witnesses (checked 2026-11-10):**
 the join opens the two-player presentation (seat 1's own HUD on the shared
@@ -581,7 +593,9 @@ regroup (`a_joined_seat_gets_its_own_view_when_the_primary_leaves_its_room`,
 the leave brings the single-player presentation back (`a_seat_leaves_the_session`).
 
 **Next action:** none required. Nice to have: a portal that Player 2 drops
-out of, presentation only. Open: a remote peer's leave.
+out of, presentation only. A remote guest's leave is built for the hosted
+world (2026-11-13); a leave on the tick after a join retires nothing
+(measured, not investigated).
 
 **Acceptance:** the controller and multiplayer tests of the 2026-10-19
 assignment (section 11), each a simulation-level witness with a negative

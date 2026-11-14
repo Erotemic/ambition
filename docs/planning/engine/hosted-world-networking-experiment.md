@@ -843,6 +843,14 @@ ground items) with the host's rows, none twice. The control guest names no
 seat and stays in `switch_lab`. Alice is not held: she left the guest's view
 at frame 30 and her body coming back needs a player's spawn row.
 
+### A guest's leave (2026-11-13)
+
+When a seated guest's client entity goes (it disconnected), the host writes
+that seat's `ParticipantLeaveRequested` as a stamped host intent, the leave a
+local seat's "Leave Game" writes: its membership and bodies end and what it
+held is put down. Witness `a_hosted_guest_that_disconnects_leaves_the_session`
+(LOCAL-PLAY-MODES' remote leave).
+
 Next in the prototype: a player's spawn row, a guest App composed from fewer
 plugins, and each NPC life's step as a row.
 

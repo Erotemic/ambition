@@ -404,6 +404,33 @@ impl RasterBudget {
     }
 }
 
+/// How a glowing body's light is drawn ([`GlowBudget`]).
+///
+/// The light is a wide, faint gradient (the player's highlight is 1.6 body
+/// heights across at 1.8% opacity). The world draws into an 8-bit target, so
+/// a gradient that faint lands on two or three stored levels and reads as
+/// hard rings; only a dithered shader draws it smooth.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ActorGlowQuality {
+    /// No glow.
+    Off,
+    /// One tinted sprite of a soft round mask: no shader. It can band. The
+    /// default, for a saved budget from before the field: what it drew then.
+    #[default]
+    Mask,
+    /// A small shader: the falloff computed per pixel and dithered on the
+    /// screen, so it has no rings. One quad, like the mask.
+    Smooth,
+    /// Light: the falloff of a lamp (a bright core, a long soft tail) added
+    /// to what is behind it rather than painted over it, dithered.
+    Light,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GlowBudget {
+    pub actor_glow: ActorGlowQuality,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VisualQualityBudget {
     pub portal: PortalCaptureBudget,
@@ -427,6 +454,9 @@ pub struct VisualQualityBudget {
     /// `settings_ron_without_raster_still_parses`.
     #[serde(default)]
     pub raster: RasterBudget,
+    /// The light about a glowing body. `serde(default)` for the reason above.
+    #[serde(default)]
+    pub glow: GlowBudget,
 }
 
 impl VisualQualityBudget {
@@ -462,6 +492,7 @@ impl VisualQualityBudget {
                     max_particles: 16,
                     spawn_rate_scale: 0.1,
                 },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Off },
                 raster: RasterBudget {
                     max_scale_factor: Some(1.0),
                     msaa_samples: 1,
@@ -494,6 +525,7 @@ impl VisualQualityBudget {
                     max_particles: 128,
                     spawn_rate_scale: 0.5,
                 },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Mask },
                 raster: RasterBudget {
                     max_scale_factor: Some(1.0),
                     msaa_samples: 1,
@@ -526,6 +558,7 @@ impl VisualQualityBudget {
                     max_particles: 256,
                     spawn_rate_scale: 0.75,
                 },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Mask },
                 raster: RasterBudget {
                     max_scale_factor: Some(1.0),
                     msaa_samples: 1,
@@ -558,6 +591,7 @@ impl VisualQualityBudget {
                     max_particles: 512,
                     spawn_rate_scale: 1.0,
                 },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Smooth },
                 raster: RasterBudget {
                     max_scale_factor: None,
                     msaa_samples: 4,
@@ -590,6 +624,7 @@ impl VisualQualityBudget {
                     max_particles: 1024,
                     spawn_rate_scale: 1.0,
                 },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Light },
                 raster: RasterBudget {
                     max_scale_factor: None,
                     msaa_samples: 4,

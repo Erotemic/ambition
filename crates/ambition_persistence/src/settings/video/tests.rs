@@ -130,6 +130,18 @@ fn visual_quality_profile_table_matches_android_starting_budget() {
     assert_eq!(ultra.particles.max_particles, 1024);
 }
 
+/// Jon (2026-11-14): no glow on Potato, the cheap mask on Low and Medium, a
+/// better but still fast one on High, and real light on Ultra.
+#[test]
+fn each_profile_draws_its_glow() {
+    let glow = |profile| VisualQualityBudget::for_profile(profile).glow.actor_glow;
+    assert_eq!(glow(VisualQualityProfile::Potato), ActorGlowQuality::Off);
+    assert_eq!(glow(VisualQualityProfile::Low), ActorGlowQuality::Mask);
+    assert_eq!(glow(VisualQualityProfile::Medium), ActorGlowQuality::Mask);
+    assert_eq!(glow(VisualQualityProfile::High), ActorGlowQuality::Smooth);
+    assert_eq!(glow(VisualQualityProfile::Ultra), ActorGlowQuality::Light);
+}
+
 #[test]
 fn potato_profile_strips_everything_to_the_bare_minimum() {
     let potato = VisualQualityBudget::for_profile(VisualQualityProfile::Potato);
@@ -379,6 +391,7 @@ fn settings_ron_without_raster_still_parses() {
     assert_eq!(parsed.raster.max_scale_factor, None, "must still honour the compositor");
     assert_eq!(parsed.raster.sanitized_msaa_samples(), 4, "must still be Bevy's default MSAA");
     assert_eq!(parsed.raster, RasterBudget::default());
+    assert_eq!(parsed.glow.actor_glow, ActorGlowQuality::Mask, "a budget from before the glow field draws the mask it drew then");
 }
 
 /// ⭐⭐ THE TIER IS SEEDED FROM WHAT THE MACHINE RENDERS WITH, not from its OS.

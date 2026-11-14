@@ -1,0 +1,99 @@
+# Dark rooms and tunnels
+
+**State:** OPEN, planned 2026-11-14. Asked by Jon on 2026-11-14: "we have to
+start thinking about how to model "dark" or "dim" rooms with limited
+visibilities and effectively tunnels. We don't have any rooms that are based
+on tunnels, and tunnels in a metroidvania are fun and how we make good use of
+vertical space."
+
+The same message asked for the player's glow by quality tier. That part is
+done (2026-11-14) and is the first piece of light this plan builds on.
+
+## What exists
+
+| Piece | What it does | Where |
+|---|---|---|
+| Actor glow | A light about a body, drawn by quality: Off (Potato), a mask sprite (Low, Medium), a dithered falloff shader (High), a lamp's falloff added to the scene (Ultra). The player's highlight is one | `ambition_render::rendering::actor_glow`, `actor_glow.wgsl`; the tier is `VisualQualityBudget::glow` |
+| Fire glow | A quad of added light on each fire | Mary-O's `give_each_fire_its_glow` |
+| Daylight veil | One translucent sprite over the world of a sunlit room, coloured by the hour. Rooms under the ground or indoors have none | `ambition_render::rendering::daylight` |
+| Painted terrain | The `Terrain` IntGrid layer draws caves, overhangs and tunnels exactly (Sanic's acts use it) | the LDtk conversion |
+
+What does not exist: darkness (nothing makes a room darker than its art),
+lights that light a room, any tunnel room, and navigation over painted terrain
+(`NavGraph` plans over blocks and `SurfaceChain`s only; see
+[Hobford polish](../game/hobford-polish.md), "The land").
+
+## Rules
+
+- **Light is presentation.** No simulation fact reads light: rollback,
+  checksums and the navigation graph never see it. A room that is hard to
+  cross in the dark is hard to read, not mechanically different, so a
+  replay and a peer agree whatever their quality.
+- **Every tier can play every room.** Potato draws the darkness flat and
+  caps it (no room is darker than half at Potato), so what must be seen
+  (hazards, ledges, the way on) is still seen. Higher tiers add the light
+  that makes it beautiful, not the information that makes it playable.
+- **The place gives the darkness.** A tunnel is dark because it is under the
+  hill; a cellar because its door is shut. No arbitrary "dark room" gate.
+
+## Darkness and lights, by tier
+
+A room states how dark it is: a level field `darkness` (0 none, 1 black) and
+an `ambient` tint. Lights are a `LightSource` entity (radius, colour,
+intensity, an optional flicker) placed in LDtk, and the actor glows; a held
+item can carry a light (a lantern).
+
+| Tier | Darkness | Lights |
+|---|---|---|
+| Potato | one flat veil, at most 0.5 | none drawn |
+| Low, Medium | one veil sprite with a soft hole around the player (the player's light only) | the player's |
+| High | a light map: a half-resolution target per view, cleared to the ambient darkness, each light added into it with the dithered falloff, then multiplied over the world under the UI | every light in view, to a budget |
+| Ultra | the light map at full resolution, and occlusion: a light does not pass through solid blocks (the room's collision as a mask texture; a light's reach marched against it in the light shader), so a tunnel's bends cast shadow | every light, shadows |
+
+The light map is the "real lighting" the Ultra glow points at: at Ultra the
+player's glow becomes a light in the map, and lights the tunnel around it.
+
+## Tunnels
+
+Tunnels are rooms whose ground is around the player, not only under them:
+winding passages under the hills, crawlspaces (`crouch`), sumps (`swim`),
+chimneys (wall climb), and drops between levels. They are how the world uses
+its height: down from the millstream under the village, up through the roots
+of the woods' hollow oak.
+
+What a tunnel needs:
+
+1. **Geometry.** Blocks first (navigation already plans over them); then
+   painted terrain once the graph plans over it (TN1 below).
+2. **Camera.** Tight camera zones that frame the passage, zoomed in, so the
+   darkness and the walls close in.
+3. **Art.** An earth interior skin for the walls, timber props, roots,
+   lamps (`LightSource`), an underground backdrop (not sunlit, so the daylight
+   veil is already clear).
+4. **Darkness.** The room's `darkness` (DR1).
+
+## The first tunnel: under Hobford
+
+Level 1 already names both ends: the cracked wall behind the mill wheel
+(`intro_millstream`, a hollow) and the woods' hollow oak (`intro_woods`). A
+tunnel joins them under the village: down behind the wheel, a passage of
+old mill race and roots, up the oak's roots into the woods. It is a way, not
+a gate: the street above is always open. Its reward is the shortcut and what
+is down there (coins, a note).
+
+## Order
+
+- **DR1. Room darkness.** The `darkness` and `ambient` level fields; the veil
+  (flat at Potato, with the player's hole at Low and Medium). Acceptance: a
+  dark room at each tier, captured; Potato no darker than half.
+- **DR2. The light map (High).** `LightSource`, the per-view target, actor
+  glows and fire glows drawn into it. Acceptance: a tunnel lit by its lamps
+  and the player; the cost measured (one target per view at half size).
+- **DR3. Occlusion (Ultra).** Lights stopped by solid blocks. Acceptance:
+  a lamp round a corner leaves the far side dark; the frame cost measured.
+- **TN1. Navigation over painted terrain.** The graph's surfaces from the
+  `Terrain` layer, so a tunnel can be painted and still walked by NPCs and
+  the census.
+- **TN2. The first tunnel** (above), in blocks if TN1 is not done.
+- **TN3. The lantern.** A held light that widens the player's light: the
+  first item whose worth is seeing.

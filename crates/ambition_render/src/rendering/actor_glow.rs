@@ -1,12 +1,20 @@
-//! The light about an actor ([`ActorGlow`]): one tinted sprite of a soft
-//! round picture for each glowing body, at the body's drawn place.
+//! The light about an actor ([`ActorGlow`]): one quad for each glowing body,
+//! at the body's drawn place, drawn as the quality says
+//! ([`ActorGlowQuality`], from the profile's `glow` budget):
 //!
-//! Cost: one more sprite for each glowing body. It uses the sprite pipeline
-//! and batches with the other sprites. It needs no shader, no material and no
-//! render target, so every quality tier draws it.
+//! - **Off** (Potato): no glow.
+//! - **Mask** (Low, Medium): a tinted sprite of a soft round mask. It batches
+//!   with the other sprites and needs no shader. A faint glow bands: the
+//!   world's target is 8-bit, and the player's highlight (1.8% at its middle)
+//!   spans two or three stored levels, which read as hard rings.
+//! - **Smooth** (High): the same falloff computed per pixel in
+//!   `actor_glow.wgsl` and dithered on the screen, so it has no rings.
+//! - **Light** (Ultra): a lamp's falloff, a bright core and a long tail,
+//!   added to what is behind instead of painted over it, dithered.
 //!
 //! The renderer builds a white radial mask once. It needs no content library.
-//! The sprite colour gives the light its hue and strength.
+//! The colour gives the light its hue and strength. A shader glow declares
+//! the mask as what it paints (`DeclaredFrame`), so a portal pane cuts it.
 //!
 //! The glow is a top-level sprite that names its body (`PresentationOf`), like
 //! the hit flash. So the shared roads apply with no opt-in: a portal pane
@@ -20,7 +28,16 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::asset::RenderAssetUsages;
-use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::render::render_resource::{
+    AsBindGroup, BlendState, Extent3d, RenderPipelineDescriptor, SpecializedMeshPipelineError, TextureDimension,
+    TextureFormat,
+};
+use bevy::mesh::MeshVertexBufferLayoutRef;
+use bevy::reflect::TypePath;
+use bevy::shader::ShaderRef;
+use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dKey, MeshMaterial2d};
+
+use ambition_persistence::settings::{ActorGlowQuality, ResolvedVisualQuality};
 
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     ActivePlayerGlow, ActorGlow, GlowLayer, GlowLook,
@@ -187,17 +204,115 @@ fn glow_visibility(body_hidden_by_another: bool) -> Visibility {
     }
 }
 
+/// The glow's shader (`actor_glow.wgsl`): the falloff computed per pixel and
+/// dithered on the screen, so a faint glow has no rings. One quad per glow,
+/// like the mask; blended premultiplied, so the same pipeline paints the
+/// smooth look over what is behind and adds the light look to it.
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+pub struct ActorGlowMaterial {
+    /// `rgb`: the hue at full brightness, linear. `a`: the strength at the
+    /// middle, the passage fade folded in.
+    #[uniform(0)]
+    pub colour: Vec4,
+    /// `x`: 0 smooth, 1 light.
+    #[uniform(1)]
+    pub look: Vec4,
+}
+
+const GLOW_SHADER: &str = "embedded://ambition_render/rendering/actor_glow.wgsl";
+
+impl Material2d for ActorGlowMaterial {
+    fn fragment_shader() -> ShaderRef {
+        GLOW_SHADER.into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayoutRef,
+        _key: Material2dKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        if let Some(fragment) = descriptor.fragment.as_mut() {
+            for target in fragment.targets.iter_mut().flatten() {
+                target.blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Install the glow's shader. Android draws the mask: the material's
+/// per-type systems are not paid there.
+pub fn add_actor_glow_material_plugin(app: &mut App) {
+    #[cfg(not(target_os = "android"))]
+    {
+        bevy::asset::embedded_asset!(app, "actor_glow.wgsl");
+        app.add_plugins(bevy::sprite_render::Material2dPlugin::<ActorGlowMaterial>::default());
+    }
+    #[cfg(target_os = "android")]
+    let _ = app;
+}
+
+/// How a glow visual was drawn, so a change of quality redraws it.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GlowDrawnAs(pub ActorGlowQuality);
+
+/// How this device draws glows: the quality's [`ActorGlowQuality`], or the
+/// mask where the shader cannot be drawn (no quality resource or no material:
+/// a headless app, Android).
+fn glow_mode(quality: Option<&ResolvedVisualQuality>, has_shader: bool) -> ActorGlowQuality {
+    match quality.map(|quality| quality.budget.glow.actor_glow) {
+        None => ActorGlowQuality::Mask,
+        Some(ActorGlowQuality::Smooth | ActorGlowQuality::Light) if !has_shader => ActorGlowQuality::Mask,
+        Some(mode) => mode,
+    }
+}
+
+/// The glow's colour and look uniforms on sim tick `tick`.
+fn glow_uniforms(glow: &ActorGlow, mode: ActorGlowQuality, tick: u64, alpha: f32) -> (Vec4, Vec4) {
+    let [r, g, b] = glow.light_color();
+    let linear = Color::srgb(r, g, b).to_linear();
+    let look = if mode == ActorGlowQuality::Light { 1.0 } else { 0.0 };
+    (
+        Vec4::new(linear.red, linear.green, linear.blue, glow.intensity_at(tick) * alpha),
+        Vec4::new(look, 0.0, 0.0, 0.0),
+    )
+}
+
+/// What a shader glow declares it paints, for a compositor that cuts it (a
+/// portal pane): the mask, tinted. The pane's pieces draw the mask's look.
+fn glow_declared_frame(picture: &Handle<Image>, colour: Vec4) -> ambition_sprite_fx::DeclaredFrame {
+    let srgb = Color::linear_rgb(colour.x, colour.y, colour.z).to_srgba();
+    ambition_sprite_fx::DeclaredFrame {
+        color_texture: picture.clone(),
+        uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0),
+        flip_x: false,
+        tint: Vec4::new(srgb.red, srgb.green, srgb.blue, colour.w),
+        silhouette: true,
+        size: Vec2::ONE,
+        anchor: Vec2::ZERO,
+    }
+}
+
 /// Draw each body's glow at its drawn place, show it while the body shows,
-/// and take it away when the body or its [`ActorGlow`] goes.
+/// and take it away when the body or its [`ActorGlow`] goes. How it is drawn
+/// is the device's ([`glow_mode`]); a glow drawn another way is redrawn.
 ///
 /// The glow is a separate root, so it does not inherit its body's
 /// visibility: this system mirrors it each frame.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn sync_actor_glows(
     mut commands: Commands,
     picture: Option<Res<ActorGlowPicture>>,
     tick: Option<Res<ambition_time::SimTick>>,
     frames: Option<Res<ambition_sim_view::ActorAnimIndex>>,
+    quality: Option<Res<ResolvedVisualQuality>>,
+    mut materials: Option<ResMut<Assets<ActorGlowMaterial>>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut quad: Local<Option<Handle<Mesh>>>,
     bodies: Query<
         (
             Entity,
@@ -213,17 +328,32 @@ pub fn sync_actor_glows(
         ),
         Without<ActorGlowVisual>,
     >,
-    mut glows: Query<(Entity, &PresentationOf, &mut Transform, &mut Sprite, &mut Visibility), (With<ActorGlowVisual>, Without<ActorGlow>)>,
+    mut glows: Query<
+        (
+            Entity,
+            &PresentationOf,
+            &GlowDrawnAs,
+            &mut Transform,
+            Option<&mut Sprite>,
+            Option<&MeshMaterial2d<ActorGlowMaterial>>,
+            Option<&mut ambition_sprite_fx::DeclaredFrame>,
+            &mut Visibility,
+        ),
+        (With<ActorGlowVisual>, Without<ActorGlow>),
+    >,
 ) {
     let tick = tick.map_or(0, |tick| tick.0);
+    let mode = glow_mode(quality.as_deref(), materials.is_some() && meshes.is_some());
     let mut drawn: Vec<Entity> = Vec::new();
-    for (entity, visual, mut transform, mut sprite, mut visibility) in &mut glows {
+    for (entity, visual, drawn_as, mut transform, sprite, material, declared, mut visibility) in &mut glows {
         let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, animator, passage, feature)) = bodies.get(visual.0) else {
             commands.entity(entity).try_despawn();
             continue;
         };
-        if drawn.contains(&visual.0) {
-            // A second glow of one body (a spawn that raced a despawn).
+        if drawn.contains(&visual.0) || drawn_as.0 != mode {
+            // A second glow of one body (a spawn that raced a despawn), or one
+            // drawn for another quality: it goes, and the loop below draws the
+            // body's glow afresh.
             commands.entity(entity).try_despawn();
             continue;
         }
@@ -235,16 +365,39 @@ pub fn sync_actor_glows(
         if *visibility != wanted {
             *visibility = wanted;
         }
-        transform.set_if_neq(Transform::from_translation(at));
-        let now = glow_sprite(glow, &sprite.image, diameter, tick, passage_alpha(passage, feature, frames.as_deref()));
-        if sprite.custom_size != now.custom_size || sprite.color != now.color {
-            sprite.custom_size = now.custom_size;
-            sprite.color = now.color;
+        let alpha = passage_alpha(passage, feature, frames.as_deref());
+        if let Some(mut sprite) = sprite {
+            transform.set_if_neq(Transform::from_translation(at));
+            let now = glow_sprite(glow, &sprite.image, diameter, tick, alpha);
+            if sprite.custom_size != now.custom_size || sprite.color != now.color {
+                sprite.custom_size = now.custom_size;
+                sprite.color = now.color;
+            }
+        } else {
+            transform.set_if_neq(Transform::from_translation(at).with_scale(Vec3::new(diameter, diameter, 1.0)));
+            let (colour, look) = glow_uniforms(glow, mode, tick, alpha);
+            if let (Some(material), Some(materials)) = (material, materials.as_deref_mut()) {
+                if materials.get(&material.0).is_some_and(|now| now.colour != colour || now.look != look) {
+                    if let Some(mut now) = materials.get_mut(&material.0) {
+                        now.colour = colour;
+                        now.look = look;
+                    }
+                }
+            }
+            if let (Some(mut declared), Some(picture)) = (declared, picture.as_deref()) {
+                let now = glow_declared_frame(&picture.0, colour);
+                if *declared != now {
+                    *declared = now;
+                }
+            }
         }
     }
     let Some(picture) = picture else {
         return;
     };
+    if mode == ActorGlowQuality::Off {
+        return;
+    }
     for (body, glow, transform, sprite, anchor, body_visibility, session_owner, animator, passage, feature) in &bodies {
         if drawn.contains(&body) {
             continue;
@@ -253,21 +406,35 @@ pub fn sync_actor_glows(
             continue;
         };
         let scope = session_owner.map_or(SessionSpawnScope::UNSCOPED, |owner| SessionSpawnScope::scoped(owner.0));
-        commands.spawn_session_scoped(
-            scope,
-            (
-                glow_sprite(glow, &picture.0, diameter, tick, passage_alpha(passage, feature, frames.as_deref())),
-                Transform::from_translation(at),
-                // Set each frame above: the glow is a separate root and does
-                // not inherit its body's visibility.
-                glow_visibility(body_visibility.is_some_and(|shown| matches!(*shown, Visibility::Hidden))),
-                ActorGlowVisual,
-                // Which body this draws, in the shared spelling that portal
-                // composition and view isolation read.
-                PresentationOf(body),
-                Name::new("Actor glow"),
-            ),
-        );
+        let alpha = passage_alpha(passage, feature, frames.as_deref());
+        // Set each frame above: the glow is a separate root and does not
+        // inherit its body's visibility.
+        let shown = glow_visibility(body_visibility.is_some_and(|shown| matches!(*shown, Visibility::Hidden)));
+        // Which body this draws (`PresentationOf`), in the shared spelling
+        // that portal composition and view isolation read.
+        let common = (shown, ActorGlowVisual, GlowDrawnAs(mode), PresentationOf(body), Name::new("Actor glow"));
+        match (mode, materials.as_deref_mut(), meshes.as_deref_mut()) {
+            (ActorGlowQuality::Smooth | ActorGlowQuality::Light, Some(materials), Some(meshes)) => {
+                let quad = quad.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();
+                let (colour, look) = glow_uniforms(glow, mode, tick, alpha);
+                commands.spawn_session_scoped(
+                    scope,
+                    (
+                        Mesh2d(quad),
+                        MeshMaterial2d(materials.add(ActorGlowMaterial { colour, look })),
+                        Transform::from_translation(at).with_scale(Vec3::new(diameter, diameter, 1.0)),
+                        glow_declared_frame(&picture.0, colour),
+                        common,
+                    ),
+                );
+            }
+            _ => {
+                commands.spawn_session_scoped(
+                    scope,
+                    (glow_sprite(glow, &picture.0, diameter, tick, alpha), Transform::from_translation(at), common),
+                );
+            }
+        }
     }
 }
 
@@ -428,6 +595,37 @@ mod tests {
         app.update();
         assert_eq!(glows(&mut app).iter().map(|g| g.0).collect::<Vec<_>>(), vec![lamp], "the player's glow goes, the lamp's stays");
         assert!(app.world().get::<ActorGlow>(player).is_none());
+    }
+
+    /// Jon (2026-11-14): the glow follows the quality: Ultra draws the lamp
+    /// shader, High the smooth one, Low the mask sprite, Potato nothing. A
+    /// change of quality redraws what is already drawn.
+    #[test]
+    fn the_glow_is_drawn_as_the_quality_says() {
+        use ambition_persistence::settings::{VisualQualityBudget, VisualQualityProfile};
+        let mut app = app();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<ActorGlowMaterial>>();
+        app.world_mut().spawn((body_sprite(Vec3::ZERO), ActorGlow::soft(0.5, 0.6)));
+        let drawn = |app: &mut App, profile| {
+            app.insert_resource(ResolvedVisualQuality { profile, budget: VisualQualityBudget::for_profile(profile) });
+            app.update();
+            let world = app.world_mut();
+            let found: Vec<_> = world
+                .query_filtered::<(&GlowDrawnAs, Has<Sprite>, Option<&MeshMaterial2d<ActorGlowMaterial>>), With<ActorGlowVisual>>()
+                .iter(world)
+                .map(|(drawn_as, sprite, material)| (drawn_as.0, sprite, material.map(|material| material.0.clone())))
+                .collect();
+            let looks: Vec<f32> = found.iter().filter_map(|(_, _, material)| material.as_ref())
+                .map(|material| world.resource::<Assets<ActorGlowMaterial>>().get(material).unwrap().look.x)
+                .collect();
+            (found.into_iter().map(|(drawn_as, sprite, material)| (drawn_as, sprite, material.is_some())).collect::<Vec<_>>(), looks)
+        };
+        assert_eq!(drawn(&mut app, VisualQualityProfile::Ultra), (vec![(ActorGlowQuality::Light, false, true)], vec![1.0]));
+        assert_eq!(drawn(&mut app, VisualQualityProfile::High), (vec![(ActorGlowQuality::Smooth, false, true)], vec![0.0]));
+        assert_eq!(drawn(&mut app, VisualQualityProfile::Low), (vec![(ActorGlowQuality::Mask, true, false)], vec![]));
+        assert_eq!(drawn(&mut app, VisualQualityProfile::Potato), (vec![], vec![]));
+        assert_eq!(drawn(&mut app, VisualQualityProfile::Medium), (vec![(ActorGlowQuality::Mask, true, false)], vec![]));
     }
 
     /// An offset is toward the body's facing.

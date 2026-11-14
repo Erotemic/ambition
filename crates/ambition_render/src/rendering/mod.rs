@@ -589,6 +589,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // through it.
         app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
         hit_flash::add_hit_flash_material_plugin(app);
+        actor_glow::add_actor_glow_material_plugin(app);
         // The live layer of the bubble shield: a shader, on Android as the hit
         // flash is (not there).
         #[cfg(not(target_os = "android"))]

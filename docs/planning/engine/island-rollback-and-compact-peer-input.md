@@ -920,12 +920,31 @@ tick, which GGRS's sync tests already hold the engine to. Measured: with
 Alice swinging in the hub through Bob's 26 rewinds, all 19 bodies end where
 the on-time run ends.
 
-Not yet: the confirmed-frame observers. The hosted host publishes no
-`ConfirmedFrameBoundary`, so checkpoints, deaths, passages, the conversation
-ledger and host intents treat every tick as confirmed: an irreversible act on
-a tick a rewind later replays is not taken back, and a host intent is pruned
-before a replay of its tick could release it again. Also not yet: the cost
-of a rewind on a release build over a real link.
+A guest's late crossing joins the live room (2026-11-14). Measured with a
+probe (deleted): Bob, a guest on the hub door, presses interact at frame 30
+while Alice is in the hub. On time he joins her hub at frame 32. Late, the
+press arrived in a replay, which hides every room but his, so the crossing's
+plan did not find the hub and built a second one (instance 2). Two rules fix
+it. A replay publishes a `ConfirmedFrameBoundary` with its ticks unconfirmed,
+and the eager crossing path honours a published boundary (it confirmed
+everything before; it still does on a host that publishes none), so a
+crossing the replay records begins on the first tick after it. And no room
+is rewound while a crossing is recorded or loading: its commit plans against
+the live rooms, and a replay would hide them. Late, Bob now joins Alice's hub
+at frame 34 and ends where the on-time run ends (2 rewinds; 4 late inputs
+applied from the next tick during the crossing).
+
+Not yet: the other confirmed-frame observers. Outside a replay the hosted
+host publishes no boundary, so checkpoints, deaths, passages, the
+conversation ledger and host intents treat each tick as confirmed when it
+first runs: an act on a tick a rewind replays is not taken back, and a host
+intent is pruned before a replay of its tick could release it again. A
+boundary published every tick would never be fully confirmed while a guest
+plays (its inputs arrive a round trip late), and the sandbox autosave waits
+for that; a guest whose stamps lead the host tick (NA-3's run-ahead) would
+let confirmation keep up. Also not yet: the cost of a rewind on a release
+build over a real link; and an edge exit walked by a mispredicted guest
+commits at once and cannot be taken back.
 
 ## Order, exclusions and integration
 

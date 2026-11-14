@@ -29,7 +29,7 @@ use bevy::prelude::*;
 
 use ambition_combat::impact_hitstop::ImpactHitstop;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
-use ambition_platformer2d_core::ControlFrame;
+use ambition_platformer2d_core::{ConfirmedFrameBoundary, ControlFrame};
 use ambition_platformer2d_runtime::rollback::room_snapshot::{RoomSnapshot, RoomSnapshotRows};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
 use ambition_time::{ClockState, DayClock, GameplayElapsed, SimTick, WorldTime};
@@ -177,6 +177,11 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
     let tick = world.resource::<SimTick>().0 + 1;
     let (rooms, local) = guest_rooms(world);
     let mut inputs = world.remove_resource::<GuestInputs>().unwrap_or_default();
+    if inputs.replaying {
+        if let Some(mut boundary) = world.get_resource_mut::<ConfirmedFrameBoundary>() {
+            boundary.current = tick as i32;
+        }
+    }
     for seat in rooms.keys() {
         let frame = inputs.input_for(*seat, tick);
         inputs.used.entry(*seat).or_default().insert(tick, frame);
@@ -248,7 +253,16 @@ pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u
         }
     }
     world.insert_resource(inputs);
+    // A crossing spans two rooms, and a replay hides every room but one: the
+    // crossing's plan would not find the room it joins and would build a
+    // second one. While a crossing is recorded or loading, a late input
+    // drives the seat from the next tick instead.
+    let crossing = a_crossing_is_under_way(world);
     for (room, tick) in rewind {
+        if crossing {
+            stats.not_rewound += 1;
+            continue;
+        }
         let replayed = rewind_room(world, room, tick, now);
         match replayed {
             Some(ticks) => {
@@ -259,6 +273,17 @@ pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u
         }
     }
     world.insert_resource(stats);
+}
+
+/// A room crossing recorded and not yet begun, or begun and not yet
+/// committed.
+fn a_crossing_is_under_way(world: &World) -> bool {
+    world
+        .get_resource::<ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit>()
+        .is_some_and(|pending| pending.peek().is_some())
+        || world
+            .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
+            .is_some_and(|load| load.active.is_some())
 }
 
 /// Put `room` back to the start of `tick` and replay it to `now`, the other
@@ -298,6 +323,15 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     let raw = world.get_resource::<ambition_characters::control::SeatRawFrames>().copied();
     let slots = world.get_resource::<ambition_characters::control::SlotControls>().copied();
     world.resource_mut::<GuestInputs>().replaying = true;
+    // The replayed ticks are not confirmed while they run: an irreversible
+    // act the replay records (a crossing, which needs the rooms hidden here)
+    // waits for the first tick after it. Outside a replay the host publishes
+    // no boundary and every tick is confirmed on arrival, as before.
+    let session = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world).map_or(0, |scope| scope.0);
+    let published = !world.contains_resource::<ConfirmedFrameBoundary>();
+    if published {
+        world.insert_resource(ConfirmedFrameBoundary { current: tick as i32, confirmed: tick as i32 - 1, session });
+    }
     // What the replayed ticks present was presented when they first ran.
     let effects = world.get_resource::<ReplayHidesEffects>().map(|hides| hides.0.clone()).unwrap_or_default();
     for (lift, _) in &effects {
@@ -312,6 +346,13 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
         put_back(world);
     }
     world.resource_mut::<GuestInputs>().replaying = false;
+    if published {
+        world.remove_resource::<ConfirmedFrameBoundary>();
+        // What the replay's verdicts were stamped with is settled now.
+        if let Some(log) = world.get_resource::<ambition_platformer2d_shared_tangle::authored_logic::AuthoredVerdictLog>() {
+            log.confirm_through(session, now as i32);
+        }
+    }
     if let Some(latches) = latches {
         world.insert_resource(latches);
     }

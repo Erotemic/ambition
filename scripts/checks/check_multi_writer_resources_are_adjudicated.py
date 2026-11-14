@@ -209,6 +209,10 @@ from scripts.measure import multi_writer_resource_census as census  # noqa: E402
 #: than a second recorded fact that can disagree with the first — which is the
 #: rule this whole census exists to enforce, applied to the census.
 BASELINE: dict[str, tuple[str, ...]] = {
+    "ConfirmedFrameBoundary": (
+        "crates/ambition_hosted_world/src/room_rollback.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
+    ),
     "Time": (
         "crates/ambition_hosted_world/src/room_rollback.rs",
         "game/ambition_app/src/dev/frame_step.rs",
@@ -1020,6 +1024,17 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "ConfirmedFrameBoundary": (
+        "CORRECT -- TWO HOSTS, NEVER ONE APP (SIMULATION-ISLANDS, 2026-11-14). "
+        "The GGRS bridge (`rollback_ggrs/src/session.rs`) publishes the "
+        "boundary on a rollback host. The hosted world's room rollback host "
+        "(`hosted_world/src/room_rollback.rs`) runs on a fixed-tick host, which "
+        "publishes none, and puts one in only while it replays a room: the "
+        "replayed ticks unconfirmed, so a crossing the replay records waits "
+        "for the first tick after it, when every room is back. It inserts the "
+        "boundary only when none exists and removes only the one it inserted, "
+        "so it never writes over the bridge's."
+    ),
     "Time": (
         "CORRECT -- TWO TYPES UNDER ONE NAME (SIMULATION-ISLANDS, 2026-11-14). "
         "The census reads the generic parameter away: `dev/frame_step.rs` writes "

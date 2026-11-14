@@ -578,7 +578,12 @@ fn confirmation_frame_for_host(
             }
             boundary.map(|boundary| boundary.confirmed)
         }
-        crate::SimulationHost::RenderFrame | crate::SimulationHost::Fixed60Hz => Some(i32::MAX),
+        // An eager host confirms on arrival, unless it publishes a boundary:
+        // a host that replays one room publishes one for the replay, so a
+        // crossing the replay records waits until every room is back.
+        crate::SimulationHost::RenderFrame | crate::SimulationHost::Fixed60Hz => {
+            Some(boundary.map_or(i32::MAX, |boundary| boundary.confirmed))
+        }
     }
 }
 

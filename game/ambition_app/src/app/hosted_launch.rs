@@ -76,6 +76,9 @@ pub fn compose_hosted_world(app: &mut App, launch: HostedLaunch) {
     match role {
         HostedRole::Host => {
             app.insert_resource(ambition_hosted_world::SeatsGuests);
+            // A guest alone in its room is predicted and its room rewound when
+            // its late input differs (SIMULATION-ISLANDS).
+            app.insert_resource(ambition_hosted_world::RewindsGuestRooms);
         }
         HostedRole::Guest => {
             ambition_hosted_world::arm_the_guest_gate(app);

@@ -903,6 +903,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_sprite_sheet",
+ "ambition_time",
  "bevy",
  "bevy_replicon",
  "bevy_replicon_renet",

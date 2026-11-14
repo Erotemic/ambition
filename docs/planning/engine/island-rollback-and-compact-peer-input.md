@@ -866,6 +866,38 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    belongs to hosted authority, not to one room's rollback. So the
    room-dropping list is empty.
 
+### The room rollback host in production (2026-11-14)
+
+The hosted world now carries ISL-2e's host as code:
+`ambition_hosted_world::room_rollback`, switched on by the host resource
+`RewindsGuestRooms` (the visible app's `--host-world` sets it). A guest
+stamps each input with the host tick it is for: the host replicates its
+tick (`HostTick`), and the guest adds the frames it has run since it last
+saw it. At the head of each tick, before the clock, the host drives every
+guest seat with its input for that tick, or else the guest's latest arrived
+input (the prediction), and saves each room only guests stand in, with the
+shared clock. When an input arrives for a tick already run and differs from
+the one used, that room alone is restored to its save. The rollback-cleared
+channels are emptied, the clock is put back, the room's world writes are
+retracted (ISL-2d), the other rooms are hidden (`Disabled`), and the
+simulation replays to now (`FixedMain`, as Bevy's fixed loop runs it). A
+room that also holds a host seat is not rewound, because its seat's input is
+the host's devices, which a replay cannot ask again: there a past input
+drives the guest's seat from the next tick. Inputs and saves are kept for
+`REWIND_HORIZON` (60 ticks).
+
+Witness `a_guests_late_input_rewinds_only_its_room_on_the_host`: Alice (the
+host's seat 0) leaves for the hub, and Bob, a guest at seat 1, stays in
+`switch_lab`. Bob's inputs reach the host 3 frames after the tick they name.
+The host rewinds his room 26 times and replays 78 ticks, and all 19 bodies
+end exactly where the run with his inputs on time ends (that run rewinds
+nothing). The control, the same late inputs applied as they arrive, ends
+with Bob elsewhere.
+
+Not yet: a rewind in a room the host's player shares; per-room message
+channels (a rewind empties the rollback-cleared channels of every room);
+the cost of a rewind on a release build over a real link.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

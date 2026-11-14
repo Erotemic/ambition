@@ -213,7 +213,17 @@ pub struct LocalSeat(pub PlayerSlot);
 
 /// One frame of a guest's input for its seat.
 #[derive(Message, Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct GuestInput(pub ambition_platformer2d_core::ControlFrame);
+pub struct GuestInput {
+    /// The host tick this input is for: the latest the guest saw
+    /// ([`HostTick`]) and the frames it has run since.
+    pub tick: u64,
+    pub frame: ambition_platformer2d_core::ControlFrame,
+}
+
+/// The host's simulation tick, on one replicated entity, so a guest can stamp
+/// its input with the tick it is for.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostTick(pub u64);
 
 /// The seat the host gave this guest (its number). The guest takes it as its
 /// [`LocalSeat`].
@@ -251,12 +261,23 @@ impl Plugin for HostedWorldPlugin {
             .replicate::<SpawnRow>()
             .replicate::<RoomNamed>()
             .replicate::<PlanRow>()
+            .replicate::<HostTick>()
             .add_client_message::<GuestInput>(Channel::Ordered)
             .add_client_message::<GuestRoom>(Channel::Ordered)
             .add_server_message::<SeatAssigned>(Channel::Ordered);
         match self.role {
             HostedRole::Host => {
+                use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
                 app.add_visibility_filter::<RoomOf>();
+                app.world_mut().spawn((HostTick::default(), Replicated));
+                app.init_resource::<room_rollback::GuestInputs>().init_resource::<room_rollback::RoomRollbackStats>();
+                let sim = app.sim_schedule();
+                app.add_systems(
+                    sim,
+                    room_rollback::drive_guests_and_save_rooms
+                        .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
+                        .before(ambition_platformer2d_shared_tangle::schedule::SimClockHead),
+                );
                 app.add_systems(
                     PreUpdate,
                     (apply_guest_inputs, note_guest_rooms, retire_departed_guests).after(ServerSystems::Receive),
@@ -268,7 +289,7 @@ impl Plugin for HostedWorldPlugin {
                 );
                 app.add_systems(
                     PostUpdate,
-                    (write_body_rows, write_life_rows, write_plan_rows, place_bodies, name_body_rooms, place_guests)
+                    (write_body_rows, write_life_rows, write_plan_rows, place_bodies, name_body_rooms, place_guests, write_host_tick)
                         .before(ServerSystems::Send),
                 );
             }
@@ -803,11 +824,29 @@ fn watched<T>(bodies: impl Iterator<Item = (T, PlayerSlot)>, seat: PlayerSlot) -
 /// Drive each guest's seat with the input it sent, in the order sent.
 fn apply_guest_inputs(world: &mut World) {
     let received: Vec<FromClient<GuestInput>> = world.resource_mut::<Messages<FromClient<GuestInput>>>().drain().collect();
+    let mut stamped = Vec::new();
     for input in received {
         let Some(seat) = input.client_id.entity().and_then(|client| world.get::<GuestSeat>(client)).copied() else {
             continue;
         };
-        ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, seat.0, input.message.0);
+        stamped.push((seat.0, input.message.tick, input.message.frame));
+    }
+    if world.contains_resource::<room_rollback::RewindsGuestRooms>() {
+        room_rollback::take_arrived_inputs(world, stamped);
+    } else {
+        for (seat, _, frame) in stamped {
+            ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, seat, frame);
+        }
+    }
+}
+
+/// Put the host's tick on its replicated clock entity, before the send.
+fn write_host_tick(tick: Option<Res<ambition_time::SimTick>>, mut clocks: Query<&mut HostTick>) {
+    let Some(tick) = tick else {
+        return;
+    };
+    for mut clock in &mut clocks {
+        clock.set_if_neq(HostTick(tick.0));
     }
 }
 
@@ -816,10 +855,16 @@ fn send_local_input(
     seat: Option<Res<LocalSeat>>,
     from: Option<Res<InputFromSeat>>,
     raw: Option<Res<ambition_characters::control::SeatRawFrames>>,
+    clock: Query<&HostTick>,
+    mut seen: Local<(u64, u64)>,
     mut inputs: MessageWriter<GuestInput>,
 ) {
+    // The host's tick as last seen, and the frames run since it changed.
+    let host = clock.iter().next().map_or(0, |tick| tick.0);
+    *seen = if host == seen.0 { (host, seen.1 + 1) } else { (host, 0) };
     if let (Some(seat), Some(raw)) = (seat, raw) {
-        inputs.write(GuestInput(raw.get(from.map_or(seat.0, |from| from.0))));
+        let frame = raw.get(from.map_or(seat.0, |from| from.0));
+        inputs.write(GuestInput { tick: seen.0 + seen.1, frame });
     }
 }
 
@@ -938,6 +983,9 @@ fn apply_body_rows(mut bodies: Query<(&BodyRow, &mut BodyKinematics), Or<(Change
         row.write_into(&mut body);
     }
 }
+
+pub mod room_rollback;
+pub use room_rollback::{RewindsGuestRooms, RoomRollbackStats, REWIND_HORIZON};
 
 /// `bevy_replicon` itself, so a caller names the version this crate replicates with.
 pub use bevy_replicon;

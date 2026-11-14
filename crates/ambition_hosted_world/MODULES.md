@@ -6,8 +6,9 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`room_rollback`](src/room_rollback.rs) | A host that keeps a guest's room correct by rollback (SIMULATION-ISLANDS). |
 
-_0 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_1 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

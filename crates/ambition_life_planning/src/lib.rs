@@ -29,7 +29,7 @@ pub type Facts = BTreeMap<String, Value>;
 
 /// What the executor is asked to do: a verb it knows (`go_to`, `use`, `say`)
 /// and its target, both opaque to the planner.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Action {
     pub verb: String,
     #[serde(default)]
@@ -38,7 +38,7 @@ pub struct Action {
 
 /// One step of a plan: the planner's name for it (handed back when it is
 /// done), the action, and why the planner chose it, outermost first.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Step {
     pub task: String,
     pub action: Action,

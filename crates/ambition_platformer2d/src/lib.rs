@@ -1190,7 +1190,7 @@ pub mod sim {
     /// The dev-only physics overrides a sandbox host may install.
     pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
     pub use ambition_platformer2d_shared_tangle::schedule::{
-        BossSteerSlot, FeatureWorldOverlayContributions, GameMode,
+        BossSteerSlot, FeatureWorldOverlayContributions, GameMode, GameplayGated,
         Platformer2dSimulationPhase, PresentationSetupSet, SimSchedule, SimScheduleExt,
         SimulationSetupSet, WorldItemSet,
     };

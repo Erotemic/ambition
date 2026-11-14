@@ -867,8 +867,33 @@ guest exactly where the host has her (`[1463.0, 1928.0, 0, 0, 1]` on both).
 A guest that names no seat cannot build her and retries the row each frame;
 it shows nothing in her place.
 
-Next in the prototype: a guest App composed from fewer plugins, and each NPC
-life's step as a row.
+### An NPC life's plan row (2026-11-13)
+
+What a life holds and where it is in its plan (`Life`: its facts, plan hour,
+steps, what it is doing, its claim) goes to the guest as a plan row
+(`PlanRow`, a copy of the host's `Life`, now serializable). The host writes it
+only when the life changed. Replicating `Life` itself cost 1,160 link bytes
+a frame in the lab, because the planner touches `Life` every tick; the row
+cuts that to 62 bytes a frame for the whole room (both lives, Alice's body
+and the rest). The guest puts each row on its body as its `Life`.
+
+Witness `a_hosted_guest_holds_the_hosts_lives` (`eureka_coil_lab` from five
+past ten, until a scientist holds the workbench, then 30 frames; 321 frames
+in all): the gated guest's two lives equal the host's after every snapshot,
+claim included. The control, the same guest with no link, keeps its boot
+plan (hour 8, plan #1).
+
+**The gated guest was not gated (found by this witness).** NPC lives plan in
+`GameplayGated`, a set in no simulation phase, so `simulate_nothing` never
+stopped them. Adding `GameplayGated.run_if(|| false)` to a booted App does
+nothing in Bevy 0.19: a set that already had a condition gets its built
+conditions moved back over the new one at the next rebuild. The helper now
+nests `GameplayGated` in a new set that carries the condition. Before the
+fix, the guest advanced a life one frame ahead of the host's row (Starting →
+Holding at the bench) on 2 of 321 frames. A guest App composed from fewer
+plugins would not install the planner at all.
+
+Next in the prototype: a guest App composed from fewer plugins.
 
 ## Next
 

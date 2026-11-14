@@ -33,6 +33,10 @@
 //! the guest built its own copies, so replication continues into them
 //! instead of making a second of each.
 //!
+//! An NPC's life (`Life`: its plan, where it is in it, what it claims) goes
+//! as its plan row ([`PlanRow`]): it is the host's alone, and a guest that
+//! simulates nothing has no other way to know it.
+//!
 //! The guest's input goes the other way: each frame it sends the raw control
 //! frame of its own seat ([`LocalSeat`]) as a [`GuestInput`] message, on the
 //! reliable ordered channel so no press is lost, and the host drives the seat
@@ -142,6 +146,13 @@ pub struct SpawnRow {
     pub seat: Option<u8>,
 }
 
+/// An NPC's life as the host has it: its plan, where it is in it and what it
+/// claims. A copy of the host's `Life`, written only when the life changes:
+/// the host's planner touches `Life` every tick, and replicating `Life`
+/// itself sent it whole every frame.
+#[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PlanRow(pub ambition_platformer2d_actor_monolith::body::life::Life);
+
 /// On the guest: a replicated entity its spawn row has been built into (or
 /// refused), so it is not built twice.
 #[derive(Component, Clone, Copy, Debug)]
@@ -225,6 +236,7 @@ impl Plugin for HostedWorldPlugin {
             .replicate::<LifeRow>()
             .replicate::<SpawnRow>()
             .replicate::<RoomNamed>()
+            .replicate::<PlanRow>()
             .add_client_message::<GuestInput>(Channel::Ordered)
             .add_client_message::<GuestRoom>(Channel::Ordered);
         match self.role {
@@ -237,7 +249,8 @@ impl Plugin for HostedWorldPlugin {
                 app.add_systems(Update, (mark_hosted_bodies, write_spawn_rows));
                 app.add_systems(
                     PostUpdate,
-                    (write_body_rows, write_life_rows, place_bodies, name_body_rooms, place_guests).before(ServerSystems::Send),
+                    (write_body_rows, write_life_rows, write_plan_rows, place_bodies, name_body_rooms, place_guests)
+                        .before(ServerSystems::Send),
                 );
             }
             HostedRole::Guest => {
@@ -250,7 +263,7 @@ impl Plugin for HostedWorldPlugin {
                 app.add_systems(PreUpdate, follow_own_crossing.after(ClientSystems::Receive));
                 app.add_systems(
                     PreUpdate,
-                    (build_spawned_bodies, (apply_body_rows, apply_life_rows))
+                    (build_spawned_bodies, (apply_body_rows, apply_life_rows, apply_plan_rows))
                         .chain()
                         .after(ClientSystems::Receive),
                 );
@@ -686,6 +699,50 @@ fn write_life_rows(
             }
             None => {
                 commands.entity(entity).insert(now);
+            }
+        }
+    }
+}
+
+/// Write each replicated life's plan row, when the life changed.
+fn write_plan_rows(
+    mut commands: Commands,
+    mut lives: Query<
+        (Entity, &ambition_platformer2d_actor_monolith::body::life::Life, Option<&mut PlanRow>),
+        (With<Replicated>, Changed<ambition_platformer2d_actor_monolith::body::life::Life>),
+    >,
+) {
+    for (entity, life, row) in &mut lives {
+        match row {
+            Some(mut row) => {
+                if row.0 != *life {
+                    row.0 = life.clone();
+                }
+            }
+            None => {
+                commands.entity(entity).insert(PlanRow(life.clone()));
+            }
+        }
+    }
+}
+
+/// Put each received plan row on the guest's body as its life.
+fn apply_plan_rows(
+    mut commands: Commands,
+    mut lives: Query<
+        (Entity, &PlanRow, Option<&mut ambition_platformer2d_actor_monolith::body::life::Life>),
+        Or<(Changed<PlanRow>, Added<ambition_platformer2d_actor_monolith::body::life::Life>)>,
+    >,
+) {
+    for (entity, row, life) in &mut lives {
+        match life {
+            Some(mut life) => {
+                if *life != row.0 {
+                    *life = row.0.clone();
+                }
+            }
+            None => {
+                commands.entity(entity).insert(row.0.clone());
             }
         }
     }

@@ -168,8 +168,9 @@ pub struct LedgerRow {
 /// week; what the days before it would have set is not known.
 const CATCH_UP_HOURS: i64 = 24 * 7;
 
-/// What a body is doing with its life.
-#[derive(Component, Clone, Debug, PartialEq)]
+/// What a body is doing with its life. Serializable for a networked guest,
+/// which is sent the host's (`ambition_hosted_world`).
+#[derive(Component, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Life {
     pub domain: String,
     pub facts: Facts,
@@ -201,7 +202,7 @@ pub struct Life {
     pub held: Option<(String, f64)>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Doing {
     /// Between plans, or the plan is spent.
     Idle,
@@ -213,7 +214,7 @@ pub enum Doing {
     Holding { until: f64 },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LifeStop {
     /// The book has no domain of this name.
     NoDomain(String),

@@ -679,3 +679,88 @@ fn a_hosted_guest_that_disconnects_leaves_the_session() {
     assert_eq!(after, (false, 0), "the departed guest's seat is still in the session");
     assert_eq!(unseated_after, (true, 1), "the control: a guest naming no seat took seat 1 with it");
 }
+
+/// One App of the lab at five past ten, its scientists' lives about to plan.
+fn booted_in_the_lab(role: HostedRole) -> Platformer2dSimHarness {
+    use ambition_platformer2d::time::{DayClock, DayCycle};
+    let mut sim = Platformer2dSimHarness::build(fixed_60hz_room_options("eureka_coil_lab"), |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        app.add_plugins((RepliconPlugins.set(ServerPlugin::new(PostUpdate)), HostedWorldPlugin { role }));
+        app.finish();
+        app.cleanup();
+        Ok(())
+    })
+    .expect("the lab boots");
+    sim.step(crate::common::base());
+    let world = sim.world_mut();
+    let cycle = *world.resource::<DayCycle>();
+    *world.resource_mut::<DayClock>() = DayClock::at_hour(&cycle, 10.05);
+    sim
+}
+
+fn lives(
+    sim: &mut Platformer2dSimHarness,
+) -> std::collections::BTreeMap<ambition_platformer2d::platformer::sim_id::SimId, ambition_platformer2d::actors::body::life::Life> {
+    let world = sim.world_mut();
+    world
+        .query::<(&ambition_platformer2d::platformer::sim_id::SimId, &ambition_platformer2d::actors::body::life::Life)>()
+        .iter(world)
+        .map(|(id, life)| (id.clone(), life.clone()))
+        .collect()
+}
+
+/// NA-3's NPC lives through `bevy_replicon`: the host plays the lab from five
+/// past ten until a scientist holds the workbench, and 30 frames more. A
+/// guest that simulates nothing holds each scientist's life (its plan, where
+/// it is in it, its claim) as the host has it after every snapshot. The
+/// control is the same gated guest with no link: its lives never leave their
+/// authored start.
+#[test]
+fn a_hosted_guest_holds_the_hosts_lives() {
+    let mut host = booted_in_the_lab(HostedRole::Host);
+    let mut guest = booted_in_the_lab(HostedRole::Guest);
+    let mut control = booted_in_the_lab(HostedRole::Guest);
+    simulate_nothing(&mut guest);
+    simulate_nothing(&mut control);
+    host.app_mut().connect_client(guest.app_mut());
+    let holds_the_bench = |lives: &std::collections::BTreeMap<_, ambition_platformer2d::actors::body::life::Life>| {
+        lives.values().any(|life| life.claim.as_deref() == Some("workbench"))
+    };
+    let (mut frames, mut differ, mut bytes, mut after_the_bench) = (0usize, 0usize, 0usize, None);
+    while after_the_bench.is_none_or(|left| left > 0) {
+        assert!(frames < 20_000, "premise: a scientist takes the bench on the host");
+        host.app_mut().update();
+        bytes += host.world().resource::<ServerMessages>().iter_sent().map(|(_, _, sent)| sent.len()).sum::<usize>();
+        host.app_mut().exchange_with_client(guest.app_mut());
+        guest.app_mut().update();
+        control.app_mut().update();
+        frames += 1;
+        let on_host = lives(&mut host);
+        if lives(&mut guest) != on_host {
+            differ += 1;
+        }
+        after_the_bench = match after_the_bench {
+            None if holds_the_bench(&on_host) => Some(30),
+            None => None,
+            Some(left) => Some(left - 1),
+        };
+    }
+    let on_host = lives(&mut host);
+    let on_control = lives(&mut control);
+    let summary = |lives: &std::collections::BTreeMap<_, ambition_platformer2d::actors::body::life::Life>| {
+        lives
+            .values()
+            .map(|life| format!("{:?} claim {:?} plan {:?} #{}", life.doing, life.claim, life.planned_in, life.revision))
+            .collect::<Vec<_>>()
+    };
+    println!(
+        "[hosted lives] {frames} frames; {} lives on the host {:?}; frames the guest's differ {differ}; {:.1} link bytes a frame; the control's {:?}",
+        on_host.len(),
+        summary(&on_host),
+        bytes as f64 / frames as f64,
+        summary(&on_control),
+    );
+    assert!(on_host.len() >= 2, "premise: the lab has its two scientists' lives");
+    assert_eq!(differ, 0, "the guest's lives differ from the host's after a snapshot");
+    assert_ne!(on_control, on_host, "the control: a gated guest with no link knows the host's lives anyway");
+}

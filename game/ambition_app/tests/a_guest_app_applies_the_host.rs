@@ -66,6 +66,15 @@ pub(crate) fn simulate_nothing(guest: &mut Platformer2dSimHarness) {
     for phase in GATED {
         app.configure_sets(schedule, phase.run_if(|| false));
     }
+    // Systems gated by the menu pause but in no phase: NPC lives plan there.
+    // Through a new parent set: once a schedule is built, a condition added to
+    // a set that already has one (`GameplayGated` has `gameplay_allowed`) is
+    // dropped at the next rebuild, which moves the built conditions back over
+    // it.
+    #[derive(bevy::prelude::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+    struct GuestAsleep;
+    app.configure_sets(schedule, ambition_platformer2d::sim::GameplayGated.in_set(GuestAsleep));
+    app.configure_sets(schedule, GuestAsleep.run_if(|| false));
 }
 
 /// Write `rows` onto the guest's bodies by id. Returns the ids it does not hold.

@@ -726,6 +726,20 @@ WAIVERS: dict[str, str] = {
         "wrong: a rewind would restore an older value and the `Changed<..Row>` "
         "gate would not re-apply the host's until its next row."
     ),
+    "apply_plan_rows": (
+        "⛔ A HOSTED GUEST HAS NO TIMELINE TO REWIND. These run only under "
+        "`HostedWorldPlugin { role: HostedRole::Guest }` "
+        "(`crates/ambition_hosted_world/src/lib.rs`), the hosted model that is the "
+        "alternative to a GGRS session: NA-2 in "
+        "`docs/planning/engine/hosted-world-networking-experiment.md` is one host "
+        "App with no rollback session, and a guest that simulates nothing of its "
+        "own but room changes. Each write is the HOST's value arriving through "
+        "replicon after `ClientSystems::Receive` -- the authority, not a "
+        "prediction a rewind would need to restore.\n"
+        "⚠ if a guest ever runs a rollback session beside replicon, this is "
+        "wrong: a rewind would restore an older value and the `Changed<..Row>` "
+        "gate would not re-apply the host's until its next row."
+    ),
 }
 
 

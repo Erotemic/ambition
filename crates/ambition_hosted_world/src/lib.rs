@@ -295,9 +295,13 @@ impl Plugin for HostedWorldPlugin {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GuestAsleep;
 
-/// Present once [`put_the_simulation_to_sleep`] has gated this App.
+/// While present, a guest's simulation sleeps (see [`arm_the_guest_gate`]).
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct SimulationAsleep;
+
+/// Present once [`arm_the_guest_gate`] has configured this App.
 #[derive(Resource)]
-struct SimulationAsleep;
+struct GuestGateArmed;
 
 /// The simulation phases a guest sleeps. The host simulates; the guest applies
 /// its rows. Room changes stay awake (`RoomTransition`, inside
@@ -325,28 +329,55 @@ pub const GUEST_SLEEPS: [ambition_platformer2d_shared_tangle::schedule::Platform
     ]
 };
 
-/// Put this App's simulation to sleep, as a guest does: [`GUEST_SLEEPS`] and
-/// `GameplayGated` (where NPC lives plan, in no phase). Once is enough. The
-/// guest's composition calls it when it is ready to show the host's world;
-/// [`HostedWorldPlugin`] does not, so an App can set itself up first.
+/// Nest [`GUEST_SLEEPS`] and `GameplayGated` (where NPC lives plan, in no
+/// phase) in [`GuestAsleep`], which runs only while [`SimulationAsleep`] is
+/// absent. Once is enough. A guest arms this when it is composed and inserts
+/// `SimulationAsleep` when it starts showing the host's world.
 ///
-/// Each is nested in [`GuestAsleep`], which carries the condition. Bevy 0.19
-/// drops a condition added to a set that already has one once the schedule
-/// is built (the rebuild moves the built conditions back over it), and
-/// `GameplayGated` has one.
-pub fn put_the_simulation_to_sleep(app: &mut App) {
+/// Nested rather than conditioned one by one: Bevy 0.19 drops a condition
+/// added to a set that already has one once the schedule is built (the
+/// rebuild moves the built conditions back over it), and `GameplayGated` has
+/// one. `GuestAsleep` is new, so its condition stands.
+pub fn arm_the_guest_gate(app: &mut App) {
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
-    if app.world().contains_resource::<SimulationAsleep>() {
+    if app.world().contains_resource::<GuestGateArmed>() {
         return;
     }
-    app.insert_resource(SimulationAsleep);
+    app.insert_resource(GuestGateArmed);
     let schedule = app.sim_schedule();
     for phase in GUEST_SLEEPS {
         app.configure_sets(schedule, phase.in_set(GuestAsleep));
     }
     app.configure_sets(schedule, ambition_platformer2d_shared_tangle::schedule::GameplayGated.in_set(GuestAsleep));
-    app.configure_sets(schedule, GuestAsleep.run_if(|| false));
+    app.configure_sets(schedule, GuestAsleep.run_if(not(resource_exists::<SimulationAsleep>)));
 }
+
+/// Put this App's simulation to sleep now, as a guest does: [`arm_the_guest_gate`]
+/// and [`SimulationAsleep`]. [`HostedWorldPlugin`] does not call it, so an App
+/// can set itself up first.
+pub fn put_the_simulation_to_sleep(app: &mut App) {
+    arm_the_guest_gate(app);
+    app.insert_resource(SimulationAsleep);
+}
+
+/// A guest's simulation goes to sleep once it is connected and holds a live
+/// room: until then it is a game of its own, from then on it shows the host's.
+pub fn sleep_once_connected(
+    mut commands: Commands,
+    state: Res<State<ClientState>>,
+    rooms: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>,
+    asleep: Option<Res<SimulationAsleep>>,
+) {
+    if asleep.is_none() && *state.get() == ClientState::Connected && !rooms.is_empty() {
+        commands.insert_resource(SimulationAsleep);
+    }
+}
+
+/// On the guest: the local seat whose devices drive its [`LocalSeat`] on the
+/// host. Without it the guest sends `LocalSeat`'s own frame; a player's App
+/// reads its keyboard and pads as seat 0 whatever seat the host gave it.
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InputFromSeat(pub PlayerSlot);
 
 /// A body is replicated under the signature of its `SimId`.
 fn signature() -> Signature {
@@ -743,11 +774,12 @@ fn apply_guest_inputs(world: &mut World) {
 /// Send this guest's seat's raw frame to the host.
 fn send_local_input(
     seat: Option<Res<LocalSeat>>,
+    from: Option<Res<InputFromSeat>>,
     raw: Option<Res<ambition_characters::control::SeatRawFrames>>,
     mut inputs: MessageWriter<GuestInput>,
 ) {
     if let (Some(seat), Some(raw)) = (seat, raw) {
-        inputs.write(GuestInput(raw.get(seat.0)));
+        inputs.write(GuestInput(raw.get(from.map_or(seat.0, |from| from.0))));
     }
 }
 

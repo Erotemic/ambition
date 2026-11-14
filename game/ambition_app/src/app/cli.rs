@@ -1108,7 +1108,21 @@ pub fn build_visible_app_with(
             startup_loading_curtain: direct_windowed,
             asset_config,
         },
-        compose_inputs,
+        move |app: &mut App| {
+            compose_inputs(app);
+            // A hosted world's host or guest (`--host-world`, `--join-world`):
+            // it chooses the simulation host, so it goes in before the
+            // simulation plugins, like every other composition input.
+            #[cfg(feature = "hosted_world")]
+            match super::hosted_launch::hosted_launch_from(&std::env::args().collect::<Vec<_>>()) {
+                Ok(Some(launch)) => super::hosted_launch::compose_hosted_world(app, launch),
+                Ok(None) => {}
+                Err(error) => {
+                    eprintln!("ambition_app: {error}");
+                    std::process::exit(2);
+                }
+            }
+        },
     );
     // ⭐ FINISH THE PLUGINS. A no-window app is stepped with `App::update()`,
     // which never calls `Plugin::finish` — only a runner does — so everything a

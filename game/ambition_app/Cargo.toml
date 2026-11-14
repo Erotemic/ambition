@@ -125,6 +125,10 @@ web_audio = ["audio", "ambition_platformer2d/web_audio"]
 # The ONE real rl_sim switch: pulls the programmatic harness and gates the rl_sim-only integration
 # tests + `rl_*`/`trace_replay` binaries.
 rl_sim = ["dep:ambition_sim_harness"]
+# The visible app as a hosted world's host or guest (`--host-world PORT`,
+# `--join-world ADDRESS`; NET-AUTHORITY-EXPERIMENT). Off by default: a shipped
+# build links no networking yet.
+hosted_world = ["dep:ambition_hosted_world"]
 # The per-crate feature jobs kept the unit tests honest, which is why this looked
 # fine: `ambition_causal --features bevy` and the monolith's `causal` job both
 # pass. They exercise the substrate, never the app.
@@ -226,6 +230,8 @@ wasm-bindgen = { version = "0.2", optional = true }
 mimalloc = { version = "0.1", default-features = false, optional = true }
 # The app's own pack schema (`versus_rules::rounds`) derives its reader.
 serde = { workspace = true }
+# The hosted world over UDP, for the `hosted_world` feature.
+ambition_hosted_world = { path = "../../crates/ambition_hosted_world", features = ["renet"], optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 # The app died before a line of Rust ran, and the allocator was why.

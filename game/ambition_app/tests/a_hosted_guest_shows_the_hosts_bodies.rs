@@ -433,6 +433,10 @@ fn bob_from_the_guest(seating: Seating) -> (i32, bool, Option<u8>, Option<u8>) {
     simulate_nothing(&mut guest);
     if seating == Seating::Assigned {
         host.world_mut().insert_resource(ambition_hosted_world::SeatsGuests);
+        // As a player's App: its own devices are its seat 0.
+        guest.world_mut().insert_resource(ambition_hosted_world::InputFromSeat(
+            ambition_platformer2d::characters::control::PlayerSlot(0),
+        ));
     } else {
         guest.world_mut().insert_resource(ambition_hosted_world::LocalSeat(bob));
     }
@@ -458,7 +462,7 @@ fn bob_from_the_guest(seating: Seating) -> (i32, bool, Option<u8>, Option<u8>) {
     let at_start = bodies(&mut local, None);
     let mut differs = 0;
     for frame in 1..=FRAMES {
-        guest.drive_seat(1, bobs(frame));
+        guest.drive_seat(if seating == Seating::Assigned { 0 } else { 1 }, bobs(frame));
         guest.app_mut().update();
         // The guest's input reaches the host before its update.
         host.app_mut().exchange_with_client(guest.app_mut());
@@ -492,8 +496,9 @@ fn a_hosted_guest_drives_its_seat_on_the_host() {
 
 /// A host that seats its guests (`SeatsGuests`) gives a connecting guest the
 /// first seat after its own and tells it: both Apps hold seat 1 for the guest,
-/// and Bob, driven only on the guest, moves on the host as on the local
-/// reference. The control is the unseated run of the test above.
+/// and Bob, driven only by the guest's own seat 0 (`InputFromSeat`, as a
+/// player's keyboard is), moves on the host as on the local reference. The
+/// control is the unseated run of the test above.
 #[test]
 fn a_connecting_guest_is_given_a_seat() {
     let (differs, moved, on_host, on_guest) = bob_from_the_guest(Seating::Assigned);

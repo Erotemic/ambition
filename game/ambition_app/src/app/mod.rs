@@ -28,6 +28,8 @@ mod hud;
 #[cfg(not(feature = "static_content"))]
 pub mod movement_defaults_watch;
 pub mod hub_games;
+#[cfg(all(feature = "hosted_world", not(target_arch = "wasm32")))]
+pub mod hosted_launch;
 mod plugins;
 mod resources;
 mod scene_setup;

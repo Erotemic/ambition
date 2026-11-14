@@ -921,9 +921,38 @@ driven only on the guest, moves on the host exactly as on the local reference
 (0 of 90 frames differ). A host's own second local player is not counted yet,
 so a guest can be given that seat.
 
-Next in the prototype: the visible app as host or guest (a launch flag that
-composes it on the fixed 60 Hz host rather than GGRS, opens or joins the UDP
-link, and puts a guest's simulation to sleep).
+### The visible app as host or guest (2026-11-14)
+
+Built with the `hosted_world` feature (off by default, so a shipped build
+links no networking), the game takes `--host-world PORT` or
+`--join-world ADDRESS` (`game/ambition_app/src/app/hosted_launch.rs`). Either
+composes the simulation on the fixed 60 Hz host instead of GGRS, adds
+replicon, renet and `HostedWorldPlugin`, and opens the UDP link at startup.
+A host seats its guests (`SeatsGuests`). A guest arms the gate at
+composition, simulates its own boot, and sleeps once it is connected and
+holds a live room (`sleep_once_connected`). Its own keyboard and pads, seat
+0, drive the seat the host gave it (`InputFromSeat`).
+
+Run on loopback (both in one room; headless shown):
+
+```
+cargo build -p ambition_app --features hosted_world --bin ambition_game_bin
+AMBITION_HEADLESS_GAMEPLAY_ROOM=switch_lab target/debug/ambition_game_bin --headless-ticks 3000 --host-world 47010
+AMBITION_HEADLESS_GAMEPLAY_ROOM=switch_lab target/debug/ambition_game_bin --headless-ticks 1500 --join-world 127.0.0.1:47010
+```
+
+Measured 2026-11-14 with that run: the host reports its guest at seat 1. The
+guest reports seat 1, its simulation asleep, and the host's one body in
+`switch_lab` held as a row, every second of its 1,500 ticks. The witness
+`a_connecting_guest_is_given_a_seat` now drives the guest's seat 0 through
+`InputFromSeat`, and the host's Bob matches the local reference on all 90
+frames.
+
+Not yet: a guest's view and HUD follow seat 0, the host's player on the
+guest, rather than the guest's own seat. Both Apps must start in the same
+room. A windowed guest has not been played. A guest joins its body on the
+host by pressing Start (the local join road), which no headless run can
+press.
 
 ## Next
 

@@ -119,13 +119,13 @@ or updating their source. Check with
 
 ### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro
 
-**State:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami), and each local view shows the card of the boss in its own room (2026-11-10; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). What remains is acceptance evidence: a rendered witness of the card over several fights.
+**State:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami), and each local view shows the card of the boss in its own room (2026-11-10; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). Done: the rendered witnesses below are the acceptance's evidence (two non-Wolfenstein fights, and two views).
 
 **Owner:** [boss cinematic and GNU2 plan](game/boss-cinematics-gnu2-and-motion.md), [boss content](game/bosses.md).
 
 **Rendered 2026-11-10:** a GPU capture witness draws the card for two non-Wolfenstein bosses (the T-rex and the Clockwork Warden), counted in the name's own rectangle against a capture before the wake ([owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)).
 
-**Rendered two views 2026-11-10:** each of two split views in two boss rooms draws its own boss's card in its own half ([owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). The same captures show the boss health bar, a title banner and a dialogue box spanning both views (recorded there; per-view HUD work).
+**Rendered two views 2026-11-10:** each of two split views in two boss rooms draws its own boss's card in its own half ([owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). The same captures showed the boss health bar, a title banner and a dialogue box spanning both views; fixed 2026-11-14 (a bar per view; the stale banner gone).
 
 **Next action:** none on the card. No skip input exists; if one is added, it advances the phase state and the card follows.
 
@@ -859,32 +859,29 @@ the wake room):** the creator stopped at the head of the 128 px stair from
 the lab into the corridor (x 1025) and never reached the fight; his last
 words played and his `Fall` ran about 1400 px behind the player, off screen.
 
-**Built 2026-11-14:** rooms 1-7 and 9 by the generator
-`generators/intro/make_specs.py` (the corridor is merged into the lab; the
-raid is an encounter, `intro_bay_raid`, and the bay door opens on its
-clear); the checkpoint in room 8 by hand; the dialogue, cutscenes, quest
-(`intro_cartography_route`, "The Last Reading") and area cards. Cut: the
-stabilizer quest and its floor pickup, Alice's battery, the creator's
-unwired fast/impossible endings, the raiders' dead yarn nodes, the dev
-labels (`P2:`, `MAP_*`, `Task 08`), the gate stack's wall gated on Bob's
-survey and its "submit private route data" switch. Found on the way: an
-encounter with no linked switch restarts whenever the player walks back
-into its trigger, so the raid and the yard fight each have one (the
-raiders' whistle, the yard bell) that their clear greens.
+**Rebuilt 2026-11-14 as Hobford** (the brief: a rural region newly on the
+gate network, the robot named Scout, the raid as an interruption, Alice the
+first friendly character, three directions in any order). Eight rooms by
+the generator: the workshop (`intro_wake_room`), Hobford Lane, the high
+meadow, the gate clearing with a new ring (`hobford_ring`, TILLAGE), the
+freight siding (`intro_freight_yard`), the millstream, Hobford and the
+woods. The raid starts at a line of the Creator's conversation
+(`encounter.start`) and the raiders join it (`conversation.join`); it also
+starts at the barn door. Removed: the basement lab, the service stair,
+`intro_escape_shaft`, `alice_relay`, `bob_relay`, the gate stack's
+checkpoint. The Drain Market and the culvert stay as town rooms. Decisions
+D1-D21 in the design page.
 
-**Next action:** playtest the level; tune the raid's and the yard's waves;
-the Salvage Lead has no row of his own (he wears `npc_goblin_brute`); the
-pirate sky arena and the calibration lab and system boss past the
-checkpoint are not part of the level yet.
+**Next action:** move the new-game start to the workshop (D3); the art
+(terrain, props, villagers, publication; the three backgrounds are drawn);
+the gate clerk, the miller and villagers; playtest and tune the waves.
 
 **LEVEL-1-KIT (done 2026-11-14 for verbs):** each level-1 room withholds the
 kit past run, one jump, drop through and the strike (the level field
 `withheld_verbs`, written into a player's body each tick as the ceiling
 contribution `room.withheld_verbs`; `AbilitySet::verb_mut` names each verb).
 Witness `level_one_withholds_the_large_kit`, with the hub as its control.
-The basement lab keeps the whole kit until the rural opening replaces it
-(the raid's trigger re-arms under the playthrough's fight and the bay door
-shuts again). Found on the way: the service stair's flight A rose the wrong
+Found on the way: the service stair's flight A rose the wrong
 way (a 144 px wall), its west girder left a body's height exactly over
 flight B, and the keyboard walker let Jump up between two launch frames,
 which cut every jump to a 30 px hop.

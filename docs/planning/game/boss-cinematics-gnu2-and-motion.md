@@ -52,15 +52,17 @@ every view reads the primary's room, red).
 - **Skip.** Boss intros have no skip input; the card has nothing to skip.
   If an intro skip is added, it should advance the phase state, and the card
   follows.
-- **Boss UI that is not per view (seen 2026-11-10 in the two-view captures).**
-  - The T-Rex's health bar is drawn top-centre across both views, over the
-    second player's HUD.
-  - A "GRADIENT SENTINEL" title banner is drawn the same way.
-  - The Sentinel's dialogue box is centred on the whole screen, not in the
-    view of the room it speaks in.
-
-  The name card is per view; these are not. They belong with the per-view
-  HUD work, not this row.
+- **Boss UI that is not per view (seen 2026-11-10 in the two-view captures;
+  fixed 2026-11-14).**
+  - The boss health bar is drawn at the top of each local view, for the boss
+    fought in that view's room (`sync_boss_health_bar_overlay`; witness
+    `each_view_draws_the_bar_of_the_boss_fought_in_its_room`).
+  - The "GRADIENT SENTINEL" banner was the Clockwork Warden's room intro
+    still naming the boss he replaced, and it doubled his name card: the
+    intro (`boss_intro_gradient_sentinel`, id kept for saves) has no banner
+    now, and its line is the Warden's.
+  - The intro's dialogue box draws in the view of the player it holds (the
+    2026-11-14 capture shows it in the second view).
 
 **Done, 2026-11-10: a rendered witness.**
 `a_boss_name_card_is_drawn::a_woken_bosss_name_card_is_drawn_in_its_rectangle`

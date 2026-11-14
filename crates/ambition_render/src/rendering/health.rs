@@ -16,76 +16,143 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_sim_view::{ActorRenderIndex, BossRenderIndex, FeatureViewIndex};
 
-#[derive(Component)]
-pub struct BossHealthBarOverlayVisual;
+/// One boss health bar: what it shows, over which view, in which rectangle.
+/// The bar is rebuilt only when this changes.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct BossHealthBarOverlayVisual(DrawnBossBar);
 
-/// What the boss health overlay shows. It is rebuilt only when this changes.
-#[derive(Debug, PartialEq)]
+/// What a boss health bar shows, and where.
+#[derive(Clone, Debug, PartialEq)]
 pub struct DrawnBossBar {
     name: String,
     hp_text: String,
     fill_percent: f32,
+    /// The local view it is drawn over; `None` across the whole gameplay area.
+    view: Option<Entity>,
+    /// That view's rectangle (min, size), when it has one.
+    rect: Option<(BVec2, BVec2)>,
 }
 
-/// Always-on top-center boss health overlay.
+/// The player-facing boss health bar, at the top of each local view, for
+/// the boss being fought in that view's live room; with no local views, the
+/// boss being fought across the whole gameplay area.
 ///
 /// The debug `sync_health_overlays` system draws small bars above every
-/// actor only when developer health bars are enabled. This system is the
-/// player-facing boss UI: if a live boss exists in the active room, show
-/// the boss name and HP fraction in the top-center HUD overlay.
+/// actor only when developer health bars are enabled.
 ///
-/// Rebuilt only when what it shows changes (the boss, its health, the
-/// fonts) or the overlay is gone: a rebuilt UI is laid out and its text
+/// A bar is rebuilt only when what it shows changes (the boss, its health,
+/// its view, the fonts) or it is gone: a rebuilt UI is laid out and its text
 /// measured again, and it was rebuilt each frame of a boss fight.
+#[allow(clippy::too_many_arguments)]
 pub fn sync_boss_health_bar_overlay(
     mut commands: Commands,
-    overlays: Query<Entity, With<BossHealthBarOverlayVisual>>,
+    overlays: Query<(Entity, &BossHealthBarOverlayVisual)>,
     boss_render: Res<BossRenderIndex>,
     feature_views: Res<FeatureViewIndex>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
+    primary: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
+    views: Query<
+        (Entity, &ambition_sim_view::ResolvedViewSubject, Option<&ambition_sim_view::ViewPlacement>),
+        With<ambition_sim_view::LocalView>,
+    >,
+    presentation: Option<Res<ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation>>,
     ui_fonts: Option<Res<UiFonts>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    mut drawn: Local<Option<DrawnBossBar>>,
 ) {
     let session_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
-    // The boss being fought: alive and past its intro. A successor that
-    // sleeps until its predecessor falls stands in the room at full health
-    // the whole time, and a boss in its intro is not fought yet.
-    let fought = session_scope.and_then(|_| {
+    // The boss being fought in `room` (any room for `None`): alive and past
+    // its intro. A successor that sleeps until its predecessor falls stands
+    // in the room at full health the whole time, and a boss in its intro is
+    // not fought yet.
+    let fought_in = |room: Option<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>,
+                     view: Option<Entity>,
+                     rect: Option<(BVec2, BVec2)>| {
         boss_render.iter().find_map(|(id, ident)| {
-            let view = feature_views.get(id)?;
-            (view.alive && ident.fighting).then(|| {
+            let row = feature_views.get(id)?;
+            if room.is_some_and(|room| room.is_none() || row.room != room) {
+                return None;
+            }
+            (row.alive && ident.fighting).then(|| {
                 let health = Health {
-                    current: view.hp_current,
-                    max: view.hp_max,
+                    current: row.hp_current,
+                    max: row.hp_max,
                     invulnerable: Default::default(),
                 };
                 DrawnBossBar {
                     name: ident.name.clone(),
                     hp_text: format!("{} / {}", health.current.max(0), health.max.max(1)),
                     fill_percent: health.ratio().clamp(0.0, 1.0) * 100.0,
+                    view,
+                    rect,
                 }
             })
         })
-    });
+    };
+    let mut wanted: Vec<DrawnBossBar> = Vec::new();
+    if session_scope.is_some() {
+        if views.is_empty() {
+            wanted.extend(fought_in(None, None, None));
+        } else {
+            for (view, subject, placement) in &views {
+                let here = subject.0.and_then(|body| rooms.room_of(body)).or_else(|| primary.get());
+                let rect = presentation.as_deref().map(|presentation| {
+                    let gameplay = presentation.gameplay_rect;
+                    placement.copied().unwrap_or_default().carve(gameplay.min, gameplay.size())
+                });
+                wanted.extend(fought_in(Some(here), Some(view), rect));
+            }
+        }
+    }
     let fonts_changed = ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed());
-    let overlay_matches = overlays.is_empty() == drawn.is_none();
-    if !fonts_changed && overlay_matches && *drawn == fought {
-        return;
+    let mut kept = vec![false; wanted.len()];
+    for (entity, BossHealthBarOverlayVisual(drawn)) in &overlays {
+        match wanted.iter().position(|want| want == drawn).filter(|at| !kept[*at] && !fonts_changed) {
+            Some(at) => kept[at] = true,
+            None => commands.entity(entity).despawn(),
+        }
     }
-    for entity in overlays.iter() {
-        commands.entity(entity).despawn();
-    }
-    *drawn = fought;
-    let (Some(session_scope), Some(bar)) = (session_scope, drawn.as_ref()) else {
+    let Some(session_scope) = session_scope else {
         return;
     };
+    for (bar, kept) in wanted.into_iter().zip(kept) {
+        if !kept {
+            spawn_boss_bar(&mut commands, session_scope, ui_fonts.as_deref(), bar);
+        }
+    }
+}
+
+fn spawn_boss_bar(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    ui_fonts: Option<&UiFonts>,
+    bar: DrawnBossBar,
+) {
+    let (left, right, top, panel_width) = match bar.rect {
+        Some((min, size)) => (Val::Px(min.x), Val::Auto, Val::Px(min.y + 18.0), (size.x - 32.0).clamp(160.0, 560.0)),
+        None => (Val::Px(0.0), Val::Px(0.0), Val::Px(18.0), 560.0),
+    };
+    let width = bar.rect.map_or(Val::Auto, |(_, size)| Val::Px(size.x));
+    let root = (
+        Node {
+            position_type: PositionType::Absolute,
+            left,
+            right,
+            top,
+            width,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::FlexStart,
+            ..default()
+        },
+        ZIndex(34),
+        Name::new("Boss Health Overlay Root"),
+        BossHealthBarOverlayVisual(bar.clone()),
+    );
     let fill_percent = bar.fill_percent;
     let hp_text = bar.hp_text.clone();
     let boss_name = bar.name.as_str();
 
     let font = |font_size: f32, weight: UiFontWeight| {
         ui_fonts
-            .as_deref()
             .map(|fonts| fonts.text_font(font_size, weight))
             .unwrap_or(TextFont {
                 font_size: FontSize::Px(font_size),
@@ -94,27 +161,11 @@ pub fn sync_boss_health_bar_overlay(
     };
 
     commands
-        .spawn_session_scoped(
-            session_scope,
-            (
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
-                    right: Val::Px(0.0),
-                    top: Val::Px(18.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::FlexStart,
-                    ..default()
-                },
-                ZIndex(34),
-                Name::new("Boss Health Overlay Root"),
-                BossHealthBarOverlayVisual,
-            ),
-        )
+        .spawn_session_scoped(session_scope, root)
         .with_children(|root| {
             root.spawn((
                 Node {
-                    width: Val::Px(560.0),
+                    width: Val::Px(panel_width),
                     min_height: Val::Px(58.0),
                     padding: UiRect::axes(Val::Px(18.0), Val::Px(8.0)),
                     flex_direction: FlexDirection::Column,
@@ -466,6 +517,81 @@ mod room_tests {
         let hit = roots(&mut app);
         assert_eq!(hit.len(), 1, "still one bar");
         assert_ne!(hit, first, "a blow redraws it");
+    }
+
+    /// Each local view draws the bar of the boss fought in its own live room,
+    /// over its own half: the bar was drawn once, top-centre across both
+    /// views, over the second player's HUD (seen in the two-view captures).
+    #[test]
+    fn each_view_draws_the_bar_of_the_boss_fought_in_its_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, InRoomInstance, LiveRoomInstance};
+        use ambition_sim_view::{LocalView, LocalViewId, ResolvedViewSubject, ViewPlacement};
+        let geometry = |name: &str| {
+            ambition_platformer2d_core::RoomGeometry(ae::World::new(name, ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()))
+        };
+        let mut app = App::new();
+        let mut active = ActiveSessionScope::default();
+        active.begin();
+        app.insert_resource(active);
+        let (first, second) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::from_ordinal(1));
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry("hall"));
+        spawn_live_room(app.world_mut(), second, geometry("arena"));
+        let alice = app.world_mut().spawn(InRoomInstance(first)).id();
+        let bob = app.world_mut().spawn(InRoomInstance(second)).id();
+        let views = [(0, alice), (1, bob)].map(|(index, body)| {
+            app.world_mut()
+                .spawn((LocalView, LocalViewId(index as u8), ViewPlacement::column(index, 2), ResolvedViewSubject(Some(body))))
+                .id()
+        });
+        let rows = |fought: [(&str, LiveRoomInstance, bool); 2]| {
+            let features = ambition_sim_view::FeatureViewIndex::from_rows(fought.map(|(id, room, _)| {
+                let mut view = crate_at(ae::Vec2::new(100.0, 100.0));
+                view.hp_current = 5;
+                view.hp_max = 10;
+                view.room = Some(room);
+                (id.to_string(), view)
+            }));
+            let bosses = ambition_sim_view::BossRenderIndex::from_rows(fought.map(|(id, _, fighting)| {
+                (
+                    id.to_string(),
+                    ambition_sim_view::BossRenderView {
+                        name: id.to_string(),
+                        behavior_id: id.to_string(),
+                        title: None,
+                        stage: Default::default(),
+                        awake: true,
+                        fighting,
+                        finish: 0.0,
+                    },
+                )
+            }));
+            (features, bosses)
+        };
+        app.add_systems(Update, sync_boss_health_bar_overlay);
+        let shown = |app: &mut App| {
+            let mut shown: Vec<(Option<Entity>, String)> = app
+                .world_mut()
+                .query::<&BossHealthBarOverlayVisual>()
+                .iter(app.world())
+                .map(|BossHealthBarOverlayVisual(bar)| (bar.view, bar.name.clone()))
+                .collect();
+            shown.sort();
+            shown
+        };
+
+        let (features, bosses) = rows([("warden", first, false), ("trex", second, true)]);
+        app.insert_resource(features);
+        app.insert_resource(bosses);
+        app.update();
+        assert_eq!(shown(&mut app), vec![(Some(views[1]), "trex".to_string())], "only the second view's room has a boss fought");
+
+        let (features, bosses) = rows([("warden", first, true), ("trex", second, true)]);
+        app.insert_resource(features);
+        app.insert_resource(bosses);
+        app.update();
+        let mut both = vec![(Some(views[0]), "warden".to_string()), (Some(views[1]), "trex".to_string())];
+        both.sort();
+        assert_eq!(shown(&mut app), both, "each view draws its own room's boss");
     }
 
     /// Each health bar is drawn in the live room of the body it measures

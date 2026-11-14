@@ -10,20 +10,19 @@
 // A room plays a script on entry when its `entry_cutscene` level field names it.
 
 [
-    // basement_boss's `entry_cutscene`.
+    // basement_boss's `entry_cutscene`. The id is the Gradient Sentinel's,
+    // whom the Clockwork Warden replaced; it stays because saves record its
+    // seen flag. No banner: the encounter shows the Warden's name card when
+    // he wakes, and a banner would name him twice.
     (
         id: "boss_intro_gradient_sentinel",
         beats: [
-            Banner(
-                text: "GRADIENT SENTINEL",
-                seconds: 1.6,
-            ),
             Wait(
                 seconds: 0.4,
             ),
             Dialogue(
-                speaker: "SENTINEL",
-                text: "Your loss surface is steep. I am its slope.",
+                speaker: "WARDEN",
+                text: "You are four minutes late. The house keeps time, and so do I.",
             ),
         ],
         seen_flag: Some("boss_intro_gradient_sentinel_seen"),

@@ -326,6 +326,38 @@ row is the selectable comparison between them. The headless report (4) is
 
 ### GOBS-5 — coverage regression and cost gates
 
+**Coverage gate, unknown roles and the cost report landed (2026-11-14).**
+`f1_and_headless_inspection_read_one_observation` now requires the shipped
+composition's catalog to hold an observer for every domain that makes
+gameplay geometry (`collision.authored`, `collision.composed`,
+`collision.for_subject`, `body.sweep`, `world.regions`, `combat.volumes`,
+`interaction.reach`, `navigation.graph`, `portal.apertures`), so a provider
+dropped from the composition goes red instead of quietly absent. A role F1
+has no colour for is drawn in the shared fallback colour and the legend
+says so ("<role> (no colour of its own)"), witnessed in
+`the_legend_names_each_drawn_role_in_its_colour`. `inspect_geometry --cost`
+reports each selected provider's pieces, inactive pieces, median time of 21
+runs alone and JSON size, then the whole observation's. Measured
+2026-11-14 on the debug build (`--ticks 120`, Player 1 as subject; a
+release build would be faster):
+
+| room | pieces | all observers, median | JSON |
+|---|---:|---:|---:|
+| `central_hub_complex` | 270 | 429 us | 100.9 KB |
+| `portal_lab` | 141 | 292 us | 57.0 KB |
+| `basement_breakables` | 52 | 97 us | 20.4 KB |
+
+The dearest single providers are `collision.for_subject` (109 us in the
+hub), `navigation.graph` (106 us, 87 pieces) and `portal.apertures` (77 us
+for 26 openings). Disabled, F1 asks nothing: `collect_observed_geometry`
+returns before any observer runs unless the debug overlay, Gizmos and
+Observed Geometry are all on, and the observers are one-shot systems that
+run only when asked. No report is truncated; at these sizes none needs to
+be, and a bound waits for a room whose report shows one is needed. Still
+open: (4) a headless run with the render adapters absent is what
+`inspect_geometry` already is for the simulation side, but no lane runs a
+build without `ambition_render`.
+
 1. Add focused fixture tests for installed providers, room scoping, normal and inactive/disabled geometry, fallback/intangible hurtbox semantics, contact and subject-based filters, interaction priority, reflection/portal-part transforms and rollback-aware stamps where applicable.
 2. Verify that a new geometry-contributing capability with a declared observation contract automatically appears in catalog/layer selection. Missing adapter/unknown role produces a discoverable diagnostic rather than a silent absence.
 3. Measure disabled-mode overhead (should be effectively zero diagnostic geometry work), enabled frame cost in a dense melee and multi-room scene, observation cardinality, truncation behavior and memory retention. Bound report size and label drops explicitly. Don't require broad integrity scans every frame.

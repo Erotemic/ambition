@@ -91,7 +91,13 @@ pub fn collect_observed_geometry(world: &mut World) {
 }
 
 fn role_color(observation: &GeometryObservation) -> Color {
-    match observation.roles.first().map(|role| role.as_ref()).unwrap_or("") {
+    known_role_color(observation.roles.first().map(|role| role.as_ref()).unwrap_or(""))
+        .unwrap_or(Color::srgba(0.3, 1.0, 1.0, 0.9))
+}
+
+/// The colour F1 draws a role in, if it has one of its own.
+fn known_role_color(role: &str) -> Option<Color> {
+    Some(match role {
         "solid" | "barrier" => Color::srgba(0.85, 0.85, 0.85, 0.9),
         "one_way" | "bonk_only" => Color::srgba(0.35, 0.55, 1.0, 0.9),
         "blink_wall_soft" => Color::srgba(1.0, 0.35, 1.0, 0.9),
@@ -122,8 +128,8 @@ fn role_color(observation: &GeometryObservation) -> Color {
         "lock_wall" => Color::srgba(1.0, 0.7, 0.2, 0.9),
         // A portal's opening.
         "portal" => Color::srgba(0.85, 0.4, 1.0, 0.95),
-        _ => Color::srgba(0.3, 1.0, 1.0, 0.9),
-    }
+        _ => return None,
+    })
 }
 
 fn outline(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>, world: &ae::World, shape: &ObservedShape, color: Color, cross: bool) {
@@ -226,9 +232,15 @@ pub fn observation_legend(layers: &[ObservedLayer]) -> Vec<(String, Color)> {
             if matches!(observation.state, ObservedState::Inactive { .. }) {
                 inactive += 1;
             }
+            // A role F1 has no colour for is drawn in the shared fallback
+            // colour; the legend says so, so it is not mistaken for another.
             let role = observation.roles.first().map_or("", |role| role.as_ref());
-            if !roles.iter().any(|(seen, _)| seen == role) {
-                roles.push((role.to_string(), role_color(observation)));
+            let line = match known_role_color(role) {
+                Some(_) => role.to_string(),
+                None => format!("{role} (no colour of its own)"),
+            };
+            if !roles.iter().any(|(seen, _)| *seen == line) {
+                roles.push((line, role_color(observation)));
             }
         }
     }
@@ -262,12 +274,21 @@ mod tests {
                     piece("a", "solid", ObservedState::Active),
                     piece("b", "solid", ObservedState::Inactive { reason: "broken".into() }),
                     piece("c", "portal", ObservedState::Active),
+                    piece("d", "a_new_domains_role", ObservedState::Active),
                 ],
             },
         }];
         let legend = observation_legend(&layers);
         let words: Vec<&str> = legend.iter().map(|(text, _)| text.as_str()).collect();
-        assert_eq!(words, vec!["observed: 3 pieces, 1 inactive (faint, crossed)", "solid", "portal"]);
+        assert_eq!(
+            words,
+            vec![
+                "observed: 4 pieces, 1 inactive (faint, crossed)",
+                "solid",
+                "portal",
+                "a_new_domains_role (no colour of its own)",
+            ]
+        );
         assert_eq!(legend[2].1, role_color(&layers_piece(&layers, 2)), "a role is written in the colour it is drawn in");
         assert!(observation_legend(&[]).is_empty());
     }

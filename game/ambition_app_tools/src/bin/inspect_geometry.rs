@@ -19,6 +19,10 @@
 //! list of provider names, or of prefixes ending in `.` (`collision.`).
 //! `--out FILE` writes the JSON there alone: stdout also carries the host's
 //! `[live-reload]` acknowledgement lines.
+//!
+//! `--cost` (GOBS-5) reports instead what each selected provider costs: its
+//! pieces, how many are inactive, the median time of 21 runs of it alone,
+//! and the size of its JSON; then the whole observation's.
 
 use ambition_app::rl_sim::{AmbitionSim as _, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use ambition_platformer2d::geometry_observation::{GeometryObservers, ObservationQuery, observe_all, to_json};
@@ -50,7 +54,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
         println!(
-            "usage: inspect_geometry [--list] [--room ROOM] [--ticks N] [--provider A,B,prefix.] [--no-subject] [--out FILE]"
+            "usage: inspect_geometry [--list] [--room ROOM] [--ticks N] [--provider A,B,prefix.] [--no-subject] [--out FILE] [--cost]"
         );
         return;
     }
@@ -108,7 +112,12 @@ fn main() {
         .find(|(_, live)| **live == room)
         .map(|(root, _)| root);
     let subject = (!args.iter().any(|arg| arg == "--no-subject")).then_some(player);
-    let layers = observe_all(world, ObservationQuery { room: root, subject }, |provider| selected(&selection, provider));
+    let query = ObservationQuery { room: root, subject };
+    if args.iter().any(|arg| arg == "--cost") {
+        report_cost(world, query, &catalog, &selection);
+        return;
+    }
+    let layers = observe_all(world, query, |provider| selected(&selection, provider));
     let json = to_json(&layers);
     match value_of(&args, "--out") {
         Some(path) => {
@@ -119,4 +128,62 @@ fn main() {
         }
         None => println!("{json}"),
     }
+}
+
+/// The median time of `runs` observations through `wanted`, and the last answer.
+fn timed(
+    world: &mut bevy::prelude::World,
+    query: ObservationQuery,
+    wanted: impl Fn(&str) -> bool + Copy,
+    runs: usize,
+) -> (std::time::Duration, Vec<ambition_platformer2d::geometry_observation::ObservedLayer>) {
+    let mut times = Vec::with_capacity(runs);
+    let mut layers = Vec::new();
+    for _ in 0..runs {
+        let start = std::time::Instant::now();
+        layers = observe_all(world, query, wanted);
+        times.push(start.elapsed());
+    }
+    times.sort();
+    (times[runs / 2], layers)
+}
+
+/// Each selected provider's pieces, inactive pieces, median time and JSON
+/// size, then the whole observation's (GOBS-5).
+fn report_cost(
+    world: &mut bevy::prelude::World,
+    query: ObservationQuery,
+    catalog: &[(String, String, bool)],
+    selection: &[String],
+) {
+    use ambition_platformer2d::geometry_observation::{ObservedState, ObserverAnswer};
+    const RUNS: usize = 21;
+    println!("{:<24} {:>7} {:>9} {:>11} {:>10}", "provider", "pieces", "inactive", "median_us", "json_bytes");
+    for (name, ..) in catalog.iter().filter(|(name, ..)| selected(selection, name)) {
+        let (median, layers) = timed(world, query, |provider| provider == name, RUNS);
+        let (pieces, inactive, status) = match layers.first().map(|layer| &layer.answer) {
+            Some(ObserverAnswer::Observed { geometry }) => (
+                geometry.len(),
+                geometry.iter().filter(|piece| matches!(piece.state, ObservedState::Inactive { .. })).count(),
+                "",
+            ),
+            Some(ObserverAnswer::NeedsSubject) => (0, 0, " (needs a subject)"),
+            Some(ObserverAnswer::Unavailable { .. }) => (0, 0, " (unavailable)"),
+            None => (0, 0, " (not run)"),
+        };
+        println!(
+            "{name:<24} {pieces:>7} {inactive:>9} {:>11} {:>10}{status}",
+            median.as_micros(),
+            to_json(&layers).len()
+        );
+    }
+    let (median, layers) = timed(world, query, |provider| selected(selection, provider), RUNS);
+    let pieces: usize = layers
+        .iter()
+        .map(|layer| match &layer.answer {
+            ObserverAnswer::Observed { geometry } => geometry.len(),
+            _ => 0,
+        })
+        .sum();
+    println!("{:<24} {pieces:>7} {:>9} {:>11} {:>10}", "(all selected)", "", median.as_micros(), to_json(&layers).len());
 }

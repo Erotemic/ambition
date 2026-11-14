@@ -51,7 +51,20 @@ fn f1_and_headless_inspection_read_one_observation() {
     }
     let world = sim.world_mut();
     let catalog: Vec<&str> = world.resource::<GeometryObservers>().catalog().map(|info| info.name).collect();
-    for name in ["collision.authored", "collision.composed", "collision.for_subject", "combat.volumes", "test.third_party"] {
+    // GOBS-5: each domain that makes gameplay geometry ships its observer, so
+    // one cannot be dropped from the shipped composition unnoticed.
+    for name in [
+        "collision.authored",
+        "collision.composed",
+        "collision.for_subject",
+        "body.sweep",
+        "world.regions",
+        "combat.volumes",
+        "interaction.reach",
+        "navigation.graph",
+        "portal.apertures",
+        "test.third_party",
+    ] {
         assert!(catalog.contains(&name), "{name} is in the catalog: {catalog:?}");
     }
 

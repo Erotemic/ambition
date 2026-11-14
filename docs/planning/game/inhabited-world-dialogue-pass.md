@@ -28,8 +28,8 @@ and reviewing them is `docs/authoring/anti-llmism-style-guide.md`.
 | Gnu-ton's gravity works | Wen, Rahimi, Reyes | Work in the Science dimension can be dangerous; residents have partial, occupation-specific evidence | Connect field anomalies and power budgets to a real authored area, without declaring the station incident Gnu-ton's fault |
 | The Mockingbird and the ninja-pirate agreement | Admiral, Bess, Shadow Oni, the Duelist | The groups have a narrow common objective, different stakes, and little reason to trust each other | Resolve differences after the boss while preserving the cove treasure quest and dojo access |
 | Kagero and Castle Godwin | Sato, Daichi, Hayashi, Duelist, Shadow Oni | Kagero is spoken of as independent of the village dojo; a few people have heard where she went | Optional recognition after her actual boss-fight appearance, keyed to a reliable event if one is authored |
-| The wrong-list raid and safer maps | Alice, Bob, Oiler, the clerk, the gate janitor | The wrong address has visible paperwork and human consequences; the cartographers protect routes | Trace one document through the institutions; keep the creator's unfinished sentence unresolved |
-| A future friendship | Oiler | Mentions Faith "Fia" Knoss as a fellow mechanic, without starting or resolving her future plot | Introduce Fia in person through repairs and trust, rather than an explanatory speech |
+| The wrong-list raid and safer maps | Alice, Bob, Oiler, the clerk, the gate janitor | The wrong address has visible paperwork and human consequences; the cartographers protect routes ([level 1](level-1.md)) | Trace one document through the institutions; keep the creator's unfinished sentence unresolved |
+| A future friendship | (none in level 1) | Fia is not named in the intro: her full name is a later reveal, and the character may be reworked or cut ([level 1](level-1.md)) | Introduce Fia in person through repairs and trust, rather than an explanatory speech |
 | Local character relationships | Lark, Bram, Jory, Ume, Ren, Daichi, Gus Pell | Residents know and annoy one another; a town has routines when the player is absent | Add small stateful callbacks if those interactions become playable |
 
 The Castle Godwin list requests, gravity-test paperwork, and individual bits
@@ -59,7 +59,7 @@ whose original layout uses jump-to-subnode menus.
 
 1. Keep **the actual current quest transitions**: Ines's manifest return;
    Okafor's crate clearance and spur pass; Hayashi's rank award; Alice/Bob's
-   note and survey; the General's clearance; the pirate Mockingbird result.
+   reading and survey; the General's clearance; the pirate Mockingbird result.
 2. Never present a **rumor as objective narration**. An NPC can be mistaken.
    Reconcile their claims with future authored events before those events
    become release content.

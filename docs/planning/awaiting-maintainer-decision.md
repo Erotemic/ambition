@@ -99,7 +99,7 @@ Engineering for (b) is a queue row once ruled.
 
 ## Q173 — Does the creator always die in the raid?
 
-**Context (2026-11-12, INTRO-RAID).** Jon: the creator follows the robot
+**Context (2026-11-12, INTRO-RAID, now LEVEL-1).** Jon: the creator follows the robot
 into the second room, "where he dies, though he doesn't actually die now".
 Built: he fights beside the robot (he can fall in the fight, 12 HP), and
 when the robot reaches the corridor's far end his last words play and end

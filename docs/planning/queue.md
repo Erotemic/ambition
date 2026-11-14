@@ -815,57 +815,44 @@ damage kept; back to the robot restores the robot's geometry. A skin change
 moves no collider, hurtbox or movement value. A possession leaves the original
 body in the world, and the possessed body keeps its geometry and state.
 
-### INTRO-RAID — one creator, a raid by hired goblins, a fight side by side
+### LEVEL-1 — the lab raid and the first level after it
 
-**Owner:** the intro rooms (`intro.ldtk`), `intro.yarn`, the intro route
-(`ambition_content::intro`), Oiler's and the message board's rows. Jon
-2026-11-12 (next after the COOP-RECOVERY slice in hand):
+**Owner:** the level-1 rooms in `intro.ldtk` and their generator
+(`game/ambition_map_assets/ambition_content/generators/intro/make_specs.py`),
+`intro.yarn`, `data/cutscenes/intro.ron`, the intro quests and flag chains,
+and the intro cast rows. Design: [`game/level-1.md`](game/level-1.md). Jon
+2026-11-14: redo everything in the first level after the lab raid, and make
+the raid work; a level 1 that meets some of the cast, makes the player learn
+the basic mechanics through the place, and starts real challenges. One jump,
+melee only; pogo at most an optional extra. Fia is not named in it.
 
-- **A cutscene holds the fight too.** Entering the second room forces a
-  dialogue while the goblins keep attacking the player.
-- **One creator.** The creator is spawned twice (one in each room) and does
-  not die. He is one person with a persistent identity who follows the player
-  from the opening room into the second.
-- **The raid's motive:** goblins hired to raid the lab and take the robot and
-  the research. In the second room they confront the two; after the opening
-  dialogue the robot and the creator fight the goblins together.
-- **Oiler** falls into the hole without noticing anyone. Getting close to him
-  is the trigger (not entering the room), and he comes to the player.
-- **The message board** can be attacked and fights back: an Easter egg to
-  keep, with fight animations of its own.
+This row took over INTRO-RAID (2026-11-12). Kept from it: one creator who
+follows the robot and fights beside it (`follows_closely`, a `dangerous`
+room); a playing room cutscene holds every body in its room
+(`ControlHold::Cutscene`); the `Fall` beat; Oiler's `meets_the_player`
+brain and `oiler_notices` volume; the message board's fight rows.
 
-**Built (2026-11-12):**
+**Measured 2026-11-14 (the old raid, a temporary probe walking right from
+the wake room):** the creator stopped at the head of the 128 px stair from
+the lab into the corridor (x 1025) and never reached the fight; his last
+words played and his `Fall` ran about 1400 px behind the player, off screen.
 
-- *The hold* (ce2e093812): a playing room cutscene holds every body in its
-  room (`ControlHold::Cutscene`, `Invulnerability::CUTSCENE`).
-- *One creator, a fight together:* `intro_raid_corridor` is one room with the
-  lab (`activeArea: intro_wake_room`; stairs where the two floors meet). The
-  one creator keeps at the player's side (`follows_closely`, a `Roam`
-  preset), and the corridor is `dangerous`, so he rallies to the robot's
-  fight. The raid starts at a `CutsceneTrigger` volume at the head of the
-  corridor (a new LDtk entity: a scene that starts where its people are),
-  with the hired-goblins lines. A navigating body that stands on a slope
-  plans from the surface the slope rises off (it waited on the cart ramp
-  for a landing that had happened).
+**Next action:** build rooms 1-7 of the design in order, then the
+checkpoint (room 8) and the freight yard (room 9).
 
-**Next:**
+**LEVEL-1-KIT (follow-up, engine):** the robot's shipped kit has every verb
+(air jump, wall jump, dash, blink, flight, the Hadouken), and no data field
+restricts it for an area (`AbilityContributions` has only engine and
+developer sources). Level 1 is built for run, one jump, drop through and
+the strike, so the large kit can skip parts of it. Add an area ability
+ceiling that a level field authors (one contribution key, rewritten each
+tick from the body's room, rollback-derived like the others), and give the
+level-1 area the small kit.
 
-1. *The creator's end (built 2026-11-12):* his last words
-   (`creator_final_fragment`) play at a `CutsceneTrigger` by the corridor's
-   far end and end on a new `Fall` beat (a scripted death in the cutscene's
-   room). A skip now keeps a script's flags and falls (it passes over the
-   show, not the story). Decided: he always dies here; if he fell in the
-   fight already, the words are the ones he had left. The fast and
-   impossible variants in `intro.yarn` are not wired.
-2. *The message board's fight rows (built 2026-11-12):* `slash`, `hit` and
-   `death` on `news_board_v2` (renderer e3549b3); it leans on its feet.
-
-*Oiler (built 2026-11-12):* he stands past the grate (x 720) with
-`meets_the_player` (a `Roam` with the new `greet_within`: out of its rest
-to meet a player within 260 px; it keeps to the graph, so no more walking
-into the hole), and his line is `oiler_notices`, started by a
-`CutsceneTrigger` around his post. The room's arrival keeps its fade and
-banner.
+**Acceptance:** the level's rooms are crossed by the walked route with the
+player's own inputs; every required step is one jump; the creator dies
+beside the robot; Alice's reading reaches Bob and opens the survey line;
+the freight yard's fight returns the notebooks and opens the shortcut home.
 
 ### FINAL-BOSS — the bossofthegame on the shoulders of a giant
 

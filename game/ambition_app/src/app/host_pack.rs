@@ -98,7 +98,7 @@ impl TextKeys for HostText {
 pub fn host_text_schema() -> SchemaRegistration {
     shown_text_schema::<HostText>(
         HOST_TEXT_SCHEMA,
-        "ambition_host",
+        "ambition_app",
         "The words of the host's own surfaces: the run-in's engine card, the start cover and the pause menu's own rows.",
     )
 }

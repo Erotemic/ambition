@@ -67,7 +67,7 @@ HISTORICAL_PREFIXES = (
 # untracked, which is the "green at minute zero" trap one level in.
 SKIP_NAMES = (
     "Cargo.lock",
-    "checks/check_retired_crate_names.py",
+    "check_retired_crate_names.py",
     "test_retired_crate_names.py",
 )
 
@@ -161,12 +161,16 @@ def retired_names_in_line(line: str) -> list[tuple[str, str]]:
         return []
     hits: list[tuple[str, str]] = []
     for old, new in RETIRED_CRATE_NAMES.items():
-        # Plain substring, then a TRAILING boundary only.
+        # Plain substring, then a TRAILING boundary, and no `_` before it: a
+        # leading letter may be an escape (`\nambition_world`), but a leading
+        # `_` makes it the tail of a longer identifier (`prepare_ambition_world`).
         start = 0
         while (at := line.find(old, start)) != -1:
             start = at + 1
             tail = line[at + len(old):at + len(old) + 1]
             if tail and (tail.isalnum() or tail == "_"):
+                continue
+            if at > 0 and line[at - 1] == "_":
                 continue
             hits.append((old, new))
             break

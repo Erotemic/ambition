@@ -136,7 +136,7 @@ Separate two kinds of integration work:
 | Game providers and hosts | Selected content and device/presentation work | Engine-domain algorithms |
 
 The name `ambition_platformer2d_integration` is **proposed**, not a crate
-to create before it has a real owner packet. An `ambition_engine` catch-all
+to create before it has a real owner packet. A catch-all engine crate
 would not make the responsibilities clearer. Keep integration code in the
 existing runtime where that is the narrowest present owner, then add the
 integration crate **only if** the room-publication move gives it a stable

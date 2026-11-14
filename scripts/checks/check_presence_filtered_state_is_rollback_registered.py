@@ -285,7 +285,6 @@ WAIVERS = {
     # `PresentationOf(pub Entity)` cannot BE rollback state — it holds a live
     # `Entity`, which is the one thing a snapshot may never carry — and it is
     # written and read only by crates that draw (the portal carry reads it).
-    "PresentationOf": "holds a live `Entity`, so it can never be rollback state; written and read only by crates that draw",
     # `BodyWalletShield` is DERIVED-BEFORE-EVERY-AUTHORITATIVE-READ, and that is
     # an ordering claim, so it is measured rather than asserted. Its one writer
     # `sync_sanic_wallet_shield` (`demo_sanic/src/lib.rs:1967`) rebuilds it from

@@ -288,7 +288,7 @@ pub fn menu_look_schema() -> ambition_platformer2d::content::SchemaRegistration 
     ambition_platformer2d::content::rules_schema(
         MENU_LOOK_SCHEMA,
         1,
-        "ambition_host",
+        "ambition_app",
         "The colours of the host's pause menu pages (the page, a detail panel, a heading, its body and a placeholder line) and of its 3D cube.",
         MenuLook::problems,
     )

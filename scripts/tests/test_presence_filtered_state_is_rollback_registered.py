@@ -275,9 +275,10 @@ def test_the_live_intersection_has_a_population_and_no_unwaived_subject():
     assert "HitboxLifetime" not in sites, (
         "a doc comment inside a test module is being read as a filter site again"
     )
-    # One site since 8dfda4073: a pane composites every drawable of its room
-    # with no marker, so only the portal source-visibility query filters on it.
-    assert "PresentationOf" in sites and len(sites["PresentationOf"]) == 1
+    # A known member: `PoseOwnedExternally` is filtered across several crates.
+    # (`PresentationOf` was this control until the portal window stopped
+    # filtering on it, 2026-11-13; it is now only read.)
+    assert "PoseOwnedExternally" in sites and len(sites["PoseOwnedExternally"]) > 1
     assert len(sites) > 150, len(sites)
     # ⚠ `main` builds an `ArgumentParser` and parses `sys.argv`, which under
     # pytest is pytest's own — it exits 2 rather than running the check.

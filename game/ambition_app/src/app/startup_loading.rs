@@ -76,7 +76,7 @@ pub fn cover_look_schema() -> ambition_platformer2d::content::SchemaRegistration
     ambition_platformer2d::content::rules_schema(
         COVER_LOOK_SCHEMA,
         1,
-        "ambition_host",
+        "ambition_app",
         "The colours of the cover the host shows while the first frame is prepared.",
         CoverLook::problems,
     )

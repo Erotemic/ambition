@@ -172,7 +172,7 @@ pub fn title_look_schema() -> ambition_platformer2d::content::SchemaRegistration
     ambition_platformer2d::content::rules_schema(
         TITLE_LOOK_SCHEMA,
         1,
-        "ambition_host",
+        "ambition_app",
         "The title screen's look: the drifting scene behind the launcher menu and the menu's window.",
         TitleLook::problems,
     )

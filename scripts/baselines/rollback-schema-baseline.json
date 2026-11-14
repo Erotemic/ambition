@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v461",
+    "version": "ggrs-rollback-schema-v468",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -20,6 +20,7 @@
       "actor.death_interlude\tcomponent-canonical\tDeathInterlude",
       "actor.disposition\tcomponent-canonical\tActorDisposition",
       "actor.ledge\tcomponent-canonical\tBodyLedgeState",
+      "actor.life_ledger\tresource-clone-custom-checksum\tLifeLedger\tbevy_ggrs clone snapshot + each character's facts and planned hour, and the hours booked",
       "actor.match_seat\tcomponent-canonical\tMatchSeat",
       "actor.match_team\tcomponent-canonical\tMatchTeam",
       "actor.motion_model\tcomponent-canonical\tMotionModel",
@@ -65,6 +66,7 @@
       "boss.encounter\tcomponent-clone-cursor\tBossEncounter",
       "boss.limb_strike_box\tcomponent-clone-cursor\tLimbStrikeBox",
       "boss.phase\tcomponent-canonical\tBossPhase",
+      "checkpoint.authored_pending\tresource-clone-custom-checksum\tPendingAuthoredCheckpoint\tbevy_ggrs clone snapshot + the seat of an authored checkpoint asked and not yet committed",
       "combat.attack_allegiance\tcomponent-canonical\tAttackAllegiance",
       "combat.fixed_strike_feature_pulse\tcomponent-canonical\tFixedStrikeFeaturePulse",
       "combat.held_damage_boxes\tcomponent-clone-cursor\tHeldDamageBoxes",
@@ -84,6 +86,7 @@
       "cutscene.last_room\tcomponent-canonical\tLastCutsceneRoom",
       "cutscene.playback\tresource-canonical\tActiveCutscene\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "cutscene.skip_hold\tresource-canonical\tCutsceneSkipHold\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
+      "death.fees\tresource-clone-custom-checksum\tDeathFees\tbevy_ggrs clone snapshot + owed fees and lying parcels, Debug-text FNV",
       "encounter.lifecycle\tcomponent-canonical\tEncounterLifecycle",
       "encounter.participants\tcomponent-clone-canonical-checksum\tEncounterParticipants",
       "encounter.script\tcomponent-clone-custom-checksum\tEncounterScript\tbevy_ggrs clone snapshot + cursor and beat-elapsed bits",
@@ -120,9 +123,11 @@
       "resource.base_gravity\tresource-canonical\tBaseGravity\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.clock_regime_policy\tresource-canonical\tRegimePolicy\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.clock_state\tresource-canonical\tClockState\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
+      "resource.conversation_bag_since_checkpoint\tresource-clone-custom-checksum\tConversationBagSinceCheckpoint\tbevy_ggrs clone snapshot + what conversations gave and took from the shared bag since the last checkpoint: a death that keeps the facts keeps them",
       "resource.custody_baseline\tcomponent-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
       "resource.day_clock\tresource-canonical\tDayClock\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.encounter_clears_in_rooms\tresource-clone-custom-checksum\tEncounterClearsInRooms\tbevy_ggrs clone snapshot + the wave encounters rooms cleared within the rewind horizon, with the switches each greened and what they were, which a room rewind puts back (ISL-2d)",
+      "resource.facts_baseline\tcomponent-clone-custom-checksum\tFactsBaseline\tbevy_ggrs clone snapshot + the save's flags and quest steps at the last checkpoint, which a death puts back",
       "resource.flag_writes_in_rooms\tresource-clone-custom-checksum\tFlagWritesInRooms\tbevy_ggrs clone snapshot + the save-flag writes rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
       "resource.gameplay_elapsed\tcomponent-canonical\tGameplayElapsed",
       "resource.gate_network_state\tresource-clone-custom-checksum\tGateNetworkState\tbevy_ggrs clone snapshot + actor terminal uses, links, reports and recent addresses",

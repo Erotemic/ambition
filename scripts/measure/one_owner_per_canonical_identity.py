@@ -86,21 +86,11 @@ NOT_A_MINT = {"from_snapshot", "as_str", "clone"}
 #: ⛔ A ROW HERE IS A DECISION, NOT A WAIVER: it says two owners is the right
 #: shape for this identity. Prefer collapsing to one mint.
 #:
-#: ⚠ **THE INSTRUMENT CANNOT TELL A MINT FROM A REFERENCE, and the first row
-#: here is one of each.** `SimId::player_slot(0)` is MINTED in
-#: `sim_identity.rs` (the fallback identity for an unidentified primary-player
-#: body) and merely SPELLED in `possession.rs` (the controller a possession claim
-#: names). Both read identically in source. The reason two sites is right is that
-#: the whole possession feature is slot-0-only by design and says so at its
-#: `home_q` parameter — the home avatar is the body slot 0 owns and returns to.
-ADJUDICATED: dict[tuple[str, str], str] = {
-    (
-        "player_slot",
-        "0",
-    ): "one mint (sim_identity's fallback for an unidentified primary body) and one "
-    "reference (the controller a possession claim names). Possession is slot-0-only "
-    "by design; see its `home_q` parameter.",
-}
+#: ⚠ **THE INSTRUMENT CANNOT TELL A MINT FROM A REFERENCE.** A row may pair a
+#: mint with a reference that reads identically in source; say which is which.
+#: Empty since possession became each seat's (2026-11-13): `SimId::player_slot(0)`
+#: is minted once, in `sim_identity.rs`, and no longer spelled by possession.
+ADJUDICATED: dict[tuple[str, str], str] = {}
 
 
 def constant_mints(sources=None) -> dict[tuple[str, str], list[str]]:

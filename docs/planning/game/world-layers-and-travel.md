@@ -3,7 +3,8 @@
 **State:** remaining topology is selected in
 [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions).
 Travel portal mechanics are built (`c818c0801`); Magical's sky and arches
-are authored (MG-1, MG-2, 2026-11-14); the Jungle still needs the layout pass. Their counts and bounds were rechecked on 2026-10-31.
+are authored (MG-1, MG-2, 2026-11-14); the Jungle is folded (JL-1) and
+waits for its arches (JL-2). Their counts and bounds were rechecked on 2026-10-31.
 
 Still binding: dense interconnected regions with loops, shortcuts and
 secrets (`world-composition.md`); side exits join the world and doors enter
@@ -74,7 +75,7 @@ A layer is not a corridor. The rules:
 | pvn | planet | 22 | 11136 x 16656 | 0.7 | port/village surface, cellars/tunnel under, sky lookout; boss arenas apart |
 | magical (2026-11-14) | planet | 15 | 17408 x 3456 | 5.0 | surface row, hollow under, void under the castle; the Starlight Heights over the square and the road's west end |
 | art (2026-11-03) | planet | 15 | 12400 x 4960 | 2.5 | stacks, plaza and garden surface; amphitheatre, cliffs and reach over; caverns and workshop deeps under; seven buildings |
-| dinosaur (Jungle) | planet | 12 | 25792 x 1888 | 13.7 | one line: the trail, a sinkhole to the fossil beds |
+| dinosaur (Jungle, 2026-11-14) | planet | 12 | 25792 x 2240 (13216 x 2080 without the tyrant hall and ranger station, placed apart) | 11.5 (6.4) | surface trail to the ridge; treetops, canopy and the Smoking Mountain over it; fossil beds, amber vault and tar pits under it |
 | math | topological | 19 | 16960 x 4144 | 4.1 | free |
 | noodle | topological | 7 | 12960 x 1408 | 9.2 | free |
 | history (2026-11-03) | topological | 36 | 22400 x 8208 | 2.7 | free: a grid, east is later and each floor is a region of the world; ladders join floors where the regions met; seven buildings under it |
@@ -88,27 +89,47 @@ holds Magical's three arches (MG-2), its first `kind: Portal` rings. Add **autho
 routes**, not another travel engine. Take one packet per change, in order;
 delete each packet when its acceptance passes.
 
-### JL-1 — Jungle geometry and walking loops
+### JL-1 — Jungle geometry and walking loops (done 2026-11-14)
 
-**Owner:** `dinosaur.ldtk`, whose rooms are all LDtk-owned (LEVEL-TRUTH,
-2026-11-10: the primeval scripts were older than their rooms, so a re-apply
-would have dropped the tuning made in LDtk; their last version is at
-`a910d3952e`). Edit the rooms in LDtk or with in-place edits
-(`entity add`, `intgrid paint`), or give a new room to a generator in
-`game/ambition_map_assets/ambition_content/generators/`. Fold the
-existing trail to the surface, fossil beds/tar pits/amber vault underneath,
-canopy/treetops above and Smoking Mountain higher still. Reuse rooms and
-preserve secret exits, permanent breaks and existing placements. Make at least
-two **different traversable** interlayer joins, creating a loop without
-requiring a portal.
+The rooms stay LDtk-owned and were edited in place (`entity add`,
+`set-field`, `delete`, `intgrid paint`/`erase`; the three moves with the
+tools' own writer, a load and write of the unchanged file being byte for
+byte the same). The surface is the trail, the trailhead to the ridge road.
+Over it: the treetops (as before), the canopy now over the ridge's east end
+up a vine (`ridge_vine`/`canopy_vine`, a one-way branch half way up), and
+the Smoking Mountain east of the canopy and higher, by a side exit
+(`primeval_canopy_mountain`/`mountain_west`). Under it: the amber vault and
+the fossil beds (as before), and the tar pits east of the beds by a side
+exit (`fossils_east`/`tar_west`), whose seep climbs back to the ridge
+(`tar_shaft`/`ridge_tar_shaft`; a hatch over the ridge's hole catches a
+body that climbs out, as Magical's holes have). Two different
+interlayer joins (the sinkhole, a drop and ladder; the seep, a climb)
+make the underground loop ridge, beds, pits, ridge with no portal. The
+ridge's and the canopy's old side exits are walled; the tar pits' east
+exit is gone. Room IDs, secrets (the amber vault's cracked wall) and every
+placement stay; the tyrant hall door stays on the canopy.
 
-**Pass:** Flat-map adjacency checks find no new unmatched exits, a real player
-can walk each new connection, and `game/ambition_app/tests/the_tar_pits.rs`
-(or another focused `app_it` test) exercises the loop and save-persistent
-changes. Compare edited LDtk placements with the generator's source; don't
-silently overwrite manual edits on regeneration.
+`the_tar_pits.rs` walks each join by keys: the loop both ways round, the
+vine up and down, the mountain to the canopy and back. Two placements were
+moved for the keyboard walker, which aims at the surface nearest an exit:
+the seep stands west of the mammoth's back (a ledge beside it first had
+made the walk to the paleontologist end on the dig camp's deck), and the
+vine has a one-way branch half way up, nearer its top than the chest shelf. `check_flat_map`:
+0 findings. The tar pits' origin (30008, 512) is off the 16 px grid, as
+the fossil beds' and the amber vault's already were (a validator warning).
 
-### JL-2 — Jungle arch travel (after JL-1)
+### JL-2 — Jungle arch travel (waits for an arch prop)
+
+**Held 2026-11-14:** the only ring art is the 288 px gate ring. Magical's
+open rooms took it (MG-2); the Jungle's do not: the trailhead's east end,
+the treetops and the canopy carry one-way branches and a chest shelf
+through the 288 px band over the floor wherever a surface arch would stand,
+so each ring would be drawn through a platform. A planned set that fits the
+reach rule: the trailhead (about x 700), the treetops, the canopy's west
+end and the tar pits' east end; the trailhead cannot reach the canopy
+(about 8400 px), so the trip is a chain. Make the arch prop (smaller than a
+gate ring, drawn as an arch), then place these.
+
 
 **Owner:** Jungle arch zone authoring and
 `game/ambition_content/assets/data/gate_network.ron`. Add trailhead, canopy

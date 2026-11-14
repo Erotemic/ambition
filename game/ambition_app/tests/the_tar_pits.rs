@@ -1,20 +1,39 @@
-//! The Tar Pits: out past the end of the primeval trail, east of the canopy
-//! (`dinosaur.ldtk`, LDtk-owned).
+//! The Tar Pits and the Smoking Mountain, in the Jungle's layers
+//! (`dinosaur.ldtk`, LDtk-owned; WORLD-LAYERS JL-1, 2026-11-14).
 //!
-//! Jon (2026-10-30): "out of town zones with enemies", joined by side exits.
-//! The player starts at the pits' west end, walks by keys west into the
-//! canopy, and back east out to the pits.
+//! Jon (2026-10-30): "out of town zones with enemies". The trail was one
+//! line east to the mountain; it is folded into layers now. Under the ridge
+//! road: the fossil beds, and east of them the tar pits, whose seep climbs
+//! back up to the ridge, so the ridge, the sinkhole, the beds, the pits and
+//! the seep are a loop. Over the ridge: the canopy, up a vine, and the
+//! Smoking Mountain rising east of the canopy. Each join is walked by keys.
 
 use crate::the_pirate_port::{a_session_in, go, talk};
 
 const PITS: &str = "primeval_tar_pits";
 const CANOPY: &str = "primeval_canopy";
 
+const RIDGE: &str = "primeval_ridge";
+const BEDS: &str = "primeval_fossil_beds";
+
+/// Under the ridge road, a loop: down the sinkhole to the fossil beds, east
+/// under the ridge to the tar pits, and up the tar seep to the ridge again.
 #[test]
-fn the_tar_pits_lie_east_of_the_canopy_by_its_side_exit() {
-    let mut app = a_session_in(PITS);
-    go(&mut app, CANOPY, Some("tar_west"));
-    go(&mut app, PITS, Some("primeval_canopy_tar_pits"));
+fn the_ridge_the_fossil_beds_and_the_tar_pits_are_a_loop() {
+    let mut app = a_session_in(RIDGE);
+    go(&mut app, BEDS, Some("ridge_sinkhole"));
+    go(&mut app, PITS, Some("fossils_east"));
+    go(&mut app, RIDGE, Some("tar_shaft"));
+    go(&mut app, PITS, Some("ridge_tar_shaft"));
+    go(&mut app, BEDS, Some("tar_west"));
+}
+
+/// Over the ridge road: up the vine to the canopy, and back down it.
+#[test]
+fn a_vine_climbs_from_the_ridge_road_to_the_canopy() {
+    let mut app = a_session_in(RIDGE);
+    go(&mut app, CANOPY, Some("ridge_vine"));
+    go(&mut app, RIDGE, Some("canopy_vine"));
 }
 
 /// The trail's people talk: the ranger at the trailhead, the paleontologist
@@ -27,13 +46,14 @@ fn the_ranger_and_the_paleontologist_talk() {
     talk(&mut app, "npc_primeval_feld", "What are you digging for?");
 }
 
-/// The Smoking Mountain: past the tar pits by a side exit. The player starts
-/// at the mountain's foot, walks west into the pits, and back east.
+/// The Smoking Mountain rises east of the canopy, higher than it: the
+/// player starts at the mountain's foot, walks west into the canopy, and
+/// back east.
 #[test]
-fn the_smoking_mountain_rises_east_of_the_tar_pits() {
+fn the_smoking_mountain_rises_east_of_the_canopy() {
     let mut app = a_session_in("primeval_smoking_mountain");
-    go(&mut app, PITS, Some("mountain_west"));
-    go(&mut app, "primeval_smoking_mountain", Some("tar_east"));
+    go(&mut app, CANOPY, Some("mountain_west"));
+    go(&mut app, "primeval_smoking_mountain", Some("primeval_canopy_mountain"));
 }
 
 /// Professor Tock keeps the meteor watch on the Smoking Mountain's rim: the

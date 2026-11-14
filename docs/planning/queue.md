@@ -435,8 +435,16 @@ cloud gap; walked by keys in `the_magical_dimension.rs`
 (keep) and CANDLE (heart); the heart is two hops from the heights
 ([MG-2](game/world-layers-and-travel.md#mg-2--magical-arch-travel-done-2026-11-14)).
 
-**Next action:** fold Jungle into surface, underground and canopy regions
-(JL-1), then its arches (JL-2). Reuse the existing portal and
+**Jungle folded 2026-11-14 (JL-1):** canopy over the ridge up a vine,
+the Smoking Mountain east of the canopy, the tar pits under the ridge east
+of the fossil beds with a seep back up: an underground loop with no portal
+([JL-1](game/world-layers-and-travel.md#jl-1--jungle-geometry-and-walking-loops-done-2026-11-14)).
+
+**Next action:** the Jungle's arches (JL-2) wait for an arch prop: the
+288 px gate ring would be drawn through the branch platforms of every
+Jungle room an arch belongs in
+([JL-2](game/world-layers-and-travel.md#jl-2--jungle-arch-travel-waits-for-an-arch-prop)).
+Then recheck the old room-detail counts and Art's remaining publication. Reuse the existing portal and
 gate machinery. Keep authored rooms editable in LDtk. Recheck old room-detail
 counts before selecting missing props, secrets or region links. Then recheck
 Art's remaining publication, cues and places against the live assets. Keep its

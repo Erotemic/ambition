@@ -297,8 +297,16 @@ preset drops that choice (`draws_observer`). Choosing a preset from the
 Developer page now applies it: the View Mode and Art Mode rows had changed
 only the label. A capture's `force_combat_overlay` names its own layers and
 leaves the observed geometry off. Witness:
-`a_debug_view_preset_draws_its_geometry_observers_by_namespace`. Still open
-here: a legend and a "what hides the overlays" line (2), tick against
+`a_debug_view_preset_draws_its_geometry_observers_by_namespace`.
+
+**Legend and the hidden-overlay line landed (2026-11-14).** F1 writes a
+legend in the top-left corner of each view whose room it observed
+(`observation_legend`): how many pieces are drawn and how many of them are
+inactive, then each role that colours a piece, written in that colour. The
+debug HUD's `VIEW:` line names the preset and what the observed geometry
+shows, or the switch that hides it (`observed_geometry_status`: the layer
+off, the debug overlay off, or Gizmos off). Witness:
+`the_legend_names_each_drawn_role_in_its_colour`. Still open: tick against
 presented shapes (3); the headless report (4) is `inspect_geometry`.
 
 1. Keep F1 master visibility and existing `DebugViewMode` presets; make Collision, Combat, Triggers and navigation modes include their newly registered sources by role. Add a discoverable layer list and legend; allow toggling roles and choosing a viewed actor/room without editing Rust. Do not repurpose Shift+F1 or other established controls.

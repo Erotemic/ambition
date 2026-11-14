@@ -309,6 +309,12 @@ pub(super) fn update_hud(
             .unwrap_or_default(),
         _ => String::new(),
     };
+    // The debug view, and what F1's observed geometry shows or what hides it.
+    let view_line = format!(
+        "\nVIEW: {}  GEOMETRY: {}",
+        developer_tools.debug_view_mode.label(),
+        developer_tools.observed_geometry_status(dev_state.debug_enabled())
+    );
     if developer_tools.compact_hud {
         let world_name = &world.0.name;
         let mode_label = mode.get().label();
@@ -326,7 +332,7 @@ pub(super) fn update_hud(
              hitstun {player_hitstun:.2} invuln {player_invuln:.2} hitstop {player_hitstop:.2} | \
              preset {preset_name} | {window_line} | \
              {feature_banner}{cutscene_line}{boss_line}\
-             {encounter_line}{map_line}{attack_line}{ledge_line}{movement_line}\n"
+             {encounter_line}{map_line}{attack_line}{ledge_line}{movement_line}{view_line}\n"
         )));
         return;
     }
@@ -361,7 +367,7 @@ pub(super) fn update_hud(
          {window_line}\n\
          enemies: {enemy_health}\
          {attack_line}{ledge_line}{movement_line}{flash_line}{feature_banner}\
-         {cutscene_line}{boss_line}{encounter_line}{map_line}\n"
+         {cutscene_line}{boss_line}{encounter_line}{map_line}{view_line}\n"
     )));
 }
 

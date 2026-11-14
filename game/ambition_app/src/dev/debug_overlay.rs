@@ -74,16 +74,32 @@ pub(crate) fn render_debug_overlay_labels(
     drawings.finish();
 }
 
-/// Label the observed geometry (GOBS-1) when the Geometry Observer row has
-/// one observer selected: with every observer drawn, the labels would bury
-/// the room. Runs after the overlay, which clears the labels, and before
-/// they are drawn.
+/// Label the observed geometry: its legend in the corner of each view
+/// (GOBS-4), and each piece (GOBS-1) when the Geometry Observer row has one
+/// observer selected: with every observer drawn, the labels would bury the
+/// room. Runs after the overlay, which clears the labels, and before they
+/// are drawn.
 pub(crate) fn label_observed_geometry(
     developer_tools: Res<DeveloperTools>,
     frame: Option<Res<ambition_platformer2d::render::rendering::observed_geometry::ObservedGeometryFrame>>,
     mut overlay_labels: ResMut<DebugOverlayLabels>,
+    views: Query<&ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot, With<ambition_platformer2d::sim_view::LocalView>>,
 ) {
     let Some(frame) = frame else { return };
+    // The legend (GOBS-4), at the top left of each view of a room it observed.
+    for view in &views {
+        let Some(shown) = view.frame() else { continue };
+        let corner = shown.snapshot.target_world - shown.snapshot.visible_view * 0.5 + ae::Vec2::new(6.0, 10.0);
+        let legend = ambition_platformer2d::render::rendering::observed_geometry::observation_legend(frame.in_room(shown.room));
+        for (n, (text, color)) in legend.into_iter().enumerate() {
+            overlay_labels.0.push(DebugLabel {
+                room: shown.room,
+                world_pos: corner + ae::Vec2::new(0.0, n as f32 * (DEBUG_LABEL_FONT_PX + 3.0)),
+                text,
+                color,
+            });
+        }
+    }
     if developer_tools.observed_geometry_only.is_none() {
         return;
     }

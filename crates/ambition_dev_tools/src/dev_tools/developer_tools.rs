@@ -176,6 +176,20 @@ impl DeveloperTools {
         }
     }
 
+    /// What F1's observed geometry shows, or the switch that hides it
+    /// (GOBS-4): the HUD's line, so an empty overlay names its cause.
+    pub fn observed_geometry_status(&self, debug_enabled: bool) -> String {
+        if !self.show_observed_geometry {
+            "off (Observed Geometry)".to_string()
+        } else if !debug_enabled {
+            "hidden: the debug overlay is off".to_string()
+        } else if !self.gizmos_enabled {
+            "hidden: Gizmos is off".to_string()
+        } else {
+            self.observed_geometry_label()
+        }
+    }
+
     /// Does F1 draw the observer `provider` now: the one chosen, else the
     /// preset's.
     pub fn draws_observer(&self, provider: &str) -> bool {

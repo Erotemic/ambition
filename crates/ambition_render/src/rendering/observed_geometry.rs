@@ -210,10 +210,72 @@ pub fn observation_labels(layers: &[ObservedLayer]) -> Vec<ObservedLabel> {
     labels
 }
 
+/// The legend of `layers` (one room's), a line each, top first: how many
+/// pieces are drawn and how many of them are inactive, then each role that
+/// colours a piece, in its colour (GOBS-4). Empty when nothing was observed.
+pub fn observation_legend(layers: &[ObservedLayer]) -> Vec<(String, Color)> {
+    let mut pieces = 0;
+    let mut inactive = 0;
+    let mut roles: Vec<(String, Color)> = Vec::new();
+    for layer in layers {
+        let ObserverAnswer::Observed { geometry } = &layer.answer else {
+            continue;
+        };
+        for observation in geometry {
+            pieces += 1;
+            if matches!(observation.state, ObservedState::Inactive { .. }) {
+                inactive += 1;
+            }
+            let role = observation.roles.first().map_or("", |role| role.as_ref());
+            if !roles.iter().any(|(seen, _)| seen == role) {
+                roles.push((role.to_string(), role_color(observation)));
+            }
+        }
+    }
+    if pieces == 0 {
+        return Vec::new();
+    }
+    let mut lines = vec![(format!("observed: {pieces} pieces, {inactive} inactive (faint, crossed)"), Color::WHITE)];
+    lines.extend(roles);
+    lines
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use ambition_geometry_observation::GeometryObservation;
+
+    /// The legend counts the pieces and the inactive ones, then names each
+    /// role that colours a piece once, in its colour.
+    #[test]
+    fn the_legend_names_each_drawn_role_in_its_colour() {
+        let piece = |key: &str, role: &'static str, state| GeometryObservation {
+            key: key.into(),
+            roles: vec![role.into()],
+            shape: ObservedShape::aabb([0.0, 0.0], [1.0, 1.0]),
+            state,
+        };
+        let layers = vec![ObservedLayer {
+            provider: "test",
+            answer: ObserverAnswer::Observed {
+                geometry: vec![
+                    piece("a", "solid", ObservedState::Active),
+                    piece("b", "solid", ObservedState::Inactive { reason: "broken".into() }),
+                    piece("c", "portal", ObservedState::Active),
+                ],
+            },
+        }];
+        let legend = observation_legend(&layers);
+        let words: Vec<&str> = legend.iter().map(|(text, _)| text.as_str()).collect();
+        assert_eq!(words, vec!["observed: 3 pieces, 1 inactive (faint, crossed)", "solid", "portal"]);
+        assert_eq!(legend[2].1, role_color(&layers_piece(&layers, 2)), "a role is written in the colour it is drawn in");
+        assert!(observation_legend(&[]).is_empty());
+    }
+
+    fn layers_piece(layers: &[ObservedLayer], n: usize) -> GeometryObservation {
+        let ObserverAnswer::Observed { geometry } = &layers[0].answer else { unreachable!() };
+        geometry[n].clone()
+    }
 
     /// Each piece is labelled with its key and roles at its anchor, and an
     /// inactive one says why; a provider that observed nothing adds none.

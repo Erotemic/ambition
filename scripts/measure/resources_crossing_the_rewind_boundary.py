@@ -133,7 +133,9 @@ RESOURCE_STRUCT = re.compile(
 CROSSING_IS_HARMLESS: dict[str, str] = {
     # Presentation and developer instruments: the sim writes, something outside
     # draws or records. Nothing reads them back as authority.
-    "ActiveUiCues": "presentation cues, republished from sim state every tick",
+    # ✅ `ActiveUiCues` left 2026-11-13 because it stopped crossing: its only
+    # writers (the inventory menu since e5c60f8975 and Smash's select screen)
+    # publish on host frames, so nothing in the simulation writes it.
     "ActorTraceBuffer": "dev trace ring, never read as authority",
     "CameraShakeState": "presentation; the sim requests, the camera decays it",
     # ✅ `DeveloperRuntimeState` left 2026-09-24 because it stopped crossing:

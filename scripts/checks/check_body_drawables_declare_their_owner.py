@@ -52,6 +52,10 @@ CENSUS = {
         "NOT a body and not a component: a quad of a room's terrain skin, and "
         "its `owner` is the block visual it is laid on. Excluded after reading it."
     ),
+    "PassReady": (
+        "NOT a body: its `source` is the impostor's capture camera, read in the "
+        "render world to learn when that view's pipelines are ready."
+    ),
     "PortalCaptureParallaxLayerVisual": (
         "NOT a body: its `source` is a portal rig's parallax layer. Excluded "
         "after reading it, not after matching the field name."

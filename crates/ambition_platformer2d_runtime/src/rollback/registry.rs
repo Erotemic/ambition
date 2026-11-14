@@ -279,7 +279,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // (`ConversationBagSinceCheckpoint`).
 // 467 -> 468: a save's dialogue visit names its seat (Q134), in the save's
 // serde checksum.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 468;
+// 468 -> 469: the cutscene trigger queue rewinds with the playback
+// (`cutscene.trigger_queue`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 469;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

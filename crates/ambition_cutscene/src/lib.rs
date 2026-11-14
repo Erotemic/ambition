@@ -594,28 +594,25 @@ impl CutsceneLibrary {
 /// domain asks for `boss_intro_<id>` and knows nothing else about cutscenes.
 ///
 /// ⛔⛔ **EVERY PRODUCER MUST RUN INSIDE THE REWINDING SIMULATION SCHEDULE.**
-/// This queue is not rollback-registered and it HOLDS ACROSS FRAMES:
-/// `drain_cutscene_triggers` returns without draining while a cutscene plays, so
-/// it survives while `ActiveCutscene` and `LastCutsceneRoom` rewind around it. A
-/// producer outside that schedule therefore loses its trigger on every rewind —
-/// the restore drops the entry and nothing re-produces it. A cutscene dismiss
-/// raised on the host side had exactly that defect (`Q136`); it now rides the
-/// seat's `ControlFrame`, which a replay re-delivers.
-///
-/// ⚠ **THAT THIS HOLDS TODAY IS NOT A DESIGN, IT IS A COINCIDENCE THAT WAS
-/// WRITTEN DOWN ON 2026-09-17.** The two shipped producers —
-/// `auto_trigger_room_cutscenes` in the monolith's `Cutscene` phase and
-/// `update_boss_encounters` in `ProgressionSet::BossAdvance` — happen to be sim
-/// systems, so a replay re-produces whatever the rewind dropped. Nothing
-/// enforced that until `scripts/checks/check_sim_consumed_request_writers.py`, which
-/// ratchets the WRITER SET: a new writer fails the maintenance lane until
-/// somebody reads its body and records which schedule it runs in.
+/// The queue HOLDS ACROSS FRAMES (`drain_cutscene_triggers` returns without
+/// draining while a cutscene plays), so it is rollback state and rewinds with
+/// `ActiveCutscene` and `LastCutsceneRoom` (`cutscene.trigger_queue`). A
+/// producer outside that schedule therefore loses its trigger on every rewind:
+/// the restore puts back the queue from before it, and nothing re-produces it.
+/// A cutscene dismiss raised on the host side had exactly that defect
+/// (`Q136`); it now rides the seat's `ControlFrame`, which a replay
+/// re-delivers. The shipped producers are `auto_trigger_room_cutscenes` in the
+/// monolith's `Cutscene` phase and `update_boss_encounters` in
+/// `ProgressionSet::BossAdvance`, and
+/// `scripts/checks/check_sim_consumed_request_writers.py` ratchets the WRITER
+/// SET: a new writer fails the maintenance lane until somebody reads its body
+/// and records which schedule it runs in.
 ///
 /// ⚠ The ratchet is not an attribution. A schedule's per-system access set is
 /// `pub(crate)` in Bevy 0.19 and `System::name()` is the debug placeholder in
 /// this build, so no mechanical answer to *"which schedule writes this"* is
 /// available; the guard makes the question unavoidable instead of answering it.
-#[derive(Resource, Default)]
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct CutsceneTriggerQueue(pub Vec<CutsceneTrigger>);
 
 /// A queued cutscene: its id, and the live room it plays for (by ordinal;
@@ -637,10 +634,8 @@ impl CutsceneTriggerQueue {
         self.push(CutsceneTrigger { id: id.into(), room: Some(room) });
     }
 
-    /// A trigger already waiting is not queued twice. The queue is not
-    /// rollback state and keeps what waits behind a playing cutscene, so a
-    /// replay that asks again for a trigger still waiting would otherwise
-    /// play it twice.
+    /// A trigger already waiting is not queued twice: two producers on one
+    /// tick (a room entry and a volume) ask for the same cutscene.
     fn push(&mut self, trigger: CutsceneTrigger) {
         if !self.0.contains(&trigger) {
             self.0.push(trigger);
@@ -1035,6 +1030,33 @@ mod snapshot {
                 beats,
                 seen_flag,
             })
+        }
+    }
+
+    impl SnapshotState for CutsceneTriggerQueue {
+        fn encode(&self, out: &mut Vec<u8>) {
+            put_u32(out, self.0.len() as u32);
+            for trigger in &self.0 {
+                put_str(out, &trigger.id);
+                match trigger.room {
+                    Some(room) => {
+                        put_bool(out, true);
+                        put_u32(out, room);
+                    }
+                    None => put_bool(out, false),
+                }
+            }
+        }
+
+        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+            let count = reader.u32()? as usize;
+            let mut triggers = Vec::with_capacity(count.min(64));
+            for _ in 0..count {
+                let id = reader.str()?.to_owned();
+                let room = if reader.bool()? { Some(reader.u32()?) } else { None };
+                triggers.push(CutsceneTrigger { id, room });
+            }
+            Some(Self(triggers))
         }
     }
 

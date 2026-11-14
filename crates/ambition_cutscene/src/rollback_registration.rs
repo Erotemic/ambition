@@ -29,6 +29,12 @@ where
     // ⭐ A COMPONENT OF THE SESSION ROOT (C03, 2026-10-07), under the same key.
     // A session's memory of the room it last announced is that session's, so a
     // new root is born with none and no reset is owed at a session edge.
+    // What waits behind a playing cutscene: it holds across frames, so it
+    // rewinds with the playback it waits for. Optional for the same reason.
+    registrar.rollback_resource_optional_canonical::<crate::CutsceneTriggerQueue>(
+        OWNER,
+        "cutscene.trigger_queue",
+    );
     registrar.rollback_component_canonical::<crate::LastCutsceneRoom>(
         OWNER,
         "cutscene.last_room",

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v468
+ggrs-rollback-schema-v469
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -167,6 +167,7 @@ cutscene.changes_in_rooms	resource-canonical	CutscenesInRooms	bevy_ggrs canonica
 cutscene.last_room	component-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.skip_hold	resource-canonical	CutsceneSkipHold	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
+cutscene.trigger_queue	resource-canonical	CutsceneTriggerQueue	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 death.fees	resource-clone-custom-checksum	DeathFees	bevy_ggrs clone snapshot + owed fees and lying parcels, Debug-text FNV
 derived.ability_contributions	derived	AbilityContributions	each source rewrites its own key from its own state before integration every tick
 derived.action_scheme	derived	DerivedActionScheme	derived again by the control gate when an authority it reads changed; a rewind marks a differing authority changed

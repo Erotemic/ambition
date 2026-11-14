@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v468",
+    "version": "ggrs-rollback-schema-v469",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -86,6 +86,7 @@
       "cutscene.last_room\tcomponent-canonical\tLastCutsceneRoom",
       "cutscene.playback\tresource-canonical\tActiveCutscene\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "cutscene.skip_hold\tresource-canonical\tCutsceneSkipHold\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
+      "cutscene.trigger_queue\tresource-canonical\tCutsceneTriggerQueue\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "death.fees\tresource-clone-custom-checksum\tDeathFees\tbevy_ggrs clone snapshot + owed fees and lying parcels, Debug-text FNV",
       "encounter.lifecycle\tcomponent-canonical\tEncounterLifecycle",
       "encounter.participants\tcomponent-clone-canonical-checksum\tEncounterParticipants",
@@ -225,6 +226,7 @@
     "ambition_cutscene::CutsceneBeat",
     "ambition_cutscene::CutsceneScript",
     "ambition_cutscene::CutsceneSkipHold",
+    "ambition_cutscene::CutsceneTriggerQueue",
     "ambition_cutscene::CutscenesInRooms",
     "ambition_cutscene::LastCutsceneRoom",
     "ambition_encounter::EncounterLifecycle",

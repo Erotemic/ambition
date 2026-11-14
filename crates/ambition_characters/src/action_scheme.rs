@@ -488,8 +488,10 @@ fn combat_actions(
         ControlSlot::Attack,
         ids::ATTACK,
     );
+    // Authored, and not withheld: `ranged` is a permission every kit has,
+    // which a ceiling (a room that keeps the fight to the blade) takes away.
     push(
-        has_verb(ids::RANGED) || action_set.is_some_and(|a| a.ranged.is_some()),
+        abilities.ranged && (has_verb(ids::RANGED) || action_set.is_some_and(|a| a.ranged.is_some())),
         ControlSlot::Projectile,
         ids::RANGED,
     );
@@ -507,7 +509,8 @@ fn combat_actions(
     );
     // No permission term, deliberately. A taunt is content and nothing else
     // — it grants no reach and threatens nobody — so a body gets the button on
-    // the day it authors the move, exactly like the ranged slot above.
+    // the day it authors the move. (The ranged slot above has the same
+    // authored gate, plus a permission a room can withhold: a shot threatens.)
     push(
         has_directional_verb(ids::TAUNT),
         ControlSlot::Taunt,

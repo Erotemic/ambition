@@ -172,8 +172,10 @@ pub fn gate_body_control(
 
         // HOW THIS BODY FIRES is its `ChargesProjectiles` marker, installed
         // from the character's `ranged_execution` by every road that builds or
-        // re-wears it; a body without it has no charge path to feed.
-        if !has_charge_marker {
+        // re-wears it; a body without it has no charge path to feed. A body
+        // that has it fires only with the `ranged` verb, which a room that
+        // keeps the fight to the blade withholds (level 1).
+        if !has_charge_marker || !abilities.abilities.ranged {
             control.0.projectile_pressed = false;
             control.0.projectile_held = false;
             control.0.projectile_released = false;

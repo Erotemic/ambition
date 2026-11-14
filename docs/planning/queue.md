@@ -937,9 +937,9 @@ Found on the way: the service stair's flight A rose the wrong
 way (a 144 px wall), its west girder left a body's height exactly over
 flight B, and the keyboard walker let Jump up between two launch frames,
 which cut every jump to a 30 px hop.
-**Next action:** shots. The Hadouken is the projectile kit's
-(`ChargesProjectiles`), which no verb gates, so the robot can still fire in
-level 1.
+**Shots (done 2026-11-14):** `ranged` is a permission every kit has,
+withheld by level 1's rooms: no projectile slot, and the charge stream
+cleared at the control gate ([level 1](game/level-1.md)). Schema 470.
 
 **MULTI-PARTY-DIALOGUE (done 2026-11-14):** a conversation holds any
 number of bodies: the opening pair and whoever joined

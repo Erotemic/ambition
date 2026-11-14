@@ -170,6 +170,18 @@ pub struct AbilitySet {
     /// (see [`AbilityGrant::MorphBall`] and [`MatchAbilities`]).
     #[serde(default)]
     pub morph: bool,
+    /// Fire a shot: the ranged slot a moveset or action set authors, and the
+    /// charged shot of a body with `ChargesProjectiles`. A PERMISSION EVERY KIT
+    /// HAS, true in [`Self::NONE`] and in every preset, because the shot is
+    /// already gated by being authored (as a taunt is): no kit grants it and
+    /// none lacks it. It exists to be WITHHELD, by a ceiling (a room that keeps
+    /// the fight to the blade: level 1's kit). Without it the action scheme
+    /// has no projectile slot and the control gate clears the charge stream.
+    ///
+    /// `serde` default TRUE: authored data that predates the field keeps the
+    /// shot it had.
+    #[serde(default = "yes")]
+    pub ranged: bool,
 }
 
 /// Can this body STAY WHERE IT IS, without being carried off?
@@ -238,6 +250,7 @@ impl AbilitySet {
             crouch,
             climb,
             morph,
+            ranged,
         } = self;
         Some(match verb {
             "move_horizontal" => move_horizontal,
@@ -273,6 +286,7 @@ impl AbilitySet {
             "crouch" => crouch,
             "climb" => climb,
             "morph" => morph,
+            "ranged" => ranged,
             _ => return None,
         })
     }
@@ -357,6 +371,8 @@ impl AbilitySet {
             crouch: _,
             climb: _,
             morph: _,
+            // A rider still fires, as it still swings.
+            ranged,
         } = *self;
         Self {
             move_horizontal,
@@ -392,6 +408,7 @@ impl AbilitySet {
             crouch: false,
             climb: false,
             morph: false,
+            ranged,
         }
     }
 
@@ -431,6 +448,7 @@ impl AbilitySet {
             crouch: true,
             climb: true,
             morph: false,
+            ranged: true,
         }
     }
 
@@ -484,6 +502,7 @@ impl AbilitySet {
             crouch: true,
             climb: true,
             morph: true,
+            ranged: true,
         }
     }
 
@@ -530,14 +549,16 @@ impl AbilitySet {
             crouch: true,
             climb: true,
             morph: false,
+            ranged: true,
         }
     }
 
-    /// The empty set: every verb denied. Identity element for [`union`].
+    /// The empty set: every verb denied but [`ranged`](Self::ranged), the
+    /// permission every kit has. Identity element for [`union`] over kits.
     ///
     /// Composition of a character's grant bundles is a fold of `union` starting
     /// here, so a character with no grants can do nothing until something is
-    /// composed onto it.
+    /// composed onto it (its authored shot aside).
     ///
     /// [`union`]: AbilitySet::union
     pub const NONE: Self = Self {
@@ -574,6 +595,8 @@ impl AbilitySet {
         crouch: false,
         climb: false,
         morph: false,
+        // A permission every kit has (see the field).
+        ranged: true,
     };
 
     /// Every verb granted. Identity element for [`intersect`], so a ceiling
@@ -614,6 +637,7 @@ impl AbilitySet {
         crouch: true,
         climb: true,
         morph: true,
+        ranged: true,
     };
 
     /// Field-wise OR: a verb is granted if *either* set grants it.
@@ -661,6 +685,7 @@ impl AbilitySet {
             crouch: self.crouch || other.crouch,
             climb: self.climb || other.climb,
             morph: self.morph || other.morph,
+            ranged: self.ranged || other.ranged,
         }
     }
 
@@ -707,6 +732,7 @@ impl AbilitySet {
             crouch: self.crouch && mask.crouch,
             climb: self.climb && mask.climb,
             morph: self.morph && mask.morph,
+            ranged: self.ranged && mask.ranged,
         }
     }
 

@@ -281,7 +281,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // serde checksum.
 // 468 -> 469: the cutscene trigger queue rewinds with the playback
 // (`cutscene.trigger_queue`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 469;
+// 469 -> 470: `AbilitySet` encodes `ranged`, the shot permission a room can
+// withhold (level 1's kit).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 470;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

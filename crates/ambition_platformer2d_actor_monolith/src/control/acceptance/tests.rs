@@ -131,14 +131,12 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     // Each body carries the charge marker exactly when its character charges —
     // the state every construction and re-wear road installs from
     // `ranged_execution`, and the one fact the gate reads.
-    let spawn = |app: &mut App, id: &str| {
+    let spawn_with = |app: &mut App, id: &str, abilities: ambition_platformer2d_core::AbilitySet| {
         let mut body = app.world_mut().spawn((
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             CharacterForm::new(id),
             MotionModel::default(),
-            ambition_platformer2d_core::BodyAbilities::new(
-                ambition_platformer2d_core::AbilitySet::sandbox_all(),
-            ),
+            ambition_platformer2d_core::BodyAbilities::new(abilities),
             ActionSet {
                 ranged: Some(ambition_characters::brain::RangedActionSpec::bolt(600.0, 1)),
                 ..ActionSet::default()
@@ -150,8 +148,14 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
         }
         body.id()
     };
-    let gunner = spawn(&mut app, "gunner");
-    let swordfighter = spawn(&mut app, "swordfighter");
+    let gunner = spawn_with(&mut app, "gunner", ambition_platformer2d_core::AbilitySet::sandbox_all());
+    let swordfighter = spawn_with(&mut app, "swordfighter", ambition_platformer2d_core::AbilitySet::sandbox_all());
+    // The same gunner in a room that withholds the shot (level 1's kit).
+    let disarmed = spawn_with(
+        &mut app,
+        "gunner",
+        ambition_platformer2d_core::AbilitySet { ranged: false, ..ambition_platformer2d_core::AbilitySet::sandbox_all() },
+    );
     app.update();
 
     let read = |app: &App, e: Entity| {
@@ -173,6 +177,7 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
         "a character that fires through its MOVESET kept the charge press, so \
          one button would be owned twice"
     );
+    assert!(!read(&app, disarmed), "a charging body whose `ranged` verb is withheld kept its charge press");
 }
 
 /// The gate CONSUMES the shared resolver: a body whose scheme puts a

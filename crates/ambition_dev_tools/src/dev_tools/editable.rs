@@ -44,6 +44,7 @@ pub struct EditableAbilitySet {
     pub crouch: bool,
     pub climb: bool,
     pub morph: bool,
+    pub ranged: bool,
 }
 
 impl EditableAbilitySet {
@@ -82,6 +83,7 @@ impl EditableAbilitySet {
             crouch: self.crouch,
             climb: self.climb,
             morph: self.morph,
+            ranged: self.ranged,
         }
     }
 }
@@ -126,6 +128,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             crouch,
             climb,
             morph,
+            ranged,
         } = value;
         Self {
             move_horizontal,
@@ -161,6 +164,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             crouch,
             climb,
             morph,
+            ranged,
         }
     }
 }

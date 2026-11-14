@@ -51,8 +51,15 @@ morph. Witness: `level_one_withholds_the_large_kit`, with the hub as its
 control. The town rooms (the gate stack, the Drain Market, the culvert) are
 past the level and keep the whole kit.
 
-Not yet: shots. The Hadouken is the projectile kit's, which no verb gates,
-so the robot can still fire in the level (follow-up in the queue row).
+The shot is withheld too (2026-11-14): `ranged` is a permission every kit
+has (`AbilitySet::ranged`, true in `NONE` and every preset, since a shot is
+already gated by being authored) and exists to be withheld. Without it the
+action scheme has no projectile slot, so the prompt shows no Shot, and the
+control gate clears a charging body's charge stream, so the Hadouken does
+not fire. Level 1's `SMALL_KIT_WITHHELD` names it. Witnesses:
+`level_one_withholds_the_large_kit` (with the hub as control) and
+`an_authored_charging_character_keeps_its_projectile_press`'s withheld
+gunner.
 
 ## The level in one paragraph
 

@@ -1,5 +1,5 @@
 //! LEVEL-1-KIT: level 1 withholds everything past run, one jump and the
-//! strike (each room's `withheld_verbs`, written into the player's body as a
+//! strike, the shot included (each room's `withheld_verbs`, written into the player's body as a
 //! ceiling contribution). The control is the same robot in the hub, whose
 //! rooms withhold nothing: it has its whole kit.
 
@@ -36,13 +36,14 @@ fn level_one_withholds_the_large_kit() {
         ("fly", effective.fly),
         ("blink", effective.blink),
         ("pogo", effective.pogo),
+        ("ranged", effective.ranged),
     ];
     let kept: Vec<_> = withheld.iter().filter(|(_, granted)| *granted).map(|(verb, _)| *verb).collect();
     assert!(kept.is_empty(), "level 1 left the robot {kept:?}");
 
     let (_, in_the_hub) = kit_in("central_hub_complex");
     assert!(
-        in_the_hub.double_jump && in_the_hub.dash && in_the_hub.pogo,
+        in_the_hub.double_jump && in_the_hub.dash && in_the_hub.pogo && in_the_hub.ranged,
         "the control: in the hub, which withholds nothing, the robot has its whole kit"
     );
 }

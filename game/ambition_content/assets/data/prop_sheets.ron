@@ -902,6 +902,16 @@
     "castle_cells_room": (),
     // The Guild's secret room behind the kitchens (Evil).
     "castle_guild_room": (),
+    // Level 1's hill village and its country (`intro.ldtk`).
+    "hill_village_cottage": (),
+    "hill_village_smithy": (),
+    "hill_village_inn": (),
+    "hill_village_well": (),
+    "hill_village_notice_board": (),
+    "hill_village_mill": (),
+    "hill_survey_station": (),
+    "hill_meadow_oak": (),
+    "hill_gate_office": (),
     // The catacombs under the moor (Evil).
     "catacombs_west": (),
     "catacombs_east": (),

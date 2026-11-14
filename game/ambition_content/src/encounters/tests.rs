@@ -87,11 +87,11 @@ fn the_sandbox_world_authors_what_each_kernel_switch_does() {
 }
 
 /// The Noether Chamber starts the attunement in data: its `while_live` line,
-/// read through the composed room set as the runtime reads it. No other
-/// shipped room authors one, so the chamber is the only room that starts the
-/// puzzle. The engine half (a line asked for while its room is live, also as
-/// one of two live rooms) is pinned in the monolith's
-/// `authored_room_commands` tests.
+/// read through the composed room set as the runtime reads it. The only other
+/// shipped room with a line is level 1's workshop, whose raid waits for the
+/// story to call it (`while_live_when`); the chamber's line waits for nothing.
+/// The engine half (a line asked for while its room is live, also as one of
+/// two live rooms) is pinned in the monolith's `authored_room_commands` tests.
 #[test]
 fn the_chamber_starts_the_attunement_in_its_world_file() {
     use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
@@ -101,16 +101,22 @@ fn the_chamber_starts_the_attunement_in_its_world_file() {
         .to_room_set(&manifest, &LdtkVocabulary::engine())
         .expect("the shipped worlds compose")
         .rooms;
-    let lines: Vec<(String, String)> = rooms
+    let lines: Vec<(String, String, Option<String>)> = rooms
         .iter()
-        .filter_map(|spec| Some((spec.id.clone(), spec.metadata.while_live.clone()?)))
+        .filter_map(|spec| {
+            Some((spec.id.clone(), spec.metadata.while_live.clone()?, spec.metadata.while_live_when.clone()))
+        })
         .collect();
     assert_eq!(
         lines,
-        vec![(
-            "symmetry_room".to_string(),
-            format!("encounter.start encounter:{SYMMETRY_ATTUNEMENT_ID}")
-        )]
+        vec![
+            (
+                "intro_wake_room".to_string(),
+                "encounter.start encounter:intro_workshop_raid".to_string(),
+                Some("world.flag_set intro_raiders_coming".to_string()),
+            ),
+            ("symmetry_room".to_string(), format!("encounter.start encounter:{SYMMETRY_ATTUNEMENT_ID}"), None),
+        ]
     );
 }
 

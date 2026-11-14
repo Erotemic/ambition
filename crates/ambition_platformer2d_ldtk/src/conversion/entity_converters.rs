@@ -66,8 +66,16 @@ pub(super) fn convert_cutscene_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEm
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .ok_or_else(|| format!("CutsceneTrigger '{name}' names no cutscene"))?;
+    let after_encounter = field_string(entity, "after_encounter")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
     Ok(RoomEmission {
-        cutscene_triggers: vec![ambition_platformer2d_world::rooms::CutsceneTriggerSpec { cutscene, min, size }],
+        cutscene_triggers: vec![ambition_platformer2d_world::rooms::CutsceneTriggerSpec {
+            cutscene,
+            min,
+            size,
+            after_encounter,
+        }],
         ..RoomEmission::default()
     })
 }

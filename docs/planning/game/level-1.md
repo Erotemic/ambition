@@ -142,9 +142,13 @@ What is built. Ids of dialogue nodes are in
 
 ### The workshop (`intro_wake_room`)
 
-A converted barn, one floor: the charging cart and its ramp, the test plinth
-(a step of 48), a crate up to the parts loft (one-way boards), the bench,
-the barred barn door at the east end.
+A converted barn, one floor, and its yard: the loft at the west end (a
+crate up to its one-way boards, the torque gauge at the far end), the test
+plinth (a step of 48), the charging cart and its ramp, the Creator at his
+bench, the barred barn door, and the yard outside it to the lane. The cart
+stands beside the Creator, so the first view holds Scout waking and him at
+his bench; the door is in the same view when they talk, and the yard is out
+of it (staging rules: [level design guide](../../authoring/level-design-guide.md)).
 
 1. `intro_wake` (entry cutscene): fade up on the cart. The Creator: "Hey
    you, you're finally awake." Then "Don't sit up fast. The left knee servo
@@ -156,26 +160,31 @@ the barred barn door at the east end.
    knees ("Twelve. They match.") and sets `intro_joints_checked`.
 3. `creator_intro__questions`: the evaluation of his method. Scout's name
    (`scout_gave_its_name` when it answers "Scout."), the wrench and the
-   hammer, then "Is there anything you want to ask me?". That line starts
-   the raid (`encounter.start encounter:intro_workshop_raid`, and
-   `intro_raid_started`); Scout's question is cut off by a cart outside.
-4. `creator_intro__interrupted`: the raiders join the conversation
-   (`conversation.join npc_lab_raider`). One reads the job sheet: "It says a
-   lab with a big sign. This is a barn." (`wrong_list_clue_1`). The Creator:
-   "Who sent you? Put that d—". The conversation ends and the fight is on.
-5. The raid starts the other way too: Scout walks past the Creator to the
-   barn door without talking to him, into the raid's trigger (D19). The
-   goblins are coming either way.
-6. The raid: three raiders in one wave, two at the door and one on the
-   bench. Its clear greens a raider's dropped whistle (a `Switch`,
-   `ResetEncounter`), so the fight stays won when bodies cross its trigger
-   again; blowing the whistle calls the raid back.
-7. The barn door (`LockWall`, `encounter.cleared intro_workshop_raid`) is
-   down. Just past it, `creator_final_fragment`: "Scout. Over here. Are you
-   damaged?", the case taken off the bench with Scout's logs in it, "I have
-   to sit down for a minute.", "You answered like yourself, all the way
-   through. I want to write that d—". He falls (`Fall npc_creator`,
-   `intro_creator_dead`). Q173's default (D6).
+   hammer, then "Is there anything you want to ask me?". His answer lands
+   first; then "Hang on. Was that a cart?" calls the raid
+   (`intro_raiders_coming`: the room's `while_live` line starts it while
+   that flag is set). The raiders come up the yard out of shot. "The door's
+   barred. It'll hold." Then the bar breaks (`intro_barn_door_broken`, the
+   barn door's `gated_by`) and they walk in through the door, in view.
+4. `creator_intro__interrupted`: the first raider within earshot breaks into
+   the conversation (`conversation.join npc_lab_raider`). One reads the job
+   sheet: "It says a lab with a big sign. This is a barn."
+   (`wrong_list_clue_1`). The Creator: "Who sent you? Put that d—". The
+   conversation ends and the fight is on.
+5. The raid is called the other way too: Scout goes to the barn door
+   without talking to him (`intro_raid_at_the_door`, a cutscene volume in
+   front of it, sets both flags a beat apart). The goblins come either way.
+6. The raid: three raiders in one wave, up the yard and in at the door. The
+   yard gate (a `LockWall` with no `gated_by`, the raid's own wall) stands
+   while the fight is on. Its clear greens a raider's dropped whistle (a
+   `Switch`, `ResetEncounter`); blowing it calls the raid back. A won raid
+   spawns finished, so the room's line does not start it again.
+7. Out in the yard, once the raid is won (`after_encounter` on the trigger),
+   `creator_final_fragment`: "Scout. Over here. Are you damaged?", the case
+   taken off the bench with Scout's logs in it, "I have to sit down for a
+   minute.", "You answered like yourself, all the way through. I want to
+   write that d—". He falls (`Fall npc_creator`, `intro_creator_dead`).
+   Q173's default (D6).
 
 ### Hobford Lane (`intro_hobford_lane`)
 
@@ -214,10 +223,11 @@ and high.
 ### The gate clearing (`intro_gate_clearing`)
 
 Standing stones, the guard post (its roof a ledge), the barrier
-(`hobford_barrier`, a `LockWall` on `world.switch_on hobford_barrier_lever`)
-and its lever on the far side, reached over the post's roof. Behind it the
-ring of the new facility `hobford_ring` (address TILLAGE, D18), its dialer
-and terminal. A door down the siding stair, and the post's back door into
+(`hobford_barrier`, a `LockWall` on `world.flag_set hobford_barrier_lifted`)
+and its lever on the far side, reached over the post's roof. The lever sets
+the flag and nothing clears it, so the barrier stays up once lifted. Behind
+it the gate of the new facility `hobford_ring` (address TILLAGE, D18), its
+dialer and terminal. A door down the siding stair, and the post's back door into
 the siding's far end.
 
 ### The freight siding (`intro_freight_yard`)
@@ -278,8 +288,9 @@ always open.
 - `withheld_verbs` on every level-1 room (`SMALL_KIT_WITHHELD`).
 - Encounters with waves, each with a linked switch, so a won fight stays
   won (the whistle, the bell).
-- `encounter.start` as an authored command: the raid starts at a line of
-  the conversation.
+- A room's `while_live` line held back by `while_live_when` (a condition
+  line): the raid starts when the conversation sets its flag. Dialogue
+  cannot start an encounter itself (it cannot name an occurrence).
 - Multi-party conversation: `conversation.join` brings the raiders into
   `creator_intro__interrupted` (the coordinator's PRIORITY 2, landed).
 - Gated `LockWall`s on `encounter.cleared`, `world.switch_on` and

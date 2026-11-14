@@ -58,19 +58,23 @@
         ),
     ],
     // Level 1's raid (`intro_wake_room`, the workshop; floor y=352). The
-    // Creator's conversation starts it (`encounter.start` in
-    // `creator_intro__questions`); its trigger is in the roof, where no body
-    // walks, so it cannot start again. The raiders come in at the barn door
-    // beside his bench (x 1320), inside earshot (128 px) of the conversation
-    // they break (`creator_intro__interrupted`). The barn door stands until
-    // this is cleared (`encounter.cleared intro_workshop_raid`).
+    // room's `while_live` line starts it once the story calls it
+    // (`intro_raiders_coming`): at the end of the Creator's questions, or
+    // when Scout goes to the barn door without talking to him. The raiders start
+    // in the yard just outside the barn door (x 1320), where the camera does
+    // not look while Scout is inside (the barn's camera zone ends at the
+    // door), near enough to the bench (460 px, `medium_striker`) to know
+    // Scout is in there, and walk in at the door when its bar breaks
+    // (`intro_barn_door_broken`). The first one within
+    // earshot (128 px) breaks the conversation (`creator_intro__interrupted`).
+    // The yard gate (the raid's own wall) stands while the fight is on.
     "intro_workshop_raid": [
         (
-            label: "in through the barn door",
+            label: "up the yard and in at the barn door",
             mobs: [
-                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1290.0, 324.0), size: (22.0, 38.0), delay: 0.0),
-                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1306.0, 324.0), size: (22.0, 38.0), delay: 0.0),
-                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1170.0, 276.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1390.0, 324.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1420.0, 324.0), size: (22.0, 38.0), delay: 0.3),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1450.0, 324.0), size: (22.0, 38.0), delay: 0.6),
             ],
         ),
     ],

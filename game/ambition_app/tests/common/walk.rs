@@ -707,8 +707,25 @@ fn gate_solid_names(walker: &mut impl Walker, player: Entity) -> Vec<String> {
 }
 
 /// The barn door of the workshop (`intro_wake_room`): it stands until the
-/// raid is beaten (`encounter.cleared intro_workshop_raid`).
+/// raiders break its bar (`intro_barn_door_broken`), as the raid starts.
 pub const BARN_DOOR: &str = "intro_barn_door";
+
+/// The workshop's raid.
+const RAID: &str = "intro_workshop_raid";
+
+/// Has the story called the workshop's raid (his talk, or the barn door)?
+fn raiders_called(world: &World) -> bool {
+    world
+        .get_resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .is_some_and(|save| save.data().flag("intro_raiders_coming"))
+}
+
+/// Has the save recorded the workshop's raid as won?
+fn raid_won(world: &World) -> bool {
+    world.get_resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().is_some_and(|save| {
+        save.data().encounter(RAID) == ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared
+    })
+}
 
 /// Is a conversation or a cutscene holding the seat?
 /// The raiders of the workshop's raid alive in the room.
@@ -728,31 +745,32 @@ fn held_by_talk(world: &World) -> bool {
 /// the barn door, which Scout walks to without talking to him.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RaidStart {
-    /// Talk to him and take each first choice: his questions, until the
-    /// raiders come in at the barn door and break the conversation. Needs a
-    /// walker whose confirm answers a dialogue box (the keys of the shipped
-    /// App; the sim's agent action has no menu select).
+    /// Talk to him and take each first choice; when that talk does not reach
+    /// his questions (his first sends Scout for the gauge), go on to the barn
+    /// door, which calls the raid. Needs a walker whose confirm answers a
+    /// dialogue box (the keys of the shipped App; the sim's agent action has
+    /// no menu select).
     Talk,
-    /// Walk past him to the barn door, into the raid's trigger.
+    /// Walk past him to the barn door, where the raid is called.
     Door,
 }
 
 /// Live through the raid of the workshop with the player's own inputs:
 /// start it as `start` says, then fight the raiders until the barn door is
-/// down. Returns the frames it took. The way out to the lane is open after it.
+/// won. Returns the frames it took. The way out to the lane is open after it.
 pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<usize, String> {
     let player = the_player(walker.world_mut());
     let room = the_players_room_id(walker.world(), player);
     if room != "intro_wake_room" {
         return Err(format!("the raid is in `intro_wake_room`, and the player is in `{room}`"));
     }
-    // The floor of the workshop, and the place beside the Creator, between
-    // his bench and him (`intro.ldtk`).
+    // The floor of the workshop, and the place beside the Creator, on the
+    // cart's side of him (`intro.ldtk`).
     let floor = 352.0_f32;
     let mut frames = 0;
     match start {
         RaidStart::Talk => {
-            frames += walk_to(walker, ae::Vec2::new(1218.0, floor - 24.0))?;
+            frames += walk_to(walker, ae::Vec2::new(1024.0, floor - 24.0))?;
             // Interact opens his conversation, and confirm takes each line and
             // each first choice until the talk and the raid's interruption
             // are over.
@@ -769,14 +787,26 @@ pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<us
             if !talked {
                 return Err("Interact beside the Creator did not open his conversation".into());
             }
+            // The first answer of his first talk sends Scout for the gauge, and
+            // the raid is not called: go to the barn door, which calls it.
+            if !raiders_called(walker.world()) {
+                match walk_to(walker, ae::Vec2::new(1296.0, floor - 24.0)) {
+                    Ok(walked) => frames += walked,
+                    Err(_) if raiders_called(walker.world()) => {}
+                    Err(why) => return Err(why),
+                }
+            }
         }
-        // The trigger is between him and the door. The raiders come in on
-        // the walk, which can cut it short.
+        // The trigger is between his bench and the door. The raiders come in
+        // on the walk, which can cut it short.
         RaidStart::Door => match walk_to(walker, ae::Vec2::new(1296.0, floor - 24.0)) {
             Ok(walked) => frames += walked,
-            Err(_) if raiders_in(walker.world_mut()) > 0 => {}
+            Err(_) if raiders_called(walker.world()) || raiders_in(walker.world_mut()) > 0 => {}
             Err(why) => return Err(why),
         },
+    }
+    if !raiders_called(walker.world()) {
+        return Err(format!("the raid was not called ({start:?}): the barn door's cutscene did not play"));
     }
     let raider = |world: &World, entity: Entity| {
         world
@@ -784,23 +814,28 @@ pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<us
             .is_some_and(|form| form.id() == "npc_lab_raider")
     };
     for _ in 0..FRAMES_FOR_A_ROOM {
-        if !gate_solid_names(walker, player).iter().any(|name| name.contains(BARN_DOOR)) {
-            return Ok(frames);
+        if raid_won(walker.world()) {
+            // The yard gate (the raid's own wall) comes down on the gate tick
+            // after the win: wait for it, so the walk out has its road.
+            let seal = format!("lockwall:{RAID}");
+            for _ in 0..120 {
+                if !gate_solid_names(walker, player).iter().any(|name| *name == seal) {
+                    return Ok(frames);
+                }
+                walker.step(Press::default());
+                frames += 1;
+            }
+            return Err("the raid is won and the yard gate still stands".into());
         }
         if held_by_talk(walker.world()) {
             walker.step(Press { confirm: frames % 10 == 0, ..Press::default() });
             frames += 1;
             continue;
         }
-        let door_down = |world: &World| {
-            ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
-                ambition_platformer2d::world::FeatureEcsWorldOverlay,
-            >(world)
-            .is_none_or(|overlay| !overlay.gate_solids.iter().any(|solid| solid.name.contains(BARN_DOOR)))
-        };
+
         // A raider up on the bench is out of the walker's routes for a
         // moment: wait on the floor, blade out, for it to come down.
-        frames += match fight(walker, raider, door_down, ae::Vec2::new(1250.0, floor - 24.0), 600) {
+        frames += match fight(walker, raider, raid_won, ae::Vec2::new(1180.0, floor - 24.0), 600) {
             Ok(fought) => fought,
             Err(why) if why.contains("not over") => 600,
             Err(why) if why.contains("no route to a foe") => {
@@ -812,5 +847,5 @@ pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<us
             Err(why) => return Err(why),
         };
     }
-    Err(format!("the barn door still stands after {frames} frames of the raid"))
+    Err(format!("the raid is not won after {frames} frames"))
 }

@@ -13,7 +13,7 @@ title: creator_intro
     -> Who are you?
         Creator: I built you. This week I'm trying a new way of tuning you, so I'll be asking you a lot of questions.
     -> Where am I?
-        Creator: My workshop. It's a barn outside Hobford. The cows had it before me.
+        Creator: My workshop. It's a barn outside {$village}. The cows had it before me.
     -> Ask your questions first.
         Creator: Fine. We'll do the joints after.
         <<jump creator_intro__questions>>
@@ -49,12 +49,20 @@ Creator: Second. I hand you a wrench and ask for a hammer. What do you do?
 -> Hit it with the wrench.
     Creator: I'm writing that down as "honest".
 Creator: Last one. Is there anything you want to ask me?
-<<command "world.set_flag" "intro_raid_started" true>>
-<<command "encounter.start" "encounter:intro_workshop_raid">>
 -> Why did you build me?
-    Creator: To see if this tuning works. And because I wanted to hear what you'd ask. Hang on. Was that a cart?
+    Creator: To see if this tuning works. And because I wanted to hear what you'd ask.
 -> What's outside?
-    Creator: Hobford. Fields. A ring up on the hill they put steel on last year. Hang on. Was that a cart?
+    Creator: {$village}. Fields, hills. The old gate up on the hill. They put steel on it last year.
+<<wait 1.5>>
+Creator: Hang on. Was that a cart? Nobody brings a cart up here.
+<<command "world.set_flag" "intro_raiders_coming" true>>
+<<wait 2>>
+Creator: The door's barred. It'll hold.
+<<command "world.set_flag" "intro_barn_door_broken" true>>
+// The bar breaks. The first raider within earshot breaks in on these lines
+// (the conversation's `__interrupted` node) as it walks up from the door.
+Creator: ...That was the bar.
+Creator: Scout. Stay by me.
 <<jump creator_intro__interrupted>>
 ===
 
@@ -106,12 +114,12 @@ title: alice_lane__topics
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
 -> What did you see?
-    Alice: Five goblins and a handcart with a crate on it. They went up the cart track toward the ring.
+    Alice: Five goblins and a handcart with a crate on it. They went up the cart track toward the gate.
     Alice: The freight window isn't until tomorrow, so they'll be at the siding until then.
     Alice: One of them had a hammer as long as I am. I'd leave them alone.
     <<command "world.set_flag" "alice_told_goblins" true>>
 -> What are you measuring?
-    Alice: The hills, the stream, the road to the ring. The office's map of Hobford is forty years old. Bob is doing the woods.
+    Alice: The hills, the stream, the road to the gate. The office's map of {$village} is forty years old. Bob is doing the woods.
 -> ⟨go⟩
 ===
 
@@ -126,7 +134,7 @@ Alice: I can't leave the instrument, I'm halfway through a traverse. Would you t
     <<command "world.set_flag" "alice_route_note_carried" true>>
     Alice: Thank you. Take a copy of my map. The woods are east of the village, past the inn.
 -> What did you see?
-    Alice: Five goblins and a handcart with a crate on it, up the cart track toward the ring. One had a hammer as long as I am. I'd leave them alone.
+    Alice: Five goblins and a handcart with a crate on it, up the cart track toward the gate. One had a hammer as long as I am. I'd leave them alone.
     <<command "world.set_flag" "alice_told_goblins" true>>
     Alice: Will you tell Bob? You don't have to.
     -> I'll tell him.
@@ -227,7 +235,7 @@ title: oiler_intro
     -> ⟨move on⟩
 <<else>>
     Oiler: Hold still. That knee's on crooked. Who put you together?
-    -> A man in Hobford. He's dead.
+    -> A man in {$village}. He's dead.
         <<jump oiler_intro__repair>>
     -> I'm fine.
         Oiler: You're walking like a shopping cart. Hold still.
@@ -242,13 +250,13 @@ title: oiler_intro__repair
 <<portrait_clip "inspecting">>
 Oiler: ...A shim and some grease. It'll hold until something hits it.
 <<command "world.set_flag" "p1_stabilizer_received" true>>
-Oiler: Hobford, you said? The farm ring? Huh. Long way to come with a knee like that.
+Oiler: {$village}, you said? The farm gate? Huh. Long way to come with a knee like that.
 -> ⟨thank him⟩
 ===
 
 title: news_board_lab_incident
 ---
-Drain Market Bulletin: ▸ BREAK-IN AT A WORKSHOP NEAR HOBFORD. ONE DEAD. NO OTHER DAMAGE.
+Drain Market Bulletin: ▸ BREAK-IN AT A WORKSHOP NEAR {$village}. ONE DEAD. NO OTHER DAMAGE.
 -> ⟨read further⟩
     <<jump news_board_lab_incident__1>>
 -> ⟨walk away⟩
@@ -256,7 +264,7 @@ Drain Market Bulletin: ▸ BREAK-IN AT A WORKSHOP NEAR HOBFORD. ONE DEAD. NO OTH
 
 title: news_board_lab_incident__1
 ---
-Drain Market Bulletin: ▸ THE GATE AUTHORITY REMINDS CARRIERS THAT THE FARM RINGS ARE FOR LICENSED FREIGHT.
+Drain Market Bulletin: ▸ THE GATE AUTHORITY REMINDS CARRIERS THAT THE FARM GATES ARE FOR LICENSED FREIGHT.
 Drain Market Bulletin: ▸ GATE SIX: DELAYED. SOUP: TUESDAYS.
 -> ⟨leave the board to its work⟩
 ===
@@ -296,7 +304,7 @@ Gate Janitor: Seven's on the Math line now. Its breaker's on the wall; throw it 
 title: gate_janitor_ripple__3
 ---
 Gate Janitor: Six jammed twice this morning. Seven leaks blue light. I'm here until both stop doing that.
-Gate Janitor: And I mop. People walk out of a ring and lose breakfast. Robots never do. I like robots.
+Gate Janitor: And I mop. People walk out of a gate and lose breakfast. Robots never do. I like robots.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
 -> ⟨move on⟩
@@ -316,7 +324,7 @@ Manifest Clerk: Name? ...No entry. Spell it again. Slower.
 
 title: manifest_kiosk_wrong_list__1
 ---
-Manifest Clerk: Freight. Every crate through these rings has a line on a manifest. You're not on one. I checked twice, which is once more than I'm paid for.
+Manifest Clerk: Freight. Every crate through these gates has a line on a manifest. You're not on one. I checked twice, which is once more than I'm paid for.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩
@@ -324,7 +332,7 @@ Manifest Clerk: Freight. Every crate through these rings has a line on a manifes
 
 title: manifest_kiosk_wrong_list__2
 ---
-Manifest Clerk: A goblin crew filed for the Hobford freight window. One crate, one lab of research, paid in advance. Their papers were in order. Their spelling wasn't.
+Manifest Clerk: A goblin crew filed for the {$village} freight window. One crate, one lab of research, paid in advance. Their papers were in order. Their spelling wasn't.
 Manifest Clerk: Next question.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
@@ -342,8 +350,8 @@ Gate Janitor: I watched a box of spare boots go through while a man waited with 
 
 title: manifest_kiosk_wrong_list__copies
 ---
-Manifest Clerk: We keep one copy here and one at the Hobford gate office. I corrected the address on ours.
-Manifest Clerk: Hobford sent it back marked DENIED. That's all I can show you.
+Manifest Clerk: We keep one copy here and one at the {$village} gate office. I corrected the address on ours.
+Manifest Clerk: {$village} sent it back marked DENIED. That's all I can show you.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩

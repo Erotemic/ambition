@@ -132,6 +132,11 @@ pub struct DialogState {
     /// `pending_close`. Without this flag, the auto-advance flow
     /// would race past the final line before the player could read.
     pub(crate) runner_done_pending_close: bool,
+    /// The runner was stopped to start a different node: a conversation
+    /// redirected while its node still ran (a threat breaking in, Q-MULTI).
+    /// The `DialogueCompleted` that stop reports ends the replaced run, not
+    /// the conversation, so the observer lets exactly one go by.
+    pub(crate) completion_of_a_replaced_run: bool,
     /// Whether a surface whose input claim outranks the conversation (the
     /// pause menu, the inventory or map overlay, a debug tool) holds it. A
     /// held conversation reads no input, reveals no text and is not shown. It
@@ -692,6 +697,7 @@ mod closed_state_tests {
             pending_select,
             pending_advance,
             runner_done_pending_close,
+            completion_of_a_replaced_run,
             held,
         } = &state;
 
@@ -738,6 +744,10 @@ mod closed_state_tests {
         // The runner-finished latch is the drain's to clear, beside the
         // `runner.stop()` it pairs with.
         assert!(runner_done_pending_close);
+        // Set beside a `runner.stop()` that restarts a node, and taken by the
+        // `DialogueCompleted` that stop reports; a close does not stop a run
+        // for a restart, so it neither sets nor clears it.
+        let _ = completion_of_a_replaced_run;
         // Not a fact about the conversation: `dialog_input` derives it from the
         // input claims on every frame, with or without a conversation.
         let _ = held;

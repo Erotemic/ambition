@@ -605,6 +605,7 @@ fn active_metadata_returns_active_room_metadata() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        while_live_when: None,
         withheld_verbs: None,
         fall_rescue: None,
         boss_reward_drop: None,
@@ -628,6 +629,7 @@ fn active_metadata_returns_active_room_metadata() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        while_live_when: None,
         withheld_verbs: None,
         fall_rescue: None,
         boss_reward_drop: None,
@@ -676,6 +678,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        while_live_when: None,
         withheld_verbs: None,
         fall_rescue: None,
         boss_reward_drop: None,
@@ -723,6 +726,7 @@ fn room_metadata_merge_preserves_existing_values() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        while_live_when: None,
         withheld_verbs: None,
         fall_rescue: None,
         boss_reward_drop: None,
@@ -759,6 +763,8 @@ fn room_metadata_merge_preserves_existing_values() {
         entry_cutscene: Some("cave_intro".into()),
         // takes effect — a had none.
         while_live: Some("encounter.start encounter:cave".into()),
+        // takes effect — a had none.
+        while_live_when: Some("world.flag_set cave_called".into()),
         withheld_verbs: None,
         // takes effect — a had none.
         fall_rescue: Some("burning_flying_shark".into()),
@@ -769,6 +775,7 @@ fn room_metadata_merge_preserves_existing_values() {
     assert_eq!(a.boss_reward_drop.as_deref(), Some("cove.mockingbird"));
     assert_eq!(a.entry_cutscene.as_deref(), Some("cave_intro"));
     assert_eq!(a.while_live.as_deref(), Some("encounter.start encounter:cave"));
+    assert_eq!(a.while_live_when.as_deref(), Some("world.flag_set cave_called"));
     assert_eq!(a.title.as_deref(), Some("CAVE 1"));
     assert_eq!(a.biome.as_deref(), Some("hub"));
     assert!(a.gallery, "merge ORs the gallery flag from a member level");

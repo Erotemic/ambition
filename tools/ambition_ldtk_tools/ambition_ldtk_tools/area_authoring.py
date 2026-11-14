@@ -375,6 +375,9 @@ OPTIONAL_LEVEL_FIELDS = (
     # One command line asked for on each tick while the room is live
     # (`RoomMetadata::while_live`).
     "while_live",
+    # The condition line that holds `while_live` back until it is yes
+    # (`RoomMetadata::while_live_when`).
+    "while_live_when",
     # A boss practice room (`RoomMetadata::practice`).
     "practice",
     # The backdrop scrolls on its own and wraps, world px/s

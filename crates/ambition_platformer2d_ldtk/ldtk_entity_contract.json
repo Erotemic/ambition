@@ -1018,6 +1018,13 @@
           "on_invalid": "open",
           "sample": "intro_raid",
           "note": "the id of a script in the cutscene library; the converter refuses a trigger with none. An id the library lacks, or a script with no seen flag, asks nothing at run time (the trigger requests every tick a body is inside, which is safe only for a script that remembers it was seen)."
+        },
+        {
+          "name": "after_encounter",
+          "presence": "optional",
+          "on_invalid": "open",
+          "sample": "intro_workshop_raid",
+          "note": "an encounter trigger id: the volume plays its cutscene only once that encounter is cleared in the save, so a scene that belongs after a fight does not play while a body crosses the volume during it."
         }
       ]
     },

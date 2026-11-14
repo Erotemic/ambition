@@ -235,6 +235,15 @@ pub struct RoomMetadata {
     /// Authored as the LDtk level string field `while_live`, merged
     /// first-`Some`-wins like every other string field here.
     pub while_live: Option<String>,
+    /// One authored condition line that holds back [`Self::while_live`]: the
+    /// line is asked for only on a tick this question answers yes, for
+    /// example `world.flag_set intro_raiders_coming`, so a fight starts when
+    /// the story calls it rather than when the room goes live. `None` asks
+    /// the line on every live tick.
+    ///
+    /// Authored as the LDtk level string field `while_live_when`, merged
+    /// first-`Some`-wins.
+    pub while_live_when: Option<String>,
     /// This room catches a fall: a driven body that falls toward its bottom
     /// is caught by a carrier drawn as this prop sheet (the Mockingbird's
     /// burning sharks) and lifted back into play, while any boss in the room
@@ -275,6 +284,7 @@ impl RoomMetadata {
             && self.title.is_none()
             && self.entry_cutscene.is_none()
             && self.while_live.is_none()
+            && self.while_live_when.is_none()
             && self.fall_rescue.is_none()
             && self.boss_reward_drop.is_none()
             && self.withheld_verbs.is_none()
@@ -316,6 +326,7 @@ impl RoomMetadata {
         differ(&mut out, "title", &self.title, &other.title);
         differ(&mut out, "entry_cutscene", &self.entry_cutscene, &other.entry_cutscene);
         differ(&mut out, "while_live", &self.while_live, &other.while_live);
+        differ(&mut out, "while_live_when", &self.while_live_when, &other.while_live_when);
         differ(&mut out, "fall_rescue", &self.fall_rescue, &other.fall_rescue);
         differ(&mut out, "boss_reward_drop", &self.boss_reward_drop, &other.boss_reward_drop);
         differ(&mut out, "withheld_verbs", &self.withheld_verbs, &other.withheld_verbs);
@@ -366,6 +377,9 @@ impl RoomMetadata {
         }
         if self.while_live.is_none() {
             self.while_live = other.while_live;
+        }
+        if self.while_live_when.is_none() {
+            self.while_live_when = other.while_live_when;
         }
         if self.fall_rescue.is_none() {
             self.fall_rescue = other.fall_rescue;

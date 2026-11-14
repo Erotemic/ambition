@@ -42,7 +42,7 @@
         (id: "military_gate_annex", name: "Military Gate Annex", dimension: "home"),
         // Level 1's ring, in the clearing above Hobford: the hill country was
         // joined to the network last year (`docs/planning/game/level-1.md`).
-        (id: "hobford_ring", name: "Hobford Ring", dimension: "hobford"),
+        (id: "hobford_ring", name: "Hobford Gate", dimension: "hobford"),
         (id: "math_town_gate_hall", name: "Math Town Gate Hall", dimension: "math"),
         (id: "primeval_trailhead_ring", name: "Primeval Trailhead Ring", dimension: "jungle"),
         (id: "primeval_rookery_ring", name: "Rookery Survey Ring", dimension: "jungle"),
@@ -124,11 +124,11 @@
             note: "Priority band. Unauthorized use is logged.",
         ),
         // ── Hobford (level 1) ─────────────────────────────────────────────
-        // The old stone ring in the clearing, with new steel on it. It stands
+        // The old stone gate in the clearing, with new steel on it. It stands
         // behind the gate office's barrier, which its lever lifts.
         (
             zone: "hobford_gate_zone",
-            name: "Hobford Ring",
+            name: "Hobford Gate",
             facility: "hobford_ring",
             room: "intro_gate_clearing",
             address: Some("TILLAGE"),

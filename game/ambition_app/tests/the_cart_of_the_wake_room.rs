@@ -16,10 +16,10 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 const ROOM: &str = "intro_wake_room";
 /// The surface of the bed of the cart, and its two ends.
 const BED_TOP: f32 = 294.0;
-const BED: (f32, f32) = (48.0, 224.0);
+const BED: (f32, f32) = (720.0, 896.0);
 /// The floor of the room, and where the ramp comes down to it.
 const FLOOR: f32 = 352.0;
-const RAMP_FOOT: f32 = 322.0;
+const RAMP_FOOT: f32 = 994.0;
 
 /// Where the middle of the player is, and where its feet are.
 fn player(sim: &mut Platformer2dSimHarness) -> (f32, f32) {

@@ -11,6 +11,9 @@ those sources instead of edited directly.
   for player-facing writing; its hard bans are scoped to dialogue.
 - [Content pack validation](../recipes/validating-a-content-pack.md) —
   add or change authored RON and run the compiler without rebuilding Rust.
+- [Level design guide](level-design-guide.md) — edges join connected
+  rooms and doors lead into interiors; gates are triangles; staging a scene
+  for the camera and the dialogue.
 - [LDtk authoring](../recipes/ldtk-authoring.md) — edit and validate rooms,
   levels, geometry, and spatial fields.
 - [Adding an asset](../recipes/adding-an-asset.md) — source assets,

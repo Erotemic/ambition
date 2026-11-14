@@ -17,8 +17,8 @@
 
 [
     // The Creator's last words (`intro_wake_room`), at the volume just past
-    // the barn door. The door stands until the raid is beaten, so the fight is
-    // over and he is near: he works at the bench beside the door. He was hurt
+    // the barn door, once the raid is beaten (the trigger's
+    // `after_encounter`): he is at his bench, inside the door. He was hurt
     // in the fight. If he fell in it already, these are the words he had
     // left (Q173: he always dies here).
     (
@@ -53,6 +53,32 @@
             ),
         ],
         seen_flag: Some("intro_creator_fragment_seen"),
+    ),
+    // The volume in front of the barn door (`intro_wake_room`), for a Scout
+    // who goes to the door without talking to the Creator: the raid is
+    // called here (the room starts it while `intro_raiders_coming` is set),
+    // and the bar breaks a beat later, as the goblins come up the yard. A
+    // raid called in his talk set the flag first, and this does not play.
+    (
+        id: "intro_raid_at_the_door",
+        beats: [
+            SetFlag(
+                id: "intro_raiders_coming",
+                on: true,
+            ),
+            Dialogue(
+                speaker: "Creator",
+                text: "Scout, leave the door, it's barred for the test. ...Who's that out there?",
+            ),
+            Wait(
+                seconds: 1.0,
+            ),
+            SetFlag(
+                id: "intro_barn_door_broken",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("intro_raiders_coming"),
     ),
     // The Drain Market's `entry_cutscene` (`drain_alley`): the robot comes up
     // the service stair onto the street. The fade comes up from black; the

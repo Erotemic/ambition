@@ -167,6 +167,11 @@ pub struct CutsceneTriggerSpec {
     pub min: ae::Vec2,
     /// World-space size of the volume.
     pub size: ae::Vec2,
+    /// The encounter that must be cleared before the volume plays its
+    /// cutscene (`after_encounter`), when it has one: a scene that belongs
+    /// after a fight does not play while a body crosses the volume during it.
+    #[serde(default)]
+    pub after_encounter: Option<String>,
 }
 
 /// A switch's authored `on_activate` line in the room IR. It remains a typed

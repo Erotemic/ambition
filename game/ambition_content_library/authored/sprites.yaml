@@ -1213,6 +1213,15 @@ collections:
   - bakery_room
   - castle_cells_room
   - castle_guild_room
+  - hill_village_cottage
+  - hill_village_smithy
+  - hill_village_inn
+  - hill_village_well
+  - hill_village_notice_board
+  - hill_village_mill
+  - hill_survey_station
+  - hill_meadow_oak
+  - hill_gate_office
   - catacombs_west
   - catacombs_east
   - ridge_west

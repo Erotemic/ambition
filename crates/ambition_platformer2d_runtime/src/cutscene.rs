@@ -87,6 +87,13 @@ pub fn trigger_cutscenes_in_volumes(
             if !unseen || playing == Some(trigger.cutscene.as_str()) {
                 continue;
             }
+            // A scene that belongs after a fight waits for its clear.
+            let fought = trigger.after_encounter.as_deref().is_none_or(|encounter| {
+                save.data().encounter(encounter) == ambition_persistence::save_data::PersistedEncounterState::Cleared
+            });
+            if !fought {
+                continue;
+            }
             let (min, max) = (trigger.min, trigger.min + trigger.size);
             let inside = players.iter().filter(|(body, _)| live.of(*body) == Some(instance)).any(|(_, kin)| {
                 let half = kin.size() * 0.5;

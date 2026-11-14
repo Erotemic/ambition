@@ -177,6 +177,14 @@ fn dispatch_pending_dialog_requests(
             state.reset_presentation_identity();
             return;
         }
+        // A redirected conversation starts its new node while the old one
+        // still runs (a line on screen, a `<<wait>>`), and Yarn refuses to
+        // start a running runner: stop it first. A `<<wait>>` it was in
+        // still holds the new node until it ends.
+        if runner.is_running() {
+            runner.stop();
+            state.completion_of_a_replaced_run = true;
+        }
         if let Err(e) = runner.try_start_node(&dialogue_id) {
             warn!(
                 target: "crate::bridge",
@@ -339,6 +347,9 @@ fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>)
 }
 
 fn on_dialogue_completed(_event: On<DialogueCompleted>, mut state: ResMut<DialogState>) {
+    if std::mem::take(&mut state.completion_of_a_replaced_run) {
+        return;
+    }
     state.pending_advance = false;
     if !state.current_line.is_empty() {
         // The runner finished but there's still accumulated text

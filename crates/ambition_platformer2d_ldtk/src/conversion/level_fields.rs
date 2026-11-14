@@ -67,6 +67,7 @@ impl LdtkLevel {
             next_room: take("next_room"),
             entry_cutscene: take("entry_cutscene"),
             while_live: take("while_live"),
+            while_live_when: take("while_live_when"),
             title: take("title"),
             fall_rescue: take("fall_rescue"),
             boss_reward_drop: take("boss_reward_drop"),

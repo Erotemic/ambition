@@ -1,0 +1,10 @@
+title: place_names
+---
+// Never played. The names of level 1's people and places, declared once so
+// a rename is one line here (the names are placeholders: Jon, 2026-11-14).
+// A line says a place through its variable, `{$village}`, never by name.
+// Signs and room titles take theirs from the names table at the top of the
+// level's generator (`generators/intro/make_specs.py`).
+<<declare $village = "Hobford">>
+<<declare $creator = "the Creator">>
+===

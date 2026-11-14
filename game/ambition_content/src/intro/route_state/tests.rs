@@ -276,8 +276,8 @@ fn the_intro_world_authors_the_flag_that_opens_each_gated_wall() {
             .collect::<Vec<_>>(),
         vec![
             ("alice_survey_line", "bob_field_survey_received"),
-            ("hobford_barrier", "world.switch_on hobford_barrier_lever"),
-            ("intro_barn_door", "encounter.cleared intro_workshop_raid"),
+            ("hobford_barrier", "world.flag_set hobford_barrier_lifted"),
+            ("intro_barn_door", "world.flag_set intro_barn_door_broken"),
         ],
         "the level says which fact opens each gated wall, and losing it there is \
          silent"

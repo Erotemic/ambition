@@ -2,6 +2,22 @@
 
 use super::*;
 
+/// The banner's request drain, then its timer. A composition that orders the
+/// banner against its own systems names this set, not the two functions.
+#[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GameplayBannerSet;
+
+/// The banner's two systems in [`GameplayBannerSet`], each skipped when it has
+/// nothing to do.
+pub fn gameplay_banner_systems() -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
+    (
+        apply_gameplay_banner_requests.run_if(ae::a_message_waits::<GameplayBannerRequested>),
+        tick_gameplay_banner.run_if(the_banner_is_up),
+    )
+        .chain()
+        .in_set(GameplayBannerSet)
+}
+
 /// Run condition of [`tick_gameplay_banner`]: the banner shows or holds a
 /// timer to run down.
 pub fn the_banner_is_up(banner: Res<GameplayBanner>) -> bool {

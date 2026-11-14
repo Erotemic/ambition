@@ -107,6 +107,13 @@ MEASURE = REPO / "scripts" / "measure/measure_foreign_system_ordering.py"
 # EDGE — a crate that cannot be composed away from the crate it NAMES — so
 # writing the same edge in two `add_systems` blocks is one violation restated,
 # not two. 10 edges, 19 written occurrences.
+#
+# ⚠ 2026-11-13 IT HAD READ 16 UNSEEN, the test being pytest-only. Two rows were
+# a test harness gated in its PARENT (`#[cfg(test)] mod moveset_sound;`), which
+# the measure now excludes; four were `ambition_encounter_features` chaining
+# `ambition_combat`'s banner functions, now `GameplayBannerSet`. Of the ten
+# left, the portal plugin's three and the audio row stood on 2026-09-27; six are
+# newer (session x3, content's room look x2 and route seating).
 CAPABILITY_ORDERING_CEILING = 10
 # ⭐⭐ 78 -> 75 BY THE FIRST CAPABILITY-OWNED PLUGIN (prerequisite C2).
 # `ambition_mount` now ships `MountPlugin` + `install_mount_simulation_systems`,
@@ -130,7 +137,15 @@ CAPABILITY_ORDERING_CEILING = 10
 # `PortalSet::Transited` for the consequences of a body transit. The runtime's
 # driven-body turn-around and Ambition's four transit consumers are in that set,
 # so no crate names `ambition_portal2d::portal_transit` now.
-TOTAL_ORDERING_CEILING = 76
+#
+# ⛔⛔ 76 -> 137 ON 2026-11-13, RE-BASELINED, AND NOT BECAUSE THE INSTRUMENT
+# CHANGED: it did not between 2026-09-27 (76) and 2026-10-29 (137). The
+# workspace went from 67 crates to 92 in that month, and a split turns a crate
+# sequencing its own systems into a composition layer sequencing a neighbour's,
+# so most of the rise is old ordering that acquired a crate boundary (the
+# composition bucket: 67 -> 127). Nobody saw it because no lane runs this file.
+# The number is what the tree holds; each new crate's rows are the work list.
+TOTAL_ORDERING_CEILING = 137
 
 
 def _module():

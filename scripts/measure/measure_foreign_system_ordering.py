@@ -403,6 +403,21 @@ def strip_comments_and_tests(text: str) -> str:
     return "\n".join(line.split("//")[0] for line in joined.split("\n"))
 
 
+def declared_under_cfg_test(path: pathlib.Path) -> bool:
+    """Whether the module declaring this file gates the `mod` line on `test`."""
+    stem = path.parent.name if path.name == "mod.rs" else path.stem
+    here = path.parent.parent if path.name == "mod.rs" else path.parent
+    parents = [here / "mod.rs", here / "lib.rs", here / "main.rs", here.parent / f"{here.name}.rs"]
+    declaration = re.compile(
+        r"#\[\s*cfg\s*\(\s*(?:all\s*\(\s*)?test\b[^\]]*\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+"
+        + re.escape(stem) + r"\s*;"
+    )
+    return any(
+        parent.is_file() and parent != path and declaration.search(raw_text(parent))
+        for parent in parents
+    )
+
+
 def findings(include_local: bool) -> list[tuple[str, str, str, str, str]]:
     crates = workspace_crates()
     homes = defining_crate()
@@ -424,6 +439,12 @@ def findings(include_local: bool) -> list[tuple[str, str, str, str, str]]:
             # such file in the tree, which is why it hid: a rule with a single
             # instance is one nobody trips over until it matters.
             if re.search(r"^\s*#!\[\s*cfg\s*\(\s*test\s*\)\s*\]", raw_text(path), re.MULTILINE):
+                continue
+            # ⛔ AND THE GATE CAN SIT IN THE PARENT: `#[cfg(test)] mod moveset_sound;`
+            # makes the whole file test-only without a mark inside it. Measured
+            # 2026-11-13: `ambition_content`'s moveset-sound harness chains two
+            # foreign systems in a test App and read as two capability rows.
+            if declared_under_cfg_test(path):
                 continue
             crate = crate_of(path)
             body = strip_comments_and_tests(

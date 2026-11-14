@@ -32,6 +32,7 @@
             px: [880, 416],
             size: [48, 96],
             id: "portal_chain_lab_scale_door",
+            name: "to the portal scale lab",
             target_zone: "portal_scale_lab_exit",
             activation: "Door",
             bidirectional: true,

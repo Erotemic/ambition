@@ -74,15 +74,26 @@ RATCHET = {
     # Leader (`ninja_shadow_oni_leader`) got a row for each Smash move (12 -> 37
     # rows of 288 x 224); his page is 2237 x 1863. The pirate admiral got his
     # too (6 -> 29 rows) and stays under (1728 x 1312).
-    "sprites": (16236, 83, 16, 7),
+    # 2026-11-13: 83 -> 181 over 2048 px, recalibrated. 4fcab904d6 (10-29)
+    # moved the survey onto the selected bundle store and reported 95 then; the
+    # rest is content published since, nearly all on 2026-11-11 (170 of the 181
+    # pages): room skins and props (castle kitchens, the hill/ridge/spur/volcano
+    # halves, the math hotel rooms) and new fighters (the Director, Geppetto,
+    # Clause, Wren, Full Stack). Every new page is at most 4096 px: over 4096
+    # and over 8192 did not move, and `sprite_packs`, which the runtime loads,
+    # still caps at 2048. The same survey lowered the rest, and the ratchet
+    # takes them: worst side 16236 -> 14969, over 4096 16 -> 8 (full) and
+    # 7 -> 4 (half). Half over 2048 rose 29 -> 37 and quarter 10 -> 12 with
+    # the same sheets.
+    "sprites": (14969, 181, 8, 7),
     # 2026-10-11: 24 -> 25 over 2048 px: the same new fighter's half tier
     # (2176 x 1689).
     # 2026-10-13: 25 -> 28: the half tier of the same sheet is three pages
     # (4096 x 4068, 4096 x 4013, 4094 x 1689).
     # 2026-10-17: 28 -> 29: the same sheet's half tier (3071 x 2455).
-    "sprites_0_5x": (8118, 29, 7, 0),
+    "sprites_0_5x": (7484, 37, 4, 0),
     # 2026-10-13: 9 -> 10: its quarter tier is one page of 3648 x 2816.
-    "sprites_0_25x": (4059, 10, 0, 0),
+    "sprites_0_25x": (3776, 12, 0, 0),
     # 2026-10-13: worst side 1015 -> 1024: the potato page of the same sheet.
     "sprites_potato": (1024, 0, 0, 0),
     "sprite_packs": (2048, 0, 0, 0),

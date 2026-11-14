@@ -808,8 +808,21 @@ drives Bob locally with the same frames on all 90 frames. With no seat named
 This is the production input path SIMULATION-ISLANDS' room rollback host
 waits on: a guest's input now reaches the host's seat over the link.
 
-Next in the prototype: spawn rows for what wears no character, a guest App
-composed from fewer plugins, and each NPC life's step as a row.
+What wears no character (probed 2026-11-13, the crossing scene at frame
+120): the hub's 17 replicated entities with no `WornCharacter` are all its
+ground items (`placement:ground_*`, `placement:hub_portal_gun`), authored
+placements. A guest that builds the room itself (the room row, 2026-11-12)
+holds its own copies under the same `SimId`, and `Signature` continues
+replication into them, so they need no spawn row; a dropped item takes the
+`SpawnOrigin` road (2026-11-12). The spawn row still missing is a player's:
+a player's body that leaves a guest's room is removed there by the filter,
+and when it comes back replication makes an entity the guest cannot build
+from a character spawn row (a player body is built by its seat's identity,
+not the staged-actor road).
+
+Next in the prototype: the room row through replicon (a guest following its
+own player's crossing), a player's spawn row, a guest App composed from
+fewer plugins, and each NPC life's step as a row.
 
 ## Next
 

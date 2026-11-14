@@ -48,6 +48,9 @@ execution weak, improve the execution, not the idea.
 | PCA | charge blast | the PCA's Mewtwo Shadow Ball (Jon, 2026-10-18; quoted in `cellular_automaton_moveset.rs`) | `imperfect_cellular_automaton` wears the same table |
 | Patent Clerk | Witch-Time | *"no take-backs"* | |
 | Oiler | geyser | *"so the column reads as continuous rather than as one puff"* | |
+| GNU-ton | up-B | *"gnuton has the portal up-b ... Its ok for two characters to share a similar move"* (Jon, 2026-11-12) | the portal pair Alice also has |
+| Pugnacious Polygon | up-B uppercut | *"this fighter is a Captain Falcon"* (Jon, 2026-10-29) | the rise then falls helpless at full gravity, as Falcon Dive does |
+| Attack Hound, Failed Prototype, Raptor Stalker | every attack | enemies that *"notice, space, telegraph, attack"* as Hollow Knight's do (Jon, 2026-10-30; quoted in each `data/movesets/*.ron`) | the rule is his; each attack's shape is an agent's |
 
 ## 2. Fighters with no maintainer input — an agent's to change freely
 
@@ -55,8 +58,8 @@ The guard decides this list by scanning each fighter's moveset files (`*_moveset
 and `data/movesets/*.ron`) for the maintainer's name:
 
 `bob`, `carl_stargan`, `emmy_noether`, `medic`,
-`ninja_shadow_oni_leader`, `pugnacious_polygon`, `shock_warden` (Castle Godwin's riot trooper), and <!-- cite-ok: character ids in the catalog data, not Rust items -->
-`imperfect_cellular_automaton` (its own file quotes no ruling; the table it wears, `cellular_automaton`'s, is reviewed above).
+`ninja_shadow_oni_leader`, `shock_warden` (Castle Godwin's riot trooper), and <!-- cite-ok: character ids in the catalog data, not Rust items -->
+`imperfect_cellular_automaton` (its own file quotes no ruling; the table it wears, `cellular_automaton`'s, is reviewed above), and the void dimension's three polygons, `void_pointed_polygon`, `void_projectile_polygon` and `void_pugnacious_polygon` (their own files quote no ruling, whatever the Smash polygons' do).
 
 These are the demonstration: each design is an agent's decision. A fighter that
 moves off this list means Jon has spoken about it, and the polish rules change.
@@ -84,8 +87,8 @@ This block is the contract; the prose above is for people. The guard compares
 these slugs with the code as sets. Every moveset file must appear in exactly one
 list, so a new fighter must be classified.
 
-<!-- reviewed-fighters: alice, cellular_automaton, director, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon -->
-<!-- free-fighters: bob, carl_stargan, emmy_noether, gnu_ton, imperfect_cellular_automaton, medic, ninja_shadow_oni_leader, pugnacious_polygon, ramen_nujan, shock_warden -->
+<!-- reviewed-fighters: alice, cellular_automaton, director, evil_attack_hound, evil_failed_prototype, gnu_ton, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon, pugnacious_polygon, raptor_stalker -->
+<!-- free-fighters: bob, carl_stargan, emmy_noether, imperfect_cellular_automaton, medic, ninja_shadow_oni_leader, ramen_nujan, shock_warden, void_pointed_polygon, void_projectile_polygon, void_pugnacious_polygon -->
 
 ## The guard
 

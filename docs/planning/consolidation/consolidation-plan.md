@@ -148,15 +148,16 @@ session into the next; the count is not the goal.
 
 ### Scope and current authority
 
-Source explicitly groups **30** App resources as gameplay-session or
-activated-generation state (46 until the checkpoint family and the room memories
+Source explicitly groups **32** App resources as gameplay-session or
+activated-generation state (30 until the gate network's state and the
+conversation bag since the checkpoint joined on 2026-11-13; 46 until the checkpoint family and the room memories
 left on 2026-10-07; on 2026-10-08, 38 until the session clock left, 36 until the
 door countdown left, 35 until the switch queue left, 34 until the encounter
 view left and 33 until the four checkpoint baselines left):
 
-<!-- session-owner-census: SessionScopedResources=29 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=31 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**29**) in `crates/ambition_platformer2d_session/src/teardown.rs`;
+- `SessionScopedResources` (**31**) in `crates/ambition_platformer2d_session/src/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
   `crates/ambition_platformer2d_session/src/checkpoint.rs`, and no reset runs for them.)
@@ -243,7 +244,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 30 values. Work owner by owner:
+Do not begin by moving all 32 values. Work owner by owner:
 
 1. Re-run `python3 scripts/measure/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only

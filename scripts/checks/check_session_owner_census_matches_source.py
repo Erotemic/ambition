@@ -162,7 +162,8 @@ def registration_methods() -> list[str]:
 def call_site_pattern(methods: list[str]) -> re.Pattern[str]:
     return re.compile(
         r"(?:" + "|".join(methods) + r")::<\s*([\w:]+)\s*>\s*\(\s*"
-        r'(?:\w+|"[^"]*")\s*,\s*"([^"]+)"'
+        # The owner is an identifier, a path to one (`super::OWNER`) or a literal.
+        r'(?:[\w:]+|"[^"]*")\s*,\s*"([^"]+)"'
     )
 #: The trait's own forwarding definition — `::<T>(owner, name, detail, checksum)`,
 #: every argument an identifier and the generic a type PARAMETER. It is plumbing,

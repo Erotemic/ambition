@@ -775,8 +775,24 @@ the host's rows. The unlinked guest never has it. In the crossing control
 of the 19 replicated entities there wear no character, and no spawn row is
 written for them.
 
-Next in the prototype: a real transport, and spawn rows for what wears no
-character.
+### A real link (2026-11-13): renet's netcode over UDP
+
+`bevy_replicon_renet` 0.20 (the release for replicon 0.44 and Bevy 0.19),
+behind `ambition_hosted_world`'s `renet` feature: `udp::host` opens the
+host's socket (unauthenticated netcode, one protocol id) and `udp::join`
+joins it; the Apps add `RepliconRenetPlugins` beside `RepliconPlugins`.
+Replicon's channels become renet's, so the rows above need nothing new.
+
+Witness `a_hosted_guest_shows_the_hosts_bodies_over_udp` (the first slice's
+run, on loopback): the guest joins after 3 updates, and after each of the 90
+frames (host update, then guest update, the packets crossing the kernel in
+between) it holds the host's bodies; Alice moved, so the agreement is the
+link's. Renet reports 3,982 bytes a second sent to the guest, about 66 bytes
+a frame at 60 updates a second, against 53 counted inside replicon on the
+test link: the difference is renet's and netcode's packet framing.
+
+Next in the prototype: spawn rows for what wears no character, a guest App
+composed from fewer plugins, and each NPC life's step as a row.
 
 ## Next
 

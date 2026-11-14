@@ -368,3 +368,74 @@ fn apply_body_rows(mut bodies: Query<(&BodyRow, &mut BodyKinematics), Or<(Change
 
 /// `bevy_replicon` itself, so a caller names the version this crate replicates with.
 pub use bevy_replicon;
+
+/// A real link: renet's netcode over UDP. Add `RepliconRenetPlugins` beside
+/// `RepliconPlugins`, finish the App (replicon makes its channels in
+/// `Plugin::finish`), then open the host's socket or join it.
+#[cfg(feature = "renet")]
+pub mod udp {
+    use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+    use std::time::SystemTime;
+
+    use bevy::prelude::World;
+    use bevy_replicon::prelude::RepliconChannels;
+    use bevy_replicon_renet::netcode::{
+        ClientAuthentication, NetcodeClientTransport, NetcodeServerTransport, ServerAuthentication, ServerConfig,
+    };
+    use bevy_replicon_renet::renet::ConnectionConfig;
+    use bevy_replicon_renet::RenetChannelsExt as _;
+
+    pub use bevy_replicon_renet::{RenetClient, RenetServer, RepliconRenetPlugins};
+
+    /// Both ends must name the same protocol, or netcode refuses the join.
+    pub const PROTOCOL_ID: u64 = u64::from_le_bytes(*b"ambhost1");
+
+    fn connection(world: &World) -> ConnectionConfig {
+        let channels = world.resource::<RepliconChannels>();
+        ConnectionConfig {
+            server_channels_config: channels.server_configs(),
+            client_channels_config: channels.client_configs(),
+            ..Default::default()
+        }
+    }
+
+    fn now() -> std::io::Result<std::time::Duration> {
+        SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_err(std::io::Error::other)
+    }
+
+    /// Open the host's socket on loopback `port` (0: any free port) for up to
+    /// `guests` guests, unauthenticated. Returns the address guests join.
+    pub fn host(world: &mut World, port: u16, guests: usize) -> std::io::Result<SocketAddr> {
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, port))?;
+        let address = socket.local_addr()?;
+        let transport = NetcodeServerTransport::new(
+            ServerConfig {
+                current_time: now()?,
+                max_clients: guests,
+                protocol_id: PROTOCOL_ID,
+                authentication: ServerAuthentication::Unsecure,
+                public_addresses: vec![address],
+            },
+            socket,
+        )?;
+        let server = RenetServer::new(connection(world));
+        world.insert_resource(server);
+        world.insert_resource(transport);
+        Ok(address)
+    }
+
+    /// Join the host at `server` as guest `client_id`, unauthenticated.
+    pub fn join(world: &mut World, server: SocketAddr, client_id: u64) -> std::io::Result<()> {
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))?;
+        let transport = NetcodeClientTransport::new(
+            now()?,
+            ClientAuthentication::Unsecure { client_id, protocol_id: PROTOCOL_ID, server_addr: server, user_data: None },
+            socket,
+        )
+        .map_err(std::io::Error::other)?;
+        let client = RenetClient::new(connection(world));
+        world.insert_resource(client);
+        world.insert_resource(transport);
+        Ok(())
+    }
+}

@@ -331,3 +331,79 @@ fn a_hosted_guest_builds_what_the_host_spawned() {
     assert_eq!(on_guest.len(), on_host.len(), "the guest holds bodies the host does not");
     assert!(the_spawned(&mut alone, ENEMY).is_none(), "the control: the unlinked guest has the enemy, so its arrival is not the link's");
 }
+
+/// `booted`, linked by renet's netcode over UDP instead of the in-process
+/// test link.
+fn booted_over_udp(role: HostedRole) -> Platformer2dSimHarness {
+    let mut sim = Platformer2dSimHarness::build(fixed_60hz_room_options(ROOM), |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        app.add_plugins((
+            RepliconPlugins.set(ServerPlugin::new(PostUpdate)),
+            ambition_hosted_world::udp::RepliconRenetPlugins,
+            HostedWorldPlugin { role },
+        ));
+        app.finish();
+        app.cleanup();
+        Ok(())
+    })
+    .expect("the room boots");
+    bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    sim
+}
+
+/// The first slice's run over a real link: the host opens a UDP socket on
+/// loopback, the guest joins it through netcode, and Alice moves and swings
+/// for 90 frames. After each frame (host update, then guest update) the
+/// guest must hold the host's bodies; the packets cross the kernel's
+/// loopback between the two updates.
+#[test]
+fn a_hosted_guest_shows_the_hosts_bodies_over_udp() {
+    use ambition_hosted_world::udp;
+    let mut host = booted_over_udp(HostedRole::Host);
+    let mut guest = booted_over_udp(HostedRole::Guest);
+    simulate_nothing(&mut guest);
+    let address = udp::host(host.world_mut(), 0, 1).expect("the host opens a UDP socket on loopback");
+    udp::join(guest.world_mut(), address, 1).expect("the guest opens its socket");
+
+    let mut connected_after = None;
+    for update in 0..600 {
+        host.app_mut().update();
+        guest.app_mut().update();
+        if *guest.world().resource::<bevy::state::state::State<ClientState>>() == ClientState::Connected {
+            connected_after = Some(update);
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    let connected_after = connected_after.expect("the guest joined the host over UDP within 600 updates");
+
+    let at_start = bodies(&mut host, None);
+    let mut agreed = 0;
+    for frame in 1..=FRAMES {
+        host.drive_seat(0, alice_fights(frame));
+        host.app_mut().update();
+        guest.app_mut().update();
+        if bodies(&mut host, None) == bodies(&mut guest, None) {
+            agreed += 1;
+        }
+    }
+    let on_host = bodies(&mut host, None);
+    let on_guest = bodies(&mut guest, None);
+    // Renet's own account of the link (its clock is the App's `Time`).
+    let link = host
+        .world()
+        .resource::<ambition_hosted_world::udp::RenetServer>()
+        .0
+        .network_info(1)
+        .expect("the guest is connected");
+    println!(
+        "[hosted udp] joined after {connected_after} updates; {} bodies; the guest agreed after {agreed} of {FRAMES} frames; renet: rtt {:.1} ms, {:.0} bytes/s sent, loss {:.3}",
+        on_host.len(),
+        link.rtt,
+        link.bytes_sent_per_second,
+        link.packet_loss
+    );
+    assert_ne!(on_host, at_start, "premise: the host's bodies moved, so agreeing measures the link");
+    assert_eq!(on_guest, on_host, "after the last frame the guest does not hold the host's bodies");
+    assert!(agreed * 10 >= FRAMES * 9, "the guest agreed with the host after only {agreed} of {FRAMES} frames");
+}

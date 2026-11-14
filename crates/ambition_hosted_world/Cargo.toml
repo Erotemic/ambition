@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 description = "A hosted world's replication: the host's bodies reach a guest App by SimId (NET-AUTHORITY-EXPERIMENT)."
 
+[features]
+renet = ["dep:bevy_replicon_renet"]
+
 [lib]
 crate-type = ["rlib"]
 
@@ -15,6 +18,9 @@ bevy = { version = "0.19.1", default-features = false }
 # "Library evaluation"). No I/O of its own: the link is the caller's.
 bevy_replicon = { version = "0.44", default-features = false, features = ["client", "server"] }
 serde = { workspace = true }
+# A real link (UDP, renet's netcode), the release for replicon 0.44. Optional:
+# the in-process test link needs none.
+bevy_replicon_renet = { version = "0.20", optional = true, default-features = false, features = ["client", "server", "renet_netcode"] }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }

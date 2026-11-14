@@ -4,10 +4,10 @@
 eight rooms of the level are built by the generator
 (`generators/intro/make_specs.py`): the workshop and its raid, the lane and
 Alice, the meadow, the gate clearing and its ring, the freight siding fight,
-the millstream, the village and Bob in the woods. The rooms are still drawn
-with the lab and forest looks; the level's own looks (`hobford`,
-`hobford_woods`, `creator_workshop`) are drawn in the renderer and not yet
-published. A new game still starts in the hub (D3). Queue row
+the millstream, the village and Bob in the woods. The rooms are drawn with
+the level's own looks (`hobford`, `hobford_woods`, `creator_workshop`);
+props and villagers are not made yet. A new game still starts in the hub
+(D3). Queue row
 [LEVEL-1](../queue.md#level-1--the-lab-raid-and-the-first-level-after-it)
 holds what remains.
 
@@ -305,13 +305,21 @@ Drawn in `tools/ambition_sprite2d_renderer` and registered in `SCENES`
 - `creator_workshop`: the barn's plank wall, trusses, windows, shelves and
   a tool board.
 
-Not yet: the terrain skins, motes, doors and decor rows for the three looks,
-the props (the barn front, the mill, houses, the guard post and barrier,
-the ring's scaffold, freight and the handcart, Alice's tripod and tent,
-Bob's staff and camp), villagers, the publication
-(`scripts/regen/backgrounds.sh` and the sprite publish, all targets in one
-run, `--jobs 6`) and the switch of the rooms' looks (`WORKSHOP_LOOK`,
-`COUNTRY_LOOK`, `WOODS_LOOK` in the generator).
+Each look has a terrain skin (turf over soil; the woods' darker soil; barn
+floorboards), motes, a door and six decor pieces (`terrain/skins.py`,
+`motes.py`, `doors.py`, `decor.py`), and its rows in
+`game/ambition_content_library/authored/catalog.json`
+(`background.parallax.<look>.*`, `room.dressing.<look>.*`; without them a
+room draws the default grid). Published with
+`scripts/regen/backgrounds.sh --theme <look> --skin <look>`; the generator's
+`WORKSHOP_LOOK`, `COUNTRY_LOOK` and `WOODS_LOOK` name them.
+
+Not yet: the props (the barn front, the mill, houses, the guard post and
+barrier, the ring's scaffold, freight and the handcart, Alice's tripod and
+tent, Bob's staff and camp; `targets/props/hobford_props.py` on
+`_district_props.py`) and villagers. Without them the village's porches
+and the mill's floors are bare boards against the sky, and the siding's
+freight is turf blocks.
 
 ## Provisional decisions
 
@@ -319,7 +327,7 @@ run, `--jobs 6`) and the switch of the rooms' looks (`WORKSHOP_LOOK`,
 |---|---|---|
 | D1 | The settlement is **Hobford** (a hob is a household sprite in English folklore; the village had no goblins until the gate opened). The region has no name of its own yet. | rename titles and lines; ids carry `hobford`, so rename the rooms too if the name goes |
 | D2 | **Scout** is the robot's name in the dialogue only. The protagonist row keeps `display_name` "Player Robot v3", which engine crates' tests pin (`ambition_platformer2d_actor_monolith`). | set the row's `display_name` and update those tests |
-| D3 | A new game still starts in the hub (`worlds.ron` `entry_room`); the hub's door into the workshop is the way in. Moving the start to the workshop is the next slice. | set `entry_room: "intro_wake_room"` and update the tests that boot the hub |
+| D3 | A new game still starts in the hub (`worlds.ron` `entry_room`); the hub's door into the workshop is the way in. Measured 2026-11-14 with `entry_room: "intro_wake_room"`: 20 of 33 tests failed in a sample of 16 modules (of 93 test files that boot the default start); they test the robot's whole kit, the hub's fights and the first frames of play, and the workshop withholds the kit and opens on a cutscene. Over the coordinator's limit of about 10, so the start stays in the hub until the coordinator decides. | set `entry_room: "intro_wake_room"` and give those tests an explicit start room |
 | D4 | Oiler is not in level 1. He stays at the Drain Market under the gate stack (canon: the largest town's mechanic). His lines name Hobford. | put his `NpcSpawn` back in a level-1 room |
 | D5 | `drain_alley` and `under_town_pipes` stay as town rooms outside level 1; their ways to the removed rooms are walled. The culvert's raft walk (`across_the_raft`) is deleted with its crossing. | regenerate the old rooms from the previous generator in git history |
 | D6 | The Creator dies (Q173's default). Open: whether something the player does could keep him alive. | a branch in `creator_final_fragment` on a world fact |

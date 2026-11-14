@@ -147,7 +147,16 @@ Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
   in the SVG's CDATA aside); 2816 generated records keep every older field
   and only cats gained fields; every non-cat SVG and all 243 resident
   records are unchanged; the one cat resident (Mina) pins the defaults.
-- Next: **horse**: face length, a blaze or star. **bird**: crest style.
+- **horse** (`spec.SPECIES_KNOBS["horse"]`, 2026-11-14, renderer 85f728e):
+  `head.face_length` (1 as drawn, 0.7 to 1.5; every height on the head
+  moves as `f ** length`, so the crown and chin stay and the brow, eyes and
+  muzzle climb for a longer face or drop for a shorter one) and
+  `head.face_mark` (`FACE_MARKS`: none, star, strip, blaze, snip, in white,
+  the same on both sides). A front mark is edge-on in the pure side view,
+  as the dog's blaze is. Kept as the cat's was: 12/12 default horses draw
+  byte for byte as before, 2816 records keep every older field, no
+  non-horse SVG or resident record changed; no resident is a horse.
+- Next: **bird**: crest style.
   **sea lion**: whisker pads. **alligator**: snout length and width, scute
   rows.
 

@@ -252,8 +252,11 @@ product changed and nothing was republished.
 old head byte for byte, older records keep every field, Mina pins the
 defaults, so nothing was republished.
 
-**Next action:** the other listed species (horse, bird, sea lion,
-alligator). Keep parameter defaults, generation and studio controls
+**Horse done 2026-11-14 (renderer 85f728e):** face length and a star,
+strip, blaze or snip face mark; defaults draw the old head byte for byte,
+older records keep every field, and no resident is a horse.
+
+**Next action:** the other listed species (bird, sea lion, alligator). Keep parameter defaults, generation and studio controls
 at their canonical owners. Add explicit left cells for asymmetric details;
 reuse the existing overlay mechanism. New random draws follow existing draws.
 

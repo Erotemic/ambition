@@ -480,6 +480,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_conversation/src/rooms.rs",
+        "crates/ambition_conversation/src/membership.rs",
     ),
     "BossDefeatsSinceCheckpoint": (
         "crates/ambition_boss_encounter/src/retraction.rs",
@@ -2476,6 +2477,7 @@ ADJUDICATED: dict[str, str] = {
         "test. `commit.rs`'s close is uncovered until then, and now it is "
         "uncovered ON THE RECORD."
         " ⭐ 2026-11-11 (ISL-1b): `rooms.rs` writes it only in `retract_room_conversations`, the room-write retractor, which puts back the conversation the rewound room logged at the saved tick: a restore of an earlier value, not a second authority."
+        " ⭐ 2026-11-14 (MULTI-PARTY-DIALOGUE): `membership.rs` is the `conversation.join` / `conversation.leave` authored commands. They change WHO is in the live conversation through the authority's own `join`/`leave` (the same `leave` the continuity rule and the crossing take, so the end rule is one function), run in `AuthoredCommandSet` on the tick the narrative ledger stamped, and never open one. Witness `a_third_character_joins_a_conversation_and_leaves_it_by_the_rules`."
     ),
     "PossessionState": (
         "CORRECT — one protocol for each participant seat. `release_possession` clears "

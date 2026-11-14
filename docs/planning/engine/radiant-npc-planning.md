@@ -117,6 +117,9 @@ Rules the boundary keeps:
    chooses, NPC plans run where the world is authoritative. Under GGRS the
    plan state is rollback state already (slice 2's sync test); under a hosted
    world the guest receives the NPC's body and current task, not the planner.
+   Done: the experiment chose the hybrid (NA-4), and the plan row is this
+   slice ([plan row, 2026-11-13](hosted-world-networking-experiment.md#an-npc-lifes-plan-row-2026-11-13),
+   witness `a_hosted_guest_holds_the_hosts_lives`).
 
 ## Slice 1 result (2026-11-10): a standalone core
 

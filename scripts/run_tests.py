@@ -579,7 +579,15 @@ def unchecked_by_rust_alone() -> list[Job]:
     `--rust`, so its unchecked list must be a strict SUPERSET of `--rust`'s. A
     hand-written list cannot promise that; a derivation cannot break it.
     """
-    return [repo_coupled_python_job(), *slow_python_checker_jobs()]
+    return [repo_coupled_python_job(), portal_seam_job(), *slow_python_checker_jobs()]
+
+
+def portal_seam_job() -> Job:
+    """The portal seam film: a Python checker that drives its own build."""
+    return Job("acceptance: portal windows are seamless",
+               [sys.executable, "scripts/checks/check_portal_window_seams.py", "--build",
+                "--cases", "D,gnu_floor", "--tiers", "potato,high"],
+               builds=True)
 
 
 def slow_python_checker_jobs() -> list[Job]:
@@ -862,12 +870,11 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                          "central_hub_complex", "player",
                          "target/composition_boot.png", "320x180",
                          "--warmup", "20"]))
-        # A portal window shows its far side exactly: the same pixels as a
-        # camera there, at the cheapest and the richest tier.
-        jobs.append(Job("acceptance: portal windows are seamless",
-                        [sys.executable, "scripts/checks/check_portal_window_seams.py", "--build",
-                         "--cases", "D,gnu_floor", "--tiers", "potato,high"],
-                        builds=True))
+    # A portal window shows its far side exactly: the same pixels as a
+    # camera there, at the cheapest and the richest tier. A Python checker that
+    # drives a build, so `--rust-alone` (no interpreter) leaves it out.
+    if not only and include_python_tooling:
+        jobs.append(portal_seam_job())
 
     # Exhaustive mode proves each crate's headless-safe feature combination compiles, then runs all
     # gated tests together in one union graph.

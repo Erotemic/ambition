@@ -480,6 +480,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_geometry_observation"
+version = "0.1.0"
+dependencies = [
+ "bevy_app",
+ "bevy_ecs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ambition_held_items"
 version = "0.1.0"
 dependencies = [
@@ -536,6 +546,13 @@ dependencies = [
  "ambition_platformer2d_core",
  "bevy",
  "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
+name = "ambition_life_planning"
+version = "0.1.0"
+dependencies = [
  "serde",
 ]
 
@@ -641,6 +658,7 @@ dependencies = [
  "ambition_extension_sdk",
  "ambition_game_shell",
  "ambition_gameplay_trace",
+ "ambition_geometry_observation",
  "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
@@ -706,10 +724,12 @@ dependencies = [
  "ambition_encounter",
  "ambition_entity_catalog",
  "ambition_gameplay_trace",
+ "ambition_geometry_observation",
  "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
  "ambition_items",
+ "ambition_life_planning",
  "ambition_match",
  "ambition_mount",
  "ambition_persistence",
@@ -752,6 +772,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_vfx",
  "bevy",
+ "serde",
 ]
 
 [[package]]
@@ -797,6 +818,7 @@ dependencies = [
  "ambition_shrine",
  "ambition_sprite_sheet",
  "bevy",
+ "serde",
 ]
 
 [[package]]
@@ -969,6 +991,7 @@ dependencies = [
  "ambition_sim_view",
  "bevy",
  "bevy_ggrs",
+ "bincode",
  "serde",
 ]
 
@@ -1090,6 +1113,7 @@ dependencies = [
  "ambition_sim_schedule",
  "ambition_time",
  "bevy",
+ "serde",
  "tracing",
 ]
 
@@ -1114,6 +1138,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_entity_catalog",
+ "ambition_geometry_observation",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_registry_core",
@@ -1135,6 +1160,7 @@ dependencies = [
  "ambition_extension_sdk",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_portal_port",
  "ambition_time",
  "bevy",
@@ -1219,6 +1245,7 @@ dependencies = [
  "ambition_cutscene",
  "ambition_dev_tools",
  "ambition_entity_catalog",
+ "ambition_geometry_observation",
  "ambition_input",
  "ambition_persistence",
  "ambition_platformer2d_core",
@@ -1311,10 +1338,12 @@ dependencies = [
  "ambition_characters",
  "ambition_combat",
  "ambition_conversation",
+ "ambition_cutscene",
  "ambition_dev_tools",
  "ambition_dialog",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_geometry_observation",
  "ambition_held_items",
  "ambition_input",
  "ambition_interaction",

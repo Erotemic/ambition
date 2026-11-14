@@ -16,16 +16,21 @@
 // long cutscene wall.
 
 [
-    // The creator's last words, at the volume by the corridor's far end: the
-    // robot reaches the way out, and the raid takes him there. If he fell in
-    // the fight already, these are the words he had left. The fast and
-    // impossible variants are in `intro.yarn` for a later pass.
+    // The creator's last words, at the volume in the doorway of the bay door
+    // (`intro_wake_room`). The door stands until the raid is beaten, so the
+    // fight is over and the creator, who keeps beside the robot, is near. He
+    // was hurt in the fight. If he fell in it already, these are the words he
+    // had left (Q173: he always dies here).
     (
         id: "creator_final_fragment",
         beats: [
             Dialogue(
                 speaker: "Creator",
-                text: "Go. Up the shaft. They came for you, not for me.",
+                text: "That's all of them. Good. No, leave me. I need to sit a minute.",
+            ),
+            Dialogue(
+                speaker: "Creator",
+                text: "Go up the stair. They took my notebooks. Don't let them take you.",
             ),
             Dialogue(
                 speaker: "Creator",
@@ -45,7 +50,9 @@
         ],
         seen_flag: Some("intro_creator_fragment_seen"),
     ),
-    // drain_alley's `entry_cutscene`. The fade comes up from black.
+    // The Drain Market's `entry_cutscene` (`drain_alley`): the robot comes up
+    // the service stair onto the street. The fade comes up from black; the
+    // area's card (`data/area_cards.ron`) names the place.
     (
         id: "drain_market_arrival",
         beats: [
@@ -54,10 +61,6 @@
                 to_alpha: 0.0,
                 seconds: 0.6,
             ),
-            Banner(
-                text: "Drain Market — STAFF ONLY",
-                seconds: 1.2,
-            ),
             SetFlag(
                 id: "drain_market_arrival_seen",
                 on: true,
@@ -65,14 +68,14 @@
         ],
         seen_flag: Some("drain_market_arrival_seen"),
     ),
-    // Started by the volume around Oiler's post in drain_alley: he has come
-    // to meet the player who walked up, and this is what he says.
+    // Started by the volume round Oiler's workshop in the Drain Market
+    // (`drain_alley`): he comes out to meet the player who walked up.
     (
         id: "oiler_notices",
         beats: [
             Dialogue(
                 speaker: "Oiler",
-                text: "Well. That\'s not a rat. You came out of the bad pipe.",
+                text: "Well. That\'s not a rat.",
             ),
             SetFlag(
                 id: "oiler_notices_seen",
@@ -104,11 +107,12 @@
         ],
         seen_flag: Some("first_ripple_seen"),
     ),
-    // Started by the volume at the head of the corridor (`CutsceneTrigger` in
-    // intro_raid_corridor, one room with the lab), so the creator who woke the
-    // robot is there for it. Goblins, hired for the robot and the research.
-    // The room holds the fight while it plays; after it, the room is
-    // `dangerous`, so the creator rallies to the robot's fight.
+    // Started by the volume where the lab opens on the loading bay
+    // (`intro_wake_room`), so the creator who woke the robot is there for it.
+    // The goblins were hired for the robot and the research; their foreman
+    // has already gone up the stair with the notebooks. The room holds the
+    // fight while it plays; the room is `dangerous`, so the creator fights
+    // beside the robot.
     (
         id: "intro_raid",
         beats: [
@@ -117,20 +121,20 @@
                 seconds: 1.2,
             ),
             Dialogue(
-                speaker: "Salvage Lead",
-                text: "One prototype, one lab of research, paid in advance. Bag it all.",
+                speaker: "Lab Raider",
+                text: "There it is. The order said one prototype, switched off. That one's walking.",
             ),
             Dialogue(
                 speaker: "Creator",
-                text: "Paid by whom? Nobody knows this lab is here.",
+                text: "What order? Nobody knows this lab is here.",
             ),
             Dialogue(
                 speaker: "Lab Raider",
-                text: "Somebody does. The manifest said it'd be switched off.",
+                text: "Somebody does. Paid in advance. The boss already took your notebooks up the stairs.",
             ),
             Dialogue(
                 speaker: "Creator",
-                text: "Then they wrote the wrong list. Stay by me. We go through them.",
+                text: "Stay by me. Hit them before they hit you.",
             ),
             SetFlag(
                 id: "intro_raid_started",
@@ -174,5 +178,54 @@
             ),
         ],
         seen_flag: Some("intro_wake_seen"),
+    ),
+    // The freight yard (`intro_freight_yard`): the volume past its west gate.
+    // The goblins' foreman has the crate; the fight follows.
+    (
+        id: "salvage_lead_yard",
+        beats: [
+            Dialogue(
+                speaker: "Salvage Lead",
+                text: "Well, look who walked here on its own. Saves us carrying it.",
+            ),
+            Dialogue(
+                speaker: "Salvage Lead",
+                text: "The crate goes through the gate at six. You go in the crate. Lads!",
+            ),
+            SetFlag(
+                id: "salvage_lead_yard_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("salvage_lead_yard_seen"),
+    ),
+    // The crate behind the yard's inner gate, which opens when the fight is
+    // won. The work order on the crate names an address; the stair door of the
+    // lab names another (`14 CULVERT LANE`). The last page stays unread.
+    (
+        id: "creator_notebooks",
+        beats: [
+            Dialogue(
+                speaker: "Work Order",
+                text: "ONE PROTOTYPE, SWITCHED OFF. ONE LAB OF RESEARCH. 14 CULVERT ROW. PAID IN ADVANCE.",
+            ),
+            Dialogue(
+                speaker: "Notebook",
+                text: "The creator's notebooks are under the order. The last page starts: THE QUESTION I WANT IT TO ASK IS",
+            ),
+            Dialogue(
+                speaker: "Notebook",
+                text: "The rest of the page is torn off.",
+            ),
+            SetFlag(
+                id: "intro_creator_notes_recovered",
+                on: true,
+            ),
+            SetFlag(
+                id: "wrong_list_clue_2",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("creator_notebooks_seen"),
     ),
 ]

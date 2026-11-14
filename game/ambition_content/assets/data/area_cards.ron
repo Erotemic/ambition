@@ -21,11 +21,11 @@
     (name: "The Military Tower", rooms: ["military_tower", "military_gate_annex"]),
 
     // ---- the intro ----
-    (name: "The Lab", subtitle: Some("Where you woke"), rooms: [
-        "intro_wake_room", "intro_escape_shaft", "first_system_boss",
-        "gate_stack_lower", "combat_calibration_lab",
+    (name: "The Basement Lab", subtitle: Some("Where you woke"), rooms: ["intro_wake_room", "intro_escape_shaft"]),
+    (name: "The Drain Market", subtitle: Some("Under the gate stack"), rooms: [
+        "drain_alley", "under_town_pipes", "alice_relay", "bob_relay",
     ]),
-    (name: "Under Town", rooms: ["drain_alley", "under_town_pipes", "alice_relay", "bob_relay"]),
+    (name: "The Gate Stack", rooms: ["gate_stack_lower", "combat_calibration_lab", "first_system_boss"]),
 
     // ---- the Dinosaur dimension ----
     (name: "The Primeval Trail", subtitle: Some("The Dinosaur Dimension"), rooms: ["primeval_*"]),

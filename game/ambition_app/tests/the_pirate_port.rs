@@ -15,7 +15,7 @@ use bevy::prelude::{App, KeyCode};
 
 use crate::common::walk::{Keys, walk_through, walk_through_zone, walk_to};
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross, room_of};
-use crate::alices_battery_reaches_bob::{
+use crate::alices_reading_reaches_bob::{
     dialog_active, first_choice, flag, npc, tap, the_shipped_session,
 };
 

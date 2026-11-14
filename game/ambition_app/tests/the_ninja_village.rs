@@ -14,7 +14,7 @@ use bevy::prelude::App;
 
 use crate::common::walk::{fight, Keys};
 use crate::neighbor_prefetch_prepares_rooms::alice as primary_body;
-use crate::alices_battery_reaches_bob::flag;
+use crate::alices_reading_reaches_bob::flag;
 use crate::the_pirate_port::{a_session_in, go, go_to, quest_completed, talk};
 
 const SHRINE: &str = "ninja_village_gate_shrine";
@@ -110,7 +110,7 @@ fn umes_tea_house_has_a_guest() {
 /// up into the shrine, and back down.
 #[test]
 fn the_hidden_way_runs_from_a_loose_board_to_the_shrines_slab() {
-    use crate::alices_battery_reaches_bob::tap;
+    use crate::alices_reading_reaches_bob::tap;
     use ambition_platformer2d::engine_core as ae;
     use bevy::prelude::KeyCode;
 

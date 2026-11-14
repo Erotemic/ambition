@@ -214,11 +214,13 @@
         ),
         // Keeps at the player's side: every next place is beside the player,
         // and a body farther off than a few strides goes to the player at
-        // once. Rests are short, so it keeps up with a walk. In a dangerous
-        // room it still rallies to the player's fight (`rally.rs`).
+        // once. Rests are short, and its trot is faster than the player's run
+        // (270), so it is beside the player when a fight ends and the player
+        // walks on. In a dangerous room it still rallies to the player's fight
+        // (`rally.rs`).
         "follows_closely": Roam(
             speed: 90.0,
-            trot_speed: 190.0,
+            trot_speed: 280.0,
             rest_min_s: 0.2,
             rest_max_s: 0.6,
             company: 1.0,
@@ -3425,8 +3427,8 @@
             max_health: Some(5),
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         barks: (
-            on_hit: ["Contain the prototype!", "Keep it away from the consoles!", "No one leaves with the core!", "Hold the west line!"],
-            provoked: ["Seal the exits!"],
+            on_hit: ["Ow! Nobody said it was awake!", "Paid in advance, lads! Earn it!", "Grab its legs!", "That's coming out of your share!"],
+            provoked: ["Bag the shiny one!"],
             hall: ["Contain the asset, they said. The asset has your sneakers now.", "Every door I locked, it walked through anyway."],
         ),
         hall_dialogue_id: Some("hall_npc_lab_raider"),

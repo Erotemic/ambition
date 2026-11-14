@@ -84,11 +84,11 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
 }
 
 /// End-to-end progression check: walking the cartography quest
-/// through alice → bob → P5 by setting flags one at a time
+/// through Alice → Bob → the notebooks by setting flags one at a time
 /// should advance `intro_cartography_route` through its three
 /// steps.
 #[test]
-fn cartography_quest_advances_through_alice_bob_p5() {
+fn cartography_quest_advances_through_alice_bob_and_the_notebooks() {
     use crate::quest::{apply_quest_advance_events, shipped_quest_specs, QuestRegistry};
     use ambition_combat::events::SetFlagRequested;
     use ambition_persistence::quest::QuestAdvanceRequested;
@@ -166,22 +166,20 @@ use ambition_platformer2d_runtime::effect_bus::apply_quest_effects;
     let save = app.world().resource::<AmbitionGameSave>();
     assert!(save.data().flag("map_private_marks_unlocked"));
 
-    // Step 3: P5 route memory.
+    // Step 3: the creator's notebooks, taken back in the freight yard.
     app.world_mut()
         .resource_mut::<AmbitionGameSave>()
         .data_mut()
-        .set_flag("intro_p5_route_memory_received", true);
+        .set_flag("intro_creator_notes_recovered", true);
     app.world_mut().resource_mut::<QuestRegistry>().push_event(
         ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
-            "intro_p5_route_memory_received".into(),
+            "intro_creator_notes_recovered".into(),
         ),
     );
     app.update();
     let registry = app.world().resource::<QuestRegistry>();
     let q = registry.quests.get("intro_cartography_route").unwrap();
-    assert!(q.is_complete(), "after P5 pickup, quest should be complete");
-    let save = app.world().resource::<AmbitionGameSave>();
-    assert!(save.data().flag("route_memory_received"));
+    assert!(q.is_complete(), "after the notebooks, quest should be complete");
 }
 
 /// Setting `intro_p5_route_memory_received` should chain to
@@ -227,7 +225,7 @@ fn emit_chains_promotes_p5_to_route_memory() {
 ///
 /// Here the equivalent failure is silent and total: `gated_by` is optional by
 /// design (an encounter's walls carry none), so a world that lost the field
-/// would produce two walls that simply never appear. No error, no warning — the
+/// would produce walls that simply never appear. No error, no warning — the
 /// player just walks through a door that was supposed to be locked.
 ///
 /// this reads the shipped `.ldtk` rather than a fixture, on purpose. A
@@ -279,10 +277,13 @@ fn the_intro_world_authors_the_flag_that_opens_each_gated_wall() {
             .map(|(id, flag)| (id.as_str(), flag.as_str()))
             .collect::<Vec<_>>(),
         vec![
-            ("alice_private_return_lock", "bob_field_survey_received"),
-            ("gate_alice_private_lock", "bob_field_survey_received"),
+            ("alice_survey_line", "bob_field_survey_received"),
+            ("bob_grate", "bob_field_survey_received"),
+            ("gate_checkpoint_barrier", "world.switch_on gate_checkpoint_release"),
+            ("intro_bay_door", "encounter.cleared intro_bay_raid"),
+            ("intro_yard_inner_gate", "encounter.cleared intro_freight_yard_fight"),
         ],
-        "these two pairs used to live in a Rust const table; they now live in the \
-         level, and losing them there is silent"
+        "the level says which fact opens each gated wall, and losing it there is \
+         silent"
     );
 }

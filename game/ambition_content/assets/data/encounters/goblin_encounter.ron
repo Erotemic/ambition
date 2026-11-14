@@ -57,6 +57,39 @@
             ],
         ),
     ],
+    // Level 1's raid (`intro_wake_room`, the loading bay; floor y=352): the
+    // goblins hired for the prototype and the research come in from the bay.
+    // The bay door to the stair stands until this is cleared
+    // (`encounter.cleared intro_bay_raid`).
+    "intro_bay_raid": [
+        (
+            label: "two more from the bay",
+            mobs: [
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1760.0, 324.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (2020.0, 324.0), size: (22.0, 38.0), delay: 0.8),
+            ],
+        ),
+    ],
+    // Level 1's freight yard (`intro_freight_yard`; floor y=480): the goblins'
+    // camp behind the gate stack. The Salvage Lead is a brute: a slow hammer
+    // that goes through a hit once committed, so strike him early or after.
+    // The yard's inner gate opens on `encounter.cleared intro_freight_yard_fight`.
+    "intro_freight_yard_fight": [
+        (
+            label: "wave 1 — the crew",
+            mobs: [
+                (kind: "medium_striker", character: Some("goblin"), spawn: (760.0, 452.0), size: (22.0, 38.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("goblin"), spawn: (1200.0, 452.0), size: (22.0, 38.0), delay: 0.5),
+            ],
+        ),
+        (
+            label: "wave 2 — the Salvage Lead",
+            mobs: [
+                (kind: "npc_goblin_brute", character: Some("npc_goblin_brute"), spawn: (1240.0, 434.0), size: (32.0, 56.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("goblin"), spawn: (900.0, 452.0), size: (22.0, 38.0), delay: 1.5),
+            ],
+        ),
+    ],
     // Castle Godwin of the Evil dimension (`game/ambition_map_assets/ambition_content/generators/castle_godwin/`):
     // the muster of the great hall. `make_specs.py` prints these places.
     "castle_godwin_muster": [

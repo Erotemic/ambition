@@ -157,7 +157,7 @@
     "first_system_boss",
     "gate_stack_lower",
     "intro_escape_shaft",
-    "intro_raid_corridor",
+    "intro_freight_yard",
     "intro_wake_room",
     "pirate_sky_arena",
     "under_town_pipes"
@@ -219,6 +219,14 @@
     "math_zeno_aqueduct"
   ],
   "noodle.ldtk": [
+    "noodle_durum_terraces",
+    "noodle_fizzuvius_caldera",
+    "noodle_fizzuvius_slopes",
+    "noodle_fizzy_flats",
+    "noodle_temple_stair",
+    "noodle_village_curry_house",
+    "noodle_village_market",
+    "noodle_village_square",
     "noodly_belfry",
     "noodly_cistern",
     "noodly_narthex",

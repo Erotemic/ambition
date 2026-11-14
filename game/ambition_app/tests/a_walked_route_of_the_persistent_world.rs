@@ -11,15 +11,14 @@
 
 use ambition_app::rl_sim::AmbitionSim as _;
 
-use crate::common::walk::{walk_through, Pad};
+use crate::common::walk::{through_the_raid, walk_through, Pad};
 use crate::common::{base, fixed_60hz_room_options};
 
 const HUB: &str = "central_hub_complex";
 
 /// The rooms from the hub to Alice and Bob, each through an exit of the room
-/// before: the playthrough's route. Before Bob's survey, the lock wall
-/// of Alice's private return stands on the floor between Alice and the exit
-/// to Bob (112 px tall). The player gets over it with the air jump.
+/// before: the playthrough's route. The lab's way out is shut until its raid
+/// is beaten, so the player fights through it first.
 const ROUTE_TO_BOB: &[&str] = &[
     "intro_wake_room",
     "intro_escape_shaft",
@@ -42,6 +41,10 @@ fn the_player_walks_from_the_hub_to_alice_and_bob() {
     sim.step_n(base(), 30);
     for target in ROUTE_TO_BOB {
         let from = sim.observation().active_room.clone();
+        // The lab's way out is shut until its raid is beaten.
+        if from == "intro_wake_room" {
+            through_the_raid(&mut Pad::new(&mut sim)).unwrap_or_else(|why| panic!("the raid: {why}"));
+        }
         let steps = walk_through(&mut Pad::new(&mut sim), target).unwrap_or_else(|why| panic!("`{from}` to `{target}`: {why}"));
         eprintln!("WALKED `{from}` to `{target}` in {steps} steps");
         sim.step_n(base(), 30);

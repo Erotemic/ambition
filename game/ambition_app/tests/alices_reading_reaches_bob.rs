@@ -1,11 +1,9 @@
-//! WORLD-ACCEPTANCE, first slice: Alice's battery reaches Bob by one road.
+//! WORLD-ACCEPTANCE, first slice: Alice's reading reaches Bob by one road.
 //!
-//! The intro quest `intro_cartography_route` reads two flags. Each flag had a
-//! second writer: a `PickupSpawn` beside each NPC set it with nothing handed
-//! over. Now the hand-over in the dialogue is the only writer, so the quest
-//! cannot advance unless Alice's battery is in the bag and then in Bob's
-//! hands. (Alice sent a sealed note until 2026-11-10, when the note was
-//! removed from the game; the flag names are the save's and stay.)
+//! The level-1 quest `intro_cartography_route` reads two flags: Alice's talk
+//! writes the first (the robot carries her last reading), and Bob's writes the
+//! second when he hears the reading with the word, and gives his survey. A
+//! talk with Bob before Alice's writes nothing.
 //!
 //! The test drives the shipped shell session with real key presses: Interact
 //! starts the conversation and `MenuSelect` (Enter) takes the first choice.
@@ -21,6 +19,10 @@ use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross, room
 pub(crate) const QUEST: &str = "intro_cartography_route";
 pub(crate) const NOTE_FLAG: &str = "alice_route_note_carried";
 pub(crate) const SURVEY_FLAG: &str = "bob_field_survey_received";
+/// Alice's first choice: it gives the robot her reading.
+pub(crate) const ALICE_CHOICE: &str = "Goblins came this way with a crate.";
+/// Bob's first choice once the robot has Alice's reading: the word and the reading.
+pub(crate) const BOB_CHOICE: &str = "\"Bramble.\" The reading is four-one-seven.";
 
 /// The shipped shell session, in the hub.
 pub(crate) fn the_shipped_session() -> App {
@@ -162,74 +164,42 @@ pub(crate) fn quest_step(app: &App) -> Option<u8> {
         .map(|state| state.step)
 }
 
-/// ⭐ THE BATTERY IS THE ROAD. Each fact the quest reads is written by the
-/// hand-over that moves Alice's battery, and by nothing the player walks into.
-///
-/// Premise: in each relay room, standing where the old pickup was, for long
-/// enough to touch it, writes no flag. A battery bought before Alice asked is
-/// not hers: Bob does not take it. Alice's choice puts one battery in the bag
-/// and advances the quest one step. Bob's choice takes one battery, gives the
-/// survey, and advances it again.
+/// ⭐ THE READING IS THE ROAD. Each fact the quest reads is written by a
+/// conversation: Alice's gives the reading, Bob's takes it with the word and
+/// gives the survey. Control: before Alice's, Bob has nothing to take, and
+/// talking to him writes nothing and gives nothing.
 #[test]
-fn alices_battery_reaches_bob() {
+fn alices_reading_reaches_bob() {
     let mut app = the_shipped_session();
     let body = primary_body(&mut app);
-    cross(&mut app, body, PlayerSlot(0), "alice_relay");
-    assert_eq!(room_of(&app, body).as_deref(), Some("alice_relay"));
+    cross(&mut app, body, PlayerSlot(0), "bob_relay");
+    assert_eq!(room_of(&app, body).as_deref(), Some("bob_relay"));
     let start_step = quest_step(&app).expect("the intro quest starts by itself");
-    // ⛔ THE BAG STARTS WITHOUT A BATTERY OR A SURVEY. A starting bag that
-    // unlocked the key items too (2026-10-30) passed every reading below,
-    // because a grant of one to a bag that holds one leaves one.
+    // ⛔ THE BAG STARTS WITHOUT A SURVEY. A starting bag that unlocked the
+    // key items too (2026-10-30) passed every reading below, because a grant
+    // of one to a bag that holds one leaves one.
+    assert_eq!(bag(&app, "fieldsurvey"), 0, "surveys in the bag before Bob gives one");
+
+    talk_and_choose(&mut app, "npc_bob", "What are you doing?");
     assert_eq!(
-        (bag(&app, "sparebattery"), bag(&app, "fieldsurvey")),
-        (0, 0),
-        "(batteries, surveys) in the bag before the quest gives either"
+        (bag(&app, "fieldsurvey"), flag(&app, SURVEY_FLAG), quest_step(&app)),
+        (0, false, Some(start_step)),
+        "control: before Alice's reading, Bob takes nothing and gives nothing"
     );
 
-    // Where the old pickup by Alice was (`alice_relay`, px 400,696).
-    put_body_at(&mut app, body, ambition_platformer2d::engine_core::Vec2::new(412.0, 684.0));
-    for _ in 0..30 {
-        app.update();
-    }
-    assert!(!flag(&app, NOTE_FLAG), "Alice's flag was set with nothing handed over");
-
-    // A battery from a shop, before Alice asked: Bob is not offered it.
-    let catalog = ambition_platformer2d::items::item_catalog(app.world()).clone();
-    let battery = catalog.item_by_dialog_id("sparebattery").expect("the catalog names the battery");
-    app.world_mut().resource_mut::<ambition_platformer2d::item::OwnedItems>().grant(&catalog, battery, 1);
-    cross(&mut app, body, PlayerSlot(0), "bob_relay");
-    talk_and_choose(&mut app, "npc_bob", "Why are you up here?");
-    assert_eq!(
-        (bag(&app, "sparebattery"), flag(&app, SURVEY_FLAG)),
-        (1, false),
-        "control: Bob takes no battery that Alice did not send"
-    );
     cross(&mut app, body, PlayerSlot(0), "alice_relay");
-
-    talk_and_choose(&mut app, "npc_alice", "What can I do?");
+    talk_and_choose(&mut app, "npc_alice", ALICE_CHOICE);
     assert_eq!(
-        (bag(&app, "sparebattery"), flag(&app, NOTE_FLAG), quest_step(&app)),
-        (2, true, Some(start_step + 1)),
-        "(batteries in the bag, Alice's flag, quest step) after Alice's choice"
+        (flag(&app, NOTE_FLAG), quest_step(&app)),
+        (true, Some(start_step + 1)),
+        "(Alice's flag, quest step) after Alice's choice"
     );
 
     cross(&mut app, body, PlayerSlot(0), "bob_relay");
-    // Where the old pickup of the survey was (`bob_relay`, px 880,584).
-    put_body_at(&mut app, body, ambition_platformer2d::engine_core::Vec2::new(892.0, 572.0));
-    for _ in 0..30 {
-        app.update();
-    }
-    assert!(!flag(&app, SURVEY_FLAG), "the survey's flag was set with nothing handed over");
-
-    talk_and_choose(&mut app, "npc_bob", "Hand him the battery.");
+    talk_and_choose(&mut app, "npc_bob", BOB_CHOICE);
     assert_eq!(
-        (
-            bag(&app, "sparebattery"),
-            bag(&app, "fieldsurvey"),
-            flag(&app, SURVEY_FLAG),
-            quest_step(&app)
-        ),
-        (1, 1, true, Some(start_step + 2)),
-        "(batteries, surveys, survey flag, quest step) after Bob's choice"
+        (bag(&app, "fieldsurvey"), flag(&app, SURVEY_FLAG), quest_step(&app)),
+        (1, true, Some(start_step + 2)),
+        "(surveys, survey flag, quest step) after Bob's choice"
     );
 }

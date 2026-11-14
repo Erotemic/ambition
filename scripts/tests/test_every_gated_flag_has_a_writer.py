@@ -71,6 +71,10 @@ WORLDS = REPO / "game/ambition_content/assets/worlds"
 YARN_READ = re.compile(r'world\.flag_set"\s*,\s*"([A-Za-z0-9_]+)"')
 # `<<set_flag "<flag>" true>>` — the dialogue road's writer.
 YARN_WRITE = re.compile(r'(?:set_flag|clear_flag)"?\s+"([A-Za-z0-9_]+)"')
+# A cutscene's `SetFlag(id: "<flag>", on: true)` beat — the cutscene road's
+# writer (`ambition_cutscene::CutsceneBeat::SetFlag`).
+CUTSCENES = REPO / "game/ambition_content/assets/data/cutscenes"
+CUTSCENE_WRITE = re.compile(r'SetFlag\(\s*id:\s*"([A-Za-z0-9_]+)"\s*,\s*on:\s*true')
 
 
 def _authored_reads() -> dict[str, list[str]]:
@@ -104,6 +108,8 @@ def _writable() -> set[str]:
     names: set[str] = set()
     for path in sorted(DIALOGUE.rglob("*.yarn")):
         names.update(YARN_WRITE.findall(path.read_text(encoding="utf-8", errors="replace")))
+    for path in sorted(CUTSCENES.rglob("*.ron")):
+        names.update(CUTSCENE_WRITE.findall(path.read_text(encoding="utf-8", errors="replace")))
     # A `PickupSpawn` whose `kind` is `flag:<name>` sets that flag when it is
     # collected (`PickupKind::StoryFlag`).
     for path in sorted(WORLDS.glob("*.ldtk")):

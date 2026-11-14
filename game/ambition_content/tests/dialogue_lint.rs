@@ -246,8 +246,8 @@ mod tests {
     /// sells another, or does nothing because `shop::sell` refuses an item not
     /// owned. Neither failure tells the player anything.
     ///
-    /// The price check is conditional and the item check is not. `intro.yarn`'s
-    /// `<<sell_item "sparebattery" 0>>` is a hand-over, not a sale, and has no label
+    /// The price check is conditional and the item check is not. A
+    /// `<<sell_item "<item>" 0>>` is a hand-over, not a sale, and has no label
     /// price. So the price pair is checked only where the author wrote one.
     #[test]
     fn a_sell_lines_guard_and_its_sale_name_the_same_item() {
@@ -313,7 +313,7 @@ mod tests {
         // A floor: this parses by shape, so a rewritten option grammar would
         // leave it walking nothing and passing.
         assert!(
-            checked >= 3,
+            checked >= 2,
             "only {checked} guarded sell line(s) parsed across {} authored .yarn \
              file(s) — the option grammar this reads has changed",
             files.len()

@@ -273,7 +273,7 @@ fn player_two_dialogue_at_choices(mut app: App, pads: Vec<Entity>, together: boo
     use ambition_platformer2d::input::InputOwner;
     use ambition_platformer2d::input::ParticipantId;
     use crate::neighbor_prefetch_prepares_rooms::cross;
-    use crate::alices_battery_reaches_bob::{npc, put_body_at};
+    use crate::alices_reading_reaches_bob::{npc, put_body_at};
     tap(&mut app, pads[1], GamepadButton::Start);
     for _ in 0..6 { app.update(); }
     let two = seat_one_bodies(&mut app)[0];
@@ -908,7 +908,7 @@ fn rendered_pad_combat(enabled: bool) {
     use ambition_platformer2d::projectiles::ProjectileSpawnRequest;
     use ambition_platformer2d::settings_menu::settings::{apply_settings_option, SettingsOptionId};
     use crate::neighbor_prefetch_prepares_rooms::cross;
-    use crate::alices_battery_reaches_bob::put_body_at;
+    use crate::alices_reading_reaches_bob::put_body_at;
 
     let mut app = gpu_app(if enabled { "ambition-pad-combat-on.png" } else { "ambition-pad-combat-off.png" });
     settle(&mut app);
@@ -1341,7 +1341,7 @@ fn place_loading_combat_pair(app: &mut App, fighter: Entity) -> Entity {
     use ambition_platformer2d::actor::{BodyHealth, Health};
     use ambition_platformer2d::characters::actor::CharacterForm;
     use ambition_platformer2d::engine_core::{Aabb, AabbExt as _};
-    use crate::alices_battery_reaches_bob::put_body_at;
+    use crate::alices_reading_reaches_bob::put_body_at;
     let world = app.world_mut();
     let room = *world.get::<InRoomInstance>(fighter).unwrap();
     let victim = world.query::<(Entity, &InRoomInstance, Option<&DrivingParticipant>, &BodyKinematics,
@@ -1399,7 +1399,7 @@ fn loading_combat_witness(host: App, loading_slot: u8, capture: bool) {
         let fighter_pos = world.get::<BodyKinematics>(fighter).unwrap().pos;
         let target_half = world.get::<BodyKinematics>(victim).unwrap().size() * 0.5;
         let feet = fighter_pos.y + world.get::<BodyKinematics>(fighter).unwrap().size().y * 0.5;
-        crate::alices_battery_reaches_bob::put_body_at(&mut app, victim,
+        crate::alices_reading_reaches_bob::put_body_at(&mut app, victim,
             ambition_platformer2d::engine_core::Vec2::new(fighter_pos.x + 40.0, feet - target_half.y));
         victim
     };

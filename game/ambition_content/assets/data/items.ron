@@ -222,7 +222,7 @@
     ),
     (
         display_name: "Field Survey",
-        description: "Bob\'s field survey of a nearby zone.",
+        description: "Bob\'s survey sheet of the drains under the Drain Market, in pencil. Some of the drains are not on the official map.",
         category: KeyItem,
         held_item_id: None,
         dialog_id: "fieldsurvey",

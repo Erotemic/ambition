@@ -18,7 +18,7 @@ use ambition_platformer2d::characters::control::PlayerSlot;
 use bevy::prelude::App;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross, room_of};
-use crate::alices_battery_reaches_bob::{the_shipped_session, bag, flag, talk_and_choose};
+use crate::alices_reading_reaches_bob::{the_shipped_session, bag, flag, talk_and_choose};
 
 const QUEST: &str = "orbital_consignment";
 const DOCK: &str = "orbital_station_gate_dock";

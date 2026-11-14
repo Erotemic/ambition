@@ -714,9 +714,18 @@ fn composed_quest_ids(
             _ => {}
         }
     }
-    // A dialogue choice can set a flag (`world.set_flag`): the hand-over of
-    // Alice's note is the one writer of the flag its quest step reads.
+    // A dialogue choice can set a flag (`world.set_flag`): Alice's talk is the
+    // one writer of the flag her quest step reads.
     flags.extend(crate::dialogue::dialogue_set_flags());
+    // A cutscene's `SetFlag` beat writes its flag too, and a skip still
+    // applies it.
+    for script in crate::dialogue::cutscene_defaults::cutscene_scripts_of(crate::pack::shipped()) {
+        for beat in &script.beats {
+            if let ambition_cutscene::CutsceneBeat::SetFlag { id, on: true } = beat {
+                flags.insert(id.clone());
+            }
+        }
+    }
     // The reward chest of an encounter is keyed by the id that the loader gives
     // the encounter.
     for (encounter_id, _, _) in loaded_encounters {

@@ -136,43 +136,25 @@
             ],
         )),
     ),
-    // Intro v1: Alice's battery for Bob, then Bob's field survey, then the first system
-    // boss and P5 Route Memory. Each step is a flag that a PickupSpawn in
-    // alice_relay, bob_relay or first_system_boss sets.
+    // Level 1 (`docs/planning/game/level-1.md`): Alice and Bob are mid-traverse
+    // under the Drain Market. Alice's talk sets the first flag, Bob's hand-over
+    // the second; the third is the notebooks in the freight yard.
     (
         id: "intro_cartography_route",
-        title: "Carry the Quiet Route",
-        summary: "Alice sends a battery for Bob's survey lamp. Bob owes her a survey.",
+        title: "The Last Reading",
+        summary: "Alice and Bob are surveying the drains under the Drain Market. Bob's end of the survey goes under the checkpoint.",
         steps: [
             (
-                description: "Find Alice and take the battery she sends to Bob.",
+                description: "Find Alice in the drains and take her last reading.",
                 condition: FlagSet("alice_route_note_carried"),
             ),
             (
-                description: "Bring Bob the battery and pick up his field survey.",
+                description: "Take the reading to Bob, with the word.",
                 condition: FlagSet("bob_field_survey_received"),
             ),
             (
-                description: "Clear the first system encounter and bank route memory.",
-                condition: FlagSet("intro_p5_route_memory_received"),
-            ),
-        ],
-        auto_start: true,
-    ),
-    // Intro v1, the P1 stabilizer beat: talk to Oiler in Drain Market, then pick up
-    // the stabilizer kit (drain_alley).
-    (
-        id: "intro_p1_stabilizer",
-        title: "Stabilizer Drop",
-        summary: "Oiler can stabilize the under-town descent.",
-        steps: [
-            (
-                description: "Speak with Oiler in Drain Market.",
-                condition: FlagSet("npc_oiler_intro_talked"),
-            ),
-            (
-                description: "Pick up the stabilizer kit.",
-                condition: FlagSet("p1_stabilizer_received"),
+                description: "Follow the goblins under the checkpoint and take back the notebooks.",
+                condition: FlagSet("intro_creator_notes_recovered"),
             ),
         ],
         auto_start: true,

@@ -319,7 +319,6 @@ mod tests {
             "quest_lab_visit",
             "pirate_treasure",
             "intro_cartography_route",
-            "intro_p1_stabilizer",
             "intro_first_system_boss",
             // The orbital station's errand: its HUD entry is the reason to travel.
             "orbital_consignment",

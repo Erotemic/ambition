@@ -1,7 +1,9 @@
 # Level 1: the wrong basement and the Drain Market
 
-**State:** OPEN. Design written 2026-11-14; rooms are built slice by slice
-(queue row [LEVEL-1](../queue.md#level-1--the-lab-raid-and-the-first-level-after-it)).
+**State:** OPEN. Design written 2026-11-14. Rooms 1-7 and 9 and the
+checkpoint of room 8 are built (2026-11-14); queue row
+[LEVEL-1](../queue.md#level-1--the-lab-raid-and-the-first-level-after-it)
+holds what remains.
 
 Jon, 2026-11-14: "redesign the entire thing so it feels like a real game.
 Not just a demo, I want to start building the real intro sequences and world
@@ -73,19 +75,19 @@ A room in `intro.ldtk` that this level rebuilds is written by
 
 | # | room id | title | what the place asks | cast |
 |---|---|---|---|---|
-| 1 | `intro_wake_room` (lab half) | THE BASEMENT LAB | walk, the first jump (off the diagnostic cart; a cable trench; the steps of the bench) | the Creator |
-| 2 | `intro_wake_room` (raid half; `intro_raid_corridor` is merged into it) | THE LOADING BAY | the strike: one raider, then two, then the shut bay door until the last falls | the Creator, goblin raiders |
+| 1 | `intro_wake_room` (lab half) | THE BASEMENT LAB | walk, the first jump (down the cart's ramp; the creator's bench, a step of 48; a cable trench) | the Creator |
+| 2 | `intro_wake_room` (raid half; `intro_raid_corridor` is merged into it) | THE LOADING BAY | the strike: two raiders, then two more, and the bay door shut until the last falls | the Creator, goblin raiders |
 | 3 | `intro_escape_shaft` | THE SERVICE STAIR | single jumps up a wrecked stair in tiers; a raider on a landing; vermin that do not fight | puppy slugs |
-| 4 | `drain_alley` | THE DRAIN MARKET | the street: talk, the bench (a save), drop through an awning, the manhole down | Oiler, the news board |
+| 4 | `drain_alley` | THE DRAIN MARKET | the street: talk, Oiler's bench (a shrine), the awnings up to a purse, the drain cover down | Oiler, the news board |
 | 5 | `under_town_pipes` | THE CULVERT | gaps over the sump (a fall stings and puts you back), a raft that crosses the wide one | a goblin lookout |
 | 6 | `alice_relay` | ALICE'S STATION | the survey line across the high walk; the low walk on to Bob | Alice |
 | 7 | `bob_relay` | BOB'S END | the wet stretch (jumps over sump pits); the way on | Eve (listening at a pipe), Bob |
 | 8 | `gate_stack_lower` | THE GATE STACK | the rings; the checkpoint that stops the robot | the Gate Janitor, the Manifest Clerk |
-| 9 | (new) | THE FREIGHT YARD | a fight that shuts the yard; the Salvage Lead (a brute: read the windup, strike early or after) | the Salvage Lead, goblins |
+| 9 | `intro_freight_yard` (new) | THE FREIGHT YARD | a fight that shuts the yard; the Salvage Lead (a brute: read the windup, strike early or after) | the Salvage Lead, goblins |
 
-Rooms 1 to 7 are built first, in order. Rooms 8 and 9 follow: room 8 keeps
-its rings and gate network (`data/gate_network.ron`), and gets the
-checkpoint; room 9 is new.
+Room 8 is LDtk-owned: it keeps its rings and gate network
+(`data/gate_network.ron`), and the checkpoint was added to it by hand.
+Every other room is written by the generator.
 
 ### 1-2. The basement lab and the loading bay (`intro_wake_room`)
 
@@ -94,15 +96,20 @@ old build he stopped at the head of the 128 px stair between the two
 levels and died 1400 px behind the player).
 
 - Wake on the diagnostic cart (`intro_wake`). The cart's ramp is the first
-  slope; a bench of two steps (32 px each) is the first jump that is needed;
-  a cable trench (96 wide, shallow) is the first gap, and falling in costs
-  nothing.
+  slope; the creator's bench (a step of 48) is the first jump that is
+  needed; a cable trench (96 wide, 48 deep) is the first gap, and falling in
+  costs a jump.
 - The raid starts at a volume where the lab opens into the loading bay
   (`intro_raid`). The goblins say why they came. The bay door at the far
   end is shut (a `LockWall` gated on the raid's last raider:
-  `world.flag_set intro_raid_cleared`).
-- The fight: one raider in front, then two from the bay. The creator fights
+  `encounter.cleared intro_bay_raid`; the waves are in
+  `data/encounters/goblin_encounter.ron`).
+- The fight: two raiders in front, then two more from the bay. The creator fights
   too (`follows_closely`, and the room is `dangerous`).
+- The raid stays won: its clear greens the raiders' whistle (a `Switch`
+  linked to the encounter), and an encounter with no linked switch would
+  start again each time the player walked back into its trigger. Blowing
+  the whistle calls the raid again, for practice.
 - When the bay is clear, the creator's last words play at a volume in front
   of the bay door (`creator_final_fragment`), ending on his `Fall`. He was
   hurt in the fight; he dies when it is quiet. Q173's default stands (he
@@ -111,15 +118,17 @@ levels and died 1400 px behind the player).
 ### 3. The service stair (`intro_escape_shaft`)
 
 The raid wrecked the stair. The room is wide, in three tiers: broken
-flights (32 px steps) with gaps, a fallen girder that bridges a gap,
-landings. One raider waits on the middle landing. Puppy slugs live in the
-rubble; they do not fight. A cracked wall on the first landing breaks to a
-strike and hides a health pickup. The top landing opens on the market.
+flights (steps of 48), a pit, a hole in the middle landing, a gap where a
+girder fell. One raider waits on the middle landing. Puppy slugs live in the
+rubble; they do not fight. A fall through a hole costs a climb, not a life.
+The sign on the lab's door says `14 CULVERT LANE`. The top landing opens on
+the market.
 
 ### 4. The Drain Market (`drain_alley`)
 
 A street under the gate stack. Stalls with awnings (one-way ledges) make a
-second level over the street. The arrival banner stays. Oiler comes to meet
+second level over the street. The area card names the place (the old
+arrival banner is gone). Oiler comes to meet
 the robot (`oiler_notices`, his `meets_the_player` brain). His bench is a
 shrine (the first save point). In talk he straightens the knee, says where
 the goblins went (east, with a crate, toward the checkpoint) and that the
@@ -131,9 +140,11 @@ survey is done); the freight yard's shortcut door (later).
 ### 5. The culvert (`under_town_pipes`)
 
 A storm drain under the market. The sump at the bottom stings
-(`DamageVolume`, one damage and a knock back out). Gaps between walks, each
-a single jump; the widest is crossed on a raft (`MovingPlatform`). A goblin
-lookout stands on the far walk (he is listening for the cartographers).
+(`DamageVolume`, one damage and a knock back out, painted murky water).
+Gaps between stepping stones, each a single jump; the widest is crossed on
+a raft (`MovingPlatform`). A goblin lookout stands on the far walk. A
+cracked wall at the west end of the middle walk breaks to the strike and
+hides a can of oil (health).
 
 ### 6-7. Alice's station and Bob's end (`alice_relay`, `bob_relay`)
 
@@ -153,29 +164,41 @@ map: `map_basic_unlocked`), `bob_field_survey_received` (Bob has the
 reading; the robot has the survey: `map_private_marks_unlocked`). The
 survey line across Alice's high walk is a `LockWall` gated on
 `bob_field_survey_received`: when the traverse is closed, the line comes
-down and the high walk leads to Alice's hatch up into the market.
+down and the high walk leads to Alice's hatch up into the market. Bob's
+grate, past his station, is gated on the same fact: Bob opens it when the
+traverse is closed, and the drain beyond runs under the checkpoint to the
+freight yard.
 
 ### 8. The gate stack (`gate_stack_lower`)
 
 The rings, the janitor and the manifest clerk stay. The checkpoint: a
-barrier between the rings and the way east. Unmanifested hardware is
-refused. Bob's way under it comes up beyond the barrier, where a lever
-lifts the barrier from the far side (a `LockWall` gated on
-`world.switch_on`); after that the barrier is a shortcut.
+barrier east of ring 7, before the way east (`gate_checkpoint_barrier`,
+gated on `world.switch_on gate_checkpoint_release`). Unmanifested hardware
+is refused. The freight yard's door comes up in the pocket behind the
+barrier, where its lever is; after that the barrier is a shortcut. The
+labels that said `MAP_PRIVATE`, `MAP_WATCHED` and `[official report]`, the
+wall gated on Bob's survey and the "submit private route data" switch are
+gone.
 
 ### 9. The freight yard (new)
 
-The goblins' camp, where the crate waits for a gate. An encounter shuts the
-yard: two goblins, then the Salvage Lead (`npc_goblin_brute`'s body: a
-slow, armored hammer; strike before the windup is committed, or after the
-swing). He drops the creator's notebooks (`intro_creator_notes_recovered`).
-A door from the yard back to the Drain Market opens.
+The goblins' camp, where the crate waits for a gate. The Salvage Lead
+speaks at the yard's west gate (`salvage_lead_yard`); an encounter shuts
+the yard (`intro_freight_yard_fight`): two goblins, then the Salvage Lead
+(`npc_goblin_brute`'s body: a slow, armored hammer; strike before the
+windup is committed, or after the swing) with one more goblin. The inner
+gate opens when it is won, and the yard bell (linked to the fight, as the
+whistle is to the raid) keeps it won until it is rung. Behind it is the crate (`creator_notebooks`):
+the work order names `14 CULVERT ROW`, the notebooks' last page starts "THE
+QUESTION I WANT IT TO ASK IS" and the rest is torn off
+(`intro_creator_notes_recovered`, the quest's last step). The yard's door
+comes up behind the checkpoint.
 
 ## Dialogue and cutscenes
 
 - `assets/data/cutscenes/intro.ron`: `intro_wake`, `intro_raid`,
   `creator_final_fragment`, `drain_market_arrival`, `oiler_notices`,
-  `first_ripple` (unwired).
+  `salvage_lead_yard`, `creator_notebooks`, `first_ripple` (unwired).
 - `assets/dialogue/sandbox/intro.yarn`: the creator, the raiders, Oiler,
   the news board, Alice, Bob, Eve's cameo, the gate janitor and the manifest
   clerk.

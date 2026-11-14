@@ -113,7 +113,7 @@ fn a_woken_bosss_name_card_is_drawn_in_its_rectangle() {
             let world = app.world_mut();
             world.query_filtered::<Entity, With<PrimaryPlayer>>().single(world).expect("one primary body")
         };
-        crate::alices_battery_reaches_bob::put_body_at(&mut app, player, ae::Vec2::new(boss.x - 160.0, boss.y));
+        crate::alices_reading_reaches_bob::put_body_at(&mut app, player, ae::Vec2::new(boss.x - 160.0, boss.y));
         let mut frames = 0;
         while card(&app) < 0.99 {
             frames += 1;
@@ -185,7 +185,7 @@ fn two_views_in_two_boss_rooms_each_draw_their_bosss_card() {
                 .map(|(_, kin, _)| kin.pos)
                 .unwrap_or_else(|| panic!("the room {room:?} places a boss"))
         };
-        crate::alices_battery_reaches_bob::put_body_at(&mut app, body, ae::Vec2::new(boss.x - 160.0, boss.y));
+        crate::alices_reading_reaches_bob::put_body_at(&mut app, body, ae::Vec2::new(boss.x - 160.0, boss.y));
     }
     let mut frames = 0;
     loop {

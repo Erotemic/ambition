@@ -164,9 +164,19 @@ tests (bounce, one-way landing, strike rules).
    level 2 adds a controlled blink; level 3 adds a time-slow control. Also:
    a quick press does "the intuitive thing", and two quick presses give the
    directional blink.
-3. **Tiers.** A variant with levels needs an upgrade fact. None exists.
-   Prefer a level on the owned item (the bag counts it) over a second
-   authority.
+3. **Tiers (the fact done 2026-11-14).** The level is the bag's count of the
+   ability: an item's `levels` (in `items.ron`) are the rows worn at levels
+   2 and up, each in the `wears` row's exclusive slot, and `stack` holds the
+   top level (the schema refuses either missing). An equip wears the level
+   the count says (`ItemCatalog::wears_at`), and `level_worn_abilities`
+   keeps a body that wears some level on the level the count says, so a
+   second pickup raises it and a checkpoint that restores the count lowers
+   it. Witness `the_bags_count_of_an_ability_is_the_level_its_body_wears`.
+   Not authored yet: Precision Blink's tiers. Its level 1 (a directional
+   instant blink, no aimed blink) needs a row that withholds a verb the
+   robot's own kit has, and an equipment row can only grant, modify or
+   absorb. The ceiling contributions that room kits use
+   (`AbilityContributions`) are the seam to give a row.
 4. **Placeholders:** Lightning, Axe Stance, Whip Stance, Dash II. A stance
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.

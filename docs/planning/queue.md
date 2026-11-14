@@ -209,9 +209,13 @@ character landmarks. Design: [ability loadout, open work](game/ability-loadout.m
 **Done 2026-11-11:** the published `eye_laser` row draws, and the laser leaves
 the visor its art draws ([loadout](game/ability-loadout.md#open)).
 
-**Next action:** the laser's own sound waits for an SFX bank republish. Support
-Blink and stance replacement through the existing technique/equipment seam,
-with one authoritative upgrade fact. Author Contextual Blink, Precision Blink
+**Done 2026-11-14:** the one authoritative upgrade fact: an ability's level
+is the bag's count, its rows per level are `items.ron`'s `levels`, and the
+worn row follows the count ([loadout, open 3](game/ability-loadout.md#open)).
+
+**Next action:** the laser's own sound waits for an SFX bank republish. A
+row that withholds a verb (for Precision Blink's level 1), then Blink and
+stance replacement through the existing technique/equipment seam. Author Contextual Blink, Precision Blink
 tiers and the remaining variants in that model, not named engine branches.
 
 **Acceptance:** each real variant changes its declared slot on any supported

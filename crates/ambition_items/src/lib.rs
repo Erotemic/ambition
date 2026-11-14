@@ -117,6 +117,14 @@ pub struct ItemMeta {
     /// ability that is only a placeholder.
     #[serde(default)]
     pub wears: Option<ambition_characters::equipment::EquipmentRow>,
+    /// For an ability with levels, the row a body wears at each level past
+    /// the first: `levels[0]` is level 2. The level is the bag's count of the
+    /// item, so the count is the one upgrade fact: a second pickup is level
+    /// 2, and a checkpoint that restores the count restores the level. Each
+    /// level row names the `wears` row's exclusive slot, so wearing one
+    /// replaces the other, and `stack` holds every level.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub levels: Vec<ambition_characters::equipment::EquipmentRow>,
     /// The cell's picture, relative to the asset root. `None` shows the name.
     #[serde(default)]
     pub icon: Option<String>,
@@ -208,6 +216,31 @@ impl ItemCatalog {
     /// For an ability, the equipment row a body wears when it equips it.
     pub fn wears(&self, item: Item) -> Option<&ambition_characters::equipment::EquipmentRow> {
         self.meta(item)?.wears.as_ref()
+    }
+
+    /// The row a body wears for an ability of which the bag holds `count`:
+    /// the `wears` row at level 1 (and for a count of 0), the level's row
+    /// after it ([`ItemMeta::levels`]), the top level's beyond the last.
+    pub fn wears_at(&self, item: Item, count: u32) -> Option<&ambition_characters::equipment::EquipmentRow> {
+        let meta = self.meta(item)?;
+        let base = meta.wears.as_ref()?;
+        let past_the_first = (count.max(1) - 1) as usize;
+        if past_the_first == 0 {
+            return Some(base);
+        }
+        Some(meta.levels.get(past_the_first - 1).or(meta.levels.last()).unwrap_or(base))
+    }
+
+    /// Every row an ability is worn as, level 1 first.
+    pub fn worn_rows(&self, item: Item) -> impl Iterator<Item = &ambition_characters::equipment::EquipmentRow> {
+        self.meta(item)
+            .into_iter()
+            .flat_map(|meta| meta.wears.iter().chain(meta.wears.is_some().then_some(meta.levels.iter()).into_iter().flatten()))
+    }
+
+    /// The abilities that have levels.
+    pub fn leveled(&self) -> impl Iterator<Item = Item> + '_ {
+        Item::ALL.into_iter().filter(|item| self.meta(*item).is_some_and(|meta| meta.wears.is_some() && !meta.levels.is_empty()))
     }
 
     /// The cell's picture, if the catalog names one.

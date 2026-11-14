@@ -272,8 +272,68 @@ fn declare_wears<'a>(
         );
     }
     let Some(worn) = row.wears.as_ref() else {
+        if !row.levels.is_empty() {
+            out.report(
+                facet
+                    .diagnostic(
+                        DiagnosticCode::MalformedProviderBinding,
+                        format!("item `{dialog_id}` names `levels` and no `wears` row for level 1"),
+                    )
+                    .about(id.clone())
+                    .at_field("levels")
+                    .fix("a level is a row worn after the first: name the level-1 row in `wears`"),
+            );
+        }
         return;
     };
+    // Every level is a count the bag can hold, and each level's row takes the
+    // first's slot, so wearing one replaces the other.
+    if !row.levels.is_empty() && (row.stack as usize) < 1 + row.levels.len() {
+        out.report(
+            facet
+                .diagnostic(
+                    DiagnosticCode::MalformedProviderBinding,
+                    format!(
+                        "ability `{dialog_id}` has {} levels and `stack: {}`, so the bag can never hold its top level",
+                        1 + row.levels.len(),
+                        row.stack
+                    ),
+                )
+                .about(id.clone())
+                .at_field("stack")
+                .fix(format!("the level is the bag's count: use `stack: {}`", 1 + row.levels.len())),
+        );
+    }
+    for level in &row.levels {
+        if worn.exclusive_slot.is_none() || level.exclusive_slot != worn.exclusive_slot {
+            out.report(
+                facet
+                    .diagnostic(
+                        DiagnosticCode::MalformedProviderBinding,
+                        format!(
+                            "ability `{dialog_id}`'s level row `{}` is not in its `wears` row's exclusive slot",
+                            level.id
+                        ),
+                    )
+                    .about(id.clone())
+                    .at_field("levels")
+                    .fix("name one exclusive slot on `wears` and on every level row, so a level replaces the one before"),
+            );
+        }
+        if let Some(first) = worn_owners.insert(level.id.as_str(), index) {
+            if first != index || level.id == worn.id {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::ConflictingModuleContribution,
+                            format!("grid slots {first} and {index} both wear the row `{}`", level.id),
+                        )
+                        .about(id.clone())
+                        .at_field("levels"),
+                );
+            }
+        }
+    }
     if worn.id.trim().is_empty() {
         out.report(
             facet

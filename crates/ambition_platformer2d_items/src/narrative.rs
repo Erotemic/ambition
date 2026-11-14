@@ -287,6 +287,32 @@ pub fn apply_item_uses(
 
 /// Equip what a menu asked to equip. (sim)
 ///
+/// A body wearing a level of an ability wears the level the bag's count
+/// says: a second pickup raises it, and a checkpoint that restores a smaller
+/// count lowers it. The count is the one upgrade fact; the worn row follows
+/// it, and only a body that wears some level of the ability is touched.
+///
+/// Every tick, with no change gate: a restore writes the bag and the worn set
+/// back together, and a gate on the bag's change would also have to name the
+/// worn set's (and a removal). The work is the leveled abilities times the
+/// bodies that wear equipment.
+pub fn level_worn_abilities(
+    owned: Res<OwnedItems>,
+    items: ambition_items::ItemCatalogRead,
+    mut bodies: Query<&mut ambition_characters::equipment::WornEquipment>,
+) {
+    let catalog = items.get();
+    for item in catalog.leveled() {
+        let Some(due) = catalog.wears_at(item, owned.count(item)) else { continue; };
+        for mut worn in &mut bodies {
+            let wears_a_level = catalog.worn_rows(item).any(|row| worn.wears(&row.id));
+            if wears_a_level && !worn.wears(&due.id) {
+                worn.equip(due.clone());
+            }
+        }
+    }
+}
+
 /// The participant's controlled body wears the ability row. An exclusive
 /// slot replaces the variant that held the slot ([`WornEquipment::equip`]),
 /// so one variant of a slot is worn at a time. The action scheme and the
@@ -312,7 +338,8 @@ pub fn apply_item_equips(
             continue;
         }
         let Some(body) = driven_body(request.participant, &drivers) else { continue; };
-        let Some(row) = items.get().wears(request.item) else {
+        // The level is the bag's count (`ItemMeta::levels`).
+        let Some(row) = items.get().wears_at(request.item, owned.count(request.item)) else {
             warn!(
                 target: "crate::narrative",
                 "an equip of {:?} was asked for, and it is no ability with a row", request.item
@@ -510,6 +537,62 @@ mod tests {
             app.update();
             assert_eq!(worn_ids(&app, body), Some(vec!["fireball".into()]), "an unowned variant must be refused");
         }
+    }
+
+    /// ABILITY-VARIANTS' upgrade fact: the bag's count of an ability is its
+    /// level. Equipped at one, the body wears level 1; a second pickup raises
+    /// the worn row to level 2 with no new equip; a restore of the count to
+    /// one lowers it again. A body that wears no level of the ability is not
+    /// touched.
+    #[test]
+    fn the_bags_count_of_an_ability_is_the_level_its_body_wears() {
+        use ambition_characters::equipment::{EquipmentRow, WornEquipment};
+        let shipped = ambition_items::test_item_catalog();
+        let rows: Vec<_> = Item::ALL
+            .into_iter()
+            .map(|item| {
+                let mut meta = shipped.meta(item).cloned().expect("the test catalog names every slot");
+                if item == Item::PrecisionBlink {
+                    let row = |id: &str| EquipmentRow {
+                        exclusive_slot: Some("blink".into()),
+                        id: id.into(),
+                        modifiers: Vec::new(),
+                        grants: Vec::new(),
+                        on_hit: None,
+                    };
+                    meta.wears = Some(row("blink_1"));
+                    meta.levels = vec![row("blink_2"), row("blink_3")];
+                    meta.stack = 3;
+                }
+                meta
+            })
+            .collect();
+        let catalog = ambition_items::ItemCatalog::from_rows(rows);
+        let mut app = App::new();
+        app.insert_resource(catalog.clone());
+        let mut owned = OwnedItems::default();
+        owned.grant(&catalog, Item::PrecisionBlink, 1);
+        app.insert_resource(owned);
+        app.add_message::<ambition_items::ItemEquipRequested>();
+        app.add_systems(Update, (apply_item_equips, level_worn_abilities).chain());
+        let body = app.world_mut().spawn(DrivingParticipant(PlayerSlot(0))).id();
+        let bystander = app.world_mut().spawn(WornEquipment::default()).id();
+        let worn = |app: &App, entity| {
+            app.world().get::<WornEquipment>(entity).map(|worn| worn.rows.iter().map(|row| row.id.clone()).collect::<Vec<_>>())
+        };
+
+        app.world_mut().write_message(ambition_items::ItemEquipRequested { participant: PlayerSlot(0), item: Item::PrecisionBlink });
+        app.update();
+        assert_eq!(worn(&app, body), Some(vec!["blink_1".into()]), "one in the bag is level 1");
+
+        app.world_mut().resource_mut::<OwnedItems>().grant(&catalog, Item::PrecisionBlink, 1);
+        app.update();
+        assert_eq!(worn(&app, body), Some(vec!["blink_2".into()]), "a second pickup raised the worn level");
+
+        app.world_mut().resource_mut::<OwnedItems>().take(Item::PrecisionBlink, 1);
+        app.update();
+        assert_eq!(worn(&app, body), Some(vec!["blink_1".into()]), "a count restored to one lowered it");
+        assert_eq!(worn(&app, bystander), Some(Vec::new()), "a body that wears no level is not touched");
     }
 
     #[test]

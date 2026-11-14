@@ -77,8 +77,13 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ambition_platformer2d_items::narrative::apply_item_uses.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemUseRequested>),
                 // An equip is worn (an ability) or held (a weapon, the gun).
                 (
-                    ambition_platformer2d_items::narrative::apply_item_equips
-                        .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>),
+                    (
+                        ambition_platformer2d_items::narrative::apply_item_equips
+                            .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>),
+                        // The worn level follows the bag's count.
+                        ambition_platformer2d_items::narrative::level_worn_abilities,
+                    )
+                        .chain(),
                     ambition_held_items::apply_hand_requests.run_if(
                         ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>
                             .or_else(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemStowRequested>),

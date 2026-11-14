@@ -405,3 +405,39 @@ fn two_abilities_wearing_one_row_are_a_conflict() {
     let failure = refuse("shared_worn_row", &format!("[{}]", rows.join(",")));
     assert!(failure.has(DiagnosticCode::ConflictingModuleContribution), "{:?}", failure.codes());
 }
+
+/// An ability with levels: every level's row takes the first's slot, and the
+/// bag can hold the top level (the level is the bag's count).
+#[test]
+fn an_ability_with_levels_compiles_and_an_unreachable_level_is_refused() {
+    let leveled = |stack: u32, slot: &str| {
+        format!(
+            r#"(
+                display_name: "Blink",
+                description: "Levels.",
+                category: Ability,
+                held_item_id: None,
+                dialog_id: "blink",
+                wears: Some((id: "blink_1", exclusive_slot: Some("blink"))),
+                levels: [(id: "blink_2", exclusive_slot: Some("{slot}")), (id: "blink_3", exclusive_slot: Some("{slot}"))],
+                stack: {stack},
+            )"#
+        )
+    };
+    let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+    rows[0] = leveled(3, "blink");
+    let pack = compile(&draft("levels", &format!("[{}]", rows.join(","))), &registry(), &AssetsUnchecked)
+        .expect("an ability with levels compiles");
+    let catalog = lowered_item_catalog(&pack).expect("lowered");
+    let first = crate::Item::ALL[0];
+    let at = |count| catalog.wears_at(first, count).map(|row| row.id.clone());
+    assert_eq!((at(1), at(2), at(3), at(9)), (Some("blink_1".into()), Some("blink_2".into()), Some("blink_3".into()), Some("blink_3".into())));
+
+    rows[0] = leveled(2, "blink");
+    let failure = refuse("unreachable_level", &format!("[{}]", rows.join(",")));
+    assert!(failure.has(DiagnosticCode::MalformedProviderBinding), "a top level the bag cannot hold: {:?}", failure.codes());
+
+    rows[0] = leveled(3, "elsewhere");
+    let failure = refuse("level_in_another_slot", &format!("[{}]", rows.join(",")));
+    assert!(failure.has(DiagnosticCode::MalformedProviderBinding), "a level in another slot: {:?}", failure.codes());
+}

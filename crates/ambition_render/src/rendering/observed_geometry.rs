@@ -122,6 +122,8 @@ fn role_color(observation: &GeometryObservation) -> Color {
         "gravity_zone" => Color::srgba(0.6, 0.3, 1.0, 0.8),
         "encounter_trigger" => Color::srgba(1.0, 0.45, 0.45, 0.8),
         "lock_wall" => Color::srgba(1.0, 0.7, 0.2, 0.9),
+        // A portal's opening.
+        "portal" => Color::srgba(0.85, 0.4, 1.0, 0.95),
         _ => Color::srgba(0.3, 1.0, 1.0, 0.9),
     }
 }

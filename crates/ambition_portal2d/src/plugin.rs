@@ -91,6 +91,7 @@ impl Plugin for PortalSimulationPlugin {
         app.init_resource::<PortalCarves>();
         app.init_resource::<crate::PortalHostDepthsByRoom>();
         app.init_resource::<PortalTuning>();
+        crate::observation::install(app);
         // The inspector panel edits `EditablePortalTuning`; the sim reads
         // `PortalTuning` (in `GgrsSchedule` under rollback). Edits go through
         // the shared mechanical-edit protocol: propose, admit, publish, all in

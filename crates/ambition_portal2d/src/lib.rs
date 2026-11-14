@@ -24,6 +24,7 @@ mod gun_projectile;
 mod lifecycle;
 mod link;
 mod messages;
+mod observation;
 mod passages;
 /// Pure portal-piece geometry. Public because host overlays read it.
 pub mod pieces;

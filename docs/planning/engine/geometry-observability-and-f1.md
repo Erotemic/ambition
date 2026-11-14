@@ -134,8 +134,8 @@ Installed providers:
   gate), are inactive with that reason.
 - `combat.volumes` (`ambition_sim_view::combat_geometry_observer`): hurt and
   hit volumes from `CombatGeometryView`; an intangible body is listed
-  inactive by its box; a portal-cut body is listed whole with role
-  `portal_cut` (its pieces are GOBS-3's).
+  inactive by its box; a portal-cut body is listed by its pieces, with its
+  whole volume inactive (role `portal_cut`; see GOBS-3).
 
 F1: the Developer toggle **Observed Geometry** (`show_observed_geometry`).
 `collect_observed_geometry` asks every provider about each shown room, with
@@ -255,6 +255,26 @@ encounter has fired is its owner's state, not read here. Headless:
 `central_hub_complex` answers its 42 loading zones (40 doors, 2 edge exits);
 `noodly_scullery` a door, a camera zone, an encounter trigger and three lock
 walls, two of them gated. Portal openings remain the portal owner's.
+
+**Portal openings and cut pieces landed (2026-11-14):** `portal.apertures`
+(`ambition_portal2d::observation`, installed by `PortalSimulationPlugin`, no
+subject needed) lists each placed portal in the asked room by its channel
+name: the opening's rectangle, `half_length` along its face and
+`half_thickness` out of it, turned to its normal (a polygon, so a slope
+portal is drawn as it lies). It is active when transit would find its
+partner, the partner channel placed in the same live room (`find_portal`
+over `PortalsByRoom`, the lookup transit and the carve use); a lone end is
+inactive with "its partner is not placed in this room", and a portal in a
+room whose rules do not use portals with that reason. `combat.volumes` now
+lists a body or strike a pair cuts by the pieces combat tests: each piece's
+region where it reaches (`portal_piece`, and `portal_carried` for a piece
+mapped through a pair), with the whole volume inactive beside them ("cut by
+a portal pair: combat tests its pieces"). The N-part similarity refactor's
+per-part transforms stay that plan's (`portal-parts-similarity-and-chirality.md`).
+Headless, `inspect_geometry --room portal_lab --provider portal. --no-subject`
+answers 26 openings, all paired, the slope ones turned to their faces.
+Witnesses: `a_rooms_portals_are_observed_as_openings_and_a_lone_end_is_inactive`,
+`a_cut_body_is_observed_by_the_pieces_combat_tests`. GOBS-3 is done.
 
 1. Adapt the **effective** combat read model: hurt source (`published`, `fallback`, `intangible`), live active hitboxes, projectile body/splash regions and boss-specific strike/contact geometry. Clearly show a dormant strike as dormant or absent rather than inventing a live hitbox.
 2. Add `InteractReach` adapter(s) for talk/chest/switch/door/item eligibility, using the real geometry *and* facing/distance/priority/room predicates. Show both eligible shapes and disabled or overridden candidates; explain why a visible NPC is not interactable. Do not treat merely being nearby as eligibility.

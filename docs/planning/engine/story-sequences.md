@@ -1,6 +1,7 @@
 # Story sequences: authoring scripted scenes without a recompile
 
-**State:** OPEN. Asked by Jon on 2026-11-14 after playing level 1: "do we have
+**State:** SS1, SS2 and SS4's first form landed 2026-11-14 (below, "What
+landed"); SS3, SS5, SS6 open. Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
 story sequences, it likely will start to become more important."
@@ -81,6 +82,49 @@ language.
   ([RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning))
   the same exit becomes an objective a goblin plans for. SS6 is the authored
   form that works before that.
+
+## What landed (2026-11-14)
+
+- **SS1, actor commands** (`crates/ambition_platformer2d_actor_monolith/src/body/direction.rs`):
+  `actor.walk_to <character> <place> <brain>`, `actor.leave_through
+  <character> <zone> <brain>`, `actor.release <character>`, and the
+  conditions `actor.arrived`, `actor.gone`, `actor.fallen_is <character> <n>` and `actor.count_is <character>
+  <n>`. A body is sent with the lives' navigation (`Visit`); its brain is
+  switched to the named preset through the one brain authority
+  (`BrainCommand`), so content chooses the gait (`keeps_to_its_tasks` walks,
+  `runs_where_sent` runs; a raw preset name is qualified in the
+  character's provider). A body an encounter spawned has no brain binding;
+  directing it binds it to its own character's policy first, which is what
+  `actor.release` restores. A leaving body is sent to the point of its
+  zone nearest it and goes through on touching it (an edge zone is a wall
+  for every undriven body, so it never gets inside). A leaving body goes through its zone into the
+  next room (live: it comes out there; not live: the ledger books it there
+  when it keeps durable whereabouts, and it is despawned). Fallen bodies are
+  neither directed nor counted. A body on its way somewhere is not held by a
+  playing cutscene, so a scene can move its actors. `actor.face` and
+  `actor.pose` are not written yet.
+- **SS2, cutscene beats** (`crates/ambition_cutscene`):
+  `Command { line }` runs a prepared command in the cutscene's room (a skip
+  still runs it), `WaitFor { condition, seconds_at_most }` holds until the
+  condition is true or for its longest hold. Every `Command`, `WaitFor` and
+  `starts_when` line is prepared against the installed catalogs whenever the
+  library changes (at start and at each reload) and refused there, naming
+  the cutscene and beat (`CutsceneLineRefusals`, the log). A misspelt verb or
+  condition is refused then; a misspelt character or zone is a name the
+  catalogs cannot check without a room, and is refused when the command runs
+  (logged).
+- **SS4, first form:** `starts_when: Some("<condition line>")` on a script
+  plays it for the whole world on the first tick its condition holds (it
+  needs a seen flag).
+- **The acceptance scene** (all content): `intro_raider_runs_with_the_case`
+  starts at `actor.fallen_is npc_lab_raider 2` (not "one live": the raiders
+  come in one at a time, so that is true as the first walks in), opens the yard gate (now gated
+  on `intro_case_taken`; the Creator's last words set it too, for a raid whose
+  last two fall together), sends the raider out through the lane edge with
+  `runs_where_sent`, and waits for `actor.gone`. His going wins the raid.
+  Witness: `game/ambition_app/tests/the_raids_last_raider_runs_with_the_case.rs`.
+  The case itself is not yet an object he carries; the siding's crate as the
+  case is SS3/SS6 work.
 
 ## Acceptance for the first slice (SS1 + SS2)
 

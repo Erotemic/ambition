@@ -266,6 +266,19 @@
             playful: 0.0,
             notice_radius: 0.0,
         ),
+        // Runs where a scene sends it (`actor.leave_through`, `actor.walk_to`)
+        // at its top speed: a raider making off with the loot. At play, so
+        // it runs and does not rest on the way.
+        "runs_where_sent": Roam(
+            speed: 48.0,
+            trot_speed: 80.0,
+            rest_min_s: 1000000.0,
+            rest_max_s: 1000000.0,
+            company: 0.0,
+            stay_within: 0.0,
+            playful: 1.0,
+            notice_radius: 0.0,
+        ),
         "patrol_peaceful": Patrol(
             spawn_local_x: 0.0,
             radius: 64.0,

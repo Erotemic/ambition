@@ -60,6 +60,17 @@ pub enum CutsceneBeat {
     /// a scripted death, as if its health ran out. Instant, like `SetFlag`,
     /// and like it a consequence a skip still applies.
     Fall { character: String },
+    /// Run a prepared authored command (`actor.leave_through goblin_raider
+    /// barn_door runs_where_sent`, `encounter.start encounter:raid`), the
+    /// vocabulary a Yarn `<<command>>` and a room line use. Instant, and a
+    /// consequence: a skip still runs it. The line is prepared against the
+    /// installed commands when the library loads, and refused there.
+    Command { line: String },
+    /// Hold until the prepared condition line is true (`actor.gone
+    /// goblin_raider`), or for `seconds_at_most`, whichever is first: a
+    /// scene that waits on the world cannot wait forever on a world that
+    /// did something else. Shows nothing; a skip passes it.
+    WaitFor { condition: String, seconds_at_most: f32 },
 }
 
 /// Everything a cutscene is SHOWING right now, derived from where it is.
@@ -142,7 +153,11 @@ impl CutsceneRuntime {
             // A wait or a flag write shows nothing — and says so, rather than
             // leaving the previous beat's picture up. The fade is not a
             // picture a beat puts up; it is the state of the screen.
-            CutsceneBeat::Wait { .. } | CutsceneBeat::SetFlag { .. } | CutsceneBeat::Fall { .. } => CutscenePresentation {
+            CutsceneBeat::Wait { .. }
+            | CutsceneBeat::SetFlag { .. }
+            | CutsceneBeat::Fall { .. }
+            | CutsceneBeat::Command { .. }
+            | CutsceneBeat::WaitFor { .. } => CutscenePresentation {
                 fade_alpha: standing,
                 ..Default::default()
             },
@@ -180,6 +195,7 @@ impl CutsceneBeat {
         match self {
             Self::SetFlag { id, on } => Some(CutsceneEvent::FlagWritten { id: id.clone(), on: *on }),
             Self::Fall { character } => Some(CutsceneEvent::CharacterFell { character: character.clone() }),
+            Self::Command { line } => Some(CutsceneEvent::CommandAsked { line: line.clone() }),
             _ => None,
         }
     }
@@ -204,6 +220,13 @@ pub struct CutsceneScript {
     /// seen. When set, the runtime should refuse to play if the flag
     /// is already on.
     pub seen_flag: Option<String>,
+    /// A condition line (`actor.count_is npc_lab_raider 1`): the script
+    /// plays, for the whole world, on the first tick the condition holds and
+    /// it is unseen. It needs a seen flag, so it plays once. Read by the
+    /// trigger, not by playback, so the rollback encoding of a playing
+    /// script does not carry it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub starts_when: Option<String>,
 }
 
 impl CutsceneScript {
@@ -212,6 +235,7 @@ impl CutsceneScript {
             id: id.into(),
             beats,
             seen_flag: None,
+            starts_when: None,
         }
     }
 
@@ -253,8 +277,15 @@ impl CutsceneRuntime {
 
     /// Drive the cutscene forward by `dt`. Returns the events the
     /// caller should react to *this tick* (newly entered beats, flag
-    /// toggles, completion).
+    /// toggles, completion). A `WaitFor` beat waits out its longest hold:
+    /// [`Self::tick_asking`] answers its condition.
     pub fn tick(&mut self, dt: f32, advance_dialogue: bool) -> Vec<CutsceneEvent> {
+        self.tick_asking(dt, advance_dialogue, |_| false)
+    }
+
+    /// [`Self::tick`], with `holds(condition)` answering a `WaitFor` beat's
+    /// condition line this tick.
+    pub fn tick_asking(&mut self, dt: f32, advance_dialogue: bool, holds: impl Fn(&str) -> bool) -> Vec<CutsceneEvent> {
         let mut out = Vec::new();
         if self.finished {
             return out;
@@ -289,7 +320,11 @@ impl CutsceneRuntime {
                 self.elapsed += dt;
                 self.elapsed >= *seconds
             }
-            CutsceneBeat::SetFlag { .. } | CutsceneBeat::Fall { .. } => true,
+            CutsceneBeat::SetFlag { .. } | CutsceneBeat::Fall { .. } | CutsceneBeat::Command { .. } => true,
+            CutsceneBeat::WaitFor { condition, seconds_at_most } => {
+                self.elapsed += dt;
+                holds(condition) || self.elapsed >= *seconds_at_most
+            }
             CutsceneBeat::Banner { seconds, .. } => {
                 self.elapsed += dt;
                 self.elapsed >= *seconds
@@ -333,6 +368,9 @@ pub enum CutsceneEvent {
     FlagWritten { id: String, on: bool },
     /// A `Fall` beat: the character falls in the cutscene's room.
     CharacterFell { character: String },
+    /// A `Command` beat: run the prepared command line, in the cutscene's
+    /// room.
+    CommandAsked { line: String },
     Skipped,
     Completed,
 }
@@ -915,6 +953,8 @@ mod snapshot {
     const SET_FLAG: u32 = 4;
     const BANNER: u32 = 5;
     const FALL: u32 = 6;
+    const COMMAND: u32 = 7;
+    const WAIT_FOR: u32 = 8;
 
     impl SnapshotState for CutsceneBeat {
         fn encode(&self, out: &mut Vec<u8>) {
@@ -958,6 +998,15 @@ mod snapshot {
                     put_u32(out, FALL);
                     put_str(out, character);
                 }
+                Self::Command { line } => {
+                    put_u32(out, COMMAND);
+                    put_str(out, line);
+                }
+                Self::WaitFor { condition, seconds_at_most } => {
+                    put_u32(out, WAIT_FOR);
+                    put_str(out, condition);
+                    put_f32(out, *seconds_at_most);
+                }
             }
         }
 
@@ -989,6 +1038,13 @@ mod snapshot {
                 },
                 FALL => Self::Fall {
                     character: reader.str()?.to_owned(),
+                },
+                COMMAND => Self::Command {
+                    line: reader.str()?.to_owned(),
+                },
+                WAIT_FOR => Self::WaitFor {
+                    condition: reader.str()?.to_owned(),
+                    seconds_at_most: reader.f32()?,
                 },
                 // Refuse unknown tags rather than decoding a different beat.
                 _ => return None,
@@ -1029,6 +1085,7 @@ mod snapshot {
                 id,
                 beats,
                 seen_flag,
+                starts_when: None,
             })
         }
     }

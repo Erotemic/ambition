@@ -19,7 +19,10 @@ carries closed campaigns. Unselected or customer-gated plans live in
    when there is nothing left to improve there. Its scripting needs (actors
    that walk, leave and pose; cutscenes that run commands and wait on
    conditions; lasting presence; the raid's survivors fleeing with the case)
-   are [story sequences](engine/story-sequences.md), SS1 and SS2 first. Dark
+   are [story sequences](engine/story-sequences.md): SS1 (actor commands),
+   SS2 (cutscene `Command`/`WaitFor` beats) and a first SS4 (`starts_when`)
+   landed 2026-11-14 with the raid's last raider running out through the
+   lane with the case; SS3, SS5, SS6 next. Dark
    rooms and the first tunnel (under Hobford, the mill wheel to the hollow
    oak) are [dark rooms and tunnels](engine/dark-rooms-and-tunnels.md), DR1
    first; the player's glow by quality tier, its first piece, is done.
@@ -48,8 +51,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    and `request(..)` errors name the script's line.
    **Next action:** P3's project entry (a manifest an already built host
    runs, no game Rust); describing the other ports as scripts need them.
-   Story sequences (SS1, SS2) are the first content customer of
-   script-callable commands.
+   Story sequences (SS1, SS2, landed) are the first content customer of
+   the authored command catalog a script will call.
 1. **Network architecture (maintainer priority, updated 2026-11-10):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. **Direction set 2026-11-10:** the metroidvania moves to a hybrid model, with rollback kept inside a room boundary while it is easy to maintain and its room-level cost measured, and hosted authority for the world around the rooms: [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) is selected and runs beside the experiment.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
    then LOCAL-PLAY-MODES presentation (LOADOUT-AUTHORITY and the menu leave

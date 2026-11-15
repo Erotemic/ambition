@@ -97,22 +97,22 @@ fn resolve_command_preset(
     sim_id: &SimId,
     binding: &BrainBinding,
     kind: &BrainCommandKind,
+    // The provider of the body's character, for a binding whose default is
+    // not a preset (the character's own policy) and so names no namespace.
+    provider: Option<&str>,
 ) -> Option<BrainPresetId> {
     match kind {
         // Qualify a (possibly raw) command preset into the actor's namespace — the
-        // same one its default preset lives in — so authoring can use raw local
-        // names while the assembled catalog keys presets by `provider::name`.
-        BrainCommandKind::UsePreset(preset) => {
-            let namespace = binding
-                .default_preset
-                .preset()
-                .map(|p| p.as_str())
-                .unwrap_or_else(|| preset.as_str());
-            Some(BrainPresetId::new(qualify_preset_like(
-                namespace,
+        // same one its default preset lives in, else its character's provider —
+        // so authoring can use raw local names while the assembled catalog keys
+        // presets by `provider::name`.
+        BrainCommandKind::UsePreset(preset) => Some(BrainPresetId::new(match binding.default_preset.preset() {
+            Some(default) => qualify_preset_like(default.as_str(), preset.as_str()),
+            None => ambition_characters::actor::character_catalog::declarations::qualify_in_provider(
+                provider.unwrap_or_default(),
                 preset.as_str(),
-            )))
-        }
+            ),
+        })),
         BrainCommandKind::RestoreDefault => match &binding.default_preset {
             ambition_characters::control::brain_binding::AutonomousDefault::Preset(default) => {
                 Some(default.clone())
@@ -165,6 +165,7 @@ fn apply_brain_selection(
     // where no cast can answer, and then the body's current policy stands in.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
     abilities: ambition_platformer2d_core::AbilitySet,
+    provider: Option<&str>,
 ) -> bool {
     // RESTORING A CHARACTER'S OWN POLICY IS NOT A PRESET LOOKUP.
     //
@@ -208,7 +209,7 @@ fn apply_brain_selection(
         binding.restore_default();
         return true;
     }
-    let Some(resolved_preset) = resolve_command_preset(sim_id, binding, kind) else {
+    let Some(resolved_preset) = resolve_command_preset(sim_id, binding, kind, provider) else {
         return false;
     };
     let Some(new_brain) = ambition_platformer2d_actor_spawn::brain_builders::catalog::build_brain_from_preset(&(catalog), resolved_preset.as_str(), ctx) else {
@@ -307,6 +308,11 @@ pub fn apply_brain_commands(
         let character_profile = prepared.get().zip(worn).and_then(|(registry, worn)| {
             crate::body::character_policy::character_autonomous_profile(registry, worn)
         });
+        let provider = prepared
+            .get()
+            .zip(worn)
+            .and_then(|(registry, worn)| registry.get(worn.id()))
+            .map(|definition| definition.provider.as_str());
 
         // Under MOUNT CONTROL the live `Brain` is the mount's swapped-in one, not
         // the autonomous selection — so a switch updates only the SOURCE, and is
@@ -335,7 +341,7 @@ pub fn apply_brain_commands(
         }) {
             let mut changed = false;
             for kind in kinds {
-                changed |= update_source_only(&catalog, sim_id, &mut binding, kind);
+                changed |= update_source_only(&catalog, sim_id, &mut binding, kind, provider);
             }
             // the return value is the "did anything actually change" signal the
             // resume-brain refresh consumed; nothing consumes it on this arm.
@@ -370,6 +376,7 @@ pub fn apply_brain_commands(
                 config.zip(identity),
                 character_profile,
                 abilities,
+                provider,
             );
         }
         if changed {
@@ -462,6 +469,7 @@ fn update_source_only(
     sim_id: &SimId,
     binding: &mut BrainBinding,
     kind: &BrainCommandKind,
+    provider: Option<&str>,
 ) -> bool {
     // A CHARACTER-FIRST DEFAULT HAS NO PRESET TO VALIDATE, AND THAT IS NOT
     // A REJECTION.
@@ -483,7 +491,7 @@ fn update_source_only(
         binding.restore_default();
         return true;
     }
-    let Some(resolved) = resolve_command_preset(sim_id, binding, kind) else {
+    let Some(resolved) = resolve_command_preset(sim_id, binding, kind, provider) else {
         return false;
     };
     // Validate the preset resolves before recording it, so control never resumes

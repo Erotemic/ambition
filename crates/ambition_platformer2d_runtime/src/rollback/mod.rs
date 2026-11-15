@@ -146,6 +146,19 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
          stream needs no restore — and snapshotting it made frame N cost N",
     );
 
+    // A cutscene's `WaitFor` answer is asked fresh each tick before the
+    // playback reads it, and the refusals are the library's load-time check.
+    registrar.declare_rollback_derived_resource::<crate::cutscene::CutsceneWaitAnswer>(
+        ENGINE,
+        "derived.cutscene_wait_answer",
+        "the waiting beat's condition, asked again each tick before the playback ticks",
+    );
+    registrar.declare_rollback_derived_resource::<crate::cutscene::CutsceneLineRefusals>(
+        ENGINE,
+        "derived.cutscene_line_refusals",
+        "the cutscene library's lines checked against the catalogs when the library changes; read by no tick",
+    );
+
     // ⭐ CORE BODY STATE IS NOT HERE ANY MORE — fifteen body-cluster components,
     // declared by `ambition_platformer2d_core` beside the types themselves.
     // In-flight strike volumes — the components on the `entity:hitbox` family (see the

@@ -283,7 +283,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // (`cutscene.trigger_queue`).
 // 469 -> 470: `AbilitySet` encodes `ranged`, the shot permission a room can
 // withhold (level 1's kit).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 470;
+// 470 -> 471: a cutscene beat can be a `Command` or a `WaitFor` (story
+// sequences); a directed body's `actor.leaving` zone.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 471;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -114,6 +114,7 @@ mod the_behemoth_shoots_from_its_eyes;
 mod a_custom_brain_module_fires_through_the_gate;
 mod a_loaded_module_keeps_session_state;
 mod a_script_module_runs_without_a_build;
+mod the_raids_last_raider_runs_with_the_case;
 mod boss_lifecycle;
 mod boss_replay_retraction;
 mod breakable_respawn_across_rooms;

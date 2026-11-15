@@ -144,6 +144,12 @@ where
         "actor.visit",
         |visit| visit.probe(),
     );
+    // A body sent out through a zone (an `actor.leave_through`).
+    registrar.rollback_component_clone_probed::<crate::body::direction::Leaving>(
+        OWNER,
+        "actor.leaving",
+        |leaving| leaving.probe(),
+    );
     // What a body is doing with its authored life: its facts, its plan and
     // how far it is. A replay plans from the restored facts.
     registrar.rollback_component_clone_probed::<crate::body::life::Life>(

@@ -37,7 +37,9 @@ The authored layer does not become a second reducer for encounters, dialogue,
 world state or another domain.
 
 The existing command road already has real customers, including authored
-encounter signaling and dialogue-authored commands.
+encounter signaling, dialogue-authored commands, and cutscene `Command` and
+`WaitFor` beats with the `actor.*` vocabulary
+([story sequences](story-sequences.md)).
 
 ### Prepared calls
 

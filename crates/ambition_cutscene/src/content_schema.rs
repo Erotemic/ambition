@@ -127,6 +127,9 @@ fn beat_problem(beat: &CutsceneBeat) -> Option<String> {
         CutsceneBeat::Wait { seconds }
         | CutsceneBeat::Banner { seconds, .. }
         | CutsceneBeat::CameraPan { seconds, .. } => duration(*seconds),
+        CutsceneBeat::WaitFor { condition, seconds_at_most } => duration(*seconds_at_most)
+            .or_else(|| condition.trim().is_empty().then(|| "the condition line is empty".to_string())),
+        CutsceneBeat::Command { line } => line.trim().is_empty().then(|| "the command line is empty".to_string()),
         CutsceneBeat::Fade {
             from_alpha,
             to_alpha,
@@ -162,7 +165,8 @@ pub fn cutscene_library_schema() -> SchemaRegistration {
         capability: CapabilityId::new(CUTSCENE_CAPABILITY),
         disposition: RuntimeDisposition::Runtime,
         doc: "Cutscene scripts: an id, ordered beats (Wait, Dialogue, CameraPan, Fade, SetFlag, \
-              Banner) and an optional seen flag. Several files merge into one library.",
+              Banner, Fall, Command, WaitFor) and an optional seen flag. Several files merge into \
+              one library.",
         handler: Arc::new(CutsceneLibrarySchema),
     }
 }

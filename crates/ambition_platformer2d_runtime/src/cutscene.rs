@@ -225,6 +225,11 @@ pub fn a_cutscene_hold_is_owed(
 /// in the room starts a move, and it cannot be hurt, so a strike already in
 /// flight lands on nobody. Bodies in other rooms play on (ISL-1b).
 ///
+/// A body on its way somewhere it was sent (a pending visit: an
+/// `actor.walk_to` or `actor.leave_through` of this very scene, or a life
+/// going about its day) is not held while it goes: the scene directed it,
+/// and it is held again when it gets there.
+///
 /// A projection of [`ActiveCutscene`], rewritten each tick, so a rewind that
 /// restores the cutscene restores the hold with it.
 pub fn project_cutscene_hold(
@@ -236,14 +241,16 @@ pub fn project_cutscene_hold(
             Entity,
             Option<&mut ambition_characters::control::ControlHolds>,
             Option<&mut ambition_characters::actor::BodyHealth>,
+            Option<&ambition_platformer2d_actor_monolith::body::visit::Visit>,
         ),
         With<ambition_characters::control::ActorControl>,
     >,
 ) {
     use ambition_characters::actor::Invulnerability;
     use ambition_characters::control::ControlHold;
-    for (body, holds, health) in &mut bodies {
-        let held = active.holds(rooms.of(body).map(|room| room.ordinal()));
+    for (body, holds, health, visit) in &mut bodies {
+        let going = visit.is_some_and(|visit| visit.outcome == ambition_platformer2d_actor_monolith::body::visit::VisitOutcome::Pending);
+        let held = !going && active.holds(rooms.of(body).map(|room| room.ordinal()));
         match holds {
             Some(mut holds) if holds.holds(ControlHold::Cutscene) != held => {
                 if held {
@@ -327,6 +334,13 @@ pub fn tick_active_cutscene(
         // The bodies a `Fall` beat can name: by the character they wear.
         Query<(Entity, &ambition_characters::actor::CharacterForm, &mut ambition_characters::actor::BodyHealth)>,
     ),
+    // A `Command` beat's line, prepared and asked through the authored
+    // command channel; a `WaitFor` beat's answer for this tick.
+    (catalog, mut asked, wait): (
+        Option<Res<ambition_platformer2d_shared_tangle::authored_logic::CommandCatalog>>,
+        Option<ResMut<Messages<ambition_platformer2d_shared_tangle::authored_logic::RunAuthoredCommand>>>,
+        Res<CutsceneWaitAnswer>,
+    ),
 ) {
     let written = active.room.zip(tick.as_deref()).map(|(room, tick)| {
         ambition_platformer2d_shared_tangle::lifecycle::RoomWrite {
@@ -351,6 +365,28 @@ pub fn tick_active_cutscene(
             if here && worn.0.as_str() == character && health.health.current > 0 {
                 health.health.current = 0;
             }
+        }
+    };
+
+    // A `Command` beat: its prepared line, asked in the cutscene's room. A
+    // line the installed commands refuse was refused when the library
+    // loaded (`prepare_cutscene_lines`); here it is logged and skipped.
+    let script_id = active.script_id().unwrap_or_default().to_owned();
+    let mut command = |line: &str| {
+        use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, RunAuthoredCommand};
+        let Some(catalog) = catalog.as_deref() else {
+            return warn!("cutscene `{script_id}` asks `{line}`, and this composition publishes no commands");
+        };
+        match catalog.prepare_line(line) {
+            Ok(call) => {
+                if let Some(asked) = asked.as_deref_mut() {
+                    asked.write(
+                        RunAuthoredCommand::prepared(&call, AuthoredAsk::new("cutscene", script_id.clone()))
+                            .in_room(room.map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal)),
+                    );
+                }
+            }
+            Err(e) => warn!("cutscene `{script_id}`: {e}"),
         }
     };
 
@@ -379,6 +415,7 @@ pub fn tick_active_cutscene(
             match event {
                 CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
                 CutsceneEvent::CharacterFell { character } => fall(&character),
+                CutsceneEvent::CommandAsked { line } => command(&line),
                 _ => {}
             }
         }
@@ -387,7 +424,7 @@ pub fn tick_active_cutscene(
         return;
     }
 
-    let events = runtime.tick(dt, dismiss);
+    let events = runtime.tick_asking(dt, dismiss, |line| wait.holds(line));
     let mut completed = false;
     let mut flags = Vec::new();
     for event in events {
@@ -400,6 +437,7 @@ pub fn tick_active_cutscene(
             CutsceneEvent::BeatEntered { .. } => {}
             CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
             CutsceneEvent::CharacterFell { character } => fall(&character),
+            CutsceneEvent::CommandAsked { line } => command(&line),
             CutsceneEvent::Skipped | CutsceneEvent::Completed => {
                 completed = true;
             }
@@ -423,6 +461,153 @@ pub fn tick_active_cutscene(
         .as_ref()
         .map(|runtime| runtime.presentation())
         .unwrap_or_default();
+}
+
+/// This tick's answer to the playing cutscene's `WaitFor` beat: derived each
+/// tick from the world, just before the cutscene ticks, so it is not
+/// rollback state.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
+pub struct CutsceneWaitAnswer {
+    pub line: Option<String>,
+    pub holds: bool,
+}
+
+impl CutsceneWaitAnswer {
+    /// Whether the condition `line` holds this tick.
+    pub fn holds(&self, line: &str) -> bool {
+        self.holds && self.line.as_deref() == Some(line)
+    }
+}
+
+/// Queue each unseen script whose `starts_when` condition holds this tick,
+/// for the whole world (SS4's first form: a scene that follows an event, not
+/// a volume). A script with no seen flag never starts this way: it would
+/// play again on every tick its condition held (`check_cutscene_lines`
+/// reports it).
+pub fn trigger_cutscenes_on_conditions(world: &mut World) {
+    use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, ConditionCatalog};
+    let playing = world.get_resource::<ActiveCutscene>().and_then(|active| active.script_id().map(str::to_owned));
+    let Some(library) = world.get_resource::<CutsceneLibrary>() else {
+        return;
+    };
+    let Some(catalog) = world.get_resource::<ConditionCatalog>() else {
+        return;
+    };
+    let save = world.get_resource::<ambition_persistence::save::AmbitionGameSave>();
+    let mut start = Vec::new();
+    for script in library.scripts.values() {
+        let (Some(line), Some(seen)) = (script.starts_when.as_deref(), script.seen_flag.as_deref()) else {
+            continue;
+        };
+        if save.is_some_and(|save| save.data().flag(seen)) || playing.as_deref() == Some(script.id.as_str()) {
+            continue;
+        }
+        let holds = catalog
+            .prepare_line(line)
+            .map(|prepared| catalog.ask(world, &prepared, &AuthoredAsk::new("cutscene", script.id.clone())).is_satisfied())
+            .unwrap_or(false);
+        if holds {
+            start.push(script.id.clone());
+        }
+    }
+    if start.is_empty() {
+        return;
+    }
+    let mut queue = world.get_resource_or_insert_with(ambition_cutscene::CutsceneTriggerQueue::default);
+    for id in start {
+        queue.request(id);
+    }
+}
+
+/// Run condition of [`trigger_cutscenes_on_conditions`]: some script starts on
+/// a condition.
+pub fn a_cutscene_starts_on_a_condition(library: Res<CutsceneLibrary>) -> bool {
+    library.scripts.values().any(|script| script.starts_when.is_some())
+}
+
+/// Answer the playing cutscene's `WaitFor` condition for this tick, through
+/// the condition catalog (the vocabulary a lock wall and a Yarn branch use).
+/// A line the catalog cannot prepare never holds: the beat waits out its
+/// longest hold.
+pub fn answer_cutscene_wait(world: &mut World) {
+    use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, ConditionCatalog};
+    let waiting = world.get_resource::<ActiveCutscene>().and_then(|active| {
+        let runtime = active.runtime.as_ref()?;
+        match runtime.current_beat()? {
+            ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => {
+                Some((runtime.script.id.clone(), condition.clone()))
+            }
+            _ => None,
+        }
+    });
+    let answer = match waiting {
+        None => CutsceneWaitAnswer::default(),
+        Some((script, line)) => {
+            let holds = world.get_resource::<ConditionCatalog>().is_some_and(|catalog| {
+                catalog
+                    .prepare_line(&line)
+                    .map(|prepared| catalog.ask(world, &prepared, &AuthoredAsk::new("cutscene", script)).is_satisfied())
+                    .unwrap_or(false)
+            });
+            CutsceneWaitAnswer { line: Some(line), holds }
+        }
+    };
+    world.insert_resource(answer);
+}
+
+/// The cutscene lines the installed vocabulary refuses: a `Command` beat
+/// whose line names no published command (or the wrong arguments), a
+/// `WaitFor` beat whose condition names no published condition. Each names
+/// its cutscene and beat. Stated again whenever the library changes (at
+/// start and at each reload), so a content check can read it.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
+pub struct CutsceneLineRefusals(pub Vec<String>);
+
+/// Prepare every `Command` and `WaitFor` line of the library against the
+/// installed command and condition catalogs, and report each refusal.
+pub fn check_cutscene_lines(
+    library: Res<CutsceneLibrary>,
+    commands: Option<Res<ambition_platformer2d_shared_tangle::authored_logic::CommandCatalog>>,
+    conditions: Option<Res<ambition_platformer2d_shared_tangle::authored_logic::ConditionCatalog>>,
+    mut refusals: ResMut<CutsceneLineRefusals>,
+) {
+    let mut found = Vec::new();
+    for script in library.scripts.values() {
+        if let Some(line) = &script.starts_when {
+            let problem = if script.seen_flag.is_none() {
+                Some("it starts on a condition and has no seen flag, so it would play on every tick the condition holds".to_owned())
+            } else {
+                match conditions.as_deref() {
+                    Some(catalog) => catalog.prepare_line(line).err().map(|e| e.to_string()),
+                    None => Some(format!("`{line}`: this composition publishes no conditions")),
+                }
+            };
+            if let Some(problem) = problem {
+                let line = format!("cutscene `{}` starts_when: {problem}", script.id);
+                error!("{line}");
+                found.push(line);
+            }
+        }
+        for (index, beat) in script.beats.iter().enumerate() {
+            let problem = match beat {
+                ambition_cutscene::CutsceneBeat::Command { line } => match commands.as_deref() {
+                    Some(catalog) => catalog.prepare_line(line).err().map(|e| e.to_string()),
+                    None => Some(format!("`{line}`: this composition publishes no commands")),
+                },
+                ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => match conditions.as_deref() {
+                    Some(catalog) => catalog.prepare_line(condition).err().map(|e| e.to_string()),
+                    None => Some(format!("`{condition}`: this composition publishes no conditions")),
+                },
+                _ => None,
+            };
+            if let Some(problem) = problem {
+                let line = format!("cutscene `{}` beat {index}: {problem}", script.id);
+                error!("{line}");
+                found.push(line);
+            }
+        }
+    }
+    refusals.0 = found;
 }
 
 /// Log this tick's change to the playing cutscene in the room it plays for.
@@ -475,6 +660,13 @@ impl Plugin for CutsceneSchedulePlugin {
         // game that pre-inserts it wins (init never clobbers). Which room
         // starts which cutscene is the room's own metadata.
         app.init_resource::<CutsceneLibrary>();
+        app.init_resource::<CutsceneWaitAnswer>();
+        app.init_resource::<CutsceneLineRefusals>();
+        // Outside the tick: the library changes at start and at a reload.
+        app.add_systems(
+            bevy::prelude::Update,
+            check_cutscene_lines.run_if(bevy::prelude::resource_changed::<CutsceneLibrary>),
+        );
         app.init_resource::<CutsceneTriggerQueue>();
         // The room this session last announced: a component of the session root.
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<ambition_cutscene::LastCutsceneRoom>(app);
@@ -501,10 +693,12 @@ impl Plugin for CutsceneSchedulePlugin {
             (
                 auto_trigger_room_cutscenes,
                 trigger_cutscenes_in_volumes,
+                trigger_cutscenes_on_conditions.run_if(a_cutscene_starts_on_a_condition),
                 // Only with a trigger queued: it took the queue each tick.
                 drain_cutscene_triggers.run_if(
                     |queue: bevy::prelude::Res<ambition_cutscene::CutsceneTriggerQueue>| !queue.0.is_empty(),
                 ),
+                answer_cutscene_wait.run_if(a_cutscene_plays_or_its_hold_remains),
                 tick_active_cutscene.run_if(a_cutscene_plays_or_its_hold_remains),
                 // After the tick, so the tick a cutscene ends releases its room.
                 project_cutscene_hold.run_if(a_cutscene_hold_is_owed),
@@ -540,6 +734,7 @@ mod tests {
                     id: "probe".to_string(),
                     beats: Vec::new(),
                     seen_flag: Some("probe_seen".to_string()),
+                    starts_when: None,
                 },
             )),
             presentation: Default::default(),
@@ -579,6 +774,7 @@ mod tests {
             )),
             presentation: Default::default(),
         });
+        app.init_resource::<CutsceneWaitAnswer>();
         app.add_systems(bevy::prelude::Update, tick_active_cutscene);
         app.update();
         let messages = app.world().resource::<Messages<ambition_combat::events::SetFlagRequested>>();
@@ -610,7 +806,7 @@ mod tests {
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         let mut library = CutsceneLibrary::default();
         for id in ["alices_room", "bobs_room"] {
-            library.insert(ambition_cutscene::CutsceneScript { id: id.into(), beats: Vec::new(), seen_flag: None });
+            library.insert(ambition_cutscene::CutsceneScript { id: id.into(), beats: Vec::new(), seen_flag: None, starts_when: None });
         }
         app.insert_resource(library);
         app.init_resource::<ActiveCutscene>();
@@ -642,6 +838,7 @@ mod tests {
                     id: "unnamed".to_string(),
                     beats: Vec::new(),
                     seen_flag: None,
+                    starts_when: None,
                 },
             )),
             presentation: Default::default(),
@@ -668,9 +865,11 @@ mod tests {
                 id: "probe".to_string(),
                 beats: Vec::new(),
                 seen_flag: None,
+                starts_when: None,
             })),
             presentation: Default::default(),
         });
+        app.init_resource::<CutsceneWaitAnswer>();
         app.add_systems(bevy::prelude::Update, tick_active_cutscene.run_if(a_cutscene_plays_or_its_hold_remains));
         for _ in 0..8 {
             app.update();

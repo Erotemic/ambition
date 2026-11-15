@@ -106,4 +106,6 @@ faster; its binding should then build tables directly, not through serde.
    Witness: `game/ambition_app/tests/a_script_module_runs_without_a_build.rs`.
    P3's project entry (a manifest, no game Rust) remains.
 4. Story sequences (SS1, SS2) as the first content customer of script-callable
-   commands.
+   commands. **Landed** as authored commands and cutscene beats
+   ([story sequences](story-sequences.md)); a script calling the same
+   command catalog is not yet wired.

@@ -7,8 +7,15 @@
 // Dialogue(speaker, text) (waits for the dismiss button), CameraPan(target,
 // seconds), Fade(from_alpha, to_alpha, seconds) with 0.0 clear and 1.0 black
 // (both ends are authored, Q143), SetFlag(id, on), Banner(text, seconds) and
-// Fall(character), a scripted death in the cutscene's room. A skip still
-// applies the flags and falls it passes over.
+// Fall(character), a scripted death in the cutscene's room, Command(line), a
+// prepared command (the vocabulary of a Yarn `<<command>>` and a room line:
+// `actor.walk_to`, `actor.leave_through`, `encounter.start`), and
+// WaitFor(condition, seconds_at_most), which holds until the condition line is
+// true or for its longest hold. A skip still applies the flags, falls and
+// commands it passes over. `starts_when: Some("<condition line>")` plays a
+// script, for the whole world, on the first tick its condition holds (it needs
+// a seen flag). A command or condition line the engine does not publish is
+// reported when the library loads.
 // A room plays a script on entry when its `entry_cutscene` level field names
 // it; a `CutsceneTrigger` volume plays one when a player body stands in it.
 //
@@ -24,6 +31,12 @@
     (
         id: "creator_final_fragment",
         beats: [
+            // The yard gate opens, if the raider with the case did not open it
+            // on his way out (his two mates fell together).
+            SetFlag(
+                id: "intro_case_taken",
+                on: true,
+            ),
             Dialogue(
                 speaker: "Creator",
                 text: "Scout. Over here. Are you damaged?",
@@ -53,6 +66,32 @@
             ),
         ],
         seen_flag: Some("intro_creator_fragment_seen"),
+    ),
+    // The raid's last raider, when the other two have fallen, grabs the case off the bench and
+    // runs: out of the barn door, across the yard, through the gate (which
+    // opens for him) and down the lane. The Creator's last words follow when
+    // the raid is won, which his going wins.
+    (
+        id: "intro_raider_runs_with_the_case",
+        starts_when: Some("actor.fallen_is npc_lab_raider 2"),
+        beats: [
+            SetFlag(
+                id: "intro_case_taken",
+                on: true,
+            ),
+            Command(
+                line: "actor.leave_through npc_lab_raider workshop_to_lane runs_where_sent",
+            ),
+            Dialogue(
+                speaker: "Creator",
+                text: "The case! He's got the case!",
+            ),
+            WaitFor(
+                condition: "actor.gone npc_lab_raider",
+                seconds_at_most: 6.0,
+            ),
+        ],
+        seen_flag: Some("intro_case_run_seen"),
     ),
     // The volume in front of the barn door (`intro_wake_room`), for a Scout
     // who goes to the door without talking to the Creator: the raid is

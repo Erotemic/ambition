@@ -66,6 +66,7 @@ mod drawn_ledges;
 pub mod errand;
 pub mod life;
 pub mod visit;
+pub mod direction;
 mod fade_rows;
 mod telegraph_rows;
 #[cfg(test)]
@@ -347,6 +348,19 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Pickup)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
+        );
+        // Directing actors from authored content (SS1): the `actor` commands
+        // and conditions, and the leaving body going through its zone once
+        // its visit is settled, as an errand's crossing does.
+        crate::body::direction::publish_actor_vocabulary(app);
+        app.add_systems(
+            sim,
+            crate::body::direction::leave_through_zones
+                .run_if(any_with_component::<crate::body::direction::Leaving>)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                .after(crate::body::visit::settle_visits)
+                .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
+                .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
         );
         // A life plans and carries its plan out after its visit is settled,
         // so a step that arrived this tick is done this tick.

@@ -1,0 +1,17 @@
+[package]
+name = "ambition_extension_rhai"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The Rhai backend of the extension host: a module's entries run from source text, prepared when it loads, so an edit to a script needs no build at all."
+
+# Rhai: chosen for the first source-language adapter by the bake-off
+# (docs/planning/engine/scripting-language-bakeoff.md): pure Rust, builds for
+# the browser target, `f32_float` makes its number the engine's, and a script
+# function cannot keep state outside the host's records. `no_time` removes the
+# clock functions, so a script has no input the host does not give it.
+[dependencies]
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+rhai = { version = "1.23", default-features = false, features = ["std", "sync", "f32_float", "no_time"] }

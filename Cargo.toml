@@ -111,6 +111,7 @@ members = [
     "game/ambition_demo_smash_modules",
     "game/ambition_fighter_specials",
     "fixtures/extension_fixture_modules",
+    "crates/ambition_extension_rhai",
     "tests/ambition_workspace_policy",
 ]
 # Deliberately external: dev/bevy_ceiling measures stock Bevy empty-window cost;

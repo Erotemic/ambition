@@ -11,7 +11,7 @@ scripting language." The plan it serves is the
 
 The sentry module's stateful `turret` entry
 (`game/ambition_content_modules/src/sentry.rs`) written in both languages
-(`fixtures/scripting_bakeoff/scripts/sentry.rhai`, `sentry.luau`), each behind
+(`fixtures/scripting_bakeoff/modules/sentry.rhai`, `sentry.luau`), each behind
 the extension host's backend contract: invocation bytes in, checked output
 bytes out. The SDK decodes and encodes the invocation for a script exactly as
 for a compiled guest (`ambition_extension_sdk::abi::invoke_with`, added for
@@ -77,10 +77,14 @@ faster; its binding should then build tables directly, not through serde.
 
 ## Next
 
-1. Rhai adapter in the extension host (audit P3): `ModuleBackend` over
-   `invoke_with`, prepared at candidate preparation, source and generation in
-   every fault, exact comparisons, the operation budget, `eval_ast` cost
-   measured against a cached constant scope.
+1. Rhai adapter in the extension host (audit P3). **Landed** as
+   `crates/ambition_extension_rhai` (`RhaiModules`, a `ModuleBackend`): a
+   script supplies entries of a module the game declares, falling back to the
+   native code for an entry it does not define; exact comparisons, the
+   operation budget, strict variables. The neutral binding moved into the SDK
+   (`ambition_extension_sdk::script`: `ScriptValue`, and `ScriptPort`
+   converters owned by each port's crate). The fixture's `engine` row runs
+   it: 2000 of 2000 equal to native, 12.5 µs per invocation.
 2. Port descriptions (P2) for the sentry's ports, generating the converters
    this fixture writes by hand, and the author-facing reference.
 3. The sentry as a real loaded script in the running game, its rollback

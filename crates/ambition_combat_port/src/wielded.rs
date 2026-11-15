@@ -397,3 +397,27 @@ mod tests {
         assert_eq!(w.to_world_half([10.0, 2.0]), [2.0, 10.0]);
     }
 }
+
+impl ambition_extension_sdk::script::ScriptPort for BodySoundPort {
+    /// `{ cue, at }`: `at` is `[x, y]` in the world, or absent for the body.
+    fn to_script(value: &BodySound) -> ambition_extension_sdk::script::ScriptValue {
+        use ambition_extension_sdk::script::ScriptValue as S;
+        S::map([
+            ("cue", S::Text(value.cue.clone())),
+            ("at", match value.at {
+                crate::motion::Place::World(at) => S::vec2(at),
+                crate::motion::Place::Body => S::Unit,
+            }),
+        ])
+    }
+
+    fn from_script(value: &ambition_extension_sdk::script::ScriptValue) -> Result<BodySound, String> {
+        Ok(BodySound {
+            cue: value.text("cue")?.to_owned(),
+            at: match value.field_opt("at")? {
+                Some(at) => crate::motion::Place::World(at.as_vec2().map_err(|e| format!("`at`: {e}"))?),
+                None => crate::motion::Place::Body,
+            },
+        })
+    }
+}

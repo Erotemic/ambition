@@ -109,3 +109,58 @@ impl ambition_extension_sdk::Port for ProjectileSpawnPort {
         })
     }
 }
+
+impl ambition_extension_sdk::script::ScriptPort for ProjectileSpawnPort {
+    /// `{ origin, dir, speed, damage, max_lifetime, half_extent }`, and
+    /// optionally `gravity`, `visual_id`, `bounces`, `bounce_on_world_contact`,
+    /// `splash_half_extent`, `boomerang_return_s` (each its straight-shot
+    /// default when absent).
+    fn to_script(value: &ProjectileSpawn) -> ambition_extension_sdk::script::ScriptValue {
+        use ambition_extension_sdk::script::ScriptValue as S;
+        S::map([
+            ("origin", S::vec2(value.origin.to_array())),
+            ("dir", S::vec2(value.dir.to_array())),
+            ("speed", S::Num(value.speed)),
+            ("damage", S::Int(i64::from(value.damage))),
+            ("max_lifetime", S::Num(value.max_lifetime)),
+            ("half_extent", S::vec2(value.half_extent.to_array())),
+            ("gravity", S::Num(value.gravity)),
+            ("visual_id", S::Text(value.visual_id.clone())),
+            ("bounces", S::Int(i64::from(value.bounces))),
+            ("bounce_on_world_contact", S::Bool(value.bounce_on_world_contact)),
+            ("splash_half_extent", S::Num(value.splash_half_extent)),
+            ("boomerang_return_s", S::opt(value.boomerang_return_s.map(S::Num))),
+        ])
+    }
+
+    fn from_script(value: &ambition_extension_sdk::script::ScriptValue) -> Result<ProjectileSpawn, String> {
+        let damage = value.field("damage")?.as_int().map_err(|e| format!("`damage`: {e}"))?;
+        let bounces = match value.field_opt("bounces")? {
+            Some(v) => v.as_int().map_err(|e| format!("`bounces`: {e}"))?,
+            None => 0,
+        };
+        Ok(ProjectileSpawn {
+            origin: Vec2::from(value.point("origin")?),
+            dir: Vec2::from(value.point("dir")?),
+            speed: value.num("speed")?,
+            damage: i32::try_from(damage).map_err(|_| "`damage` is out of range".to_owned())?,
+            max_lifetime: value.num("max_lifetime")?,
+            half_extent: Vec2::from(value.point("half_extent")?),
+            gravity: value.num_or("gravity", 0.0)?,
+            visual_id: match value.field_opt("visual_id")? {
+                Some(v) => v.as_text().map_err(|e| format!("`visual_id`: {e}"))?.to_owned(),
+                None => String::new(),
+            },
+            bounces: u8::try_from(bounces).map_err(|_| "`bounces` is out of range".to_owned())?,
+            bounce_on_world_contact: match value.field_opt("bounce_on_world_contact")? {
+                Some(v) => v.as_bool().map_err(|e| format!("`bounce_on_world_contact`: {e}"))?,
+                None => false,
+            },
+            splash_half_extent: value.num_or("splash_half_extent", 0.0)?,
+            boomerang_return_s: match value.field_opt("boomerang_return_s")? {
+                Some(v) => Some(v.as_num().map_err(|e| format!("`boomerang_return_s`: {e}"))?),
+                None => None,
+            },
+        })
+    }
+}

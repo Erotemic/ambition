@@ -30,6 +30,9 @@ mlua = { version = "0.11", optional = true, features = ["luau", "serialize", "se
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # The native sentry, the reference both scripts are compared with.
 ambition_content_modules = { path = "../../game/ambition_content_modules" }
+# The engine's Rhai backend, measured on the same invocations.
+ambition_extension_rhai = { path = "../../crates/ambition_extension_rhai" }
+ambition_extension_host = { path = "../../crates/ambition_extension_host" }
 
 [profile.release]
 debug = false

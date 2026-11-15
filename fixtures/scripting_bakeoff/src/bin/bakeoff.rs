@@ -24,6 +24,17 @@ const BUDGET: u64 = 100_000;
 
 struct Native(ModuleDescriptor);
 
+/// The engine's own Rhai backend (`ambition_extension_rhai`), with the ports
+/// reachable through their owners' `ScriptPort` forms.
+struct Engine(std::sync::Arc<ambition_extension_rhai::RhaiModules>);
+
+impl Backend for Engine {
+    fn invoke(&self, module: u32, entry: u32, input: &[u8]) -> Vec<u8> {
+        use ambition_extension_host::ModuleBackend;
+        self.0.invoke(module, entry, input).expect("the backend runs")
+    }
+}
+
 /// The binding alone: the script gives `inv` back unchanged. Its cost is the
 /// conversions every script backend here pays, not the language's.
 struct Identity(ModuleDescriptor);
@@ -181,13 +192,23 @@ fn diagnose(module: &ModuleDescriptor, what: &str, rhai: &str, luau: &str) {
 
 fn main() {
     let module = ambition_content_modules::sentry::module();
-    let rhai_source = include_str!("../../scripts/sentry.rhai");
-    let luau_source = include_str!("../../scripts/sentry.luau");
+    let rhai_source = include_str!("../../modules/sentry.rhai");
+    let luau_source = include_str!("../../modules/sentry.luau");
     let native = Native(module.clone());
     let rhai = RhaiBackend::new("sentry.rhai", rhai_source, module.clone(), BUDGET).expect("sentry.rhai compiles");
     let luau = LuauBackend::new("sentry.luau", luau_source, module.clone(), BUDGET).expect("sentry.luau compiles");
     let luau_fresh = LuauBackend::fresh("sentry.luau", luau_source, module.clone(), BUDGET).expect("sentry.luau compiles");
     let identity = Identity(module.clone());
+    let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
+    ports
+        .add::<ModuleEntityTickPort>("module_entity_tick")
+        .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
+        .add::<ambition_combat_port::BodySoundPort>("sound");
+    let (engine_rhai, _) = ambition_extension_rhai::RhaiModules::load(
+        "sentry.rhai", rhai_source, module.clone(), ports, ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
+    )
+    .expect("sentry.rhai loads in the engine backend");
+    let engine_rhai = Engine(engine_rhai);
     // Each language with an entry that does nothing: its conversions and call
     // overhead, without the turret's work.
     let rhai_empty = RhaiBackend::new("empty.rhai", "fn turret() { }", module.clone(), BUDGET).expect("compiles");
@@ -198,6 +219,7 @@ fn main() {
     let reference = run(&module, &native, 2000);
     compare("rhai", &module, &reference, &run(&module, &rhai, 2000));
     compare("luau", &module, &reference, &run(&module, &luau, 2000));
+    compare("engine rhai backend", &module, &reference, &run(&module, &engine_rhai, 2000));
     compare("luau (fresh chunk)", &module, &reference, &run(&module, &luau_fresh, 2000));
 
     println!("\n== 2. cost per invocation (2000 ticks x 10 rounds, decode + run + encode)");
@@ -206,6 +228,7 @@ fn main() {
         ("binding only (identity script)", &identity),
         ("rhai, empty entry", &rhai_empty),
         ("rhai", &rhai),
+        ("engine rhai backend", &engine_rhai),
         ("luau, empty entry", &luau_empty),
         ("luau", &luau),
         ("luau, fresh chunk each call", &luau_fresh),

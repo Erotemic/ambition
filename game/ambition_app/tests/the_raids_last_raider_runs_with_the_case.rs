@@ -47,6 +47,9 @@ fn the_raids_last_raider_runs_out_with_the_case() {
     assert!(refusals.is_empty(), "every shipped cutscene line prepares: {refusals:?}");
     let mut pad = Pad::new(&mut sim);
     through_the_raid(&mut pad, RaidStart::Door).unwrap_or_else(|why| panic!("the raid: {why}"));
+    // The Creator points at him while he runs (`actor.pose`), until the
+    // scene lets him go.
+    assert_eq!(creator_pose(pad.world_mut()), Some(("gesture".to_owned(), true)), "the Creator points while he runs");
     // The raid is won the tick he goes; the scene sees him gone on its next
     // tick, and the Creator's last words follow.
     for frame in 0..1200 {
@@ -56,10 +59,27 @@ fn the_raids_last_raider_runs_out_with_the_case() {
         pad.step(Press { confirm: frame % 10 == 0, ..Press::default() });
     }
     assert!(flag(sim.world(), "intro_case_run_seen"), "the escape played when two raiders had fallen");
+    assert_eq!(creator_pose(sim.world_mut()), None, "the scene let the Creator go");
     assert!(flag(sim.world(), "intro_case_taken"), "the yard gate's flag is set");
     let (live, fallen) = raiders(sim.world_mut());
     assert_eq!(live, 0, "the last raider is gone");
     assert_eq!(fallen, 2, "two raiders fell, and the third ran rather than fell");
+}
+
+/// The Creator's pose (`actor.pose`): its row, and whether that row is what
+/// he is drawn with. `None` when he is not posed.
+fn creator_pose(world: &mut World) -> Option<(String, bool)> {
+    let mut bodies = world.query::<(
+        &ambition_platformer2d::characters::actor::CharacterForm,
+        Option<&ambition_platformer2d::actors::body::direction::Posed>,
+        Option<&ambition_platformer2d::sprite_sheet::character::PinnedRow>,
+    )>();
+    let (_, posed, pinned) = bodies.iter(world).find(|(form, _, _)| form.id() == "npc_creator")?;
+    let posed = posed?;
+    let drawn = pinned.is_some_and(|pin| {
+        pin.written_by(ambition_platformer2d::actors::body::direction::POSE_ROW_WRITER) && pin.rows == [posed.row.clone()]
+    });
+    Some((posed.row.clone(), drawn))
 }
 
 /// The Creator's health, in the live workshop.

@@ -2,7 +2,8 @@
 
 **State:** SS1, SS2, SS4's first form and SS3's death record landed
 2026-11-14 (below, "What landed"); SS3's `present_when` is deferred to its
-first customer (below); SS5 landed the same day; SS6 open. Asked by Jon on 2026-11-14 after playing level 1: "do we have
+first customer (below); SS5 landed the same day; SS6 is covered by SS1 and
+SS4 (below). Open: `present_when`, when a customer needs it. Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
 story sequences, it likely will start to become more important."
@@ -113,7 +114,13 @@ language.
   running off with the case. With radiant objectives
   ([RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning))
   the same exit becomes an objective a goblin plans for. SS6 is the authored
-  form that works before that.
+  form that works before that. **Covered 2026-11-14 without a new field:**
+  a retreat is a cutscene that starts on the count (`starts_when:
+  "actor.fallen_is <mob> <n>"`) and runs `actor.leave_through` on the rest.
+  The raid's escape is exactly that, and the encounter is won when the last
+  one has gone. An encounter field would be a second spelling of the same
+  thing; add one only if an encounter needs a retreat with no scene at all
+  and the cutscene form proves awkward.
 
 ## What landed (2026-11-14)
 
@@ -134,7 +141,15 @@ language.
   when it keeps durable whereabouts, and it is despawned). Fallen bodies are
   neither directed nor counted. A body on its way somewhere is not held by a
   playing cutscene, so a scene can move its actors. `actor.face` and
-  `actor.pose` are not written yet.
+  `actor.pose` landed later the same day: `actor.face <character>
+  <left|right|other character>` turns the body once (a held body stays
+  turned), and `actor.pose <character> <row> <loop|hold>` draws it with a
+  named row of its sheet until `actor.release` (`Posed`, rollback state;
+  `pin_poses` derives the drawn pin each tick, and a pose wins over a rest
+  row). In content, the Creator turns to the escaping raider and points
+  (`gesture`), and the scene lets him go at its end; the raid witness
+  checks the pose while he runs and its end. The turn itself is not
+  witnessed: his facing was not shown to change.
 - **SS2, cutscene beats** (`crates/ambition_cutscene`):
   `Command { line }` runs a prepared command in the cutscene's room (a skip
   still runs it), `WaitFor { condition, seconds_at_most }` holds until the

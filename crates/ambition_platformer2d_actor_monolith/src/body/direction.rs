@@ -15,7 +15,16 @@
 //! - `actor.leave_through <character> <zone> <brain>`: the same walk to the
 //!   loading zone `<zone>`, and the body goes through it when it gets there
 //!   ([`leave_through_zones`]).
-//! - `actor.release <character>`: the body's own brain again, and no visit.
+//! - `actor.release <character>`: the body's own brain again, no visit and
+//!   no pose.
+//! - `actor.face <character> <left|right|other character>`: the body turns
+//!   that way, or toward the nearest live body of the other character in its
+//!   room. Once: its own movement can turn it again (a body a cutscene holds
+//!   does not move).
+//! - `actor.pose <character> <row> <loop|hold>`: the body is drawn with the
+//!   named row of its sheet from now on, looping it or holding its last frame
+//!   ([`Posed`], pinned by [`pin_poses`]), until `actor.release`. A sheet
+//!   without the row draws the body as if nothing were pinned.
 //!
 //! And the questions a sequence waits on:
 //!
@@ -94,6 +103,47 @@ const BRAIN: ParamSpec = ParamSpec {
     summary: "the brain preset the body walks with (`keeps_to_its_tasks` walks)",
 };
 
+const WAY: ParamSpec = ParamSpec {
+    name: "way",
+    kind: ParamKind::Name,
+    summary: "`left`, `right`, or a character id to face toward",
+};
+const ROW: ParamSpec = ParamSpec {
+    name: "row",
+    kind: ParamKind::Name,
+    summary: "a named row of the body's sheet",
+};
+const MODE: ParamSpec = ParamSpec {
+    name: "mode",
+    kind: ParamKind::Name,
+    summary: "`loop` the row, or `hold` its last frame",
+};
+
+/// The name [`pin_poses`] writes its pins under.
+pub const POSE_ROW_WRITER: &str = "actor.pose";
+
+/// A body an `actor.pose` put in a pose: the row, the tick the pose began
+/// (its clock), and whether the row loops. Rollback state; the drawn
+/// [`PinnedRow`](ambition_sprite_sheet::character::PinnedRow) is derived
+/// from it each tick.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct Posed {
+    pub row: String,
+    pub since: u64,
+    pub looping: bool,
+}
+
+impl Posed {
+    /// One number for the rollback probe.
+    pub fn probe(&self) -> u64 {
+        let named = self
+            .row
+            .bytes()
+            .fold(0xCBF2_9CE4_8422_2325_u64, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01B3));
+        ae::navigation::mix(named ^ self.since.rotate_left(17) ^ u64::from(self.looping))
+    }
+}
+
 /// Publish the `actor` commands and conditions.
 pub(crate) fn publish_actor_vocabulary(app: &mut App) {
     app.publish_command(
@@ -119,6 +169,22 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
             params: &[CHARACTER],
         },
         release,
+    );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "face"),
+            summary: "turn each body of a character in the asking room left, right, or toward another character",
+            params: &[CHARACTER, WAY],
+        },
+        face,
+    );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "pose"),
+            summary: "draw each body of a character in the asking room with a named row of its sheet, until released",
+            params: &[CHARACTER, ROW, MODE],
+        },
+        pose,
     );
     app.publish_condition(
         ConditionDescriptor {
@@ -276,10 +342,113 @@ fn release(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstanc
         return CommandOutcome::refused(format!("no body of `{character}` is live in the asking room"));
     }
     for (body, sim_id, at) in cast {
-        world.entity_mut(body).remove::<(Visit, Leaving)>();
+        world.entity_mut(body).remove::<(Visit, Leaving, Posed)>();
         world.write_message(BrainCommand::restore_default(LiveBodyId::new(sim_id, at)));
     }
     CommandOutcome::Done
+}
+
+fn face(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+    let (Some(character), Some(way)) = (args[0].as_name(), args[1].as_name()) else {
+        return CommandOutcome::refused("`actor.face` takes a character and a way");
+    };
+    let cast = cast_in(world, character, room);
+    if cast.is_empty() {
+        return CommandOutcome::refused(format!("no body of `{character}` is live in the asking room"));
+    }
+    let toward: Vec<(Option<LiveRoomInstance>, ae::Vec2)> = match way {
+        "left" | "right" => Vec::new(),
+        other => {
+            let others = cast_in(world, other, room);
+            if others.is_empty() {
+                return CommandOutcome::refused(format!(
+                    "`actor.face` faces `left`, `right` or a character, and no body of `{other}` is live in the asking room"
+                ));
+            }
+            others
+                .iter()
+                .filter_map(|(body, _, at)| world.get::<ae::BodyKinematics>(*body).map(|k| (*at, k.pos)))
+                .collect()
+        }
+    };
+    for (body, _, at) in cast {
+        let Some(mut kinematics) = world.get_mut::<ae::BodyKinematics>(body) else {
+            continue;
+        };
+        let here = kinematics.pos;
+        let facing = match way {
+            "left" => -1.0,
+            "right" => 1.0,
+            _ => {
+                let nearest = toward
+                    .iter()
+                    .filter(|(room, _)| *room == at)
+                    .map(|(_, pos)| *pos)
+                    .min_by(|a, b| (*a - here).length().total_cmp(&(*b - here).length()));
+                match nearest {
+                    Some(pos) if pos.x != here.x => (pos.x - here.x).signum(),
+                    _ => continue,
+                }
+            }
+        };
+        kinematics.facing = facing;
+    }
+    CommandOutcome::Done
+}
+
+fn pose(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+    let (Some(character), Some(row), Some(mode)) = (args[0].as_name(), args[1].as_name(), args[2].as_name()) else {
+        return CommandOutcome::refused("`actor.pose` takes a character, a row and `loop` or `hold`");
+    };
+    let looping = match mode {
+        "loop" => true,
+        "hold" => false,
+        other => return CommandOutcome::refused(format!("`actor.pose` loops (`loop`) or holds (`hold`) its row, not `{other}`")),
+    };
+    let cast = cast_in(world, character, room);
+    if cast.is_empty() {
+        return CommandOutcome::refused(format!("no body of `{character}` is live in the asking room"));
+    }
+    let since = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.get());
+    for (body, _, _) in cast {
+        world.entity_mut(body).insert(Posed { row: row.to_owned(), since, looping });
+    }
+    CommandOutcome::Done
+}
+
+/// Draw each posed body with its pose's row, on the pose's own clock; and
+/// take the pin away when the pose ends. A pin another writer holds (a
+/// conductor's) is left alone; a body's rest row gives way to a pose.
+/// (sim, after the rest rows)
+pub fn pin_poses(
+    tick: bevy::prelude::Res<ambition_time::SimTick>,
+    mut bodies: Query<
+        (Entity, Option<&Posed>, Option<&mut ambition_sprite_sheet::character::PinnedRow>),
+        bevy::prelude::Or<(bevy::prelude::With<Posed>, bevy::prelude::With<ambition_sprite_sheet::character::PinnedRow>)>,
+    >,
+    mut commands: Commands,
+) {
+    use ambition_sprite_sheet::character::PinnedRow;
+    const TICK_S: f32 = 1.0 / 60.0;
+    for (body, posed, pinned) in &mut bodies {
+        match (posed, pinned) {
+            (Some(posed), None) => {
+                let mut pin = PinnedRow::default();
+                pin.pin_as(POSE_ROW_WRITER, &[posed.row.as_str()], tick.get().saturating_sub(posed.since) as f32 * TICK_S, posed.looping);
+                commands.entity(body).try_insert(pin);
+            }
+            (Some(posed), Some(mut pinned))
+                if pinned.written_by(POSE_ROW_WRITER)
+                    || pinned.written_by(super::rest_row::REST_ROW_WRITER)
+                    || !pinned.is_pinned() =>
+            {
+                let elapsed = tick.get().saturating_sub(posed.since) as f32 * TICK_S;
+                pinned.pin_as(POSE_ROW_WRITER, &[posed.row.as_str()], elapsed, posed.looping);
+            }
+            (None, Some(mut pinned)) if pinned.written_by(POSE_ROW_WRITER) => pinned.clear(),
+            _ => {}
+        }
+    }
 }
 
 fn arrived(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {

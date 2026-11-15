@@ -65,7 +65,9 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The row a character rests in, when its catalog row states
                 // one (the giant gnu whole, with its arms on it).
-                body::pin_rest_rows,
+                // A pose a scene asked for (`actor.pose`) wins over the rest
+                // row.
+                (body::pin_rest_rows, body::direction::pin_poses).chain(),
                 // The rows of a body that fades between its attacks; then an
                 // enemy's notice beat and the windup of its swing (a fade's
                 // pin is left alone).

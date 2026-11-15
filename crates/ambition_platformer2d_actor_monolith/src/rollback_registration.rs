@@ -150,6 +150,12 @@ where
         "actor.leaving",
         |leaving| leaving.probe(),
     );
+    // A body a scene posed (an `actor.pose`): its row and its clock.
+    registrar.rollback_component_clone_probed::<crate::body::direction::Posed>(
+        OWNER,
+        "actor.posed",
+        |posed| posed.probe(),
+    );
     // What a body is doing with its authored life: its facts, its plan and
     // how far it is. A replay plans from the restored facts.
     registrar.rollback_component_clone_probed::<crate::body::life::Life>(

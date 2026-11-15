@@ -2,7 +2,7 @@
 
 **State:** SS1, SS2, SS4's first form and SS3's death record landed
 2026-11-14 (below, "What landed"); SS3's `present_when` is deferred to its
-first customer (below); SS5, SS6 open. Asked by Jon on 2026-11-14 after playing level 1: "do we have
+first customer (below); SS5 landed the same day; SS6 open. Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
 story sequences, it likely will start to become more important."
@@ -47,12 +47,13 @@ the Creator's last words are a cutscene whose `Fall` beat kills him.
    death is a flag and a fall in one cutscene. Nothing yet says "this NPC is
    present, or lying here, when this condition holds", so each lasting
    consequence needs its own handling.
-4. **Triggers are volumes.** A scene that should follow an event (the raid
+4. **Triggers are volumes** (a cutscene can start on a condition now; see
+   SS4). A scene that should follow an event (the raid
    won) has to be a volume that a body stands in when the event happens. The
    final fragment's volume was a strip by the door, and a fight carried Scout
    past it, so the Creator never died (fixed 2026-11-14: the volume is the
    whole workshop).
-5. **The camera cannot be directed** (`CameraPan` is unfinished).
+5. **The camera cannot be directed** (it can now; see SS5).
 
 ## Proposal, in order
 
@@ -90,7 +91,22 @@ language.
   grammar), so that plan and commit agree.
 - **SS4. Event triggers.** A cutscene can start on a condition becoming true
   (`starts_when`), in a room or anywhere, without a volume.
-- **SS5. The camera.** Finish `CameraPan` and add `CameraHold`.
+- **SS5. The camera.** Finish `CameraPan` and add `CameraHold`. **Landed
+  2026-11-14**, with the hold folded into the pan: a `CameraPan { target,
+  seconds }` eases the camera to a point in the room (in the room's own
+  pixels, as bodies are placed) and holds it there through the beats after
+  it, so a line of dialogue does not snap the view back. A second pan goes
+  from the first target, and `CameraRelease { seconds }` eases back to the
+  view's follow. The end of a cutscene gives the camera back at once. The
+  presentation is a pure function of the cutscene's place, like its fade
+  (`CutsceneCamera`). The render camera applies it downstream of the
+  resolved snapshot, as it applies the shake and the finishing zoom: the
+  views of the cutscene's room only, kept inside the room, and with the
+  follow still easing underneath, so a release lands where the player is
+  now. Witnesses: `a_pan_holds_until_it_is_released` (ambition_cutscene),
+  `a_cutscene_pan_frames_its_target_in_its_own_room` (ambition_render). In
+  content: the raid's escape goes ahead of the raider to the yard gate.
+  Not checked on screen (this VM has no display).
 - **SS6. Retreat in an encounter.** An encounter field `retreat_at: <count>`:
   when that many of its mobs remain, they `leave_through` a named zone (with
   what they carry), and the encounter is won. That is the raid's survivors

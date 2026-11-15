@@ -285,7 +285,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // withhold (level 1's kit).
 // 470 -> 471: a cutscene beat can be a `Command` or a `WaitFor` (story
 // sequences); a directed body's `actor.leaving` zone.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 471;
+// 471 -> 472: a cutscene beat can be a `CameraRelease`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 472;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

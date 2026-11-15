@@ -70,7 +70,8 @@
     // The raid's last raider, when the other two have fallen, grabs the case off the bench and
     // runs: out of the barn door, across the yard, through the gate (which
     // opens for him) and down the lane. The Creator's last words follow when
-    // the raid is won, which his going wins.
+    // the raid is won, which his going wins. The camera goes ahead of him to
+    // the yard gate, holds there while he runs out, and comes back.
     (
         id: "intro_raider_runs_with_the_case",
         starts_when: Some("actor.fallen_is npc_lab_raider 2"),
@@ -82,6 +83,10 @@
             Command(
                 line: "actor.leave_through npc_lab_raider workshop_to_lane runs_where_sent",
             ),
+            CameraPan(
+                target: (1760.0, 300.0),
+                seconds: 0.8,
+            ),
             Dialogue(
                 speaker: "Creator",
                 text: "The case! He's got the case!",
@@ -89,6 +94,9 @@
             WaitFor(
                 condition: "actor.gone npc_lab_raider",
                 seconds_at_most: 6.0,
+            ),
+            CameraRelease(
+                seconds: 0.8,
             ),
         ],
         seen_flag: Some("intro_case_run_seen"),

@@ -24,11 +24,15 @@ pub enum CutsceneBeat {
     /// responsible for showing `text` and waiting for the dismiss
     /// button before advancing.
     Dialogue { speaker: String, text: String },
-    /// Pan the camera to a world-space point over `seconds`. The
-    /// presentation layer applies easing.
-    ///  UNFINISHED: advances its timer, moves no camera. Nothing consumes
-    /// [`CutscenePresentation::camera_target`]. See that field.
+    /// Pan the camera to `target` (a point in the room, in the room's own
+    /// pixels, as bodies are placed) over `seconds`, eased, and hold it there
+    /// through the beats that follow until a [`Self::CameraRelease`] or the
+    /// end of the cutscene. A pan after a pan goes from the first target.
+    /// Zero seconds is a cut.
     CameraPan { target: [f32; 2], seconds: f32 },
+    /// Give the camera back to the view's own follow over `seconds`, eased.
+    /// The end of a cutscene gives it back at once.
+    CameraRelease { seconds: f32 },
     /// Ramp the screen between two AUTHORED alphas over `seconds`
     /// (`0.0` = clear, `1.0` = solid black).
     ///
@@ -87,15 +91,35 @@ pub struct CutscenePresentation {
     ///
     /// The countdown is `authored - elapsed`; it is not separate state.
     pub banner: Option<(String, f32)>,
-    /// Where a camera-pan beat is pointing.
-    ///
-    /// `CameraPan` is currently incomplete: no presentation consumer reads this
-    /// field, so the beat advances without moving the camera.
-    pub camera_target: Option<[f32; 2]>,
+    /// Where the cutscene points the camera, `None` while it leaves the view
+    /// to its own follow. See [`CutsceneCamera`].
+    pub camera: Option<CutsceneCamera>,
     /// Where a fade beat's ramp has reached, `0.0` when no fade beat is
     /// current. Drawn by `ambition_render`'s cutscene overlay as a full-screen
     /// black sheet at this alpha. See [`CutsceneBeat::Fade`].
     pub fade_alpha: f32,
+}
+
+/// The camera a cutscene directs: from one point to another, `progress` of
+/// the way (`0.0..=1.0`, eased by the reader). `None` at an end is the view's
+/// own follow, wherever that is on the frame it is drawn.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CutsceneCamera {
+    pub from: Option<[f32; 2]>,
+    pub to: Option<[f32; 2]>,
+    pub progress: f32,
+}
+
+impl CutsceneCamera {
+    /// The point to frame, given where the view's follow would put it.
+    /// Smoothstep-eased.
+    pub fn center(&self, follow: [f32; 2]) -> [f32; 2] {
+        let from = self.from.unwrap_or(follow);
+        let to = self.to.unwrap_or(follow);
+        let t = self.progress.clamp(0.0, 1.0);
+        let t = t * t * (3.0 - 2.0 * t);
+        [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t]
+    }
 }
 
 impl CutsceneRuntime {
@@ -118,7 +142,8 @@ impl CutsceneRuntime {
         // TARGET, which keeps the projection a pure function of
         // `(script, beat_index, elapsed)`.
         let standing = self.standing_fade();
-        match beat {
+        let camera = self.camera();
+        let shown = match beat {
             CutsceneBeat::Dialogue { speaker, text } => CutscenePresentation {
                 dialogue: Some((speaker.clone(), text.clone())),
                 fade_alpha: standing,
@@ -129,8 +154,7 @@ impl CutsceneRuntime {
                 fade_alpha: standing,
                 ..Default::default()
             },
-            CutsceneBeat::CameraPan { target, .. } => CutscenePresentation {
-                camera_target: Some(*target),
+            CutsceneBeat::CameraPan { .. } | CutsceneBeat::CameraRelease { .. } => CutscenePresentation {
                 fade_alpha: standing,
                 ..Default::default()
             },
@@ -161,7 +185,31 @@ impl CutsceneRuntime {
                 fade_alpha: standing,
                 ..Default::default()
             },
-        }
+        };
+        CutscenePresentation { camera, ..shown }
+    }
+
+    /// Where the camera points now: the current pan or release in progress,
+    /// else the target the last one before this beat left standing. Like
+    /// [`Self::standing_fade`], a pure function of where the cutscene is.
+    fn camera(&self) -> Option<CutsceneCamera> {
+        let standing = |before: usize| {
+            self.script.beats.get(..before).unwrap_or_default().iter().rev().find_map(|beat| match beat {
+                CutsceneBeat::CameraPan { target, .. } => Some(Some(*target)),
+                CutsceneBeat::CameraRelease { .. } => Some(None),
+                _ => None,
+            })
+        };
+        let from = standing(self.beat_index).flatten();
+        let progress = |seconds: f32| if seconds > 0.0 { (self.elapsed / seconds).clamp(0.0, 1.0) } else { 1.0 };
+        let camera = match self.script.beats.get(self.beat_index)? {
+            CutsceneBeat::CameraPan { target, seconds } => {
+                CutsceneCamera { from, to: Some(*target), progress: progress(*seconds) }
+            }
+            CutsceneBeat::CameraRelease { seconds } => CutsceneCamera { from, to: None, progress: progress(*seconds) },
+            _ => CutsceneCamera { from, to: from, progress: 1.0 },
+        };
+        (camera.from.is_some() || camera.to.is_some()).then_some(camera)
     }
 
     /// The alpha the screen is already holding when the current beat starts:
@@ -316,7 +364,9 @@ impl CutsceneRuntime {
                 self.elapsed >= *seconds
             }
             CutsceneBeat::Dialogue { .. } => advance_dialogue,
-            CutsceneBeat::CameraPan { seconds, .. } | CutsceneBeat::Fade { seconds, .. } => {
+            CutsceneBeat::CameraPan { seconds, .. }
+            | CutsceneBeat::CameraRelease { seconds }
+            | CutsceneBeat::Fade { seconds, .. } => {
                 self.elapsed += dt;
                 self.elapsed >= *seconds
             }
@@ -955,6 +1005,7 @@ mod snapshot {
     const FALL: u32 = 6;
     const COMMAND: u32 = 7;
     const WAIT_FOR: u32 = 8;
+    const CAMERA_RELEASE: u32 = 9;
 
     impl SnapshotState for CutsceneBeat {
         fn encode(&self, out: &mut Vec<u8>) {
@@ -1007,6 +1058,10 @@ mod snapshot {
                     put_str(out, condition);
                     put_f32(out, *seconds_at_most);
                 }
+                Self::CameraRelease { seconds } => {
+                    put_u32(out, CAMERA_RELEASE);
+                    put_f32(out, *seconds);
+                }
             }
         }
 
@@ -1045,6 +1100,9 @@ mod snapshot {
                 WAIT_FOR => Self::WaitFor {
                     condition: reader.str()?.to_owned(),
                     seconds_at_most: reader.f32()?,
+                },
+                CAMERA_RELEASE => Self::CameraRelease {
+                    seconds: reader.f32()?,
                 },
                 // Refuse unknown tags rather than decoding a different beat.
                 _ => return None,
@@ -1497,7 +1555,41 @@ mod snapshot {
                 "the dialogue survived into the camera beat — the overlay would \
                  keep showing a line nobody is saying"
             );
-            assert_eq!(after.camera_target, Some([10.0, 20.0]));
+            assert_eq!(after.camera.and_then(|camera| camera.to), Some([10.0, 20.0]));
+        }
+
+        /// A pan holds through the beats after it, a second pan goes from the
+        /// first target, and a release eases back to the follow.
+        #[test]
+        fn a_pan_holds_until_it_is_released() {
+            let script = CutsceneScript::new(
+                "look_over_there",
+                vec![
+                    CutsceneBeat::CameraPan { target: [100.0, 50.0], seconds: 1.0 },
+                    CutsceneBeat::Dialogue { speaker: "Creator".into(), text: "There.".into() },
+                    CutsceneBeat::CameraPan { target: [300.0, 50.0], seconds: 0.0 },
+                    CutsceneBeat::CameraRelease { seconds: 1.0 },
+                ],
+            );
+            let mut runtime = CutsceneRuntime::new(script);
+            runtime.tick(0.5, false);
+            let halfway = runtime.presentation().camera.expect("the pan directs the camera");
+            assert_eq!((halfway.from, halfway.to, halfway.progress), (None, Some([100.0, 50.0]), 0.5));
+            assert_eq!(halfway.center([0.0, 50.0]), [50.0, 50.0], "eased halfway from the follow");
+            runtime.tick(0.6, false);
+            let held = runtime.presentation();
+            assert!(held.dialogue.is_some(), "the dialogue beat is current");
+            assert_eq!(held.camera.map(|camera| camera.center([0.0, 0.0])), Some([100.0, 50.0]), "the pan holds");
+            runtime.tick(0.016, true);
+            // A zero-second pan is a cut: it passes on the tick it starts, and
+            // the release starts from where it cut to.
+            runtime.tick(0.0, false);
+            let release = runtime.presentation().camera.expect("the release directs the camera");
+            assert_eq!((release.from, release.to, release.progress), (Some([300.0, 50.0]), None, 0.0));
+            runtime.tick(0.5, false);
+            assert_eq!(runtime.presentation().camera.map(|camera| camera.center([100.0, 50.0])), Some([200.0, 50.0]));
+            runtime.tick(0.6, false);
+            assert_eq!(runtime.presentation().camera, None, "released, and the cutscene is over");
         }
 
         /// Every beat variant survives, because a codec that silently loses
@@ -1529,6 +1621,10 @@ mod snapshot {
                         text: "Three years later…".into(),
                         seconds: 2.0,
                     },
+                    CutsceneBeat::Fall { character: "npc_creator".into() },
+                    CutsceneBeat::Command { line: "actor.release npc_lab_raider".into() },
+                    CutsceneBeat::WaitFor { condition: "actor.gone npc_lab_raider".into(), seconds_at_most: 6.0 },
+                    CutsceneBeat::CameraRelease { seconds: 0.75 },
                 ],
             )
             .with_seen_flag("seen_intro");

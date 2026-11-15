@@ -118,6 +118,11 @@ pub fn camera_follow(
     // so a host missing this would already fail on `CameraShakeState`.
     finish_zoom: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>,
     finish_zoom_tuning: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>,
+    // A playing cutscene's camera (`CameraPan`, `CameraRelease`), for the
+    // views of the room it plays for. Applied here, downstream of the
+    // resolved snapshot like the shake and the finishing zoom, so the follow
+    // keeps easing underneath and a release lands on where it is now.
+    cutscene: Option<Res<ambition_cutscene::ActiveCutscene>>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     // `With<MainCamera>`, not `With<Camera2d>`: the #31 cube pause menu has a
     // `Camera3d`, and the portal view-cone renderer spawns offscreen capture
@@ -238,6 +243,20 @@ pub fn camera_follow(
             }
         }
 
+        if let Some(camera) = cutscene.as_deref().and_then(|cutscene| {
+            let here = cutscene.room.is_none_or(|room| room == frame.room.ordinal());
+            cutscene.presentation.camera.filter(|_| here && cutscene.is_playing())
+        }) {
+            let follow = snapshot.center_world;
+            let directed = camera.center([follow.x, follow.y]);
+            // Inside the room, as the follow is: an authored point near a wall
+            // does not show past it. A view wider than the room centres it.
+            let half = snapshot.visible_view * 0.5;
+            let size = world.0.size;
+            let keep = |at: f32, half: f32, size: f32| if size > 2.0 * half { at.clamp(half, size - half) } else { size * 0.5 };
+            snapshot.center_world.x = keep(directed[0], half.x, size.x);
+            snapshot.center_world.y = keep(directed[1], half.y, size.y);
+        }
         let x = snapshot.center_world.x - world.0.size.x * 0.5;
         let y = world.0.size.y * 0.5 - snapshot.center_world.y;
 
@@ -390,6 +409,45 @@ mod two_views_one_simulation_tests {
                 .center_world
         });
         (presented, view_states)
+    }
+
+    /// SS5: a playing cutscene's pan frames its target in the views of its
+    /// room, and leaves the views of another room to their follow.
+    #[test]
+    fn a_cutscene_pan_frames_its_target_in_its_own_room() {
+        let present = |playing_in: Option<u32>| {
+            let mut world = World::new();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, room());
+            world.init_resource::<CameraShakeState>();
+            world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>();
+            world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
+            let script = ambition_cutscene::CutsceneScript::new(
+                "look_there",
+                vec![
+                    ambition_cutscene::CutsceneBeat::CameraPan { target: [400.0, 300.0], seconds: 0.5 },
+                    ambition_cutscene::CutsceneBeat::Wait { seconds: 5.0 },
+                ],
+            );
+            let mut runtime = ambition_cutscene::CutsceneRuntime::new(script);
+            runtime.tick(1.0, false);
+            let presentation = runtime.presentation();
+            world.insert_resource(ambition_cutscene::ActiveCutscene { runtime: Some(runtime), presentation, room: playing_in });
+            let view = spawn_view(&mut world, 0, ae::Vec2::new(100.0, 200.0), 1.0);
+            let camera = world
+                .spawn((
+                    MainCamera,
+                    Transform::default(),
+                    Projection::Orthographic(OrthographicProjection::default_2d()),
+                    PresentsView(view),
+                ))
+                .id();
+            world.run_system_once(camera_follow).expect("camera_follow runs");
+            world.entity(camera).get::<Transform>().expect("camera transform").translation.truncate()
+        };
+        let here = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.ordinal();
+        assert_eq!(present(Some(here)), expected_translation(ae::Vec2::new(400.0, 300.0)), "the pan holds its target");
+        assert_eq!(present(None), expected_translation(ae::Vec2::new(400.0, 300.0)), "a world cutscene frames every view");
+        assert_eq!(present(Some(here + 1)), expected_translation(ae::Vec2::new(100.0, 200.0)), "another room's view follows");
     }
 
     /// Each main camera presents the view it names, not the first camera's view.

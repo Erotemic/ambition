@@ -126,7 +126,8 @@ fn beat_problem(beat: &CutsceneBeat) -> Option<String> {
     match beat {
         CutsceneBeat::Wait { seconds }
         | CutsceneBeat::Banner { seconds, .. }
-        | CutsceneBeat::CameraPan { seconds, .. } => duration(*seconds),
+        | CutsceneBeat::CameraPan { seconds, .. }
+        | CutsceneBeat::CameraRelease { seconds } => duration(*seconds),
         CutsceneBeat::WaitFor { condition, seconds_at_most } => duration(*seconds_at_most)
             .or_else(|| condition.trim().is_empty().then(|| "the condition line is empty".to_string())),
         CutsceneBeat::Command { line } => line.trim().is_empty().then(|| "the command line is empty".to_string()),
@@ -164,7 +165,7 @@ pub fn cutscene_library_schema() -> SchemaRegistration {
         version: CUTSCENE_LIBRARY_VERSION,
         capability: CapabilityId::new(CUTSCENE_CAPABILITY),
         disposition: RuntimeDisposition::Runtime,
-        doc: "Cutscene scripts: an id, ordered beats (Wait, Dialogue, CameraPan, Fade, SetFlag, \
+        doc: "Cutscene scripts: an id, ordered beats (Wait, Dialogue, CameraPan, CameraRelease, Fade, SetFlag, \
               Banner, Fall, Command, WaitFor) and an optional seen flag. Several files merge into \
               one library.",
         handler: Arc::new(CutsceneLibrarySchema),

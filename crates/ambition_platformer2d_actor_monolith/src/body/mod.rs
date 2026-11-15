@@ -58,6 +58,7 @@ pub(crate) mod autonomous_reconcile;
 mod brain_effects;
 pub(crate) mod character_policy;
 mod damage;
+pub use damage::enemy_death_flag;
 pub mod death_beat;
 mod death_effects;
 mod dismounted_rider;

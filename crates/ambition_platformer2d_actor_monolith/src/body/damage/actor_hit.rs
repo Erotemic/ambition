@@ -75,8 +75,9 @@ pub(crate) fn kill_disposition(
 
 /// The save flag that a death under `policy` writes, or `None` for a policy
 /// that keeps no record. Room construction reads the same spellings back
-/// (`PersistedFates::enemy_fate`).
-pub(crate) fn enemy_death_flag(
+/// (`PersistedFates::enemy_fate`). An authored death (a cutscene's `Fall`)
+/// writes the same flag.
+pub fn enemy_death_flag(
     policy: ambition_entity_catalog::placements::RespawnPolicy,
     id: &str,
 ) -> Option<String> {

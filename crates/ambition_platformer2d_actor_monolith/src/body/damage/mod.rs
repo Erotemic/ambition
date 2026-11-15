@@ -1050,6 +1050,7 @@ pub fn apply_feature_hit_events(
 }
 
 mod actor_hit;
+pub use actor_hit::enemy_death_flag;
 mod boss_hit;
 use actor_hit::*;
 use boss_hit::*;

@@ -1,7 +1,8 @@
 # Story sequences: authoring scripted scenes without a recompile
 
-**State:** SS1, SS2 and SS4's first form landed 2026-11-14 (below, "What
-landed"); SS3, SS5, SS6 open. Asked by Jon on 2026-11-14 after playing level 1: "do we have
+**State:** SS1, SS2, SS4's first form and SS3's death record landed
+2026-11-14 (below, "What landed"); SS3's `present_when` is deferred to its
+first customer (below); SS5, SS6 open. Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
 story sequences, it likely will start to become more important."
@@ -41,7 +42,8 @@ the Creator's last words are a cutscene whose `Fall` beat kills him.
    list: it cannot run a prepared command (start an encounter, open a wall)
    or wait for a condition (a body arrived, a fight was won). Dialogue can do
    the first and not the second.
-3. **A consequence does not stay in the world by itself.** The Creator's
+3. **A consequence does not stay in the world by itself** (a death does now;
+   see SS3). The Creator's
    death is a flag and a fall in one cutscene. Nothing yet says "this NPC is
    present, or lying here, when this condition holds", so each lasting
    consequence needs its own handling.
@@ -71,7 +73,21 @@ language.
   passes, as it applies `SetFlag` and `Fall` today.
 - **SS3. Lasting presence.** `NpcSpawn` takes `present_when` and
   `fallen_when` conditions, so the Creator lies where he fell on every later
-  visit, and a villager who has left is gone.
+  visit, and a villager who has left is gone. **First part landed
+  2026-11-14:** the Creator's case needed no new field. An NPC placement's
+  death was already kept (`DeadStaysDead`; `npc_fate` builds a recorded
+  death lying down), but only the hit road wrote the record, so a
+  cutscene's `Fall` was forgotten when the room was built again. A `Fall`
+  now writes the same record under the body's own policy
+  (`enemy_death_flag`). That makes `fallen_when` unnecessary for any death
+  that happens in play. **`present_when` is deferred until it has a
+  customer** (no level-1 villager leaves yet). Where it must go: a room's
+  plan is prepared without the world (`RoomFeatureConstructionPlan::prepare`),
+  and that function's own comment explains why an NPC must be dropped there
+  and not in its lowering (an NPC dropped late keeps an empty root and a
+  roster row). So it is a plan-time filter like the population cap,
+  answered from the durable save (a flag, or `not` a flag, the `gated_by`
+  grammar), so that plan and commit agree.
 - **SS4. Event triggers.** A cutscene can start on a condition becoming true
   (`starts_when`), in a room or anywhere, without a volume.
 - **SS5. The camera.** Finish `CameraPan` and add `CameraHold`.
@@ -125,6 +141,11 @@ language.
   Witness: `game/ambition_app/tests/the_raids_last_raider_runs_with_the_case.rs`.
   The case itself is not yet an object he carries; the siding's crate as the
   case is SS3/SS6 work.
+- **SS3, a death in a scene stays:** a cutscene `Fall` writes the death
+  record a hit writes. Witness:
+  `the_creator_lies_where_he_fell_when_scout_comes_back` (same file): his
+  last words, out to the lane, back in; the workshop is built again, a new
+  body, lying where he fell.
 
 ## Acceptance for the first slice (SS1 + SS2)
 

@@ -331,8 +331,14 @@ pub fn tick_active_cutscene(
         Option<ResMut<Messages<ambition_combat::events::SetFlagRequested>>>,
         Option<Res<ambition_time::SimTick>>,
         ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
-        // The bodies a `Fall` beat can name: by the character they wear.
-        Query<(Entity, &ambition_characters::actor::CharacterForm, &mut ambition_characters::actor::BodyHealth)>,
+        // The bodies a `Fall` beat can name: by the character they wear; and
+        // what a death of each keeps (its id and its respawn policy).
+        Query<(
+            Entity,
+            &ambition_characters::actor::CharacterForm,
+            &mut ambition_characters::actor::BodyHealth,
+            Option<(&ambition_combat::components::ActorIdentity, &ambition_combat::actor_tuning::ActorConfig)>,
+        )>,
     ),
     // A `Command` beat's line, prepared and asked through the authored
     // command channel; a `WaitFor` beat's answer for this tick.
@@ -359,11 +365,20 @@ pub fn tick_active_cutscene(
     // A `Fall` beat: the character's bodies in the cutscene's room (in every
     // room, for a cutscene of the whole world) fall, as if their health ran
     // out; the death beat and every consequence of a death follow from it.
-    let mut fall = |character: &str| {
-        for (body, worn, mut health) in &mut cast {
+    // The death is recorded as a hit's would be, under the body's own respawn
+    // policy, so a person who falls here lies here when the room is built
+    // again (an NPC placement's death stays).
+    let mut fall = |character: &str, flags: &mut Vec<(String, bool)>| {
+        for (body, worn, mut health, kept) in &mut cast {
             let here = room.is_none() || rooms.of(body).map(|at| at.ordinal()) == room;
             if here && worn.0.as_str() == character && health.health.current > 0 {
                 health.health.current = 0;
+                if let Some((identity, config)) = kept.filter(|(identity, _)| !identity.id.starts_with("encounter:")) {
+                    flags.extend(
+                        ambition_platformer2d_actor_monolith::body::enemy_death_flag(config.tuning.respawn, &identity.id)
+                            .map(|id| (id, true)),
+                    );
+                }
             }
         }
     };
@@ -414,7 +429,7 @@ pub fn tick_active_cutscene(
         for event in runtime.skip() {
             match event {
                 CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
-                CutsceneEvent::CharacterFell { character } => fall(&character),
+                CutsceneEvent::CharacterFell { character } => fall(&character, &mut flags),
                 CutsceneEvent::CommandAsked { line } => command(&line),
                 _ => {}
             }
@@ -436,7 +451,7 @@ pub fn tick_active_cutscene(
             // dialogue left the dialogue on screen.
             CutsceneEvent::BeatEntered { .. } => {}
             CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
-            CutsceneEvent::CharacterFell { character } => fall(&character),
+            CutsceneEvent::CharacterFell { character } => fall(&character, &mut flags),
             CutsceneEvent::CommandAsked { line } => command(&line),
             CutsceneEvent::Skipped | CutsceneEvent::Completed => {
                 completed = true;

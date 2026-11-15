@@ -9,7 +9,7 @@
 use ambition_app::rl_sim::AmbitionSim as _;
 use bevy::prelude::World;
 
-use crate::common::walk::{through_the_raid, Pad, Press, RaidStart, Walker as _};
+use crate::common::walk::{through_the_raid, walk_through, Pad, Press, RaidStart, Walker as _};
 use crate::common::{base, fixed_60hz_room_options};
 
 fn raiders(world: &mut World) -> (usize, usize) {
@@ -60,4 +60,39 @@ fn the_raids_last_raider_runs_out_with_the_case() {
     let (live, fallen) = raiders(sim.world_mut());
     assert_eq!(live, 0, "the last raider is gone");
     assert_eq!(fallen, 2, "two raiders fell, and the third ran rather than fell");
+}
+
+/// The Creator's health, in the live workshop.
+fn creator_health(world: &mut World) -> Option<i32> {
+    let mut bodies = world.query::<(
+        &ambition_platformer2d::characters::actor::CharacterForm,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+    )>();
+    bodies.iter(world).find(|(form, _)| form.id() == "npc_creator").map(|(_, health)| health.current())
+}
+
+/// STORY SEQUENCES SS3, lasting presence: the Creator dies in a cutscene
+/// (its `Fall` beat), and when Scout comes back into the workshop he lies
+/// where he fell. A `Fall` records the death as a hit's would.
+#[test]
+fn the_creator_lies_where_he_fell_when_scout_comes_back() {
+    let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(fixed_60hz_room_options("intro_wake_room"))
+        .expect("the workshop boots");
+    sim.step_n(base(), 30);
+    let mut pad = Pad::new(&mut sim);
+    through_the_raid(&mut pad, RaidStart::Door).unwrap_or_else(|why| panic!("the raid: {why}"));
+    for frame in 0..2400 {
+        if flag(pad.world(), "intro_creator_fragment_seen") {
+            break;
+        }
+        pad.step(Press { confirm: frame % 10 == 0, ..Press::default() });
+    }
+    assert!(flag(pad.world(), "intro_creator_fragment_seen"), "his last words played");
+    assert_eq!(creator_health(pad.world_mut()), Some(0), "he fell in the scene");
+    walk_through(&mut pad, "intro_hobford_lane").unwrap_or_else(|why| panic!("out to the lane: {why}"));
+    walk_through(&mut pad, "intro_wake_room").unwrap_or_else(|why| panic!("back into the workshop: {why}"));
+    for _ in 0..30 {
+        pad.step(Press::default());
+    }
+    assert_eq!(creator_health(pad.world_mut()), Some(0), "the workshop is built again with him where he fell");
 }

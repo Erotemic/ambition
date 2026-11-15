@@ -216,8 +216,114 @@ The hen looks at you with one eye, then the other, and goes back to the ground.
 
 title: hobford_lost_hen
 ---
-A speckled hen. She is a long way from any farm.
--> ⟨leave her⟩
+<<if condition("world.flag_set", "valley_hen_found")>>
+    The speckled hen is still here, scratching at the roots. She knows where she is now, and she has opinions about it.
+    -> ⟨leave her⟩
+<<elseif condition("world.flag_set", "valley_hen_asked")>>
+    A speckled hen, with one grey feather in her tail. The Plough's hen.
+    -> ⟨tell her the Innkeeper is looking for her⟩
+        <<command "world.set_flag" "valley_hen_found" true>>
+        She looks at you as if you had said something obvious, and goes back to the roots. You will have to tell the Innkeeper where she is.
+    -> ⟨leave her⟩
+<<else>>
+    A speckled hen. She is a long way from any farm.
+    -> ⟨leave her⟩
+<<endif>>
+===
+
+title: valley_miller
+---
+<<present_speaker "npc_valley_miller">>
+<<if condition("world.flag_set", "valley_miller_met")>>
+    <<if condition("world.flag_set", "intro_creator_dead")>>
+        Miller: Mind the sacks. And mind yourself. Whatever came for him might come back.
+    <<else>>
+        Miller: Mind the sacks.
+    <<endif>>
+    -> What do you grind?
+        Miller: Oats, barley, wheat when there is wheat. And whatever the gate sends down that will go between two stones.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "valley_miller_met" true>>
+    Miller: You came down the bank path. Nobody comes down the bank path but the man from the barn on the hill.
+    <<if condition("world.flag_set", "intro_creator_dead")>>
+        -> He's dead. Goblins came for something in his workshop.
+            Miller: Dead.
+            Miller: He owed me for six sacks of flour. I never once saw him bake.
+            Miller: Goblins, this side of the gate. I'll bring the mule in tonight.
+        -> ⟨say nothing⟩
+            Miller: Well. Whatever you are, you're welcome to the porch. Not the flour.
+    <<else>>
+        -> I came from the barn.
+            Miller: Then you're one of his. He talks to his machines more than he talks to us.
+        -> ⟨say nothing⟩
+            Miller: Well. Whatever you are, you're welcome to the porch. Not the flour.
+    <<endif>>
+<<endif>>
+===
+
+title: valley_innkeeper
+---
+<<present_speaker "npc_valley_innkeeper">>
+<<if condition("world.flag_set", "valley_hen_returned")>>
+    Innkeeper: She's back on her perch and laying out of spite. Come in any time.
+    -> ⟨go⟩
+<<elseif condition("world.flag_set", "valley_hen_found")>>
+    -> I found your hen. She's in the woods, by the trail.
+        <<command "world.set_flag" "valley_hen_returned" true>>
+        Innkeeper: The woods! She's never been past the well in her life.
+        Innkeeper: I'll go and fetch her before the goblins do. Here, take a bowl of stew. Don't argue, I can see you're running low.
+        <<give_item "HealthPotion" 1>>
+    -> ⟨go⟩
+<<elseif condition("world.flag_set", "valley_hen_asked")>>
+    Innkeeper: Any sign of her? Speckled, one grey feather in her tail, a temper.
+    -> ⟨go⟩
+<<else>>
+    Innkeeper: Wipe your feet. Are you lost, or are you here about something that is?
+    -> The board says to ask here about a hen.
+        <<command "world.set_flag" "valley_hen_asked" true>>
+        Innkeeper: Mine. Speckled, one grey feather in her tail. Gone since the morning the carts went by.
+        Innkeeper: Goblins, the miller says. With a handcart, going east on the woods road. If she followed the noise, she's in the woods.
+    -> What's the news?
+        Innkeeper: Goblins on the woods road, the freight window tomorrow at noon, and the man from the barn on the hill hasn't been down for his supper.
+        <<if condition("world.flag_set", "intro_creator_dead")>>
+            -> He won't be. He's dead.
+                Innkeeper: Oh.
+                Innkeeper: He always sat by the window and wrote in a little book. I'll keep the seat for a while.
+            -> ⟨say nothing⟩
+        <<endif>>
+    -> ⟨go⟩
+<<endif>>
+===
+
+title: valley_trader
+---
+<<present_speaker "npc_valley_trader">>
+Trader: Lamp oil, salt, batteries. Everything here came through the gate this week.
+-> You were a smith.
+    Trader: Twenty years. Then the gate opened, and every horse in the valley got sold to buy a ticket through it.
+    Trader: I light the forge on Sundays, so it remembers what it's for.
+-> Did the goblins come in here?
+    Trader: Stood in the door and looked at the batteries for a long time. Bought nothing. The big one had a hammer I would have been proud of.
+-> ⟨go⟩
+===
+
+title: valley_gatekeeper
+---
+<<present_speaker "npc_valley_gatekeeper">>
+<<if condition("world.flag_set", "valley_gatekeeper_met")>>
+    Gatekeeper: The freight window is tomorrow, at noon. It is always tomorrow, at noon.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "valley_gatekeeper_met" true>>
+    Gatekeeper: Name, origin, purpose.
+    -> I don't have a name. I came from the barn on the hill.
+        Gatekeeper: "No name, the barn, unknown." That will do. Most of them are like that.
+    -> Did goblins come this way with a handcart?
+        Gatekeeper: Five of them. No papers. They went down the freight track to the siding to wait for the window.
+        Gatekeeper: I wrote them down as "freight". Nobody argued.
+    -> ⟨go⟩
+<<endif>>
 ===
 
 title: hobford_dog

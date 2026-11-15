@@ -368,7 +368,7 @@ fn validate_quest_conditions(sprite_content: &ambition_platformer2d::sprite_shee
     wave_spawns_start_clear_of_solid_ground(rooms, &loaded_encounters, report);
 
     let boss_catalog = crate::bosses::boss_catalog_of(&sprite_content, pack);
-    let ids = QuestTargets::of(rooms, &loaded_encounters, &boss_catalog);
+    let ids = QuestTargets::of(pack, rooms, &loaded_encounters, &boss_catalog);
     check_quest_steps(&crate::quest::quest_specs_of(pack), &ids, report);
 }
 
@@ -431,6 +431,7 @@ impl QuestTargets {
     /// each comes from the rooms that the runtime builds, the encounters that
     /// the loader builds, and the boss owner.
     fn of(
+        pack: &ambition_content_pack::PreparedContentPack,
         rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
         loaded_encounters: &[(
             String,
@@ -439,7 +440,7 @@ impl QuestTargets {
         )],
         boss_catalog: &ambition_boss_encounter::BossCatalog,
     ) -> Self {
-        let (flags, npcs, items) = composed_quest_ids(rooms, loaded_encounters);
+        let (flags, npcs, items) = composed_quest_ids(pack, rooms, loaded_encounters);
         Self {
             // A room is entered by its composed id (`RoomSpec::id`).
             rooms: rooms.iter().map(|room| room.id.clone()).collect(),
@@ -671,6 +672,7 @@ fn validate_boss_music_tracks(
 /// pickups, each read from the composed rooms: the placements that the runtime
 /// lowers. Each id is made by the function that the runtime makes it with.
 fn composed_quest_ids(
+    pack: &ambition_content_pack::PreparedContentPack,
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
     loaded_encounters: &[(
         String,
@@ -725,7 +727,7 @@ fn composed_quest_ids(
     flags.extend(crate::dialogue::dialogue_set_flags());
     // A cutscene's `SetFlag` beat writes its flag too, and a skip still
     // applies it.
-    for script in crate::dialogue::cutscene_defaults::cutscene_scripts_of(crate::pack::shipped()) {
+    for script in crate::dialogue::cutscene_defaults::cutscene_scripts_of(pack) {
         for beat in &script.beats {
             if let ambition_cutscene::CutsceneBeat::SetFlag { id, on: true } = beat {
                 flags.insert(id.clone());
@@ -1245,7 +1247,7 @@ mod tests {
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
             None,
         );
-        let ids = QuestTargets::of(&rooms, &loaded, &boss_catalog);
+        let ids = QuestTargets::of(crate::pack::shipped(), &rooms, &loaded, &boss_catalog);
         (rooms, boss_catalog, ids)
     }
 

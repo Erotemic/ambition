@@ -878,6 +878,12 @@ def _apply_to_dedicated_ldtk(
     if rc != 0:
         print(f"error: area create into {ldtk_path} failed (rc={rc})", file=sys.stderr)
         return False
+    # Record the level as this generator left it, as `district_kit` does
+    # for a district: without the record, the next run read its own last
+    # build as a hand edit and refused to replace it.
+    from ambition_ldtk_tools import generated_record
+
+    generated_record.record(ldtk_path, [str((spec_data or {}).get("level_id", "hall_of_characters"))])
     return True
 
 

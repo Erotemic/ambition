@@ -947,9 +947,9 @@ the raid work; a level 1 that meets some of the cast, makes the player learn
 the basic mechanics through the place, and starts real challenges. One jump,
 melee only; pogo at most an optional extra. Fia is not named in it.
 
-This row took over INTRO-RAID (2026-11-12). Kept from it: one creator who
-follows the robot and fights beside it (`follows_closely`, a `dangerous`
-room); a playing room cutscene holds every body in its room
+This row took over INTRO-RAID (2026-11-12). Kept from it: one creator (he
+no longer follows the robot: in Hobford he stays at his bench, and his
+`follows_closely` brain was deleted when nothing named it); a playing room cutscene holds every body in its room
 (`ControlHold::Cutscene`); the `Fall` beat; Oiler's `meets_the_player`
 brain and `oiler_notices` volume; the message board's fight rows.
 
@@ -973,7 +973,7 @@ D1-D21 in the design page.
 
 **Next action:** move the new-game start to the workshop (D3); the art
 (terrain, props, villagers, publication; the three backgrounds are drawn);
-the gate clerk, the miller and villagers; playtest and tune the waves.
+the residents (the gatekeeper, the miller, the innkeeper and the trader landed 2026-11-14, Hobford row 9); playtest and tune the waves.
 
 **LEVEL-1-KIT (done 2026-11-14 for verbs):** each level-1 room withholds the
 kit past run, one jump, drop through and the strike (the level field
@@ -1004,6 +1004,21 @@ conversation crate's unit tests. **Next action:** the rural opening's raid
 player's own inputs; every required step is one jump; the creator dies
 beside the robot; Alice's reading reaches Bob and opens the survey line;
 the freight yard's fight returns the notebooks and opens the shortcut home.
+
+### DOOR-EDGES — outdoor joins that are still doors
+
+**Open (from the 2026-11-14 census, [Hobford polish](game/hobford-polish.md#door-census-of-the-other-worlds-row-5-2026-11-14) row 5).**
+Jon's rule (2026-11-14, [level design guide](../authoring/level-design-guide.md)):
+edges join the parts of one connected place, doors go into interiors.
+Level 1 follows it. The census lists the other worlds' door joins that may
+be outdoor joins: history (Borobudur and Srivijaya; the shore and the
+colosseum), pvn (the cove's doors to the docks, the lookout, the dojo and
+the arena), science (GNU-ton's truss chain) and dinosaur (the canopy and
+the tyrant's hall). **Next action:** look at each pair's two rooms; where
+both are outdoors, its owning generator writes an edge on the matching
+sides (the arrival is 92 px in on flat ground) and the rooms sit side by
+side on the world map; where one is a building, keep the door and make the
+building visible from outside.
 
 ### FINAL-BOSS — the bossofthegame on the shoulders of a giant
 

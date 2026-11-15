@@ -130,7 +130,7 @@ under the gate stack, outside level 1 (D5).
 | `intro_wake_room` | THE WORKSHOP | walk, the first jump (the test plinth), up to the parts loft and back down (drop through) | the Creator |
 | `intro_hobford_lane` | HOBFORD LANE | the first open air, high on the west hill; the bank path down to the mill | Alice, hens |
 | `intro_high_meadow` | THE HIGH MEADOW | the hill path up from the woods, the shepherd's terrace, a dry-stone wall | a farm dog |
-| `intro_gate_clearing` | THE GATE CLEARING | the gate on the hilltop, the guard post, the barrier and its lever, the freight track down | the gate clerk (not built, D20) |
+| `intro_gate_clearing` | THE GATE CLEARING | the gate on the hilltop, the guard post, the barrier and its lever, the freight track down | the gatekeeper (`npc_valley_gatekeeper`, D20) |
 | `intro_freight_yard` | THE FREIGHT SIDING | the goblins' camp: a fight in tiers of stacked freight | goblin raiders, their foreman |
 | `intro_millstream` | THE MILLSTREAM | stepping stones, the mill wheel, the pond (swim), a cracked wall behind the wheel | the miller (not built, D20) |
 | `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | villagers (not built, D20) |
@@ -366,5 +366,5 @@ freight is turf blocks.
 | D17 | The goblins' work order names "THE WORKSHOP AT THE OLD MILL, HOBFORD": they hit the barn because it had a robot in it. The mill in the millstream room is the address they meant. | change the work order's text |
 | D18 | The Hobford ring's address is TILLAGE (inscription letters only). Its posted list is LEGAL; the note: "Freight window daily at noon. Persons by appointment." | change the ring row |
 | D19 | The raid also starts when Scout walks to the barn door without talking to the Creator (its trigger is between him and the door), so the barn cannot be a dead end. The sim's agent action has no menu select, so the walked route takes this start and the playthrough the conversation. | put the trigger out of reach again (the raid then needs the talk) |
-| D20 | Not built yet: the gate clerk, the miller and villagers (the notice board and signs carry the village's lines). | add `NpcSpawn` rows and nodes |
+| D20 | Built 2026-11-14 ([Hobford polish](hobford-polish.md) row 9): the gatekeeper, the miller, the innkeeper and the trader, new chargen residents with their own Yarn nodes. | more villagers as the village grows |
 | D21 | Alice's survey line across the lane is a low `LockWall` (a step over) on `bob_field_survey_received`, against the brief's "no story-fact gates": the Alice/Bob acceptance tests (`the_note_reaches_bob_and_opens_alices_return`, `the_hand_over_opens_the_wall_in_the_other_participants_room`) pin a wall that opens on Bob's survey. It shuts nothing. | a lever or a cut for the line, and port the two tests to another fact |

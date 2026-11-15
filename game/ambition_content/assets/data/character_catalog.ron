@@ -212,22 +212,6 @@
             playful: 0.2,
             notice_radius: 120.0,
         ),
-        // Keeps at the player's side: every next place is beside the player,
-        // and a body farther off than a few strides goes to the player at
-        // once. Rests are short, and its trot is faster than the player's run
-        // (270), so it is beside the player when a fight ends and the player
-        // walks on. In a dangerous room it still rallies to the player's fight
-        // (`rally.rs`).
-        "follows_closely": Roam(
-            speed: 90.0,
-            trot_speed: 280.0,
-            rest_min_s: 0.2,
-            rest_max_s: 0.6,
-            company: 1.0,
-            stay_within: 120.0,
-            playful: 0.0,
-            notice_radius: 400.0,
-        ),
         // Stays at its post, and comes to meet a player who walks up. It keeps
         // to the room's surfaces, so it does not walk off a ledge it was
         // standing beside.
@@ -9992,6 +9976,80 @@
             barks: (
                 idle: ["*rustle*", "*a straw drifts loose*"],
                 hall: ["So what you are saying is that I am right.", "Nobody has ever beaten me in an argument. I have checked. Mostly with myself.", "Go on, knock me down. That is what I am for.", "I awarded myself this ribbon. The judges agreed. I was the judges."],
+            ),
+        ),
+
+        // ===== Residents of the valley village under the gate (level 1, 2026-11-14):
+        // made by the character generator (`targets/characters/townsfolk.py`,
+        // `valley_*`). They go by their trades, so a rename of the village
+        // (its name is a placeholder: `docs/planning/game/hobford-polish.md`)
+        // touches none of them; their talk is `intro.yarn`.
+        "npc_valley_miller": (
+            display_name: "Miller",
+            // The miller, floured to the elbows. Flour, feed, no credit.
+            manifest: "sprites/valley_miller_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 181 cm.
+            standing_height: Some(70.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "valley_village", "peaceful"],
+            barks: (
+                idle: ["Mind the sacks.", "The wheel's slow today. So am I."],
+                hall: ["Flour, feed, no credit. The sign has said it for thirty years and it has been right for thirty years.", "The gate brings in flour from places that never saw a field. It tastes of nothing."],
+            ),
+        ),
+        "npc_valley_innkeeper": (
+            display_name: "Innkeeper",
+            // The keeper of the Plough, who knows what everyone has lost.
+            manifest: "sprites/valley_innkeeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "valley_village", "peaceful"],
+            barks: (
+                idle: ["Wipe your feet.", "If it's lost, it's been mentioned here."],
+                hall: ["Every lost thing in this valley gets mentioned at my bar sooner or later. Mostly sooner.", "The gate brought me more customers and fewer regulars."],
+            ),
+        ),
+        "npc_valley_trader": (
+            display_name: "Trader",
+            // The smith whose forge went cold when the gate opened; the smithy sells gate goods now.
+            manifest: "sprites/valley_trader_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "valley_village", "peaceful"],
+            barks: (
+                idle: ["Lamp oil, salt, batteries.", "Everything here came through the gate this week."],
+                hall: ["I made horseshoes for twenty years. Now I sell batteries to people who own no horses.", "The forge is still there. I light it on Sundays, so it remembers."],
+            ),
+        ),
+        "npc_valley_gatekeeper": (
+            display_name: "Gatekeeper",
+            // The gatekeeper, who keeps the gate office: strangers stamped in, freight out.
+            manifest: "sprites/valley_gatekeeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "valley_village", "gatekeeper", "peaceful"],
+            barks: (
+                idle: ["Name, origin, purpose.", "The freight window is tomorrow, at noon. It is always tomorrow, at noon."],
+                hall: ["Every stranger gets a stamp. Most of them do not know what it means. Neither do I, exactly.", "The gate does not keep records. That is why it needs me."],
             ),
         ),
 

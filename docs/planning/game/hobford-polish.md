@@ -40,14 +40,14 @@ applies are in the [level design guide](../../authoring/level-design-guide.md).
 | 2 | The Creator's talk: the raid starts after the last answer has landed, not under the question; each beat finishes first | done: answer, a beat (`<<wait 1.5>>`), "Hang on. Was that a cart?", the raid called, "The door's barred. It'll hold.", the bar breaks, two short lines while the raiders walk in |
 | 3 | The barrier lever works from both sides and the barrier stays up once lifted | done: the lever stands beside the boom on the road's side and sets `hobford_barrier_lifted`, which no pull clears; the only rooms past it (the gate, the freight track, the siding) are reached through it, so no body is ever on the far side of a shut boom |
 | 4 | The raid: the barn is the interior and its yard is outside; the goblins start beyond the yard, out of shot, and walk in through the open barn door while the camera holds Scout, the Creator and the door. The arena lock is the yard gate (the encounter's own wall), so no one leaves mid-fight; the Creator's last words wait for the fight (`after_encounter` on the trigger) | done: the raiders appear in the doorway about a second after the bar breaks and break in on arrival; the probe's frame log is in the commit message |
-| 5 | Edges between Hobford's outdoor rooms; the barn and other interiors by doors; then a census of every world's doors with a queue row for the rest | level 1 done: every outdoor join is an edge (the four doors are gone); the census of other worlds is open |
+| 5 | Edges between Hobford's outdoor rooms; the barn and other interiors by doors; then a census of every world's doors with a queue row for the rest | done: level 1's outdoor joins are all edges (the four doors are gone); the census of the other worlds is below, and its candidates are the queue row [DOOR-EDGES](../queue.md#door-edges--outdoor-joins-that-are-still-doors) |
 | 6 | A Hobford background without the gate (`hobford_gateside`) for the gate clearing and the siding | done: `hobford_gateside` is the country drawn from the same seed without the ring, scaffold and cable poles; the two rooms name it in the new level field `backdrop` (the background's theme alone; the skin stays the country's) |
 | 7 | The land: hills instead of two rows of rooms joined by doors | first pass done: one line of rooms west to east (below); the lane, the meadow and the clearing are hill rooms that climb between the hilltops' height and the valley's on filled `SurfaceChain` slopes, which the navigation graph walks (`NavLegKind::Slope`). Next: the mountain behind the meadow, dressing on the long slopes |
 | 8 | Props (`hill_village_props.py`, nine pieces, name-neutral ids `hill_*`): publish, place, capture | published and placed; captures pending |
 | 10 | The lane as the first view: from the barn door the land falls away east; the valley, the village roofs and the gate on the far hill are in view, and the bank path is visibly the way down | done: the lane is high on the west hill and the bank path goes down to the mill in two pitches. On the hilltops (the lane, the meadow's top, the clearing's road) a lookout `CameraZone` lifts the frame 180 px (`LOOKOUT_LIFT`): framed on Scout, the hill's earth filled the lower half and hid the background; lifted, the village roofs, the valley and the gate on the far hill are in view from the barn door |
-| 9 | People: villagers, the miller, the gate clerk, from the existing cast or new chargen residents | open |
-| 11 | The Creator dies after the raid (Jon: "he just kinda stands there", and talking to him after the fight he "seems fine") | done: the final fragment's trigger was a 96 px strip outside the door, and a fight carried Scout past it into the yard, so the last words never played and he never fell. The trigger is now the whole workshop: the moment the raid is won he speaks and falls (probe: health 0, `intro_creator_dead`). His post-raid talk line is hurt, not "I'm all right" |
-| 12 | The raid's survivors run off with the case (Jon: if every goblin is killed the story does not make sense) | waits on [story sequences](../engine/story-sequences.md) SS1, SS2 and SS6 (actors that leave through a door; an encounter that ends in a retreat); radiant objectives later |
+| 9 | People: villagers, the miller, the gatekeeper, from the existing cast or new chargen residents | done: four new chargen residents (`valley_miller`, `valley_innkeeper`, `valley_trader`, `valley_gatekeeper`; ids carry no proper names, the shown names are their trades, the lore's "Gatekeeper" as in Nagisa the Gatekeeper). The miller is at the millstream, the trader and the innkeeper in the village, the gatekeeper in the gate clearing. Each has a Yarn node that reads the world (the miller and the others know when the Creator is dead). The lost hen is now a small errand: asked, found, brought back, and the innkeeper gives a potion for it. In the Hall of Characters they have their own wing. Not checked on screen (this VM has no display) |
+| 11 | The Creator dies after the raid (Jon: "he just kinda stands there", and talking to him after the fight he "seems fine") | done: the final fragment's trigger was a 96 px strip outside the door, and a fight carried Scout past it into the yard, so the last words never played and he never fell. The trigger is now the whole workshop: the moment the raid is won he speaks and falls (probe: health 0, `intro_creator_dead`). His post-raid talk line is hurt, not "I'm all right". Since SS3 he lies where he fell on every later visit (a cutscene `Fall` keeps its death record) |
+| 12 | The raid's survivors run off with the case (Jon: if every goblin is killed the story does not make sense) | done with [story sequences](../engine/story-sequences.md) SS1 to SS5: when two raiders have fallen, the last runs out through the yard gate with the case (`intro_raider_runs_with_the_case`); the Creator turns and points, the camera goes ahead to the gate, and his going wins the raid. The case is not yet an object he carries; radiant objectives later |
 
 ## The land (rows 5, 7 and 10): the design
 
@@ -94,6 +94,45 @@ Rules the rooms follow:
   an end off the grid.
 - **Alice's survey line** is pegged across the lane, low enough to step
   over (a 24 px `LockWall`); it comes up when Bob's survey is in, as before.
+
+## Door census of the other worlds (row 5, 2026-11-14)
+
+Every `LoadingZone` with `activation: "Door"` in the 14 shipped worlds
+(`game/ambition_content/assets/worlds/*.ldtk`, read through the symlinks),
+each two-way pair counted once: 227 door joins. The rule is the
+[level design guide's](../../authoring/level-design-guide.md): an edge
+between two parts of one connected place, a door into something.
+
+Not candidates, by kind:
+
+- **Gate arrivals** (`the gate`, `the public gate`, `ring 1`, the survey
+  rings, the arches): a zone with no target room is where the gate network
+  puts a traveller, not a way between rooms.
+- **The sandbox's hubs and labs** (117 joins): the developer hub's doors to
+  test rooms and the halls of biomes and bosses are a menu of rooms, not a
+  place. The halls of characters and bosses and their arenas are the same.
+- **Crossings out of a dimension** (`to central hub`, `home to the hub`).
+- **Doors into and out of interiors**, which is what a door is for: the
+  shops, taverns, houses, the hotel and its Monty Hall doors, the temple's
+  rooms off the nave, the castle's halls, the station's decks (stairs and
+  lifts between decks inside one station), the drain cover, the Door of No
+  Return (a door in the place itself).
+
+Candidates (both rooms read as outdoors, or one place cut in two); each
+wants a look at the two rooms before it changes:
+
+| World | Join | Why it is a candidate |
+|---|---|---|
+| history | `history_borobudur` and `history_srivijaya` ("back to Srivijaya") | two outdoor places on one route |
+| history | `history_classical_shore` and `history_colosseum` ("into the colosseum") | an open-air arena: a door if the colosseum is drawn as a building entered, an edge if it is the next stretch of ground |
+| pvn | `pirate_cove` and `pirate_port_docks`; `pirate_cove` and `pirate_sky_lookout` | the shore and the docks, the shore and a lookout above it |
+| pvn | `ninja_dojo` and `ninja_village_forest`; `mockingbird_arena` and `pirate_cove`, `ninja_dojo` | the older pvn rooms joined by doors from before the two towns were built |
+| science | GNU-ton's chain: `gnu_ton_orchard`, `gnu_ton_vector_well`, `gnu_ton_conservation_hall`, `gnu_ton_inversion_gallery`, `gnu_ton_works_approach`, `gnu_ton_shoulders` ("on to the ...", "back to the ...") | a walked sequence along the truss joined by doors; "hall" and "gallery" may be interiors, the orchard and the well are not |
+| dinosaur | `primeval_canopy` and `primeval_tyrant_hall` | a door if the hall is a building or a cave mouth, an edge otherwise |
+
+The census script was a scratch read of the LDtk JSON (it is not kept); to
+run it again, group the `LoadingZone` entities by `activation` and pair
+each door with its `target_room`/`target_zone`.
 
 ## Names are placeholders
 

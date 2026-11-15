@@ -278,6 +278,7 @@ fn the_intro_world_authors_the_flag_that_opens_each_gated_wall() {
             ("alice_survey_line", "bob_field_survey_received"),
             ("hobford_barrier", "world.flag_set hobford_barrier_lifted"),
             ("intro_barn_door", "world.flag_set intro_barn_door_broken"),
+            ("intro_yard_gate", "world.flag_set intro_case_taken"),
         ],
         "the level says which fact opens each gated wall, and losing it there is \
          silent"

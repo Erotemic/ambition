@@ -984,8 +984,11 @@ mod tests {
     }
 
     /// Every authored brain preset has at least one user: a character whose
-    /// default brain it is, or a placement in a shipped world that names it
-    /// (`brain_override`, as the Math town's wandering townsfolk do).
+    /// default brain it is, a placement in a shipped world that names it
+    /// (`brain_override`, as the Math town's wandering townsfolk do), or a
+    /// line that sends an actor with it (`actor.walk_to` and
+    /// `actor.leave_through` take the preset as their last word, in a
+    /// cutscene's `Command` beat or a Yarn `<<command>>`).
     ///
     /// A key whose last user migrates to a `BrainProfile` fails here in the same
     /// change, so no unused row is left behind.
@@ -1016,6 +1019,35 @@ mod tests {
                     serde_json::Value::Array(items) => stack.extend(items),
                     _ => {}
                 }
+            }
+        }
+        let mut lines: Vec<String> = crate::dialogue::cutscene_defaults::cutscene_scripts_of(crate::pack::shipped())
+            .into_iter()
+            .flat_map(|script| script.beats)
+            .filter_map(|beat| match beat {
+                ambition_cutscene::CutsceneBeat::Command { line } => Some(line),
+                _ => None,
+            })
+            .collect();
+        let mut dirs = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/dialogue")];
+        while let Some(dir) = dirs.pop() {
+            for entry in std::fs::read_dir(&dir).expect("the dialogue folder reads").flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    dirs.push(path);
+                } else if path.extension().is_some_and(|ext| ext == "yarn") {
+                    let text = std::fs::read_to_string(&path).expect("a yarn file reads");
+                    lines.extend(text.lines().filter_map(|line| {
+                        let rest = line.trim().strip_prefix("<<command ")?;
+                        Some(rest.trim_end_matches(">>").to_string())
+                    }));
+                }
+            }
+        }
+        for line in &lines {
+            let words: Vec<&str> = line.split_whitespace().map(|word| word.trim_matches('"')).collect();
+            if let ["actor.walk_to" | "actor.leave_through", _, _, preset] = words.as_slice() {
+                adopted.insert(preset.rsplit(':').next().unwrap_or(preset).to_string());
             }
         }
         let orphans: Vec<&str> = data

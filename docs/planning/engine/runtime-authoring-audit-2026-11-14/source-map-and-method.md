@@ -97,8 +97,8 @@ All paths below are relative to the supplied source root. Line anchors refer to 
 | Low-layer policy | `crates/ambition_platformer2d_shared_tangle/src/developer_hotkeys.rs:12`; `src/camera_ease.rs` in the same crate | Semantic contracts mixed with host key policy and view implementation |
 | Content compiler and embedding | `crates/ambition_content_pack/src/embed.rs:26`; `crates/ambition_engine_schemas/src/lib.rs:20` | Pure compiler, conditional embedding, schema composition dependencies |
 | Language boundary | `crates/ambition_extension_host/src/admission.rs:43`; `crates/ambition_extension_wasm/src/lib.rs:108` | Backend interface, checked execution, fresh Wasmi instances |
-| Port and state vocabulary | `crates/ambition_extension_sdk/src/port.rs:63`; `src/schema.rs:62` in the same crate | Rust value/codec contract, attachment and field kinds |
-| Request outcomes | `crates/ambition_extension_host/src/exec.rs:349`; `src/lib.rs:400` in the same crate | Record commit, request staging, settlement, domain lowering |
+| Port and state vocabulary | `crates/ambition_extension_sdk/src/port.rs:63`; `crates/ambition_extension_sdk/src/schema.rs:62` | Rust value/codec contract, attachment and field kinds |
+| Request outcomes | `crates/ambition_extension_host/src/exec.rs:349`; `crates/ambition_extension_host/src/lib.rs:400` | Record commit, request staging, settlement, domain lowering |
 | Loading and discovery | `crates/ambition_platformer2d_runtime/src/extension_composition.rs:273`, `:376`, `:502` | Opt-in loading, known-file polling, initial directory enumeration |
 | Reload ownership | `crates/ambition_platformer2d/src/lib.rs:130`, `:440`; `game/ambition_content/src/pack.rs:377` | Static SDK/demo borrows versus main-game App-local `Arc` ownership |
 | Control and body authority | `crates/ambition_characters/src/actor/control.rs:160`; `crates/ambition_platformer2d_actor_monolith/src/control/authority.rs:15` | Intent frames and controller/body separation |

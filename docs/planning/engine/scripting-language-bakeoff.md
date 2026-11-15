@@ -23,7 +23,7 @@ hand-written converter each (P2 would generate those).
 Reproduce:
 
     cd fixtures/scripting_bakeoff
-    cargo run --release --bin bakeoff
+    cargo run --release   # its one bin, src/bin/bakeoff.rs (the fixture is outside the workspace)
     cargo build --release --lib --target wasm32-unknown-unknown --no-default-features --features rhai   # or luau
 
 Versions: Rhai 1.27.0 (`sync`, `f32_float`, `serde`); mlua 0.11.6 with Luau

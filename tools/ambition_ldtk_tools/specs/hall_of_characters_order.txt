@@ -129,6 +129,12 @@ npc_village_hayashi
 npc_village_ren
 npc_village_moriyama
 
+[The valley village under the gate (level 1)]
+npc_valley_miller
+npc_valley_innkeeper
+npc_valley_trader
+npc_valley_gatekeeper
+
 [The orbital station]
 npc_station_okafor
 npc_station_reyes

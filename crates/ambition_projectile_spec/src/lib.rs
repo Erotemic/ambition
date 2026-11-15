@@ -74,93 +74,65 @@ impl ambition_extension_sdk::Port for ProjectileSpawnPort {
     type Value = ProjectileSpawn;
 
     fn encode(v: &ProjectileSpawn, out: &mut Vec<u8>) {
-        use ambition_extension_sdk::wire::*;
-        put_vec2(out, v.origin.into());
-        put_vec2(out, v.dir.into());
-        put_f32(out, v.speed);
-        put_i32(out, v.damage);
-        put_f32(out, v.max_lifetime);
-        put_vec2(out, v.half_extent.into());
-        put_f32(out, v.gravity);
-        put_str(out, &v.visual_id);
-        put_u8(out, v.bounces);
-        put_bool(out, v.bounce_on_world_contact);
-        put_opt(out, v.boomerang_return_s, put_f32);
-        put_f32(out, v.splash_half_extent);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(
         r: &mut ambition_extension_sdk::wire::WireReader<'_>,
     ) -> Result<ProjectileSpawn, ambition_extension_sdk::wire::WireError> {
-        use ambition_extension_sdk::wire::WireReader;
-        Ok(ProjectileSpawn {
-            origin: r.vec2()?.into(),
-            dir: r.vec2()?.into(),
-            speed: r.f32()?,
-            damage: r.i32()?,
-            max_lifetime: r.f32()?,
-            half_extent: r.vec2()?.into(),
-            gravity: r.f32()?,
-            visual_id: r.str()?.to_owned(),
-            bounces: r.u8()?,
-            bounce_on_world_contact: r.bool()?,
-            boomerang_return_s: r.opt(WireReader::f32)?,
-            splash_half_extent: r.f32()?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
-impl ambition_extension_sdk::script::ScriptPort for ProjectileSpawnPort {
-    /// `{ origin, dir, speed, damage, max_lifetime, half_extent }`, and
-    /// optionally `gravity`, `visual_id`, `bounces`, `bounce_on_world_contact`,
-    /// `splash_half_extent`, `boomerang_return_s` (each its straight-shot
-    /// default when absent).
-    fn to_script(value: &ProjectileSpawn) -> ambition_extension_sdk::script::ScriptValue {
-        use ambition_extension_sdk::script::ScriptValue as S;
-        S::map([
-            ("origin", S::vec2(value.origin.to_array())),
-            ("dir", S::vec2(value.dir.to_array())),
-            ("speed", S::Num(value.speed)),
-            ("damage", S::Int(i64::from(value.damage))),
-            ("max_lifetime", S::Num(value.max_lifetime)),
-            ("half_extent", S::vec2(value.half_extent.to_array())),
-            ("gravity", S::Num(value.gravity)),
-            ("visual_id", S::Text(value.visual_id.clone())),
-            ("bounces", S::Int(i64::from(value.bounces))),
-            ("bounce_on_world_contact", S::Bool(value.bounce_on_world_contact)),
-            ("splash_half_extent", S::Num(value.splash_half_extent)),
-            ("boomerang_return_s", S::opt(value.boomerang_return_s.map(S::Num))),
-        ])
-    }
+/// The codec of a [`Vec2`]: `[x, y]`, as the SDK's.
+pub struct Vec2Codec;
 
-    fn from_script(value: &ambition_extension_sdk::script::ScriptValue) -> Result<ProjectileSpawn, String> {
-        let damage = value.field("damage")?.as_int().map_err(|e| format!("`damage`: {e}"))?;
-        let bounces = match value.field_opt("bounces")? {
-            Some(v) => v.as_int().map_err(|e| format!("`bounces`: {e}"))?,
-            None => 0,
-        };
-        Ok(ProjectileSpawn {
-            origin: Vec2::from(value.point("origin")?),
-            dir: Vec2::from(value.point("dir")?),
-            speed: value.num("speed")?,
-            damage: i32::try_from(damage).map_err(|_| "`damage` is out of range".to_owned())?,
-            max_lifetime: value.num("max_lifetime")?,
-            half_extent: Vec2::from(value.point("half_extent")?),
-            gravity: value.num_or("gravity", 0.0)?,
-            visual_id: match value.field_opt("visual_id")? {
-                Some(v) => v.as_text().map_err(|e| format!("`visual_id`: {e}"))?.to_owned(),
-                None => String::new(),
-            },
-            bounces: u8::try_from(bounces).map_err(|_| "`bounces` is out of range".to_owned())?,
-            bounce_on_world_contact: match value.field_opt("bounce_on_world_contact")? {
-                Some(v) => v.as_bool().map_err(|e| format!("`bounce_on_world_contact`: {e}"))?,
-                None => false,
-            },
-            splash_half_extent: value.num_or("splash_half_extent", 0.0)?,
-            boomerang_return_s: match value.field_opt("boomerang_return_s")? {
-                Some(v) => Some(v.as_num().map_err(|e| format!("`boomerang_return_s`: {e}"))?),
-                None => None,
-            },
-        })
+impl ambition_extension_sdk::structure::Field<Vec2> for Vec2Codec {
+    fn shape() -> ambition_extension_sdk::structure::Shape {
+        <[f32; 2] as ambition_extension_sdk::structure::Field<[f32; 2]>>::shape()
+    }
+    fn put(v: &Vec2, out: &mut Vec<u8>) {
+        <[f32; 2] as ambition_extension_sdk::structure::Field<[f32; 2]>>::put(&v.to_array(), out)
+    }
+    fn read(r: &mut ambition_extension_sdk::wire::WireReader<'_>) -> Result<Vec2, ambition_extension_sdk::wire::WireError> {
+        <[f32; 2] as ambition_extension_sdk::structure::Field<[f32; 2]>>::read(r).map(Vec2::from)
+    }
+    fn to_script(v: &Vec2) -> ambition_extension_sdk::script::ScriptValue {
+        <[f32; 2] as ambition_extension_sdk::structure::Field<[f32; 2]>>::to_script(&v.to_array())
+    }
+    fn from_script(v: &ambition_extension_sdk::script::ScriptValue) -> Result<Vec2, String> {
+        <[f32; 2] as ambition_extension_sdk::structure::Field<[f32; 2]>>::from_script(v).map(Vec2::from)
     }
 }
+
+ambition_extension_sdk::port_record! {
+    ProjectileSpawn {
+        /// Where the shot starts (world units, +Y down).
+        origin: Vec2 as Vec2Codec,
+        /// Its direction; the domain normalizes it.
+        dir: Vec2 as Vec2Codec,
+        /// World units per second.
+        speed: f32,
+        /// Damage to the body it hits.
+        damage: i32,
+        /// Seconds before it expires.
+        max_lifetime: f32,
+        /// Half its width and height.
+        half_extent: Vec2 as Vec2Codec,
+        /// Downward acceleration per second; zero for a straight shot.
+        gravity: f32 = 0.0,
+        /// A named projectile look, for the render layer only; empty for
+        /// the generic one.
+        visual_id: String = String::new(),
+        /// How many support-face landings it bounces off before it expires.
+        bounces: u8 = 0,
+        /// Whether world contact bounces it rather than expiring it.
+        bounce_on_world_contact: bool = false,
+        /// Seconds until it turns and comes back, or `()` for never.
+        boomerang_return_s: Option<f32> = None,
+        /// Half the size of the burst it deals where it lands; zero for none.
+        splash_half_extent: f32 = 0.0,
+    }
+}
+
+ambition_extension_sdk::script_port!(ProjectileSpawnPort);

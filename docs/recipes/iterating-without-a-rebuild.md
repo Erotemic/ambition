@@ -102,10 +102,11 @@ when it is a reload; the log names the file, line and column.
 What a script sees and may do (the invocation as `this`: `tick`, `dt`,
 `trigger`, `state.<schema>`, `requests`), and the guarantees the engine is
 configured for (exact `f32` arithmetic, no hidden state, an operation
-budget), are in `crates/ambition_extension_rhai/src/lib.rs`. A script names
-a request port by its alias in `script_ports()`
-(`crates/ambition_platformer2d_runtime/src/extension_composition.rs`); a
-port without one faults on first use, naming it.
+budget), are in `crates/ambition_extension_rhai/src/lib.rs`. The ports a
+script may name, with every field, its kind, its default and its meaning,
+are in the generated [script port reference](../sdk/script-ports.md); a
+request written as `request("projectile", #{ .. })` is checked where it is
+made, so a misspelt field or a wrong kind names the script's line.
 
 ## Checking an edit
 

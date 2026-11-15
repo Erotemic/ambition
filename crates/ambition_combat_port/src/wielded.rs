@@ -327,15 +327,21 @@ impl Port for BodySoundPort {
     type Value = BodySound;
 
     fn encode(v: &BodySound, out: &mut Vec<u8>) {
-        wire::put_str(out, &v.cue);
-        v.at.put(out);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BodySound, WireError> {
-        Ok(BodySound {
-            cue: r.str()?.to_owned(),
-            at: crate::motion::Place::read(r)?,
-        })
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    BodySound {
+        /// The sound cue's id in the game's sound registry
+        /// (`world.rock.hit`).
+        cue: String,
+        /// Where it plays.
+        at: crate::motion::Place = crate::motion::Place::Body,
     }
 }
 
@@ -398,26 +404,4 @@ mod tests {
     }
 }
 
-impl ambition_extension_sdk::script::ScriptPort for BodySoundPort {
-    /// `{ cue, at }`: `at` is `[x, y]` in the world, or absent for the body.
-    fn to_script(value: &BodySound) -> ambition_extension_sdk::script::ScriptValue {
-        use ambition_extension_sdk::script::ScriptValue as S;
-        S::map([
-            ("cue", S::Text(value.cue.clone())),
-            ("at", match value.at {
-                crate::motion::Place::World(at) => S::vec2(at),
-                crate::motion::Place::Body => S::Unit,
-            }),
-        ])
-    }
-
-    fn from_script(value: &ambition_extension_sdk::script::ScriptValue) -> Result<BodySound, String> {
-        Ok(BodySound {
-            cue: value.text("cue")?.to_owned(),
-            at: match value.field_opt("at")? {
-                Some(at) => crate::motion::Place::World(at.as_vec2().map_err(|e| format!("`at`: {e}"))?),
-                None => crate::motion::Place::Body,
-            },
-        })
-    }
-}
+ambition_extension_sdk::script_port!(BodySoundPort);

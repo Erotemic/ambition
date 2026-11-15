@@ -95,6 +95,60 @@ pub fn flag_at(params: &[(String, SpecialParam)], path: &str) -> Option<bool> {
 }
 
 /// Authored params on the wire: a count, then each path and its tagged value.
+/// On the wire a tag (0 number, 1 text, 2 flag) and the value; a script
+/// writes the number, text or bool itself.
+impl ambition_extension_sdk::structure::Field<SpecialParam> for SpecialParam {
+    fn shape() -> ambition_extension_sdk::structure::Shape {
+        use ambition_extension_sdk::structure::{CaseShape, Shape};
+        Shape::Choice(vec![
+            CaseShape { name: "number", payload: Some(Shape::F32), script: "a number" },
+            CaseShape { name: "text", payload: Some(Shape::Text), script: "text" },
+            CaseShape { name: "flag", payload: Some(Shape::Bool), script: "a bool" },
+        ])
+    }
+    fn put(v: &SpecialParam, out: &mut Vec<u8>) {
+        match v {
+            SpecialParam::Number(n) => {
+                wire::put_u8(out, 0);
+                wire::put_f32(out, *n);
+            }
+            SpecialParam::Text(text) => {
+                wire::put_u8(out, 1);
+                wire::put_str(out, text);
+            }
+            SpecialParam::Flag(flag) => {
+                wire::put_u8(out, 2);
+                wire::put_bool(out, *flag);
+            }
+        }
+    }
+    fn read(r: &mut WireReader<'_>) -> Result<SpecialParam, WireError> {
+        Ok(match r.u8()? {
+            0 => SpecialParam::Number(r.f32()?),
+            1 => SpecialParam::Text(r.str()?.to_owned()),
+            2 => SpecialParam::Flag(r.bool()?),
+            tag => return Err(WireError::BadTag(tag)),
+        })
+    }
+    fn to_script(v: &SpecialParam) -> ambition_extension_sdk::script::ScriptValue {
+        use ambition_extension_sdk::script::ScriptValue as S;
+        match v {
+            SpecialParam::Number(n) => S::Num(*n),
+            SpecialParam::Text(t) => S::Text(t.clone()),
+            SpecialParam::Flag(f) => S::Bool(*f),
+        }
+    }
+    fn from_script(v: &ambition_extension_sdk::script::ScriptValue) -> Result<SpecialParam, String> {
+        use ambition_extension_sdk::script::ScriptValue as S;
+        match v {
+            S::Num(_) | S::Int(_) => <f32 as ambition_extension_sdk::structure::Field<f32>>::from_script(v).map(SpecialParam::Number),
+            S::Text(t) => Ok(SpecialParam::Text(t.clone())),
+            S::Bool(b) => Ok(SpecialParam::Flag(*b)),
+            other => Err(format!("expected a number, text or a bool, got {}", other.kind())),
+        }
+    }
+}
+
 pub(crate) fn put_params(out: &mut Vec<u8>, params: &[(String, SpecialParam)]) {
     wire::put_u32(out, params.len() as u32);
     for (path, value) in params {

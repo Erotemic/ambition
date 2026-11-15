@@ -29,6 +29,7 @@ pub mod typed;
 pub mod wire;
 pub mod abi;
 pub mod script;
+pub mod structure;
 
 pub use invoke::{Fault, HostParts, Invocation, Observation, OwnedPayload, Payload, StagedRequest};
 pub use module::{

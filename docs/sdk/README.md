@@ -181,7 +181,9 @@ name a parameter type.
 
 **The full surface is [api-reference.md](api-reference.md)** — every method on
 `PlatformerApp`, `ModuleDraft` and `HostStatus`, in one page, kept in sync with
-the source by a test in both directions.
+the source by a test in both directions. A module written in Rhai names
+ports from [script-ports.md](script-ports.md), generated from the ports' own
+descriptions.
 
 `cargo doc -p ambition_platformer2d -p ambition_platformer2d_world --no-deps --open` is useful for
 detailed browsing after the public surface in this directory has oriented you.

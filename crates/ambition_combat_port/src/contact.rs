@@ -44,6 +44,17 @@ pub struct BodyContact {
     pub touchers: Vec<ContactBody>,
 }
 
+ambition_extension_sdk::port_record! {
+    ContactBody {
+        /// The body's centre (world units, +Y down).
+        position: [f32; 2],
+        /// The body's full width and height.
+        size: [f32; 2],
+        /// World units per second, +Y down.
+        velocity: [f32; 2],
+    }
+}
+
 fn put_body(out: &mut Vec<u8>, body: &ContactBody) {
     wire::put_vec2(out, body.position);
     wire::put_vec2(out, body.size);

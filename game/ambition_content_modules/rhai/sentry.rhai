@@ -5,7 +5,8 @@
 //     AMBITION_EXTENSION_MODULES=game/ambition_content_modules/rhai/sentry.rhai ./run_game.sh --reuse
 //
 // An edit takes effect while the game runs (docs/recipes/iterating-without-a-rebuild.md).
-// `deploy` is not defined here, so it runs natively.
+// `deploy` is not defined here, so it runs natively. The ports a request may
+// name, with their fields: docs/sdk/script-ports.md.
 const ARM_DELAY_S = 0.25;
 const FIRE_INTERVAL_S = 0.55;
 const RANGE = 480.0;
@@ -44,13 +45,10 @@ fn fire(cooldown) {
     if !(rcp.is_finite() && rcp > 0.0) {
         return cooldown;
     }
-    this.requests.push(#{
-        port: "projectile",
-        value: #{
-            origin: at, dir: [dx * rcp, dy * rcp], speed: global::BOLT_SPEED,
-            damage: global::BOLT_DAMAGE, max_lifetime: global::BOLT_LIFETIME, half_extent: [7.0, 7.0],
-        },
-    });
-    this.requests.push(#{ port: "sound", value: #{ cue: "world.rock.hit", at: at } });
+    this.requests.push(request("projectile", #{
+        origin: at, dir: [dx * rcp, dy * rcp], speed: global::BOLT_SPEED,
+        damage: global::BOLT_DAMAGE, max_lifetime: global::BOLT_LIFETIME, half_extent: [7.0, 7.0],
+    }));
+    this.requests.push(request("sound", #{ cue: "world.rock.hit", at: at }));
     global::FIRE_INTERVAL_S
 }

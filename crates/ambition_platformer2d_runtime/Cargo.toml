@@ -165,3 +165,7 @@ wasm_modules = ["dep:ambition_extension_wasm"]
 # `AMBITION_EXTENSION_MODULES` may also name `.rhai` files, each the code of
 # the linked module its stem names; an edit needs no build at all.
 script_modules = ["dep:ambition_extension_rhai", "dep:ambition_combat_port", "dep:ambition_projectile_spec"]
+
+[[example]]
+name = "script_port_reference"
+required-features = ["script_modules"]

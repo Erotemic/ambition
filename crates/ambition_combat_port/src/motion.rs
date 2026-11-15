@@ -49,6 +49,36 @@ impl Place {
     }
 }
 
+/// A script writes a world point as `[x, y]` and the body as `()`.
+impl ambition_extension_sdk::structure::Field<Place> for Place {
+    fn shape() -> ambition_extension_sdk::structure::Shape {
+        use ambition_extension_sdk::structure::{CaseShape, Shape};
+        Shape::Choice(vec![
+            CaseShape { name: "world", payload: Some(Shape::Vec2), script: "[x, y]: a point in the world" },
+            CaseShape { name: "body", payload: None, script: "(): the body the invocation ran for" },
+        ])
+    }
+    fn put(v: &Place, out: &mut Vec<u8>) {
+        v.put(out)
+    }
+    fn read(r: &mut WireReader<'_>) -> Result<Place, WireError> {
+        Place::read(r)
+    }
+    fn to_script(v: &Place) -> ambition_extension_sdk::script::ScriptValue {
+        use ambition_extension_sdk::script::ScriptValue;
+        match v {
+            Place::World(at) => <[f32; 2] as ambition_extension_sdk::structure::Field<[f32; 2]>>::to_script(at),
+            Place::Body => ScriptValue::Unit,
+        }
+    }
+    fn from_script(v: &ambition_extension_sdk::script::ScriptValue) -> Result<Place, String> {
+        match v {
+            ambition_extension_sdk::script::ScriptValue::Unit => Ok(Place::Body),
+            v => <[f32; 2] as ambition_extension_sdk::structure::Field<[f32; 2]>>::from_script(v).map(Place::World),
+        }
+    }
+}
+
 /// The request port marker for a transit: the body moves at once along a
 /// line.
 ///

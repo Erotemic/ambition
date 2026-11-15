@@ -66,7 +66,7 @@ pub struct RhaiModules {
     engine: Engine,
     modules: Vec<ScriptedModule>,
     keys: Vec<ModuleKey>,
-    ports: ScriptPorts,
+    ports: Arc<ScriptPorts>,
     /// The file, for diagnostics.
     source: Arc<str>,
 }
@@ -85,6 +85,39 @@ pub fn engine(max_operations: u64) -> Engine {
     engine.set_module_resolver(rhai::module_resolvers::DummyModuleResolver::new());
     exact_float_comparisons(&mut engine);
     engine
+}
+
+/// `request(alias, value)`: the request `#{ port: alias, value }` with its
+/// value checked against the port's description and its defaults filled, for
+/// `this.requests.push(..)`. A misspelt field, a wrong kind, a port that is
+/// not a request, or no such port is an error AT THE CALL, so it names the
+/// script's line and column. (A plain map pushed to `this.requests` is
+/// checked too, but only after the entry returns, without a position.)
+fn register_request(engine: &mut Engine, ports: Arc<ScriptPorts>) {
+    engine.register_fn(
+        "request",
+        move |alias: &str, value: rhai::Map| -> Result<rhai::Map, Box<rhai::EvalAltResult>> {
+            let entry = ports.by_alias(alias).ok_or_else(|| {
+                let names: Vec<&str> = ports
+                    .entries()
+                    .iter()
+                    .filter(|e| e.role == ambition_extension_sdk::PortRole::Request)
+                    .map(|e| e.alias.as_ref())
+                    .collect();
+                format!("request: no port named `{alias}` (the request ports are {names:?})")
+            })?;
+            if entry.role != ambition_extension_sdk::PortRole::Request {
+                return Err(format!("request: `{alias}` is not a request port").into());
+            }
+            let checked = from_dynamic(&Dynamic::from_map(value))
+                .and_then(|v| (entry.check)(&v))
+                .map_err(|e| format!("request `{alias}`: {e}"))?;
+            let mut request = rhai::Map::new();
+            request.insert("port".into(), Dynamic::from(alias.to_owned()));
+            request.insert("value".into(), to_dynamic(&checked));
+            Ok(request)
+        },
+    );
 }
 
 /// Rhai's built-in float comparisons are tolerant: within `f32::EPSILON`,
@@ -122,7 +155,9 @@ impl RhaiModules {
         ports: ScriptPorts,
         max_operations: u64,
     ) -> Result<(Arc<Self>, Vec<ModuleDescriptor>), String> {
-        let engine = engine(max_operations);
+        let ports = Arc::new(ports);
+        let mut engine = engine(max_operations);
+        register_request(&mut engine, ports.clone());
         let mut ast = engine.compile(text).map_err(|e| format!("{source}: {e}"))?;
         ast.set_source(source);
         let scripted: Vec<bool> = native
@@ -173,7 +208,7 @@ impl ModuleBackend for RhaiModules {
         if !m.scripted.get(entry as usize).copied().unwrap_or(false) {
             return Ok(ambition_extension_sdk::abi::invoke_one(&m.native, entry, input));
         }
-        Ok(invoke_script(&m.native, entry, input, &self.ports, |key, inv| {
+        Ok(invoke_script(&m.native, entry, input, self.ports.as_ref(), |key, inv| {
             let mut this = to_dynamic(&inv);
             let options = rhai::CallFnOptions::new().eval_ast(true).bind_this_ptr(&mut this);
             let _: Dynamic = self

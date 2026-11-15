@@ -36,6 +36,25 @@ pub enum ScriptValue {
 }
 
 impl ScriptValue {
+    /// The value as a script would write it (`()`, `0.0`, `"text"`,
+    /// `[1.0, 2.0]`, `#{ a: 1 }`): how a reference shows a default.
+    pub fn literal(&self) -> String {
+        match self {
+            ScriptValue::Unit => "()".into(),
+            ScriptValue::Bool(v) => v.to_string(),
+            ScriptValue::Int(v) => v.to_string(),
+            ScriptValue::Num(v) => format!("{v:?}"),
+            ScriptValue::Text(v) => crate::structure::json_str(v),
+            ScriptValue::List(items) => {
+                format!("[{}]", items.iter().map(ScriptValue::literal).collect::<Vec<_>>().join(", "))
+            }
+            ScriptValue::Map(fields) => format!(
+                "#{{ {} }}",
+                fields.iter().map(|(k, v)| format!("{k}: {}", v.literal())).collect::<Vec<_>>().join(", ")
+            ),
+        }
+    }
+
     pub fn map<const N: usize>(fields: [(&str, ScriptValue); N]) -> Self {
         Self::Map(fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect())
     }
@@ -151,6 +170,12 @@ pub trait ScriptPort: Port {
     fn from_script(_value: &ScriptValue) -> Result<Self::Value, String> {
         Err(format!("port {} is not written by a script", Self::KEY))
     }
+
+    /// The value's structural description, when the port has one
+    /// ([`crate::structure`]; [`crate::script_port!`] gives it).
+    fn shape() -> Option<crate::structure::Shape> {
+        None
+    }
 }
 
 /// One port as a script backend reaches it.
@@ -162,6 +187,12 @@ pub struct ScriptPortEntry {
     pub trigger: fn(&Invocation<'_>) -> Result<ScriptValue, Fault>,
     pub observe: fn(&Invocation<'_>) -> Result<ScriptValue, Fault>,
     pub submit: fn(&mut Invocation<'_>, &ScriptValue) -> Result<(), String>,
+    /// The value a script wrote, checked and in its full form (defaults
+    /// filled), or the error naming the field: what a backend calls where the
+    /// script makes the request, so the error carries the script's position.
+    pub check: fn(&ScriptValue) -> Result<ScriptValue, String>,
+    pub role: crate::PortRole,
+    pub shape: Option<crate::structure::Shape>,
 }
 
 fn trigger_of<P: ScriptPort>(inv: &Invocation<'_>) -> Result<ScriptValue, Fault> {
@@ -175,6 +206,10 @@ fn observe_of<P: ScriptPort>(inv: &Invocation<'_>) -> Result<ScriptValue, Fault>
 fn submit_of<P: ScriptPort>(inv: &mut Invocation<'_>, value: &ScriptValue) -> Result<(), String> {
     let value = P::from_script(value)?;
     inv.submit::<P>(value).map_err(|e| e.to_string())
+}
+
+fn check_of<P: ScriptPort>(value: &ScriptValue) -> Result<ScriptValue, String> {
+    P::from_script(value).map(|v| P::to_script(&v))
 }
 
 /// The ports a composition makes reachable from scripts.
@@ -197,6 +232,9 @@ impl ScriptPorts {
             trigger: trigger_of::<P>,
             observe: observe_of::<P>,
             submit: submit_of::<P>,
+            check: check_of::<P>,
+            role: P::ROLE,
+            shape: P::shape(),
         });
         self
     }
@@ -211,6 +249,66 @@ impl ScriptPorts {
 
     pub fn entries(&self) -> &[ScriptPortEntry] {
         &self.entries
+    }
+
+    /// The author's reference to these ports, as Markdown: each alias, its
+    /// port, its role, and its value's fields with their kinds, defaults and
+    /// documentation. Generated from the ports' own descriptions.
+    pub fn reference_markdown(&self) -> String {
+        let mut out = String::new();
+        for entry in &self.entries {
+            let role = match entry.role {
+                crate::PortRole::Trigger => "trigger: read as `this.trigger`",
+                crate::PortRole::Observation => "observation: read as `this.observe.<alias>`",
+                crate::PortRole::Request => "request: `this.requests.push(request(\"<alias>\", #{ .. }))`",
+            };
+            out.push_str(&format!("## `{}`\n\nPort `{}`, {role}.\n\n", entry.alias, entry.key));
+            match &entry.shape {
+                Some(crate::structure::Shape::Record(fields)) => {
+                    // Only a script writes a request, so only a request has
+                    // fields it may leave out.
+                    let written = entry.role == crate::PortRole::Request;
+                    out.push_str(if written {
+                        "| field | value | when absent | meaning |\n|---|---|---|---|\n"
+                    } else {
+                        "| field | value | meaning |\n|---|---|---|\n"
+                    });
+                    for f in fields {
+                        let doc = f.doc.split_whitespace().collect::<Vec<_>>().join(" ").replace('|', "\\|");
+                        let shape = f.shape.summary().replace('|', "\\|");
+                        if written {
+                            let absent = f.default.as_ref().map_or("required".to_owned(), |d| format!("`{d}`"));
+                            out.push_str(&format!("| `{}` | {shape} | {absent} | {doc} |\n", f.name));
+                        } else {
+                            out.push_str(&format!("| `{}` | {shape} | {doc} |\n", f.name));
+                        }
+                    }
+                }
+                Some(shape) => out.push_str(&format!("Value: {}\n", shape.summary())),
+                None => out.push_str("No structural description yet.\n"),
+            }
+            out.push('\n');
+        }
+        out
+    }
+
+    /// The same reference as JSON: `[{ alias, port, version, role, shape }]`.
+    pub fn reference_json(&self) -> String {
+        let rows: Vec<String> = self
+            .entries
+            .iter()
+            .map(|e| {
+                format!(
+                    "{{\"alias\":{},\"port\":{},\"version\":{},\"role\":{},\"shape\":{}}}",
+                    crate::structure::json_str(&e.alias),
+                    crate::structure::json_str(&e.key.name),
+                    e.key.version,
+                    crate::structure::json_str(&format!("{:?}", e.role)),
+                    e.shape.as_ref().map_or("null".to_owned(), |s| s.to_json())
+                )
+            })
+            .collect();
+        format!("[{}]", rows.join(","))
     }
 }
 

@@ -174,6 +174,37 @@ fn time(module: &ModuleDescriptor, backend: &dyn Backend, ticks: u32, rounds: u3
     start.elapsed().as_nanos() as f64 / f64::from(ticks * rounds)
 }
 
+/// The ports the engine backend reaches, by the names a script uses.
+fn ports() -> ambition_extension_sdk::script::ScriptPorts {
+    let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
+    ports
+        .add::<ModuleEntityTickPort>("module_entity_tick")
+        .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
+        .add::<ambition_combat_port::BodySoundPort>("sound");
+    ports
+}
+
+/// One broken script on the engine backend: load it, then run ticks until
+/// the first fault (a request mistake shows when the turret first fires).
+fn engine_diagnose(module: &ModuleDescriptor, what: &str, source: &str) {
+    println!("\n-- {what}");
+    let backend = match ambition_extension_rhai::RhaiModules::load(
+        "broken.rhai", source, module.clone(), ports(), ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
+    ) {
+        Err(e) => return println!("  engine: refused at load: {e}"),
+        Ok((backend, _)) => Engine(backend),
+    };
+    let entry = turret_entry(module);
+    let mut state = initial_state(module);
+    for i in 0..2000 {
+        match decode(module, &backend.invoke(0, entry, &input(i, &state))) {
+            InvocationOutput::Fault(e) => return println!("  engine: fault at tick {i}: {e}"),
+            InvocationOutput::Ok { state: next, .. } => state = next,
+        }
+    }
+    println!("  engine: ran 2000 ticks without complaint");
+}
+
 /// One broken script in each language: compile, then one invocation.
 fn diagnose(module: &ModuleDescriptor, what: &str, rhai: &str, luau: &str) {
     println!("\n-- {what}");
@@ -192,20 +223,18 @@ fn diagnose(module: &ModuleDescriptor, what: &str, rhai: &str, luau: &str) {
 
 fn main() {
     let module = ambition_content_modules::sentry::module();
-    let rhai_source = include_str!("../../../../game/ambition_content_modules/rhai/sentry.rhai");
+    // The bake-off's own Rhai sentry, as it was measured; the engine row runs
+    // the game's shipped script, which names its requests through `request`.
+    let rhai_source = include_str!("../../modules/sentry.rhai");
+    let engine_source = include_str!("../../../../game/ambition_content_modules/rhai/sentry.rhai");
     let luau_source = include_str!("../../modules/sentry.luau");
     let native = Native(module.clone());
     let rhai = RhaiBackend::new("sentry.rhai", rhai_source, module.clone(), BUDGET).expect("sentry.rhai compiles");
     let luau = LuauBackend::new("sentry.luau", luau_source, module.clone(), BUDGET).expect("sentry.luau compiles");
     let luau_fresh = LuauBackend::fresh("sentry.luau", luau_source, module.clone(), BUDGET).expect("sentry.luau compiles");
     let identity = Identity(module.clone());
-    let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
-    ports
-        .add::<ModuleEntityTickPort>("module_entity_tick")
-        .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
-        .add::<ambition_combat_port::BodySoundPort>("sound");
     let (engine_rhai, _) = ambition_extension_rhai::RhaiModules::load(
-        "sentry.rhai", rhai_source, module.clone(), ports, ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
+        "sentry.rhai", engine_source, module.clone(), ports(), ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
     )
     .expect("sentry.rhai loads in the engine backend");
     let engine_rhai = Engine(engine_rhai);
@@ -256,6 +285,16 @@ fn main() {
     diagnose(&module, "a type error (text where a number goes)",
         &swap(rhai_source, "c.cooldown_s -= this.dt;", "c.cooldown_s -= \"soon\";"),
         &swap(luau_source, "c.cooldown_s -= inv.dt", "c.cooldown_s -= \"soon\""));
+
+    println!("\n== 3b. the engine backend's requests, checked by the ports' descriptions");
+    engine_diagnose(&module, "a misspelt request field (`speeed`)",
+        &swap(engine_source, "speed: global::BOLT_SPEED", "speeed: global::BOLT_SPEED"));
+    engine_diagnose(&module, "text where a request's number goes (`damage: \"two\"`)",
+        &swap(engine_source, "damage: global::BOLT_DAMAGE", "damage: \"two\""));
+    engine_diagnose(&module, "a misspelt port (`projectil`)",
+        &swap(engine_source, "request(\"projectile\"", "request(\"projectil\""));
+    engine_diagnose(&module, "a missing required field (no `speed`)",
+        &swap(engine_source, " speed: global::BOLT_SPEED,", ""));
 
     println!("\n== 4. budget: an endless loop in the entry ({BUDGET} operations)");
     diagnose(&module, "while true",

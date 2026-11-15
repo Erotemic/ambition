@@ -125,29 +125,28 @@ impl Port for ModuleEntityTickPort {
     type Value = ModuleEntityTick;
 
     fn encode(v: &ModuleEntityTick, out: &mut Vec<u8>) {
-        wire::put_vec2(out, v.position);
-        wire::put_f32(out, v.remaining_s);
-        wire::put_opt(out, v.nearest_enemy, wire::put_vec2);
-        put_params(out, &v.params);
-        wire::put_u32(out, v.touchers.len() as u32);
-        for toucher in &v.touchers {
-            wire::put_vec2(out, toucher.position);
-            wire::put_vec2(out, toucher.size);
-            wire::put_vec2(out, toucher.velocity);
-        }
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<ModuleEntityTick, WireError> {
-        let position = r.vec2()?;
-        let remaining_s = r.f32()?;
-        let nearest_enemy = r.opt(WireReader::vec2)?;
-        let params = read_params(r)?;
-        let count = r.read_len()?;
-        let mut touchers = Vec::with_capacity(count);
-        for _ in 0..count {
-            touchers.push(ContactBody { position: r.vec2()?, size: r.vec2()?, velocity: r.vec2()? });
-        }
-        Ok(ModuleEntityTick { position, remaining_s, nearest_enemy, params, touchers })
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    ModuleEntityTick {
+        /// The entity's centre (world units, +Y down).
+        position: [f32; 2],
+        /// Seconds of lifetime left, after this tick's aging; above zero.
+        remaining_s: f32,
+        /// The centre of the nearest hittable `Enemy`-side body in the
+        /// entity's own live room, or `()` when there is none.
+        nearest_enemy: Option<[f32; 2]>,
+        /// The spawn's params, by name.
+        params: Vec<(String, SpecialParam)> as ambition_extension_sdk::structure::TextMap<SpecialParam>,
+        /// The hittable bodies whose box meets the entity's, any side, in
+        /// identity order.
+        touchers: Vec<ContactBody>,
     }
 }
 
@@ -647,25 +646,4 @@ mod tests {
     }
 }
 
-impl ambition_extension_sdk::script::ScriptPort for ModuleEntityTickPort {
-    /// `{ position, remaining_s, nearest_enemy, params = { <name>: .. }, touchers = [{ position, size, velocity }] }`.
-    fn to_script(value: &ModuleEntityTick) -> ambition_extension_sdk::script::ScriptValue {
-        use ambition_extension_sdk::script::ScriptValue as S;
-        let param = |p: &SpecialParam| match p {
-            SpecialParam::Number(v) => S::Num(*v),
-            SpecialParam::Text(v) => S::Text(v.clone()),
-            SpecialParam::Flag(v) => S::Bool(*v),
-        };
-        S::map([
-            ("position", S::vec2(value.position)),
-            ("remaining_s", S::Num(value.remaining_s)),
-            ("nearest_enemy", S::opt(value.nearest_enemy.map(S::vec2))),
-            ("params", S::Map(value.params.iter().map(|(k, v)| (k.clone(), param(v))).collect())),
-            ("touchers", S::List(value.touchers.iter().map(|t| S::map([
-                ("position", S::vec2(t.position)),
-                ("size", S::vec2(t.size)),
-                ("velocity", S::vec2(t.velocity)),
-            ])).collect())),
-        ])
-    }
-}
+ambition_extension_sdk::script_port!(ModuleEntityTickPort);

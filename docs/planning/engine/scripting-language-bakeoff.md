@@ -86,7 +86,17 @@ faster; its binding should then build tables directly, not through serde.
    converters owned by each port's crate). The fixture's `engine` row runs
    it: 2000 of 2000 equal to native, 12.5 µs per invocation.
 2. Port descriptions (P2) for the sentry's ports, generating the converters
-   this fixture writes by hand, and the author-facing reference.
+   this fixture writes by hand, and the author-facing reference. **Landed:**
+   `ambition_extension_sdk::structure` (a `Field` codec gives a value's
+   shape, wire encoding and script form; `port_record!` declares a record
+   once; `script_port!` makes a port script-reachable). The module entity
+   tick, projectile spawn and body sound ports use it, with their published
+   bytes unchanged; `request(alias, value)` checks a request at the call
+   (section 3b of the fixture: a misspelt field, a wrong kind, a misspelt
+   port and a missing field each name the line); the reference is generated
+   ([script ports](../../sdk/script-ports.md)) and has a JSON form. The
+   fixture's own Rhai row keeps the script as it was measured
+   (`fixtures/scripting_bakeoff/modules/sentry.rhai`).
 3. The sentry as a real loaded script in the running game, its rollback
    witness and its invocation-fault witness. **Landed:**
    `game/ambition_content_modules/rhai/sentry.rhai` (the fixture compares

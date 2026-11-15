@@ -192,7 +192,7 @@ fn diagnose(module: &ModuleDescriptor, what: &str, rhai: &str, luau: &str) {
 
 fn main() {
     let module = ambition_content_modules::sentry::module();
-    let rhai_source = include_str!("../../modules/sentry.rhai");
+    let rhai_source = include_str!("../../../../game/ambition_content_modules/rhai/sentry.rhai");
     let luau_source = include_str!("../../modules/sentry.luau");
     let native = Native(module.clone());
     let rhai = RhaiBackend::new("sentry.rhai", rhai_source, module.clone(), BUDGET).expect("sentry.rhai compiles");

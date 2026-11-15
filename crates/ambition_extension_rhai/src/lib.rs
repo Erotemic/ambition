@@ -44,6 +44,11 @@ use ambition_extension_sdk::script::{invoke_script, ScriptPorts, ScriptValue};
 use ambition_extension_sdk::{EntryCode, ModuleDescriptor, ModuleKey};
 use rhai::{Dynamic, Engine, AST, FLOAT, INT};
 
+/// The code identity's ABI: the language and the engine configuration that
+/// gives a script its meaning. A change to the configuration (the number
+/// type, the comparisons, the binding) is a new ABI name.
+pub const ABI: &str = "rhai-f32-exact/1";
+
 /// The operations one invocation may spend.
 pub const DEFAULT_MAX_OPERATIONS: u64 = 200_000;
 
@@ -132,7 +137,12 @@ impl RhaiModules {
                 native.key
             ));
         }
+        // The code is this text under this engine configuration: a changed
+        // script is a new generation of the session's content (D6), and each
+        // fault names the generation it came from.
+        let digest = ambition_extension_sdk::digest::digest_bytes(text.as_bytes());
         let mut declared = native.clone();
+        declared.code = ambition_extension_sdk::CodeIdentity::Loaded { abi: ABI.into(), digest };
         for (index, entry) in declared.entries.iter_mut().enumerate() {
             entry.run = EntryCode::Loaded { index: index as u32 };
         }
@@ -142,7 +152,7 @@ impl RhaiModules {
             modules: vec![ScriptedModule { native, ast, scripted }],
             keys,
             ports,
-            source: Arc::from(source),
+            source: Arc::from(format!("{source} (generation {digest:016x})")),
         });
         Ok((backend, vec![declared]))
     }
@@ -223,4 +233,32 @@ pub fn from_dynamic(value: &Dynamic) -> Result<ScriptValue, String> {
         ));
     }
     Err(format!("a value of type {} cannot leave a script", value.type_name()))
+}
+
+/// The linked module a script file supplies code for: the file's stem names
+/// it, by key (`sentry.rhai`) or by provider and key (`ambition.sentry.rhai`).
+/// No match, or a key two providers share, is an error naming the choices.
+pub fn module_for_file<'a>(
+    stem: &str,
+    linked: &'a [ambition_extension_host::DeclaredModule],
+) -> Result<&'a ModuleDescriptor, String> {
+    let matches: Vec<&ModuleDescriptor> = linked
+        .iter()
+        .map(|m| &m.descriptor)
+        .filter(|d| stem == d.key.key.as_ref() || stem == format!("{}.{}", d.key.provider, d.key.key))
+        .collect();
+    match matches.as_slice() {
+        [one] => Ok(one),
+        [] => {
+            let mut names: Vec<String> = linked.iter().map(|m| m.descriptor.key.key.to_string()).collect();
+            names.sort();
+            names.dedup();
+            Err(format!("the game links no module named {stem:?}; it links {names:?}"))
+        }
+        many => Err(format!(
+            "{stem:?} names {} linked modules ({:?}): name the file <provider>.<key>",
+            many.len(),
+            many.iter().map(|d| d.key.to_string()).collect::<Vec<_>>()
+        )),
+    }
 }

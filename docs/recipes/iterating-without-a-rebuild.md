@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-11-10
+last_verified: 2026-11-14
 ---
 
 # Iterating without rebuilding the game
@@ -78,6 +78,34 @@ The script rebuilds on source changes; the host watches the resulting module
 file. A failed rebuild leaves the previous good module running. See
 [writing a procedural module](writing-a-procedural-module.md) for the authoring
 contract. Coordinate builds with other agents in the assigned checkout.
+
+## Module code in Rhai (no build at all)
+
+With the `script_modules` runtime capability (on in `ambition_app`), the same
+variable may name `.rhai` files. A script is the code of a module the game
+already declares: its stem names the module (`sentry.rhai`, or
+`ambition.sentry.rhai` when two providers share a key), and the module's
+entries, ports, schemas and limits stay the game's declaration. An entry the
+script defines (a function with the entry's name and no parameters) runs from
+the script; any other entry runs the native code.
+
+```bash
+AMBITION_EXTENSION_MODULES=game/ambition_content_modules/rhai/sentry.rhai ./run_game.sh --reuse
+```
+
+Edit and save the file while the game runs: the change is proposed and
+published through the same mechanical-edit road as a rebuilt `.wasm` file
+(a turret deployed after the publication runs the edit). A script that does
+not compile stops the run at startup, and leaves the previous code running
+when it is a reload; the log names the file, line and column.
+
+What a script sees and may do (the invocation as `this`: `tick`, `dt`,
+`trigger`, `state.<schema>`, `requests`), and the guarantees the engine is
+configured for (exact `f32` arithmetic, no hidden state, an operation
+budget), are in `crates/ambition_extension_rhai/src/lib.rs`. A script names
+a request port by its alias in `script_ports()`
+(`crates/ambition_platformer2d_runtime/src/extension_composition.rs`); a
+port without one faults on first use, naming it.
 
 ## Checking an edit
 

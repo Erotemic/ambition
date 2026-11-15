@@ -165,6 +165,8 @@ struct ExtensionInstallation {
         HashMap<ambition_extension_sdk::PortKey, (Supplier, ambition_extension_sdk::EncodeFn)>,
     request_decoders: HashMap<ambition_extension_sdk::PortKey, ambition_extension_sdk::DecodeFn>,
     modules: Vec<DeclaredModule>,
+    /// Loaded files that bind to the linked modules at admission.
+    bound: Vec<(Arc<str>, BindArtifact)>,
     /// Phases whose systems are already in the schedule.
     phases: BTreeSet<Phase>,
     /// The request port installed last in each phase and stage.
@@ -227,9 +229,26 @@ pub fn admit_world(world: &mut World) {
     if world.contains_resource::<AdmittedExtensions>() {
         return;
     }
-    let installation = world
+    let mut installation = world
         .remove_resource::<ExtensionInstallation>()
         .expect("ExtensionHostPlugin::build inserted the installation");
+    // ⛔ A file that does not bind stops the run, as one that does not load:
+    // the developer asked for this code, and the linked module would show
+    // them behaviour they did not write.
+    for (artifact, bind) in std::mem::take(&mut installation.bound) {
+        let linked: Vec<DeclaredModule> = installation
+            .modules
+            .iter()
+            .filter(|m| matches!(m.code, ModuleCode::Native))
+            .cloned()
+            .collect();
+        let (backend, modules) =
+            bind(&linked).unwrap_or_else(|e| panic!("{artifact} does not bind: {e}"));
+        installation.modules.extend(loaded_declarations(&artifact, &backend, modules, true));
+    }
+    if world.contains_resource::<ExtensionGeneration>() {
+        world.insert_resource(ExtensionGeneration::of(&installation.modules));
+    }
     let admitted = match admit_with_roads(
         API_VERSION,
         &installation.offers,
@@ -363,24 +382,59 @@ pub trait ExtensionAppExt {
         replaces: bool,
     ) -> &mut Self {
         let artifact: Arc<str> = Arc::from(artifact);
-        for descriptor in modules {
-            let module =
-                admission::loaded_module_index(backend.as_ref(), &artifact, &descriptor.key);
-            self.add_declared_extension_module(DeclaredModule {
-                descriptor,
-                code: ModuleCode::Loaded {
-                    backend: backend.clone(),
-                    module,
-                    artifact: artifact.clone(),
-                },
-                replaces,
-            });
+        for module in loaded_declarations(&artifact, &backend, modules, replaces) {
+            self.add_declared_extension_module(module);
         }
         self
     }
 
+    /// Declare the modules of the loaded file `artifact`, made at admission
+    /// from the modules the game links (`bind` sees each linked module once
+    /// every plugin has declared). A script supplies the code of a module the
+    /// game declares, so it needs that declaration, and the plugin that loads
+    /// it may run before the plugin that declares it. Each module `bind`
+    /// gives explicitly replaces the linked module of its key. A `bind` that
+    /// fails stops admission.
+    fn add_bound_extension_artifact(&mut self, artifact: &str, bind: BindArtifact) -> &mut Self;
+
     /// Declare one module with its code.
     fn add_declared_extension_module(&mut self, module: DeclaredModule) -> &mut Self;
+}
+
+/// See [`ExtensionAppExt::add_bound_extension_artifact`].
+pub type BindArtifact = Box<
+    dyn FnOnce(&[DeclaredModule]) -> Result<(Arc<dyn ModuleBackend>, Vec<ModuleDescriptor>), String>
+        + Send
+        + Sync,
+>;
+
+fn loaded_declarations(
+    artifact: &Arc<str>,
+    backend: &Arc<dyn ModuleBackend>,
+    modules: Vec<ModuleDescriptor>,
+    replaces: bool,
+) -> Vec<DeclaredModule> {
+    modules
+        .into_iter()
+        .map(|descriptor| DeclaredModule {
+            code: ModuleCode::Loaded {
+                backend: backend.clone(),
+                module: admission::loaded_module_index(backend.as_ref(), artifact, &descriptor.key),
+                artifact: artifact.clone(),
+            },
+            descriptor,
+            replaces,
+        })
+        .collect()
+}
+
+/// The modules the game links (native code), as admitted: what a reloaded
+/// script binds to. Empty before admission.
+pub fn linked_modules(world: &World) -> Vec<DeclaredModule> {
+    world
+        .get_resource::<ExtensionComposition>()
+        .map(|c| c.declared.iter().filter(|m| matches!(m.code, ModuleCode::Native)).cloned().collect())
+        .unwrap_or_default()
 }
 
 fn installation(app: &mut App) -> (Interned<dyn ScheduleLabel>, Mut<'_, ExtensionInstallation>) {
@@ -609,6 +663,18 @@ impl ExtensionAppExt for App {
             ExtensionGeneration::of(&installation.modules)
         };
         self.world_mut().insert_resource(generation);
+        self
+    }
+
+    fn add_bound_extension_artifact(&mut self, artifact: &str, bind: BindArtifact) -> &mut Self {
+        assert!(
+            !self.world().contains_resource::<AdmittedExtensions>(),
+            "{artifact} declared after admission; declare it during Plugin::build"
+        );
+        self.world_mut()
+            .get_resource_or_init::<ExtensionInstallation>()
+            .bound
+            .push((Arc::from(artifact), bind));
         self
     }
 }

@@ -11,7 +11,7 @@ scripting language." The plan it serves is the
 
 The sentry module's stateful `turret` entry
 (`game/ambition_content_modules/src/sentry.rs`) written in both languages
-(`fixtures/scripting_bakeoff/modules/sentry.rhai`, `sentry.luau`), each behind
+(`game/ambition_content_modules/rhai/sentry.rhai`, `fixtures/scripting_bakeoff/modules/sentry.luau`), each behind
 the extension host's backend contract: invocation bytes in, checked output
 bytes out. The SDK decodes and encodes the invocation for a script exactly as
 for a compiled guest (`ambition_extension_sdk::abi::invoke_with`, added for
@@ -88,6 +88,12 @@ faster; its binding should then build tables directly, not through serde.
 2. Port descriptions (P2) for the sentry's ports, generating the converters
    this fixture writes by hand, and the author-facing reference.
 3. The sentry as a real loaded script in the running game, its rollback
-   witness and its invocation-fault witness (P3 completion).
+   witness and its invocation-fault witness. **Landed:**
+   `game/ambition_content_modules/rhai/sentry.rhai` (the fixture compares
+   this file), loaded by `AMBITION_EXTENSION_MODULES` and reloaded on edit;
+   a script's code identity is `rhai-f32-exact/1` and the digest of its
+   text, so an edit is a new content generation and each fault names it.
+   Witness: `game/ambition_app/tests/a_script_module_runs_without_a_build.rs`.
+   P3's project entry (a manifest, no game Rust) remains.
 4. Story sequences (SS1, SS2) as the first content customer of script-callable
    commands.

@@ -1,5 +1,11 @@
 // The sentry's turret, in Rhai: the native module's algorithm and numbers
-// (game/ambition_content_modules/src/sentry.rs).
+// (src/sentry.rs). The module's declaration stays the game's; this file is
+// the code of its `turret` entry when a developer run names it:
+//
+//     AMBITION_EXTENSION_MODULES=game/ambition_content_modules/rhai/sentry.rhai ./run_game.sh --reuse
+//
+// An edit takes effect while the game runs (docs/recipes/iterating-without-a-rebuild.md).
+// `deploy` is not defined here, so it runs natively.
 const ARM_DELAY_S = 0.25;
 const FIRE_INTERVAL_S = 0.55;
 const RANGE = 480.0;

@@ -139,6 +139,8 @@ ldtk_runtime = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ld
 # rebuilds the module and not the engine. Off by default: see the runtime's
 # feature of the same name.
 wasm_modules = ["ambition_platformer2d_runtime/wasm_modules", "dep:ambition_extension_wasm"]
+# Load module code from `.rhai` source files: see the runtime's feature.
+script_modules = ["ambition_platformer2d_runtime/script_modules"]
 physics_debris = ["ambition_platformer2d_runtime/physics_debris"]
 frame_pacing = ["ambition_render", "ambition_platformer2d_host/frame_pacing"]
 profile = ["ambition_platformer2d_actor_monolith/profile"]

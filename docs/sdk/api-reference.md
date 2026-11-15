@@ -394,7 +394,7 @@ something to an implementation crate does not make it public here automatically.
 | `ambition_platformer2d::content` | the optional runtime content compiler |
 | `ambition_platformer2d::causal` | the optional causal inspector |
 | `ambition_platformer2d::provider` | the experience-provider protocol |
-| `ambition_platformer2d::extension` | procedural extensions: `extension::sdk` (what a module is written against), declaring modules, naming `.wasm` module files (`ExtensionModuleFiles`, `AMBITION_EXTENSION_MODULES`; `wasm_modules` feature), hot reload, and reading what the host admitted |
+| `ambition_platformer2d::extension` | procedural extensions: `extension::sdk` (what a module is written against), declaring modules, naming module files: `.wasm` builds (`wasm_modules` feature) and `.rhai` sources (`script_modules` feature; `script_ports()`) through `ExtensionModuleFiles` or `AMBITION_EXTENSION_MODULES`, hot reload, and reading what the host admitted |
 | `ambition_platformer2d::bevy` | Bevy itself, re-exported |
 
 There are still crate-shaped mirrors under `ambition_platformer2d::` while the

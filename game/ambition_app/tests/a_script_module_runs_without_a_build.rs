@@ -1,0 +1,182 @@
+//! ⭐ THE NO-BUILD LOOP (scripting audit P3): the sentry's `turret` entry
+//! from Rhai source, in the shipped composition. Nothing is compiled.
+//!
+//! The observable is the turret's cadence record: its first countdown starts
+//! at the script's arming delay (the native module's is 0.25 s).
+
+#![cfg(feature = "rl_sim")]
+
+use ambition_app::AmbitionSim;
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_platformer2d::abilities::module_entity::ModuleEntity;
+use ambition_platformer2d::extension::sdk::{FieldRef, SchemaKey, Value};
+use ambition_platformer2d::extension::{AdmittedExtensions, BodyRecords, EntryRunner, ExtensionFaults};
+use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+use bevy::prelude::Entity;
+
+const CADENCE: SchemaKey = SchemaKey::new("ambition", "sentry.cadence", 1);
+
+fn root() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+/// The shipped script with arming delay `delay`.
+fn sentry_script(delay: f32) -> String {
+    let text = std::fs::read_to_string(root().join("game/ambition_content_modules/rhai/sentry.rhai")).unwrap();
+    assert!(text.contains("const ARM_DELAY_S = 0.25;"), "the premise: the script states the native delay");
+    text.replace("const ARM_DELAY_S = 0.25;", &format!("const ARM_DELAY_S = {delay:?};"))
+}
+
+/// A sandbox running `text` as `sentry.rhai` (a file of this test's own,
+/// named by `arm`), with the player holding the sentry gauntlet.
+fn sandbox(arm: &str, text: &str, rollback: bool) -> (Platformer2dSimHarness, std::path::PathBuf) {
+    let dir = root().join(format!("target/extension-modules/script_test_{}_{arm}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("sentry.rhai");
+    std::fs::write(&file, text).unwrap();
+    let mut options = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_extension_module_files(vec![file.clone()]);
+    if rollback {
+        options = options.with_sync_test_rollback_settings(4, 10);
+    }
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds with the script");
+    assert!(turret_is_scripted(&sim), "the turret runs from the script");
+    {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+        let player = q.single(world).expect("primary player exists");
+        let spec = ambition_platformer2d::characters::brain::held_item_by_id("sentry").expect("a known held item");
+        world
+            .entity_mut(player)
+            .insert(ambition_platformer2d::combat::held_items::HeldItem::new(spec));
+    }
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    (sim, file)
+}
+
+fn turret_is_scripted(sim: &Platformer2dSimHarness) -> bool {
+    let admitted = sim.world().resource::<AdmittedExtensions>();
+    let entry = admitted
+        .0
+        .entries
+        .iter()
+        .find(|e| e.path == "ambition::sentry/turret")
+        .expect("the sentry's turret is admitted");
+    matches!(entry.runner, EntryRunner::Loaded { .. })
+}
+
+/// Press Attack once, step `frames`, and give each tick's cadence records of
+/// the live turrets.
+fn deploy(sim: &mut Platformer2dSimHarness, frames: usize) -> Vec<(bool, f32)> {
+    let mut seen = Vec::new();
+    for frame in 0..frames {
+        sim.step(AgentAction {
+            attack: frame == 0,
+            ..AgentAction::default()
+        });
+        let world = sim.world_mut();
+        let mut q = world.query::<(&ModuleEntity, Option<&BodyRecords>)>();
+        for (entity, records) in q.iter(world) {
+            if entity.kind != "sentry" {
+                continue;
+            }
+            let record = records.and_then(|r| r.get(&CADENCE));
+            let armed = record.map(|r| r.get(FieldRef(0)).unwrap().clone()) == Some(Value::Bool(true));
+            let cooldown = match record.map(|r| r.get(FieldRef(1)).unwrap().clone()) {
+                Some(Value::F32(c)) => c,
+                _ => 0.0,
+            };
+            seen.push((armed, cooldown));
+        }
+    }
+    assert!(!seen.is_empty(), "a turret was deployed (its deploy entry is native)");
+    seen
+}
+
+fn largest_countdown(seen: &[(bool, f32)]) -> f32 {
+    seen.iter().map(|(_, c)| *c).fold(f32::MIN, f32::max)
+}
+
+/// The script's turret under a GGRS sync-test session, where every tick it
+/// runs is rewound and replayed: the countdown is the script's, and the
+/// session stays healthy.
+#[test]
+fn a_scripted_turret_keeps_its_cadence_through_rollback() {
+    let (mut sim, file) = sandbox("rollback", &sentry_script(0.75), true);
+    let largest = largest_countdown(&deploy(&mut sim, 60));
+    assert!((0.70..0.75).contains(&largest), "the script's 0.75 s delay, less a tick: {largest}");
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let _ = std::fs::remove_file(file);
+}
+
+/// The script is edited while the game runs; the reload is proposed and
+/// published on the mechanical-edit road, the session's content becomes a new
+/// generation, and the next turret runs the edit. (Under a sync-test session
+/// the harness owns the timeline and the reload is refused, as for a `.wasm`
+/// file: `a_module_file_that_changes_while_the_game_runs_is_reloaded`.)
+#[test]
+fn an_edited_sentry_script_runs_in_the_game_without_a_build() {
+    let (mut sim, file) = sandbox("edit", &sentry_script(0.75), false);
+    let first = largest_countdown(&deploy(&mut sim, 330));
+    assert!((0.70..0.75).contains(&first), "the script's 0.75 s delay, less a tick: {first}");
+    let generation = sim.world().resource::<ambition_platformer2d::extension::ExtensionGeneration>().clone();
+
+    // A file system's clock can be coarse: the edit must look newer.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::write(&file, sentry_script(1.5)).unwrap();
+    let published = |sim: &Platformer2dSimHarness| {
+        sim.world().resource::<ambition_platformer2d::extension::reload::StagedModuleReplacement>().published()
+    };
+    let mut frames = 0;
+    while published(&sim) == 0 {
+        sim.step(AgentAction::default());
+        frames += 1;
+        assert!(frames < 120, "the edited script was not reloaded within 120 frames");
+    }
+    assert!(turret_is_scripted(&sim), "the reloaded turret runs from the script");
+    assert_ne!(
+        *sim.world().resource::<ambition_platformer2d::extension::ExtensionGeneration>(),
+        generation,
+        "an edited script is a new generation of the session's modules"
+    );
+    let second = largest_countdown(&deploy(&mut sim, 60));
+    assert!((1.45..1.5).contains(&second), "the edit's 1.5 s delay, less a tick: {second}");
+    let _ = std::fs::remove_file(file);
+}
+
+/// ⭐ A FAULTING INVOCATION COMMITS NOTHING (under rewinds): this script
+/// changes the record and stages a bolt, then throws. The turret keeps its
+/// initial record, fires nothing, and the fault names the file and its
+/// generation.
+#[test]
+fn a_throwing_script_commits_neither_its_record_nor_its_requests() {
+    let throwing = sentry_script(0.75).replace(
+        "    this.state.cadence = c;\n}",
+        "    this.state.cadence = c;\n    this.requests.push(#{ port: \"projectile\", value: #{ origin: [0.0, 0.0], dir: [1.0, 0.0], speed: 1.0, damage: 1, max_lifetime: 1.0, half_extent: [1.0, 1.0] } });\n    throw \"the witness's fault\";\n}",
+    );
+    assert!(throwing.contains("throw"), "the premise: the edit applied");
+    let (mut sim, file) = sandbox("fault", &throwing, true);
+    let bolts = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world.query::<&ambition_platformer2d::projectiles::entity::ProjectileOwner>().iter(world).count()
+    };
+    let bolts_before = bolts(&mut sim);
+    let faults_before = sim.world().resource::<ExtensionFaults>().total;
+    let seen = deploy(&mut sim, 60);
+    assert!(seen.iter().all(|(armed, _)| !armed), "a faulting invocation committed its record change: {seen:?}");
+    assert_eq!(bolts(&mut sim), bolts_before, "a faulting invocation's staged bolt was fired");
+    let faults = sim.world().resource::<ExtensionFaults>();
+    assert!(faults.total > faults_before, "the throwing turret faulted");
+    let last = faults.recent.last().expect("a recent fault");
+    let message = format!("{:?}", last.fault);
+    assert_eq!(&*last.entry, "ambition::sentry/turret");
+    assert!(
+        message.contains("sentry.rhai") && message.contains("generation") && message.contains("the witness's fault"),
+        "the fault names the source and its generation: {message}"
+    );
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let _ = std::fs::remove_file(file);
+}

@@ -56,6 +56,9 @@ ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_extension_wasm = { path = "../ambition_extension_wasm", optional = true }
+ambition_extension_rhai = { path = "../ambition_extension_rhai", optional = true }
+ambition_combat_port = { path = "../ambition_combat_port", optional = true }
+ambition_projectile_spec = { path = "../ambition_projectile_spec", optional = true }
 ambition_combat = { path = "../ambition_combat" }
 ambition_damage = { path = "../ambition_damage" }
 ambition_encounter = { path = "../ambition_encounter" }
@@ -158,3 +161,7 @@ ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runti
 # not link an interpreter. With it on, `AMBITION_EXTENSION_MODULES` names
 # `.wasm` files whose modules replace the linked ones of the same key.
 wasm_modules = ["dep:ambition_extension_wasm"]
+# Modules from Rhai source (scripting audit P3): with it on,
+# `AMBITION_EXTENSION_MODULES` may also name `.rhai` files, each the code of
+# the linked module its stem names; an edit needs no build at all.
+script_modules = ["dep:ambition_extension_rhai", "dep:ambition_combat_port", "dep:ambition_projectile_spec"]

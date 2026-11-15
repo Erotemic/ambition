@@ -1673,6 +1673,12 @@ allow = ["ambition_asset_manager", "ambition_shrine", "ambition_interaction", "a
     "ambition_extension_sdk",
     # The WebAssembly backend, behind the default-off `wasm_modules` feature.
     "ambition_extension_wasm",
+    # The Rhai backend, behind the default-off `script_modules` feature, and
+    # the two port-value leaves whose `ScriptPort` converters its alias list
+    # (`script_ports()`) names: each names only the SDK.
+    "ambition_extension_rhai",
+    "ambition_combat_port",
+    "ambition_projectile_spec",
     # Player/victim hit resolution: the runtime schedules `apply_player_hit_events`
     # and `stage_player_victim_hit_events` into its player/combat chains and
     # registers `WalletShieldSpent` beside them. Same relationship as
@@ -3178,7 +3184,7 @@ watch_paths = ["Cargo.toml"]
 rationale = "the extension SDK must stay a registered workspace member"
 source_doc = "docs/planning/engine/extension-model.md"
 severity = "error"
-members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_boss_special_port", "ambition_combat_port", "ambition_portal_port", "ambition_content_modules", "ambition_extension_fixture_modules"]
+members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_extension_rhai", "ambition_boss_special_port", "ambition_combat_port", "ambition_portal_port", "ambition_content_modules", "ambition_extension_fixture_modules"]
 
 [[policy]]
 id = "engine.ambition_extension_sdk-portable"
@@ -3240,6 +3246,19 @@ severity = "error"
 exact = true
 allow = ["ambition_extension_host", "ambition_extension_sdk"]
 manifest = "crates/ambition_extension_wasm/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_extension_rhai-is-a-backend"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_extension_rhai"]
+watch_paths = ["crates/ambition_extension_rhai/Cargo.toml"]
+rationale = "the Rhai backend implements the host's ModuleBackend over the SDK's script binding and names nothing else in the workspace: no domain, no runtime, no game (the composition gives it the ports a script may name)"
+source_doc = "docs/planning/engine/scripting-language-bakeoff.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_host", "ambition_extension_sdk"]
+manifest = "crates/ambition_extension_rhai/Cargo.toml"
 
 [[policy]]
 id = "engine.ambition_combat_port-portable"

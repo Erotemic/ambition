@@ -252,18 +252,18 @@ impl Plugin for ExtensionCompositionPlugin {
         );
         order_phases(app, sim);
         install_ports(app);
-        #[cfg(feature = "wasm_modules")]
+        #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
         load_developer_modules(app);
-        #[cfg(not(feature = "wasm_modules"))]
+        #[cfg(not(any(feature = "wasm_modules", feature = "script_modules")))]
         if app
             .world()
             .get_resource::<ExtensionModuleFiles>()
             .is_some_and(|files| !files.0.is_empty())
         {
             panic!(
-                "ExtensionModuleFiles names module files, and this build has no WebAssembly \
-                 backend: enable the `wasm_modules` feature, or the linked modules would run \
-                 instead of the ones asked for"
+                "ExtensionModuleFiles names module files, and this build loads none: enable \
+                 the `wasm_modules` or `script_modules` feature, or the linked modules would \
+                 run instead of the ones asked for"
             );
         }
     }
@@ -272,23 +272,31 @@ impl Plugin for ExtensionCompositionPlugin {
 /// The variable that names loaded module files for a developer run.
 pub const EXTENSION_MODULES_VAR: &str = "AMBITION_EXTENSION_MODULES";
 
-/// The `.wasm` files (or directories of them) whose modules replace the
-/// linked ones. A composition inserts it BEFORE adding the engine plugins;
-/// when it is absent, [`EXTENSION_MODULES_VAR`] gives the list. Read once, at
-/// plugin build.
+/// The module files (or directories of them) whose modules replace the
+/// linked ones: `.wasm` builds (`wasm_modules`) and `.rhai` sources
+/// (`script_modules`). A composition inserts it BEFORE adding the engine
+/// plugins; when it is absent, [`EXTENSION_MODULES_VAR`] gives the list. Read
+/// once, at plugin build.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct ExtensionModuleFiles(pub Vec<std::path::PathBuf>);
 
 /// ⭐ THE NO-RELINK LOOP. `AMBITION_EXTENSION_MODULES` is a `:`-separated list
-/// of `.wasm` files or directories of them. Each file's modules are declared
-/// as EXPLICIT replacements of the modules the game links under the same key,
-/// so a developer edits a module, rebuilds only the module crate
-/// (`scripts/regen/build_extension_modules.sh`), and runs the same game binary.
+/// of module files or directories of them, each replacing the linked module
+/// of the same key, explicitly:
+///
+/// - a `.wasm` file declares its own modules; the developer rebuilds only the
+///   module crate (`scripts/regen/build_extension_modules.sh`) and runs the
+///   same game binary;
+/// - a `.rhai` file is the code of the linked module its stem names
+///   (`sentry.rhai`, or `ambition.sentry.rhai`): the module's declaration
+///   (entries, ports, schemas, limits) stays the game's, an entry the script
+///   defines runs from it, and the others run natively. An edit needs no
+///   build at all. It binds at admission, once every plugin has declared.
 ///
 /// ⛔ A file that does not load stops the run. The developer asked for this
 /// file; running the linked module instead would show them behaviour they did
 /// not write.
-#[cfg(feature = "wasm_modules")]
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 fn load_developer_modules(app: &mut App) {
     use ambition_extension_host::ExtensionAppExt;
     let listed = match app.world().get_resource::<ExtensionModuleFiles>() {
@@ -303,29 +311,38 @@ fn load_developer_modules(app: &mut App) {
         },
     };
     let mut watched = Vec::new();
-    for path in wasm_files(&listed) {
-        let bytes = std::fs::read(&path).unwrap_or_else(|e| {
-            panic!(
-                "{EXTENSION_MODULES_VAR}: cannot read {}: {e}",
-                path.display()
-            )
-        });
-        let (backend, modules) =
-            ambition_extension_wasm::WasmModules::load(&bytes).unwrap_or_else(|e| {
-                panic!(
-                    "{EXTENSION_MODULES_VAR}: {} does not load: {e}",
-                    path.display()
-                )
-            });
-        info!(
-            "{EXTENSION_MODULES_VAR}: {} provides {:?}",
-            path.display(),
-            modules
-                .iter()
-                .map(|m| m.key.to_string())
-                .collect::<Vec<_>>()
-        );
-        app.add_loaded_extension_modules(&path.display().to_string(), backend, modules, true);
+    for path in module_files(&listed) {
+        let artifact = path.display().to_string();
+        match ModuleFileKind::of(&path) {
+            #[cfg(feature = "wasm_modules")]
+            ModuleFileKind::Wasm => {
+                let (backend, modules) = load_wasm(&path)
+                    .unwrap_or_else(|e| panic!("{EXTENSION_MODULES_VAR}: {artifact}: {e}"));
+                info!(
+                    "{EXTENSION_MODULES_VAR}: {artifact} provides {:?}",
+                    modules.iter().map(|m| m.key.to_string()).collect::<Vec<_>>()
+                );
+                app.add_loaded_extension_modules(&artifact, backend, modules, true);
+            }
+            #[cfg(feature = "script_modules")]
+            ModuleFileKind::Rhai => {
+                let text = std::fs::read_to_string(&path)
+                    .unwrap_or_else(|e| panic!("{EXTENSION_MODULES_VAR}: cannot read {artifact}: {e}"));
+                let script = path.clone();
+                app.add_bound_extension_artifact(
+                    &artifact,
+                    Box::new(move |linked| {
+                        let bound = bind_script(&script, &text, linked)?;
+                        info!(
+                            "{EXTENSION_MODULES_VAR}: {} is the code of {:?}",
+                            script.display(),
+                            bound.1.iter().map(|m| m.key.to_string()).collect::<Vec<_>>()
+                        );
+                        Ok(bound)
+                    }),
+                );
+            }
+        }
         watched.push((path.clone(), modified(&path)));
     }
     if watched.is_empty() {
@@ -352,8 +369,111 @@ fn load_developer_modules(app: &mut App) {
     );
 }
 
-/// The loaded files and the modification time each was last read at.
+/// What a listed file is, by its extension. A file this build cannot load
+/// stops the run, naming the feature that would.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+enum ModuleFileKind {
+    #[cfg(feature = "wasm_modules")]
+    Wasm,
+    #[cfg(feature = "script_modules")]
+    Rhai,
+}
+
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+impl ModuleFileKind {
+    const EXTENSIONS: &[&str] = &[
+        #[cfg(feature = "wasm_modules")]
+        "wasm",
+        #[cfg(feature = "script_modules")]
+        "rhai",
+    ];
+
+    fn of(path: &std::path::Path) -> Self {
+        match path.extension().and_then(|x| x.to_str()) {
+            #[cfg(feature = "wasm_modules")]
+            Some("wasm") => Self::Wasm,
+            #[cfg(feature = "script_modules")]
+            Some("rhai") => Self::Rhai,
+            #[cfg(not(feature = "wasm_modules"))]
+            Some("wasm") => panic!(
+                "{EXTENSION_MODULES_VAR}: {} is a WebAssembly module, and this build has no \
+                 WebAssembly backend (the `wasm_modules` feature)",
+                path.display()
+            ),
+            #[cfg(not(feature = "script_modules"))]
+            Some("rhai") => panic!(
+                "{EXTENSION_MODULES_VAR}: {} is a Rhai script, and this build has no script \
+                 backend (the `script_modules` feature)",
+                path.display()
+            ),
+            _ => panic!(
+                "{EXTENSION_MODULES_VAR}: {} is not a module file this build loads (it loads \
+                 {:?})",
+                path.display(),
+                Self::EXTENSIONS
+            ),
+        }
+    }
+}
+
 #[cfg(feature = "wasm_modules")]
+fn load_wasm(
+    path: &std::path::Path,
+) -> Result<
+    (
+        std::sync::Arc<dyn ambition_extension_host::ModuleBackend>,
+        Vec<ambition_extension_sdk::ModuleDescriptor>,
+    ),
+    String,
+> {
+    let bytes = std::fs::read(path).map_err(|e| format!("cannot read: {e}"))?;
+    let (backend, modules) =
+        ambition_extension_wasm::WasmModules::load(&bytes).map_err(|e| format!("does not load: {e}"))?;
+    Ok((backend, modules))
+}
+
+/// Compile the script `path` as the code of the linked module its stem names.
+#[cfg(feature = "script_modules")]
+fn bind_script(
+    path: &std::path::Path,
+    text: &str,
+    linked: &[ambition_extension_host::DeclaredModule],
+) -> Result<
+    (
+        std::sync::Arc<dyn ambition_extension_host::ModuleBackend>,
+        Vec<ambition_extension_sdk::ModuleDescriptor>,
+    ),
+    String,
+> {
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+    let native = ambition_extension_rhai::module_for_file(stem, linked)?.clone();
+    let (backend, modules) = ambition_extension_rhai::RhaiModules::load(
+        &path.display().to_string(),
+        text,
+        native,
+        script_ports(),
+        ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
+    )?;
+    Ok((backend, modules))
+}
+
+/// The ports a script may name, and the name it uses (`inv.requests.push(#{
+/// port: "projectile", value: ... })`). Each port's converter is its own
+/// crate's (`ScriptPort`). ⚠ The first list; an entry that uses a port not
+/// here faults on its first invocation, naming the port. Generating the
+/// converters from port descriptions is the audit's P2.
+#[cfg(feature = "script_modules")]
+pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
+    let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
+    ports
+        .add::<ambition_combat_port::ModuleEntityTickPort>("module_entity_tick")
+        .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
+        .add::<ambition_combat_port::BodySoundPort>("sound");
+    ports
+}
+
+/// The loaded files and the modification time each was last read at.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 #[derive(Resource)]
 struct WatchedModuleFiles {
     files: Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>,
@@ -362,23 +482,23 @@ struct WatchedModuleFiles {
 
 /// Frames between two looks at the files: a stat per file is cheap, and a
 /// third of a second is below a developer's switch from editor to game.
-#[cfg(feature = "wasm_modules")]
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 const POLL_FRAMES: u32 = 20;
 
-#[cfg(feature = "wasm_modules")]
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 struct ExtensionModuleCode;
 
-#[cfg(feature = "wasm_modules")]
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 fn module_code_domain() -> ambition_platformer2d_core::MechanicalDomain {
     ambition_platformer2d_core::MechanicalDomain::of::<ExtensionModuleCode>("extension module code")
 }
 
-#[cfg(feature = "wasm_modules")]
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
-#[cfg(feature = "wasm_modules")]
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 fn propose_module_reload(world: &mut World) {
     let changed: Vec<std::path::PathBuf> = {
         let mut watched = world.resource_mut::<WatchedModuleFiles>();
@@ -397,16 +517,25 @@ fn propose_module_reload(world: &mut World) {
         }
         changed
     };
+    if changed.is_empty() {
+        return;
+    }
     // ⛔ ONE POLL IS ONE CANDIDATE: every changed file that loads goes into
     // one staged generation (`stage_loaded_replacements`). A file that does
     // not load keeps its running code; the others still reload.
+    #[cfg(feature = "script_modules")]
+    let linked = ambition_extension_host::linked_modules(world);
     let mut loaded = Vec::new();
     for path in &changed {
-        match std::fs::read(path)
-            .map_err(|e| format!("cannot read: {e}"))
-            .and_then(|bytes| {
-                ambition_extension_wasm::WasmModules::load(&bytes).map_err(|e| e.to_string())
-            }) {
+        let result = match ModuleFileKind::of(path) {
+            #[cfg(feature = "wasm_modules")]
+            ModuleFileKind::Wasm => load_wasm(path),
+            #[cfg(feature = "script_modules")]
+            ModuleFileKind::Rhai => std::fs::read_to_string(path)
+                .map_err(|e| format!("cannot read: {e}"))
+                .and_then(|text| bind_script(path, &text, &linked)),
+        };
+        match result {
             Ok((backend, modules)) => {
                 loaded.push(ambition_extension_host::reload::LoadedArtifact {
                     artifact: std::sync::Arc::from(path.display().to_string()),
@@ -439,7 +568,7 @@ fn propose_module_reload(world: &mut World) {
     }
 }
 
-#[cfg(feature = "wasm_modules")]
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 fn publish_module_reload(world: &mut World) {
     if *world.resource::<ambition_platformer2d_core::MechanicalEditAdmission>()
         != ambition_platformer2d_core::MechanicalEditAdmission::Publish
@@ -499,8 +628,8 @@ pub fn remint_session_content(world: &mut World) {
     info!("extension modules reloaded: the session's content is now generation {epoch:?}");
 }
 
-#[cfg(feature = "wasm_modules")]
-fn wasm_files(listed: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+fn module_files(listed: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
     let mut files = Vec::new();
     for path in listed.iter().cloned() {
         if path.is_dir() {
@@ -512,7 +641,11 @@ fn wasm_files(listed: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
                     )
                 })
                 .filter_map(|entry| entry.ok().map(|e| e.path()))
-                .filter(|p| p.extension().is_some_and(|x| x == "wasm"))
+                .filter(|p| {
+                    p.extension()
+                        .and_then(|x| x.to_str())
+                        .is_some_and(|x| ModuleFileKind::EXTENSIONS.contains(&x))
+                })
                 .collect();
             found.sort();
             files.extend(found);

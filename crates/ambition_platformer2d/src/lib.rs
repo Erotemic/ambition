@@ -850,7 +850,8 @@ pub use ambition_shrine as shrine;
 /// Procedural extensions: a game's own algorithms with their own rollback
 /// state, run by the engine's extension host (fast-iteration I4) and, with
 /// the `wasm_modules` feature, loaded from `.wasm` files so a module edit
-/// does not rebuild the engine (I6/I7).
+/// does not rebuild the engine (I6/I7); with `script_modules`, a module's
+/// code can be a `.rhai` source file, which needs no build at all.
 ///
 /// [`sdk`] is what a module is written against. The rest is what a game or a
 /// tool composes with: declaring modules, naming module files to load, and
@@ -868,6 +869,9 @@ pub mod extension {
     pub use ambition_platformer2d_runtime::extension_composition::{
         EXTENSION_MODULES_SECTION, EXTENSION_MODULES_VAR, ExtensionGeneration, ExtensionModuleFiles,
     };
+    /// The ports a `.rhai` module may name, by alias.
+    #[cfg(feature = "script_modules")]
+    pub use ambition_platformer2d_runtime::extension_composition::script_ports;
 }
 pub use ambition_platformer2d_shared_tangle as platformer;
 #[cfg(feature = "ambition_portal2d")]

@@ -35,9 +35,18 @@ carries closed campaigns. Unselected or customer-gated plans live in
    (it builds for the browser target, matches the native sentry byte for
    byte with exact float comparisons, and cannot keep hidden state); Luau has
    the better analyzer and VM but does not build for `wasm32-unknown-unknown`.
-   **Next action:** the Rhai adapter in the extension host (P3) over
-   `abi::invoke_with`, then the sentry's port descriptions (P2). Story
-   sequences (SS1, SS2) are the first content customer of its commands.
+   The Rhai backend landed 2026-11-14 (`crates/ambition_extension_rhai`,
+   P3's backend half): `AMBITION_EXTENSION_MODULES` takes `.rhai` files, each
+   the code of the linked module its stem names, hot-reloaded on the
+   mechanical-edit road with a new content generation; the shipped
+   `game/ambition_content_modules/rhai/sentry.rhai` runs the turret, and
+   `a_script_module_runs_without_a_build` edits it in a running sync-test
+   game and witnesses that a faulting invocation commits nothing.
+   **Next action:** the sentry's port descriptions (P2: one declaration gives
+   the wire codec, the script converter and the reference; the converters
+   are hand-written `ScriptPort` impls now, and the alias list is
+   `script_ports()`), then P3's project entry. Story sequences (SS1, SS2) are
+   the first content customer of script-callable commands.
 1. **Network architecture (maintainer priority, updated 2026-11-10):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. **Direction set 2026-11-10:** the metroidvania moves to a hybrid model, with rollback kept inside a room boundary while it is easy to maintain and its room-level cost measured, and hosted authority for the world around the rooms: [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) is selected and runs beside the experiment.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
    then LOCAL-PLAY-MODES presentation (LOADOUT-AUTHORITY and the menu leave

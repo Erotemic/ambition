@@ -38,7 +38,10 @@ pub struct ObservationQuery {
 pub enum ObservedShape {
     Aabb { min: [f32; 2], max: [f32; 2] },
     Segment { a: [f32; 2], b: [f32; 2] },
+    /// An open line through `points`, in order (a slope, a mount's back).
+    Polyline { points: Vec<[f32; 2]> },
     Circle { center: [f32; 2], radius: f32 },
+    /// A closed outline: the last point joins the first.
     Polygon { points: Vec<[f32; 2]> },
 }
 

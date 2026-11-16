@@ -2,15 +2,18 @@
 //! `docs/planning/engine/geometry-observability-and-f1.md`).
 //!
 //! Three views of one room, each read from [`CollisionWorld`] as a body's
-//! sweep reads it, never composed a second way:
-//! - `collision.authored`: the room's authored blocks ([`RoomCollision::base`]).
-//!   A block the composed walls do not hold is listed as inactive.
+//! sweep reads it, never composed a second way. Each lists EVERY kind of
+//! geometry the room's [`ae::World`] holds ([`world_pieces`]): its blocks,
+//! its lines (slopes, hills, a mount's back and the slope up it), its water
+//! and its climbable regions.
+//! - `collision.authored`: the room's authored geometry ([`RoomCollision::base`]).
+//!   A piece the composed walls do not hold is listed as inactive.
 //! - `collision.composed`: the walls of the room ([`RoomCollision::solids`]):
-//!   the authored blocks, the moving platforms and the feature overlay
-//!   (breakables, gates, pogo orbs).
+//!   the authored geometry, the moving platforms and the feature overlay
+//!   (breakables, gates, pogo orbs, a ridden mount's lines).
 //! - `collision.for_subject`: the walls as one body meets them
 //!   ([`RoomCollision::solids_for`]): the gates open for it passed, the portal
-//!   holes it opened cut. A composed wall the body does not meet is listed as
+//!   holes it opened cut. A composed piece the body does not meet is listed as
 //!   inactive.
 //! - `body.sweep` (GOBS-2): each body as the movement kernel last moved it,
 //!   from its own record ([`ae::SweepSample`]): the box the sweep tested at
@@ -39,7 +42,7 @@ pub fn install(app: &mut App) {
     app.add_geometry_observer(
         ObserverInfo {
             name: "collision.authored",
-            description: "the room's authored blocks; one the composed walls do not hold is inactive",
+            description: "the room's authored blocks, lines, water and climbable regions; one the composed walls do not hold is inactive",
             needs_subject: false,
         },
         authored,
@@ -47,7 +50,7 @@ pub fn install(app: &mut App) {
     .add_geometry_observer(
         ObserverInfo {
             name: "collision.composed",
-            description: "the walls of the room: authored blocks, moving platforms, breakables, gates and pogo orbs",
+            description: "the walls of the room: authored geometry, moving platforms, breakables, gates, pogo orbs and mounts' lines",
             needs_subject: false,
         },
         composed,
@@ -93,10 +96,6 @@ pub fn role(kind: ae::BlockKind) -> &'static str {
     }
 }
 
-fn same(a: &ae::Block, b: &ae::Block) -> bool {
-    a.name == b.name && a.kind == b.kind && a.aabb.min == b.aabb.min && a.aabb.max == b.aabb.max
-}
-
 fn observed(block: &ae::Block, state: ObservedState) -> GeometryObservation {
     GeometryObservation {
         key: block.name.clone(),
@@ -104,6 +103,98 @@ fn observed(block: &ae::Block, state: ObservedState) -> GeometryObservation {
         shape: ObservedShape::aabb(block.aabb.min.to_array(), block.aabb.max.to_array()),
         state,
     }
+}
+
+/// A line of the world (a slope, a hill, a mount's back) as gameplay meets
+/// it. Its first role is what it is; the rest say how it behaves now.
+fn line(chain: &ae::SurfaceChain) -> GeometryObservation {
+    let ae::SurfaceChain { name, points, closed, kind, velocity, hidden, boarding, turn, carrier, .. } = chain;
+    let mut roles = vec![Cow::Borrowed(match kind {
+        // A walking body stands on its segments within its slope limit, as
+        // a one-way floor; a rider rides all of it.
+        ae::SurfaceKind::Ground => "line",
+        // Solid inside: a block a portal pair carried turned.
+        ae::SurfaceKind::Solid => "solid_line",
+    })];
+    if carrier.is_some() {
+        roles.push(Cow::Borrowed("carried"));
+    }
+    if *velocity != ae::Vec2::ZERO {
+        roles.push(Cow::Borrowed("moving"));
+    }
+    if *turn != 0.0 {
+        roles.push(Cow::Borrowed("turning"));
+    }
+    if *hidden {
+        roles.push(Cow::Borrowed("drawn_by_art"));
+    }
+    match boarding {
+        ae::Boarding::Auto => {}
+        ae::Boarding::Up => roles.push(Cow::Borrowed("board_holding_up")),
+    }
+    let points = points.iter().map(|point| point.to_array()).collect();
+    GeometryObservation {
+        key: name.clone(),
+        roles,
+        shape: if *closed { ObservedShape::Polygon { points } } else { ObservedShape::Polyline { points } },
+        state: ObservedState::Active,
+    }
+}
+
+fn volume(key: &str, roles: [&'static str; 2], aabb: &ae::Aabb) -> GeometryObservation {
+    GeometryObservation {
+        key: key.to_string(),
+        roles: roles.into_iter().map(Cow::Borrowed).collect(),
+        shape: ObservedShape::aabb(aabb.min.to_array(), aabb.max.to_array()),
+        state: ObservedState::Active,
+    }
+}
+
+/// Every piece of geometry `world` holds, each active, as a body meets it.
+///
+/// THE DESTRUCTURE HAS NO `..`. A new kind of geometry on [`ae::World`] does
+/// not compile until it is listed here, or named here as not geometry a body
+/// meets, so it is in F1 and in headless inspection (`inspect_geometry`) the
+/// day it lands. A kind that is not on the world (combat volumes, portal
+/// openings) has its own observer: `add_geometry_observer` in its owner.
+pub fn world_pieces(world: &ae::World) -> Vec<GeometryObservation> {
+    let ae::World {
+        blocks,
+        chains,
+        water_regions,
+        climbable_regions,
+        // Not geometry a body meets: the room's name, its extent (the edges
+        // are its walls and zones) and its spawn point.
+        name: _,
+        size: _,
+        spawn: _,
+        // How far past the room a body may go, in each body's own gravity
+        // frame: not a shape the room has.
+        edges: _,
+    } = world;
+    let mut out: Vec<GeometryObservation> = blocks.iter().map(|block| observed(block, ObservedState::Active)).collect();
+    out.extend(chains.iter().map(line));
+    out.extend(water_regions.iter().enumerate().map(|(n, water)| {
+        let kind = match water.kind {
+            ae::WaterKind::Clear => "clear",
+            ae::WaterKind::Murky => "murky",
+        };
+        volume(&format!("water {n}"), ["water", kind], &water.aabb)
+    }));
+    out.extend(climbable_regions.iter().enumerate().map(|(n, climbable)| {
+        let kind = match climbable.kind {
+            ae::ClimbableKind::Ladder => "ladder",
+            ae::ClimbableKind::Wall => "climbable_wall",
+            ae::ClimbableKind::Vine => "vine",
+        };
+        volume(&format!("climbable {n}"), ["climbable", kind], &climbable.aabb)
+    }));
+    out
+}
+
+/// The same piece, whatever its state.
+fn same(a: &GeometryObservation, b: &GeometryObservation) -> bool {
+    a.key == b.key && a.roles == b.roles && a.shape == b.shape
 }
 
 /// The room the query names: its root's identity, else the subject's room,
@@ -122,18 +213,16 @@ fn room_of<'a>(
     collision.room(named.as_ref())
 }
 
-/// Each block of `listed`, active if `holder` holds it, else inactive for `reason`.
+/// Each piece of `listed`, active if `holder` holds it, else inactive for `reason`.
 fn listed_against(listed: &ae::World, holder: &ae::World, reason: &'static str) -> Vec<GeometryObservation> {
-    listed
-        .blocks
-        .iter()
-        .map(|block| {
-            let state = if holder.blocks.iter().any(|kept| same(kept, block)) {
-                ObservedState::Active
-            } else {
-                ObservedState::Inactive { reason: Cow::Borrowed(reason) }
-            };
-            observed(block, state)
+    let held = world_pieces(holder);
+    world_pieces(listed)
+        .into_iter()
+        .map(|mut piece| {
+            if !held.iter().any(|kept| same(kept, &piece)) {
+                piece.state = ObservedState::Inactive { reason: Cow::Borrowed(reason) };
+            }
+            piece
         })
         .collect()
 }
@@ -159,7 +248,7 @@ fn composed(
     let Some(room) = room_of(&collision, &query, &roots, &bodies) else {
         return Vec::new();
     };
-    room.solids().map_or_else(Vec::new, |walls| walls.blocks.iter().map(|block| observed(block, ObservedState::Active)).collect())
+    room.solids().map_or_else(Vec::new, |walls| world_pieces(&walls))
 }
 
 fn for_subject(
@@ -180,7 +269,8 @@ fn for_subject(
     let mut out = listed_against(&walls, &met, "open for this body");
     // What the body meets that the room's walls do not hold (the far side of
     // a portal it is in).
-    out.extend(met.blocks.iter().filter(|block| !walls.blocks.iter().any(|known| same(known, block))).map(|block| observed(block, ObservedState::Active)));
+    let known = world_pieces(&walls);
+    out.extend(world_pieces(&met).into_iter().filter(|piece| !known.iter().any(|known| same(known, piece))));
     out
 }
 

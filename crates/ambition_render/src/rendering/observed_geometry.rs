@@ -103,6 +103,11 @@ fn known_role_color(role: &str) -> Option<Color> {
         "blink_wall_soft" => Color::srgba(1.0, 0.35, 1.0, 0.9),
         "blink_wall_hard" | "hazard" => Color::srgba(1.0, 0.3, 0.3, 0.9),
         "pogo_orb" => Color::srgba(0.35, 1.0, 0.45, 0.9),
+        // A line of the world: a slope, a hill, a mount's back.
+        "line" => Color::srgba(0.2, 1.0, 0.75, 0.95),
+        "solid_line" => Color::srgba(0.85, 0.85, 0.85, 0.9),
+        "water" => Color::srgba(0.25, 0.55, 1.0, 0.6),
+        "climbable" => Color::srgba(0.7, 0.5, 0.25, 0.8),
         "rebound" => Color::srgba(1.0, 0.6, 0.2, 0.9),
         "hurt" => Color::srgba(1.0, 0.9, 0.2, 0.9),
         "hit" => Color::srgba(1.0, 0.2, 0.2, 0.95),
@@ -151,6 +156,15 @@ fn outline(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>, world: &ae::Worl
         ObservedShape::Circle { center, radius } => {
             gizmos.circle_2d(p(center), *radius, color);
         }
+        ObservedShape::Polyline { points } => {
+            for pair in points.windows(2) {
+                gizmos.line_2d(p(&pair[0]), p(&pair[1]), color);
+            }
+            // Each vertex marked, so a slope's joins and a short segment show.
+            for point in points {
+                gizmos.circle_2d(p(point), 2.5, color);
+            }
+        }
         ObservedShape::Polygon { points } => {
             for (i, point) in points.iter().enumerate() {
                 gizmos.line_2d(p(point), p(&points[(i + 1) % points.len()]), color);
@@ -198,7 +212,7 @@ pub fn observation_labels(layers: &[ObservedLayer]) -> Vec<ObservedLabel> {
                 ObservedShape::Aabb { min, .. } => ae::Vec2::new(min[0] + INSET, min[1] + INSET),
                 ObservedShape::Segment { a, b } => ae::Vec2::new((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5),
                 ObservedShape::Circle { center, .. } => ae::Vec2::new(center[0], center[1]),
-                ObservedShape::Polygon { points } => {
+                ObservedShape::Polyline { points } | ObservedShape::Polygon { points } => {
                     let Some(first) = points.first() else { continue };
                     ae::Vec2::new(first[0], first[1])
                 }

@@ -338,12 +338,10 @@ room draws the default grid). Published with
 `scripts/regen/backgrounds.sh --theme <look> --skin <look>`; the generator's
 `WORKSHOP_LOOK`, `COUNTRY_LOOK` and `WOODS_LOOK` name them.
 
-Not yet: the props (the barn front, the mill, houses, the guard post and
-barrier, the ring's scaffold, freight and the handcart, Alice's tripod and
-tent, Bob's staff and camp; `targets/props/hobford_props.py` on
-`_district_props.py`) and villagers. Without them the village's porches
-and the mill's floors are bare boards against the sky, and the siding's
-freight is turf blocks.
+The props are `targets/props/hill_village_props.py` (nine pieces with
+name-neutral `hill_*` ids), published and placed; their captures are
+[Hobford polish](hobford-polish.md) row 8. The villagers are the valley's
+residents (row 9 there).
 
 ## Provisional decisions
 

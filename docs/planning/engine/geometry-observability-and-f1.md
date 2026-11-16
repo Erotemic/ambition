@@ -365,6 +365,39 @@ build without `ambition_render`.
 
 **Done when:** fixture tests and performance reports are reproducible from documented commands, and a missing supported producer cannot quietly ship without a discoverable visibility failure. The acceptance suite checks user-visible results, not just enum population or minimum counts.
 
+### GOBS-6 — every kind of world geometry, and one place to register it
+
+**Landed (2026-11-16).** Jon: "I need to see collision geometry to reason
+about it ... especially slanted platforms (Full Stack's guitar, GNU-ton's
+back) ... adding new types of geometry should make it obvious how to
+register them." The gap: the three collision observers listed only
+`World::blocks`. A room's lines (`World::chains`: slopes, hills, a ridden
+mount's back and the slope up it), its water and its climbable regions were
+in the collision authority and in neither F1 nor `inspect_geometry`.
+
+- `world_pieces(&ae::World)` (`ambition_platformer2d_world::geometry_observers`)
+  lists every kind the world holds, and all three collision observers go
+  through it. It destructures `ae::World` with no `..`: a new field does not
+  compile until it is listed or named there as not geometry a body meets.
+- A line is the new `ObservedShape::Polyline` (open; `Polygon` stays closed)
+  with role `line` (a standing surface) or `solid_line` (a wall), then
+  `carried` (part of a body: a mount), `moving`, `turning`, `drawn_by_art`
+  (the art draws it, so no line is drawn) and `board_holding_up`. Water is
+  `water` + `clear`/`murky`; a climbable region is `climbable` +
+  `ladder`/`climbable_wall`/`vine`.
+- F1 draws a polyline as its segments with each vertex marked; the four new
+  first roles have colours.
+
+Measured with `inspect_geometry --provider collision.composed --no-subject`:
+`boss_main_stage` (30 ticks) lists Full Stack's guitar as `mount_slope`
+`[line, carried, drawn_by_art]` through (1005, 650) to (1492, 1000);
+`gnu_ton_arena` (60 ticks) lists the gnu's two `mount_back` one-way blocks,
+its two `mount_drawn_ledge` lines and its `mount_slope`, `moving` as the gnu
+walks. Witness: `f1_and_headless_inspection_read_one_observation` and the
+observation unit tests pass unchanged. The registration rule is written for
+developers in
+[developer tools: making new geometry visible](../../systems/developer-tools.md#making-new-geometry-visible).
+
 ## Dependency and non-goals
 
 - **Depends on:** existing `CombatGeometryView`, `CollisionWorld`, `RetainedDrawings`, developer mode presets, room/view identities and the read-only inspection/discovery contract. It does not require a new ECS, new general physics engine, or the entire editor.

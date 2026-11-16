@@ -345,7 +345,9 @@ fn load_developer_modules(app: &mut App) {
         }
         watched.push((path.clone(), modified(&path)));
     }
-    if watched.is_empty() {
+    // A composition that names its files (a project) is watched even with
+    // none yet: a file added to the list, or to a listed directory, loads.
+    if watched.is_empty() && !app.world().contains_resource::<ExtensionModuleFiles>() {
         return;
     }
     // ⭐ HOT RELOAD, ON THE ENGINE'S MECHANICAL-EDIT PROTOCOL (`Q120`): a
@@ -354,6 +356,7 @@ fn load_developer_modules(app: &mut App) {
     // PUBLISHED. A file that fails to load or to admit is reported and the
     // running code stays.
     app.insert_resource(WatchedModuleFiles {
+        listed,
         files: watched,
         frames_until_poll: 0,
     });
@@ -387,6 +390,18 @@ impl ModuleFileKind {
         #[cfg(feature = "script_modules")]
         "rhai",
     ];
+
+    /// [`Self::of`] for a file found while the game runs: one this build
+    /// cannot load is reported, and the game goes on.
+    fn try_of(path: &std::path::Path) -> Result<Self, String> {
+        match path.extension().and_then(|x| x.to_str()) {
+            #[cfg(feature = "wasm_modules")]
+            Some("wasm") => Ok(Self::Wasm),
+            #[cfg(feature = "script_modules")]
+            Some("rhai") => Ok(Self::Rhai),
+            _ => Err(format!("not a module file this build loads (it loads {:?})", Self::EXTENSIONS)),
+        }
+    }
 
     fn of(path: &std::path::Path) -> Self {
         match path.extension().and_then(|x| x.to_str()) {
@@ -476,6 +491,10 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
 #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 #[derive(Resource)]
 struct WatchedModuleFiles {
+    /// The list as it was read at build: the variable's. When the
+    /// composition has `ExtensionModuleFiles`, each poll reads that instead,
+    /// so a project that changes its list is followed.
+    listed: Vec<std::path::PathBuf>,
     files: Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>,
     frames_until_poll: u32,
 }
@@ -500,14 +519,32 @@ fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
 
 #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 fn propose_module_reload(world: &mut World) {
-    let changed: Vec<std::path::PathBuf> = {
+    {
         let mut watched = world.resource_mut::<WatchedModuleFiles>();
         if watched.frames_until_poll > 0 {
             watched.frames_until_poll -= 1;
             return;
         }
         watched.frames_until_poll = POLL_FRAMES;
+    }
+    // The files as they are now: a file added to the list or to a listed
+    // directory is new, one gone from them leaves.
+    let listed = match world.get_resource::<ExtensionModuleFiles>() {
+        Some(files) => files.0.clone(),
+        None => world.resource::<WatchedModuleFiles>().listed.clone(),
+    };
+    let present = discover_module_files(&listed);
+    let (changed, removed) = {
+        let mut watched = world.resource_mut::<WatchedModuleFiles>();
         let mut changed = Vec::new();
+        let mut removed = Vec::new();
+        watched.files.retain(|(path, _)| {
+            let stays = present.contains(path);
+            if !stays {
+                removed.push(path.clone());
+            }
+            stays
+        });
         for (path, seen) in &mut watched.files {
             let now = modified(path);
             if now.is_some() && now != *seen {
@@ -515,9 +552,15 @@ fn propose_module_reload(world: &mut World) {
                 changed.push(path.clone());
             }
         }
-        changed
+        for path in present {
+            if !watched.files.iter().any(|(seen, _)| *seen == path) {
+                watched.files.push((path.clone(), modified(&path)));
+                changed.push(path);
+            }
+        }
+        (changed, removed)
     };
-    if changed.is_empty() {
+    if changed.is_empty() && removed.is_empty() {
         return;
     }
     // ⛔ ONE POLL IS ONE CANDIDATE: every changed file that loads goes into
@@ -527,14 +570,14 @@ fn propose_module_reload(world: &mut World) {
     let linked = ambition_extension_host::linked_modules(world);
     let mut loaded = Vec::new();
     for path in &changed {
-        let result = match ModuleFileKind::of(path) {
+        let result = ModuleFileKind::try_of(path).and_then(|kind| match kind {
             #[cfg(feature = "wasm_modules")]
             ModuleFileKind::Wasm => load_wasm(path),
             #[cfg(feature = "script_modules")]
             ModuleFileKind::Rhai => std::fs::read_to_string(path)
                 .map_err(|e| format!("cannot read: {e}"))
                 .and_then(|text| bind_script(path, &text, &linked)),
-        };
+        });
         match result {
             Ok((backend, modules)) => {
                 loaded.push(ambition_extension_host::reload::LoadedArtifact {
@@ -550,11 +593,14 @@ fn propose_module_reload(world: &mut World) {
             ),
         }
     }
-    if loaded.is_empty() {
+    if loaded.is_empty() && removed.is_empty() {
         return;
     }
-    let names: Vec<String> = loaded.iter().map(|a| a.artifact.to_string()).collect();
-    match ambition_extension_host::reload::stage_loaded_replacements(world, loaded) {
+    let mut names: Vec<String> = loaded.iter().map(|a| a.artifact.to_string()).collect();
+    let removed: Vec<std::sync::Arc<str>> =
+        removed.iter().map(|path| std::sync::Arc::from(path.display().to_string())).collect();
+    names.extend(removed.iter().map(|name| format!("{name} (removed)")));
+    match ambition_extension_host::reload::stage_module_changes(world, loaded, removed) {
         Ok(()) => {
             info!("{EXTENSION_MODULES_VAR}: {names:?} changed; reload proposed");
             world
@@ -626,6 +672,32 @@ pub fn remint_session_content(world: &mut World) {
         .expect("a prepared content's sections are named and distinct");
     crate::content_identity::publish_session_content(world, next);
     info!("extension modules reloaded: the session's content is now generation {epoch:?}");
+}
+
+/// The module files `listed` names now, while the game runs: as
+/// [`module_files`], but a directory that cannot be read gives none, and a
+/// listed file that is gone is gone.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+fn discover_module_files(listed: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    for path in listed {
+        if path.is_dir() {
+            let Ok(entries) = std::fs::read_dir(path) else { continue };
+            let mut found: Vec<_> = entries
+                .filter_map(|entry| entry.ok().map(|e| e.path()))
+                .filter(|p| {
+                    p.extension()
+                        .and_then(|x| x.to_str())
+                        .is_some_and(|x| ModuleFileKind::EXTENSIONS.contains(&x))
+                })
+                .collect();
+            found.sort();
+            files.extend(found);
+        } else if path.exists() {
+            files.push(path.clone());
+        }
+    }
+    files
 }
 
 #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]

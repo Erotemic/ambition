@@ -10,7 +10,9 @@ cargo build -p ambition_app            # once: the host
 
 The run starts in the central hub. Go down to its basement, pick up the
 sentry gauntlet and press Attack to deploy a turret. Edit `modules/sentry.rhai`
-while the game runs: the turret takes the edit with no build. A script that
+while the game runs: the turret takes the edit with no build. Taking the
+script out of `modules` in `project.ron` while the game runs puts the
+game's own turret back; putting it in again loads it. A script that
 does not parse, or that faults, leaves the running code in place and says
 which line.
 

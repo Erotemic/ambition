@@ -180,3 +180,39 @@ fn a_throwing_script_commits_neither_its_record_nor_its_requests() {
     assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
     let _ = std::fs::remove_file(file);
 }
+
+/// ⭐ A MODULE ADDED WHILE THE GAME RUNS, AND REMOVED (P3: discovery from
+/// the list). The game watches a directory with no script in it: the turret
+/// is the linked one. A `sentry.rhai` put in the directory loads on the
+/// mechanical-edit road; taken out, it leaves, and the linked turret runs
+/// again.
+#[test]
+fn a_script_added_to_a_watched_directory_runs_and_removed_leaves() {
+    let dir = root().join(format!("target/extension-modules/script_test_{}_discovery", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let options = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_extension_module_files(vec![dir.clone()]);
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+    assert!(!turret_is_scripted(&sim), "an empty directory: the turret is the linked one");
+    let published = |sim: &Platformer2dSimHarness| {
+        sim.world().resource::<ambition_platformer2d::extension::reload::StagedModuleReplacement>().published()
+    };
+    let mut step_until = |sim: &mut Platformer2dSimHarness, count: u32, what: &str| {
+        let mut frames = 0;
+        while published(sim) < count {
+            sim.step(AgentAction::default());
+            frames += 1;
+            assert!(frames < 120, "{what} was not published within 120 frames");
+        }
+    };
+    let file = dir.join("sentry.rhai");
+    std::fs::write(&file, sentry_script(1.5)).unwrap();
+    step_until(&mut sim, 1, "the added script");
+    assert!(turret_is_scripted(&sim), "the added script runs the turret");
+    std::fs::remove_file(&file).unwrap();
+    step_until(&mut sim, 2, "the removal");
+    assert!(!turret_is_scripted(&sim), "the script left: the linked turret runs again");
+    let _ = std::fs::remove_dir_all(&dir);
+}

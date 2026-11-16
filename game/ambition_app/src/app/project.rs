@@ -116,9 +116,15 @@ impl Project {
             let pack = ambition_content::pack::compile_pack_from(root)?;
             ambition_content::pack::select_pack(app, std::sync::Arc::new(pack)).map_err(|refused| refused.to_string())?;
         }
-        if !self.module_files.is_empty() {
-            app.insert_resource(ambition_platformer2d::extension::ExtensionModuleFiles(self.module_files.clone()));
-        }
+        // Even with no modules: the list is the project's (not the developer
+        // variable's), and the host watches it for files added later.
+        app.insert_resource(ambition_platformer2d::extension::ExtensionModuleFiles(self.module_files.clone()));
+        app.insert_resource(ProjectWatch {
+            seen: modified(&self.manifest),
+            project: self.clone(),
+            frames_until_poll: POLL_FRAMES,
+        });
+        app.add_systems(bevy::prelude::Update, watch_project);
         // A `--start-room` typed beside `--project` is the request.
         #[cfg(not(target_arch = "wasm32"))]
         let typed_room = super::cli::cli_start_room_arg().is_some();
@@ -130,6 +136,60 @@ impl Project {
         }
         Ok(())
     }
+}
+
+/// The running project and when its manifest was last read.
+#[derive(bevy::prelude::Resource)]
+pub struct ProjectWatch {
+    pub project: Project,
+    seen: Option<std::time::SystemTime>,
+    frames_until_poll: u32,
+}
+
+/// Frames between two looks at the manifest, as the module watcher's.
+const POLL_FRAMES: u32 = 20;
+
+fn modified(path: &Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
+/// ⭐ A MODULE ADDED TO OR REMOVED FROM THE MANIFEST, WHILE THE GAME RUNS:
+/// the new list becomes `ExtensionModuleFiles`, which the module watcher
+/// reads at its next poll (a new file loads, a gone one leaves and the
+/// linked module of its key runs again). A manifest that does not load
+/// leaves the running project as it is. A new content root or entry room is
+/// read at the next start.
+fn watch_project(
+    mut watch: bevy::prelude::ResMut<ProjectWatch>,
+    files: Option<bevy::prelude::ResMut<ambition_platformer2d::extension::ExtensionModuleFiles>>,
+) {
+    if watch.frames_until_poll > 0 {
+        watch.frames_until_poll -= 1;
+        return;
+    }
+    watch.frames_until_poll = POLL_FRAMES;
+    let now = modified(&watch.project.manifest);
+    if now.is_none() || now == watch.seen {
+        return;
+    }
+    watch.seen = now;
+    let next = match Project::load(&watch.project.manifest) {
+        Ok(next) => next,
+        Err(error) => {
+            bevy::log::error!("the project changed and does not load; the running project stays: {error}");
+            return;
+        }
+    };
+    if next.content_root != watch.project.content_root || next.entry_room != watch.project.entry_room {
+        bevy::log::warn!("project \"{}\": a new content root or entry room is read at the next start", next.name);
+    }
+    if next.module_files != watch.project.module_files {
+        bevy::log::info!("project \"{}\": its modules are now {:?}", next.name, next.module_files);
+        if let Some(mut files) = files {
+            files.0 = next.module_files.clone();
+        }
+    }
+    watch.project = next;
 }
 
 /// The project `--project PATH` names, read once. A project that does not
@@ -205,6 +265,38 @@ mod tests {
         let refused = Project::from_manifest(manifest, r#"(schema: "ambition.project.v1", name: "x", mods: [])"#)
             .unwrap_err();
         assert!(refused.contains("mods"), "{refused}");
+    }
+
+    #[test]
+    fn a_module_added_to_the_manifest_reaches_the_module_list() {
+        let dir = std::env::temp_dir().join(format!("ambition_project_watch_{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("modules")).unwrap();
+        std::fs::write(dir.join("modules/sentry.rhai"), "").unwrap();
+        let write = |modules: &str| {
+            let text = format!(r#"(schema: "ambition.project.v1", name: "watched", modules: [{modules}])"#);
+            std::fs::write(dir.join(PROJECT_FILE), text).unwrap();
+        };
+        write("");
+        let project = Project::load(&dir).unwrap();
+        let mut app = App::new();
+        project.compose(&mut app).unwrap();
+        let files = |app: &App| app.world().resource::<ambition_platformer2d::extension::ExtensionModuleFiles>().0.clone();
+        assert!(files(&app).is_empty());
+        // A file system's clock can be coarse: the edit must look newer.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        write(r#""modules/sentry.rhai""#);
+        for _ in 0..=POLL_FRAMES {
+            app.update();
+        }
+        assert_eq!(files(&app), vec![dir.join("modules/sentry.rhai")]);
+        // A manifest that does not load leaves the list as it is.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        write(r#""modules/gone.rhai""#);
+        for _ in 0..=POLL_FRAMES {
+            app.update();
+        }
+        assert_eq!(files(&app), vec![dir.join("modules/sentry.rhai")]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

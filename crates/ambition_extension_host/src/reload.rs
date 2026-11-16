@@ -82,6 +82,17 @@ pub fn stage_loaded_replacement(
 /// generation; a candidate built only from the published composition dropped
 /// the other file's change.
 pub fn stage_loaded_replacements(world: &mut World, artifacts: Vec<LoadedArtifact>) -> Result<(), String> {
+    stage_module_changes(world, artifacts, Vec::new())
+}
+
+/// [`stage_loaded_replacements`], and the files in `removed` leave: every
+/// module they gave goes, and a linked module of the same key (still
+/// declared under it) runs again. One candidate for all of it.
+pub fn stage_module_changes(
+    world: &mut World,
+    artifacts: Vec<LoadedArtifact>,
+    removed: Vec<Arc<str>>,
+) -> Result<(), String> {
     let composition = world
         .get_resource::<ExtensionComposition>()
         .ok_or("the extension host has not admitted a composition yet")?;
@@ -94,7 +105,7 @@ pub fn stage_loaded_replacements(world: &mut World, artifacts: Vec<LoadedArtifac
         .get_resource::<StagedModuleReplacement>()
         .and_then(|staged| staged.candidate.as_ref().map(|(_, declared)| declared.clone()))
         .unwrap_or_else(|| composition.declared.clone());
-    let replaced: Vec<Arc<str>> = artifacts.iter().map(|a| a.artifact.clone()).collect();
+    let replaced: Vec<Arc<str>> = artifacts.iter().map(|a| a.artifact.clone()).chain(removed).collect();
     // A linked module of the same key stays, replaced again. Each replaced
     // file keeps the place of its first module and its `replaces`: the
     // declaration order is the serial order, and both are in the generation,

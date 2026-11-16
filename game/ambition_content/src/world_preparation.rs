@@ -85,7 +85,7 @@ pub(crate) fn prepare_ambition_world(app: &mut App) {
     else {
         return;
     };
-    let world_manifest = crate::worlds::world_manifest();
+    let world_manifest = crate::worlds::select(app.world_mut());
     // The App's pack, not a resource: the music is generated content, and
     // without it the pack has no registry and validation skips music.
     let music_registry = crate::audio_registries::music_registry_of(&selected_pack);
@@ -116,6 +116,7 @@ pub(crate) fn prepare_ambition_world(app: &mut App) {
         &selected_pack,
         music_registry.as_ref(),
         &ldtk_project,
+        &world_manifest,
         &character_catalog,
     );
     for warning in &content_report.warnings {

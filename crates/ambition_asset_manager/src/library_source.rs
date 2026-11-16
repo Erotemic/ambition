@@ -66,14 +66,28 @@ pub fn register_sources(app: &mut bevy::prelude::App, game_root: &str) {
 
 /// Register a game source with its selected library imports.
 pub fn register_game_source(app: &mut bevy::prelude::App, name: impl Into<bevy::asset::io::AssetSourceId<'static>>, root: &str) {
+    register_relative_source(app, name.into(), root, false);
+}
+
+/// Register external files with the selected library imports. The source
+/// reads the filesystem even when the host executable contains an asset bundle.
+pub fn register_external_source(app: &mut bevy::prelude::App, name: impl Into<bevy::asset::io::AssetSourceId<'static>>, root: &str) {
+    register_relative_source(app, name.into(), root, true);
+}
+
+fn register_relative_source(app: &mut bevy::prelude::App, name: bevy::asset::io::AssetSourceId<'static>, root: &str, external: bool) {
     use bevy::asset::AssetApp;
     app.init_resource::<LibraryAssets>();
     let assets = app.world().resource::<LibraryAssets>().clone();
-    let name = name.into();
     if let bevy::asset::io::AssetSourceId::Name(name) = &name {
         assets.register_relative_source(name);
     }
-    app.register_asset_source(name, library_asset_source(root, assets, false));
+    let source = if external {
+        with_library_reader(AssetSourceBuilder::platform_default(root, None), assets, false)
+    } else {
+        library_asset_source(root, assets, false)
+    };
+    app.register_asset_source(name, source);
 }
 
 pub fn library_asset_source(root: &str, libraries: LibraryAssets, namespaced: bool) -> AssetSourceBuilder {
@@ -81,6 +95,10 @@ pub fn library_asset_source(root: &str, libraries: LibraryAssets, namespaced: bo
         Some(bundle) => crate::exe_bundle::exe_bundle_asset_source(bundle),
         None => AssetSourceBuilder::platform_default(root, None),
     };
+    with_library_reader(builder, libraries, namespaced)
+}
+
+fn with_library_reader(builder: AssetSourceBuilder, libraries: LibraryAssets, namespaced: bool) -> AssetSourceBuilder {
     let mut reader = builder.reader;
     AssetSourceBuilder { reader: Box::new(move || Box::new(LibraryAssetReader {
         fallback: reader(), libraries: libraries.clone(), namespaced,

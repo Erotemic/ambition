@@ -38,9 +38,8 @@ pub struct WorldSource {
     /// it; a game typically roots it in its own registered asset source, e.g.
     /// `game://worlds/sandbox.ldtk`).
     pub asset_path: String,
-    /// Absolute desktop-dev file path (hot reload + loose-filesystem
-    /// profiles). The AUTHORING crate computes it against its own
-    /// `CARGO_MANIFEST_DIR`, so the manifest works wherever the files live.
+    /// Absolute desktop file path for loading and hot reload. Composition
+    /// resolves this path from the installed host or project directory.
     pub loose_path: Option<PathBuf>,
     /// The world document's text embedded into the binary (web / Android /
     /// bundled builds). `None` on builds that only read from disk.
@@ -145,17 +144,20 @@ impl AuthoredWorldManifest {
             worlds: self
                 .worlds
                 .iter()
-                .map(|world| WorldSource {
-                    id: AssetId::new(world.id.as_str()),
-                    asset_path: format!("{}{}", roots.asset_prefix, world.file),
-                    loose_path: Some(roots.loose_dir.join(&world.file)),
-                    embedded_text: (roots.embedded_text)(&world.file),
-                    // The embedded registry keys by a `&'static str`; a
-                    // manifest is built a few times per process.
-                    embedded_bevy_path: Some(Box::leak(
-                        format!("{}{}", roots.embedded_prefix, world.file).into_boxed_str(),
-                    )),
-                    required: world.required,
+                .map(|world| {
+                    let embedded_text = (roots.embedded_text)(&world.file);
+                    WorldSource {
+                        id: AssetId::new(world.id.as_str()),
+                        asset_path: format!("{}{}", roots.asset_prefix, world.file),
+                        loose_path: Some(roots.loose_dir.join(&world.file)),
+                        embedded_text,
+                        // The registry requires a static key only when this
+                        // world has an embedded payload.
+                        embedded_bevy_path: embedded_text.map(|_| &*Box::leak(
+                            format!("{}{}", roots.embedded_prefix, world.file).into_boxed_str(),
+                        )),
+                        required: world.required,
+                    }
                 })
                 .collect(),
             ron_rooms: Vec::new(),

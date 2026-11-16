@@ -6,7 +6,6 @@
     sources: [
         (path: "../../../../game/ambition_content/assets/data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "items.ron", schema: "item_catalog", version: 1),
-        (path: "../../../../game/ambition_content/assets/data/quests.ron", schema: "quest_book", version: 1),
         (path: "../../../../game/ambition_content/assets/data/cutscenes/sandbox.ron", schema: "cutscene_library", version: 1),
         (path: "../../../../game/ambition_content/assets/data/cutscenes/intro.ron", schema: "cutscene_library", version: 1),
         (path: "../../../../game/ambition_content/assets/data/cutscenes/boss_stage.ron", schema: "cutscene_library", version: 1),
@@ -62,7 +61,7 @@
         (path: "../../../../game/ambition_content/assets/data/prop_sheets.ron", schema: "prop_sheets", version: 1),
         (path: "../../../../game/ambition_content/assets/data/boss_art_keys.ron", schema: "boss_art_keys", version: 1),
         (path: "../../../../game/ambition_content/assets/data/platform_looks.ron", schema: "platform_looks", version: 1),
-        (path: "../../../../game/ambition_content/assets/data/worlds.ron", schema: "world_manifest", version: 1),
+        (path: "worlds.ron", schema: "world_manifest", version: 1),
         (path: "../../../../game/ambition_content/assets/data/gate_portals.ron", schema: "gate_portals", version: 1),
         (path: "../../../../game/ambition_content/assets/data/gate_network.ron", schema: "gate_network", version: 1),
         (path: "../../../../game/ambition_content/assets/dialogue/sandbox/names.yarn", schema: "yarn_dialogue", version: 1),
@@ -113,6 +112,5 @@
         (path: "../../../../game/ambition_content/assets/data/boss_validator_bands.ron", schema: "boss_validator_bands", version: 1),
         (path: "audio/music_registry.ron", library: Some("ambition_shared"), schema: "music_registry", version: 1),
         (path: "audio/sfx_registry.ron", library: Some("ambition_shared"), schema: "sfx_registry", version: 1),
-        (path: "../../../../game/ambition_content/assets/audio/music_cues.ron", schema: "music_cue_catalog", version: 1),
     ],
 )

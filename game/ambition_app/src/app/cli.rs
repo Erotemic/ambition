@@ -882,6 +882,16 @@ pub fn build_visible_app_with(
     shell_hosted: bool,
     compose_inputs: impl FnOnce(&mut App),
 ) -> App {
+    build_visible_app_for_project(render, shell_hosted, super::project::cli_project(), compose_inputs)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn build_visible_app_for_project(
+    render: VisibleRenderMode,
+    shell_hosted: bool,
+    project: Option<&super::project::Project>,
+    compose_inputs: impl FnOnce(&mut App),
+) -> App {
     let asset_config = GameAssetConfig::from_args();
     let asset_root = desktop_asset_root();
     match ambition_platformer2d::asset_manager::exe_bundle::ExeBundle::of_running_exe() {
@@ -946,6 +956,9 @@ pub fn build_visible_app_with(
         "assets".to_owned()
     } else { game_asset_root() };
     ambition_platformer2d::asset_manager::library_source::register_game_source(&mut app, "game", &game_root);
+    if let Some(project) = project {
+        project.register_world_asset_source(&mut app);
+    }
     let plugins = host_default_plugins()
         .set(ambition_log_plugin())
         .set(ambition_task_pool_plugin())
@@ -1109,8 +1122,9 @@ pub fn build_visible_app_with(
             asset_config,
         },
         move |app: &mut App| {
-            // The project's inputs first, so an explicit caller's win.
-            super::project::compose_cli_project(app);
+            if let Some(project) = project {
+                project.compose(app).unwrap_or_else(|error| panic!("project \"{}\": {error}", project.name));
+            }
             compose_inputs(app);
             // A hosted world's host or guest (`--host-world`, `--join-world`):
             // it chooses the simulation host, so it goes in before the
@@ -1156,7 +1170,7 @@ fn cli_direct_entry() -> bool {
         return true;
     }
     // A project that names its entry room starts in it.
-    if super::project::cli_project().is_some_and(|project| project.entry_room.is_some()) {
+    if super::project::cli_project().is_some_and(|project| project.entry_room.is_some() || project.worlds_root.is_some()) {
         return true;
     }
     std::env::args().any(|arg| {

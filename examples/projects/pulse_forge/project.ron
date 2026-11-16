@@ -2,7 +2,7 @@
     schema: "ambition.project.v1",
     name: "Pulse Forge",
     content: Some("content"),
+    worlds: Some("worlds"),
     modules: ["modules"],
-    entry_room: Some("central_hub_complex"),
     starting_items: Some([("eyelaser", 1), ("lantern", 1)]),
 )

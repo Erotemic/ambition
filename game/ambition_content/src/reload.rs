@@ -932,6 +932,7 @@ fn candidate_content_graph(
         pack,
         music.as_ref(),
         &project.0,
+        world.resource::<ambition_platformer2d_world::world_manifest::WorldManifest>(),
         &crate::character_catalog::catalog_of(pack),
     );
     if report.is_ok() { Ok(()) } else { Err(report.errors) }

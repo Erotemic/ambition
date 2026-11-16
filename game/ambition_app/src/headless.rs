@@ -91,11 +91,26 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // driver that calls the headless path directly still anchors `[startup]` at
     // process start rather than mid-plugin-build.
     ambition_platformer2d::dev_tools::profiling::note_process_start();
-    // Validate the embedded LDtk file up front so we can return Err with a useful diagnostic.
-    // `init_sandbox_resources` does this too but exits the process on failure; tests want a
-    // structured error instead. Provider-owned character, hostile-archetype, boss, and audio
-    // catalogs are composed as App-local resources by `AmbitionGameSimulationPlugin`.
-    let world_manifest = ambition_content::worlds::world_manifest();
+    let mut app = App::new();
+    // The shared engine foundation (schedules/time, asset + image registries,
+    // transforms, states) — ONE definition in ambition_platformer2d::runtime for every
+    // headless entry point.
+    ambition_platformer2d::runtime::add_headless_foundation(&mut app);
+    // `MinimalPlugins` carries no `LogPlugin`, and Tracy records through a
+    // layer on the tracing subscriber that plugin installs. Without it a
+    // `--features profile` capture of this runner produces a trace with zero
+    // zones — no per-system timings at all, which is the whole reason to
+    // profile the sim on a machine with no GPU. Profiling builds only, so a
+    // test process that steps several headless Apps still installs nothing
+    // process-global. `perf_probe` needs the subscriber for the same reason.
+    #[cfg(any(feature = "profile", feature = "perf_probe"))]
+    app.add_plugins(crate::app::cli::ambition_log_plugin());
+
+    // `--project`: its modules, pack and entry room, before any plugin builds.
+    crate::app::project::compose_cli_project(&mut app);
+    // Validate the selected worlds before provider preparation so this runner
+    // can return a diagnostic. The provider adds its App-local catalogs later.
+    let world_manifest = ambition_content::worlds::select(app.world_mut());
     let project = ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)?;
     let report = project.validate(&crate::composed_ldtk_vocabulary());
     if !report.is_ok() {
@@ -115,23 +130,6 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         Err(errors) => return Err(errors.join("; ")),
     };
 
-    let mut app = App::new();
-    // The shared engine foundation (schedules/time, asset + image registries,
-    // transforms, states) — ONE definition in ambition_platformer2d::runtime for every
-    // headless entry point.
-    ambition_platformer2d::runtime::add_headless_foundation(&mut app);
-    // `MinimalPlugins` carries no `LogPlugin`, and Tracy records through a
-    // layer on the tracing subscriber that plugin installs. Without it a
-    // `--features profile` capture of this runner produces a trace with zero
-    // zones — no per-system timings at all, which is the whole reason to
-    // profile the sim on a machine with no GPU. Profiling builds only, so a
-    // test process that steps several headless Apps still installs nothing
-    // process-global. `perf_probe` needs the subscriber for the same reason.
-    #[cfg(any(feature = "profile", feature = "perf_probe"))]
-    app.add_plugins(crate::app::cli::ambition_log_plugin());
-
-    // `--project`: its modules, pack and entry room, before any plugin builds.
-    crate::app::project::compose_cli_project(&mut app);
     // inserted BEFORE the plugin builds: it is what stops
     // `publish_direct_prepared_session_root` publishing a second canonical root.
     crate::app::shell_host::compose_ambition_gameplay_host(&mut app);

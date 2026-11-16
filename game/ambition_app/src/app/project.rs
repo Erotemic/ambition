@@ -9,6 +9,8 @@
 //!     name: "Sentry drill",
 //!     // A content pack root: a directory with its own `pack.ron`.
 //!     content: Some("content"),
+//!     // LDtk files named by the content pack's world_manifest source.
+//!     worlds: Some("worlds"),
 //!     // Behaviour modules: `.rhai` sources (and `.wasm` builds), or
 //!     // directories of them. A script can declare its own module or supply
 //!     // code for the linked module its file stem names.
@@ -27,6 +29,8 @@
 //! room (`StartRoomOverride`) and the starting bag (`PreparedStartingBag`,
 //! which the bag's owner reads in place of the game's Rust callback). It is
 //! part of the host: a project implements no `GameModule`.
+//! The optional `worlds` directory supplies `WorldManifest` roots. Without
+//! it, the selected pack names worlds in the installed host's directory.
 //!
 //! Run: `ambition_game_bin --project path/to/project.ron` (or its directory).
 
@@ -48,6 +52,9 @@ pub struct ProjectManifest {
     pub name: String,
     #[serde(default)]
     pub content: Option<String>,
+    /// The directory that holds the selected pack's LDtk world files.
+    #[serde(default)]
+    pub worlds: Option<String>,
     #[serde(default)]
     pub modules: Vec<String>,
     #[serde(default)]
@@ -63,6 +70,7 @@ pub struct Project {
     /// The manifest this was read from.
     pub manifest: PathBuf,
     pub content_root: Option<PathBuf>,
+    pub worlds_root: Option<PathBuf>,
     pub module_files: Vec<PathBuf>,
     pub entry_room: Option<String>,
     /// Catalog ids and counts; `None` keeps the game's starting bag.
@@ -96,6 +104,21 @@ impl Project {
                 problems.push(format!("content \"{}\" has no pack.ron", root.display()));
             }
         }
+        let worlds_root = parsed.worlds.as_deref().map(|worlds| dir.join(worlds));
+        let worlds_root = match worlds_root {
+            Some(root) if root.is_dir() => match root.canonicalize() {
+                Ok(root) if root.file_name().is_some() => Some(root),
+                _ => {
+                    problems.push(format!("worlds \"{}\" must name a directory below a filesystem root", root.display()));
+                    None
+                }
+            },
+            Some(root) => {
+                problems.push(format!("worlds \"{}\" is not a directory", root.display()));
+                None
+            }
+            None => None,
+        };
         let module_files: Vec<PathBuf> = parsed.modules.iter().map(|module| dir.join(module)).collect();
         for (written, path) in parsed.modules.iter().zip(&module_files) {
             if !path.exists() {
@@ -124,6 +147,7 @@ impl Project {
             name: parsed.name,
             manifest: manifest.to_path_buf(),
             content_root,
+            worlds_root,
             module_files,
             entry_room: parsed.entry_room,
             starting_items: parsed.starting_items,
@@ -135,6 +159,20 @@ impl Project {
         if let Some(root) = &self.content_root {
             let pack = ambition_content::pack::compile_pack_from(root)?;
             ambition_content::pack::select_pack(app, std::sync::Arc::new(pack)).map_err(|refused| refused.to_string())?;
+        }
+        let mut authored_entry = None;
+        if let Some(root) = &self.worlds_root {
+            use ambition_platformer2d::world::world_manifest::WorldRoots;
+            let pack = ambition_content::pack::select(app.world_mut());
+            let folder = root.file_name().expect("the world directory has a name").to_string_lossy();
+            let manifest = ambition_content::worlds::manifest_from_pack(&pack, &WorldRoots {
+                loose_dir: root,
+                asset_prefix: &format!("{PROJECT_ASSET_SOURCE}://{folder}/"),
+                embedded_prefix: "",
+                embedded_text: &|_| None,
+            }).map_err(|error| format!("{}: {error}", self.manifest.display()))?;
+            authored_entry = Some(manifest.entry_room.clone());
+            app.insert_resource(manifest);
         }
         // Even with no modules: the list is the project's (not the developer
         // variable's), and the host watches it for files added later.
@@ -153,13 +191,33 @@ impl Project {
         let typed_room = super::cli::cli_start_room_arg().is_some();
         #[cfg(target_arch = "wasm32")]
         let typed_room = false;
-        if let Some(room) = self.entry_room.as_ref().filter(|_| !typed_room) {
+        if let Some(room) = self.entry_room.as_ref().or(authored_entry.as_ref()).filter(|_| !typed_room) {
             app.insert_resource(super::StartRoomOverride(room.clone()));
             app.insert_resource(super::StartRoomMustResolve);
         }
         Ok(())
     }
+
+    /// Register the project's world files and their relative assets before
+    /// Bevy builds `AssetPlugin`. These files are external to the host bundle.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn register_world_asset_source(&self, app: &mut App) {
+        if let Some(root) = &self.worlds_root {
+            let assets = root.parent().expect("the world directory has a parent").to_string_lossy();
+            ambition_platformer2d::asset_manager::library_source::register_external_source(app, PROJECT_ASSET_SOURCE, &assets);
+        }
+    }
+
+    /// Build a desktop app that starts in this project. Register the asset
+    /// source before Bevy creates its readers, then compose the game inputs.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn app(&self, render: super::cli::VisibleRenderMode) -> App {
+        super::cli::build_visible_app_for_project(render, false, Some(self), |_| {})
+    }
 }
+
+/// The source of external project worlds and assets they reference.
+pub const PROJECT_ASSET_SOURCE: &str = "project";
 
 /// The tools' road: a stepping harness (`inspect_geometry`,
 /// `extension_inspect`, the RL drivers) on this project, its inputs composed
@@ -238,8 +296,8 @@ fn watch_project(
             return;
         }
     };
-    if next.content_root != watch.project.content_root || next.entry_room != watch.project.entry_room {
-        bevy::log::warn!("project \"{}\": a new content root or entry room is read at the next start", next.name);
+    if next.content_root != watch.project.content_root || next.worlds_root != watch.project.worlds_root || next.entry_room != watch.project.entry_room {
+        bevy::log::warn!("project \"{}\": a new content root, world directory, or entry room is read at the next start", next.name);
     }
     if next.module_files != watch.project.module_files {
         bevy::log::info!("project \"{}\": its modules are now {:?}", next.name, next.module_files);

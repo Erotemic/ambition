@@ -1,27 +1,8 @@
-//! Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted
-//! from the engine core (R3.2, the #1 violation: the engine shipped the
-//! game's worlds).
+//! World declarations for the installed Ambition profile.
 //!
-//! [`world_manifest`] BUILDS the declaration; nothing installs it anywhere.
-//! `AmbitionContentPlugin::build` publishes one into its App as a resource
-//! for in-schedule readers, and boot preparation passes the same value by
-//! reference to the loader, catalog, hot-reload, and conversion seams that
-//! run before any App exists (K2a).
-//!
-//! The engine keeps the room kit (`RoomSpec`/`RoomSet`, projection,
-//! validators) and the manifest-driven loader. Which `.ldtk` files exist and
-//! where play starts is the pack's `data/worlds.ron`; THIS module says how
-//! each file is reachable:
-//!
-//! - `loose_path` — the checked-in file under this crate's `assets/worlds/`
-//!   (desktop dev + hot reload; the LDtk python tooling edits these).
-//! - `embedded_text` — the JSON embedded into the binary under the
-//!   `static_map` feature (web / Android / bundled builds; also the
-//!   desktop disk-failure fallback).
-//! - `asset_path` — the Bevy `AssetPath` the bevy_ecs_ldtk tile-render
-//!   spine loads, under the `game://` asset source the app registers
-//!   (rooted at this crate's `assets/` in dev, the shipped `assets/` dir
-//!   in installed builds).
+//! [`select`] installs one manifest per App. A project can supply it before
+//! composition. Runtime preparation, catalogs, and reload read that value.
+//! [`world_manifest`] describes the shipped worlds for offline inspection.
 
 use std::path::Path;
 
@@ -49,20 +30,43 @@ pub(crate) fn intro_ldtk_text() -> Option<&'static str> {
     embedded_world("intro.ldtk")
 }
 
-/// The game's world declaration, as the boot pack states it
-/// (`data/worlds.ron`). It is read before any App exists (boot preparation
-/// hands it to the loader, the catalog and the hot reload), so it is the
-/// process's boot pack and not an App's selection.
+/// The shipped world's declaration for offline tools and tests.
+/// App composition uses [`select`] to read the App's selected pack.
 pub fn world_manifest() -> WorldManifest {
-    let authored = ambition_content_pack::lowered_rules::<AuthoredWorldManifest>(crate::pack::shipped(), WORLD_MANIFEST_SCHEMA)
-        .expect("Ambition's pack states its worlds (`data/worlds.ron`)");
+    host_manifest(crate::pack::shipped())
+}
+
+/// Resolve the world's authored declaration against its source roots.
+/// A project supplies its own roots and has no embedded fallback.
+pub fn manifest_from_pack(
+    pack: &ambition_content_pack::PreparedContentPack,
+    roots: &WorldRoots<'_>,
+) -> Result<WorldManifest, String> {
+    let authored = ambition_content_pack::lowered_rules::<AuthoredWorldManifest>(pack, WORLD_MANIFEST_SCHEMA)
+        .ok_or("the selected pack has no world_manifest source")?;
+    Ok(authored.manifest(roots))
+}
+
+fn host_manifest(pack: &ambition_content_pack::PreparedContentPack) -> WorldManifest {
     let worlds_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/worlds");
-    authored.manifest(&WorldRoots {
+    manifest_from_pack(pack, &WorldRoots {
         loose_dir: &worlds_dir,
         asset_prefix: "game://worlds/",
         embedded_prefix: "ambition_content/worlds/",
         embedded_text: &embedded_world,
-    })
+    }).expect("the selected pack states its worlds")
+}
+
+/// The App's world declaration. A manifest supplied before composition wins.
+/// Otherwise the selected pack names worlds in the installed host's directory.
+pub fn select(world: &mut bevy::prelude::World) -> WorldManifest {
+    if let Some(manifest) = world.get_resource::<WorldManifest>() {
+        return manifest.clone();
+    }
+    let pack = crate::pack::select(world);
+    let manifest = host_manifest(&pack);
+    world.insert_resource(manifest.clone());
+    manifest
 }
 
 #[cfg(test)]

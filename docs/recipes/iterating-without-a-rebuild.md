@@ -107,6 +107,13 @@ format and its defaults: `crates/ambition_extension_rhai/src/declare.rs`;
 an example, a tally kept on each sentry turret:
 `a_module_a_script_declares_runs_with_its_own_record` in
 `game/ambition_app/tests/a_script_module_runs_without_a_build.rs`.
+A field's kind is a scalar (`bool`, `u32`, `i32`, `u64`, `f32`, `vec2`), a
+reference to a body or an item by its identity (`body`, `item`),
+`opt <kind>`, or `seq <max length> <kind>`. A module that steers a room's
+group together (`group_think`) keeps its record on the room. An example
+keeps the flock's members and goal by reference:
+`a_room_record_keeps_its_flock_by_reference` in
+`game/ambition_app/tests/the_primeval_trail.rs`.
 
 A **project** names its scripts (and optionally its own content pack, start
 room and starting bag, `starting_items: Some([("bomb", 3)])`) in a

@@ -469,3 +469,91 @@ fn a_script_takes_and_throws_a_coconut_through_the_item_owner() {
     assert!(contested, "premise: two birds were within reach of one coconut lying in the room");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A declared module that keeps the trailhead's flock in a record of the
+/// room: its members and the coconut it would go for, by reference (each a
+/// simulation identity), and how many ticks it has kept them.
+const ROLL: &str = r#"
+fn declare() {
+    #{
+        provider: "drill",
+        key: "roll",
+        schemas: [
+            #{ key: "roll.flock", attachment: "body",
+               fields: [
+                   #{ tag: 1, name: "members", kind: "seq 16 body" },
+                   #{ tag: 2, name: "goal", kind: "opt item" },
+                   #{ tag: 3, name: "ticks", kind: "u32" },
+               ] },
+        ],
+        entries: [
+            #{ key: "flock", phase: "actor_think",
+               trigger: #{ port: "group_think", selector: "bird" },
+               writes: ["roll.flock"], requests: [], limit: 1 },
+        ],
+    }
+}
+
+fn flock() {
+    let roll = this.state.flock;
+    roll.members = this.trigger.members.map(|member| member.id);
+    let coconuts = this.trigger.items.filter(|item| item.kind == "coconut");
+    roll.goal = if coconuts.is_empty() { () } else { coconuts[0].id };
+    roll.ticks += 1;
+    this.state.flock = roll;
+}
+"#;
+
+/// ⭐ A ROOM'S RECORD HOLDS REFERENCES: the record a group keeps lives on the
+/// room's root, and its member and item references are the bodies' and the
+/// coconut's simulation identities, through every rewind of a sync-test
+/// session.
+#[test]
+fn a_room_record_keeps_its_flock_by_reference() {
+    use ambition_platformer2d::extension::sdk::{FieldRef, SchemaKey, Value};
+    use ambition_platformer2d::extension::BodyRecords;
+    use ambition_platformer2d::held_items::GroundItem;
+    use ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot;
+    use ambition_platformer2d::platformer::sim_id::SimId;
+
+    const FLOCK: SchemaKey = SchemaKey::new("drill", "roll.flock", 1);
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("../../target/extension-modules/script_test_{}_roll", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("roll.rhai"), ROLL).unwrap();
+    let options = fixed_60hz_room_options("primeval_trailhead")
+        .with_sync_test_rollback_settings(4, 10)
+        .with_extension_module_files(vec![dir.join("roll.rhai")]);
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the trailhead builds");
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let world = sim.world_mut();
+    let mut birds: Vec<Value> = world
+        .query::<(&CharacterForm, &SimId)>()
+        .iter(world)
+        .filter(|(form, _)| ["kiwi", "chicken", "chicken_hen"].contains(&form.id()))
+        .map(|(_, id)| Value::Ref(id.as_str().to_owned()))
+        .collect();
+    birds.sort_by(|a, b| a.as_ref_id().cmp(&b.as_ref_id()));
+    let first_coconut = world
+        .query::<(&GroundItem, &SimId)>()
+        .iter(world)
+        .filter(|(item, _)| item.spec.id == "coconut")
+        .map(|(_, id)| id.as_str().to_owned())
+        .min()
+        .expect("the trailhead has coconuts");
+    let records = world
+        .query_filtered::<&BodyRecords, bevy::prelude::With<RoomInstanceRoot>>()
+        .iter(world)
+        .next()
+        .expect("the room's root keeps the group's record")
+        .clone();
+    let flock = records.get(&FLOCK).expect("the record of the flock");
+    assert_eq!(flock.get(FieldRef(0)), Ok(&Value::Seq(birds)), "the members, by identity");
+    assert_eq!(flock.get(FieldRef(1)), Ok(&Value::some(Value::Ref(first_coconut))), "the coconut, by identity");
+    assert!(matches!(flock.get(FieldRef(2)), Ok(Value::U32(ticks)) if *ticks >= 100), "kept each tick: {:?}", flock.get(FieldRef(2)));
+    let _ = std::fs::remove_dir_all(&dir);
+}

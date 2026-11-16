@@ -27,6 +27,10 @@
 //! fn tally() { ... }
 //! ```
 //!
+//! A field's `kind` is a scalar (`bool`, `u32`, `i32`, `u64`, `f32`,
+//! `vec2`), a reference to a body or an item by its identity (`body`,
+//! `item`), `opt <kind>`, or `seq <max length> <kind>` (`seq 16 opt item`).
+//!
 //! Ports are named as scripts name them (`projectile`, `sound`,
 //! `module_entity_tick`: docs/sdk/script-ports.md); a schema is named by its
 //! key, and its provider and the module's are one. Defaults: a schema is
@@ -159,17 +163,7 @@ fn schema_of(value: &Dynamic, provider: &str, at: &str) -> Result<StateSchema, S
     for (n, field) in list(&table, "fields")?.iter().enumerate() {
         let fat = format!("{at}.fields[{n}]");
         let field = map(field, &fat)?;
-        let kind = match text(&field, "kind", &fat)?.as_str() {
-            "bool" => FieldKind::Bool,
-            "u32" => FieldKind::U32,
-            "i32" => FieldKind::I32,
-            "u64" => FieldKind::U64,
-            "f32" => FieldKind::F32,
-            "vec2" => FieldKind::Vec2,
-            other => {
-                return Err(format!("{fat}.kind: \"{other}\" is not one of bool, u32, i32, u64, f32, vec2"))
-            }
-        };
+        let kind = kind_of(&text(&field, "kind", &fat)?).map_err(|e| format!("{fat}.kind: {e}"))?;
         let tag = field
             .get("tag")
             .ok_or_else(|| format!("{fat}: no tag"))?
@@ -200,6 +194,42 @@ fn schema_of(value: &Dynamic, provider: &str, at: &str) -> Result<StateSchema, S
     Ok(schema)
 }
 
+/// A field kind as a declaration writes it: a scalar (`bool`, `u32`, `i32`,
+/// `u64`, `f32`, `vec2`), a reference (`body`, `item`), `opt <kind>`, or
+/// `seq <max length> <kind>` (`seq 16 opt item`).
+pub fn kind_of(text: &str) -> Result<FieldKind, String> {
+    fn parse<'a>(words: &mut impl Iterator<Item = &'a str>) -> Result<FieldKind, String> {
+        let word = words.next().ok_or("a kind is missing")?;
+        Ok(match word {
+            "bool" => FieldKind::Bool,
+            "u32" => FieldKind::U32,
+            "i32" => FieldKind::I32,
+            "u64" => FieldKind::U64,
+            "f32" => FieldKind::F32,
+            "vec2" => FieldKind::Vec2,
+            "body" => FieldKind::Ref(ambition_extension_sdk::RefKind::Body),
+            "item" => FieldKind::Ref(ambition_extension_sdk::RefKind::Item),
+            "opt" => FieldKind::opt(parse(words)?),
+            "seq" => {
+                let len = words.next().ok_or("`seq` needs a maximum length")?;
+                let max_len = len.parse::<u32>().map_err(|_| format!("`seq {len}`: the maximum length is not a number"))?;
+                FieldKind::seq(parse(words)?, max_len)
+            }
+            other => {
+                return Err(format!(
+                    "\"{other}\" is not one of bool, u32, i32, u64, f32, vec2, body, item, opt <kind>, seq <n> <kind>"
+                ))
+            }
+        })
+    }
+    let mut words = text.split_whitespace();
+    let kind = parse(&mut words)?;
+    match words.next() {
+        None => Ok(kind),
+        Some(extra) => Err(format!("\"{text}\": \"{extra}\" follows a whole kind")),
+    }
+}
+
 fn initial_of(value: &Dynamic, kind: &FieldKind) -> Option<Value> {
     Some(match kind {
         FieldKind::Bool => Value::Bool(value.as_bool().ok()?),
@@ -214,6 +244,7 @@ fn initial_of(value: &Dynamic, kind: &FieldKind) -> Option<Value> {
                 _ => return None,
             }
         }
+        FieldKind::Ref(_) => Value::Ref(value.clone().into_string().ok()?),
         _ => return None,
     })
 }
@@ -240,3 +271,19 @@ fn list(table: &Map, field: &str) -> Result<Vec<Dynamic>, String> {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::kind_of;
+    use ambition_extension_sdk::{FieldKind, RefKind};
+
+    #[test]
+    fn a_declared_kind_reads_as_its_words_say() {
+        assert_eq!(kind_of("u32"), Ok(FieldKind::U32));
+        assert_eq!(kind_of("seq 16 opt item"), Ok(FieldKind::seq(FieldKind::opt(FieldKind::Ref(RefKind::Item)), 16)));
+        assert_eq!(kind_of("opt body"), Ok(FieldKind::opt(FieldKind::Ref(RefKind::Body))));
+        assert!(kind_of("seq body").is_err(), "a sequence states its length");
+        assert!(kind_of("u32 u32").is_err(), "nothing follows a whole kind");
+        assert!(kind_of("string").is_err());
+    }
+}

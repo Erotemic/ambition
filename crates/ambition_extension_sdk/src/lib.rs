@@ -38,8 +38,8 @@ pub use module::{
 };
 pub use port::{decode_erased, encode_erased, DecodeFn, EncodeFn, Port, PortKey, PortRole};
 pub use schema::{
-    Attachment, FieldDecl, FieldKind, FieldRef, Record, SaveEligibility, SchemaKey, StateSchema,
-    Value,
+    Attachment, FieldDecl, FieldKind, FieldRef, Record, RefKind, SaveEligibility, SchemaKey, StateSchema,
+    Value, MAX_REF_LEN,
 };
 
 /// A semantic API version. The host supports one major version and a range of

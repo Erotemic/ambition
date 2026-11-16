@@ -332,6 +332,7 @@ fn value_to_script(value: &Value) -> ScriptValue {
         Value::Opt(None) => ScriptValue::Unit,
         Value::Opt(Some(v)) => value_to_script(v),
         Value::Seq(items) => ScriptValue::List(items.iter().map(value_to_script).collect()),
+        Value::Ref(id) => ScriptValue::Text(id.clone()),
     }
 }
 
@@ -351,6 +352,7 @@ fn value_from_script(kind: &FieldKind, v: &ScriptValue) -> Result<Value, String>
         FieldKind::Seq { elem, .. } => {
             Value::Seq(v.as_list()?.iter().map(|v| value_from_script(elem, v)).collect::<Result<_, _>>()?)
         }
+        FieldKind::Ref(_) => Value::Ref(v.as_text()?.to_owned()),
     })
 }
 

@@ -62,8 +62,9 @@ impl std::fmt::Display for SchemaKey {
 /// Where the records of a schema live, and when they retire.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Attachment {
-    /// One record for each body that an entry is invoked for. The record
-    /// retires with the body.
+    /// One record for each scope an entry is invoked for: the body, or the
+    /// room's root for a group (`group_think`). The record retires with its
+    /// scope.
     Body,
     /// One record for each gameplay session, shared by every invocation of
     /// the module in the session, whatever body it runs for. It retires with
@@ -97,7 +98,35 @@ pub enum FieldKind {
     Opt(Box<FieldKind>),
     /// A sequence with a declared maximum length. Order is meaning.
     Seq { elem: Box<FieldKind>, max_len: u32 },
+    /// A reference to a live body or an item by its simulation identity,
+    /// never by an entity's bits, so a rewind and a peer read it alike. It
+    /// names something (it is not empty) in at most [`MAX_REF_LEN`] bytes; a
+    /// reference that may be absent is an `Opt`. What it names may be gone:
+    /// the reader resolves it.
+    Ref(RefKind),
 }
+
+/// What a [`FieldKind::Ref`] names. A body and an item are distinct kinds,
+/// so a record cannot take one for the other.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RefKind {
+    /// A live body (`SimId`).
+    Body,
+    /// An item, in the world or held (`SimId`).
+    Item,
+}
+
+impl RefKind {
+    fn code(self) -> u8 {
+        match self {
+            Self::Body => 1,
+            Self::Item => 2,
+        }
+    }
+}
+
+/// The longest reference, in bytes.
+pub const MAX_REF_LEN: u32 = 128;
 
 impl FieldKind {
     pub fn opt(inner: FieldKind) -> Self {
@@ -122,6 +151,8 @@ impl FieldKind {
             Self::Vec2 => Value::Vec2([0.0, 0.0]),
             Self::Opt(_) => Value::Opt(None),
             Self::Seq { .. } => Value::Seq(Vec::new()),
+            // Not a valid value: a bare reference field states its initial.
+            Self::Ref(_) => Value::Ref(String::new()),
         }
     }
 
@@ -133,6 +164,7 @@ impl FieldKind {
             Self::U64 | Self::Vec2 => 8,
             Self::Opt(inner) => 1 + inner.max_encoded_len(),
             Self::Seq { elem, max_len } => 4 + u64::from(*max_len) * elem.max_encoded_len(),
+            Self::Ref(_) => 4 + u64::from(MAX_REF_LEN),
         }
     }
 
@@ -155,6 +187,10 @@ impl FieldKind {
                 put_u32(out, *max_len);
                 elem.put(out);
             }
+            Self::Ref(kind) => {
+                put_u8(out, 9);
+                put_u8(out, kind.code());
+            }
         }
     }
 
@@ -171,6 +207,11 @@ impl FieldKind {
                 let max_len = r.u32()?;
                 Self::seq(Self::read(r)?, max_len)
             }
+            9 => Self::Ref(match r.u8()? {
+                1 => RefKind::Body,
+                2 => RefKind::Item,
+                other => return Err(crate::wire::WireError::BadTag(other)),
+            }),
             other => return Err(crate::wire::WireError::BadTag(other)),
         })
     }
@@ -193,6 +234,7 @@ impl FieldKind {
                 elem.digest_into(d);
                 d
             }
+            Self::Ref(kind) => d.u8(9).u8(kind.code()),
         };
     }
 }
@@ -209,6 +251,8 @@ pub enum Value {
     Vec2([f32; 2]),
     Opt(Option<Box<Value>>),
     Seq(Vec<Value>),
+    /// A simulation identity ([`FieldKind::Ref`]).
+    Ref(String),
 }
 
 /// Why a value or record does not match its schema.
@@ -224,6 +268,8 @@ pub enum SchemaError {
     FieldCount { expected: usize, found: usize },
     /// No field has this index.
     NoSuchField { index: usize },
+    /// A reference is empty or longer than [`MAX_REF_LEN`].
+    BadReference { field: u16, len: usize },
 }
 
 impl std::fmt::Display for SchemaError {
@@ -240,6 +286,9 @@ impl std::fmt::Display for SchemaError {
                 write!(f, "the record has {found} fields; the schema declares {expected}")
             }
             Self::NoSuchField { index } => write!(f, "no field has index {index}"),
+            Self::BadReference { field, len } => {
+                write!(f, "field tag {field}: a reference of {len} bytes names nothing (1..={MAX_REF_LEN})")
+            }
         }
     }
 }
@@ -273,6 +322,12 @@ impl Value {
                 }
                 items.iter().try_for_each(|item| item.conforms(elem, field))
             }
+            (Value::Ref(id), FieldKind::Ref(_)) => {
+                if id.is_empty() || id.len() > MAX_REF_LEN as usize {
+                    return Err(SchemaError::BadReference { field, len: id.len() });
+                }
+                Ok(())
+            }
             _ => Err(mismatch()),
         }
     }
@@ -302,6 +357,10 @@ impl Value {
                     item.encode(out);
                 }
             }
+            Value::Ref(id) => {
+                out.extend_from_slice(&(id.len() as u32).to_le_bytes());
+                out.extend_from_slice(id.as_bytes());
+            }
         }
     }
 
@@ -326,6 +385,7 @@ impl Value {
                     item.put_wire(out);
                 }
             }
+            Value::Ref(id) => put_str(out, id),
         }
     }
 
@@ -347,6 +407,7 @@ impl Value {
                 let n = r.read_len()?;
                 Value::Seq((0..n).map(|_| Self::read_wire(elem, r)).collect::<Result<_, _>>()?)
             }
+            FieldKind::Ref(_) => Value::Ref(r.str()?.to_owned()),
         })
     }
 
@@ -389,6 +450,14 @@ impl Value {
     pub fn as_opt(&self) -> Option<Option<&Value>> {
         match self {
             Value::Opt(v) => Some(v.as_deref()),
+            _ => None,
+        }
+    }
+
+    /// The identity a reference names.
+    pub fn as_ref_id(&self) -> Option<&str> {
+        match self {
+            Value::Ref(id) => Some(id),
             _ => None,
         }
     }
@@ -688,6 +757,32 @@ impl Record {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A reference names something by its identity: it goes to the wire and
+    /// back, its kind is part of the shape, and an empty or overlong one is
+    /// refused.
+    #[test]
+    fn a_reference_names_something_and_keeps_its_kind() {
+        let body = FieldKind::seq(FieldKind::Ref(RefKind::Body), 4);
+        let value = Value::Seq(vec![Value::Ref("placement:a".into()), Value::Ref("placement:b".into())]);
+        assert_eq!(value.conforms(&body, 1), Ok(()));
+        let mut bytes = Vec::new();
+        value.put_wire(&mut bytes);
+        assert_eq!(Value::read_wire(&body, &mut crate::wire::WireReader::new(&bytes)).unwrap(), value);
+        let mut kind = Vec::new();
+        body.put(&mut kind);
+        assert_eq!(FieldKind::read(&mut crate::wire::WireReader::new(&kind)).unwrap(), body);
+        let item = FieldKind::seq(FieldKind::Ref(RefKind::Item), 4);
+        let digest = |kind: &FieldKind| {
+            let mut d = Digest::new();
+            kind.digest_into(&mut d);
+            d.finish()
+        };
+        assert_ne!(digest(&body), digest(&item), "a body reference and an item reference are different shapes");
+        assert!(matches!(Value::Ref(String::new()).conforms(&FieldKind::Ref(RefKind::Body), 1), Err(SchemaError::BadReference { .. })));
+        let long = Value::Ref("x".repeat(MAX_REF_LEN as usize + 1));
+        assert!(matches!(long.conforms(&FieldKind::Ref(RefKind::Item), 1), Err(SchemaError::BadReference { .. })));
+    }
 
     fn latch() -> StateSchema {
         StateSchema {

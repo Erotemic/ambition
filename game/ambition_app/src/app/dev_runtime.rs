@@ -1034,16 +1034,10 @@ mod hot_reload_session_tests {
 
     #[test]
     fn f1_action_toggles_the_app_debug_overlay_both_directions() {
-        let bindings =
-            ambition_platformer2d::platformer::developer_hotkeys::DeveloperHotkeyBindings::default(
-            );
+        let bindings = ambition_platformer2d::host::developer_keys::DeveloperHotkeyBindings::default();
         assert_eq!(
             bindings.chord_for(DeveloperAction::ToggleDebugOverlay),
-            Some(
-                ambition_platformer2d::platformer::developer_hotkeys::DeveloperKeyChord::key(
-                    KeyCode::F1,
-                )
-            )
+            Some(ambition_platformer2d::host::developer_keys::DeveloperKeyChord::key(KeyCode::F1))
         );
 
         let mut app = App::new();

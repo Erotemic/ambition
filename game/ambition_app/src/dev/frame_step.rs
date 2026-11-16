@@ -21,7 +21,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use ambition_platformer2d::dev_tools::{dev_tools::DeveloperTools, DeveloperRuntimeState};
 use ambition_platformer2d::platformer::developer_hotkeys::{
-    DeveloperAction, DeveloperHotkeyBindings,
+    DeveloperAction, DeveloperActionLabels,
 };
 use ambition_platformer2d::platformer::schedule::{
     GameplayGated, GameplaySimulationRoot, Platformer2dSimulationPhase,
@@ -350,7 +350,7 @@ fn frame_step_panel_ui(world: &mut World) {
         .unwrap_or_default();
     let tick = world.get_resource::<SimTick>().map_or(0, |tick| tick.get());
     let hotkey = world
-        .get_resource::<DeveloperHotkeyBindings>()
+        .get_resource::<DeveloperActionLabels>()
         .and_then(|bindings| bindings.label_for(DeveloperAction::ToggleInspector))
         .unwrap_or_else(|| "F3".to_owned());
 

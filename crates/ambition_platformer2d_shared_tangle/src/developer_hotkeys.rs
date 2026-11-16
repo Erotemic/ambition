@@ -1,16 +1,17 @@
-//! Canonical keyboard deck for developer-only host actions.
+//! The developer actions: the vocabulary every consumer listens for.
 //!
-//! This is the one source file to edit while debugging priorities change.
-//! Physical keys are translated once into semantic [`DeveloperAction`] messages;
-//! simulation, presentation, shell, and tooling systems consume those actions
-//! without independently claiming function keys.
+//! The physical keys are the host's (`ambition_platformer2d_host::developer_keys`):
+//! it translates them once into [`DeveloperAction`] messages, and a player's
+//! settings rebind them, so a key change is no rebuild of this foundation.
+//! Simulation, presentation, shell and tooling systems consume the actions
+//! without claiming a key.
 
-use std::collections::HashSet;
+use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
 /// Semantic developer actions. Keep physical keyboard policy out of consumers.
-#[derive(Clone, Copy, Debug, Eq, Hash, Message, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Message, Ord, PartialEq, PartialOrd)]
 pub enum DeveloperAction {
     ToggleDebugOverlay,
     ToggleSlowMotion,
@@ -37,174 +38,41 @@ pub enum DeveloperAction {
     ToggleCombatDebug,
 }
 
-/// One exact keyboard chord. Extra modifiers suppress a match so `F8` and
-/// `Shift+F8` are distinct rather than both firing from the shifted chord.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct DeveloperKeyChord {
-    pub key: KeyCode,
-    pub shift: bool,
-    pub control: bool,
-    pub alt: bool,
+impl DeveloperAction {
+    /// Every action, in declaration order. A settings file names an action by
+    /// its [`Self::name`], looked up here.
+    pub const ALL: [Self; 15] = [
+        Self::ToggleDebugOverlay,
+        Self::ToggleSlowMotion,
+        Self::ToggleInspector,
+        Self::ToggleWorldInspector,
+        Self::ToggleOverviewCamera,
+        Self::ToggleFpsOverlay,
+        Self::TogglePortalGun,
+        Self::DumpGameplayTrace,
+        Self::DumpPortalViewCones,
+        Self::RequestRollbackProof,
+        Self::QuitToHome,
+        Self::ApplyLdtkReload,
+        Self::ToggleLdtkAutoApply,
+        Self::ToggleGamepadProbe,
+        Self::ToggleCombatDebug,
+    ];
+
+    /// The name a settings file uses (`ToggleDebugOverlay`).
+    pub fn name(self) -> String { format!("{self:?}") }
+
+    /// The action a settings file names, if any.
+    pub fn named(name: &str) -> Option<Self> { Self::ALL.into_iter().find(|action| action.name() == name) }
 }
 
-impl DeveloperKeyChord {
-    pub const fn key(key: KeyCode) -> Self {
-        Self {
-            key,
-            shift: false,
-            control: false,
-            alt: false,
-        }
-    }
+/// What a player presses for each developer action, as the host bound it
+/// ("F3", "Shift+F8"). A prompt reads this; it names no key itself.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct DeveloperActionLabels(pub BTreeMap<DeveloperAction, String>);
 
-    pub const fn shift(key: KeyCode) -> Self {
-        Self {
-            key,
-            shift: true,
-            control: false,
-            alt: false,
-        }
-    }
-
-    pub fn label(self) -> String {
-        let mut pieces = Vec::new();
-        if self.control {
-            pieces.push("Ctrl".to_owned());
-        }
-        if self.alt {
-            pieces.push("Alt".to_owned());
-        }
-        if self.shift {
-            pieces.push("Shift".to_owned());
-        }
-        pieces.push(format!("{:?}", self.key));
-        pieces.join("+")
-    }
-
-    fn matches(self, keys: &ButtonInput<KeyCode>) -> bool {
-        if !keys.just_pressed(self.key) {
-            return false;
-        }
-        let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
-        let control = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
-        let alt = keys.pressed(KeyCode::AltLeft) || keys.pressed(KeyCode::AltRight);
-        shift == self.shift && control == self.control && alt == self.alt
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DeveloperHotkeyBinding {
-    pub action: DeveloperAction,
-    pub chord: DeveloperKeyChord,
-}
-
-/// Runtime copy of the canonical deck. Tests and future developer settings can
-/// replace this resource before [`DeveloperHotkeyPlugin`] is installed.
-#[derive(Resource, Clone, Debug)]
-pub struct DeveloperHotkeyBindings(pub Vec<DeveloperHotkeyBinding>);
-
-impl Default for DeveloperHotkeyBindings {
-    fn default() -> Self {
-        use DeveloperAction as A;
-        use DeveloperKeyChord as C;
-
-        Self(vec![
-            DeveloperHotkeyBinding {
-                action: A::ToggleDebugOverlay,
-                chord: C::key(KeyCode::F1),
-            },
-            // Beside the overlay it is a view of: F1 shows the overlay as set,
-            // Shift+F1 shows it in its combat view.
-            DeveloperHotkeyBinding {
-                action: A::ToggleCombatDebug,
-                chord: C::shift(KeyCode::F1),
-            },
-            DeveloperHotkeyBinding {
-                action: A::ToggleSlowMotion,
-                chord: C::key(KeyCode::F2),
-            },
-            DeveloperHotkeyBinding {
-                action: A::ToggleInspector,
-                chord: C::key(KeyCode::F3),
-            },
-            DeveloperHotkeyBinding {
-                action: A::ToggleWorldInspector,
-                chord: C::key(KeyCode::F4),
-            },
-            DeveloperHotkeyBinding {
-                action: A::ToggleOverviewCamera,
-                chord: C::key(KeyCode::F5),
-            },
-            DeveloperHotkeyBinding {
-                action: A::ToggleFpsOverlay,
-                chord: C::key(KeyCode::F6),
-            },
-            DeveloperHotkeyBinding {
-                action: A::TogglePortalGun,
-                chord: C::key(KeyCode::F7),
-            },
-            // Beside the FPS overlay on purpose: both answer "what is this
-            // machine actually doing", and F1..F12 unshifted are all spoken for.
-            DeveloperHotkeyBinding {
-                action: A::ToggleGamepadProbe,
-                chord: C::shift(KeyCode::F6),
-            },
-            DeveloperHotkeyBinding {
-                action: A::DumpGameplayTrace,
-                chord: C::key(KeyCode::F8),
-            },
-            DeveloperHotkeyBinding {
-                action: A::DumpPortalViewCones,
-                chord: C::shift(KeyCode::F8),
-            },
-            DeveloperHotkeyBinding {
-                action: A::RequestRollbackProof,
-                chord: C::key(KeyCode::F9),
-            },
-            DeveloperHotkeyBinding {
-                action: A::QuitToHome,
-                chord: C::key(KeyCode::F10),
-            },
-            DeveloperHotkeyBinding {
-                action: A::ApplyLdtkReload,
-                chord: C::key(KeyCode::F11),
-            },
-            DeveloperHotkeyBinding {
-                action: A::ToggleLdtkAutoApply,
-                chord: C::key(KeyCode::F12),
-            },
-        ])
-    }
-}
-
-impl DeveloperHotkeyBindings {
-    pub fn chord_for(&self, action: DeveloperAction) -> Option<DeveloperKeyChord> {
-        self.0
-            .iter()
-            .find(|binding| binding.action == action)
-            .map(|binding| binding.chord)
-    }
-
-    pub fn label_for(&self, action: DeveloperAction) -> Option<String> {
-        self.chord_for(action).map(DeveloperKeyChord::label)
-    }
-
-    fn assert_valid(&self) {
-        let mut actions = HashSet::new();
-        let mut chords = HashSet::new();
-        for binding in &self.0 {
-            assert!(
-                actions.insert(binding.action),
-                "developer action {:?} has more than one physical binding",
-                binding.action
-            );
-            assert!(
-                chords.insert(binding.chord),
-                "developer chord {} is assigned more than once",
-                binding.chord.label()
-            );
-        }
-    }
+impl DeveloperActionLabels {
+    pub fn label_for(&self, action: DeveloperAction) -> Option<String> { self.0.get(&action).cloned() }
 }
 
 /// Ordering seam for consumers that must react before another PreUpdate phase.
@@ -214,91 +82,30 @@ impl DeveloperHotkeyBindings {
 #[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct DeveloperHotkeyEmitSet;
 
-/// Installs the single physical-key reader. Consumers add no keyboard systems;
-/// they listen for [`DeveloperAction`] messages instead.
-pub struct DeveloperHotkeyPlugin;
-
-impl Plugin for DeveloperHotkeyPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<DeveloperHotkeyBindings>();
-        app.world()
-            .resource::<DeveloperHotkeyBindings>()
-            .assert_valid();
-        app.add_message::<DeveloperAction>().add_systems(
-            PreUpdate,
-            emit_developer_actions
-                .in_set(DeveloperHotkeyEmitSet)
-                // `ButtonInput<KeyCode>` is populated by Bevy's input pass in
-                // this same schedule. Reading `just_pressed` without an edge
-                // against that writer makes the developer deck depend on the
-                // executor's otherwise-unconstrained system order: a physical
-                // F-key can become visible only after this reader has already
-                // sampled the frame. The semantic deck owns physical-key
-                // translation, so it also owns the requirement that the key
-                // state it translates is the current frame's state.
-                .after(bevy::input::InputSystems),
-        );
-    }
-}
-
-fn emit_developer_actions(
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    bindings: Res<DeveloperHotkeyBindings>,
-    mut actions: MessageWriter<DeveloperAction>,
-) {
-    let Some(keys) = keys else {
-        return;
-    };
-    for binding in &bindings.0 {
-        if binding.chord.matches(&keys) {
-            actions.write(binding.action);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn default_developer_actions_and_chords_are_unique() {
-        DeveloperHotkeyBindings::default().assert_valid();
-    }
-
-    #[test]
-    fn shifted_and_unshifted_f8_are_exact_distinct_chords() {
-        let plain = DeveloperKeyChord::key(KeyCode::F8);
-        let shifted = DeveloperKeyChord::shift(KeyCode::F8);
-
-        let mut keys = ButtonInput::default();
-        keys.press(KeyCode::F8);
-        assert!(plain.matches(&keys));
-        assert!(!shifted.matches(&keys));
-
-        keys.press(KeyCode::ShiftLeft);
-        assert!(!plain.matches(&keys));
-        assert!(shifted.matches(&keys));
-    }
-
-    #[test]
-    fn f3_opens_the_shared_developer_tools_surface() {
-        let bindings = DeveloperHotkeyBindings::default();
-        assert_eq!(
-            bindings.chord_for(DeveloperAction::ToggleInspector),
-            Some(DeveloperKeyChord::key(KeyCode::F3))
-        );
-    }
-
-    #[test]
-    fn current_developer_deck_keeps_f6_and_f7_for_debug_features() {
-        let bindings = DeveloperHotkeyBindings::default();
-        assert_eq!(
-            bindings.chord_for(DeveloperAction::ToggleFpsOverlay),
-            Some(DeveloperKeyChord::key(KeyCode::F6))
-        );
-        assert_eq!(
-            bindings.chord_for(DeveloperAction::TogglePortalGun),
-            Some(DeveloperKeyChord::key(KeyCode::F7))
-        );
+    fn every_action_is_listed_once_and_found_by_its_name() {
+        let mut seen = std::collections::BTreeSet::new();
+        for action in DeveloperAction::ALL {
+            // The match is exhaustive, so a new action fails to compile here
+            // until it is placed, and then fails below until it is listed.
+            let _ = match action {
+                DeveloperAction::ToggleDebugOverlay | DeveloperAction::ToggleSlowMotion
+                | DeveloperAction::ToggleInspector | DeveloperAction::ToggleWorldInspector
+                | DeveloperAction::ToggleOverviewCamera | DeveloperAction::ToggleFpsOverlay
+                | DeveloperAction::TogglePortalGun | DeveloperAction::DumpGameplayTrace
+                | DeveloperAction::DumpPortalViewCones | DeveloperAction::RequestRollbackProof
+                | DeveloperAction::QuitToHome | DeveloperAction::ApplyLdtkReload
+                | DeveloperAction::ToggleLdtkAutoApply | DeveloperAction::ToggleGamepadProbe
+                | DeveloperAction::ToggleCombatDebug => (),
+            };
+            assert!(seen.insert(action), "{action:?} is listed twice");
+            assert_eq!(DeveloperAction::named(&action.name()), Some(action));
+        }
+        assert_eq!(seen.len(), 15);
+        assert_eq!(DeveloperAction::named("NoSuchAction"), None);
     }
 }

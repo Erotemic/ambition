@@ -2123,7 +2123,12 @@ pub fn register(app: &mut bevy::prelude::App) {
     // `ReplaceWith` a request writes.
     #[cfg(not(feature = "static_content"))]
     {
-        app.insert_resource(crate::content_watch::ContentSourceWatch::new(crate::pack::source_root()));
+        // The selected pack's root: a project's own pack is the one it edits.
+        let root = crate::pack::selected(app.world())
+            .map(|pack| pack.root.clone())
+            .filter(|root| !root.as_os_str().is_empty())
+            .unwrap_or_else(crate::pack::source_root);
+        app.insert_resource(crate::content_watch::ContentSourceWatch::new(root));
         // The cast reads its body scale, hurtboxes and rigs from the sheets.
         ambition_platformer2d::content::sprite_reload::restate_with_the_sheets(
             app,

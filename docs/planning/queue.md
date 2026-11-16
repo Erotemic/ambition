@@ -55,8 +55,14 @@ carries closed campaigns. Unselected or customer-gated plans live in
    per value (`ambition_extension_sdk::structure`) gives the wire codec, the
    script conversion and the [generated reference](../sdk/script-ports.md),
    and `request(..)` errors name the script's line.
-   **Next action:** P3's project entry (a manifest an already built host
-   runs, no game Rust); describing the other ports as scripts need them.
+   P3's project entry landed 2026-11-16: `--project` runs a `project.ron`
+   (scripts, a content pack root, an entry room) on the built host
+   (`examples/projects/sentry_drill`, no Rust).
+   **Next action:** the rest of P3's project entry (the
+   [plan's progress note](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p3-run-source-scripts-and-a-project-on-the-prebuilt-host):
+   module discovery from the manifest, the tool context, the rollback and
+   fault witnesses through a project); describing the other ports as
+   scripts need them.
    Story sequences (SS1, SS2, landed) are the first content customer of
    the authored command catalog a script will call.
 1. **Network architecture (maintainer priority, updated 2026-11-10):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. **Direction set 2026-11-10:** the metroidvania moves to a hybrid model, with rollback kept inside a room boundary while it is easy to maintain and its room-level cost measured, and hosted authority for the world around the rooms: [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) is selected and runs beside the experiment.

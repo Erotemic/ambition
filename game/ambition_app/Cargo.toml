@@ -230,6 +230,8 @@ wasm-bindgen = { version = "0.2", optional = true }
 mimalloc = { version = "0.1", default-features = false, optional = true }
 # The app's own pack schema (`versus_rules::rounds`) derives its reader.
 serde = { workspace = true }
+# `project.ron` (`app::project`).
+ron = { workspace = true }
 # The hosted world over UDP, for the `hosted_world` feature.
 ambition_hosted_world = { path = "../../crates/ambition_hosted_world", features = ["renet"], optional = true }
 

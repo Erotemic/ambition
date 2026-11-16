@@ -31,6 +31,7 @@ pub mod hub_games;
 #[cfg(all(feature = "hosted_world", not(target_arch = "wasm32")))]
 pub mod hosted_launch;
 mod plugins;
+pub mod project;
 mod resources;
 mod scene_setup;
 mod setup_systems;

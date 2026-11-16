@@ -130,6 +130,8 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     #[cfg(any(feature = "profile", feature = "perf_probe"))]
     app.add_plugins(crate::app::cli::ambition_log_plugin());
 
+    // `--project`: its modules, pack and entry room, before any plugin builds.
+    crate::app::project::compose_cli_project(&mut app);
     // inserted BEFORE the plugin builds: it is what stops
     // `publish_direct_prepared_session_root` publishing a second canonical root.
     crate::app::shell_host::compose_ambition_gameplay_host(&mut app);

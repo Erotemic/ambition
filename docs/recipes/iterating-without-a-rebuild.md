@@ -99,6 +99,15 @@ published through the same mechanical-edit road as a rebuilt `.wasm` file
 not compile stops the run at startup, and leaves the previous code running
 when it is a reload; the log names the file, line and column.
 
+A **project** names its scripts (and optionally its own content pack and
+start room) in a `project.ron`, so a run needs no variable:
+
+```bash
+./target/debug/ambition_game_bin --project examples/projects/sentry_drill
+```
+
+The example and the manifest's fields: `examples/projects/sentry_drill/README.md`.
+
 What a script sees and may do (the invocation as `this`: `tick`, `dt`,
 `trigger`, `state.<schema>`, `requests`), and the guarantees the engine is
 configured for (exact `f32` arithmetic, no hidden state, an operation

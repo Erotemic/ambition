@@ -64,6 +64,8 @@ P6 is a parallel engine-development track. It must not block P1-P5. P4 and P5 sh
 
 **Owner plans:** [extension model](../extension-model.md), [implementation packets](../fast-iteration-implementation.md), [public SDK](../public-sdk-1.0.md), [authoring tools](../authoring-and-tools.md).
 
+**Progress.** The backend (steps 1, 2, 4, 5, 6 of the first list) landed 2026-11-14 (`crates/ambition_extension_rhai`; the sentry's turret). The project entry's first slice landed 2026-11-16: `project.ron` (`ambition.project.v1`: `name`, `content` a pack root, `modules`, `entry_room`) is read by the host's adapter (`game/ambition_app/src/app/project.rs`, `--project PATH`), which lowers it into the existing inputs (`ExtensionModuleFiles`, `select_pack`, `StartRoomOverride`) before any plugin builds; the content watch follows the selected pack's root. The example `examples/projects/sentry_drill` (a manifest and one `.rhai`, no Rust) runs on the built binary: its entry room is the start room, and a syntax error in its script stops the run naming the line. Still open: the module declarations in the project (step 3), discovery of added/removed modules (step 4 of the second list), replacing Rust initial-condition callbacks (step 3), the tool context (step 5), and the completion's rollback and invocation-fault witnesses through a project.
+
 **Implement the backend first:**
 
 1. Add a Rhai backend implementing the current `ModuleBackend` contract. Use existing invocation bytes and checked output initially. Keep immutable prepared code cached and mutable invocation data fresh.

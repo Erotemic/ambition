@@ -1,0 +1,11 @@
+// A project: what an already built host runs, with no Rust (see README.md).
+(
+    schema: "ambition.project.v1",
+    name: "Sentry drill",
+    // The behaviour this project changes: each file is the code of the
+    // linked module its name says (`sentry.rhai` is the sentry's).
+    modules: ["modules/sentry.rhai"],
+    // The central hub; the sentry gauntlet lies in its basement. A runtime
+    // room id (an LDtk level's `activeArea`), not an LDtk level name.
+    entry_room: Some("central_hub_complex"),
+)

@@ -1109,6 +1109,8 @@ pub fn build_visible_app_with(
             asset_config,
         },
         move |app: &mut App| {
+            // The project's inputs first, so an explicit caller's win.
+            super::project::compose_cli_project(app);
             compose_inputs(app);
             // A hosted world's host or guest (`--host-world`, `--join-world`):
             // it chooses the simulation host, so it goes in before the
@@ -1151,6 +1153,10 @@ pub fn build_visible_app_with(
 #[cfg(not(target_arch = "wasm32"))]
 fn cli_direct_entry() -> bool {
     if std::env::var("AMBITION_DIRECT").is_ok_and(|v| v == "1") {
+        return true;
+    }
+    // A project that names its entry room starts in it.
+    if super::project::cli_project().is_some_and(|project| project.entry_room.is_some()) {
         return true;
     }
     std::env::args().any(|arg| {

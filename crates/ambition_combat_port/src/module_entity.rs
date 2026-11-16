@@ -51,23 +51,30 @@ impl Port for SpawnModuleEntityPort {
     type Value = ModuleEntitySpawn;
 
     fn encode(v: &ModuleEntitySpawn, out: &mut Vec<u8>) {
-        wire::put_str(out, &v.kind);
-        wire::put_vec2(out, v.at);
-        wire::put_f32(out, v.lifetime_s);
-        wire::put_vec2(out, v.half_extents);
-        put_params(out, &v.params);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<ModuleEntitySpawn, WireError> {
-        Ok(ModuleEntitySpawn {
-            kind: r.str()?.to_owned(),
-            at: r.vec2()?,
-            lifetime_s: r.f32()?,
-            half_extents: r.vec2()?,
-            params: read_params(r)?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
+
+ambition_extension_sdk::port_record! {
+    ModuleEntitySpawn {
+        /// The entity kind. It selects the entries of `module_entity_tick`.
+        kind: String,
+        /// The spawn position in world units, +Y down.
+        at: [f32; 2],
+        /// The maximum lifetime in gameplay seconds.
+        lifetime_s: f32,
+        /// The contact box half size. Zero gives a point that no body touches.
+        half_extents: [f32; 2] = [0.0, 0.0],
+        /// The values the entity reads in `this.trigger.params` on each tick.
+        params: Vec<(String, SpecialParam)> as ambition_extension_sdk::structure::TextMap<SpecialParam> = Vec::new(),
+    }
+}
+
+ambition_extension_sdk::script_port!(SpawnModuleEntityPort);
 
 /// The trigger port marker for one tick of a module-owned entity.
 ///
@@ -662,6 +669,13 @@ mod tests {
         };
         let mut out = Vec::new();
         SpawnModuleEntityPort::encode(&spawn, &mut out);
+        let mut expected = Vec::new();
+        wire::put_str(&mut expected, &spawn.kind);
+        wire::put_vec2(&mut expected, spawn.at);
+        wire::put_f32(&mut expected, spawn.lifetime_s);
+        wire::put_vec2(&mut expected, spawn.half_extents);
+        put_params(&mut expected, &spawn.params);
+        assert_eq!(out, expected, "the structural description keeps the published wire format");
         let mut r = WireReader::new(&out);
         assert_eq!(SpawnModuleEntityPort::decode(&mut r).unwrap(), spawn);
         r.finish().unwrap();

@@ -274,11 +274,11 @@ impl Plugin for ExtensionCompositionPlugin {
 /// The variable that names loaded module files for a developer run.
 pub const EXTENSION_MODULES_VAR: &str = "AMBITION_EXTENSION_MODULES";
 
-/// The module files (or directories of them) whose modules replace the
-/// linked ones: `.wasm` builds (`wasm_modules`) and `.rhai` sources
-/// (`script_modules`). A composition inserts it BEFORE adding the engine
-/// plugins; when it is absent, [`EXTENSION_MODULES_VAR`] gives the list. Read
-/// once, at plugin build.
+/// Module files or directories: `.wasm` builds (`wasm_modules`) and `.rhai`
+/// sources (`script_modules`). A script can declare its own module or supply
+/// code for a linked module. A composition inserts the list before engine
+/// plugins build; the watcher reads it at each poll. When absent,
+/// [`EXTENSION_MODULES_VAR`] supplies the list at plugin build.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct ExtensionModuleFiles(pub Vec<std::path::PathBuf>);
 
@@ -294,6 +294,8 @@ pub struct ExtensionModuleFiles(pub Vec<std::path::PathBuf>);
 ///   (entries, ports, schemas, limits) stays the game's, an entry the script
 ///   defines runs from it, and the others run natively. An edit needs no
 ///   build at all. It binds at admission, once every plugin has declared.
+///   A file with `fn declare()` supplies its own descriptor and all its code;
+///   its file stem does not need to name a linked module.
 ///
 /// ⛔ A file that does not load stops the run. The developer asked for this
 /// file; running the linked module instead would show them behaviour they did
@@ -471,7 +473,7 @@ pub fn add_shipped_script(app: &mut App, artifact: &str, text: &str) {
     app.add_loaded_extension_modules(artifact, backend, modules, false);
 }
 
-/// Compile the script `path` as the code of the linked module its stem names.
+/// Compile the script's declaration, or the linked module its stem names.
 #[cfg(feature = "script_modules")]
 fn bind_script(
     path: &std::path::Path,
@@ -484,27 +486,42 @@ fn bind_script(
     ),
     String,
 > {
-    // A script that declares its own module (`fn declare()`) brings it; any
-    // other is the code of the linked module its stem names.
-    if ambition_extension_rhai::text_declares_a_module(text) {
-        return ambition_extension_rhai::RhaiModules::load_declared(
-            &path.display().to_string(),
-            text,
-            script_ports(),
-            ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
-        )
-        .map(|(backend, modules)| (backend as std::sync::Arc<dyn ambition_extension_host::ModuleBackend>, modules));
-    }
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
-    let native = ambition_extension_rhai::module_for_file(stem, linked)?.clone();
-    let (backend, modules) = ambition_extension_rhai::RhaiModules::load(
+    let (backend, modules) = ambition_extension_rhai::RhaiModules::load_file(
         &path.display().to_string(),
         text,
-        native,
+        stem,
+        linked,
         script_ports(),
         ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
     )?;
     Ok((backend, modules))
+}
+
+/// Prepare a module file for inspection or reload. A script can declare its
+/// own module or replace a linked module by file stem. The result still
+/// needs admission before publication.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub fn load_module_file(
+    path: &std::path::Path,
+    linked: &[ambition_extension_host::DeclaredModule],
+) -> Result<
+    (
+        std::sync::Arc<dyn ambition_extension_host::ModuleBackend>,
+        Vec<ambition_extension_sdk::ModuleDescriptor>,
+    ),
+    String,
+> {
+    #[cfg(not(feature = "script_modules"))]
+    let _ = linked;
+    ModuleFileKind::try_of(path).and_then(|kind| match kind {
+        #[cfg(feature = "wasm_modules")]
+        ModuleFileKind::Wasm => load_wasm(path),
+        #[cfg(feature = "script_modules")]
+        ModuleFileKind::Rhai => std::fs::read_to_string(path)
+            .map_err(|e| format!("cannot read {}: {e}", path.display()))
+            .and_then(|text| bind_script(path, &text, linked)),
+    })
 }
 
 /// The ports a script may name, and the name it uses
@@ -518,6 +535,10 @@ fn bind_script(
 pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
     let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
     ports
+        .add::<ambition_combat_port::TechniqueUsePort>("technique_use")
+        .add::<ambition_combat_port::WieldedUsePort>("wielded_use")
+        .add::<ambition_combat_port::WieldedAlternatePort>("wielded_alternate")
+        .add::<ambition_combat_port::SpawnModuleEntityPort>("spawn_module_entity")
         .add::<ambition_combat_port::ModuleEntityTickPort>("module_entity_tick")
         .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
         .add::<ambition_combat_port::BodySoundPort>("sound")
@@ -615,18 +636,10 @@ fn propose_module_reload(world: &mut World) {
     // ⛔ ONE POLL IS ONE CANDIDATE: every changed file that loads goes into
     // one staged generation (`stage_loaded_replacements`). A file that does
     // not load keeps its running code; the others still reload.
-    #[cfg(feature = "script_modules")]
     let linked = ambition_extension_host::linked_modules(world);
     let mut loaded = Vec::new();
     for path in &changed {
-        let result = ModuleFileKind::try_of(path).and_then(|kind| match kind {
-            #[cfg(feature = "wasm_modules")]
-            ModuleFileKind::Wasm => load_wasm(path),
-            #[cfg(feature = "script_modules")]
-            ModuleFileKind::Rhai => std::fs::read_to_string(path)
-                .map_err(|e| format!("cannot read: {e}"))
-                .and_then(|text| bind_script(path, &text, &linked)),
-        });
+        let result = load_module_file(path, &linked);
         match result {
             Ok((backend, modules)) => {
                 loaded.push(ambition_extension_host::reload::LoadedArtifact {

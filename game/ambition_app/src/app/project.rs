@@ -10,7 +10,8 @@
 //!     // A content pack root: a directory with its own `pack.ron`.
 //!     content: Some("content"),
 //!     // Behaviour modules: `.rhai` sources (and `.wasm` builds), or
-//!     // directories of them. Each replaces the linked module its file names.
+//!     // directories of them. A script can declare its own module or supply
+//!     // code for the linked module its file stem names.
 //!     modules: ["modules"],
 //!     // The room the run starts in.
 //!     entry_room: Some("hall_of_characters"),
@@ -27,7 +28,7 @@
 //! which the bag's owner reads in place of the game's Rust callback). It is
 //! part of the host: a project implements no `GameModule`.
 //!
-//! The run: `ambition_app --project path/to/project.ron` (or its directory).
+//! Run: `ambition_game_bin --project path/to/project.ron` (or its directory).
 
 use std::path::{Path, PathBuf};
 

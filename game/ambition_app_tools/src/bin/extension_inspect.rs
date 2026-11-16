@@ -112,8 +112,8 @@ fn main() {
 
     if let Some(file) = &args.try_replace {
         println!("try-replace {}:", file.display());
-        let bytes = std::fs::read(file).unwrap_or_else(|e| panic!("cannot read {}: {e}", file.display()));
-        match ambition_platformer2d::extension::WasmModules::load(&bytes) {
+        let linked = ambition_platformer2d::extension::linked_modules(sim.world());
+        match ambition_platformer2d::extension::load_module_file(file, &linked) {
             Err(error) => println!("  REFUSED at load: {error:?}"),
             Ok((backend, modules)) => {
                 let keys: Vec<String> = modules.iter().map(|m| m.key.to_string()).collect();

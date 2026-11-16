@@ -7,10 +7,10 @@
 //! is such a row. When a module binds the technique's id, the module decides
 //! what the slot does.
 
-use ambition_extension_sdk::wire::{self, WireError, WireReader};
+use ambition_extension_sdk::wire::{WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
 
-use crate::wielded::{WieldedUsePort, Wielder};
+use crate::wielded::Wielder;
 
 /// The trigger port marker for a body's technique.
 ///
@@ -53,19 +53,26 @@ impl Port for TechniqueUsePort {
     type Value = TechniqueUse;
 
     fn encode(v: &TechniqueUse, out: &mut Vec<u8>) {
-        wire::put_bool(out, v.held);
-        wire::put_bool(out, v.released);
-        WieldedUsePort::encode(&v.user, out);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<TechniqueUse, WireError> {
-        Ok(TechniqueUse {
-            held: r.bool()?,
-            released: r.bool()?,
-            user: WieldedUsePort::decode(r)?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
+
+ambition_extension_sdk::port_record! {
+    TechniqueUse {
+        /// The technique's control slot is held this tick.
+        held: bool,
+        /// The technique's control slot was released this tick.
+        released: bool,
+        /// The body that uses the technique, at this tick's read cut.
+        user: Wielder,
+    }
+}
+
+ambition_extension_sdk::script_port!(TechniqueUsePort);
 
 #[cfg(test)]
 mod tests {
@@ -93,6 +100,11 @@ mod tests {
         };
         let mut out = Vec::new();
         TechniqueUsePort::encode(&used, &mut out);
+        let mut expected = Vec::new();
+        ambition_extension_sdk::wire::put_bool(&mut expected, used.held);
+        ambition_extension_sdk::wire::put_bool(&mut expected, used.released);
+        crate::wielded::WieldedUsePort::encode(&used.user, &mut expected);
+        assert_eq!(out, expected, "the structural description keeps the published wire format");
         let mut r = WireReader::new(&out);
         assert_eq!(TechniqueUsePort::decode(&mut r).unwrap(), used);
         r.finish().unwrap();

@@ -870,6 +870,9 @@ pub mod extension {
     pub use ambition_platformer2d_runtime::extension_composition::{
         EXTENSION_MODULES_SECTION, EXTENSION_MODULES_VAR, ExtensionGeneration, ExtensionModuleFiles,
     };
+    #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+    pub use ambition_platformer2d_runtime::extension_composition::load_module_file;
+    pub use ambition_extension_host::linked_modules;
     /// The ports a `.rhai` module may name, by alias.
     #[cfg(feature = "script_modules")]
     pub use ambition_platformer2d_runtime::extension_composition::script_ports;

@@ -93,37 +93,45 @@ impl Port for WieldedUsePort {
     type Value = Wielder;
 
     fn encode(v: &Wielder, out: &mut Vec<u8>) {
-        wire::put_bool(out, v.pressed);
-        wire::put_bool(out, v.driven);
-        wire::put_vec2(out, v.position);
-        wire::put_vec2(out, v.size);
-        wire::put_f32(out, v.facing);
-        wire::put_vec2(out, v.frame_side);
-        wire::put_vec2(out, v.frame_down);
-        wire::put_vec2(out, v.aim_local);
-        wire::put_opt(out, v.mana, wire::put_f32);
-        wire::put_bool(out, v.names_spawns);
-        wire::put_bool(out, v.cooldown_ready);
-        wire::put_bool(out, v.swept);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Wielder, WireError> {
-        Ok(Wielder {
-            pressed: r.bool()?,
-            driven: r.bool()?,
-            position: r.vec2()?,
-            size: r.vec2()?,
-            facing: r.f32()?,
-            frame_side: r.vec2()?,
-            frame_down: r.vec2()?,
-            aim_local: r.vec2()?,
-            mana: r.opt(WireReader::f32)?,
-            names_spawns: r.bool()?,
-            cooldown_ready: r.bool()?,
-            swept: r.bool()?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
+
+ambition_extension_sdk::port_record! {
+    Wielder {
+        /// Attack was pressed this tick. For `technique_use`, this is the
+        /// technique's slot. The alternate-use trigger still reports Attack.
+        pressed: bool,
+        /// A participant drives this body.
+        driven: bool,
+        /// The body's centre in world units, +Y down.
+        position: [f32; 2],
+        /// The body's width and height in world units.
+        size: [f32; 2],
+        /// The body's facing: +1 or -1 in its local frame.
+        facing: f32,
+        /// The side axis of the body's gravity frame.
+        frame_side: [f32; 2],
+        /// The down axis of the body's gravity frame.
+        frame_down: [f32; 2],
+        /// The aim in the body's local frame.
+        aim_local: [f32; 2],
+        /// The available mana, or `()` when the body has no mana pool.
+        mana: Option<f32>,
+        /// The body can give its spawns a simulation identity.
+        names_spawns: bool,
+        /// The shared movement cooldown is ready.
+        cooldown_ready: bool,
+        /// The body uses the swept motion model.
+        swept: bool,
+    }
+}
+
+ambition_extension_sdk::script_port!(WieldedUsePort);
 
 /// The trigger port marker for the alternate use of a wielded item: the
 /// Blink press.
@@ -154,6 +162,8 @@ impl Port for WieldedAlternatePort {
         WieldedUsePort::decode(r)
     }
 }
+
+ambition_extension_sdk::script_port!(WieldedAlternatePort);
 
 /// The observation port marker for a body's mark: the place a mark/recall
 /// item marked.
@@ -395,6 +405,20 @@ mod tests {
         };
         let mut out = Vec::new();
         WieldedUsePort::encode(&w, &mut out);
+        let mut expected = Vec::new();
+        wire::put_bool(&mut expected, w.pressed);
+        wire::put_bool(&mut expected, w.driven);
+        wire::put_vec2(&mut expected, w.position);
+        wire::put_vec2(&mut expected, w.size);
+        wire::put_f32(&mut expected, w.facing);
+        wire::put_vec2(&mut expected, w.frame_side);
+        wire::put_vec2(&mut expected, w.frame_down);
+        wire::put_vec2(&mut expected, w.aim_local);
+        wire::put_opt(&mut expected, w.mana, wire::put_f32);
+        wire::put_bool(&mut expected, w.names_spawns);
+        wire::put_bool(&mut expected, w.cooldown_ready);
+        wire::put_bool(&mut expected, w.swept);
+        assert_eq!(out, expected, "the structural description keeps the published wire format");
         let mut r = WireReader::new(&out);
         assert_eq!(WieldedUsePort::decode(&mut r).unwrap(), w);
         r.finish().unwrap();

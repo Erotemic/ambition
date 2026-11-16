@@ -63,6 +63,12 @@ carries closed campaigns. Unselected or customer-gated plans live in
    P3's project entry landed 2026-11-16: `--project` runs a `project.ron`
    (scripts, a content pack root, an entry room) on the built host
    (`examples/projects/sentry_drill`, no Rust).
+   The authored technique slice (`5dfb7d683`, 2026-11-16) adds
+   [Pulse Forge](../../examples/projects/pulse_forge/README.md): equipment
+   binds a new scripted technique that creates and ticks its own entity kind.
+   The module declares its schemas and entries in Rhai. The three
+   `a_project_authors_a_technique` tests cover rollback, atomic faults, and
+   live edit/removal/addition. The inspector also accepts Rhai candidates.
    **Next action:** the rest of P3's project entry (the
    [plan's progress note](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p3-run-source-scripts-and-a-project-on-the-prebuilt-host):
    body grants and behaviour attachments as a project's data when a

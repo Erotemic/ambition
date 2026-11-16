@@ -234,13 +234,13 @@ cannot bypass ownership by writing health, body velocity, custody or progression
 components directly. Missing fundamental host functionality is implemented as a
 Bevy domain service, not exposed through an unrestricted mutation escape hatch.
 
-A static native reference binding establishes semantics. It does not meet the
-no-host-relink procedural acceptance by itself. The loaded backend is wasmi
-(deterministic, fuel, a new instance per call). The comparison with a narrowly
-specified trusted native ABI on the same fixture is still open (M1). Lua and
-Rhai remain script-binding candidates; choose a human-facing language after the
-procedural contract and measurements. Do not ship several runtimes to avoid a
-decision.
+A static native reference binding establishes semantics. Runtime authors can
+use Rhai source through the same module contract. A script can supply entries
+of a linked module or declare its own module with `fn declare()`. Its records
+and requests use the same validation and rollback owners. The selected language
+and measurements are in [the scripting bake-off](scripting-language-bakeoff.md).
+The wasmi backend remains available for compiled modules. The comparison with
+a trusted native ABI on the same fixture is still open (M1).
 
 ## Generation, hot reload and packaging
 

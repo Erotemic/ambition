@@ -32,6 +32,9 @@ pub struct RoomSpec {
     pub enemy_spawns: Vec<Authored<crate::rooms::EnemySpawnSpec>>,
     pub boss_spawns: Vec<Authored<ambition_entity_catalog::placements::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
+    /// Lamps: what a dark room's light map draws (presentation only).
+    #[serde(default)]
+    pub lights: Vec<Authored<crate::light_source::LightSource>>,
     /// ADR 0020 authored mount links: `(rider_id, mount_id)` pairs. A rider
     /// `EnemySpawn` with a `mounted_on` entity-ref emits one; after the room's
     /// actors spawn, the room construction planner turns each pair into a planned
@@ -78,6 +81,7 @@ impl RoomSpec {
             enemy_spawns: Vec::new(),
             boss_spawns: Vec::new(),
             debug_labels: Vec::new(),
+            lights: Vec::new(),
             mount_links: Vec::new(),
             boss_successions: Vec::new(),
             placements: Vec::new(),

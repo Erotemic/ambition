@@ -437,6 +437,9 @@ pub enum DarknessQuality {
     /// for a saved budget from before the field.
     #[default]
     AroundThePlayer,
+    /// A light map over the view: the player's light and every lamp of the
+    /// room (`LightSource`) take the darkness away where they reach.
+    LightMap,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -607,7 +610,7 @@ impl VisualQualityBudget {
                     max_particles: 512,
                     spawn_rate_scale: 1.0,
                 },
-                glow: GlowBudget { actor_glow: ActorGlowQuality::Smooth, darkness: DarknessQuality::AroundThePlayer },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Smooth, darkness: DarknessQuality::LightMap },
                 raster: RasterBudget {
                     max_scale_factor: None,
                     msaa_samples: 4,
@@ -640,7 +643,7 @@ impl VisualQualityBudget {
                     max_particles: 1024,
                     spawn_rate_scale: 1.0,
                 },
-                glow: GlowBudget { actor_glow: ActorGlowQuality::Light, darkness: DarknessQuality::AroundThePlayer },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Light, darkness: DarknessQuality::LightMap },
                 raster: RasterBudget {
                     max_scale_factor: None,
                     msaa_samples: 4,

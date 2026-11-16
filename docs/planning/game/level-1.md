@@ -274,7 +274,10 @@ above, a bucket of coins: "SOMEBODY UP THERE THREW A WISH DOWN HERE"), and
 runs on to a note ("IF YOU CAN READ THIS, YOU ARE NOT WORTH YOUR SALT. TURN
 BACK.") and the boards the smugglers wedged between the oak's roots, up to
 the shelf under the oak and the way up into the woods. It is a way, not a
-gate: the street above is always open. Dark at 75% (DR1).
+gate: the street above is always open. Dark at 75% (DR1); the
+smugglers' lanterns light it from the hatch to the well, and daylight falls
+faintly down the well's shaft (at High, DR2's light map); past the well it
+is dark.
 
 ### Hobford woods (`intro_woods`)
 

@@ -1241,6 +1241,7 @@ collections:
   - hill_gate_barrier
   - hill_woods_hollow_oak
   - hill_salt_run_hatch
+  - hill_salt_run_lantern
   - catacombs_west
   - catacombs_east
   - ridge_west

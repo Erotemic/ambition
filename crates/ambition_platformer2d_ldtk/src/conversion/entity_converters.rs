@@ -1054,6 +1054,46 @@ pub(super) fn convert_debug_label(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     ))
 }
 
+/// A lamp (`LightSource`): `radius` (0 or absent: the larger side of its box),
+/// `color` (`#rrggbb`; empty or absent: a warm lamp) and `intensity` (0 to 1, default
+/// 1). Its middle is the light's.
+pub(super) fn convert_light_source(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    let pos = min + size * 0.5;
+    let color = match field_string(entity, "color").filter(|hex| !hex.is_empty()) {
+        None => [1.0, 0.78, 0.5],
+        Some(hex) => parse_hex_color(&hex).ok_or_else(|| format!("LightSource '{name}': color '{hex}' is not #rrggbb"))?,
+    };
+    let light = ambition_platformer2d_world::light_source::LightSource {
+        position: pos,
+        radius: field_f32(entity, "radius").filter(|r| *r > 0.0).unwrap_or(size.x.max(size.y)),
+        color,
+        intensity: field_f32(entity, "intensity").unwrap_or(1.0).clamp(0.0, 1.0),
+    };
+    Ok(RoomEmission {
+        lights: vec![ambition_platformer2d_world::rooms::Authored::new(
+            entity.iid.clone(),
+            name,
+            ae::Aabb::new(pos, ae::Vec2::splat(1.0)),
+            light,
+        )],
+        ..RoomEmission::default()
+    })
+}
+
+/// `#rrggbb` as linear colour.
+fn parse_hex_color(hex: &str) -> Option<[f32; 3]> {
+    let digits = hex.strip_prefix('#')?;
+    if digits.len() != 6 {
+        return None;
+    }
+    let channel = |i: usize| u8::from_str_radix(&digits[i..i + 2], 16).ok().map(|v| {
+        let c = f32::from(v) / 255.0;
+        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    });
+    Some([channel(0)?, channel(2)?, channel(4)?])
+}
+
 pub(super) fn convert_water_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, _name, min, size) = ctx.parts();
     // Entity water goes into the same `World::water_regions` list as IntGrid

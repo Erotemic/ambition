@@ -1932,6 +1932,7 @@ pub fn reinstatable_authored_requests(
         shrines: _,
         gravity_zones: _,
         debug_labels: _,
+        lights: _,
         mount_links: _,
         boss_successions: _,
         encounter_triggers: _,

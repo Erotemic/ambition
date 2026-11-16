@@ -932,6 +932,7 @@
     "hill_gate_barrier": (),
     "hill_woods_hollow_oak": (),
     "hill_salt_run_hatch": (),
+    "hill_salt_run_lantern": (),
     // The catacombs under the moor (Evil).
     "catacombs_west": (),
     "catacombs_east": (),

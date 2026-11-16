@@ -776,6 +776,26 @@
       "fields": []
     },
     {
+      "identifier": "LightSource",
+      "probe_size": [
+        32,
+        32
+      ],
+      "note": "a lamp a dark room's light map draws (DR2); presentation only. `radius` and `intensity` are tuning numbers: absent, the radius is the larger side of the box and the intensity 1.",
+      "fields": [
+        {
+          "name": "color",
+          "presence": "optional",
+          "patterns": [
+            "^#[0-9a-fA-F]{6}$"
+          ],
+          "on_invalid": "refused",
+          "sample": "#ffc880",
+          "note": "absent, a warm lamp"
+        }
+      ]
+    },
+    {
       "identifier": "MovingPlatform",
       "probe_size": [
         64,

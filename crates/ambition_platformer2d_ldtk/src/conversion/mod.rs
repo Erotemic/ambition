@@ -207,6 +207,9 @@ impl LdtkProject {
                 ambition_platformer2d_world::debug_label::DebugLabel,
             >,
         > = Vec::new();
+        let mut lights: Vec<
+            ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::light_source::LightSource>,
+        > = Vec::new();
         let mut mount_links: Vec<(String, String)> = Vec::new();
         let mut boss_successions: Vec<(String, String)> = Vec::new();
         let mut chains: Vec<ae::SurfaceChain> = Vec::new();
@@ -309,6 +312,7 @@ impl LdtkProject {
                         enemy_spawns.extend(emission.enemy_spawns);
                         boss_spawns.extend(emission.boss_spawns);
                         debug_labels.extend(emission.debug_labels);
+                        lights.extend(emission.lights);
                         mount_links.extend(emission.mount_links);
                         boss_successions.extend(emission.boss_successions);
                         chains.extend(emission.chains);
@@ -495,6 +499,7 @@ impl LdtkProject {
             enemy_spawns,
             boss_spawns,
             debug_labels,
+            lights,
             mount_links,
             boss_successions,
             placements,
@@ -576,6 +581,10 @@ pub struct RoomEmission {
         ambition_platformer2d_world::rooms::Authored<
             ambition_platformer2d_world::debug_label::DebugLabel,
         >,
+    >,
+    /// Lamps (`LightSource`): what a dark room's light map draws.
+    pub lights: Vec<
+        ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::light_source::LightSource>,
     >,
     /// ADR 0020 mount links: `(rider_id, mount_id)` pairs from a rider
     /// `EnemySpawn` with a `mounted_on` entity-ref. Resolved into a
@@ -991,6 +1000,7 @@ fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter>
         map.insert("EnemySpawn", convert_enemy_spawn);
         map.insert("BossSpawn", convert_boss_spawn);
         map.insert("DebugLabel", convert_debug_label);
+        map.insert("LightSource", convert_light_source);
         map.insert("WaterVolume", convert_water_volume);
         map.insert("MovingPlatform", convert_moving_platform);
         map.insert("CameraZone", convert_camera_zone);

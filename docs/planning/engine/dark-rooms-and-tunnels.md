@@ -105,6 +105,26 @@ is down there (coins, a note).
 - **DR2. The light map (High).** `LightSource`, the per-view target, actor
   glows and fire glows drawn into it. Acceptance: a tunnel lit by its lamps
   and the player; the cost measured (one target per view at half size).
+  **Landed 2026-11-16 (lamps and players; glows next).** `LightSource` is an
+  LDtk entity (`radius`, `color` `#rrggbb`, `intensity`; in the entity
+  contract), carried in the room spec (`RoomSpec::lights`, presentation
+  only). At High and Ultra (`DarknessQuality::LightMap`) the veil is one
+  sprite over the view (1.25 times it) whose 160x90 texture is the darkness
+  left where the lights reach, each light the hole's falloff over only the
+  texels it reaches, combined as `1 - prod(1 - light)`, then the perceptual
+  alpha (a 256-entry table); computed on the CPU and drawn with linear
+  filtering, redrawn only when the camera, a light or the darkness moved.
+  Where a lamp's light fades the veil takes a third of its colour (the
+  authored `color`): a warm rim, not a haze. That is not the GPU target this
+  page planned: at 160x90 the CPU map needs no render-graph pass. Measured
+  on this VM (release, six overlapping lamps of radius 260 over a 1600x900
+  view): 0.28 ms a frame, 0.17 of it the colour pass every map pays; the
+  first, unbounded version cost 1.03. Every player's light is in it, and
+  the salt run's four lanterns (`hill_salt_run_lantern`) and the daylight
+  down its well shaft; none past the well, as its sign says. Captured at
+  High (lantern pools along the race, dark between) and Low (the player's
+  hole only). Still to draw into it: actor glows and fire glows (they
+  already know their places), and the lantern a player carries (TN3).
 - **DR3. Occlusion (Ultra).** Lights stopped by solid blocks. Acceptance:
   a lamp round a corner leaves the far side dark; the frame cost measured.
 - **TN1. Navigation over painted terrain.** The graph's surfaces from the

@@ -7,6 +7,7 @@
 
 pub mod collision;
 pub mod debug_label;
+pub mod light_source;
 pub mod geometry_observers;
 pub mod navigation;
 pub mod placements;

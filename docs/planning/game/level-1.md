@@ -277,7 +277,9 @@ the shelf under the oak and the way up into the woods. It is a way, not a
 gate: the street above is always open. Dark at 75% (DR1); the
 smugglers' lanterns light it from the hatch to the well, and daylight falls
 faintly down the well's shaft (at High, DR2's light map); past the well it
-is dark.
+is dark, and the light is the one you carry: a spare lantern hangs by the
+hatch (the Lantern, a key item that widens your light). Its ways out are
+ladders up to a trapdoor at each end.
 
 ### Hobford woods (`intro_woods`)
 

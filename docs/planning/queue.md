@@ -34,8 +34,9 @@ carries closed campaigns. Unselected or customer-gated plans live in
    the ossuary), TN2 (the salt run under Hobford) and DR2 (the light map
    at High: players, `LightSource` lamps, and whatever carries
    `CastsLight`, which actor glows and fires do) and DR3 (Ultra's shadows:
-   light stops at the room's solid ground) are done (2026-11-16); next:
-   TN3 (the lantern) and TN1 (navigation over painted terrain).
+   light stops at the room's solid ground) and TN3 (the Lantern, found in
+   the salt run) are done (2026-11-16); next: TN1 (navigation over painted
+   terrain).
 0b. **Runtime authoring: a scripting language (Jon, 2026-11-14: "I think its
    time for a scripting language"; after the audit's obvious fixes, scripting
    is the feature priority).** The
@@ -219,9 +220,10 @@ or updating their source. Check with
 
 **Done 2026-11-10 for the grid; the held javelin ruled 2026-11-14.** The Javelin and the Sealed Note are gone
 from the item grid, `items.ron`, the intro dialogue and every test that
-granted them. Their slots are "Empty" reserved cells (`Item::Empty3`,
+granted them. Their slots became "Empty" reserved cells (`Item::Empty3`,
 `Item::Empty4`), as the Axe's and the Map Fragment's were, so no other item's
-index or `dialog_id` moved. Replacements:
+index or `dialog_id` moved; `Item::Empty4` is the Lantern since 2026-11-16
+(TN3). Replacements:
 
 - **The intro handover:** Alice sends Bob a Spare Battery for his survey lamp
   (`intro.yarn`). Bob takes one only once Alice's flag is set, so a battery

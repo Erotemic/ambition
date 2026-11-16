@@ -1,6 +1,6 @@
 # Dark rooms and tunnels
 
-**State:** OPEN, planned 2026-11-14; DR1, TN2, DR2 and DR3 landed 2026-11-16. Asked by Jon on 2026-11-14: "we have to
+**State:** OPEN (TN1 left), planned 2026-11-14; DR1, TN2, DR2, DR3 and TN3 landed 2026-11-16. Asked by Jon on 2026-11-14: "we have to
 start thinking about how to model "dark" or "dim" rooms with limited
 visibilities and effectively tunnels. We don't have any rooms that are based
 on tunnels, and tunnels in a metroidvania are fun and how we make good use of
@@ -162,3 +162,15 @@ is down there (coins, a note).
   was boards in the air). Dark at 75%. Its lamps wait for DR2.
 - **TN3. The lantern.** A held light that widens the player's light: the
   first item whose worth is seeing.
+  **Landed 2026-11-16, as a key item, not a held one** (a held item takes
+  the hand a weapon needs; the light is the point, not the holding). The
+  Lantern is `Item::Lantern` (the Sealed Note's old slot, `lantern`), found
+  by the salt run's hatch (a `PickupSpawn` `ability:lantern`, kept once
+  taken). The engine has a `PlayerLight` (`presentation::PlayerLight`:
+  each player's light radius and colour, default 200 and the room's own
+  dark), read by the hole veil and the light map; Ambition sets it while
+  the bag holds the Lantern (`ambition_content::presentation::lantern`:
+  360, warm), so the renderer names no item. The pickup draws as the shared
+  item orb (pickups have three looks; per-item pickup art is not done).
+  The salt run's ways out are now its smugglers' ladders up to a trapdoor
+  (`hill_salt_run_ladder`, `SceneArt`), not doors in the rock.

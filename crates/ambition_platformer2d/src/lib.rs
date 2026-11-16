@@ -1528,6 +1528,10 @@ pub mod presentation {
     /// anything that should light the dark (a fire, a lamp a game draws
     /// itself). Actor glows cast theirs already.
     pub use ambition_platformer2d_shared_tangle::gameplay_presentation::CastsLight;
+
+    /// The light each player gives in a dark room: set a [`PlayerLight`] to
+    /// widen or tint it (a lantern).
+    pub use ambition_platformer2d_shared_tangle::gameplay_presentation::PlayerLight;
 }
 
 /// The SDK claim about the inspector, tested.

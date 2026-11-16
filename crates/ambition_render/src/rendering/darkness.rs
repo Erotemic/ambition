@@ -25,7 +25,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use ambition_persistence::settings::{DarknessQuality, ResolvedVisualQuality};
 use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
-use ambition_platformer2d_shared_tangle::gameplay_presentation::CastsLight;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::{CastsLight, PlayerLight};
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
@@ -49,9 +49,8 @@ pub struct RoomShadows {
 pub const DARKNESS_VEIL_Z: f32 = DAYLIGHT_VEIL_Z + 0.5;
 /// Far past any view, as the daylight veil.
 const FAR: f32 = 20_000.0;
-/// The player's light: its radius in world units, and where its falloff
-/// starts, as a part of the radius.
-const LIGHT_RADIUS: f32 = 200.0;
+/// Where a light's falloff starts, as a part of its radius. A player's
+/// radius is the game's [`PlayerLight`].
 const LIGHT_CORE: f32 = 0.35;
 /// The cheapest tier is never more than half dark.
 const FLAT_CAP: f32 = 0.5;
@@ -271,8 +270,7 @@ fn veil_alpha(perceived: f32) -> f32 {
 
 /// Where each piece of the veil goes, and how big it is (bevy world units),
 /// for a veil round `light` (the player) under `camera`; `None` hides it.
-fn layout(piece: DarknessVeil, quality: DarknessQuality, camera: Vec2, light: Option<Vec2>) -> Option<(Vec2, Vec2)> {
-    let r = LIGHT_RADIUS;
+fn layout(piece: DarknessVeil, quality: DarknessQuality, camera: Vec2, light: Option<Vec2>, r: f32) -> Option<(Vec2, Vec2)> {
     match (quality, light) {
         // The light map is one piece; the others' place is its own.
         (DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap, _) => None,
@@ -305,6 +303,7 @@ pub fn darken_the_room(
     cameras: Query<(&Transform, Option<&Projection>), (With<MainCamera>, Without<DarknessVeil>)>,
     players: Query<&GlobalTransform, (With<PlayerVisual>, Without<DarknessVeil>)>,
     casters: Query<(&GlobalTransform, &CastsLight, &InheritedVisibility)>,
+    player_light: Option<Res<PlayerLight>>,
     mut veils: Query<(&DarknessVeil, &mut Transform, &mut Sprite, &mut Visibility)>,
     // What the light map was last drawn from: a still frame draws nothing.
     mut drawn: Local<Option<(Vec2, Vec2, f32, [f32; 3], Vec<Lamp>, Option<GridKey>)>>,
@@ -376,6 +375,7 @@ pub fn darken_the_room(
         (transform.translation.truncate(), view)
     });
     let light = players.iter().next().map(|player| player.translation().truncate());
+    let player_light = player_light.map_or(PlayerLight::default(), |light| *light);
     if matches!(quality, DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap) {
         let size = view * MAP_MARGIN;
         let ambient = darkness.to_srgba();
@@ -383,9 +383,9 @@ pub fn darken_the_room(
         let mut all = lamps;
         all.extend(players.iter().map(|player| Lamp {
             at: player.translation().truncate(),
-            radius: LIGHT_RADIUS,
+            radius: player_light.radius,
             intensity: 1.0,
-            color: ambient,
+            color: player_light.color.unwrap_or(ambient),
         }));
         all.extend(casters.iter().filter(|(_, _, shown)| shown.get()).map(|(at, light, _)| Lamp {
             at: at.translation().truncate(),
@@ -423,7 +423,7 @@ pub fn darken_the_room(
     }
     let darkness = darkness.with_alpha(veil_alpha(perceived));
     for (piece, mut transform, mut sprite, mut visibility) in &mut veils {
-        let Some((at, size)) = layout(*piece, quality, camera, light) else {
+        let Some((at, size)) = layout(*piece, quality, camera, light, player_light.radius) else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
@@ -442,17 +442,18 @@ mod tests {
     fn the_veil_is_one_piece_when_flat_and_five_round_the_player() {
         let camera = Vec2::new(10.0, 20.0);
         let player = Some(Vec2::new(100.0, 50.0));
-        let flat: Vec<_> = DarknessVeil::ALL.iter().filter_map(|p| layout(*p, DarknessQuality::Flat, camera, player)).collect();
+        let r = 200.0;
+        let flat: Vec<_> = DarknessVeil::ALL.iter().filter_map(|p| layout(*p, DarknessQuality::Flat, camera, player, r)).collect();
         assert_eq!(flat.len(), 1);
         let round: Vec<_> = DarknessVeil::ALL
             .iter()
-            .filter_map(|p| layout(*p, DarknessQuality::AroundThePlayer, camera, player))
+            .filter_map(|p| layout(*p, DarknessQuality::AroundThePlayer, camera, player, r))
             .collect();
         assert_eq!(round.len(), 5);
         // The hole is on the player, and the pieces meet its edges.
-        assert_eq!(round[0], (Vec2::new(100.0, 50.0), Vec2::splat(2.0 * LIGHT_RADIUS)));
+        assert_eq!(round[0], (Vec2::new(100.0, 50.0), Vec2::splat(2.0 * r)));
         let (left_at, left_size) = round[1];
-        assert!((left_at.x + left_size.x / 2.0 - (100.0 - LIGHT_RADIUS)).abs() < 1e-3);
+        assert!((left_at.x + left_size.x / 2.0 - (100.0 - r)).abs() < 1e-3);
     }
 
     #[test]

@@ -215,13 +215,14 @@
         dialog_id: "sparebattery",
         stack: 99,
     ),
-    // An empty slot (the Sealed Note was here; removed 2026-11-10).
+    // A key item whose worth is seeing: while it is in the bag, the game
+    // widens the players' light in a dark room. (The Sealed Note's slot.)
     (
-        display_name: "Empty",
-        description: "",
-        category: Reserved,
+        display_name: "Lantern",
+        description: "A smuggler's lantern from the salt run, still with oil in it. It lights the dark a long way round you.",
+        category: KeyItem,
         held_item_id: None,
-        dialog_id: "empty4",
+        dialog_id: "lantern",
     ),
     (
         display_name: "Field Survey",

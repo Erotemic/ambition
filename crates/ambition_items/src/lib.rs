@@ -81,9 +81,10 @@ pub enum Item {
     HealthCell = 18,
     ManaCell = 19,
     SpareBattery = 20,
-    /// An empty slot of the grid: no item. The Sealed Note was here (removed
-    /// 2026-11-10; Alice now hands over a Spare Battery).
-    Empty4 = 21,
+    /// A lantern: a key item whose worth is seeing. While a player has it,
+    /// the game widens the players' light in a dark room. (The slot was the
+    /// Sealed Note's, removed 2026-11-10.)
+    Lantern = 21,
     FieldSurvey = 22,
     /// An empty slot of the grid: no item. The Map Fragment was here
     /// (removed 2026-10-30: nothing in the game gave it or used it).
@@ -375,7 +376,7 @@ impl Item {
         Item::HealthCell,
         Item::ManaCell,
         Item::SpareBattery,
-        Item::Empty4,
+        Item::Lantern,
         Item::FieldSurvey,
         Item::Empty2,
     ];

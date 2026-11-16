@@ -20,6 +20,7 @@ pub mod gnu_ton_sky;
 pub mod inugami_field;
 pub mod mockingbird_sky;
 pub mod room_look;
+mod lantern;
 pub mod dialog;
 pub mod vanity_card_made_this_meme;
 
@@ -56,6 +57,7 @@ impl Plugin for AmbitionPresentationPlugin {
         inugami_field::install(app);
         mockingbird_sky::install(app);
         room_look::install(app);
+        lantern::install(app);
         // Idle barks fire on the pack's cadence (`boss_idle_bark`) while a
         // boss is in an attacking phase, so the scholar feels alive between
         // strikes. Ambition's bosses, so only in Ambition's rooms.

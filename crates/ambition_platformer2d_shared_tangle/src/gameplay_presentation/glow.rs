@@ -67,6 +67,24 @@ pub struct CastsLight {
     pub color: [f32; 3],
 }
 
+/// The light each player gives in a dark room: what the veil's hole and the
+/// light map draw about a player (dark rooms, DR1 and DR2). A game sets it
+/// (a lantern that widens it); without it a player's light is the default.
+/// Presentation only.
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct PlayerLight {
+    /// World units.
+    pub radius: f32,
+    /// sRGB, `0..=1`; `None` is the room's own darkness (no tint).
+    pub color: Option<[f32; 3]>,
+}
+
+impl Default for PlayerLight {
+    fn default() -> Self {
+        Self { radius: 200.0, color: None }
+    }
+}
+
 /// A light about one actor. Put it on the actor's visual entity.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorGlow {

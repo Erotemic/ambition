@@ -37,7 +37,7 @@ pub use defense::{
     DefensePresentationCues, DefensePresentationPolicy,
 };
 // A light about an actor, and the route's rule for which bodies wear one.
-pub use glow::{ActivePlayerGlow, ActorGlow, CastsLight, GlowLayer, GlowLook, GlowPulse, PlayerGlowCatalog};
+pub use glow::{ActivePlayerGlow, ActorGlow, CastsLight, GlowLayer, GlowLook, GlowPulse, PlayerGlowCatalog, PlayerLight};
 pub use control_regions::{
     ControlAnchor, ControlFootprint, ControlFootprints, ControlPlacement, ControlPlacementPolicy,
     PlacedControl, ResolvedControlRegions,

@@ -57,7 +57,7 @@ fn item_meta_table_is_index_aligned() {
         (Item::HealthCell, "Health Cell"),
         (Item::ManaCell, "Mana Cell"),
         (Item::SpareBattery, "Spare Battery"),
-        (Item::Empty4, "Empty"),
+        (Item::Lantern, "Lantern"),
         (Item::FieldSurvey, "Field Survey"),
         (Item::Empty2, "Empty"),
     ];
@@ -331,7 +331,10 @@ fn the_starter_bag_unlocks_every_real_item() {
     // unlock.
     assert_eq!(catalog.category(Item::SpareBattery), Some(ItemCategory::KeyItem));
     assert!(!owned.has(Item::SpareBattery), "the battery is a quest reward");
-    for empty in [Item::Empty1, Item::Empty2, Item::Empty3, Item::Empty4] {
+    // The lantern is found under Hobford, not given.
+    assert_eq!(catalog.category(Item::Lantern), Some(ItemCategory::KeyItem));
+    assert!(!owned.has(Item::Lantern), "the lantern is found in the salt run");
+    for empty in [Item::Empty1, Item::Empty2, Item::Empty3] {
         assert!(!owned.has(empty), "{empty:?} is no item");
     }
 }

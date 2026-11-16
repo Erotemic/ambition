@@ -47,7 +47,7 @@ pub fn ambition_sim_composition(
     use ambition_platformer2d::ldtk_map as ldtk_world;
     // Provider-owned catalogs are composed as App-local resources by the
     // simulation plugin; validation reads the provider's manifest directly.
-    let world_manifest = ambition_content::worlds::world_manifest();
+    let world_manifest = ambition_content::worlds::select(app.world_mut());
     let project = ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)?;
     let report = project.validate(&crate::composed_ldtk_vocabulary());
     if !report.is_ok() {

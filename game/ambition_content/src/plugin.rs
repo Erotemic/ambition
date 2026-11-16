@@ -69,7 +69,7 @@ impl Plugin for AmbitionContentPlugin {
         super::reload::register(app);
 
         // App-local world manifest shared by runtime and presentation readers.
-        app.insert_resource(super::worlds::world_manifest());
+        super::worlds::select(app.world_mut());
 
         // Insert the validated item catalog lowered from this App's pack. It is
         // App-local: a content reload publishes a new one into this App only.

@@ -32,18 +32,8 @@ pub fn init_sandbox_resources(app: &mut App) {
     ambition_content::audio_registries::register(app);
     ambition_content::character_catalog::register(app);
     ambition_content::bosses::register(app);
-    // This inserted the same value the content plugin does — idempotent, since
-    // both call `ambition_content::worlds::world_manifest()` — but two writers
-    // of one global is the shape that has cost this repo a roster, a rebuild, a
-    // retirement and a countdown. The provider that OWNS the worlds publishes
-    // the declaration; the host reads it.
-    //
-    // the local value stays: it is threaded BY REFERENCE into every
-    // preparation-time reader below (catalog rows, the LDtk load, the room-set
-    // conversion, the hot-reload watcher), which run before any schedule and so
-    // cannot take a `Res`. That is the K2a shape — no process global — and it is
-    // unaffected by who inserts the resource.
-    let world_manifest = ambition_content::worlds::world_manifest();
+    // One declaration feeds the catalog, provider preparation, and reload.
+    let world_manifest = ambition_content::worlds::select(app.world_mut());
 
     // Audio lives in its own registries, separate from sandbox tuning and
     // from each other (SFX synthesis vs. generated music pointers).

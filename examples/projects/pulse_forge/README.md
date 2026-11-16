@@ -3,6 +3,7 @@
 This project adds a charge-and-release technique with no Rust module.
 Its equipment row binds `pulse_forge` to the Projectile slot. Its Rhai
 declaration defines the inputs, state schemas, requests, and limits.
+Its LDtk world has one drill room, a raised platform, and an infinite sandbag.
 
 Build the host and inspection tool once, from the repository root:
 
@@ -30,6 +31,26 @@ An emitter stays at the release position and fires four bolts per pulse.
 A longer charge gives more pulses, up to five. The emitter ends after its
 last pulse.
 
+The `worlds` field in `project.ron` selects the directory of LDtk files.
+The pack's `content/worlds.ron` names those files and the entry room. The
+project starts in that room unless `entry_room` or `--start-room` overrides
+it. The app uses this same declaration for loading, drawing, and reload.
+Project worlds have no fallback to the host's embedded worlds.
+
+Edit `room.json`, then build the world with the existing Python tools:
+
+```bash
+python examples/projects/pulse_forge/author_world.py
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor examples/projects/pulse_forge/worlds/drill.ldtk
+```
+
+These commands need no Cargo build. You can also edit `worlds/drill.ldtk`
+with LDtk. While the game runs, use **Apply Reload** in the developer
+controls, or enable its automatic world reload. A rejected world reload
+keeps the live room. World reload uses the existing session publication
+boundary and resets local rollback history. Changes to the world file list,
+world directory, or entry room take effect at the next start.
+
 Edit `modules/pulse_forge.rhai` while the game runs. For example, change
 `BOLT_SPEED` from `240.0` to `360.0`. The next pulse uses the new speed.
 No Cargo command is needed. A syntax error leaves the last good program
@@ -56,9 +77,9 @@ from their declared initial values.
 
 `content/items.ron` owns the equipment binding and its display text. The
 content manifest reads the host's other content files and asset library by
-relative path. The example thus needs this repository's content and worlds.
-It is a new mechanic on the installed Ambition profile, not a separate game
-distribution. The fixed inventory catalog still requires the existing
+relative path. The example thus needs this repository's content library.
+Its world and mechanic are project files. It does not supply a separate
+game distribution. The fixed inventory catalog still requires the existing
 `eyelaser` slot id. The new technique, module, entity kind, and state keys
 are declared in project files.
 

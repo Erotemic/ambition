@@ -36,6 +36,11 @@ fn options(rollback: bool) -> Platformer2dSimHarnessOptions {
 }
 
 fn equip(sim: &mut Platformer2dSimHarness) {
+    assert!(
+        ambition_platformer2d::world::rooms::sole_live_room_definition(sim.world()).is_some(),
+        "the project session did not start: {:?}",
+        sim.world().resource::<ambition_platformer2d::game_shell::ShellFailureLog>().reasons(),
+    );
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
         ItemEquipRequested {
@@ -114,6 +119,12 @@ fn a_project_declares_and_runs_a_charged_technique_through_rollback() {
     let mut sim = project
         .sim(options(true))
         .expect("the authored project builds");
+    let manifest = sim.world().resource::<ambition_platformer2d::world::world_manifest::WorldManifest>();
+    assert_eq!(manifest.worlds.len(), 1);
+    assert_eq!(manifest.primary().id.as_str(), "world.pulse_forge");
+    assert_eq!(manifest.entry_room, "pulse_forge_drill");
+    assert!(manifest.primary().embedded_text.is_none());
+    assert!(manifest.primary().embedded_bevy_path.is_none());
     let admitted = sim.world().resource::<AdmittedExtensions>();
     assert!(
         admitted
@@ -183,10 +194,12 @@ impl ScratchProject {
         let dir =
             std::env::temp_dir().join(format!("ambition_pulse_forge_{}_{arm}", std::process::id()));
         std::fs::create_dir_all(dir.join("modules")).unwrap();
+        std::fs::create_dir_all(dir.join("worlds")).unwrap();
+        std::fs::copy(example().join("worlds/drill.ldtk"), dir.join("worlds/drill.ldtk")).unwrap();
         std::fs::write(dir.join("modules/pulse_forge.rhai"), script).unwrap();
         let content = example().join("content").canonicalize().unwrap();
         std::fs::write(dir.join("project.ron"), format!(
-            "(schema: \"ambition.project.v1\", name: \"pulse test\", content: Some({:?}), modules: [\"modules\"], starting_items: Some([(\"eyelaser\", 1)]))",
+            "(schema: \"ambition.project.v1\", name: \"pulse test\", content: Some({:?}), worlds: Some(\"worlds\"), modules: [\"modules\"], starting_items: Some([(\"eyelaser\", 1)]))",
             content.to_str().unwrap(),
         )).unwrap();
         Self(dir)
@@ -213,6 +226,79 @@ impl Drop for ScratchProject {
 
 fn source() -> String {
     std::fs::read_to_string(example().join("modules/pulse_forge.rhai")).unwrap()
+}
+
+#[test]
+fn a_project_world_loads_draws_and_keeps_the_live_room_when_reload_fails() {
+    use ambition_app::app::VisibleRenderMode;
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+    use ambition_platformer2d::ldtk_map::ActiveLdtkProject;
+    use ambition_platformer2d::platformer::lifecycle::{RoomVisual, session_world_component};
+    use ambition_platformer2d::world::rooms::{RoomSet, sole_live_room_definition};
+
+    let scratch = ScratchProject::new("world", &source());
+    let path = scratch.0.join("worlds/drill.ldtk").canonicalize().unwrap();
+    let original = std::fs::read_to_string(&path).unwrap();
+    let project = Project::load(&scratch.0).unwrap();
+    let mut app = project.app(VisibleRenderMode::NoWindow);
+    bevy::tasks::block_on(async {
+        let source = app.world().resource::<bevy::asset::AssetServer>().get_source("project").unwrap();
+        let reader = source.reader();
+        let mut world_file = reader.read(Path::new("worlds/drill.ldtk")).await.unwrap();
+        let mut bytes = Vec::new();
+        world_file.read_to_end(&mut bytes).await.unwrap();
+        assert_eq!(bytes, original.as_bytes());
+        // LDtk's relative image path uses the same source's library imports.
+        let mut sprite = reader.read(Path::new("sprites/player_robot_v3_spritesheet.png")).await.unwrap();
+        bytes.clear();
+        sprite.read_to_end(&mut bytes).await.unwrap();
+        assert!(!bytes.is_empty());
+    });
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_nanos(16_666_667),
+    ));
+    let started = std::time::Instant::now();
+    loop {
+        app.update();
+        let drawn = app.world_mut().query_filtered::<Entity, bevy::prelude::With<RoomVisual>>()
+            .iter(app.world()).count();
+        if sole_live_room_definition(app.world()).is_some() && drawn > 0 {
+            break;
+        }
+        assert!(started.elapsed().as_secs() < 15, "the project world did not draw: {:?}",
+            app.world().resource::<ambition_platformer2d::game_shell::ShellFailureLog>().reasons());
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    let rooms = session_world_component::<RoomSet>(app.world()).unwrap();
+    assert_eq!(rooms.rooms.len(), 1, "the host's rooms are not added");
+    assert_eq!(rooms.rooms[0].id, "pulse_forge_drill");
+    let before = sole_live_room_definition(app.world()).unwrap();
+    let watch = app.world().resource::<WorldSourceHotReload>();
+    assert_eq!(watch.watch_path.as_ref(), Some(&path));
+    let applied = watch.applied_count;
+    let levels = &app.world().resource::<ActiveLdtkProject>().0.levels;
+    assert_eq!(levels.len(), 1);
+    assert_eq!(levels[0].world_source, "world.pulse_forge");
+
+    std::fs::write(&path, "{ invalid world").unwrap();
+    crate::an_edit_reaches_the_shipped_game::press_apply_reload(&mut app);
+    let watch = app.world().resource::<WorldSourceHotReload>();
+    assert_eq!(watch.applied_count, applied);
+    assert!(!watch.last_errors.is_empty());
+    assert_eq!(sole_live_room_definition(app.world()).unwrap(), before);
+    assert_eq!(app.world().resource::<ActiveLdtkProject>().0.levels.len(), 1);
+
+    std::fs::write(&path, original).unwrap();
+    crate::an_edit_reaches_the_shipped_game::press_apply_reload(&mut app);
+    let watch = app.world().resource::<WorldSourceHotReload>();
+    assert_eq!(watch.applied_count, applied + 1, "{}", watch.last_status);
+    assert!(watch.last_errors.is_empty());
+    for _ in 0..10 {
+        app.update();
+    }
+    let rooms = session_world_component::<RoomSet>(app.world()).unwrap();
+    assert_eq!(rooms.rooms.len(), 1);
+    assert_eq!(rooms.rooms[0].id, "pulse_forge_drill");
 }
 
 #[test]

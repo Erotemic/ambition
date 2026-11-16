@@ -67,7 +67,7 @@ pub fn validate_embedded_content_graph(sprite_content: &ambition_platformer2d::s
         }
     };
     let character_catalog = crate::character_catalog::catalog_of(pack);
-    validate_content_graph(&sprite_content, pack, music.as_ref(), &project, &character_catalog)
+    validate_content_graph(&sprite_content, pack, music.as_ref(), &project, &crate::worlds::world_manifest(), &character_catalog)
 }
 
 /// Validate relationships among the music registry and the LDtk world
@@ -84,6 +84,7 @@ pub fn validate_content_graph(sprite_content: &ambition_platformer2d::sprite_she
     pack: &ambition_content_pack::PreparedContentPack,
     music: Option<&MusicRegistry>,
     project: &LdtkProject,
+    world_manifest: &ambition_platformer2d_world::world_manifest::WorldManifest,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> ContentValidationReport {
     let mut report = ContentValidationReport::default();
@@ -121,7 +122,7 @@ pub fn validate_content_graph(sprite_content: &ambition_platformer2d::sprite_she
     // check below that asks about a room, a zone or a link reads these. It does
     // not read the LDtk fields a second time with a rule of its own.
     let (rooms, links) = match project.to_room_parts(
-        &crate::worlds::world_manifest(),
+        world_manifest,
         &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
     ) {
         Ok(parts) => parts,
@@ -833,7 +834,7 @@ mod tests {
             .map(|entity| &mut entity.field_instances)
             .expect("the zone is still there");
         edit(fields);
-        validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog)
+        validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &crate::worlds::world_manifest(), &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid) || error.contains(&name))
@@ -928,7 +929,7 @@ mod tests {
         );
 
         let name = format!("{area}:{id}");
-        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog)
+        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &crate::worlds::world_manifest(), &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid) || error.contains(&name))
@@ -999,7 +1000,7 @@ mod tests {
             "dialogue_id",
             serde_json::Value::String("oiler_post_stabilizer".into()),
         );
-        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog)
+        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &crate::worlds::world_manifest(), &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid))
@@ -1042,7 +1043,7 @@ mod tests {
                 "dialogue_id",
                 serde_json::Value::String(dialogue_id.into()),
             );
-            validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog)
+            validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &crate::worlds::world_manifest(), &character_catalog)
                 .errors
                 .into_iter()
                 .filter(|error| error.contains(&iid))
@@ -1133,7 +1134,7 @@ mod tests {
             .expect("embedded LDtk loads");
         let character_catalog = crate::character_catalog::shipped_catalog();
         let music = registry_of(&["the_only_track"]);
-        let report = validate_content_graph(&sprite_content, crate::pack::shipped(), Some(&music), &project, &character_catalog);
+        let report = validate_content_graph(&sprite_content, crate::pack::shipped(), Some(&music), &project, &crate::worlds::world_manifest(), &character_catalog);
         let music_errors: Vec<_> = report.errors.iter().filter(|error| error.contains("music")).collect();
         assert!(music_errors.is_empty(), "a track the registry lacks stopped the game: {music_errors:?}");
         let told: Vec<_> = report
@@ -1154,7 +1155,7 @@ mod tests {
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let character_catalog = crate::character_catalog::shipped_catalog();
-        let report = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog);
+        let report = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &crate::worlds::world_manifest(), &character_catalog);
         assert!(
             report
                 .errors

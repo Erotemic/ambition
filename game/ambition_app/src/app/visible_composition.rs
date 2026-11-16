@@ -160,12 +160,13 @@ pub fn compose_ambition_visible_game(
         super::startup_loading::install_direct_startup_loading(app);
     }
 
+    let world_manifest = ambition_content::worlds::select(app.world_mut());
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added by
     // `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
         ambition_platformer2d::assets::platformer_assets::asset_source_for_profile(
             active_profile,
-            &ambition_content::worlds::world_manifest(),
+            &world_manifest,
         ),
     );
 }

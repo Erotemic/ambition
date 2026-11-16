@@ -1,0 +1,6 @@
+(
+    entry_room: "pulse_forge_drill",
+    worlds: [
+        (id: "world.pulse_forge", file: "drill.ldtk", required: true),
+    ],
+)

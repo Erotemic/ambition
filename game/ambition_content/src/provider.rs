@@ -89,8 +89,10 @@ pub fn ambition_authored_catalogs(pack: &ambition_content_pack::PreparedContentP
         crate::character_catalog::starting_character(pack),
         crate::AMBITION_CONTENT_PROVIDER,
     )
-    .with_adaptive_cues()
     .with_packed_sfx();
+    if ambition_audio::content_schema::lowered_music_cues(pack).is_some() {
+        fragments = fragments.with_adaptive_cues();
+    }
     if ambition_audio::content_schema::lowered_music_registry(pack).is_some() {
         fragments = fragments.with_music();
     }

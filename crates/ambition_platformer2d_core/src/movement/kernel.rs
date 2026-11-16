@@ -756,7 +756,22 @@ fn step_adhesive_crawler(
         (true, false) => events.operations.push(super::MovementOp::CrawlDetach),
         _ => {}
     }
+    // The crawl seats the body for the surface it now clings to as already
+    // lying along it: at a corner, half a length off the old surface. Its
+    // material turns with it here. Righting cannot make that turn: the level
+    // box at the new seat already stands in the wall, so every turn it tries
+    // is refused, and the slug climbs with its length through the wall.
+    let turn = motion.state.attached_normal(ctx.world)
+        .and_then(|normal| clusters.kinematics.material.righting_turn(-normal, std::f64::consts::PI).ok())
+        .filter(|turn| *turn != 0.0);
+    let turn = turn.and_then(|turn| clusters.kinematics.material.turned(turn).ok().map(|material| {
+        clusters.kinematics.material = material;
+        turn
+    }));
     let step_half = write_sweep_sample(clusters, sweep_entry, motion.body_down(ctx.world, ctx.frame));
+    if let (Some(radians), Some(sweep)) = (turn, clusters.sweep.as_deref_mut()) {
+        sweep.turn = Some(crate::SourceTurn { radians, duration: f64::from(ctx.dt) });
+    }
     apply_world_hazard_gate(ctx.world, clusters, ctx.frame, step_half, &mut events);
 
     MotionStepResult::from_events(events, ctx.frame)

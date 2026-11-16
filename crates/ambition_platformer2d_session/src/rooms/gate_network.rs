@@ -7,7 +7,8 @@
 //! learns. It moves no body: a traveller goes through an open ring by the
 //! room-transition road (`detect_room_transition_system`).
 
-use bevy::prelude::{MessageReader, Query, Res, ResMut, With, Without};
+use bevy::prelude::{Query, Res, ResMut, With, Without};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_world::rooms::{
     gate_address_known_flag, resolve_dial, GateFacts, GateNetworkCatalog, GateNetworkState, GateRingPositions,
@@ -31,7 +32,7 @@ pub fn run_gate_network(
     catalog: Option<Res<GateNetworkCatalog>>,
     mut state: ResMut<GateNetworkState>,
     switches: Option<Res<ambition_encounter::switches::ResolvedSwitchActivations>>,
-    mut intents: MessageReader<GateTerminalIntent>,
+    mut intents: ReplayMessageReader<GateTerminalIntent>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     world_time: Res<ambition_time::WorldTime>,

@@ -14,6 +14,7 @@
 //! raw input gestures.
 
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
@@ -578,7 +579,7 @@ pub fn update_player_trail(
         ambition_platformer2d_core::RoomGeometry,
     >,
     enabled: Option<Res<PlayerTrailEnabled>>,
-    mut continuity_breaks: MessageReader<TrailContinuityBreak>,
+    mut continuity_breaks: ReplayMessageReader<TrailContinuityBreak>,
     mut commands: Commands,
     mut players: Query<
         (

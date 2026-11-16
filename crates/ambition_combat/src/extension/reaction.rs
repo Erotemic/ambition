@@ -9,6 +9,7 @@
 //! struck, which holds what the effect leaves there.
 
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::brain::ActorActionMessage;
 use ambition_combat_port::{AnswerParryPort, Parried, ParriedPort, Struck};
 pub use ambition_combat_port::StruckPort;
@@ -71,7 +72,7 @@ fn live_sustained(playback: &MovePlayback) -> impl Iterator<Item = &ambition_ent
 /// effect a module binds, in the order the parries were caught.
 pub fn queue_parries(
     admitted: Res<AdmittedExtensions>,
-    mut parries: MessageReader<ParriedBodyHit>,
+    mut parries: ReplayMessageReader<ParriedBodyHit>,
     playbacks: Query<&MovePlayback>,
     mut table: ResMut<TickParries>,
     mut invocations: ResMut<ExtensionInvocations>,
@@ -112,7 +113,7 @@ pub fn queue_parries(
 /// body it struck, in the order the strikes landed.
 pub fn queue_strikes(
     admitted: Res<AdmittedExtensions>,
-    mut strikes: MessageReader<OnHitEffectMessage>,
+    mut strikes: ReplayMessageReader<OnHitEffectMessage>,
     identities: Query<&SimId>,
     mut invocations: ResMut<ExtensionInvocations>,
 ) {

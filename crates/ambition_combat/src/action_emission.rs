@@ -8,6 +8,7 @@
 //! these systems live beside it rather than with the brain.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::brain::{
     action_set, ActionSet, ActorActionMessage, BrainActionCounter, ChargesProjectiles,
@@ -130,7 +131,7 @@ pub fn emit_player_projectile_tick_messages(
 /// messages — other readers still see them.
 pub fn observe_brain_action_counter(
     mut counter: ResMut<BrainActionCounter>,
-    mut reader: MessageReader<ActorActionMessage>,
+    mut reader: ReplayMessageReader<ActorActionMessage>,
 ) {
     let this_frame = reader.read().count() as u32;
     counter.last_frame = this_frame;

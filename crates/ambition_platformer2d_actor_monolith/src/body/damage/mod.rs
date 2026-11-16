@@ -11,9 +11,10 @@
 //! cues.
 
 use ambition_breakables::{BreakableFeature, emit_breakable_destroyed};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{
-    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With, Without,
+    Commands, Entity, MessageWriter, Query, Res, ResMut, With, Without,
 };
 
 use super::BodyCombat;
@@ -395,7 +396,7 @@ pub const ENEMY_HEALTH_DROP: i32 = 1;
 
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
 pub fn apply_feature_hit_events(
-    mut hit_events: MessageReader<HitEvent>,
+    mut hit_events: ReplayMessageReader<HitEvent>,
     // Every victim's PUBLISHED silhouette, looked up by entity.
     //
     // A separate read-only query rather than another member of the actor tuple:

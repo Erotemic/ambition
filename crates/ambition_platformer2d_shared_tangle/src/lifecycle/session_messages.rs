@@ -22,6 +22,8 @@ pub struct SessionMessageChannels {
     declared: BTreeSet<TypeId>,
     kept: BTreeSet<TypeId>,
     clear: Vec<(TypeId, fn(&mut World))>,
+    replayed: BTreeSet<TypeId>,
+    replay: Vec<(fn(&mut World), fn(&mut World))>,
 }
 
 impl SessionMessageChannels {
@@ -36,6 +38,7 @@ impl SessionMessageChannels {
 ///
 /// A second declaration of the same channel changes nothing.
 pub fn clear_message_at_session_activation<T: Message>(app: &mut App) {
+    register_room_replay_message::<T>(app);
     let mut channels = app
         .world_mut()
         .get_resource_or_init::<SessionMessageChannels>();
@@ -45,6 +48,18 @@ pub fn clear_message_at_session_activation<T: Message>(app: &mut App) {
                 messages.clear();
             }
         }));
+    }
+}
+
+/// Suspend a channel during room replay without changing its activation
+/// policy. Presentation output uses the same boundary as simulation messages.
+pub fn register_room_replay_message<T: Message>(app: &mut App) {
+    let mut channels = app.world_mut().get_resource_or_init::<SessionMessageChannels>();
+    if channels.replayed.insert(TypeId::of::<T>()) {
+        channels.replay.push((
+            ambition_platformer2d_core::replay_messages::isolate_messages_for_replay::<T>,
+            ambition_platformer2d_core::replay_messages::restore_messages_after_replay::<T>,
+        ));
     }
 }
 
@@ -91,9 +106,8 @@ pub(super) fn clear_session_message_channels(
     });
 }
 
-/// Empty every channel a rewind clears (each declared channel, kept ones
-/// too: `bevy_ggrs` clears them all on a load). A room rewind outside
-/// `bevy_ggrs` calls this; it empties the channels for every room.
+/// Empty every declared channel for a whole-session rewind, including kept
+/// channels. A room replay uses `begin_room_replay` and `end_room_replay`.
 pub fn clear_channels_for_a_rewind(world: &mut World) {
     let Some(channels) = world.get_resource::<SessionMessageChannels>() else {
         return;
@@ -102,6 +116,21 @@ pub fn clear_channels_for_a_rewind(world: &mut World) {
     for clear in clears {
         clear(world);
     }
+}
+
+/// Keep live message streams outside a room replay. Simulation readers use
+/// `ReplayMessageReader` so their live cursors stay with those streams.
+pub(super) fn isolate_channels_for_room_replay(world: &mut World) {
+    let Some(channels) = world.get_resource::<SessionMessageChannels>() else { return };
+    let isolate: Vec<fn(&mut World)> = channels.replay.iter().map(|(isolate, _)| *isolate).collect();
+    for isolate in isolate { isolate(world); }
+}
+
+/// Put back the streams that the room replay held at the live boundary.
+pub(super) fn restore_channels_after_room_replay(world: &mut World) {
+    let Some(channels) = world.get_resource::<SessionMessageChannels>() else { return };
+    let restore: Vec<fn(&mut World)> = channels.replay.iter().map(|(_, restore)| *restore).collect();
+    for restore in restore { restore(world); }
 }
 
 /// Install the clear on the activation edge.

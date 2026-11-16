@@ -99,6 +99,11 @@ pub fn watch_content_sources(world: &mut World) {
     }
 }
 
+/// The directory the watch reads, for a host that asks for its content again.
+pub fn watched_root(world: &World) -> std::path::PathBuf {
+    world.resource::<ContentSourceWatch>().root.clone()
+}
+
 /// How [`request_from_sources`] was answered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SourcesAnswer {

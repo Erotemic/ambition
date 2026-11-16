@@ -7,6 +7,7 @@
 //! authority.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use super::authority::ActiveConversation;
 use super::instance::ConversationInstanceId;
@@ -65,7 +66,7 @@ pub fn publish_the_narrative_end(
 /// work outside rollback. This runs before continuity checks so an ended conversation is not barked.
 pub fn close_conversation_on_narrative_end(
     mut conversation: ResMut<ActiveConversation>,
-    mut ended: MessageReader<ConversationEnded>,
+    mut ended: ReplayMessageReader<ConversationEnded>,
 ) {
     let ends = ended
         .read()

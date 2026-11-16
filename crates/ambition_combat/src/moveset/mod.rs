@@ -24,8 +24,9 @@
 //! decomposability contract, pinned by the tests below.
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Res, With,
+    Commands, Component, Entity, Message, MessageWriter, Query, Res, With,
 };
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_entity_catalog::{
     AttackDir, MoveEventKind, MoveSpec, MoveWindow, MovesetContract, WindowTag,
@@ -4166,7 +4167,7 @@ pub fn project_move_defense_windows(
 /// overlap pass; both consume [`crate::hitbox::LandedBodyHit`]. World/broadcast effects that do not
 /// resolve a body victim continue to mark their own outcome at their own resolution seam.
 pub fn mark_move_playback_landed_hits(
-    mut landed_hits: MessageReader<crate::hitbox::LandedBodyHit>,
+    mut landed_hits: ReplayMessageReader<crate::hitbox::LandedBodyHit>,
     mut playbacks: Query<(&mut MovePlayback, Option<&mut crate::stale::BodyStaleMoves>)>,
 ) {
     for landed in landed_hits.read() {
@@ -4211,8 +4212,8 @@ pub fn mark_move_playback_landed_hits(
 /// window opens one frame later than it used to. That is the whole cost of
 /// asking a true question instead of a cheap one.
 pub fn mark_move_playback_resolved_hits(
-    mut connects: MessageReader<crate::hitbox::ResolvedBodyHit>,
-    mut blocks: MessageReader<crate::hitbox::BlockedBodyHit>,
+    mut connects: ReplayMessageReader<crate::hitbox::ResolvedBodyHit>,
+    mut blocks: ReplayMessageReader<crate::hitbox::BlockedBodyHit>,
     mut playbacks: Query<&mut MovePlayback>,
 ) {
     for connect in connects.read() {
@@ -4270,7 +4271,7 @@ fn verdict_belongs_to(instance: Option<u32>, pb: &MovePlayback) -> bool {
 ///   frame (option A — a moveset shot still tracks a strafing target, unlike a
 ///   facing-locked `MovePlayback`); with no live intent it falls back to forward.
 pub fn dispatch_move_events(
-    mut events: MessageReader<MoveEventMessage>,
+    mut events: ReplayMessageReader<MoveEventMessage>,
     positions: Query<&ae::BodyKinematics>,
     ranged_owners: Query<(
         &ambition_characters::brain::action_set::ActionSet,

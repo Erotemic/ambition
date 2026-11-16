@@ -10,6 +10,7 @@
 //! portal adapter owns `RoomGeometry` and calls the helper.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_core::cast::{raycast_surfaces, SolidWorldQuery};
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionCommands, SpawnSessionScopedExt};
@@ -37,7 +38,7 @@ pub struct PortalShot {
 /// same order, so results match on every peer. A same-channel, same-tick
 /// winner rule, if needed, belongs here.
 pub fn portal_fire_system(
-    mut fires: MessageReader<PortalFireIntent>,
+    mut fires: ReplayMessageReader<PortalFireIntent>,
     mut commands: SessionCommands,
     mut fired: MessageWriter<PortalShotFired>,
     live: crate::PortalRooms,

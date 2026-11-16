@@ -11,6 +11,7 @@
 //! Rust in the demo crate.
 
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::brain::ActorActionMessage;
 use ambition_combat_port::{
     BodyStrikePort, FighterSpecial, ParryWindowPort, RefillResourcePort, SleepAreaPort, SpecialParam,
@@ -60,7 +61,7 @@ pub fn aimed_stick_of(world: &World, scope: Entity) -> Option<ambition_combat_po
 /// presses.
 pub fn queue_fighter_specials(
     admitted: Res<AdmittedExtensions>,
-    mut messages: MessageReader<ActorActionMessage>,
+    mut messages: ReplayMessageReader<ActorActionMessage>,
     mut invocations: ResMut<ExtensionInvocations>,
     bodies: Query<&ae::BodyKinematics>,
 ) {

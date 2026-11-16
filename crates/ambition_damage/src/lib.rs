@@ -37,7 +37,7 @@
 //! against a stated boundary rather than against this one precedent.
 
 use ambition_combat::util::{body_vulnerable, shield_blocks_hit};
-use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
+use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut};
 
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::{DebrisBurstMessage, VfxForRoom, VfxMessage, VfxWriter};
@@ -1140,7 +1140,7 @@ pub(crate) fn apply_player_knockback(
 /// Resolve this tick's victim-side `HitEvent`s and remember the last safe-spawn
 /// position.
 ///
-/// Reads `MessageReader<HitEvent>` and filters to victim-side sources (hazard /
+/// Reads victim-side hit events and filters to victim-side sources (hazard /
 /// enemy / boss); attacker-side hits (player slash, player projectile, pogo) are
 /// consumed by `apply_feature_hit_events` separately. Routes the first event
 /// through `handle_player_damage_events` — which can knock back, hitstun,
@@ -1282,7 +1282,7 @@ pub fn incoming_player_damage_multiplier(
 /// Recipient identity determines routing, independently of the hit cause.
 /// This runs at the end of Combat; the FIFO crosses the frame boundary.
 pub fn stage_player_victim_hit_events(
-    mut hit_events: MessageReader<FeatureHitEvent>,
+    mut hit_events: ae::replay_messages::ReplayMessageReader<FeatureHitEvent>,
     mut pending: ResMut<ambition_combat::events::PendingPlayerHitEvents>,
     controlled_bodies: Query<
         (),

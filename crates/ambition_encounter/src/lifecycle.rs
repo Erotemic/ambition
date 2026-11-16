@@ -9,6 +9,7 @@
 //! [`reduce_encounter_lifecycles`] is its ECS registration.
 
 use std::collections::BTreeSet;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use bevy::prelude::*;
 
@@ -326,7 +327,7 @@ pub struct EncounterLifecycleSet;
 /// The one ECS registration of the pure reducer.
 pub fn reduce_encounter_lifecycles(
     dt: Res<ambition_platformer2d_shared_tangle::time::SimDt>,
-    mut commands_in: MessageReader<EncounterCommand>,
+    mut commands_in: ReplayMessageReader<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
     mut encounters: Query<(
         Entity,

@@ -115,6 +115,7 @@ pub fn drain_cutscene_triggers(
     library: Res<CutsceneLibrary>,
     mut active: ResMut<ActiveCutscene>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
+    replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
 ) {
     if active.is_playing() {
         return;
@@ -124,6 +125,12 @@ pub fn drain_cutscene_triggers(
     // (`LastCutsceneRoom`), so a trigger dropped here never comes back.
     let mut pending = std::mem::take(&mut queue.0).into_iter();
     while let Some(trigger) = pending.next() {
+        if replay.as_ref().is_some_and(|replay| !replay.allows(trigger.room.map(
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
+        ))) {
+            queue.0.push(trigger);
+            continue;
+        }
         let Some(script) = library.get(&trigger.id) else {
             continue;
         };
@@ -701,14 +708,21 @@ impl Plugin for CutsceneSchedulePlugin {
         app.add_systems(
             sim,
             log_cutscene_changes_in_rooms
+                .run_if(cutscene_room_is_running)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
         app.add_systems(
             sim,
             (
-                auto_trigger_room_cutscenes,
+                auto_trigger_room_cutscenes.run_if(bevy::ecs::schedule::common_conditions::not(
+                    bevy::ecs::schedule::common_conditions::resource_exists::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>,
+                )),
                 trigger_cutscenes_in_volumes,
-                trigger_cutscenes_on_conditions.run_if(a_cutscene_starts_on_a_condition),
+                trigger_cutscenes_on_conditions.run_if(a_cutscene_starts_on_a_condition).run_if(
+                    bevy::ecs::schedule::common_conditions::not(
+                        bevy::ecs::schedule::common_conditions::resource_exists::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>,
+                    ),
+                ),
                 // Only with a trigger queued: it took the queue each tick.
                 drain_cutscene_triggers.run_if(
                     |queue: bevy::prelude::Res<ambition_cutscene::CutsceneTriggerQueue>| !queue.0.is_empty(),
@@ -719,6 +733,7 @@ impl Plugin for CutsceneSchedulePlugin {
                 project_cutscene_hold.run_if(a_cutscene_hold_is_owed),
             )
                 .chain()
+                .run_if(cutscene_room_is_running)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Cutscene),
         );
     }
@@ -985,4 +1000,13 @@ mod tests {
              entry cutscene"
         );
     }
+}
+
+fn cutscene_room_is_running(
+    active: Res<ActiveCutscene>,
+    replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
+) -> bool {
+    replay.is_none_or(|replay| !active.is_playing() || replay.allows(
+        active.room.map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal),
+    ))
 }

@@ -13,7 +13,9 @@
 //! candidate (a file that does not load refuses it) and asks for the content
 //! reload with the modules attached ([`PairedModuleCandidate`]): the content
 //! generation's commit publishes them, and every end of it that does not
-//! activate discards them. A refusal of either half leaves the running pair.
+//! activate discards them. A refusal of either half leaves the running pair,
+//! and the next change to either side asks for both again: a pair repaired
+//! one file at a time still activates as a pair.
 
 use ambition_content::content_watch::{self, ContentSourceWatch, SourcesAnswer};
 use ambition_content::reload::PairedModuleCandidate;
@@ -40,35 +42,42 @@ fn watch_project_sources(world: &mut World, mut frames_until_poll: Local<u32>, m
     // Pair once both pollers exist; without module files there is nothing to
     // pair, and the content poller keeps its own clock.
     let paired = *paired.get_or_insert_with(|| {
-        let modules = ext::look_at_module_files(world);
-        if let Some(changes) = modules {
-            // A change seen before the first look is the module poller's.
-            stage_alone(world, changes);
-        }
         let has_modules = world.contains_resource::<ext::ExtensionModuleFiles>()
             || std::env::var_os(ext::EXTENSION_MODULES_VAR).is_some();
         if has_modules {
             world.insert_resource(ext::ModuleFilesLookedWithContent);
-            world.resource_mut::<ContentSourceWatch>().paired = true;
         }
         has_modules
     });
     if !paired {
         return;
     }
+    // Asserted at every look: a host or a test may put a new watch in place.
+    world.resource_mut::<ContentSourceWatch>().paired = true;
     if *frames_until_poll > 0 {
         *frames_until_poll -= 1;
         return;
     }
     *frames_until_poll = POLL_FRAMES;
-    let modules = ext::look_at_module_files(world);
+    let refused = ext::module_pair_was_refused(world);
     let content = content_watch::look_at_content_sources(world);
+    // A refused pair is asked for again as a pair: a change to its content
+    // looks at its modules again, and a change to its modules asks for its
+    // content again.
+    let mut modules = ext::look_at_module_files(world, refused && content.is_some());
+    let content = match content {
+        None if refused && modules.is_some() => Some(content_watch::watched_root(world)),
+        content => content,
+    };
+    if refused && content.is_some() && modules.is_none() {
+        modules = ext::look_at_module_files(world, true);
+    }
     let held = world.contains_resource::<PairedModuleCandidate>();
     match (modules, content) {
         (None, None) => {}
         // Modules held for a content generation in flight join it: proposing
         // them now would publish the pair's code ahead of its content.
-        (Some(changes), None) if held => match ext::stage_module_file_changes(world, changes, true) {
+        (Some(changes), None) if held => match ext::stage_module_file_changes(world, changes) {
             Ok(names) => info!("{names:?} changed; staged with the content reload in flight"),
             Err(reason) => error!("changed modules are NOT loaded; the staged pair stays: {reason}"),
         },
@@ -76,12 +85,14 @@ fn watch_project_sources(world: &mut World, mut frames_until_poll: Local<u32>, m
         (None, Some(root)) => {
             content_watch::request_from_sources(world, &root);
         }
-        (Some(changes), Some(root)) => match ext::stage_module_file_changes(world, changes, true) {
+        (Some(changes), Some(root)) => match ext::stage_module_file_changes(world, changes) {
             Err(reason) => {
                 error!("a script and its content changed together and the script is refused; the running pair stays: {reason}");
                 content_watch::forget_source_change(world);
+                ext::discard_paired_modules(world);
             }
             Ok(names) => {
+                ext::forget_module_pair_refusal(world);
                 world.insert_resource(PairedModuleCandidate {
                     publish: ext::publish_paired_modules,
                     discard: ext::discard_paired_modules,
@@ -112,7 +123,7 @@ fn watch_project_sources(world: &mut World, mut frames_until_poll: Local<u32>, m
 
 /// A module change on its own: its own road, the mechanical-edit protocol.
 fn stage_alone(world: &mut World, changes: ext::ModuleFileChanges) {
-    match ext::stage_module_file_changes(world, changes, false) {
+    match ext::stage_module_file_changes(world, changes) {
         Ok(names) => {
             info!("{names:?} changed; reload proposed");
             ext::propose_staged_modules(world);

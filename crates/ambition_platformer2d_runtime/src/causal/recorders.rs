@@ -26,6 +26,7 @@
 //! the three respawns in the middle of the answer.
 
 use ambition_causal::{domains, CausalFact, CausalRecording, FactDetail, SubjectKey};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
 use ambition_platformer2d_actor_monolith::causal::BodyMovementOps;
@@ -270,7 +271,7 @@ fn body_subject(
 /// cannot tell them apart.
 pub fn record_hit_resolutions(
     log: Option<ResMut<CausalRecording>>,
-    mut hits: MessageReader<BodyHitResolved>,
+    mut hits: ReplayMessageReader<BodyHitResolved>,
     bodies: Query<&DrivingParticipant>,
     identities: Query<&ambition_combat::components::ActorIdentity>,
 ) {
@@ -338,7 +339,7 @@ pub fn record_hit_resolutions(
 /// findings. The fact carries all three inputs beside the result.
 pub fn record_hit_reactions(
     log: Option<ResMut<CausalRecording>>,
-    mut reactions: MessageReader<BodyReactionApplied>,
+    mut reactions: ReplayMessageReader<BodyReactionApplied>,
     bodies: Query<&DrivingParticipant>,
     identities: Query<&ambition_combat::components::ActorIdentity>,
 ) {

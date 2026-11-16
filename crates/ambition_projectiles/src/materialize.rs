@@ -6,7 +6,8 @@
 //! and delayed named body-fire shots after it. The entity-construction code itself
 //! is one implementation.
 
-use bevy::prelude::{Commands, Entity, MessageReader, Name, Query, Res, ResMut};
+use bevy::prelude::{Commands, Entity, Name, Query, Res, ResMut};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, RoomScopedEntity, SessionSpawnScope,
@@ -32,7 +33,7 @@ type OwnerFacts<'w, 's> = Query<
 pub fn materialize_projectiles_for_this_tick(
     commands: Commands,
     seq: ResMut<ProjectileSeqCounter>,
-    requests: MessageReader<ProjectileSpawnRequest>,
+    requests: ReplayMessageReader<ProjectileSpawnRequest>,
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
     owners: OwnerFacts<'_, '_>,
@@ -52,7 +53,7 @@ pub fn materialize_projectiles_for_this_tick(
 pub fn materialize_projectiles_for_next_tick(
     commands: Commands,
     seq: ResMut<ProjectileSeqCounter>,
-    requests: MessageReader<ProjectileSpawnRequest>,
+    requests: ReplayMessageReader<ProjectileSpawnRequest>,
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
     owners: OwnerFacts<'_, '_>,
@@ -72,7 +73,7 @@ fn materialize_matching(
     wanted: ProjectileStart,
     mut commands: Commands,
     mut seq: ResMut<ProjectileSeqCounter>,
-    mut requests: MessageReader<ProjectileSpawnRequest>,
+    mut requests: ReplayMessageReader<ProjectileSpawnRequest>,
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
     owners: OwnerFacts<'_, '_>,

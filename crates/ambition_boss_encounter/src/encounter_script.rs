@@ -18,6 +18,7 @@
 //! [`ReleaseOnDeath`](super::encounter_entity::ReleaseOnDeath).
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use crate::BossEncounter;
 use ambition_combat::CenteredAabb;
@@ -55,7 +56,7 @@ pub fn script_music_source(
 pub fn tick_encounter_scripts(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
-    mut gates: MessageReader<EncounterGate>,
+    mut gates: ReplayMessageReader<EncounterGate>,
     // The encounter's own identity and counter: what it drops is minted under
     // it, so two hazards of one script are two identified objects.
     mut scripts: Query<(

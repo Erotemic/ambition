@@ -4,6 +4,7 @@
 //! ability-suppression guards that make a crossing feel right.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use crate::pieces as pp;
 use ambition_platformer2d_core::{self as ae, AabbExt};
@@ -590,7 +591,7 @@ pub fn portal_transit(
 ///
 /// A body without movement clusters (a projectile) has nothing to reconcile.
 pub fn reconcile_transited_bodies(
-    mut transited: MessageReader<PortalBodyTransited>,
+    mut transited: ReplayMessageReader<PortalBodyTransited>,
     mut bodies: Query<(ae::BodyClusterQueryData, &mut ae::movement::MotionModel)>,
 ) {
     for event in transited.read() {

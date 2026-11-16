@@ -24,8 +24,9 @@
 //! owners, and neither appears here.
 
 use std::collections::BTreeMap;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
-use bevy::prelude::{Component, MessageReader, Query, With};
+use bevy::prelude::{Component, Query, With};
 
 use super::{horizon::CheckpointCommitted, InCustodyOf, RoomScopedEntity};
 use crate::sim_id::SimId;
@@ -143,7 +144,7 @@ pub fn live_custody_rows(
 /// requires it on every root. A world with no root drains the commit and
 /// writes nothing.
 pub fn capture_custody_baseline(
-    mut commits: MessageReader<CheckpointCommitted>,
+    mut commits: ReplayMessageReader<CheckpointCommitted>,
     carried: Query<(&SimId, &InCustodyOf), With<RoomScopedEntity>>,
     custodians: Query<&SimId>,
     baseline: Option<super::SessionWorldMut<CustodyBaseline>>,

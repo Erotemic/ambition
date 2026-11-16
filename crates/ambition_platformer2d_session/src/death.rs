@@ -7,6 +7,7 @@
 //! clears `OutOfPlay` through the shared `BodyRestarted` observer.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_combat::death_rules::{DeathInterlude, DeathRules, LevelReset, OutOfPlay};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
@@ -21,7 +22,7 @@ mod tests;
 /// A death withdraws the crossing of that exact body on this frame.
 /// Read before settlement can remove the victim's stable identity.
 pub fn withdraw_crossings_on_actor_death(
-    mut deaths: MessageReader<ActorDiedMessage>,
+    mut deaths: ReplayMessageReader<ActorDiedMessage>,
     identities: Query<(&SimId,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)>,
@@ -47,7 +48,7 @@ pub fn withdraw_crossings_on_actor_death(
 /// nothing.
 pub fn open_death_interlude(
     mut commands: Commands,
-    mut deaths: MessageReader<ActorDiedMessage>,
+    mut deaths: ReplayMessageReader<ActorDiedMessage>,
     // The victim's own room's rules (OW1): with two rooms live, THE live
     // room's rules were the rules of no room.
     rules: ambition_platformer2d_world::governing_rules::RulesOf<DeathRules>,

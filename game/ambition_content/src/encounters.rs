@@ -16,6 +16,7 @@
 //! signals the attunement, and the chamber's `while_live` line starts it.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_encounter::{
     Encounter, EncounterEvent, EncounterEventMsg, EncounterLifecycle, EncounterObjective,
@@ -85,7 +86,7 @@ pub fn spawn_symmetry_attunement(
 /// a celebration banner and the persistent save flag. No lifecycle authority
 /// here; the reducer already decided.
 pub fn celebrate_symmetry_attunement(
-    mut events: MessageReader<EncounterEventMsg>,
+    mut events: ReplayMessageReader<EncounterEventMsg>,
     mut banners: MessageWriter<
         ambition_combat::events::GameplayBannerRequested,
     >,

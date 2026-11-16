@@ -77,6 +77,7 @@ pub use session::{
 };
 pub use session_messages::{
     SessionMessageChannels, clear_channels_for_a_rewind, clear_message_at_session_activation,
+    register_room_replay_message,
     keep_message_across_session_activation,
 };
 
@@ -85,3 +86,5 @@ pub use session_time::{GameplayElapsedAdvanced, SessionElapsedPlugin};
 
 mod attempt;
 pub use attempt::SpawnedThisAttempt;
+
+pub use room_writes::{RoomReplay, begin_room_replay, end_room_replay};

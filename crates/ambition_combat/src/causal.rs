@@ -5,6 +5,7 @@
 //! explicitly unstable entity key.
 
 use ambition_causal::{domains, CausalFact, CausalRecording, FactDetail, SubjectKey};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::control::DrivingParticipant;
 use bevy::prelude::*;
 
@@ -34,9 +35,9 @@ fn subject_of(
 /// Record stock lifecycle messages without participating in match decisions.
 pub fn record_stock_lifecycle(
     log: Option<ResMut<CausalRecording>>,
-    mut knockouts: MessageReader<BodyKnockedOut>,
-    mut spends: MessageReader<FighterStockSpent>,
-    mut decided: MessageReader<StocksMatchDecided>,
+    mut knockouts: ReplayMessageReader<BodyKnockedOut>,
+    mut spends: ReplayMessageReader<FighterStockSpent>,
+    mut decided: ReplayMessageReader<StocksMatchDecided>,
     bodies: Query<&DrivingParticipant>,
     identities: Query<&crate::components::ActorIdentity>,
 ) {

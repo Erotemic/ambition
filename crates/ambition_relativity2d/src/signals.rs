@@ -1,6 +1,7 @@
 //! Analytic Minkowski light signals, local emitters/receivers, and arrival events.
 
 use std::collections::VecDeque;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_core::snapshot::{
     put_bool, put_str, put_u32, put_u64, put_u8, put_vec2, Reader, SnapshotState,
@@ -16,7 +17,7 @@ use ambition_relativity::{
 use ambition_time::{ProperTimeScale, WorldTime};
 use bevy::ecs::schedule::InternedScheduleLabel;
 use bevy::prelude::{
-    App, Component, Entity, IntoScheduleConfigs, Message, MessageReader, MessageWriter, Query, Res,
+    App, Component, Entity, IntoScheduleConfigs, Message, MessageWriter, Query, Res,
     ResMut, Resource, Update, Vec2, With,
 };
 
@@ -790,7 +791,7 @@ fn advance_proper_time_cooldowns(
 }
 
 fn process_light_emission_requests(
-    mut requests: MessageReader<LightEmissionRequest2d>,
+    mut requests: ReplayMessageReader<LightEmissionRequest2d>,
     spacetime: Query<(&ActiveSpacetime2d, &SpacetimeCoordinateTime2d), With<SessionRoot>>,
     mut emitters: Query<(
         &BodyKinematics,

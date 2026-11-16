@@ -53,8 +53,10 @@ world directory, or entry room take effect at the next start.
 
 Edit `modules/pulse_forge.rhai` while the game runs. For example, change
 `BOLT_SPEED` from `240.0` to `360.0`. The next pulse uses the new speed.
-No Cargo command is needed. A syntax error leaves the last good program
-active. An invocation fault commits no state writes or requests from that
+No Cargo command is needed. A syntax error keeps the last good module set
+active. Other edits, additions, and removals from that poll wait with it.
+Repair the failed file to retry those changes together.
+An invocation fault commits no state writes or requests from that
 invocation.
 
 ```bash

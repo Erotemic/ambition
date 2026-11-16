@@ -12,6 +12,7 @@
 //! Quitting to the title is its leave.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_held_items::{GroundItem, ItemCustody, SupportedCarry};
@@ -33,7 +34,7 @@ pub struct ParticipantLeaveRequested {
 /// nothing.
 #[allow(clippy::type_complexity)]
 pub fn retire_leaving_participants(
-    mut requests: MessageReader<ParticipantLeaveRequested>,
+    mut requests: ReplayMessageReader<ParticipantLeaveRequested>,
     mut commands: Commands,
     active: Option<Res<ActiveSessionScope>>,
     mut roots: Query<(&SessionRoot, &mut SessionParticipants)>,

@@ -416,3 +416,31 @@ fn a_project_technique_keeps_last_good_code_then_reloads_and_leaves() {
         "a script added to the project directory is admitted again"
     );
 }
+
+#[test]
+fn a_failed_file_keeps_the_whole_script_set_until_a_repaired_set_loads() {
+    let original = source();
+    let project = ScratchProject::new("atomic_set", &original);
+    let mut sim = project.sim(false);
+    equip(&mut sim);
+    let generation = sim.world().resource::<ExtensionGeneration>().clone();
+    project.edit(&original.replace("const BOLT_SPEED = 240.0;", "const BOLT_SPEED = 360.0;"));
+    let second = project.0.join("modules/second_forge.rhai");
+    std::fs::write(&second, "fn declare() { invalid source").unwrap();
+    for _ in 0..50 { sim.step(AgentAction::default()); }
+    assert_eq!(*sim.world().resource::<ExtensionGeneration>(), generation,
+        "one bad file must not publish the other file's valid edit");
+    std::fs::write(&second, original.replace("pulse_forge", "second_forge")).unwrap();
+    for _ in 0..50 { sim.step(AgentAction::default()); }
+    assert_ne!(*sim.world().resource::<ExtensionGeneration>(), generation);
+    assert!(sim.world().resource::<AdmittedExtensions>().0.entries.iter()
+        .any(|entry| entry.path.starts_with("second_forge::")));
+    charge(&mut sim, 40);
+    release(&mut sim);
+    sim.step(AgentAction::default());
+    let shots = sim.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileSpawnRequest>>();
+    let requests: Vec<_> = shots.iter_current_update_messages().collect();
+    assert_eq!(requests.len(), 4);
+    assert!(requests.iter().all(|r| (r.projectile.body.kin.vel.length() - 360.0).abs() < 0.01),
+        "repairing only the bad file must also publish the valid edit held back with it");
+}

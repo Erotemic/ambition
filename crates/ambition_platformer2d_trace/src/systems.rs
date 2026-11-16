@@ -5,6 +5,7 @@
 //! arms a manual dump, and `flush_pending_dump` writes the ring buffer to disk.
 
 use super::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_gameplay_trace::GameplayTraceBuffer;
 use ambition_gameplay_trace::default_dump_dir;
 use ambition_gameplay_trace::write_dump;
@@ -126,7 +127,7 @@ pub fn flush_pending_dump(
 /// Lives in `trace.rs` rather than `app.rs` so the lookup is grep-able
 /// near the rest of the recorder code.
 pub fn handle_trace_hotkey(
-    mut actions: MessageReader<
+    mut actions: ReplayMessageReader<
         ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
     >,
     mut buffer: ResMut<GameplayTraceBuffer>,
@@ -195,7 +196,7 @@ pub fn record_frame_system(
         // per-slot trace is netcode N3's concern, not this dev tool's.
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    #[cfg(feature = "portal")] mut teleported: MessageReader<ambition_portal2d::BodyTeleported>,
+    #[cfg(feature = "portal")] mut teleported: ReplayMessageReader<ambition_portal2d::BodyTeleported>,
 ) {
     // A portal jump is an intentional teleport — open a short suppression window
     // so neither the position-delta snap nor the exit-side inside-solid check

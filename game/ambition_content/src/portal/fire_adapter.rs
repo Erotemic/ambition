@@ -7,6 +7,7 @@
 //! an AI) can also place a portal by emitting `PortalFireIntent` directly.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_portal2d::{FirePortalGenerator, PortalFireIntent, PortalGenerator};
@@ -27,7 +28,7 @@ use ambition_portal2d::{FirePortalGenerator, PortalFireIntent, PortalGenerator};
 /// Active gating lives here, so the generic intent is emitted only for an
 /// armed fire. The core fire system drops a zero aim.
 pub fn resolve_portal_fire_intent(
-    mut fires: MessageReader<FirePortalGenerator>,
+    mut fires: ReplayMessageReader<FirePortalGenerator>,
     mut holders: Query<(
         &BodyKinematics,
         &PortalGenerator,
@@ -101,7 +102,7 @@ mod tests {
     struct CapturedOrigin(Option<Vec2>);
 
     fn capture_origin(
-        mut intents: MessageReader<PortalFireIntent>,
+        mut intents: ReplayMessageReader<PortalFireIntent>,
         mut captured: ResMut<CapturedOrigin>,
     ) {
         if let Some(intent) = intents.read().last() {

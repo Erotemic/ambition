@@ -41,6 +41,7 @@ pub use light_pulse::{
 };
 
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::replay_messages::ReplayMessageReader;
 use ambition_platformer2d::platformer::schedule::{
     Platformer2dSimulationPhase, PlayerInputSet, SimScheduleExt, WorldPrepSet,
 };
@@ -1102,7 +1103,7 @@ fn capture_twintrack_interaction(
 
 #[allow(clippy::too_many_arguments)]
 fn consume_twintrack_signal_arrivals(
-    mut arrivals: MessageReader<SignalArrival2d>,
+    mut arrivals: ReplayMessageReader<SignalArrival2d>,
     traveler: Query<(Entity, &ae::BodyKinematics, &ProperTimeElapsed), With<TravelerTwin>>,
     characters: Query<(
         Entity,

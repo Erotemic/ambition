@@ -22,11 +22,12 @@
 //! road with its own owner, not an exception to this rule.
 
 use std::collections::BTreeMap;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{
-    Commands, Entity, Message, MessageReader, MessageWriter, Query, Res, ResMut, Resource, With,
+    Commands, Entity, Message, MessageWriter, Query, Res, ResMut, Resource, With,
 };
 
 /// One boss defeat recorded since the last committed checkpoint.
@@ -231,7 +232,7 @@ pub struct BossDefeatRetracted {
 /// A committed checkpoint makes every defeat since the last one part of the
 /// baseline.
 pub fn forget_boss_defeats_at_checkpoint(
-    mut commits: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>,
+    mut commits: ReplayMessageReader<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>,
     mut since: ResMut<BossDefeatsSinceCheckpoint>,
 ) {
     // Drained unconditionally, like every other reader of this channel.

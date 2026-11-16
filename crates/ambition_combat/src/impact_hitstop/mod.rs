@@ -38,6 +38,7 @@
 //!   stuck-at-zero bug and is deliberately absent.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 /// The tick this freeze ends on, or `None` when the world is not frozen.
 ///
@@ -104,7 +105,7 @@ fn is_a_connect(source: &crate::HitSource) -> bool {
 /// the hit or on which frame — at the price of having to say which SOURCES are a
 /// connect, which `LandedBodyHit` used to answer by construction.
 pub fn request_impact_hitstop_on_resolved_hits(
-    mut hits: MessageReader<crate::hitbox::ResolvedBodyHit>,
+    mut hits: ReplayMessageReader<crate::hitbox::ResolvedBodyHit>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
     room_rules: crate::rules::CombatTuningOf,
     tick: Option<Res<ambition_time::SimTick>>,

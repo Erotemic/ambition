@@ -1,6 +1,7 @@
 //! Apply developer gravity requests to the primary body's room.
 
 use ambition_platformer2d_shared_tangle::gravity::{AmbientGravityRequest, BaseGravity};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
 /// Apply every [`AmbientGravityRequest`] written since the last tick to
@@ -11,7 +12,7 @@ use bevy::prelude::*;
 /// The developer turns the primary seat's room, which is the room the
 /// developer looks at ([`ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom`]).
 pub fn apply_ambient_gravity_requests(
-    mut requests: MessageReader<AmbientGravityRequest>,
+    mut requests: ReplayMessageReader<AmbientGravityRequest>,
     mut base: ResMut<BaseGravity>,
     developer: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
 ) {

@@ -153,6 +153,13 @@ P4 is complete.
 
 **Owner plans:** [content generation and reload](../content-generation-and-reload.md), [extension state](../extension-state-and-execution.md), [project build/distribution](../project-build-and-distribution.md).
 
+**Progress (2026-11-16, `32061bec9`).** The module watcher compiles all
+changed files before it stages edits and removals. A failed file keeps the
+whole module set. A repair retries the held edits, including files that did
+not change again. The project test edits Pulse Forge and adds a broken module,
+then repairs only that module and observes both changes. This completes the
+script-set boundary. A pack and its scripts still need one project candidate.
+
 **Implement:**
 
 1. Prepare the selected project's code, data, schemas, imports, and binding identity as one candidate. Coordinate the existing pack and module replacement paths under that selection. Do not invent another rollback or publication authority.

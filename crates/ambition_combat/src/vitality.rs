@@ -13,6 +13,7 @@
 //! whole difference.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
 use ambition_entity_catalog::smash_vitality::{VitalityParams, VITALITY};
@@ -24,7 +25,7 @@ use ambition_entity_catalog::smash_vitality::{VitalityParams, VITALITY};
 /// phase later — the same placement the authored teleport gets, for the same
 /// reason.
 pub fn apply_authored_vitality(
-    mut actions: MessageReader<ActorActionMessage>,
+    mut actions: ReplayMessageReader<ActorActionMessage>,
     mut bodies: Query<&mut ambition_characters::actor::body::BodyHealth>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     mut sfx: ambition_sfx::BodySfxWriter,

@@ -6,6 +6,7 @@
 //! every requester; other regimes change the policy table rather than the callers.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use crate::{ClockDomain, ClockObserver, ClockState};
 
@@ -161,7 +162,7 @@ impl Default for RequestedClockScale {
 /// unchanged; callers use [`ClockResetRequest`] to request a return to normal speed.
 /// Fast-forward requests are not currently modeled by this reduction.
 pub fn apply_clock_scale_requests(
-    mut requests: MessageReader<ClockScaleRequest>,
+    mut requests: ReplayMessageReader<ClockScaleRequest>,
     policy: Res<RegimePolicy>,
     mut target: ResMut<RequestedClockScale>,
 ) {
@@ -191,7 +192,7 @@ pub fn apply_clock_scale_requests(
 /// scale requests, then snap the granted clock domain back to neutral. This is
 /// the sole write owner for reset/respawn/transition `time_scale = 1.0` behavior.
 pub fn apply_clock_reset_requests(
-    mut requests: MessageReader<ClockResetRequest>,
+    mut requests: ReplayMessageReader<ClockResetRequest>,
     policy: Res<RegimePolicy>,
     mut target: ResMut<RequestedClockScale>,
     mut clock: ResMut<ClockState>,

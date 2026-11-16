@@ -19,6 +19,7 @@
 //! and can answer inside the attacker's lockout.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::actor::{BodyCombat, GuardFaces, GuardSpec, CharacterForm};
 use ambition_characters::prepared::PreparedCharacterRegistry;
@@ -341,7 +342,7 @@ pub fn tick_guard_states(
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn resolve_deflects(
     mut commands: Commands,
-    mut deflects: MessageReader<DeflectedBodyHit>,
+    mut deflects: ReplayMessageReader<DeflectedBodyHit>,
     characters: Option<Res<PreparedCharacterRegistry>>,
     worn: Query<&CharacterForm>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,

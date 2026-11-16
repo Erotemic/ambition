@@ -18,6 +18,7 @@
 //! camera.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_core as ae;
 
@@ -37,7 +38,7 @@ const DECIDED_CLOSENESS: f32 = 1.0;
 /// collapse opt-in. Jon, on the `Exit Match` command: *"It should not award an
 /// ordinary winner/loser result."* An abandoned match is not a finish.
 pub fn zoom_camera_on_decided_match(
-    mut decided: MessageReader<crate::stocks::StocksMatchDecided>,
+    mut decided: ReplayMessageReader<crate::stocks::StocksMatchDecided>,
     mut requests: MessageWriter<FinishZoomRequest>,
 ) {
     for message in decided.read() {

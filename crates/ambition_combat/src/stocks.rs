@@ -7,9 +7,10 @@
 //! completion remain ruleset responsibilities.
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageReader, MessageWriter, On, Query, Res, With,
+    Commands, Component, Entity, Message, MessageWriter, On, Query, Res, With,
     Without,
 };
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use crate::components::FighterStocks;
 
@@ -337,7 +338,7 @@ pub struct MatchOutcomeDecided;
 /// on every subsequent KO of a corpse.
 pub fn spend_fighter_stocks(
     mut commands: Commands,
-    mut knockouts: MessageReader<BodyKnockedOut>,
+    mut knockouts: ReplayMessageReader<BodyKnockedOut>,
     mut spent: MessageWriter<FighterStockSpent>,
     // ⛔⛔ AND `Without<OutOfPlay>`. A waiting body is NOT PLACED — it is still
     // lying wherever it died, which for a ring-out is inside the blast zone.

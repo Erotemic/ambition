@@ -2,6 +2,7 @@
 //! NPC the player talks to after winning.
 
 use super::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 /// Spawn the post-Smirking-Behemoth NPC after the boss encounter has fully resolved.
 ///
@@ -25,7 +26,7 @@ pub fn spawn_cut_rope_victory_npc(sprite_content: bevy::prelude::Res<ambition_pl
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     tuning: Res<crate::tuning::AmbitionTuning>,
-    mut released: MessageReader<ambition_boss_encounter::PayloadReleased>,
+    mut released: ReplayMessageReader<ambition_boss_encounter::PayloadReleased>,
     existing: Query<(Entity, &FeatureId), With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
     // Reused across frames; see the drain below for why it is a `Local` and not

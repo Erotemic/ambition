@@ -22,6 +22,7 @@
 //!   TODO "Healing / save-point shrine").
 
 use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyHealth;
@@ -251,7 +252,7 @@ impl PendingAuthoredCheckpoint {
 /// ([`commit_authored_checkpoint`]). It arrives on the tick the same lines'
 /// flags and hand-overs are applied, which is after this tick's capture.
 pub fn hold_authored_checkpoint_requests(
-    mut requests: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>,
+    mut requests: ReplayMessageReader<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>,
     mut pending: ResMut<PendingAuthoredCheckpoint>,
 ) {
     for request in requests.read() {

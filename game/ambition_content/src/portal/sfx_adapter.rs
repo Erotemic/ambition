@@ -12,6 +12,7 @@
 //! reference from portal core (`portal_transit` / `portal_fire_system`).
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_portal2d::{PortalBodyEntered, PortalBodyTransited, PortalShotFired};
 
@@ -30,9 +31,9 @@ pub fn a_portal_signal_waits(
 }
 
 pub fn play_portal_sfx(
-    mut fired: MessageReader<PortalShotFired>,
-    mut entered: MessageReader<PortalBodyEntered>,
-    mut transited: MessageReader<PortalBodyTransited>,
+    mut fired: ReplayMessageReader<PortalShotFired>,
+    mut entered: ReplayMessageReader<PortalBodyEntered>,
+    mut transited: ReplayMessageReader<PortalBodyTransited>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     for ev in fired.read() {

@@ -9,6 +9,7 @@
 //! encounter. See the port cards in `ambition_boss_special_port`.
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast, BossSummonPort};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::{ActorActionMessage, BossAttackProfile, BossAttackState};
 use ambition_combat::components::ActorTarget;
@@ -288,7 +289,7 @@ fn lower_boss_dismissals<L: LowersIn>(
 /// press is the one that counts.
 pub fn queue_boss_special_casts(
     admitted: Res<AdmittedExtensions>,
-    mut messages: MessageReader<ActorActionMessage>,
+    mut messages: ReplayMessageReader<ActorActionMessage>,
     mut invocations: ResMut<ExtensionInvocations>,
     bosses: Query<(
         Entity,

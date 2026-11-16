@@ -14,6 +14,7 @@
 //! a second death before the first is fetched loses the first.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::actor::BodyWallet;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
@@ -89,7 +90,7 @@ fn parcel_serial(id: &FeatureId) -> Option<u32> {
 /// room and the place it lies (the last safe ground, so a fall into a pit
 /// leaves it where a body can stand).
 pub fn owe_death_fees(
-    mut deaths: MessageReader<ActorDiedMessage>,
+    mut deaths: ReplayMessageReader<ActorDiedMessage>,
     fees: ambition_platformer2d_world::governing_rules::RulesOf<DeathFee>,
     specs: LiveRoomSpecs,
     players: Query<(&DrivingParticipant, Option<&PlayerSafetyState>), (With<PlayerEntity>, With<BodyWallet>)>,

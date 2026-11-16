@@ -214,8 +214,10 @@ pub struct LocalSeat(pub PlayerSlot);
 /// One frame of a guest's input for its seat.
 #[derive(Message, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct GuestInput {
-    /// The host tick this input is for: the latest the guest saw
-    /// ([`HostTick`]) and the frames it has run since.
+    /// The sample order within this connection.
+    pub sequence: u64,
+    /// The estimated host tick. Samples in one tick merge their button edges
+    /// and keep the latest held controls.
     pub tick: u64,
     pub frame: ambition_platformer2d_core::ControlFrame,
 }
@@ -233,9 +235,8 @@ pub struct SeatAssigned(pub u8);
 /// On a host: give each guest that connects the lowest seat after the host's
 /// own (seat 0) that no other guest holds, and tell it which. Without it the
 /// caller names each guest's seat ([`GuestSeat`]) itself.
-///
-/// A second local player on the host is not counted: a guest can be given
-/// that player's seat.
+/// Admitted local participants and seats reserved by connected guests are
+/// both occupied. Authorized clients without a seat wait for a free one.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct SeatsGuests;
 
@@ -271,8 +272,7 @@ impl Plugin for HostedWorldPlugin {
                 app.add_visibility_filter::<RoomOf>();
                 app.world_mut().spawn((HostTick::default(), Replicated));
                 app.init_resource::<room_rollback::GuestInputs>().init_resource::<room_rollback::RoomRollbackStats>();
-                let hides = room_rollback::ReplayHidesEffects::of_app(app);
-                app.insert_resource(hides);
+                room_rollback::register_presentation_replay_channels(app);
                 let sim = app.sim_schedule();
                 app.add_systems(
                     sim,
@@ -282,7 +282,7 @@ impl Plugin for HostedWorldPlugin {
                 );
                 app.add_systems(
                     PreUpdate,
-                    (apply_guest_inputs, note_guest_rooms, retire_departed_guests).after(ServerSystems::Receive),
+                    (retire_departed_guests, apply_guest_inputs, note_guest_rooms).chain().after(ServerSystems::Receive),
                 );
                 app.add_systems(Update, (mark_hosted_bodies, write_spawn_rows));
                 app.add_systems(
@@ -296,6 +296,7 @@ impl Plugin for HostedWorldPlugin {
                 );
             }
             HostedRole::Guest => {
+                app.init_resource::<input_clock::GuestInputClock>();
                 // Signed before each receive as well: a body the guest's own
                 // room construction made late in a frame must carry its
                 // signature before the host's copy of it arrives.
@@ -647,16 +648,19 @@ fn name_body_rooms(
 /// Seat each guest the host has just authorized ([`SeatsGuests`]).
 fn seat_connecting_guests(
     mut commands: Commands,
-    arrived: Query<Entity, (Added<AuthorizedClient>, Without<GuestSeat>)>,
+    arrived: Query<Entity, (With<AuthorizedClient>, Without<GuestSeat>)>,
+    members: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_session::participants::SessionParticipants>,
     seated: Query<&GuestSeat>,
     mut told: MessageWriter<ToClients<SeatAssigned>>,
 ) {
     let mut taken: std::collections::BTreeSet<u8> = seated.iter().map(|seat| seat.0 .0).collect();
-    for client in &arrived {
+    taken.extend(members.iter().map(|slot| slot.0));
+    let mut clients: Vec<_> = arrived.iter().collect();
+    clients.sort();
+    for client in clients {
         let max = ambition_characters::control::SlotControls::MAX_SLOTS as u8;
         let Some(seat) = (1..max).find(|seat| !taken.contains(seat)) else {
-            warn!("hosted world: no seat is free for guest {client}");
-            continue;
+            break;
         };
         taken.insert(seat);
         commands.entity(client).insert(GuestSeat(PlayerSlot(seat)));
@@ -684,14 +688,20 @@ fn view_own_seat(
 }
 
 /// Take the seat the host gave this guest as the one it drives.
-fn take_assigned_seat(mut commands: Commands, mut assigned: MessageReader<SeatAssigned>) {
+fn take_assigned_seat(mut commands: Commands, mut assigned: MessageReader<SeatAssigned>, mut clock: ResMut<input_clock::GuestInputClock>) {
     if let Some(seat) = assigned.read().last() {
         commands.insert_resource(LocalSeat(PlayerSlot(seat.0)));
+        *clock = Default::default();
     }
 }
 
 fn retire_departed_guests(
     guests: Query<(Entity, &GuestSeat)>,
+    mut inputs: ResMut<room_rollback::GuestInputs>,
+    tick: Res<ambition_time::SimTick>,
+    mut raw: Option<ResMut<ambition_characters::control::SeatRawFrames>>,
+    mut slots: Option<ResMut<ambition_characters::control::SlotControls>>,
+    mut latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
     mut seated: Local<std::collections::BTreeMap<Entity, PlayerSlot>>,
     mut leave: ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter<
         ambition_platformer2d_session::leave::ParticipantLeaveRequested,
@@ -699,8 +709,17 @@ fn retire_departed_guests(
 ) {
     let now: std::collections::BTreeMap<Entity, PlayerSlot> = guests.iter().map(|(client, seat)| (client, seat.0)).collect();
     for (client, seat) in seated.iter() {
-        if !now.contains_key(client) {
+        if now.get(client) != Some(seat) {
+            inputs.forget_seat(*seat);
+            if let Some(raw) = raw.as_deref_mut() { raw.set(*seat, Default::default()); }
+            if let Some(slots) = slots.as_deref_mut() { slots.set(*seat, Default::default()); }
+            if let Some(latches) = latches.as_deref_mut() { latches.reset(*seat); }
             leave.write(ambition_platformer2d_session::leave::ParticipantLeaveRequested { participant: *seat });
+        }
+    }
+    for (client, seat) in &now {
+        if seated.get(client) != Some(seat) {
+            inputs.begin_ownership(*seat, tick.0.saturating_add(1));
         }
     }
     *seated = now;
@@ -831,12 +850,20 @@ fn apply_guest_inputs(world: &mut World) {
         let Some(seat) = input.client_id.entity().and_then(|client| world.get::<GuestSeat>(client)).copied() else {
             continue;
         };
-        stamped.push((seat.0, input.message.tick, input.message.frame));
+        let now = world.resource::<ambition_time::SimTick>().0;
+        if let Some((tick, frame)) = world.resource_mut::<room_rollback::GuestInputs>().record(seat.0, input.message, now) {
+            stamped.push((seat.0, tick, frame));
+        }
     }
     if world.contains_resource::<room_rollback::RewindsGuestRooms>() {
         room_rollback::take_arrived_inputs(world, stamped);
     } else {
+        let mut samples = std::collections::BTreeMap::<_, ambition_platformer2d_core::ControlFrame>::new();
         for (seat, _, frame) in stamped {
+            let merged = samples.entry(seat).or_default();
+            *merged = merged.merge_sample(frame);
+        }
+        for (seat, frame) in samples {
             ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, seat, frame);
         }
     }
@@ -858,15 +885,16 @@ fn send_local_input(
     from: Option<Res<InputFromSeat>>,
     raw: Option<Res<ambition_characters::control::SeatRawFrames>>,
     clock: Query<&HostTick>,
-    mut seen: Local<(u64, u64)>,
+    time: Res<Time<Real>>,
+    fixed: Res<Time<Fixed>>,
+    mut clock_state: ResMut<input_clock::GuestInputClock>,
     mut inputs: MessageWriter<GuestInput>,
 ) {
-    // The host's tick as last seen, and the frames run since it changed.
-    let host = clock.iter().next().map_or(0, |tick| tick.0);
-    *seen = if host == seen.0 { (host, seen.1 + 1) } else { (host, 0) };
+    let Some(host) = clock.iter().next().map(|tick| tick.0) else { return };
     if let (Some(seat), Some(raw)) = (seat, raw) {
         let frame = raw.get(from.map_or(seat.0, |from| from.0));
-        inputs.write(GuestInput { tick: seen.0 + seen.1, frame });
+        let (sequence, tick) = clock_state.sample(host, time.elapsed(), fixed.timestep());
+        inputs.write(GuestInput { sequence, tick, frame });
     }
 }
 
@@ -987,6 +1015,7 @@ fn apply_body_rows(mut bodies: Query<(&BodyRow, &mut BodyKinematics), Or<(Change
 }
 
 pub mod room_rollback;
+mod input_clock;
 pub use room_rollback::{RewindsGuestRooms, RoomRollbackStats, REWIND_HORIZON};
 
 /// `bevy_replicon` itself, so a caller names the version this crate replicates with.
@@ -1011,7 +1040,7 @@ pub mod udp {
     pub use bevy_replicon_renet::{RenetClient, RenetServer, RepliconRenetPlugins};
 
     /// Both ends must name the same protocol, or netcode refuses the join.
-    pub const PROTOCOL_ID: u64 = u64::from_le_bytes(*b"ambhost1");
+    pub const PROTOCOL_ID: u64 = u64::from_le_bytes(*b"ambhost2");
 
     fn connection(world: &World) -> ConnectionConfig {
         let channels = world.resource::<RepliconChannels>();
@@ -1060,5 +1089,37 @@ pub mod udp {
         world.insert_resource(client);
         world.insert_resource(transport);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod seating_tests {
+    use super::*;
+    use ambition_platformer2d_session::participants::SessionParticipants;
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+
+    #[test]
+    fn guests_respect_local_membership_and_wait_for_a_free_seat() {
+        let mut app = App::new();
+        app.add_message::<ToClients<SeatAssigned>>().add_systems(Update, seat_connecting_guests);
+        let mut members = SessionParticipants::default();
+        members.admit(PlayerSlot(0));
+        members.admit(PlayerSlot(1));
+        let root = app.world_mut().spawn((SessionRoot(SessionScopeId(1)), members)).id();
+        let first = app.world_mut().spawn(AuthorizedClient).id();
+        let second = app.world_mut().spawn(AuthorizedClient).id();
+        app.update();
+        let mut seats = [app.world().get::<GuestSeat>(first).unwrap().0, app.world().get::<GuestSeat>(second).unwrap().0];
+        seats.sort();
+        assert_eq!(seats, [PlayerSlot(2), PlayerSlot(3)]);
+        for seat in 4..ambition_characters::control::SlotControls::MAX_SLOTS {
+            app.world_mut().get_mut::<SessionParticipants>(root).unwrap().admit(PlayerSlot(seat as u8));
+        }
+        let waiting = app.world_mut().spawn(AuthorizedClient).id();
+        app.update();
+        assert!(app.world().get::<GuestSeat>(waiting).is_none());
+        app.world_mut().get_mut::<SessionParticipants>(root).unwrap().remove(PlayerSlot(1));
+        app.update();
+        assert_eq!(app.world().get::<GuestSeat>(waiting).unwrap().0, PlayerSlot(1));
     }
 }

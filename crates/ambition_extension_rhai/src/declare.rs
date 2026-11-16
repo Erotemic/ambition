@@ -1,0 +1,242 @@
+//! A module a script declares itself (scripting audit P3, step 3): a module
+//! the game does not link, with its whole declaration in the script.
+//!
+//! The script defines `fn declare()` (`module` is a word Rhai reserves),
+//! which returns the declaration as a
+//! table. It is called once, when the file loads, under the same limits as
+//! an entry; its result is the module's descriptor, and admission checks it
+//! as it checks any module's.
+//!
+//! ```text
+//! fn declare() {
+//!     #{
+//!         provider: "drill",
+//!         key: "turret_tally",
+//!         schemas: [
+//!             #{ key: "turret_tally.count", attachment: "body",
+//!                fields: [ #{ tag: 1, name: "ticks", kind: "u32" } ] },
+//!         ],
+//!         entries: [
+//!             #{ key: "tally", phase: "module_entity_tick",
+//!                trigger: #{ port: "module_entity_tick", selector: "sentry" },
+//!                writes: ["turret_tally.count"], requests: [], limit: 1 },
+//!         ],
+//!     }
+//! }
+//!
+//! fn tally() { ... }
+//! ```
+//!
+//! Ports are named as scripts name them (`projectile`, `sound`,
+//! `module_entity_tick`: docs/sdk/script-ports.md); a schema is named by its
+//! key, and its provider and the module's are one. Defaults: a schema is
+//! body-attached, transient, revision 1; an entry's limit is 8 requests and
+//! it is called on an idle trigger (`idle: "reset"` resets its records
+//! instead). Every entry the declaration names must be a function of the
+//! script: a declared module has no native code to fall back on.
+
+use ambition_extension_sdk::script::ScriptPorts;
+use ambition_extension_sdk::{
+    Attachment, CodeIdentity, EntryCode, EntryDescriptor, FieldDecl, FieldKind, IdlePolicy, Limits, ModuleDescriptor,
+    ModuleKey, Name, Phase, PortKey, SaveEligibility, SchemaKey, StateSchema, TriggerBinding, Value, API_VERSION,
+};
+use rhai::{Dynamic, Map};
+
+/// The phases a declaration may name.
+const PHASES: &[Phase] = &[
+    ambition_extension_sdk::phases::TECHNIQUE_EXECUTION,
+    ambition_extension_sdk::phases::WIELDED_USE,
+    ambition_extension_sdk::phases::MODULE_ENTITY_TICK,
+    ambition_extension_sdk::phases::BOSS_CONDUCT,
+    ambition_extension_sdk::phases::ACTOR_THINK,
+    ambition_extension_sdk::phases::BODY_CONTACT,
+    ambition_extension_sdk::phases::HIT_REACTION,
+];
+
+/// The descriptor a `declare()` table declares. Each entry's code is the
+/// script's (`EntryCode::Loaded`).
+pub fn descriptor(table: &Dynamic, ports: &ScriptPorts) -> Result<ModuleDescriptor, String> {
+    let table = map(table, "declare()")?;
+    let provider = text(&table, "provider", "declare()")?;
+    let key = text(&table, "key", "declare()")?;
+    let mut schemas = Vec::new();
+    for (n, schema) in list(&table, "schemas")?.iter().enumerate() {
+        schemas.push(schema_of(schema, &provider, &format!("schemas[{n}]"))?);
+    }
+    let schema_key = |name: &str, at: &str| -> Result<SchemaKey, String> {
+        schemas
+            .iter()
+            .find(|s: &&StateSchema| s.key.key == name)
+            .map(|s| s.key.clone())
+            .ok_or_else(|| format!("{at}: \"{name}\" is not one of this module's schemas"))
+    };
+    let port = |alias: &str, at: &str| -> Result<PortKey, String> {
+        ports.by_alias(alias).map(|p| p.key.clone()).ok_or_else(|| {
+            let known: Vec<&str> = ports.entries().iter().map(|e| e.alias.as_ref()).collect();
+            format!("{at}: no port is named \"{alias}\" for scripts (they are {known:?})")
+        })
+    };
+    let mut entries = Vec::new();
+    for (index, entry) in list(&table, "entries")?.iter().enumerate() {
+        let at = format!("entries[{index}]");
+        let entry = map(entry, &at)?;
+        let phase_name = text(&entry, "phase", &at)?;
+        let phase = PHASES.iter().find(|p| p.0 == phase_name).cloned().ok_or_else(|| {
+            let known: Vec<&str> = PHASES.iter().map(|p| p.0.as_ref()).collect();
+            format!("{at}: phase \"{phase_name}\" is not one of {known:?}")
+        })?;
+        let trigger = map(entry.get("trigger").ok_or_else(|| format!("{at}: no trigger"))?, &format!("{at}.trigger"))?;
+        let trigger = TriggerBinding {
+            port: port(&text(&trigger, "port", &format!("{at}.trigger"))?, &format!("{at}.trigger"))?,
+            selector: Name::Owned(text(&trigger, "selector", &format!("{at}.trigger"))?),
+        };
+        let names = |field: &str| -> Result<Vec<String>, String> {
+            list(&entry, field)?
+                .iter()
+                .map(|v| v.clone().into_string().map_err(|t| format!("{at}.{field}: expected names, got {t}")))
+                .collect()
+        };
+        let writes = names("writes")?.iter().map(|n| schema_key(n, &format!("{at}.writes"))).collect::<Result<Vec<_>, _>>()?;
+        let reads = names("reads")?.iter().map(|n| port(n, &format!("{at}.reads"))).collect::<Result<Vec<_>, _>>()?;
+        let requests =
+            names("requests")?.iter().map(|n| port(n, &format!("{at}.requests"))).collect::<Result<Vec<_>, _>>()?;
+        let after = names("after")?.into_iter().map(Name::Owned).collect();
+        let limit = match entry.get("limit") {
+            None => 8,
+            Some(v) => v.as_int().map_err(|t| format!("{at}.limit: expected a number, got {t}"))?,
+        };
+        let on_idle = match entry.get("idle").map(|v| v.clone().into_string()) {
+            None => IdlePolicy::Invoke,
+            Some(Ok(s)) if s == "invoke" => IdlePolicy::Invoke,
+            Some(Ok(s)) if s == "reset" => IdlePolicy::ResetState,
+            Some(other) => return Err(format!("{at}.idle: expected \"invoke\" or \"reset\", got {other:?}")),
+        };
+        entries.push(EntryDescriptor {
+            key: Name::Owned(text(&entry, "key", &at)?),
+            phase,
+            trigger,
+            reads,
+            writes,
+            requests,
+            after,
+            limits: Limits { max_requests: u32::try_from(limit).map_err(|_| format!("{at}.limit: {limit} is out of range"))? },
+            on_idle,
+            run: EntryCode::Loaded { index: index as u32 },
+        });
+    }
+    if entries.is_empty() {
+        return Err("declare(): declares no entries".into());
+    }
+    Ok(ModuleDescriptor {
+        key: ModuleKey { provider: Name::Owned(provider), key: Name::Owned(key) },
+        api: API_VERSION,
+        code: CodeIdentity::Loaded { abi: crate::ABI.into(), digest: 0 },
+        schemas,
+        entries,
+    })
+}
+
+fn schema_of(value: &Dynamic, provider: &str, at: &str) -> Result<StateSchema, String> {
+    let table = map(value, at)?;
+    let attachment = match optional_text(&table, "attachment", at)?.as_deref() {
+        None | Some("body") => Attachment::Body,
+        Some("session") => Attachment::Session,
+        Some(other) => return Err(format!("{at}.attachment: expected \"body\" or \"session\", got \"{other}\"")),
+    };
+    let save = match optional_text(&table, "save", at)?.as_deref() {
+        None | Some("transient") => SaveEligibility::Transient,
+        Some("checkpoint") => SaveEligibility::Checkpoint,
+        Some("durable") => SaveEligibility::Durable,
+        Some(other) => {
+            return Err(format!("{at}.save: expected \"transient\", \"checkpoint\" or \"durable\", got \"{other}\""))
+        }
+    };
+    let revision = match table.get("revision") {
+        None => 1,
+        Some(v) => v.as_int().map_err(|t| format!("{at}.revision: expected a number, got {t}"))?,
+    };
+    let mut fields = Vec::new();
+    for (n, field) in list(&table, "fields")?.iter().enumerate() {
+        let fat = format!("{at}.fields[{n}]");
+        let field = map(field, &fat)?;
+        let kind = match text(&field, "kind", &fat)?.as_str() {
+            "bool" => FieldKind::Bool,
+            "u32" => FieldKind::U32,
+            "i32" => FieldKind::I32,
+            "u64" => FieldKind::U64,
+            "f32" => FieldKind::F32,
+            "vec2" => FieldKind::Vec2,
+            other => {
+                return Err(format!("{fat}.kind: \"{other}\" is not one of bool, u32, i32, u64, f32, vec2"))
+            }
+        };
+        let tag = field
+            .get("tag")
+            .ok_or_else(|| format!("{fat}: no tag"))?
+            .as_int()
+            .map_err(|t| format!("{fat}.tag: expected a number, got {t}"))?;
+        let initial = match field.get("initial") {
+            None => kind.initial(),
+            Some(v) => initial_of(v, &kind).ok_or_else(|| format!("{fat}.initial: not a {kind:?}"))?,
+        };
+        fields.push(FieldDecl {
+            tag: u16::try_from(tag).map_err(|_| format!("{fat}.tag: {tag} is out of range"))?,
+            name: Name::Owned(text(&field, "name", &fat)?),
+            kind,
+            initial,
+        });
+    }
+    let schema = StateSchema {
+        key: SchemaKey {
+            provider: Name::Owned(provider.to_owned()),
+            key: Name::Owned(text(&table, "key", at)?),
+            revision: u32::try_from(revision).map_err(|_| format!("{at}.revision: {revision} is out of range"))?,
+        },
+        attachment,
+        save,
+        fields,
+    };
+    schema.validate().map_err(|e| format!("{at}: {e:?}"))?;
+    Ok(schema)
+}
+
+fn initial_of(value: &Dynamic, kind: &FieldKind) -> Option<Value> {
+    Some(match kind {
+        FieldKind::Bool => Value::Bool(value.as_bool().ok()?),
+        FieldKind::U32 => Value::U32(u32::try_from(value.as_int().ok()?).ok()?),
+        FieldKind::I32 => Value::I32(i32::try_from(value.as_int().ok()?).ok()?),
+        FieldKind::U64 => Value::U64(u64::try_from(value.as_int().ok()?).ok()?),
+        FieldKind::F32 => Value::F32(value.as_float().ok()?),
+        FieldKind::Vec2 => {
+            let items = value.clone().into_array().ok()?;
+            match items.as_slice() {
+                [x, y] => Value::Vec2([x.as_float().ok()?, y.as_float().ok()?]),
+                _ => return None,
+            }
+        }
+        _ => return None,
+    })
+}
+
+fn map(value: &Dynamic, at: &str) -> Result<Map, String> {
+    value.clone().try_cast::<Map>().ok_or_else(|| format!("{at}: expected a table, got {}", value.type_name()))
+}
+
+fn text(table: &Map, field: &str, at: &str) -> Result<String, String> {
+    optional_text(table, field, at)?.ok_or_else(|| format!("{at}: no {field}"))
+}
+
+fn optional_text(table: &Map, field: &str, at: &str) -> Result<Option<String>, String> {
+    table
+        .get(field)
+        .map(|v| v.clone().into_string().map_err(|t| format!("{at}.{field}: expected text, got {t}")))
+        .transpose()
+}
+
+fn list(table: &Map, field: &str) -> Result<Vec<Dynamic>, String> {
+    match table.get(field) {
+        None => Ok(Vec::new()),
+        Some(v) => v.clone().into_array().map_err(|t| format!("{field}: expected a list, got {t}")),
+    }
+}
+

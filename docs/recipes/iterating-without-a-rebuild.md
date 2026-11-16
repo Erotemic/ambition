@@ -99,6 +99,15 @@ published through the same mechanical-edit road as a rebuilt `.wasm` file
 not compile stops the run at startup, and leaves the previous code running
 when it is a reload; the log names the file, line and column.
 
+A script can also bring a module the game does not have: it defines
+`fn declare()`, returning the module's declaration (its provider and key,
+its schemas, and each entry's phase, trigger, records and request ports,
+ports named as scripts name them), and a function for each entry. The
+format and its defaults: `crates/ambition_extension_rhai/src/declare.rs`;
+an example, a tally kept on each sentry turret:
+`a_module_a_script_declares_runs_with_its_own_record` in
+`game/ambition_app/tests/a_script_module_runs_without_a_build.rs`.
+
 A **project** names its scripts (and optionally its own content pack and
 start room) in a `project.ron`, so a run needs no variable:
 

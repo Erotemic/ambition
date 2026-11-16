@@ -199,7 +199,7 @@ fn a_script_added_to_a_watched_directory_runs_and_removed_leaves() {
     let published = |sim: &Platformer2dSimHarness| {
         sim.world().resource::<ambition_platformer2d::extension::reload::StagedModuleReplacement>().published()
     };
-    let mut step_until = |sim: &mut Platformer2dSimHarness, count: u32, what: &str| {
+    let step_until = |sim: &mut Platformer2dSimHarness, count: u32, what: &str| {
         let mut frames = 0;
         while published(sim) < count {
             sim.step(AgentAction::default());
@@ -288,6 +288,82 @@ fn a_projects_throwing_script_commits_nothing() {
         message.contains("modules/sentry.rhai") && message.contains("generation") && message.contains("the project's fault"),
         "the fault names the project's file and its generation: {message}"
     );
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A module the game does not link, declared by its script (P3 step 3:
+/// `fn declare()`): its own schema, attached to each sentry turret, and an
+/// entry on the turret's tick that counts it. No Rust names it.
+const TALLY: &str = r#"
+fn declare() {
+    #{
+        provider: "drill",
+        key: "turret_tally",
+        schemas: [
+            #{ key: "turret_tally.count", attachment: "body",
+               fields: [ #{ tag: 1, name: "ticks", kind: "u32" } ] },
+        ],
+        entries: [
+            #{ key: "tally", phase: "module_entity_tick",
+               trigger: #{ port: "module_entity_tick", selector: "sentry" },
+               writes: ["turret_tally.count"], limit: 0 },
+        ],
+    }
+}
+
+fn tally() {
+    let c = this.state.count;
+    c.ticks += 1;
+    this.state.count = c;
+}
+"#;
+
+/// ⭐ A MODULE A SCRIPT DECLARES: admitted beside the game's own sentry, it
+/// runs on each living turret's tick and keeps its own record there, which
+/// rollback restores (sync-test session, every tick rewound and replayed).
+#[test]
+fn a_module_a_script_declares_runs_with_its_own_record() {
+    const COUNT: SchemaKey = SchemaKey::new("drill", "turret_tally.count", 1);
+    let dir = root().join(format!("target/extension-modules/script_test_{}_declared", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("turret_tally.rhai"), TALLY).unwrap();
+    let options = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_sync_test_rollback_settings(4, 10)
+        .with_extension_module_files(vec![dir.join("turret_tally.rhai")]);
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds with the declared module");
+    {
+        let admitted = sim.world().resource::<AdmittedExtensions>();
+        let entry = admitted.0.entries.iter().find(|e| e.path == "drill::turret_tally/tally").expect("the declared entry is admitted");
+        assert!(matches!(entry.runner, EntryRunner::Loaded { .. }));
+    }
+    assert!(!turret_is_scripted(&sim), "the game's own turret is still the linked one");
+    hold_the_sentry(&mut sim);
+    let counts = |sim: &mut Platformer2dSimHarness| -> Vec<u32> {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&ModuleEntity, Option<&BodyRecords>)>();
+        q.iter(world)
+            .filter(|(entity, _)| entity.kind == "sentry")
+            .filter_map(|(_, records)| match records?.get(&COUNT)?.get(FieldRef(0)) {
+                Ok(Value::U32(ticks)) => Some(*ticks),
+                _ => None,
+            })
+            .collect()
+    };
+    sim.step(AgentAction { attack: true, ..AgentAction::default() });
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let first = counts(&mut sim);
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let second = counts(&mut sim);
+    assert_eq!(first.len(), 1, "one turret carries the declared record: {first:?}");
+    assert!(first[0] > 20, "the tally ran on the turret's ticks: {first:?}");
+    assert_eq!(second[0], first[0] + 30, "one count per tick, through every rewind: {first:?} then {second:?}");
     assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -7,6 +7,10 @@
 //! the script; an entry it does not define runs the module's native code, so
 //! a module can move to script one entry at a time.
 //!
+//! Or a script declares a module of its own, which the game does not link:
+//! its `fn declare()` returns the declaration ([`declare`]), and every entry
+//! is the script's.
+//!
 //! An entry runs with the invocation bound as `this`:
 //!
 //! ```text
@@ -38,6 +42,8 @@
 //!   is an error, not `()`.
 
 use std::sync::Arc;
+
+pub mod declare;
 
 use ambition_extension_host::ModuleBackend;
 use ambition_extension_sdk::script::{invoke_script, ScriptPorts, ScriptValue};
@@ -192,6 +198,34 @@ impl RhaiModules {
         Ok((backend, vec![declared]))
     }
 
+    /// Compile `text` (the file `source`) as a module it declares itself:
+    /// its `fn declare()` gives the declaration ([`declare`]), and every entry
+    /// the declaration names must be a function of the script.
+    pub fn load_declared(
+        source: &str,
+        text: &str,
+        ports: ScriptPorts,
+        max_operations: u64,
+    ) -> Result<(Arc<Self>, Vec<ModuleDescriptor>), String> {
+        let probe = engine(max_operations);
+        let ast = probe.compile(text).map_err(|e| format!("{source}: {e}"))?;
+        if !declares_a_module(&ast) {
+            return Err(format!("{source}: declares no module (no `fn declare()`)"));
+        }
+        let table: Dynamic = probe
+            .call_fn(&mut rhai::Scope::new(), &ast, "declare", ())
+            .map_err(|e| format!("{source}: declare(): {e}"))?;
+        let declared = declare::descriptor(&table, &ports).map_err(|e| format!("{source}: {e}"))?;
+        let (backend, modules) = Self::load(source, text, declared, ports, max_operations)?;
+        if let Some(missing) = backend.modules[0].native.entries.iter().zip(&backend.modules[0].scripted).find(|(_, s)| !**s) {
+            return Err(format!(
+                "{source}: declares entry \"{}\" and defines no function `{}()` for it",
+                missing.0.key, missing.0.key
+            ));
+        }
+        Ok((backend, modules))
+    }
+
     /// Whether entry `entry` of module `module` runs from the script.
     pub fn is_scripted(&self, module: u32, entry: u32) -> bool {
         self.modules
@@ -222,6 +256,17 @@ impl ModuleBackend for RhaiModules {
     fn module_index(&self, key: &ModuleKey) -> Option<u32> {
         self.keys.iter().position(|known| known == key).map(|index| index as u32)
     }
+}
+
+/// Whether the compiled script declares its own module (`fn declare()`).
+pub fn declares_a_module(ast: &AST) -> bool {
+    ast.iter_functions().any(|f| f.name == "declare" && f.params.is_empty())
+}
+
+/// Whether `text` declares its own module. A text that does not compile
+/// does not.
+pub fn text_declares_a_module(text: &str) -> bool {
+    engine(DEFAULT_MAX_OPERATIONS).compile(text).is_ok_and(|ast| declares_a_module(&ast))
 }
 
 /// A script value as a Rhai value.

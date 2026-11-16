@@ -460,6 +460,17 @@ fn bind_script(
     ),
     String,
 > {
+    // A script that declares its own module (`fn declare()`) brings it; any
+    // other is the code of the linked module its stem names.
+    if ambition_extension_rhai::text_declares_a_module(text) {
+        return ambition_extension_rhai::RhaiModules::load_declared(
+            &path.display().to_string(),
+            text,
+            script_ports(),
+            ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
+        )
+        .map(|(backend, modules)| (backend as std::sync::Arc<dyn ambition_extension_host::ModuleBackend>, modules));
+    }
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
     let native = ambition_extension_rhai::module_for_file(stem, linked)?.clone();
     let (backend, modules) = ambition_extension_rhai::RhaiModules::load(

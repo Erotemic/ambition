@@ -77,8 +77,8 @@ one side at two heights only if one way passes over the other, and a
 filled slope's earth runs down to the room's floor: a road under a hill
 path would be drawn inside the hill. A line with one height per side needs
 neither a tunnel nor a bridge. (The painted `Terrain` layer draws overhangs
-and caves exactly, but the navigation graph does not plan over it yet; the
-first crossing in level 1 waits for that.)
+and caves exactly, and since 2026-11-16 the navigation graph plans over it
+(TN1); the first crossing in level 1 can be painted.)
 
 Rules the rooms follow:
 

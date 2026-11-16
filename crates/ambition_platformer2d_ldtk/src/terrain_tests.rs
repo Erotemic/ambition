@@ -288,3 +288,47 @@ fn a_track_lowers_only_its_top_so_you_can_jump_up_through_it() {
         .flat_map(|c| c.points.windows(2))
         .all(|pair| !(pair[0].y == 48.0 && pair[1].y == 48.0)));
 }
+
+/// TN1 (`docs/planning/engine/dark-rooms-and-tunnels.md`): ground painted in
+/// the `Terrain` layer, lowered as a room's is, is ground the navigation graph
+/// plans over. A low floor, a 22.5° rise and a high floor, with no block: a
+/// walker stands on both floors and walks between them.
+#[test]
+fn the_navigation_graph_walks_painted_ground() {
+    use ambition_platformer2d_world::navigation::NavGraph;
+    let (width, height, rise) = (80usize, 24usize, 6usize);
+    let (low_top, slope_from) = (20usize, 30usize);
+    let mut csv = vec![0; width * height];
+    for x in 0..width {
+        let top = if x < slope_from {
+            low_top
+        } else if x < slope_from + 2 * rise {
+            let k = x - slope_from;
+            let row = low_top - 1 - k / 2;
+            csv[row * width + x] = if k % 2 == 0 { 4 } else { 5 }; // Up22a, Up22b
+            row + 1
+        } else {
+            low_top - rise
+        };
+        for row in top..height {
+            csv[row * width + x] = 1;
+        }
+    }
+    let mut painted = layer(&["."]);
+    painted.c_wid = width as i32;
+    painted.c_hei = height as i32;
+    painted.int_grid_csv = csv;
+    let emission = emit_terrain_from_intgrid(&painted, ae::Vec2::ZERO, "hill").expect("the hill lowers");
+    let size = ae::Vec2::new((width * 16) as f32, (height * 16) as f32);
+    let world = ae::World::new("a painted hill", size, ae::Vec2::ZERO, Vec::new()).with_chains(emission.chains);
+    let walker = ae::BodyClusterScratch::new_with_abilities(
+        ae::Vec2::ZERO,
+        ae::AbilitySet { move_horizontal: true, jump: true, ..ae::AbilitySet::NONE },
+    );
+    let frame = ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, ae::movement::GRAVITY)).expect("gravity");
+    let graph = NavGraph::build(&world, &walker, frame).expect("a walker has a graph");
+    let low = graph.surface_at(ae::Vec2::new(200.0, (low_top * 16) as f32)).expect("the low floor is ground");
+    let high = graph.surface_at(ae::Vec2::new(1100.0, ((low_top - rise) * 16) as f32)).expect("the high floor is ground");
+    assert!(graph.reachable_from(low).contains(&high), "up the painted hill: {:?}", graph.links);
+    assert!(graph.reachable_from(high).contains(&low), "down it");
+}

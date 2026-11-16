@@ -50,7 +50,7 @@ use ae::{BodyClusterScratch, LocalAxes, MotionFrame, Vec2, World};
 
 use super::envelope::{EnvelopeProbe, TraversalEnvelope};
 use super::flight::FlightMap;
-use super::surfaces::{standing_surfaces, NavFrame, StandSurface};
+use super::surfaces::{chain_walks, standing_surfaces, NavFrame, StandSurface};
 
 /// The most kernel steps one leg may take in its rollout.
 const MAX_LEG_STEPS: usize = 360;
@@ -165,6 +165,7 @@ impl NavGraph {
         let nav = NavFrame { side: frame.side(), down: frame.down() };
         let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
         let surfaces = standing_surfaces(world, nav, half * 2.0);
+        let slope_pieces = chain_walks(world, nav).pieces;
         let jump_reach = envelope.jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let drop_reach = envelope.drop.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let apex = envelope.apex_rise();
@@ -224,7 +225,7 @@ impl NavGraph {
                 let wall_jump = can_wall_jump && rise > 1.0 && rise <= MAX_CLIMB && gap <= jump_reach + slack;
                 // Flight is for going up: a drop gets down.
                 let fly = can_fly && rise > 1.0;
-                let slopes = slope_proposals(world, nav, a, b, half.x);
+                let slopes = slope_proposals(&slope_pieces, nav, a, b, half.x);
                 if slopes.is_empty()
                     && (rise < -envelope.probe.max_drop || !(hop || drop || double || dash || climb || wall_jump || fly))
                 {
@@ -663,13 +664,14 @@ impl NavGraph {
 /// How near a surface's top, and its ends, a slope's end must be to join it.
 const SLOPE_END_REACH: f32 = 12.0;
 
-/// Walks from `a` to `b` along an open surface chain with one end at the top
+/// Walks from `a` to `b` along a slope piece of a chain (the part between
+/// two flats, or a flat and an end: [`chain_walks`]) with one end at the top
 /// of each (points as (along, below) pairs, like [`proposals`]). An end
 /// joins a surface when it is at the surface's height and over it, or past
 /// one of its ends by no more than half a body: the bank path leaves the
 /// lane's floor at its end, and the cart's ramp comes down onto the middle of
 /// the workshop's floor.
-fn slope_proposals(world: &World, frame: NavFrame, a: &StandSurface, b: &StandSurface, half_width: f32) -> Vec<NavLeg> {
+fn slope_proposals(pieces: &[(Vec2, Vec2)], frame: NavFrame, a: &StandSurface, b: &StandSurface, half_width: f32) -> Vec<NavLeg> {
     let reach = half_width + SLOPE_END_REACH;
     let joins = |surface: &StandSurface, point: Vec2| {
         let (along, below) = (frame.along(point), frame.below(point));
@@ -678,11 +680,7 @@ fn slope_proposals(world: &World, frame: NavFrame, a: &StandSurface, b: &StandSu
             && along <= surface.right + reach
     };
     let mut legs = Vec::new();
-    for chain in world.chains.iter() {
-        if chain.closed || chain.points.len() < 2 {
-            continue;
-        }
-        let (first, last) = (chain.points[0], chain.points[chain.points.len() - 1]);
+    for &(first, last) in pieces {
         for (from, to) in [(first, last), (last, first)] {
             if !(joins(a, from) && joins(b, to)) {
                 continue;

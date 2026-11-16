@@ -1,6 +1,6 @@
 # Dark rooms and tunnels
 
-**State:** OPEN (TN1 left), planned 2026-11-14; DR1, TN2, DR2, DR3 and TN3 landed 2026-11-16. Asked by Jon on 2026-11-14: "we have to
+**State:** DONE 2026-11-16 (planned 2026-11-14): DR1, DR2, DR3, TN1, TN2 and TN3 landed. Left for a customer: the light map at full resolution at Ultra, per-item pickup art, and a tunnel painted in `Terrain` (the salt run is blocks). Asked by Jon on 2026-11-14: "we have to
 start thinking about how to model "dark" or "dim" rooms with limited
 visibilities and effectively tunnels. We don't have any rooms that are based
 on tunnels, and tunnels in a metroidvania are fun and how we make good use of
@@ -18,10 +18,11 @@ done (2026-11-14) and is the first piece of light this plan builds on.
 | Daylight veil | One translucent sprite over the world of a sunlit room, coloured by the hour. Rooms under the ground or indoors have none | `ambition_render::rendering::daylight` |
 | Painted terrain | The `Terrain` IntGrid layer draws caves, overhangs and tunnels exactly (Sanic's acts use it) | the LDtk conversion |
 
-What does not exist: darkness (nothing makes a room darker than its art),
-lights that light a room, any tunnel room, and navigation over painted terrain
-(`NavGraph` plans over blocks and `SurfaceChain`s only; see
-[Hobford polish](../game/hobford-polish.md), "The land").
+What did not exist when this was planned: darkness (nothing made a room
+darker than its art), lights that light a room, any tunnel room, and
+navigation over painted terrain (`NavGraph` planned over blocks and
+`SurfaceChain` slopes only; see [Hobford polish](../game/hobford-polish.md),
+"The land"). All four exist now (below).
 
 ## Rules
 
@@ -152,6 +153,23 @@ is down there (coins, a note).
 - **TN1. Navigation over painted terrain.** The graph's surfaces from the
   `Terrain` layer, so a tunnel can be painted and still walked by NPCs and
   the census.
+  **Landed 2026-11-16.** A still chain's flat is a standing surface when it
+  has ground under it (painted earth or a solid outline just below, or a
+  filled ground line) and no earth over it (a cave roof's underside is no
+  floor); painted earth and solid outlines take room from a body as blocks
+  do. The parts of a chain between its flats are its slope pieces, and a
+  slope leg walks a piece from one surface to the next, as it walked a
+  whole slope chain before (`navigation::surfaces::chain_walks`). A bare
+  authored line stays a line: counting the Hanoi room's 64 stacked disk
+  tops took its graph from 23 ms to 4.9 s (walker) and 9.6 s (dog), so a
+  flat needs ground under it. Witnesses: `a_body_routes_over_painted_ground`
+  (a painted outline with its earth, a roof over it; travelled both ways)
+  and `the_navigation_graph_walks_painted_ground` (ground painted cell by
+  cell and lowered by the loader). The census of the shipped rooms
+  (`nav_graph_census`, 339 rooms, two bodies) is unchanged in surfaces,
+  links and groups but for the four Hobford hill rooms, whose slope legs now
+  start where a filled line's flat ends (each route about a second
+  cheaper).
 - **TN2. The first tunnel** (above), in blocks if TN1 is not done.
   **Landed 2026-11-16 in blocks** (TN1 is not done): `intro_salt_run`, THE
   SALT RUN, an old smugglers' passage (salt under the gate's toll), 6240

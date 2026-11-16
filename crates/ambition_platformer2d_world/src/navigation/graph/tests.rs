@@ -713,6 +713,54 @@ fn a_body_walks_up_and_down_a_slope_between_two_floors() {
     assert_eq!(graph.next(low, high), NavNext::Unreachable, "control: no slope, no road up");
 }
 
+/// Painted ground (TN1): a region painted in the `Terrain` layer lowers to an
+/// outline chain round its earth, with no block. Its floors are standing
+/// surfaces and the slope between them a slope leg, so a body routes over it.
+/// The cave's roof is painted too, and its underside is no floor.
+#[test]
+fn a_body_routes_over_painted_ground() {
+    let apex = TraversalEnvelope::measure(&walker(), normal_frame(), EnvelopeProbe::default())
+        .expect("measured")
+        .apex_rise();
+    let rise = apex * 3.0;
+    let (low_end, high_start, high_end, bottom) = (1000.0, 1700.0, 2700.0, FLOOR + 200.0);
+    let p = Vec2::new;
+    let mut ground = ae::SurfaceChain::closed_loop(
+        "terrain:ground",
+        vec![
+            p(0.0, FLOOR),
+            p(low_end, FLOOR),
+            p(high_start, FLOOR - rise),
+            p(high_end, FLOOR - rise),
+            p(high_end, bottom),
+            p(0.0, bottom),
+        ],
+    );
+    ground.earth = vec![
+        vec![p(0.0, FLOOR), p(low_end, FLOOR), p(low_end, bottom), p(0.0, bottom)],
+        vec![p(low_end, FLOOR), p(high_start, FLOOR - rise), p(high_start, bottom), p(low_end, bottom)],
+        vec![p(high_start, FLOOR - rise), p(high_end, FLOOR - rise), p(high_end, bottom), p(high_start, bottom)],
+    ];
+    // A roof over the low floor, high over a body's head.
+    let roof_bottom = FLOOR - 400.0;
+    let mut roof = ae::SurfaceChain::closed_loop(
+        "terrain:roof",
+        vec![p(100.0, roof_bottom - 100.0), p(800.0, roof_bottom - 100.0), p(800.0, roof_bottom), p(100.0, roof_bottom)],
+    );
+    roof.earth = vec![roof.points.clone()];
+    let world = World::new("a painted hill", Vec2::new(4000.0, 3000.0), Vec2::ZERO, Vec::new()).with_chains(vec![ground, roof]);
+    let graph = NavGraph::build(&world, &walker(), normal_frame()).expect("an upright body has a graph");
+    let (low, high) = (p(500.0, FLOOR), p(2200.0, FLOOR - rise));
+    let (from, to) = (graph.surface_at(low).expect("the low floor stands"), graph.surface_at(high).expect("the high floor stands"));
+    let leg = |a: usize, b: usize| graph.links.iter().find(|link| link.from == a && link.to == b).map(|link| link.leg.kind);
+    assert_eq!(leg(from, to), Some(NavLegKind::Slope), "up the painted slope");
+    assert_eq!(leg(to, from), Some(NavLegKind::Slope), "down it");
+    assert!(graph.surface_at(p(450.0, roof_bottom)).is_none(), "the roof's underside is no floor");
+    let fixture = Fixture { graph, world, body: walker() };
+    fixture.travel(low, high).unwrap_or_else(|why| panic!("up the painted hill: {why}"));
+    fixture.travel(high, low).unwrap_or_else(|why| panic!("down it: {why}"));
+}
+
 /// A graph built on the compute pool is the graph one thread builds: the same
 /// links, in the same order, at the same cost. Peers build on pools of other
 /// sizes, and a rewind builds again.

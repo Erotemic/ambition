@@ -34,9 +34,9 @@ carries closed campaigns. Unselected or customer-gated plans live in
    the ossuary), TN2 (the salt run under Hobford) and DR2 (the light map
    at High: players, `LightSource` lamps, and whatever carries
    `CastsLight`, which actor glows and fires do) and DR3 (Ultra's shadows:
-   light stops at the room's solid ground) and TN3 (the Lantern, found in
-   the salt run) are done (2026-11-16); next: TN1 (navigation over painted
-   terrain).
+   light stops at the room's solid ground), TN3 (the Lantern, found in
+   the salt run) and TN1 (the navigation graph plans over painted ground)
+   are done (2026-11-16): the plan is complete.
 0b. **Runtime authoring: a scripting language (Jon, 2026-11-14: "I think its
    time for a scripting language"; after the audit's obvious fixes, scripting
    is the feature priority).** The

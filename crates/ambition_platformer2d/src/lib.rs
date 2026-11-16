@@ -1523,6 +1523,11 @@ pub mod presentation {
     pub use ambition_platformer2d_shared_tangle::gameplay_presentation::{
         ActivePlayerGlow, ActorGlow, GlowLayer, GlowLook, GlowPulse, PlayerGlowCatalog,
     };
+
+    /// A light cast into a dark room's light map: put a [`CastsLight`] on
+    /// anything that should light the dark (a fire, a lamp a game draws
+    /// itself). Actor glows cast theirs already.
+    pub use ambition_platformer2d_shared_tangle::gameplay_presentation::CastsLight;
 }
 
 /// The SDK claim about the inspector, tested.

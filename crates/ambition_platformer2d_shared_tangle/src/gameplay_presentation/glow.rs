@@ -53,6 +53,20 @@ pub struct GlowPulse {
     pub depth: f32,
 }
 
+/// A light this entity casts into a dark room's light map
+/// (docs/planning/engine/dark-rooms-and-tunnels.md, DR2), at its place.
+/// Presentation only: no simulation fact reads it. Drawn at the tiers that
+/// draw a light map; a glow already draws itself elsewhere.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct CastsLight {
+    /// World units.
+    pub radius: f32,
+    /// How much of the darkness it takes away in its core, `0..=1`.
+    pub intensity: f32,
+    /// sRGB, `0..=1`.
+    pub color: [f32; 3],
+}
+
 /// A light about one actor. Put it on the actor's visual entity.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorGlow {

@@ -191,6 +191,13 @@ fn give_each_fire_its_glow(
                 Transform::from_xyz(0.0, 0.0, GLOW_Z).with_scale(Vec3::new(size * GLOW_SCALE, size * GLOW_SCALE, 1.0)),
                 Name::new("mary-o fire glow"),
                 FireGlow,
+                // What the fire lights in a dark room: twice its glow's
+                // reach (the glow is the flame's halo, not its light), orange.
+                ambition_platformer2d::presentation::CastsLight {
+                    radius: size * GLOW_SCALE,
+                    intensity: 0.9,
+                    color: [1.0, 0.6, 0.25],
+                },
             ));
         });
     }

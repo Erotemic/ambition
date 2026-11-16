@@ -13,7 +13,8 @@
 //!   a sprite of a round falloff on the player, and four flat pieces round it.
 //! - `LightMap` (High, Ultra; DR2): one sprite over the view whose small
 //!   texture is the darkness left where every light reaches: each player's,
-//!   and each lamp the room places (`LightSource`). Computed on the CPU each
+//!   each lamp the room places (`LightSource`), and each thing that casts
+//!   light ([`CastsLight`]: actor glows, fires). Computed on the CPU each
 //!   frame at [`MAP_TEXELS`], each light over only the texels it reaches;
 //!   drawn smooth. Where a lamp's light fades the veil takes its colour, so
 //!   a lantern's pool has a warm rim; a player's light keeps the ambient.
@@ -24,6 +25,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use ambition_persistence::settings::{DarknessQuality, ResolvedVisualQuality};
 use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::CastsLight;
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
@@ -250,6 +252,7 @@ pub fn darken_the_room(
     primary: Option<PrimaryLiveRoom>,
     cameras: Query<(&Transform, Option<&Projection>), (With<MainCamera>, Without<DarknessVeil>)>,
     players: Query<&GlobalTransform, (With<PlayerVisual>, Without<DarknessVeil>)>,
+    casters: Query<(&GlobalTransform, &CastsLight, &InheritedVisibility)>,
     mut veils: Query<(&DarknessVeil, &mut Transform, &mut Sprite, &mut Visibility)>,
     // What the light map was last drawn from: a still frame draws nothing.
     mut drawn: Local<Option<(Vec2, Vec2, f32, [f32; 3], Vec<Lamp>)>>,
@@ -325,6 +328,12 @@ pub fn darken_the_room(
             radius: LIGHT_RADIUS,
             intensity: 1.0,
             color: ambient,
+        }));
+        all.extend(casters.iter().filter(|(_, _, shown)| shown.get()).map(|(at, light, _)| Lamp {
+            at: at.translation().truncate(),
+            radius: light.radius,
+            intensity: light.intensity.clamp(0.0, 1.0),
+            color: light.color,
         }));
         let inputs = (camera, size, perceived, ambient, all);
         if drawn.as_ref() != Some(&inputs) {

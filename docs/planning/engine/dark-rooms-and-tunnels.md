@@ -1,6 +1,6 @@
 # Dark rooms and tunnels
 
-**State:** OPEN, planned 2026-11-14; DR1 landed 2026-11-16. Asked by Jon on 2026-11-14: "we have to
+**State:** OPEN, planned 2026-11-14; DR1, TN2 and DR2 landed 2026-11-16. Asked by Jon on 2026-11-14: "we have to
 start thinking about how to model "dark" or "dim" rooms with limited
 visibilities and effectively tunnels. We don't have any rooms that are based
 on tunnels, and tunnels in a metroidvania are fun and how we make good use of
@@ -105,7 +105,7 @@ is down there (coins, a note).
 - **DR2. The light map (High).** `LightSource`, the per-view target, actor
   glows and fire glows drawn into it. Acceptance: a tunnel lit by its lamps
   and the player; the cost measured (one target per view at half size).
-  **Landed 2026-11-16 (lamps and players; glows next).** `LightSource` is an
+  **Landed 2026-11-16.** `LightSource` is an
   LDtk entity (`radius`, `color` `#rrggbb`, `intensity`; in the entity
   contract), carried in the room spec (`RoomSpec::lights`, presentation
   only). At High and Ultra (`DarknessQuality::LightMap`) the veil is one
@@ -123,8 +123,13 @@ is down there (coins, a note).
   the salt run's four lanterns (`hill_salt_run_lantern`) and the daylight
   down its well shaft; none past the well, as its sign says. Captured at
   High (lantern pools along the race, dark between) and Low (the player's
-  hole only). Still to draw into it: actor glows and fire glows (they
-  already know their places), and the lantern a player carries (TN3).
+  hole only). Glows and fires: anything that carries `CastsLight` (radius,
+  intensity, colour; `presentation::CastsLight`) is a light in the map, at
+  its place while it shows. Each actor glow casts its own (its radius, hue
+  and strength on the tick; today the player highlight, too faint to
+  matter beside the player's light), and Mary-O's fires cast twice their
+  halo in orange; a game's own lamp adds the component and names no
+  renderer type. The lantern a player carries is TN3.
 - **DR3. Occlusion (Ultra).** Lights stopped by solid blocks. Acceptance:
   a lamp round a corner leaves the far side dark; the frame cost measured.
 - **TN1. Navigation over painted terrain.** The graph's surfaces from the

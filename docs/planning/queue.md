@@ -31,10 +31,10 @@ carries closed campaigns. Unselected or customer-gated plans live in
    rooms and the first tunnel (under Hobford, the mill wheel to the hollow
    oak) are [dark rooms and tunnels](engine/dark-rooms-and-tunnels.md): the
    player's glow by quality tier, DR1 (room darkness: the catacombs and
-   the ossuary), TN2 (the salt run under Hobford) and DR2's lamps (the
-   light map at High: players and `LightSource` lamps) are done
-   (2026-11-16); next: actor and fire glows into the light map, then DR3
-   (occlusion) and TN3 (the lantern).
+   the ossuary), TN2 (the salt run under Hobford) and DR2 (the light map
+   at High: players, `LightSource` lamps, and whatever carries
+   `CastsLight`, which actor glows and fires do) are done (2026-11-16);
+   next: DR3 (occlusion) and TN3 (the lantern).
 0b. **Runtime authoring: a scripting language (Jon, 2026-11-14: "I think its
    time for a scripting language"; after the audit's obvious fixes, scripting
    is the feature priority).** The

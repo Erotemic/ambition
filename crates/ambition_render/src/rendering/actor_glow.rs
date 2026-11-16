@@ -40,7 +40,7 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dKey, MeshMaterial2d
 use ambition_persistence::settings::{ActorGlowQuality, ResolvedVisualQuality};
 
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
-    ActivePlayerGlow, ActorGlow, GlowLayer, GlowLook,
+    ActivePlayerGlow, ActorGlow, CastsLight, GlowLayer, GlowLook,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
     PlayerVisual, PresentationOf, SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
@@ -195,6 +195,12 @@ fn glow_sprite(glow: &ActorGlow, picture: &Handle<Image>, diameter: f32, tick: u
     }
 }
 
+/// The light a glow casts into a dark room's light map: its own radius,
+/// hue and strength on sim tick `tick`.
+fn glow_light(glow: &ActorGlow, diameter: f32, tick: u64, alpha: f32) -> CastsLight {
+    CastsLight { radius: diameter / 2.0, intensity: glow.intensity_at(tick) * alpha, color: glow.light_color() }
+}
+
 /// A glow shows unless something other than the portal hides its body.
 fn glow_visibility(body_hidden_by_another: bool) -> Visibility {
     if body_hidden_by_another {
@@ -338,6 +344,7 @@ pub fn sync_actor_glows(
             Option<&MeshMaterial2d<ActorGlowMaterial>>,
             Option<&mut ambition_sprite_fx::DeclaredFrame>,
             &mut Visibility,
+            Option<&CastsLight>,
         ),
         (With<ActorGlowVisual>, Without<ActorGlow>),
     >,
@@ -345,7 +352,7 @@ pub fn sync_actor_glows(
     let tick = tick.map_or(0, |tick| tick.0);
     let mode = glow_mode(quality.as_deref(), materials.is_some() && meshes.is_some());
     let mut drawn: Vec<Entity> = Vec::new();
-    for (entity, visual, drawn_as, mut transform, sprite, material, declared, mut visibility) in &mut glows {
+    for (entity, visual, drawn_as, mut transform, sprite, material, declared, mut visibility, cast) in &mut glows {
         let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, animator, passage, feature)) = bodies.get(visual.0) else {
             commands.entity(entity).try_despawn();
             continue;
@@ -366,6 +373,10 @@ pub fn sync_actor_glows(
             *visibility = wanted;
         }
         let alpha = passage_alpha(passage, feature, frames.as_deref());
+        let light = glow_light(glow, diameter, tick, alpha);
+        if cast != Some(&light) {
+            commands.entity(entity).try_insert(light);
+        }
         if let Some(mut sprite) = sprite {
             transform.set_if_neq(Transform::from_translation(at));
             let now = glow_sprite(glow, &sprite.image, diameter, tick, alpha);
@@ -412,7 +423,14 @@ pub fn sync_actor_glows(
         let shown = glow_visibility(body_visibility.is_some_and(|shown| matches!(*shown, Visibility::Hidden)));
         // Which body this draws (`PresentationOf`), in the shared spelling
         // that portal composition and view isolation read.
-        let common = (shown, ActorGlowVisual, GlowDrawnAs(mode), PresentationOf(body), Name::new("Actor glow"));
+        let common = (
+            shown,
+            ActorGlowVisual,
+            GlowDrawnAs(mode),
+            PresentationOf(body),
+            Name::new("Actor glow"),
+            glow_light(glow, diameter, tick, alpha),
+        );
         match (mode, materials.as_deref_mut(), meshes.as_deref_mut()) {
             (ActorGlowQuality::Smooth | ActorGlowQuality::Light, Some(materials), Some(meshes)) => {
                 let quad = quad.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();

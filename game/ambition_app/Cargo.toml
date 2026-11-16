@@ -235,6 +235,13 @@ ron = { workspace = true }
 # The hosted world over UDP, for the `hosted_world` feature.
 ambition_hosted_world = { path = "../../crates/ambition_hosted_world", features = ["renet"], optional = true }
 
+# The shipped binary carries its own content validator (`ambition_game_bin
+# content <pack-dir>`), with the schemas the game compiles against. Native
+# only: a browser build has no command line.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_check"] }
+ambition_content_schemas = { path = "../ambition_content_schemas" }
+
 [target.'cfg(target_os = "android")'.dependencies]
 # The app died before a line of Rust ran, and the allocator was why.
 #

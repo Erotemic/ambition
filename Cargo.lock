@@ -188,6 +188,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_content",
  "ambition_content_pack",
+ "ambition_content_schemas",
  "ambition_demo_mary_o",
  "ambition_demo_pocket",
  "ambition_demo_sanic",

@@ -66,6 +66,10 @@ pub struct Invocation {
     /// generated; `--strict-assets` is the packaging/release answer.
     pub advisory_assets: bool,
     pub list_schemas: bool,
+    /// Print only the installed schema set's identity
+    /// (`SchemaRegistry::identity`): the value a runtime built with the same
+    /// schemas reports, so a validator and its runtime can be compared.
+    pub schema_identity_only: bool,
     /// Print only the fingerprint, for a build script or a cache key.
     pub fingerprint_only: bool,
     /// Print only the files a package needs (`PreparedContentPack::package_inputs`).
@@ -129,6 +133,9 @@ OPTIONS:
                           line per asset a schema required. The package asset
                           guard reads this.
     --list-schemas        List the installed schemas and exit.
+    --schema-identity     Print the installed schema set's identity and exit.
+                          A runtime built with the same schemas prints the
+                          same value (`ambition_game_bin --schema-identity`).
     --inspect-art         Export prepared art identities and dependencies as JSON.
     --sheet-root <dir>    Inspect published RON sheets through their runtime owner.
     -h, --help            This text.
@@ -148,6 +155,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
     let mut skip_asset_check = false;
     let mut advisory_assets = false;
     let mut list_schemas = false;
+    let mut schema_identity_only = false;
     let mut fingerprint_only = false;
     let mut package_inputs_only = false;
     let mut inspect_art = false;
@@ -170,6 +178,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             "--no-asset-check" => skip_asset_check = true,
             "--advisory-assets" => advisory_assets = true,
             "--list-schemas" => list_schemas = true,
+            "--schema-identity" => schema_identity_only = true,
             "--fingerprint" => fingerprint_only = true,
             "--package-inputs" => package_inputs_only = true,
             "--inspect-art" => inspect_art = true,
@@ -179,7 +188,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
         }
     }
 
-    if list_schemas {
+    if list_schemas || schema_identity_only {
         return Ok(Invocation {
             pack_root,
             asset_roots,
@@ -188,6 +197,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             skip_asset_check,
             advisory_assets,
             list_schemas,
+            schema_identity_only,
             fingerprint_only,
             package_inputs_only,
             inspect_art,
@@ -205,6 +215,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
         skip_asset_check,
         advisory_assets,
         list_schemas,
+        schema_identity_only,
         fingerprint_only,
         package_inputs_only,
         inspect_art,
@@ -279,7 +290,12 @@ impl Invocation {
 /// its own schemas has a binary that calls this with them, so its pack is
 /// checked by this one CLI and not by a copy.
 pub fn main_with(game_schemas: fn() -> Vec<SchemaRegistration>) -> std::process::ExitCode {
-    let raw: Vec<String> = std::env::args().skip(1).collect();
+    main_with_args(std::env::args().skip(1).collect(), game_schemas)
+}
+
+/// [`main_with`] over `raw` instead of the process arguments: for a binary
+/// that carries this CLI as one of its commands (`ambition_game_bin content`).
+pub fn main_with_args(raw: Vec<String>, game_schemas: fn() -> Vec<SchemaRegistration>) -> std::process::ExitCode {
     if raw.iter().any(|a| a == "-h" || a == "--help") {
         print!("{USAGE}");
         return std::process::ExitCode::SUCCESS;
@@ -294,7 +310,7 @@ pub fn main_with(game_schemas: fn() -> Vec<SchemaRegistration>) -> std::process:
     };
     invocation.game_schemas = game_schemas;
 
-    if invocation.list_schemas {
+    if invocation.list_schemas || invocation.schema_identity_only {
         let registry = match invocation.registry() {
             Ok(registry) => registry,
             Err(failure) => {
@@ -302,6 +318,10 @@ pub fn main_with(game_schemas: fn() -> Vec<SchemaRegistration>) -> std::process:
                 return std::process::ExitCode::from(1);
             }
         };
+        if invocation.schema_identity_only {
+            println!("{}", registry.identity());
+            return std::process::ExitCode::SUCCESS;
+        }
         println!("installed schemas:");
         for schema in registry.schemas() {
             println!(
@@ -313,6 +333,7 @@ pub fn main_with(game_schemas: fn() -> Vec<SchemaRegistration>) -> std::process:
         for capability in registry.capabilities() {
             println!("  {capability}");
         }
+        println!("\nidentity: {}", registry.identity());
         return std::process::ExitCode::SUCCESS;
     }
 

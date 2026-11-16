@@ -32,6 +32,8 @@ pub mod hub_games;
 pub mod hosted_launch;
 mod plugins;
 pub mod project;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod content_check;
 mod resources;
 mod scene_setup;
 mod setup_systems;

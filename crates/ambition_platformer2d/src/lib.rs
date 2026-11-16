@@ -101,6 +101,10 @@ pub mod content {
     /// no installed capability owns the game's schema.
     #[cfg(feature = "content_check")]
     pub use ambition_content_cli::main_with as check_pack_main;
+    /// [`check_pack_main`] over given arguments, for a binary that carries the
+    /// check as one of its commands.
+    #[cfg(feature = "content_check")]
+    pub use ambition_content_cli::main_with_args as check_pack_main_with_args;
 
     pub fn engine_schemas() -> ambition_content_pack::SchemaRegistry {
         ambition_engine_schemas::engine_schemas()

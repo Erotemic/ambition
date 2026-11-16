@@ -106,6 +106,7 @@ impl ShellComposition {
         // omit it, or add it twice; adding it here means a consumer never has to know which engine
         // group already satisfied the dependency.
         app.add_plugins(ambition_load::AmbitionLoadPlugin);
+        #[cfg(feature = "load_presentation")]
         app.add_plugins(ambition_load_presentation::MinimalShellLoadPresentationPlugins);
         app.add_plugins(experience);
 

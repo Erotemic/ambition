@@ -13,6 +13,9 @@ ldtk = ["ambition_platformer2d_runtime/ldtk"]
 default = []
 # Adaptive-music readiness checks name the Kira-side catalog registry.
 audio = ["ambition_audio/kira"]
+# The loading screen: an experience's loading spec and the shell's load
+# presentation. Off for a consumer with no screen (see the facade's feature).
+load_presentation = ["dep:ambition_load_presentation"]
 
 [dependencies]
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
@@ -33,7 +36,7 @@ ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_characters = { path = "../ambition_characters" }
 ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
 ambition_load = { path = "../ambition_load" }
-ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
+ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false, optional = true }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }

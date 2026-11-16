@@ -824,6 +824,7 @@ pub use ambition_interaction as interaction;
 pub use ambition_inventory_ui as inventory_ui;
 pub use ambition_items as items;
 pub use ambition_load as load;
+#[cfg(feature = "load_presentation")]
 pub use ambition_load_presentation as load_presentation;
 /// The versus match, prepared: roster, rules, plan and receipt. The kernel
 /// activates it; a game stages and reads it from here.

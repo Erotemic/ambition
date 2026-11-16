@@ -12,8 +12,10 @@ pub use crate::windowed_host::PlatformerHostPlugins;
 
 pub use crate::{
     actors, asset_manager, characters, combat, engine_core, game_shell, host, input, load,
-    load_presentation, platformer, sim_view, sprite_sheet, time, world,
+    platformer, sim_view, sprite_sheet, time, world,
 };
+#[cfg(feature = "load_presentation")]
+pub use crate::load_presentation;
 
 // Capability edges (slice H): present exactly when their feature is — which
 // the default feature set turns on wholesale.

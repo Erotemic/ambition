@@ -128,10 +128,12 @@ fn signal(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platfor
 
 /// The encounter id and live room of every occurrence a reference names.
 ///
-/// A request asked in a live room (a switch's, a room's line) resolves only the
+/// A request asked in a live room (a switch's, a room's line) resolves the
 /// occurrence in that room, so two live rooms that each hold the encounter are
-/// told apart by where the ask came from. A request that is no room's sees
-/// every occurrence.
+/// told apart by where the ask came from. When that room holds none, it
+/// resolves the occurrence that is no room's (a session's encounter, such as
+/// the symmetry attunement): that one is every room's. A request that is no
+/// room's sees every occurrence.
 fn resolve_encounter(
     world: &mut World,
     target: &SimId,
@@ -146,8 +148,12 @@ fn resolve_encounter(
         .iter(world)
         .filter(|(sim_id, ..)| *sim_id == target)
         .map(|(_, encounter, stamp)| (encounter.id.clone(), stamp.map(|stamp| stamp.0)))
-        .filter(|(_, room)| asked_in.is_none() || *room == asked_in)
         .collect();
+    if asked_in.is_some() {
+        let roomless = |(_, room): &(String, Option<_>)| room.is_none();
+        let in_room: Vec<_> = found.iter().filter(|(_, room)| *room == asked_in).cloned().collect();
+        found = if in_room.is_empty() { found.into_iter().filter(roomless).collect() } else { in_room };
+    }
     found.sort();
     found
 }

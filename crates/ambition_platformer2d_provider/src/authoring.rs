@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use ambition_game_shell::{
     standard_platformer_preparation_plan, ExperienceRegistration, GameplaySessionAppExt,
-    ShellCompletionPolicy, ShellRouteId, ShellRouteSpec,
+    ShellCompletionPolicy, ShellRouteSpec,
 };
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     ActorGlow, DefensePresentationCatalog, DefensePresentationPolicy,
@@ -33,6 +33,7 @@ pub struct PlatformerExperienceAuthoring {
     pub description: String,
     pub preparation_label: String,
     pub catalogs: AuthoredCatalogFragments,
+    #[cfg(feature = "load_presentation")]
     pub loading: Option<ambition_load_presentation::LoadExperienceSpec>,
     /// How this experience wants gameplay framed on the physical display.
     /// `None` keeps the engine default (full-bleed, normal framing).
@@ -76,6 +77,7 @@ impl PlatformerExperienceAuthoring {
             description: description.into(),
             preparation_label: preparation_label.into(),
             catalogs,
+            #[cfg(feature = "load_presentation")]
             loading: None,
             presentation: None,
             defense_presentation: None,
@@ -198,6 +200,7 @@ impl PlatformerExperienceAuthoring {
         self
     }
 
+    #[cfg(feature = "load_presentation")]
     pub fn with_loading_activity(mut self, activity_id: impl Into<String>) -> Self {
         let mut loading = ambition_load_presentation::LoadExperienceSpec::basic(format!(
             "{}.loading",
@@ -209,6 +212,7 @@ impl PlatformerExperienceAuthoring {
         self
     }
 
+    #[cfg(feature = "load_presentation")]
     pub fn with_loading_spec(
         mut self,
         loading: ambition_load_presentation::LoadExperienceSpec,
@@ -326,12 +330,13 @@ impl PlatformerExperienceAuthoring {
                 .resource_mut::<HudDeclarationCatalog>()
                 .insert(self.route_id.clone(), hud);
         }
+        #[cfg(feature = "load_presentation")]
         if let Some(loading) = self.loading.clone() {
             app.init_resource::<ambition_load_presentation::ShellLoadPresentationCatalog>();
             app.world_mut()
                 .resource_mut::<ambition_load_presentation::ShellLoadPresentationCatalog>()
                 .by_route
-                .insert(ShellRouteId::new(self.route_id.clone()), loading);
+                .insert(ambition_game_shell::ShellRouteId::new(self.route_id.clone()), loading);
         }
     }
 }

@@ -6,7 +6,6 @@
 
 use ambition_platformer2d::world::prelude::*;
 
-use crate::MINIMAL_EXPERIENCE;
 
 /// The one body in the game.
 pub const MINIMAL_CHARACTER_ID: &str = "minimal_walker";

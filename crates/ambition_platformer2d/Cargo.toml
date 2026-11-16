@@ -100,7 +100,7 @@ rollback = ["dep:ambition_platformer2d_rollback_ggrs"]
 # feature now (see that crate's manifest). Without this line a composition could
 # name `ambition_render` and get a host that installs none of the presentation
 # that renderer exists for.
-ambition_render = ["dep:ambition_render", "ambition_platformer2d_host/render"]
+ambition_render = ["dep:ambition_render", "ambition_platformer2d_host/render", "load_presentation"]
 # ⭐ SPELLED OUT for the same reason as the renderer above: the map's SIMULATION
 # half lives in `ambition_platformer2d_runtime` and is behind that crate's `map`
 # feature now (it used to be an unconditional installer, which is what kept this
@@ -178,9 +178,14 @@ bevy_ui_menu = ["ambition_platformer2d_actor_monolith/bevy_ui_menu", "ambition_m
 kaleidoscope_menu = ["ambition_platformer2d_actor_monolith/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
 relativity = ["dep:ambition_relativity", "dep:ambition_relativity2d"]
 basic_shell_presentation = [
+    "load_presentation",
     "ambition_game_shell/basic_presentation",
     "ambition_load_presentation/basic_presentation",
 ]
+# The loading screen's model and policy: what a load shows and when a ready
+# route is held for the player. A face that draws asks for it (the renderer
+# implies it); a headless consumer has no screen to hold, so it links none.
+load_presentation = ["dep:ambition_load_presentation", "ambition_platformer2d_provider/load_presentation"]
 
 [dependencies]
 ambition_platformer2d_interaction = { path = "../ambition_platformer2d_interaction" }
@@ -257,7 +262,7 @@ ambition_items = { path = "../ambition_items" }
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", optional = true, default-features = false }
 ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
 ambition_load = { path = "../ambition_load" }
-ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
+ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false, optional = true }
 ambition_menu = { path = "../ambition_menu", features = ["ldtk"], optional = true }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

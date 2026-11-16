@@ -26,5 +26,13 @@ which line.
 | `modules` | `.rhai` sources (or `.wasm` builds), or directories of them; each replaces the linked module its file names |
 | `entry_room` | optional: the room the run starts in, a runtime room id; `--start-room` beside `--project` wins |
 
+The tools take the project too:
+
+```bash
+cargo run -p ambition_app_tools --bin extension_inspect -- --project examples/projects/sentry_drill
+cargo run -p ambition_app_tools --bin capture_scene -- central_hub_complex player shot.png --project examples/projects/sentry_drill
+cargo run -p ambition_app_tools --bin inspect_geometry -- --project examples/projects/sentry_drill --room central_hub_complex
+```
+
 Paths are relative to `project.ron`. The host's adapter is
 `game/ambition_app/src/app/project.rs`.

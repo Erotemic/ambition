@@ -138,6 +138,41 @@ impl Project {
     }
 }
 
+/// The tools' road: a stepping harness (`inspect_geometry`,
+/// `extension_inspect`, the RL drivers) on this project, its inputs composed
+/// before Ambition's. An option the caller states (a start room, module
+/// files) is the caller's.
+#[cfg(feature = "rl_sim")]
+impl Project {
+    pub fn sim(
+        &self,
+        options: crate::rl_sim::Platformer2dSimHarnessOptions,
+    ) -> Result<crate::rl_sim::Platformer2dSimHarness, String> {
+        let stated_files = !options.extension_module_files.is_empty();
+        crate::rl_sim::Platformer2dSimHarness::build(options, |app, options| {
+            let files = app.world().get_resource::<ambition_platformer2d::extension::ExtensionModuleFiles>().cloned();
+            self.compose(app)?;
+            if let Some(files) = files.filter(|_| stated_files) {
+                app.insert_resource(files);
+            }
+            crate::rl_sim::ambition_sim_composition(app, options)
+        })
+    }
+}
+
+/// [`Project::sim`] for the project at `path`, or the plain harness.
+#[cfg(feature = "rl_sim")]
+pub fn sim_for(
+    path: Option<&Path>,
+    options: crate::rl_sim::Platformer2dSimHarnessOptions,
+) -> Result<crate::rl_sim::Platformer2dSimHarness, String> {
+    use crate::rl_sim::AmbitionSim as _;
+    match path {
+        Some(path) => Project::load(path)?.sim(options),
+        None => crate::rl_sim::Platformer2dSimHarness::new_with_options(options),
+    }
+}
+
 /// The running project and when its manifest was last read.
 #[derive(bevy::prelude::Resource)]
 pub struct ProjectWatch {

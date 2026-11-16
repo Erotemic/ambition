@@ -24,7 +24,7 @@
 //! pieces, how many are inactive, the median time of 21 runs of it alone,
 //! and the size of its JSON; then the whole observation's.
 
-use ambition_app::rl_sim::{AmbitionSim as _, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::rl_sim::{Platformer2dSimHarnessOptions, TimestepMode};
 use ambition_platformer2d::geometry_observation::{GeometryObservers, ObservationQuery, observe_all, to_json};
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -54,7 +54,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
         println!(
-            "usage: inspect_geometry [--list] [--room ROOM] [--ticks N] [--provider A,B,prefix.] [--no-subject] [--out FILE] [--cost]"
+            "usage: inspect_geometry [--project PATH] [--list] [--room ROOM] [--ticks N] [--provider A,B,prefix.] [--no-subject] [--out FILE] [--cost]"
         );
         return;
     }
@@ -62,7 +62,8 @@ fn main() {
     if let Some(room) = value_of(&args, "--room") {
         options = options.with_required_start_room(&room);
     }
-    let mut sim = match Platformer2dSimHarness::new_with_options(options) {
+    let project = value_of(&args, "--project").map(std::path::PathBuf::from);
+    let mut sim = match ambition_app::app::project::sim_for(project.as_deref(), options) {
         Ok(sim) => sim,
         Err(error) => {
             eprintln!("inspect_geometry: the room did not boot: {error:?}");

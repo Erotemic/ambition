@@ -331,6 +331,7 @@ USAGE:
 
 OPTIONS:
     --art-snapshot      write OUT.art.json with live identities and sprite selection
+    --project PATH      run a project (project.ron or its directory): its modules and pack
     --warmup N          frames to settle before the first shot [default: 60]
     --frames N          take N shots, numbered <stem>.NNNN.png [default: 1]
     --stride K          sim frames between shots of a sequence [default: 1]
@@ -2195,6 +2196,16 @@ impl SceneCaptureConfig {
                     route = Some(arg.trim_start_matches("--route=").to_string());
                     1
                 }
+                // The host reads it (`ambition_app::app::project`): the
+                // project's modules, pack and entry room, under the capture's
+                // own room.
+                "--project" => {
+                    if args.get(i + 1).is_none() {
+                        return Err("--project requires a project.ron or its directory".to_string());
+                    }
+                    2
+                }
+                arg if arg.starts_with("--project=") => 1,
                 "--warmup" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--warmup requires a frame count".to_string());

@@ -19,7 +19,7 @@
 //! with and without `--modules` to see what the loaded road costs.
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions,
+    AgentAction, Platformer2dSimHarnessOptions,
     TimestepMode,
 };
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -33,6 +33,7 @@ struct Args {
     ticks: usize,
     try_replace: Option<std::path::PathBuf>,
     time: bool,
+    project: Option<std::path::PathBuf>,
 }
 
 fn parse() -> Args {
@@ -42,6 +43,7 @@ fn parse() -> Args {
         ticks: 0,
         try_replace: None,
         time: false,
+        project: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -52,9 +54,10 @@ fn parse() -> Args {
             "--ticks" => args.ticks = value().parse().expect("--ticks takes a number"),
             "--try-replace" => args.try_replace = Some(value().into()),
             "--time" => args.time = true,
+            "--project" => args.project = Some(value().into()),
             "-h" | "--help" => {
                 println!(
-                    "extension_inspect [--modules PATH]... [--boss PROFILE] [--ticks N] [--try-replace FILE]"
+                    "extension_inspect [--project PATH] [--modules PATH]... [--boss PROFILE] [--ticks N] [--try-replace FILE]"
                 );
                 std::process::exit(0);
             }
@@ -71,7 +74,7 @@ fn main() {
     if !args.modules.is_empty() {
         options = options.with_extension_module_files(args.modules.clone());
     }
-    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+    let mut sim = ambition_app::app::project::sim_for(args.project.as_deref(), options).expect("the sandbox builds");
 
     if let Some(profile) = &args.boss {
         let (px, py) = {

@@ -88,7 +88,7 @@ fn run(alice: Alice, arrival: Arrival, rewinds: bool) -> Run {
     };
     for frame in 1..=FRAMES {
         let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 + 1;
-        in_flight.push_back((frame, GuestInput { tick, frame: bobs(frame) }));
+        in_flight.push_back((frame, GuestInput { sequence: tick, tick, frame: bobs(frame) }));
         let due = match arrival {
             Arrival::OnTime => frame,
             Arrival::Late => frame - LATENCY,
@@ -184,7 +184,7 @@ fn two_guest_rooms_keep_their_histories_when_both_rewind() {
                 for (seat, client) in clients.iter().enumerate() {
                     host.world_mut().write_message(FromClient {
                         client_id: ClientId::Client(*client),
-                        message: GuestInput { tick, frame: ControlFrame {
+                        message: GuestInput { sequence: tick, tick, frame: ControlFrame {
                             axis_x: if seat == 0 { 1.0 } else { -1.0 },
                             ..Default::default()
                         } },
@@ -227,7 +227,7 @@ fn a_room_rewind_preserves_another_rooms_pending_heal() {
     let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 - 3;
     host.world_mut().write_message(FromClient {
         client_id: ClientId::Client(client),
-        message: GuestInput { tick, frame: ControlFrame { axis_x: 1.0, ..Default::default() } },
+        message: GuestInput { sequence: tick, tick, frame: ControlFrame { axis_x: 1.0, ..Default::default() } },
     });
     host.app_mut().update();
     assert_eq!(host.world().resource::<RoomRollbackStats>().rewinds, 1);
@@ -236,7 +236,7 @@ fn a_room_rewind_preserves_another_rooms_pending_heal() {
     let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 - 2;
     host.world_mut().write_message(FromClient {
         client_id: ClientId::Client(client),
-        message: GuestInput { tick, frame: ControlFrame { axis_x: -1.0, ..Default::default() } },
+        message: GuestInput { sequence: tick, tick, frame: ControlFrame { axis_x: -1.0, ..Default::default() } },
     });
     host.app_mut().update();
     assert_eq!(host.world().resource::<RoomRollbackStats>().rewinds, 2);
@@ -313,7 +313,7 @@ fn a_guest_room_replay_does_not_advance_or_close_another_rooms_narrative() {
             let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 - 3;
             host.world_mut().write_message(FromClient {
                 client_id: ClientId::Client(client),
-                message: GuestInput { tick, frame: ControlFrame { axis_x: 1.0, ..Default::default() } },
+                message: GuestInput { sequence: tick, tick, frame: ControlFrame { axis_x: 1.0, ..Default::default() } },
             });
         }
         host.app_mut().update();
@@ -333,3 +333,38 @@ fn a_guest_room_replay_does_not_advance_or_close_another_rooms_narrative() {
     }
 }
 
+/// A new connection starts its own input history on a reused seat.
+#[test]
+fn a_reconnected_guest_joins_without_the_previous_owners_held_input() {
+    use ambition_platformer2d::characters::control::SlotControls;
+    use ambition_platformer2d::session::participants::SessionParticipants;
+    use ambition_platformer2d::platformer::lifecycle::session_world_component;
+    let mut host = boot_host("central_hub_complex");
+    crate::a_second_seat_joins_the_session::join(&mut host, 240).expect("seat 1 joins");
+    host.drive_seat(1, ControlFrame::default());
+    for _ in 0..3 { host.app_mut().update(); }
+    host.world_mut().insert_resource(RewindsGuestRooms);
+    let old = host.world_mut().spawn(GuestSeat(PlayerSlot(1))).id();
+    host.app_mut().update();
+    let send = |host: &mut Platformer2dSimHarness, client, sequence, frame| {
+        let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 + 1;
+        host.world_mut().write_message(FromClient {
+            client_id: ClientId::Client(client), message: GuestInput { sequence, tick, frame },
+        });
+    };
+    send(&mut host, old, 200, ControlFrame { axis_x: 1.0, ..Default::default() });
+    host.app_mut().update();
+    assert_eq!(host.world().resource::<SlotControls>().get(PlayerSlot(1)).axis_x, 1.0);
+    host.world_mut().despawn(old);
+    for _ in 0..5 { host.app_mut().update(); }
+    assert!(!session_world_component::<SessionParticipants>(host.world()).unwrap().contains(PlayerSlot(1)));
+    assert_eq!(host.world().resource::<SlotControls>().get(PlayerSlot(1)).axis_x, 0.0);
+    let new = host.world_mut().spawn(GuestSeat(PlayerSlot(1))).id();
+    assert_ne!(old, new);
+    host.app_mut().update();
+    send(&mut host, new, 1, ControlFrame { start_pressed: true, ..Default::default() });
+    for _ in 0..30 { host.app_mut().update(); }
+    assert!(session_world_component::<SessionParticipants>(host.world()).unwrap().contains(PlayerSlot(1)),
+        "the new owner's sequence and join press must be accepted");
+    assert_eq!(host.world().resource::<SlotControls>().get(PlayerSlot(1)).axis_x, 0.0);
+}

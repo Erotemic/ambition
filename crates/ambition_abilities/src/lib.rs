@@ -29,6 +29,7 @@
 pub mod ability_cooldown;
 pub mod body_conditions;
 pub mod extension;
+pub mod group;
 pub mod mana;
 pub mod module_entity;
 pub mod ranged;

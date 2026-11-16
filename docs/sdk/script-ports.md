@@ -105,3 +105,21 @@ Port `ambition.motion.velocity@1`, request: `this.requests.push(request("<alias>
 |---|---|---|---|
 | `velocity` | [x, y] | required | The body's new velocity (world frame, units per second, +Y down). |
 
+## `group_think`
+
+Port `ambition.actor.group_think@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `members` | list of { id: text, form: text, position: [x, y], velocity: [x, y], size: [x, y], alive: bool, driven: bool, held: text or (), supporter: text or (), target: [x, y] or (), target_velocity: [x, y] or () } | The room's members, in the order of their identity. |
+| `items` | list of { id: text, kind: text, position: [x, y], at_rest: bool } | The items lying in the room (not held), in the order of their identity. |
+
+## `steer`
+
+Port `ambition.actor.steer@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `body` | text | required | The member's identity (`GroupMember::id`). |
+| `velocity` | [x, y] | required | The velocity it aims for (world units per second, +Y down). |
+

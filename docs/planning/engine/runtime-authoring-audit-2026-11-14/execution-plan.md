@@ -113,6 +113,8 @@ P6 is a parallel engine-development track. It must not block P1-P5. P4 and P5 sh
 
 Slices: the coordinated trigger with `steer`; custody requests; reference fields and the room record; then `swallows.rhai`, which replaces the native producer (its tests become the script's witnesses).
 
+**Progress.** The coordinated trigger and `steer` landed 2026-11-16 (`ambition_combat_port::group`, adapter `ambition_abilities::group`). `steer` writes the intent each body's movement reads. A body that flies (no gravity, or flight enabled) gets `velocity_target`. One on its feet gets a locomotion throttle in its own frame, `velocity / max_run_speed`, as a brain that reasons in speeds writes it. Witness: `a_script_steers_the_birds_of_the_trailhead_as_one_group` (app_it, sync-test session). A declared module keeps the trailhead's kiwis and chickens over 200 from a still player, steering only while it sees the room's two coconuts. The control is `the_birds_of_the_trailhead_come_for_the_player` (within 70). Next: custody requests.
+
 **Bounded parallel customers:**
 
 - Move ordinary form dimensions and pose selection into prepared data. Route ordinary posture/form requests from human gestures, AI, scripts, and moves through the same collision-safe resize. Report clearance rejection. Move-owned absence from the stage retains its admitted semantic transition and arrival policy; it is not a generic resize.

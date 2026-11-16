@@ -70,6 +70,8 @@ pub fn install_ports(app: &mut App) {
     // actor_think
     ambition_combat::extension::install_for_actor_think(app);
     ambition_abilities::extension::install_for_actor_think(app);
+    // A room's group decides in one invocation (P4: the coconut swallows).
+    ambition_abilities::group::install(app);
     // body_contact: retirement follows all ordinary request adapters.
     ambition_abilities::extension::install_for_body_contact(app);
     ambition_combat::extension::install_for_body_contact(app);
@@ -502,7 +504,9 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::LaunchToucherPort>("launch_toucher")
         .add::<ambition_combat_port::ActorThinkPort>("actor_think")
         .add::<ambition_combat_port::ActorFirePort>("fire")
-        .add::<ambition_combat_port::SetVelocityPort>("velocity");
+        .add::<ambition_combat_port::SetVelocityPort>("velocity")
+        .add::<ambition_combat_port::GroupThinkPort>("group_think")
+        .add::<ambition_combat_port::SteerPort>("steer");
     ports
 }
 

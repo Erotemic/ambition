@@ -18,6 +18,7 @@ pub mod attachments;
 pub mod blast;
 pub mod contact;
 pub mod force;
+pub mod group;
 pub mod hold;
 mod launch;
 pub mod ledge;
@@ -74,6 +75,7 @@ pub use riding::{
     SpeechBubblePort,
 };
 pub use slow::{SlowBodies, SlowBodiesPort};
+pub use group::{GroupItem, GroupMember, GroupThink, GroupThinkPort, Steer, SteerPort};
 pub use think::{ActorFire, ActorFirePort, ActorThink, ActorThinkPort};
 pub use wielded::{
     AimCast, AimCastPort, AimHit, BodySound, BodySoundPort, MarkPort, MarkView, SetMark, SetMarkPort, SpendMana,

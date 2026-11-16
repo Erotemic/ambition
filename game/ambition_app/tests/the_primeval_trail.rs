@@ -294,3 +294,67 @@ fn rollback_european_sling_replays_pickup_and_release() {
     assert!(released, "the same coconut must return to world custody");
     assert!(sim.rollback_execution_stats().unwrap().lifetime_load_runs > before, "LoadWorld must run");
 }
+
+/// A declared module that steers a room's birds away from their targets, as
+/// one group (`group_think`, runtime authoring audit P4): one invocation for
+/// the room lists its tagged members and its items, and each member is named
+/// by its identity in its `steer`. It steers only when it sees the room's two
+/// coconuts, so the items' list is part of what it reads.
+const KEEP_AWAY: &str = r#"
+fn declare() {
+    #{
+        provider: "drill",
+        key: "keep_away",
+        schemas: [],
+        entries: [
+            #{ key: "flock", phase: "actor_think",
+               trigger: #{ port: "group_think", selector: "bird" },
+               requests: ["steer"], limit: 16 },
+        ],
+    }
+}
+
+fn flock() {
+    let room = this.trigger;
+    let coconuts = room.items.filter(|item| item.kind == "coconut");
+    if coconuts.len() != 2 { return; }
+    for member in room.members {
+        if !member.alive || member.driven || type_of(member.target) == "()" { continue; }
+        let away = if member.position[0] < member.target[0] { -1.0 } else { 1.0 };
+        this.requests.push(request("steer", #{ body: member.id, velocity: [away * 200.0, 0.0] }));
+    }
+}
+"#;
+
+/// ⭐ A GROUP DECIDES IN ONE INVOCATION: with the module, the birds of the
+/// trailhead keep away from a player who stands still, through every rewind
+/// of a sync-test session. The control is
+/// `the_birds_of_the_trailhead_come_for_the_player`: with no module they come
+/// within 70.
+#[test]
+fn a_script_steers_the_birds_of_the_trailhead_as_one_group() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("../../target/extension-modules/script_test_{}_keep_away", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("keep_away.rhai"), KEEP_AWAY).unwrap();
+    let options = fixed_60hz_room_options("primeval_trailhead")
+        .with_sync_test_rollback_settings(4, 10)
+        .with_extension_module_files(vec![dir.join("keep_away.rhai")]);
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the trailhead builds");
+    let mut closest = f32::MAX;
+    for _ in 0..60 * 12 {
+        sim.step(AgentAction::default());
+        let at = player(&mut sim);
+        for kind in ["kiwi", "chicken", "chicken_hen"] {
+            for bird in wearing(&mut sim, kind) {
+                closest = closest.min(bird.distance(at));
+            }
+        }
+    }
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let faults = sim.world().resource::<ambition_platformer2d::extension::ExtensionFaults>().total;
+    assert_eq!(faults, 0, "the module ran without a fault");
+    assert!(closest > 200.0, "steered away, the nearest bird came to {closest} of the player");
+    let _ = std::fs::remove_dir_all(&dir);
+}

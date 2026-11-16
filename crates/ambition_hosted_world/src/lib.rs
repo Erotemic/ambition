@@ -643,9 +643,8 @@ fn name_body_rooms(
     }
 }
 
-/// A seated guest whose client entity is gone (it disconnected) leaves the
-/// session: its seat's leave is written as a host intent for the next tick.
-/// Seat each guest the host has just authorized ([`SeatsGuests`]).
+/// Assign a free seat from the session roster. Authorized clients wait and
+/// retry while every seat is occupied ([`SeatsGuests`]).
 fn seat_connecting_guests(
     mut commands: Commands,
     arrived: Query<Entity, (With<AuthorizedClient>, Without<GuestSeat>)>,
@@ -695,6 +694,8 @@ fn take_assigned_seat(mut commands: Commands, mut assigned: MessageReader<SeatAs
     }
 }
 
+/// End input ownership when a client leaves or changes seats. Queue the old
+/// participant's leave through the host intent owner.
 fn retire_departed_guests(
     guests: Query<(Entity, &GuestSeat)>,
     mut inputs: ResMut<room_rollback::GuestInputs>,
@@ -845,6 +846,7 @@ fn watched<T>(bodies: impl Iterator<Item = (T, PlayerSlot)>, seat: PlayerSlot) -
 /// Drive each guest's seat with the input it sent, in the order sent.
 fn apply_guest_inputs(world: &mut World) {
     let received: Vec<FromClient<GuestInput>> = world.resource_mut::<Messages<FromClient<GuestInput>>>().drain().collect();
+    let rewinds = world.contains_resource::<room_rollback::RewindsGuestRooms>();
     let mut stamped = Vec::new();
     for input in received {
         let Some(seat) = input.client_id.entity().and_then(|client| world.get::<GuestSeat>(client)).copied() else {
@@ -852,10 +854,13 @@ fn apply_guest_inputs(world: &mut World) {
         };
         let now = world.resource::<ambition_time::SimTick>().0;
         if let Some((tick, frame)) = world.resource_mut::<room_rollback::GuestInputs>().record(seat.0, input.message, now) {
+            // Replay needs the whole tick. Live delivery needs only this
+            // sample's edges; earlier samples have already reached the seat.
+            let frame = if rewinds { frame } else { input.message.frame };
             stamped.push((seat.0, tick, frame));
         }
     }
-    if world.contains_resource::<room_rollback::RewindsGuestRooms>() {
+    if rewinds {
         room_rollback::take_arrived_inputs(world, stamped);
     } else {
         let mut samples = std::collections::BTreeMap::<_, ambition_platformer2d_core::ControlFrame>::new();
@@ -1097,6 +1102,42 @@ mod seating_tests {
     use super::*;
     use ambition_platformer2d_session::participants::SessionParticipants;
     use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+
+    #[test]
+    fn a_live_host_does_not_repeat_edges_from_an_earlier_sample_of_the_same_tick() {
+        use ambition_characters::control::SeatRawFrames;
+        use ambition_platformer2d_core::ControlFrame;
+        let mut world = World::new();
+        world.init_resource::<Messages<FromClient<GuestInput>>>();
+        world.init_resource::<room_rollback::GuestInputs>();
+        world.init_resource::<SeatRawFrames>();
+        world.insert_resource(ambition_time::SimTick(100));
+        let seat = PlayerSlot(1);
+        let client = world.spawn(GuestSeat(seat)).id();
+        world.write_message(FromClient { client_id: client.into(), message: GuestInput {
+            sequence: 1, tick: 100, frame: ControlFrame { jump_pressed: true, jump_held: true, ..Default::default() },
+        } });
+        apply_guest_inputs(&mut world);
+        assert!(world.resource::<SeatRawFrames>().get(seat).jump_pressed);
+        world.resource_mut::<ambition_time::SimTick>().0 = 101;
+        world.write_message(FromClient { client_id: client.into(), message: GuestInput {
+            sequence: 2, tick: 100, frame: ControlFrame { jump_held: true, ..Default::default() },
+        } });
+        apply_guest_inputs(&mut world);
+        let frame = world.resource::<SeatRawFrames>().get(seat);
+        assert!(frame.jump_held);
+        assert!(!frame.jump_pressed);
+        for (sequence, frame) in [
+            (3, ControlFrame { jump_pressed: true, jump_held: true, ..Default::default() }),
+            (4, ControlFrame { jump_released: true, ..Default::default() }),
+        ] {
+            world.write_message(FromClient { client_id: client.into(), message: GuestInput { sequence, tick: 101, frame } });
+        }
+        apply_guest_inputs(&mut world);
+        let frame = world.resource::<SeatRawFrames>().get(seat);
+        assert!(frame.jump_pressed && frame.jump_released);
+        assert!(!frame.jump_held);
+    }
 
     #[test]
     fn guests_respect_local_membership_and_wait_for_a_free_seat() {

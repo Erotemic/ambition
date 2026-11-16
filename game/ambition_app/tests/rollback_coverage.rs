@@ -1984,8 +1984,12 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the developer's perception viewport override, the THIRD of the same shape: env-parsed once at plugin build by `ambition_dev_tools`, read by the brain tick (`SenseExtent`) whenever a sighted body decides, never written by a system. A measurement knob that changes how far a brain can SEE; a resimulated frame reads the same unchanged value, so the knob is an input to the decision and not state a rewind must restore. No body stores a copy of it",
     ),
     (
-        "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyBindings",
-        "which key toggles which developer overlay. No production code takes it          mutably; it is configuration, and it is not present in a player's build's          decisions at all",
+        "ambition_platformer2d_host::developer_keys::DeveloperHotkeyBindings",
+        "which key toggles which developer overlay: the host's defaults with the          player's settings file over them, rewritten only when the settings change.          Configuration of a developer's keyboard, not present in any simulation decision",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperActionLabels",
+        "the label of each developer key for a prompt to show, written beside the          host's key deck and only when it changes. Presentation text, read by no          simulation system",
     ),
     (
         "ambition_platformer2d_shared_tangle::lifecycle::session::SessionGatedSimulation",

@@ -531,6 +531,28 @@ pub struct ControlSettings {
     /// `serde(default)` so older files load. An empty list means no overrides.
     #[serde(default)]
     pub binding_overrides: Vec<BindingOverride>,
+    /// Developer shortcuts moved off the host's defaults (F1 the overlay, F3
+    /// the inspector, ...). An action not named keeps its default; the host
+    /// keeps every default when the file's set would bind one chord twice.
+    /// `serde(default)` so older files load.
+    #[serde(default)]
+    pub developer_keys: Vec<DeveloperKeyOverride>,
+}
+
+/// One developer action bound to one keyboard chord. `action` is the action's
+/// name (`ToggleDebugOverlay`); an unknown name is ignored, so a file from a
+/// newer build still loads. Extra modifiers are part of the chord: `Shift+F8`
+/// is not `F8`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeveloperKeyOverride {
+    pub action: String,
+    pub key: KeyCode,
+    #[serde(default)]
+    pub shift: bool,
+    #[serde(default)]
+    pub control: bool,
+    #[serde(default)]
+    pub alt: bool,
 }
 
 fn default_touch_controls_visible() -> bool {
@@ -556,6 +578,7 @@ impl Default for ControlSettings {
             touch_controls_visible: default_touch_controls_visible(),
             menu_tap_mode: MenuTapMode::default(),
             binding_overrides: Vec::new(),
+            developer_keys: Vec::new(),
         }
     }
 }

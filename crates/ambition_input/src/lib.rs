@@ -120,7 +120,7 @@ pub use participant::{
 };
 #[cfg(feature = "input")]
 pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
-pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
+pub use settings::{BindingOverride, ControlFilters, DeveloperKeyOverride, OverrideControl, OverrideDeviceClass};
 /// How local sources become participants, and who owns the keyboard.
 pub use sources::{source_for_seat, InputAssignmentPolicy, KeyboardOwner};
 // Export only `key_name`, not the whole module: a HUD legend needs only it.

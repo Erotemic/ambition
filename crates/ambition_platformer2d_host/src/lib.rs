@@ -21,6 +21,7 @@ mod framepace;
 #[cfg(all(feature = "frame_pacing", not(target_arch = "wasm32")))]
 pub use framepace::FramePacePlugin;
 
+pub mod developer_keys;
 pub mod gameplay_presentation;
 #[cfg(feature = "portal_render")]
 pub mod portal;
@@ -37,7 +38,7 @@ pub struct PlatformerHostPlugins;
 impl PluginGroup for PlatformerHostPlugins {
     fn build(self) -> PluginGroupBuilder {
         let builder = PluginGroupBuilder::start::<Self>()
-            .add(ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyPlugin);
+            .add(developer_keys::DeveloperHotkeyPlugin);
         // ⛔ THE DRAWING HALF IS BEHIND `render`, and it is the whole reason
         // this crate's `ambition_render` edge could become optional: all three
         // of these plugins exist to wire presentation, so a host that installs

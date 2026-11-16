@@ -2,7 +2,7 @@
 
 use ambition_game_shell::{FrontendOwnedEntity, FrontendPresentationKind};
 use ambition_platformer2d_shared_tangle::developer_hotkeys::{
-    DeveloperAction, DeveloperHotkeyBindings,
+    DeveloperAction, DeveloperActionLabels,
 };
 use bevy::prelude::*;
 
@@ -80,7 +80,7 @@ fn basic_load_keyboard(
 fn render_basic_load(
     mut commands: Commands,
     presentations: Res<LoadPresentations>,
-    hotkeys: Option<Res<DeveloperHotkeyBindings>>,
+    hotkeys: Option<Res<DeveloperActionLabels>>,
     roots: Query<(Entity, &BasicLoadOwner), With<BasicLoadRoot>>,
     mut prior: Local<std::collections::BTreeMap<LoadPresentationOwnerId, String>>,
 ) {

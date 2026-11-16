@@ -1222,6 +1222,12 @@ collections:
   - hill_survey_station
   - hill_meadow_oak
   - hill_gate_office
+  - hill_fell_rocks
+  - hill_fell_rocks_slope
+  - hill_fell_gorse
+  - hill_fell_gorse_slope
+  - hill_fell_sheep
+  - hill_fell_sheep_grazing
   - catacombs_west
   - catacombs_east
   - ridge_west

@@ -121,8 +121,14 @@ Slices: the coordinated trigger with `steer`; custody requests; reference fields
 
 The native unit scenarios went with the native code: a lone European straining then leaving, a partner arriving during the wait, a lost partner, a blocked partner. Their behaviour is the script's unchanged branches.
 
+**Step 1, done (2026-11-16):** the attached body behaviour already existed as a body's statuses (`ambition.body.hold_status`, `ambition.body.status_tick`, owner `ambition_combat::extension::status`): several kinds on one body, the module's state in the body's records, ticked for every body that holds one with no control filter. `actor_think` is the controller hook; it skips a driven body. What was missing was the road from a controller to its own body and the witness:
+- `hold_status` is offered in `actor_think` too, so a brain can put a behaviour on its body that outlives it;
+- both status ports are described (`port_record!`, byte test) and named for scripts (`hold_status`, `status_tick`); both port cards state the split;
+- witness `a_status_a_brain_puts_on_its_body_outlives_a_change_of_driver` (Mary-O 1-3, a Rhai module): the laden swallow's brain coats its body; while a player drives the bird the hook stops and the coat ticks every tick; when the player lets go the hook decides again.
+
+The contact rule (`body_contact`) is still keyed by the brain and skips driven bodies. No game has a contact reaction that must survive possession; when one does, it is a status's contact, not a brain's.
+
 Still open in P4:
-- step 1, controller hooks apart from attached body behaviours, with the attachment-survives-a-controller-change witness;
 - the two bounded parallel customers (form dimensions, numeric effect sources).
 
 **Bounded parallel customers:**

@@ -24,7 +24,8 @@ use bevy::prelude::*;
 use crate::actor_tuning::ActorConfig;
 use crate::components::{ActorTarget, FeatureId};
 
-/// Install the trigger port and the fire request in `actor_think`.
+/// Install the trigger port, the fire request and holding a status in
+/// `actor_think`.
 pub fn install_for_actor_think(app: &mut App) {
     app.install_extension_trigger::<ActorThinkPort, _>(
         ACTOR_THINK,
@@ -32,6 +33,7 @@ pub fn install_for_actor_think(app: &mut App) {
         queue_actor_thinks.run_if(ambition_extension_host::trigger_is_bound::<ActorThinkPort>),
     );
     app.install_extension_submitted_request::<ActorFirePort, _>(ACTOR_THINK, "ambition_combat", lower_actor_fires);
+    super::status::install_for_actor_think(app);
 }
 
 /// One invocation for each live body whose custom brain key is bound, each

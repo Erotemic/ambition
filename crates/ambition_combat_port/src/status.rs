@@ -27,10 +27,12 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Owner** — `ambition_combat::extension::status` (`BodyStatuses`, rollback
 ///   state).
 /// * **Scope** — the body the invocation ran for.
-/// * **Time** — `technique_execution`. Requests of one tick apply in the order
-///   they were submitted, across invocations, so an entry that lets go of a
-///   status and a later entry that holds it again leave it held. A status
-///   held this tick is first ticked on the next tick.
+/// * **Time** — `technique_execution`, `hit_reaction` (a strike leaves a
+///   status on the body it struck) and `actor_think` (a controller puts one
+///   on its own body). Requests of one phase apply in the order they were
+///   submitted, across invocations, so an entry that lets go of a status and
+///   a later entry that holds it again leave it held. A status held this
+///   tick is first ticked on the next tick.
 pub struct HoldStatusPort;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -45,14 +47,24 @@ impl Port for HoldStatusPort {
     type Value = HoldStatus;
 
     fn encode(v: &HoldStatus, out: &mut Vec<u8>) {
-        wire::put_str(out, &v.kind);
-        wire::put_bool(out, v.held);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<HoldStatus, WireError> {
-        Ok(HoldStatus { kind: r.str()?.to_owned(), held: r.bool()? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
+
+ambition_extension_sdk::port_record! {
+    HoldStatus {
+        /// The status: a module's own name (`smash.dilated`).
+        kind: String,
+        /// `true` to hold it, `false` to let go of it.
+        held: bool,
+    }
+}
+
+ambition_extension_sdk::script_port!(HoldStatusPort);
 
 /// The trigger port marker for one tick of a status a body holds.
 ///
@@ -61,6 +73,11 @@ impl Port for HoldStatusPort {
 /// * **Operation** — a body holds the status whose kind is the selector this
 ///   tick. The entry's records are the body's, so it reads and spends the
 ///   state its module left there.
+/// * **Control** — a status is a behaviour attached to the body, not a
+///   controller: it is ticked whoever drives the body (its own brain, a
+///   player, a script that holds it), and a change of controller neither
+///   ends it nor skips a tick. A controller's hook is `actor_think`, which a
+///   driven body leaves.
 /// * **Owner** — `ambition_combat::extension::status`.
 /// * **Scope** — the body. One invocation for EACH body that holds a bound
 ///   kind, EACH tick with a gameplay step greater than zero (a paused world
@@ -87,15 +104,24 @@ impl Port for StatusTickPort {
     type Value = StatusTick;
 
     fn encode(v: &StatusTick, out: &mut Vec<u8>) {
-        wire::put_f32(out, v.position[0]);
-        wire::put_f32(out, v.position[1]);
-        wire::put_f32(out, v.facing);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<StatusTick, WireError> {
-        Ok(StatusTick { position: [r.f32()?, r.f32()?], facing: r.f32()? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
+
+ambition_extension_sdk::port_record! {
+    StatusTick {
+        /// The body's centre (world units, +Y down).
+        position: [f32; 2],
+        /// The sign of the way it faces (`1.0` or `-1.0`).
+        facing: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(StatusTickPort);
 
 /// The request port marker for a body's clock scale.
 ///
@@ -217,5 +243,24 @@ mod tests {
         let clock = StatusClock { kind: "smash.marked".into(), remaining: 0.5 };
         assert_eq!(round_trip::<StatusClockPort>(clock.clone()), clock);
         assert!(!round_trip::<InPlayPort>(false) && round_trip::<InPlayPort>(true));
+    }
+
+    /// Described structurally, the hold and the tick keep the bytes their
+    /// hand-written codecs published: built modules read them.
+    #[test]
+    fn the_described_status_ports_keep_their_bytes() {
+        let hold = HoldStatus { kind: "smash.dilated".into(), held: true };
+        let (mut described, mut by_hand) = (Vec::new(), Vec::new());
+        HoldStatusPort::encode(&hold, &mut described);
+        wire::put_str(&mut by_hand, &hold.kind);
+        wire::put_bool(&mut by_hand, hold.held);
+        assert_eq!(described, by_hand);
+        let tick = StatusTick { position: [3.0, -4.5], facing: -1.0 };
+        let (mut described, mut by_hand) = (Vec::new(), Vec::new());
+        StatusTickPort::encode(&tick, &mut described);
+        wire::put_f32(&mut by_hand, tick.position[0]);
+        wire::put_f32(&mut by_hand, tick.position[1]);
+        wire::put_f32(&mut by_hand, tick.facing);
+        assert_eq!(described, by_hand);
     }
 }

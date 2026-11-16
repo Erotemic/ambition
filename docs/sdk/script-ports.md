@@ -144,3 +144,21 @@ Port `ambition.item.release@1`, request: `this.requests.push(request("<alias>", 
 | `thrown` | bool | required | `true` to throw it (an attack: what it hits, it hurts), `false` to drop it. (`throw` is a word Rhai reserves.) |
 | `velocity` | [x, y] | `[0.0, 0.0]` | The item's velocity as it leaves (world units per second, +Y down). |
 
+## `hold_status`
+
+Port `ambition.body.hold_status@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `kind` | text | required | The status: a module's own name (`smash.dilated`). |
+| `held` | bool | required | `true` to hold it, `false` to let go of it. |
+
+## `status_tick`
+
+Port `ambition.body.status_tick@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `position` | [x, y] | The body's centre (world units, +Y down). |
+| `facing` | number | The sign of the way it faces (`1.0` or `-1.0`). |
+

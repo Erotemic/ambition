@@ -530,7 +530,9 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
         .add::<ambition_combat_port::SteerPort>("steer")
         .add::<ambition_combat_port::TakeItemPort>("take")
-        .add::<ambition_combat_port::ReleaseItemPort>("release");
+        .add::<ambition_combat_port::ReleaseItemPort>("release")
+        .add::<ambition_combat_port::HoldStatusPort>("hold_status")
+        .add::<ambition_combat_port::StatusTickPort>("status_tick");
     ports
 }
 

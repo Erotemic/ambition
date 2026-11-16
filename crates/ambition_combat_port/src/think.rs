@@ -12,6 +12,11 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Operation** — a live body whose brain is the bound key decides this
 ///   tick. The selector is the `CharacterBrain::Custom` key the placement
 ///   authors. A body a player drives, and a dead body, does not decide.
+/// * **Control** — a controller's hook: it publishes the body's intent while
+///   its brain controls it, and yields when a player drives it. What must
+///   last across a change of controller (a coating, a shield, a carried
+///   thing) is a status the hook holds on the body (`hold_status`), ticked
+///   by `status_tick` whoever drives it.
 /// * **Owner** — `ambition_combat::extension::think`.
 /// * **Time** — `actor_think`: after the brains published their control
 ///   frames, and before the control gate. One invocation for each body, in

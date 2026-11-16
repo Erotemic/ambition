@@ -11,10 +11,10 @@ use std::collections::BTreeMap;
 
 use ambition_combat_port::{HoldStatusPort, InPlayPort, StatusClockPort, StatusTick, StatusTickPort, TimeScalePort};
 use ambition_extension_host::{
-    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InHitReaction, InTechniqueExecution,
+    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InActorThink, InHitReaction, InTechniqueExecution,
     LowersIn,
 };
-use ambition_extension_sdk::phases::{HIT_REACTION, TECHNIQUE_EXECUTION};
+use ambition_extension_sdk::phases::{ACTOR_THINK, HIT_REACTION, TECHNIQUE_EXECUTION};
 use ambition_extension_sdk::Port as _;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -41,6 +41,13 @@ pub fn install(app: &mut App) {
 /// body it struck.
 pub fn install_for_hit_reaction(app: &mut App) {
     app.install_extension_submitted_request::<HoldStatusPort, _>(HIT_REACTION, "ambition_combat", lower_held_statuses::<InHitReaction>);
+}
+
+/// Offer holding a status in `actor_think`, where a controller puts a
+/// behaviour on its own body. The behaviour then belongs to the body, not to
+/// the controller: it is ticked whoever drives the body.
+pub fn install_for_actor_think(app: &mut App) {
+    app.install_extension_submitted_request::<HoldStatusPort, _>(ACTOR_THINK, "ambition_combat", lower_held_statuses::<InActorThink>);
 }
 
 /// The statuses a body holds, by kind, in order. Never empty: a body that

@@ -168,3 +168,111 @@ fn the_laden_swallow_in_rhai_drops_on_the_same_rule() {
     }
     assert!(drops >= 2, "the scripted swallow over her drops once a period: {drops} drops");
 }
+
+/// A controller that coats its own body: the swallow's brain hook holds the
+/// status `drill.coat` on its first think, and the coat counts its own ticks.
+/// Both counts are records on the body.
+const COAT: &str = r#"
+fn declare() {
+    #{
+        provider: "drill",
+        key: "coat",
+        schemas: [
+            #{ key: "coat.ticks", attachment: "body",
+               fields: [
+                   #{ tag: 1, name: "thinks", kind: "u32" },
+                   #{ tag: 2, name: "coated", kind: "u32" },
+               ] },
+        ],
+        entries: [
+            #{ key: "think", phase: "actor_think",
+               trigger: #{ port: "actor_think", selector: "mary_o_laden_swallow" },
+               writes: ["coat.ticks"], requests: ["hold_status"], limit: 1 },
+            #{ key: "coat", phase: "technique_execution",
+               trigger: #{ port: "status_tick", selector: "drill.coat" },
+               writes: ["coat.ticks"], requests: [], limit: 1 },
+        ],
+    }
+}
+
+fn think() {
+    let ticks = this.state.ticks;
+    ticks.thinks += 1;
+    this.state.ticks = ticks;
+    if ticks.thinks == 1 {
+        this.requests.push(request("hold_status", #{ kind: "drill.coat", held: true }));
+    }
+}
+
+fn coat() {
+    let ticks = this.state.ticks;
+    ticks.coated += 1;
+    this.state.ticks = ticks;
+}
+"#;
+
+/// ⭐ A BEHAVIOUR ON A BODY OUTLIVES ITS CONTROLLER: a swallow's brain hook
+/// (`actor_think`, a controller) puts a status on its body. When a player
+/// takes the swallow, the hook stops, as a controller yields to the body's
+/// driver, and the status goes on ticking, every tick, because it is the
+/// body's. When the player lets go, the hook decides again.
+#[test]
+fn a_status_a_brain_puts_on_its_body_outlives_a_change_of_driver() {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::combat::extension::status::BodyStatuses;
+    use ambition_platformer2d::extension::sdk::{FieldRef, SchemaKey, Value};
+    use ambition_platformer2d::extension::BodyRecords;
+
+    const TICKS: SchemaKey = SchemaKey::new("drill", "coat.ticks", 1);
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("../../target/extension-modules/script_test_{}_coat", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("coat.rhai"), COAT).unwrap();
+    let mut app = ambition_demo_mary_o_app::build_demo_app_loading(vec![dir.join("coat.rhai")]);
+    app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(SKY.to_string()));
+    let bird = (0..600)
+        .find_map(|_| {
+            app.update();
+            let world = app.world_mut();
+            let mut q = world.query::<(Entity, &ambition_platformer2d::combat::actor_tuning::ActorConfig, &FeatureId)>();
+            q.iter(world)
+                .filter(|(_, config, _)| ambition_demo_mary_o::swallow::is_laden_swallow_brain(&config.brain))
+                .min_by(|a, b| a.2.as_str().cmp(b.2.as_str()))
+                .map(|(entity, ..)| entity)
+        })
+        .expect("1-3 builds its swallows");
+    let counts = |app: &App| -> (u32, u32, bool) {
+        let world = app.world();
+        let count = |tag| match world.get::<BodyRecords>(bird).and_then(|r| r.get(&TICKS)).map(|r| r.get(FieldRef(tag)).cloned()) {
+            Some(Ok(Value::U32(n))) => n,
+            _ => 0,
+        };
+        let coated = world.get::<BodyStatuses>(bird).is_some_and(|held| held.holds("drill.coat"));
+        (count(0), count(1), coated)
+    };
+    for _ in 0..30 {
+        app.update();
+    }
+    let (thinks, coated, holds) = counts(&app);
+    assert!(thinks >= 20 && coated >= 20 && holds, "the brain thinks and coats its body: {thinks} thinks, {coated} coated, held {holds}");
+
+    app.world_mut().entity_mut(bird).insert(DrivingParticipant(PlayerSlot(1)));
+    app.update();
+    let (driven_thinks, driven_coated, _) = counts(&app);
+    for _ in 0..30 {
+        app.update();
+    }
+    let (after_thinks, after_coated, still) = counts(&app);
+    assert_eq!(after_thinks, driven_thinks, "a driven body's brain hook does not decide");
+    assert!(still, "the coat stays on the body");
+    assert_eq!(after_coated - driven_coated, 30, "the coat ticks every tick a player drives the body");
+
+    app.world_mut().entity_mut(bird).remove::<DrivingParticipant>();
+    for _ in 0..10 {
+        app.update();
+    }
+    let (back_thinks, _, _) = counts(&app);
+    assert!(back_thinks > after_thinks, "the brain decides again when the player lets go");
+    let _ = std::fs::remove_dir_all(&dir);
+}

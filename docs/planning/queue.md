@@ -75,9 +75,10 @@ carries closed campaigns. Unselected or customer-gated plans live in
    `actor_think`, `fire` and `velocity` with Mary-O's laden swallow as a
    Rhai script, landed 2026-11-16). P4's coconut swallows are under way
    ([design](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p4-prove-rich-composition-with-existing-game-requirements)):
-   the room-coordinated `group_think` and `steer` landed 2026-11-16; next
-   are custody requests, reference fields, then `swallows.rhai` in place of
-   the native producer.
+   the room-coordinated `group_think` and `steer`, and the custody
+   requests `take` and `release`, landed 2026-11-16; next are reference
+   fields and the room record, then `swallows.rhai` in place of the native
+   producer.
    Story sequences (SS1, SS2, landed) are the first content customer of
    the authored command catalog a script will call.
 1. **Network architecture (maintainer priority, updated 2026-11-10):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. **Direction set 2026-11-10:** the metroidvania moves to a hybrid model, with rollback kept inside a room boundary while it is easy to maintain and its room-level cost measured, and hosted authority for the world around the rooms: [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) is selected and runs beside the experiment.

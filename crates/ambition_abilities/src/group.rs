@@ -13,17 +13,23 @@ use ambition_characters::control::{ActorControl, DrivingParticipant};
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::ActorTarget;
 use ambition_combat::held_items::HeldItem;
-use ambition_combat_port::{GroupItem, GroupMember, GroupThink, GroupThinkPort, SteerPort};
+use ambition_combat::hand::RepertoireQuery;
+use ambition_combat_port::{
+    GroupItem, GroupMember, GroupThink, GroupThinkPort, ReleaseItemPort, SteerPort, TakeItemPort, TAKE_REACH,
+};
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
 use ambition_extension_sdk::phases::ACTOR_THINK;
 use ambition_extension_sdk::Port;
-use ambition_held_items::{GroundItem, ItemCustody, SettledItem, SupportedCarry};
+use ambition_held_items::{
+    release_carried_item, take_ground_item, GroundItem, HeldMaterialBasis, ItemCustody, ItemReleaseWorld, Release,
+    SettledItem, SupportedCarry,
+};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomInstanceRoot};
 use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Install the group trigger and the steering request in `actor_think`.
 pub fn install(app: &mut App) {
@@ -33,6 +39,9 @@ pub fn install(app: &mut App) {
         queue_group_thinks.run_if(ambition_extension_host::trigger_is_bound::<GroupThinkPort>),
     );
     app.install_extension_submitted_request::<SteerPort, _>(ACTOR_THINK, "ambition_abilities", lower_steers);
+    // Releases before takes, as the native rule frees a hand before it fills one.
+    app.install_extension_submitted_request::<ReleaseItemPort, _>(ACTOR_THINK, "ambition_abilities", lower_releases);
+    app.install_extension_submitted_request::<TakeItemPort, _>(ACTOR_THINK, "ambition_abilities", lower_takes);
 }
 
 /// A body that may be a member, as the trigger reads it.
@@ -177,5 +186,136 @@ pub fn lower_steers(
         control.0.melee_pressed = false;
         control.0.melee_held = false;
         control.0.fire = None;
+    }
+}
+
+/// An item lying in the world, as the item owner's take and release read it.
+type CarriedItems<'w, 's> =
+    Query<'w, 's, (Entity, &'static GroundItem, &'static ae::BodyKinematics, &'static mut ItemCustody, &'static HeldMaterialBasis)>;
+
+/// A body a custody request may name, as the item owner's take and release
+/// read it.
+type CustodyBodies<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static SimId, &'static ae::BodyKinematics, RepertoireQuery, Has<SupportedCarry>),
+    Without<DrivingParticipant>,
+>;
+
+/// The undriven body of `room` whose identity is `id`.
+fn body_named(bodies: &CustodyBodies, rooms: &LiveRooms, room: Option<LiveRoomInstance>, id: &str) -> Option<Entity> {
+    bodies.iter().find(|(entity, sim, ..)| sim.as_str() == id && rooms.of(*entity) == room).map(|(entity, ..)| entity)
+}
+
+/// A take: the item owner's own take, for an item lying within reach in the
+/// body's room; with a supporter, the sling between them. A body that holds
+/// or supports anything, or an item taken earlier in the tick, is refused.
+#[allow(clippy::too_many_arguments)]
+pub fn lower_takes(
+    mut commands: Commands,
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut bodies: CustodyBodies,
+    mut items: CarriedItems,
+    supporting: Query<&SupportedCarry>,
+    ids: Query<&SimId>,
+    rooms: LiveRooms,
+) {
+    let mut busy: BTreeSet<Entity> = supporting.iter().map(|carry| carry.supporter).collect();
+    for submitted in outbox.drain::<TakeItemPort>(&ACTOR_THINK) {
+        let take = submitted.value;
+        let room = rooms.of(submitted.scope);
+        let refuse = |why: &str| warn!("extension entry {} asked {:?} to take {:?}: {why}; refused", submitted.entry, take.body, take.item);
+        let Some(body) = body_named(&bodies, &rooms, room, &take.body) else {
+            refuse("no undriven body of its room has that identity");
+            continue;
+        };
+        let supporter = match &take.supporter {
+            None => None,
+            Some(id) => match body_named(&bodies, &rooms, room, id).filter(|s| *s != body) {
+                Some(supporter) => Some(supporter),
+                None => {
+                    refuse("its supporter is not another undriven body of the room");
+                    continue;
+                }
+            },
+        };
+        let empty = |entity: Entity, bodies: &CustodyBodies| {
+            !busy.contains(&entity) && bodies.get(entity).is_ok_and(|(_, _, _, hand, carrying)| hand.held.is_none() && !carrying)
+        };
+        if !empty(body, &bodies) || supporter.is_some_and(|s| !empty(s, &bodies)) {
+            refuse("a hand is not free");
+            continue;
+        }
+        let Some(item) = items
+            .iter()
+            .find(|(entity, _, _, custody, _)| custody.in_world() && rooms.of(*entity) == room && ids.get(*entity).is_ok_and(|id| id.as_str() == take.item))
+            .map(|(entity, ..)| entity)
+        else {
+            refuse("no item of that identity lies in its room");
+            continue;
+        };
+        let Ok((_, _, kin, mut hand, _)) = bodies.get_mut(body) else {
+            continue;
+        };
+        let Ok((_, ground, item_body, mut custody, _)) = items.get_mut(item) else {
+            continue;
+        };
+        let gap = (item_body.pos - kin.pos).abs() - (item_body.size() + kin.size()) * 0.5;
+        if gap.max_element() > TAKE_REACH {
+            refuse("the item is out of reach");
+            continue;
+        }
+        let kin = *kin;
+        take_ground_item(&mut commands, body, &mut hand, item, ground, item_body, &mut custody, &kin);
+        busy.insert(body);
+        if let Some(supporter) = supporter {
+            commands.entity(body).insert(SupportedCarry { supporter });
+            busy.insert(supporter);
+        }
+    }
+}
+
+/// A release: the item owner's own release, from under the body or from
+/// under the middle of its shared carry, and the end of the sling.
+pub fn lower_releases(
+    mut commands: Commands,
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut bodies: CustodyBodies,
+    mut items: CarriedItems,
+    slings: Query<&SupportedCarry>,
+    kins: Query<&ae::BodyKinematics>,
+    release_world: ItemReleaseWorld,
+    rooms: LiveRooms,
+) {
+    for submitted in outbox.drain::<ReleaseItemPort>(&ACTOR_THINK) {
+        let release = submitted.value;
+        let room = rooms.of(submitted.scope);
+        let Some(body) = body_named(&bodies, &rooms, room, &release.body) else {
+            warn!("extension entry {} asked {:?} to let go: no undriven body of its room has that identity; refused", submitted.entry, release.body);
+            continue;
+        };
+        let Ok((_, _, kin, mut hand, _)) = bodies.get_mut(body) else {
+            continue;
+        };
+        let kin = *kin;
+        // The carrying geometry: the sling's middle, or under the body.
+        let partner = slings
+            .get(body)
+            .ok()
+            .filter(|carry| rooms.of(carry.supporter) == room)
+            .and_then(|carry| kins.get(carry.supporter).ok());
+        let from = partner.map_or(kin.pos + Vec2::Y * (kin.size().y * 0.5 + 8.0), |other| {
+            SupportedCarry::anchor(&kin, other, Vec2::Y)
+        });
+        let way = if release.thrown { Release::Throw } else { Release::Drop };
+        match release_carried_item(&mut commands, body, &mut hand, &mut items, &kin, &release_world, from, Vec2::from(release.velocity), way) {
+            Err(refusal) => {
+                warn!(?refusal, "extension entry {} asked {:?} to let go; refused", submitted.entry, release.body);
+                continue;
+            }
+            Ok(false) => ambition_held_items::empty_hand(&mut commands, body, &mut hand),
+            Ok(true) => {}
+        }
+        commands.entity(body).remove::<SupportedCarry>();
     }
 }

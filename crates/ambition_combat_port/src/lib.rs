@@ -17,6 +17,7 @@
 pub mod attachments;
 pub mod blast;
 pub mod contact;
+pub mod custody;
 pub mod force;
 pub mod group;
 pub mod hold;
@@ -75,6 +76,7 @@ pub use riding::{
     SpeechBubblePort,
 };
 pub use slow::{SlowBodies, SlowBodiesPort};
+pub use custody::{ReleaseItem, ReleaseItemPort, TakeItem, TakeItemPort, TAKE_REACH};
 pub use group::{GroupItem, GroupMember, GroupThink, GroupThinkPort, Steer, SteerPort};
 pub use think::{ActorFire, ActorFirePort, ActorThink, ActorThinkPort};
 pub use wielded::{

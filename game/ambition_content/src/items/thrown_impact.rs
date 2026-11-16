@@ -89,7 +89,9 @@ pub(crate) fn register(app: &mut App) {
         thrown_items_strike
             .run_if(bevy::prelude::any_with_component::<ambition_held_items::ItemStruckBody>)
             .after(ambition_platformer2d::platformer::schedule::ItemPickupSet::CoreHeldItems)
-            .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+            // Before `Resolve`, which reads the hit: a hit written after its
+            // reader waits a tick in a message buffer a rewind does not hold.
+            .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
     );
 }
 

@@ -358,3 +358,114 @@ fn a_script_steers_the_birds_of_the_trailhead_as_one_group() {
     assert!(closest > 200.0, "steered away, the nearest bird came to {closest} of the player");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A declared module that sends the trailhead's birds after one coconut:
+/// every bird with a free hand asks to take the first coconut lying in the
+/// room, each tick, near or not (the item owner refuses a take out of reach,
+/// and a second take of one item in a tick); a bird holding one throws it
+/// up every second and a half.
+const FETCH: &str = r#"
+fn declare() {
+    #{
+        provider: "drill",
+        key: "fetch",
+        schemas: [],
+        entries: [
+            #{ key: "flock", phase: "actor_think",
+               trigger: #{ port: "group_think", selector: "bird" },
+               requests: ["steer", "take", "release"], limit: 16 },
+        ],
+    }
+}
+
+fn flock() {
+    let room = this.trigger;
+    let coconuts = room.items.filter(|item| item.kind == "coconut");
+    for member in room.members {
+        if !member.alive || member.driven { continue; }
+        if member.held == "coconut" {
+            if this.tick % 90 == 0 {
+                this.requests.push(request("release", #{ body: member.id, thrown: true, velocity: [0.0, -300.0] }));
+            }
+            continue;
+        }
+        if coconuts.is_empty() { continue; }
+        let nut = coconuts[0];
+        let way = if member.position[0] < nut.position[0] { 1.0 } else { -1.0 };
+        this.requests.push(request("steer", #{ body: member.id, velocity: [way * 200.0, 0.0] }));
+        this.requests.push(request("take", #{ body: member.id, item: nut.id }));
+    }
+}
+"#;
+
+/// ⭐ CUSTODY THROUGH THE ITEM OWNER: birds a script sends after a coconut
+/// take it and throw it, by the item owner's own take and release, and no two
+/// take one coconut: each bird that holds a coconut is that coconut's holder,
+/// through every rewind of a sync-test session. The premise: on some tick two
+/// birds were within reach of one coconut lying in the room.
+#[test]
+fn a_script_takes_and_throws_a_coconut_through_the_item_owner() {
+    use ambition_platformer2d::combat::held_items::HeldItem;
+    use ambition_platformer2d::held_items::{GroundItem, ItemCustody, ReleasedAs, Release};
+
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("../../target/extension-modules/script_test_{}_fetch", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("fetch.rhai"), FETCH).unwrap();
+    let options = fixed_60hz_room_options("primeval_trailhead")
+        .with_sync_test_rollback_settings(4, 10)
+        .with_extension_module_files(vec![dir.join("fetch.rhai")]);
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the trailhead builds");
+    // The item owner's reach for a requested take (`ambition_combat_port::TAKE_REACH`).
+    let reach = 32.0;
+    let (mut takes, mut throws, mut contested) = (0, 0, false);
+    let mut was_held: Vec<Entity> = Vec::new();
+    for _ in 0..60 * 15 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut items = world.query::<(Entity, &GroundItem, &ae::BodyKinematics, &ItemCustody, Option<&ReleasedAs>)>();
+        let coconuts: Vec<_> = items
+            .iter(world)
+            .filter(|(_, item, ..)| item.spec.id == "coconut")
+            .map(|(entity, _, kin, custody, released)| (entity, *kin, *custody, released.copied()))
+            .collect();
+        let mut hands = world.query::<(Entity, &CharacterForm, &ae::BodyKinematics, Option<&HeldItem>)>();
+        let birds: Vec<_> = hands
+            .iter(world)
+            .filter(|(_, form, ..)| ["kiwi", "chicken", "chicken_hen"].contains(&form.id()))
+            .map(|(entity, _, kin, held)| (entity, *kin, held.is_some_and(|held| held.id() == "coconut")))
+            .collect();
+        let held_now: Vec<Entity> = coconuts
+            .iter()
+            .filter_map(|(entity, _, custody, _)| matches!(custody, ItemCustody::Held { .. }).then_some(*entity))
+            .collect();
+        for (entity, _, custody, released) in &coconuts {
+            if let ItemCustody::Held { holder } = custody {
+                assert!(birds.iter().any(|(bird, _, holds)| bird == holder && *holds), "a held coconut's holder holds it");
+                takes += usize::from(!was_held.contains(entity));
+            } else if was_held.contains(entity) && *released == Some(ReleasedAs(Release::Throw)) {
+                throws += 1;
+            }
+        }
+        let holders = birds.iter().filter(|(_, _, holds)| *holds).count();
+        assert_eq!(holders, held_now.len(), "each bird with a coconut in its hand is that coconut's holder");
+        for (_, nut, custody, _) in &coconuts {
+            let near = birds
+                .iter()
+                .filter(|(_, kin, holds)| {
+                    let gap = (nut.pos - kin.pos).abs() - (nut.size() + kin.size()) * 0.5;
+                    !holds && gap.max_element() <= reach
+                })
+                .count();
+            contested |= custody.in_world() && near >= 2;
+        }
+        was_held = held_now;
+    }
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let faults = sim.world().resource::<ambition_platformer2d::extension::ExtensionFaults>().total;
+    assert_eq!(faults, 0, "the module ran without a fault");
+    assert!(takes >= 1 && throws >= 1, "a bird took a coconut ({takes}) and threw it ({throws})");
+    assert!(contested, "premise: two birds were within reach of one coconut lying in the room");
+    let _ = std::fs::remove_dir_all(&dir);
+}

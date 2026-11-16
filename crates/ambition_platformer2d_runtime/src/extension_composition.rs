@@ -506,7 +506,9 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ActorFirePort>("fire")
         .add::<ambition_combat_port::SetVelocityPort>("velocity")
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
-        .add::<ambition_combat_port::SteerPort>("steer");
+        .add::<ambition_combat_port::SteerPort>("steer")
+        .add::<ambition_combat_port::TakeItemPort>("take")
+        .add::<ambition_combat_port::ReleaseItemPort>("release");
     ports
 }
 

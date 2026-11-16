@@ -69,6 +69,10 @@ carries closed campaigns. Unselected or customer-gated plans live in
    The module declares its schemas and entries in Rhai. The three
    `a_project_authors_a_technique` tests cover rollback, atomic faults, and
    live edit/removal/addition. The inspector also accepts Rhai candidates.
+   The project world slice (`6f8d4d9c7`, 2026-11-16) lets a project's
+   `worlds` directory supply the selected pack's LDtk files. Pulse Forge
+   now has its own drill room. One App-local manifest feeds loading,
+   validation, drawing, and reload; the app test covers rejection and repair.
    **Next action:** the rest of P3's project entry (the
    [plan's progress note](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p3-run-source-scripts-and-a-project-on-the-prebuilt-host):
    body grants and behaviour attachments as a project's data when a

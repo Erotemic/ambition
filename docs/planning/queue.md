@@ -1007,7 +1007,13 @@ the freight yard's fight returns the notebooks and opens the shortcut home.
 
 ### DOOR-EDGES — outdoor joins that are still doors
 
-**Open (from the 2026-11-14 census, [Hobford polish](game/hobford-polish.md#door-census-of-the-other-worlds-row-5-2026-11-14) row 5).**
+**Done 2026-11-16** ([verdicts](game/hobford-polish.md#door-census-of-the-other-worlds-row-5-2026-11-14)):
+every pair keeps its door. Borobudur is across a strait; the colosseum,
+the pvn dojo and the tyrant's hall are interiors; the pvn rooms are old
+developer-hub rooms; GNU-ton's chambers are enclosed puzzles. The
+colosseum is now visible from the shore: its facade
+(`history_colosseum_facade`) stands round the door. From the 2026-11-14
+census, [Hobford polish](game/hobford-polish.md#door-census-of-the-other-worlds-row-5-2026-11-14) row 5.
 Jon's rule (2026-11-14, [level design guide](../authoring/level-design-guide.md)):
 edges join the parts of one connected place, doors go into interiors.
 Level 1 follows it. The census lists the other worlds' door joins that may

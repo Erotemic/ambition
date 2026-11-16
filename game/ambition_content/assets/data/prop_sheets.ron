@@ -108,6 +108,7 @@
     "history_aqueduct": (),
     "history_amphorae": (),
     "history_bust": (),
+    "history_colosseum_facade": (),
     // The Silk Road (`targets/props/history_silk_props.py`). The camel
     // caravan is a platform look (`platform_looks.ron`); the rest is scenery:
     // rolls of silk on a rack, a paper lantern on a post, sacks of spice, and

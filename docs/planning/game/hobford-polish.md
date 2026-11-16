@@ -136,6 +136,19 @@ The census script was a scratch read of the LDtk JSON (it is not kept); to
 run it again, group the `LoadingZone` entities by `activation` and pair
 each door with its `target_room`/`target_zone`.
 
+**Verdicts (2026-11-16, [DOOR-EDGES](../queue.md#door-edges--outdoor-joins-that-are-still-doors)).**
+Each pair's two rooms were read (their zones, their generators, and
+captures with `capture_scene`); none became an edge:
+
+| Join | Verdict |
+|---|---|
+| Srivijaya and Borobudur | a door: Borobudur is on Java, across the strait, and the door is "TO JAVA", a passage by sea from mid-room; every side of Srivijaya is already an era neighbour's edge in the history grid |
+| the classical shore and the colosseum | a door into a building: the colosseum is entered. The building was not visible from outside; the shore now has its facade round the door (`history_colosseum_facade`: three tiers of arches, the broken top of the outer ring) |
+| the pvn cove, arena, dojo and sky lookout | doors: these are the old developer-hub rooms (each has a door to `central_hub_complex`), the census's "hubs and labs" class; the dojo is also an interior ("the hall of the Shadow Clan"). The docks' and the forest's doors are those rooms' entrances from the towns |
+| GNU-ton's chain | doors: the gravity works are enclosed puzzle chambers (each has a vault or ceiling that is walked on, and a mistake starts the chamber again at its door), the same class as the station's decks |
+| the canopy and the tyrant's hall | a door into a lair: the hall is the T. rex's, one way in, beside the canopy's edge on up the mountain |
+
+
 ## Names are placeholders
 
 Jon (2026-11-14): "I'm 90% sure I'm not going to keep Hobford." Every

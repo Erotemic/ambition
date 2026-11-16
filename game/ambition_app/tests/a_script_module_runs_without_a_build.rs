@@ -216,3 +216,78 @@ fn a_script_added_to_a_watched_directory_runs_and_removed_leaves() {
     assert!(!turret_is_scripted(&sim), "the script left: the linked turret runs again");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The player of `sim` holds the sentry gauntlet; a few ticks to settle.
+fn hold_the_sentry(sim: &mut Platformer2dSimHarness) {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+    let player = q.single(world).expect("primary player exists");
+    let spec = ambition_platformer2d::characters::brain::held_item_by_id("sentry").expect("a known held item");
+    world.entity_mut(player).insert(ambition_platformer2d::combat::held_items::HeldItem::new(spec));
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+}
+
+/// ⭐ P3'S COMPLETION, THROUGH A PROJECT: the example project
+/// (`examples/projects/sentry_drill`, a manifest and one script) runs its
+/// turret under a GGRS sync-test session, where every tick is rewound and
+/// replayed; the populated record restores to the script's countdown and the
+/// session stays healthy.
+#[test]
+fn a_projects_scripted_turret_keeps_its_cadence_through_rollback() {
+    let project = ambition_app::app::project::Project::load(&root().join("examples/projects/sentry_drill"))
+        .expect("the example project loads");
+    let options = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_sync_test_rollback_settings(4, 10);
+    let mut sim = project.sim(options).expect("the project builds");
+    assert!(turret_is_scripted(&sim), "the project's script runs the turret");
+    hold_the_sentry(&mut sim);
+    let largest = largest_countdown(&deploy(&mut sim, 60));
+    assert!((0.20..0.25).contains(&largest), "the project's 0.25 s delay, less a tick: {largest}");
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+}
+
+/// The invocation-fault witness, through a project: its script changes the
+/// record and stages a bolt, then throws. Nothing commits, and the fault
+/// names the project's file.
+#[test]
+fn a_projects_throwing_script_commits_nothing() {
+    let dir = root().join(format!("target/extension-modules/project_test_{}_fault", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("modules")).unwrap();
+    let throwing = sentry_script(0.75).replace(
+        "    this.state.cadence = c;\n}",
+        "    this.state.cadence = c;\n    this.requests.push(#{ port: \"projectile\", value: #{ origin: [0.0, 0.0], dir: [1.0, 0.0], speed: 1.0, damage: 1, max_lifetime: 1.0, half_extent: [1.0, 1.0] } });\n    throw \"the project's fault\";\n}",
+    );
+    assert!(throwing.contains("throw"), "the premise: the edit applied");
+    std::fs::write(dir.join("modules/sentry.rhai"), throwing).unwrap();
+    std::fs::write(
+        dir.join("project.ron"),
+        r#"(schema: "ambition.project.v1", name: "faulting", modules: ["modules/sentry.rhai"])"#,
+    )
+    .unwrap();
+    let project = ambition_app::app::project::Project::load(&dir).expect("the project loads");
+    let options = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_sync_test_rollback_settings(4, 10);
+    let mut sim = project.sim(options).expect("the project builds");
+    hold_the_sentry(&mut sim);
+    let bolts = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world.query::<&ambition_platformer2d::projectiles::entity::ProjectileOwner>().iter(world).count()
+    };
+    let bolts_before = bolts(&mut sim);
+    let seen = deploy(&mut sim, 60);
+    assert!(seen.iter().all(|(armed, _)| !armed), "a faulting invocation committed its record change: {seen:?}");
+    assert_eq!(bolts(&mut sim), bolts_before, "a faulting invocation's staged bolt was fired");
+    let faults = sim.world().resource::<ExtensionFaults>();
+    let message = format!("{:?}", faults.recent.last().expect("a recent fault").fault);
+    assert!(
+        message.contains("modules/sentry.rhai") && message.contains("generation") && message.contains("the project's fault"),
+        "the fault names the project's file and its generation: {message}"
+    );
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let _ = std::fs::remove_dir_all(&dir);
+}

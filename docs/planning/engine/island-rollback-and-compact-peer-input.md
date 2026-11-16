@@ -905,20 +905,12 @@ with her current frame on every tick, and with her inputs right she still
 ended 22.5 units behind, because a mispredicted connect's freeze outlived the
 replay (the freeze merges expiries with `max`).
 
-A replay presents nothing (2026-11-14). The replayed ticks were presented
-when they first ran, so the replay writes the presentation families
-(`for_each_presentation_effect`: sounds, visuals, debris, fireworks, shakes,
-the finish zoom and knockout beats) into channels set aside and dropped
-(`ReplayHidesEffects`, the swap the GGRS effect quarantine uses). Measured in
-the shared scene: on time, 14 sounds and 16 visuals; late with rewinds, 21
-and 28 before, 14 and 16 after. A correction is not presented: a hit the
-replay lands that the first pass missed plays no sound.
-
-The rollback-cleared channels: a rewind empties every room's. That costs
-another room nothing while each such message is written and read inside one
-tick, which GGRS's sync tests already hold the engine to. Measured: with
-Alice swinging in the hub through Bob's 26 rewinds, all 19 bodies end where
-the on-time run ends.
+A replay presents nothing. Simulation and presentation messages use the
+same replay boundary (`74e86f475`, 2026-11-16). The host keeps live message
+buffers and reader positions outside replay, then restores them. A pending
+heal in another room survives successive rewinds. Replay output is discarded.
+Do not clear live channels for a room replay. See the
+[room replay contract](../../systems/room-replay.md).
 
 A guest's late crossing joins the live room (2026-11-14). Measured with a
 probe (deleted): Bob, a guest on the hub door, presses interact at frame 30
@@ -945,6 +937,20 @@ for that; a guest whose stamps lead the host tick (NA-3's run-ahead) would
 let confirmation keep up. Also not yet: the cost of a rewind on a release
 build over a real link; and an edge exit walked by a mispredicted guest
 commits at once and cannot be taken back.
+
+## Review fixes, 2026-11-16
+
+`74e86f475` keeps other rooms' saved history during replay, isolates message
+streams and reader positions, and suspends foreign narrative work. The guards
+are the two-guest-room, pending-heal, and active or queued narrative tests in
+`a_guests_room_rewinds_on_the_host`. The narrative API still permits one active
+conversation and one active cutscene per world.
+
+`dc98fbc71` gives input samples a sequence separate from their tick estimate.
+Samples in one tick keep all button edges and the latest held levels. Timestamp
+bounds use saturating arithmetic. Seat retirement clears prediction and input
+history. Allocation consults the session roster and retries waiting clients.
+The reconnect witness uses a fresh sequence after a held movement input.
 
 ## Order, exclusions and integration
 

@@ -214,85 +214,121 @@ impl BodyMode {
         body_mode.body_mode
     }
 
-    pub fn shape(self, base_size: Vec2) -> BodyShape {
-        match self {
-            BodyMode::Standing => BodyShape {
-                mode: self,
-                size: base_size,
-            },
-            BodyMode::Crouching => BodyShape {
-                mode: self,
-                // Crouch is HALF height, width unchanged — the platformer
-                // standard, and it is a standard because it is what makes a
-                // crouch-slide under a one-tile gap work: a two-tile body
-                // crouches to exactly one tile.
-                //
-                // Half gives 32.00 — equal, not merely smaller.
-                //
-                // the test next door asserts only `crouch.y < standing.y`, so
-                // it was blind to the ratio and stayed green throughout. The
-                // guard that has teeth names the CONDITION — see Mary-O's
-                // `her_grown_crouch_fits_where_her_small_form_fits`.
-                size: Vec2::new(base_size.x, base_size.y * 0.5),
-            },
-            BodyMode::Crawling => BodyShape {
-                mode: self,
-                // Crawl is much shorter and a touch narrower so the
-                // player can fit through low tunnels but not arbitrary
-                // gaps.
-                size: Vec2::new(base_size.x * 0.85, base_size.y * 0.35),
-            },
-            BodyMode::Sliding => BodyShape {
-                mode: self,
-                size: Vec2::new(base_size.x * 1.05, base_size.y * 0.40),
-            },
-            BodyMode::MorphBall => {
-                // Symmetric small ball, sized to fit a one-grid-cell
-                // (16 px) tunnel with ~1 px clearance per side.
-                //
-                // DECOUPLED from `base_size` on purpose: the morph-
-                // ball mechanic exists so the player can squeeze
-                // through tunnels authored on the 16-px grid, not to
-                // scale with the player's standing proportions. The
-                // earlier `base_size.x * 0.55` math worked for the
-                // old 28-px base (15.4 ≈ fits within rounding), but
-                // when the standing base grew to 30 px the ball
-                // became 16.5 and STOPPED fitting the 16-px morph_lab
-                // tunnel — morph mode looked broken even though the
-                // player had successfully transitioned into it.
-                //
-                // Holds the Crawl/Slide/Crouch/Stand discriminator:
-                //   Crawl   = 25.5 × 16.8 → blocked
-                //   Slide   = 31.5 × 19.2 → blocked
-                //   Crouch  = 30   × 26.4 → blocked
-                //   Stand   = 30   × 48   → blocked
-                //   Morph   = 14   × 14   → fits with 1 px each side
-                let _ = base_size; // retained for signature parity
-                BodyShape {
-                    mode: self,
-                    size: Vec2::new(14.0, 14.0),
-                }
-            }
-            BodyMode::Climbing => BodyShape {
-                mode: self,
-                // Climbing keeps the standing silhouette so the
-                // climbable region's intersection check stays stable
-                // across the transition. Future-proof: if we add a
-                // "hugging the ladder" pose with reduced width, change
-                // it here without touching call sites.
-                size: base_size,
-            },
-            BodyMode::Submerged => BodyShape {
-                mode: self,
-                // ⛔ THE STANDING SILHOUETTE, and it is not laziness. A
-                // submerged body collides with nothing, so its box decides
-                // nothing while it is under there — but the box is what she is
-                // RESTORED to on the way out, and a mode that shrank her would
-                // have to grow her again inside a floor. Climbing keeps the
-                // standing size for a version of the same reason.
-                size: base_size,
-            },
+    /// The box of a body in this mode: the standing box for the modes that
+    /// keep it, and the body's own form table (`forms`) for the ordinary
+    /// smaller forms. A body whose character states no forms reads
+    /// [`BodyForms::ENGINE`].
+    pub fn shape(self, base_size: Vec2, forms: &BodyForms) -> BodyShape {
+        let size = match self {
+            BodyMode::Standing => base_size,
+            BodyMode::Crouching => forms.crouching.resolve(base_size),
+            BodyMode::Crawling => forms.crawling.resolve(base_size),
+            BodyMode::Sliding => forms.sliding.resolve(base_size),
+            BodyMode::MorphBall => forms.morph_ball.resolve(base_size),
+            // Climbing keeps the standing silhouette so the climbable
+            // region's intersection check stays stable across the
+            // transition.
+            BodyMode::Climbing => base_size,
+            // ⛔ THE STANDING SILHOUETTE, and it is not laziness. A
+            // submerged body collides with nothing, so its box decides
+            // nothing while it is under there — but the box is what she is
+            // RESTORED to on the way out, and a mode that shrank her would
+            // have to grow her again inside a floor. Climbing keeps the
+            // standing size for a version of the same reason. It is a
+            // move-owned absence, not an ordinary form: no table sizes it.
+            BodyMode::Submerged => base_size,
+        };
+        BodyShape { mode: self, size }
+    }
+}
+
+/// The box of one ordinary form: `size` in world units, or, with
+/// `of_standing`, `size` as a share of the standing box on each axis.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FormBox {
+    pub size: Vec2,
+    #[serde(default)]
+    pub of_standing: bool,
+}
+
+impl FormBox {
+    /// A share of the standing box.
+    pub const fn of_standing(x: f32, y: f32) -> Self {
+        Self { size: Vec2::new(x, y), of_standing: true }
+    }
+
+    /// A box of its own, whatever the standing box is.
+    pub const fn fixed(x: f32, y: f32) -> Self {
+        Self { size: Vec2::new(x, y), of_standing: false }
+    }
+
+    /// Its box for a body whose standing box is `base_size`.
+    pub fn resolve(self, base_size: Vec2) -> Vec2 {
+        if self.of_standing {
+            base_size * self.size
+        } else {
+            self.size
         }
+    }
+}
+
+/// The boxes of a body's ordinary smaller forms: prepared data, from its
+/// character's catalog row (`forms`), so a form's size is an edit to that
+/// row and not to this crate. The transition to a form keeps its owner
+/// ([`try_change_body_mode_clusters`]: clearance, feet planted); this says
+/// only how big the form is. A body with no table has [`Self::ENGINE`].
+///
+/// Rollback state: the projection grants it with the character, and a
+/// rewind across a change of character restores the table with the body.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct BodyForms {
+    pub crouching: FormBox,
+    pub crawling: FormBox,
+    pub sliding: FormBox,
+    pub morph_ball: FormBox,
+}
+
+impl BodyForms {
+    /// The engine's forms, for a body whose character states none.
+    pub const ENGINE: Self = Self {
+        // Crouch is HALF height, width unchanged — the platformer standard,
+        // and it is a standard because it is what makes a crouch-slide
+        // under a one-tile gap work: a two-tile body crouches to exactly one
+        // tile. The guard that has teeth names the CONDITION — see Mary-O's
+        // `her_grown_crouch_fits_where_her_small_form_fits`.
+        crouching: FormBox::of_standing(1.0, 0.5),
+        // Much shorter and a touch narrower, so a body fits through low
+        // tunnels but not arbitrary gaps.
+        crawling: FormBox::of_standing(0.85, 0.35),
+        sliding: FormBox::of_standing(1.05, 0.40),
+        // A ball sized to fit a one-grid-cell (16 px) tunnel with 1 px of
+        // clearance each side, whatever the standing box: the form exists
+        // so a body squeezes through tunnels authored on the 16 px grid.
+        // Against that tunnel: crawl 25.5 × 16.8, slide 31.5 × 19.2, crouch
+        // 30 × 24 and stand 30 × 48 are blocked; the ball fits.
+        morph_ball: FormBox::fixed(14.0, 14.0),
+    };
+}
+
+impl Default for BodyForms {
+    fn default() -> Self {
+        Self::ENGINE
+    }
+}
+
+impl crate::snapshot::SnapshotState for BodyForms {
+    fn encode(&self, out: &mut Vec<u8>) {
+        for form in [self.crouching, self.crawling, self.sliding, self.morph_ball] {
+            crate::snapshot::put_vec2(out, form.size);
+            crate::snapshot::put_bool(out, form.of_standing);
+        }
+    }
+
+    fn decode(r: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
+        let mut form = || Some(FormBox { size: r.vec2()?, of_standing: r.bool()? });
+        Some(Self { crouching: form()?, crawling: form()?, sliding: form()?, morph_ball: form()? })
     }
 }
 
@@ -379,6 +415,7 @@ pub fn resize_feet_planted(
 pub fn try_change_body_mode_clusters<F>(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     base_size: &crate::body_clusters::BodyBaseSize,
+    forms: &BodyForms,
     body_mode_state: &mut crate::body_clusters::BodyModeState,
     new_mode: BodyMode,
     world: &crate::world::World,
@@ -391,7 +428,7 @@ where
     if body_mode_state.body_mode == new_mode {
         return true;
     }
-    let new_shape = new_mode.shape(base_size.base_size);
+    let new_shape = new_mode.shape(base_size.base_size, forms);
     let old_world_half = kinematics.half_extent();
     let mut candidate = *kinematics;
     if resize_feet_planted(&mut candidate, new_shape.size, gravity_dir).is_err() { return false; }

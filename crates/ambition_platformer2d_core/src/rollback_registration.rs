@@ -51,6 +51,7 @@ where
         .rollback_component_canonical::<bc::BodyRestartLatch>(OWNER, "body.restart_latch")
         .rollback_component_canonical::<bc::BodyActionBuffer>(OWNER, "body.action_buffer")
         .rollback_component_canonical::<bc::BodyBaseSize>(OWNER, "body.base_size")
+        .rollback_component_canonical::<crate::player_state::BodyForms>(OWNER, "body.forms")
         .rollback_component_canonical::<bc::SweepSample>(OWNER, "body.sweep_sample")
         .rollback_component_canonical::<crate::resources::ActorResources>(OWNER, "body.resources");
 

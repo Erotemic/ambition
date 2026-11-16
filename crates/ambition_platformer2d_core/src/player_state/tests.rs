@@ -42,9 +42,9 @@ fn locomotion_blink_aiming_recognized() {
 #[test]
 fn body_shape_smaller_for_crouch_and_morph() {
     let base = Vec2::new(28.0, 46.0);
-    let standing = BodyMode::Standing.shape(base);
-    let crouch = BodyMode::Crouching.shape(base);
-    let morph = BodyMode::MorphBall.shape(base);
+    let standing = BodyMode::Standing.shape(base, &BodyForms::ENGINE);
+    let crouch = BodyMode::Crouching.shape(base, &BodyForms::ENGINE);
+    let morph = BodyMode::MorphBall.shape(base, &BodyForms::ENGINE);
     assert_eq!(standing.size, base);
     assert!(crouch.size.y < standing.size.y);
     assert!(morph.size.x < standing.size.x);
@@ -59,7 +59,7 @@ fn body_fits_at_open_space() {
         Vec2::new(50.0, 50.0),
         Vec::new(),
     );
-    let shape = BodyMode::Standing.shape(Vec2::new(28.0, 46.0));
+    let shape = BodyMode::Standing.shape(Vec2::new(28.0, 46.0), &BodyForms::ENGINE);
     assert!(shape.fits_at(Vec2::new(50.0, 50.0), &world, |_| true));
 }
 
@@ -77,7 +77,7 @@ fn body_does_not_fit_inside_solid_block() {
     );
     // Standing fits below the ceiling but not under it; check the
     // collision-safe stand-up case directly.
-    let standing = BodyMode::Standing.shape(Vec2::new(28.0, 46.0));
+    let standing = BodyMode::Standing.shape(Vec2::new(28.0, 46.0), &BodyForms::ENGINE);
     assert!(!standing.fits_at(Vec2::new(70.0, 65.0), &world, |b| {
         matches!(b.kind, crate::world::BlockKind::Solid)
     }));
@@ -128,6 +128,7 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_and_shrinks() {
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Crouching,
         &world,
@@ -164,6 +165,7 @@ fn shrinking_is_allowed_when_surface_contact_slightly_overlaps_the_floor() {
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Crouching,
         &world,
@@ -197,6 +199,7 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_under_sideways_gravity()
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Crouching,
         &world,
@@ -235,6 +238,7 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_under_inverted_gravity()
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Crouching,
         &world,
@@ -264,6 +268,7 @@ fn try_change_body_mode_back_to_standing_uses_base_size() {
     try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Crouching,
         &world,
@@ -273,6 +278,7 @@ fn try_change_body_mode_back_to_standing_uses_base_size() {
     try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Crouching,
         &world,
@@ -282,6 +288,7 @@ fn try_change_body_mode_back_to_standing_uses_base_size() {
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Standing,
         &world,
@@ -314,6 +321,7 @@ fn try_change_body_mode_blocked_stand_up_under_low_ceiling() {
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Crouching,
         &world,
@@ -325,6 +333,7 @@ fn try_change_body_mode_blocked_stand_up_under_low_ceiling() {
     let stand_attempt = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Standing,
         &world,
@@ -349,6 +358,7 @@ fn try_change_body_mode_to_same_mode_is_no_op_success() {
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
+        &BodyForms::ENGINE,
         &mut s.body_mode,
         BodyMode::Standing,
         &world,
@@ -393,7 +403,7 @@ fn morphball_fits_one_grid_cell_tunnel() {
     let solid_predicate = |b: &Block| matches!(b.kind, BlockKind::Solid);
     assert!(
         BodyMode::MorphBall
-            .shape(base)
+            .shape(base, &BodyForms::ENGINE)
             .fits_at(center, &world, solid_predicate),
         "MorphBall must fit a 16-px tunnel — the morph_lab tunnel is sized exactly this way",
     );
@@ -404,7 +414,7 @@ fn morphball_fits_one_grid_cell_tunnel() {
         BodyMode::Sliding,
     ] {
         assert!(
-            !non_fit.shape(base).fits_at(center, &world, solid_predicate),
+            !non_fit.shape(base, &BodyForms::ENGINE).fits_at(center, &world, solid_predicate),
             "{:?} must NOT fit the 16-px morph-lab tunnel (discriminator broken)",
             non_fit,
         );
@@ -486,11 +496,11 @@ fn stance_changes_keep_material_scale_parity_and_planted_feet() {
                     let feet = before.pos + down * before.half_extent().dot(down.abs());
                     for mode in [BodyMode::Crouching, BodyMode::Standing] {
                         assert!(try_change_body_mode_clusters(
-                            &mut body.kinematics, &body.base_size, &mut body.body_mode,
+                            &mut body.kinematics, &body.base_size, &BodyForms::ENGINE, &mut body.body_mode,
                             mode, &world, down, |_| true,
                         ));
                         assert_eq!(body.kinematics.material, before.material);
-                        assert_eq!(body.kinematics.canonical_size, mode.shape(body.base_size.base_size).size);
+                        assert_eq!(body.kinematics.canonical_size, mode.shape(body.base_size.base_size, &BodyForms::ENGINE).size);
                         let now = body.kinematics.pos + down * body.kinematics.half_extent().dot(down.abs());
                         assert!((now - feet).length() < 0.001);
                     }

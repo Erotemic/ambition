@@ -1547,7 +1547,8 @@ mod tests {
 
         let small = form_body_size(&sprite_content, SMALL_SHEET_TARGET);
         let tall = form_body_size(&sprite_content, TALL_SHEET_TARGET);
-        let crouched = BodyMode::Crouching.shape(tall).size;
+        // Her rows state no forms of their own: the engine's crouch.
+        let crouched = BodyMode::Crouching.shape(tall, &ae::BodyForms::ENGINE).size;
 
         // The premise: growing must actually make her taller, or a crouch that
         // "fits" proves nothing.

@@ -141,7 +141,7 @@ pub use movement::{
     SPOT_DODGE_STICK, SPOT_DODGE_TIME, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 pub use player_state::{
-    classify_safety_from_kinematics, resize_feet_planted, try_change_body_mode_clusters, BodyMode,
+    classify_safety_from_kinematics, resize_feet_planted, try_change_body_mode_clusters, BodyForms, BodyMode, FormBox,
     BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
 pub use surface_loop::{AttachedLoop, LoopResolution, LoopRoute};

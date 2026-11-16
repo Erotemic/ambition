@@ -188,7 +188,7 @@ pub fn posed_body_inset_hurtboxes(sprite_content: &ambition_sprite_sheet::Sprite
             ambition_combat::hurtbox_resolution::POSE_CROUCH.to_string(),
             inset_timeline(
                 insets,
-                ae::player_state::BodyMode::Crouching.shape(standing).size,
+                ae::player_state::BodyMode::Crouching.shape(standing, &row.forms.unwrap_or_default()).size,
             ),
         ))
         .collect(),
@@ -247,9 +247,10 @@ pub fn sync_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spri
         // The body's OWN resolved frame, the one movement and contact read.
         // Absent only on a bare fixture body, which stands under the default.
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        Option<&ae::BodyForms>,
     )>,
 ) {
-    for (posed, pinned, mut kin, mut render_size, body_mode, frame) in &mut bodies {
+    for (posed, pinned, mut kin, mut render_size, body_mode, frame, forms) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&sprite_content, &posed.target, anim, posed.world_per_pixel) else {
             continue;
@@ -265,7 +266,7 @@ pub fn sync_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spri
         // the two cannot disagree about what crouching means. It applies to the
         // POSE's rectangle, not to `base_size`, so a body whose silhouette
         // changes shape crouches from the height it is actually showing.
-        let posed_collision = stance_box(&geometry, body_mode);
+        let posed_collision = stance_box(&geometry, body_mode, forms);
         // In a reversed or horizontal-gravity room a resize anchored to world +y
         // pushed the body into or off its own support. The module's contract is
         // that the +gravity face stays planted; the direction has to be the
@@ -303,9 +304,10 @@ pub fn place_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spr
         &mut ActorSpriteOffset,
         Option<&ae::BodyModeState>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        Option<&ae::BodyForms>,
     )>,
 ) {
-    for (posed, kin, pinned, mut offset, body_mode, frame) in &mut bodies {
+    for (posed, kin, pinned, mut offset, body_mode, frame, forms) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&sprite_content, &posed.target, anim, posed.world_per_pixel) else {
             continue;
@@ -322,7 +324,7 @@ pub fn place_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spr
         // measured. `resize_feet_planted` slid the centre by half the stance
         // shrink along gravity, so the same term reverses it.
         let full = ae::BodyKinematics { canonical_size: geometry.collision, ..*kin };
-        let compact = ae::BodyKinematics { canonical_size: stance_box(&geometry, body_mode), ..*kin };
+        let compact = ae::BodyKinematics { canonical_size: stance_box(&geometry, body_mode, forms), ..*kin };
         let down = ae::AccelerationFrame::new(gravity_dir).down;
         let placement = (|| {
             let full_extent = full.projected_half_extent(down.as_dvec2())?;
@@ -338,9 +340,11 @@ pub fn place_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spr
 }
 
 /// The box of a posed body in its stance: the pose's rectangle, shaped by the
-/// body mode (`BodyMode::shape`, the function the stance transition uses).
-fn stance_box(geometry: &PosedBodyGeometry, body_mode: Option<&ae::BodyModeState>) -> ae::Vec2 {
-    body_mode.map_or(geometry.collision, |mode| mode.body_mode.shape(geometry.collision).size)
+/// body mode and the body's own form sizes (`BodyMode::shape`, the function
+/// the stance transition uses).
+fn stance_box(geometry: &PosedBodyGeometry, body_mode: Option<&ae::BodyModeState>, forms: Option<&ae::BodyForms>) -> ae::Vec2 {
+    let forms = forms.copied().unwrap_or_default();
+    body_mode.map_or(geometry.collision, |mode| mode.body_mode.shape(geometry.collision, &forms).size)
 }
 
 #[cfg(test)]

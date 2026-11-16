@@ -1101,3 +1101,43 @@ fn a_carried_component_goes_when_the_body_stops_wearing_a_character_that_carries
         "the body stopped wearing every character that carries `Shell` and kept it"
     );
 }
+
+/// A character's form sizes are its catalog row's (`forms`): the projection
+/// grants them with the character, and a body that changes to a character
+/// whose row states none goes back to the engine's.
+#[test]
+fn a_rows_form_sizes_go_with_the_character_a_body_wears() {
+    let mut app = session_app();
+    let catalog: ambition_characters::actor::character_catalog::CharacterCatalogData = ron::from_str(
+        r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "balled": (
+                display_name: "Balled", manifest: "a.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+                forms: Some((morph_ball: (size: (10.0, 10.0)))),
+            ),
+        },
+    )"#,
+    )
+    .expect("the row reads");
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::from_data(catalog));
+    app.register_character(CharacterDefinition::new("balled", "Balled", "demo"));
+    app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
+    let body = app.world_mut().spawn(ambition_characters::actor::CharacterForm::new("balled")).id();
+    settle(&mut app);
+    let forms = app.world().get::<ambition_platformer2d_core::BodyForms>(body).copied();
+    assert_eq!(
+        forms.map(|forms| forms.morph_ball),
+        Some(ambition_platformer2d_core::FormBox::fixed(10.0, 10.0)),
+        "the row's ball is on the body"
+    );
+    app.world_mut().entity_mut(body).insert(ambition_characters::actor::CharacterForm::new("plain"));
+    settle(&mut app);
+    assert!(
+        app.world().get::<ambition_platformer2d_core::BodyForms>(body).is_none(),
+        "a character whose row states no forms leaves the engine's"
+    );
+}

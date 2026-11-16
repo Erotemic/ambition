@@ -37,6 +37,8 @@ pub fn update_body_mode(
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             // The live room the body is in: its clearance is that room's.
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            // Its character's form sizes; none: the engine's.
+            Option<&ae::BodyForms>,
         ),
     )>,
 ) {
@@ -57,9 +59,10 @@ pub fn update_body_mode(
         facts,
         env_contact,
         control,
-        (abilities, flight, resolved_frame, room),
+        (abilities, flight, resolved_frame, room, forms),
     ) in &mut bodies
     {
+        let forms = forms.copied().unwrap_or_default();
         // The walls as this body meets them: a portal hole it is in is open.
         let Some(collision) = composed.solids_for(&world, room, entity) else {
             continue;
@@ -158,6 +161,7 @@ pub fn update_body_mode(
                 let _ = ae::try_change_body_mode_clusters(
                     &mut kinematics,
                     base_size,
+                    &forms,
                     &mut body_mode_state,
                     ae::BodyMode::Standing,
                     &*collision,
@@ -173,6 +177,7 @@ pub fn update_body_mode(
                 let _ = ae::try_change_body_mode_clusters(
                     &mut kinematics,
                     base_size,
+                    &forms,
                     &mut body_mode_state,
                     ae::BodyMode::Standing,
                     &*collision,
@@ -208,6 +213,7 @@ pub fn update_body_mode(
             let _ = ae::try_change_body_mode_clusters(
                 &mut kinematics,
                 base_size,
+                &forms,
                 &mut body_mode_state,
                 ae::BodyMode::Climbing,
                 &*collision,
@@ -229,6 +235,7 @@ pub fn update_body_mode(
                 let _ = ae::try_change_body_mode_clusters(
                     &mut kinematics,
                     base_size,
+                    &forms,
                     &mut body_mode_state,
                     ae::BodyMode::Standing,
                     &*collision,
@@ -245,6 +252,7 @@ pub fn update_body_mode(
             let _ = ae::try_change_body_mode_clusters(
                 &mut kinematics,
                 base_size,
+                &forms,
                 &mut body_mode_state,
                 ae::BodyMode::MorphBall,
                 &*collision,
@@ -291,6 +299,7 @@ pub fn update_body_mode(
         let _ = ae::try_change_body_mode_clusters(
             &mut kinematics,
             base_size,
+            &forms,
             &mut body_mode_state,
             target,
             &*collision,

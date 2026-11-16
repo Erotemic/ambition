@@ -1264,6 +1264,9 @@ pub struct PreparedCharacterDefinition {
     pub mount: Option<crate::actor::CharacterMount>,
     /// See [`CharacterDefinition::unmirrored`].
     pub unmirrored: bool,
+    /// The boxes of the body's ordinary smaller forms, from the catalog row
+    /// (`forms`). `None`: the engine's.
+    pub forms: Option<ambition_platformer2d_core::BodyForms>,
     /// See [`CharacterDefinition::carries`]. Every road that grants this
     /// character's body inserts them in the same batch.
     pub carries: Vec<ambition_platformer2d_core::CarriedComponent>,
@@ -2047,6 +2050,7 @@ fn finalize_character(
     let preserves_mirror_symmetry =
         preserves_mirror_symmetry || catalog_row.is_some_and(|row| row.preserves_mirror_symmetry);
     let unmirrored = unmirrored || catalog_row.is_some_and(|row| row.unmirrored);
+    let forms = catalog_row.and_then(|row| row.forms);
     let sheet_sizing = catalog_row.map(|row| SheetSizing {
         tuning: row.sprite_tuning,
         standing_height: row
@@ -2156,6 +2160,7 @@ fn finalize_character(
         preserves_mirror_symmetry,
         mount,
         unmirrored,
+        forms,
         carries,
         hands,
         authored_moveset,

@@ -209,7 +209,7 @@ fn a_stance_survives_the_per_tick_resync() {
         .get::<ae::BodyKinematics>(entity)
         .copied()
         .expect("kinematics");
-    let crouched = ae::BodyMode::Crouching.shape(standing.collision).size;
+    let crouched = ae::BodyMode::Crouching.shape(standing.collision, &ae::BodyForms::ENGINE).size;
     assert_eq!(
         kin.size(), crouched,
         "a crouching body was resynced back to its standing box ({:?}) — the \

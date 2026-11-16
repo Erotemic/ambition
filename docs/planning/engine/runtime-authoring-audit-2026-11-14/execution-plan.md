@@ -128,8 +128,10 @@ The native unit scenarios went with the native code: a lone European straining t
 
 The contact rule (`body_contact`) is still keyed by the brain and skips driven bodies. No game has a contact reaction that must survive possession; when one does, it is a status's contact, not a brain's.
 
+**Form dimensions, done (2026-11-16):** the sizes of the ordinary smaller forms (crouch, crawl, slide, ball) are prepared data: `BodyForms` (core), each form a box of its own or a share of the standing box, from the character's catalog row (`forms`; a form the row leaves out is the engine's, `BodyForms::ENGINE`, the old constants). The projection grants it with the character and retracts it with the next; it is rollback state (`body.forms`, schema 475). `BodyMode::shape` takes the table, so every reader names whose sizes it uses: the transition helper, the body-mode driver, the spawn and grant stance edits, the posed-body box and its placement, and the crouch hurtbox inset (the row's). `Submerged` and `Climbing` keep the standing box: a move-owned absence is not a resize. Witnesses: `a_body_curls_into_the_ball_its_row_states` (the driver, ordinary and sideways gravity, feet planted both ways) and `a_rows_form_sizes_go_with_the_character_a_body_wears` (the projection grants and retracts). Not done: a refused transition still returns a bare `false` to the driver (the audit's semantic refusal), and a form is not a new mode: a compact form other than the four is still an enum arm.
+
 Still open in P4:
-- the two bounded parallel customers (form dimensions, numeric effect sources).
+- the numeric-effect-sources customer.
 
 **Bounded parallel customers:**
 

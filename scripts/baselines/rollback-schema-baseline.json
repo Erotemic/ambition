@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v474",
+    "version": "ggrs-rollback-schema-v475",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -46,6 +46,7 @@
       "body.depth_plane\tcomponent-canonical\tDepthPlane",
       "body.dodge\tcomponent-canonical\tBodyDodgeState",
       "body.flight\tcomponent-canonical\tBodyFlightState",
+      "body.forms\tcomponent-canonical\tBodyForms",
       "body.ground\tcomponent-canonical\tBodyGroundState",
       "body.guard_state\tcomponent-clone-custom-checksum\tGuardState\tbevy_ggrs clone snapshot + run, since_deflect_s, deflects, broken_s",
       "body.health\tcomponent-canonical\tBodyHealth",

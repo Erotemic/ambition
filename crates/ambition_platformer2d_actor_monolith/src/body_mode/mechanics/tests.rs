@@ -596,3 +596,42 @@ fn a_body_crouches_in_its_own_live_room_beside_another() {
         "the body in #1 did not crouch while #0 is also live",
     );
 }
+
+/// ⭐ A FORM'S SIZE IS ITS CHARACTER'S DATA: a body whose character row
+/// states a smaller ball and a taller crouch curls into ITS ball through the
+/// same gesture and the same collision-safe transition, feet planted, under
+/// ordinary and sideways gravity, and stands back up to its standing box. No
+/// arm of `BodyMode` names those sizes.
+#[test]
+fn a_body_curls_into_the_ball_its_row_states() {
+    // The row's words, as a catalog states them: a ball of its own size and a
+    // crouch as a share of the standing box; the rest the engine's.
+    let forms: ae::BodyForms =
+        ron::from_str("(morph_ball: (size: (10.0, 10.0)), crouching: (size: (1.0, 0.75), of_standing: true))")
+            .expect("the row's forms read");
+    assert_eq!(forms.crawling, ae::BodyForms::ENGINE.crawling, "a form the row leaves out is the engine's");
+    assert_ne!(forms.morph_ball, ae::BodyForms::ENGINE.morph_ball, "premise: not the engine's ball");
+    for down in [Vec2::Y, Vec2::X] {
+        let (mut app, player) = build_body_mode_test_app();
+        app.world_mut().entity_mut(player).insert(forms);
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>(player)
+            .unwrap()
+            .publish_resolved_frame(ae::MotionFrame::from_direction(down, 900.0));
+        let feet = |app: &App| {
+            let kin = app.world().get::<BodyKinematics>(player).unwrap();
+            kin.pos + down * kin.half_extent().dot(down.abs())
+        };
+        let planted = feet(&app);
+        arm_double_tap_down(&mut app);
+        app.update();
+        assert_eq!(app.world().get::<BodyModeState>(player).unwrap().body_mode, ae::BodyMode::MorphBall, "down {down}");
+        assert_eq!(app.world().get::<BodyKinematics>(player).unwrap().canonical_size, Vec2::new(10.0, 10.0), "the row's ball, down {down}");
+        assert!((feet(&app) - planted).length() < 0.001, "feet planted entering, down {down}");
+        set_control(&mut app, player, |c| c.jump_pressed = true);
+        app.update();
+        assert_eq!(app.world().get::<BodyModeState>(player).unwrap().body_mode, ae::BodyMode::Standing, "down {down}");
+        assert_eq!(app.world().get::<BodyKinematics>(player).unwrap().canonical_size, Vec2::new(30.0, 48.0), "down {down}");
+        assert!((feet(&app) - planted).length() < 0.001, "feet planted leaving, down {down}");
+    }
+}

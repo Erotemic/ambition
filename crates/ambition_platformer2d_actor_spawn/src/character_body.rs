@@ -58,6 +58,9 @@ pub struct GrantedBodyFacts {
     pub drawn_quad: bool,
     /// The art has no left/right variant ([`ambition_platformer2d_core::Unmirrored`]).
     pub unmirrored: bool,
+    /// The boxes of the body's smaller forms
+    /// ([`ambition_platformer2d_core::BodyForms`]), from the character's row.
+    pub forms: bool,
     /// The game components the character carries
     /// ([`ambition_platformer2d_core::CarriedComponent`]).
     pub carried: Vec<ambition_platformer2d_core::CarriedComponent>,
@@ -106,6 +109,7 @@ impl GrantedBodyFacts {
             form_body: form_body_for(&sprite_content, prepared).map(|_| DisplacedGeometry::default()),
             drawn_quad: drawn_from_its_box(&sprite_content, prepared).is_some(),
             unmirrored: prepared.unmirrored,
+            forms: prepared.forms.is_some(),
             carried: prepared.carries.clone(),
         }
     }
@@ -146,6 +150,7 @@ impl GrantedBodyFacts {
             form_body,
             drawn_quad,
             unmirrored,
+            forms,
             carried,
         } = self;
         for carried in carried.into_iter().filter(|carried| !incoming.contains(carried)) {
@@ -153,6 +158,9 @@ impl GrantedBodyFacts {
         }
         if unmirrored {
             scope.remove::<ambition_platformer2d_core::Unmirrored>();
+        }
+        if forms {
+            scope.remove::<ambition_platformer2d_core::BodyForms>();
         }
         if hurtboxes {
             scope.remove::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>();
@@ -188,9 +196,10 @@ impl GrantedBodyFacts {
                 Some(base_size) => {
                     scope.insert(ambition_platformer2d_core::BodyBaseSize { base_size });
                     scope.queue_entity_edit(move |mut body| {
+                        let forms = body.get::<ambition_platformer2d_core::BodyForms>().copied().unwrap_or_default();
                         let stance = body
                             .get::<ambition_platformer2d_core::BodyModeState>()
-                            .map_or(base_size, |mode| mode.body_mode.shape(base_size).size);
+                            .map_or(base_size, |mode| mode.body_mode.shape(base_size, &forms).size);
                         if let Some(mut kin) = body.get_mut::<ambition_platformer2d_core::BodyKinematics>() {
                             if kin.canonical_size != stance {
                                 if let Err(fault) = ambition_platformer2d_core::resize_feet_planted(&mut kin, stance, gravity_dir) {
@@ -441,6 +450,11 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
         if prepared.unmirrored {
             scope.insert(ambition_platformer2d_core::Unmirrored);
         }
+        // The size of each smaller form is the character's: in the same
+        // batch as its standing box, so the first stance change reads it.
+        if let Some(forms) = prepared.forms {
+            scope.insert(forms);
+        }
         // The game's own state of this creature, in the same batch, so no
         // pass has to add it to a built body. A re-grant keeps what the body
         // has; `GrantedBodyFacts::retract` removes a type the next character
@@ -565,9 +579,10 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
                 let gravity_dir = body
                     .get::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>()
                     .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+                let forms = body.get::<ambition_platformer2d_core::BodyForms>().copied().unwrap_or_default();
                 let stance = body
                     .get::<ambition_platformer2d_core::BodyModeState>()
-                    .map_or(base_size, |mode| mode.body_mode.shape(base_size).size);
+                    .map_or(base_size, |mode| mode.body_mode.shape(base_size, &forms).size);
                 if let Some(mut kin) = body.get_mut::<ambition_platformer2d_core::BodyKinematics>() {
                     if kin.canonical_size != stance {
                         if let Err(fault) = ambition_platformer2d_core::resize_feet_planted(&mut kin, stance, gravity_dir) {

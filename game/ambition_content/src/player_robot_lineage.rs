@@ -144,7 +144,7 @@ mod tests {
             (
                 Some((POSE_CROUCH, 0.0)),
                 ambition_platformer2d_core::player_state::BodyMode::Crouching
-                    .shape(standing)
+                    .shape(standing, &prepared(&app, "player_robot_v3").forms.unwrap_or_default())
                     .size,
             ),
         ] {

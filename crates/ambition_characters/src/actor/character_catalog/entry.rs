@@ -638,6 +638,12 @@ pub struct CharacterCatalogEntry {
     /// .
     #[serde(default)]
     pub standing_height: Option<f32>,
+    /// The boxes of the body's ordinary smaller forms (crouch, crawl, slide,
+    /// ball), each a share of its standing box or a box of its own. Absent:
+    /// the engine's (`BodyForms::ENGINE`). A field the row leaves out is the
+    /// engine's too, so a row states only the form it changes.
+    #[serde(default)]
+    pub forms: Option<ambition_platformer2d_core::BodyForms>,
     /// Optional layered composition (multi-part sprites). `None` for
     /// single-part characters.
     #[serde(default)]

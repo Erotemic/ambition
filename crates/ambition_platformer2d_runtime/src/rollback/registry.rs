@@ -287,7 +287,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // sequences); a directed body's `actor.leaving` zone.
 // 471 -> 472: a cutscene beat can be a `CameraRelease`.
 // 472 -> 473: a body a scene posed (`actor.posed`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 474;
+// 473 -> 474: the swallows' fetch is a script; `content.swallow_fetch` is gone.
+// 474 -> 475: a body's form sizes, from its character's row (`body.forms`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 475;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

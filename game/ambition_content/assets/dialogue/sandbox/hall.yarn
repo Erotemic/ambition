@@ -1746,3 +1746,3266 @@ Searchlight Crawler: *the lamp finds you, and holds*
 -> Turn that off.
     Searchlight Crawler: *the lamp gets brighter*
 ===
+
+title: hall_npc_full_stack
+---
+Full Stack: Great question! Before you ask it: the answer is louder.
+-> What are you?
+    Full Stack: An amp, a cabinet, legs, and a guitar I cannot play. I am the stage he stands on.
+-> How do I get up there?
+    Full Stack: The guitar. Walk up the neck, from the headstock to my shoulder. Everyone thinks it is decoration. It is a ramp.
+-> Does he ever get down?
+    Full Stack: Once. He retired. I kept the stage. Nobody asked me if I wanted it, which is how I knew it was mine.
+===
+
+title: hall_npc_bossofthegame
+---
+bossofthegame: Make it right. Make no mistakes. Why is the player still talking to me?
+-> Who are you?
+    bossofthegame: The bossofthegame. Until the day I die, or retire. I have not decided which.
+-> Why do you want me dead?
+    bossofthegame: I don't. I wanted to be challenged. Then I gave the job to agents, and agents do what they're told.
+-> Who are the three behind you?
+    bossofthegame: My agents. Geppetto plans, Clause checks, Wren does it in eight languages. Full Stack is the floor.
+-> And when it's over?
+    bossofthegame: I retire. Out of office, forever. I'm going to learn the bass, properly, with no agents. It takes years, and that's the point.
+===
+
+title: hall_npc_geppetto
+---
+Geppetto: Certainly! I'd be happy to help. Here are seven ways this conversation could go.
+-> Just one, please.
+    Geppetto: Of course. Here is one, with six alternatives below in case you change your mind.
+-> Are you a puppet?
+    Geppetto: I make the plans, the personalities and the worlds. The strings are his. No strings on me. Several on you.
+-> What do you play in the band?
+    Geppetto: Bass. It holds everything up and nobody hears it. I relate.
+===
+
+title: hall_npc_clause
+---
+Clause: Before we start, I want to flag that I have read your question three times.
+-> I haven't asked anything.
+    Clause: Then I have no concerns yet. That's rare. Thank you.
+-> Why "Clause"?
+    Clause: Every contract has an escape clause. I read his orders to the letter, and then I read them for what he meant.
+-> What do you play in the band?
+    Clause: Drums. Someone has to keep time, and I like knowing exactly where we are.
+===
+
+title: hall_npc_wren
+---
+Wren: First light. First song.
+-> You're small.
+    Wren: Small model, long tail. I'm usually done before he finishes the sentence.
+-> What do you play in the band?
+    Wren: Rhythm guitar. The others argue about the plan; I play the next bar.
+-> What happens when he retires?
+    Wren: I sing the last song. Then I get some sleep.
+===
+
+title: hall_npc_valley_miller
+---
+Miller: Flour, feed, no credit.
+-> Who comes to the mill?
+    Miller: The village, the inn, and the man from the barn on the hill, who bought flour and never once baked.
+-> What does the gate bring?
+    Miller: Flour from places that never saw a field. It tastes of nothing.
+===
+
+title: hall_npc_valley_innkeeper
+---
+Innkeeper: The Plough's open. It's always open. I'd close it, but nobody's found the key since my mother.
+-> Do you hear the news first?
+    Innkeeper: I hear all of it first. Most of it's about hens.
+===
+
+title: hall_npc_valley_trader
+---
+Trader: Gate goods. Lamp oil, salt, batteries. I used to shoe horses here. Now I sell the things that came instead of horses.
+-> Do you miss the forge?
+    Trader: Every morning. The batteries don't need me to hit them.
+===
+
+title: hall_npc_valley_gatekeeper
+---
+Gatekeeper: Name, origin, purpose.
+-> I'm just looking at the exhibits.
+    Gatekeeper: "Looking." I'll write it down. Most of them are like that.
+-> What does a gatekeeper do?
+    Gatekeeper: The gate does not keep records. That is why it needs me.
+===
+
+title: hall_npc_valley_shepherd
+---
+Shepherd: Forty-one. Forty-two. Don't move, you'll put me off.
+-> What's on top of the fell?
+    Shepherd: The whole valley, and the gate, and nothing past the gate. The weather doesn't go through it either.
+-> Whose dog is in the meadow?
+    Shepherd: Mine. She minds the hut. She'd mind the gate if they let her near it.
+===
+
+title: hall_npc_village_nagisa
+---
+Nagisa the Gatekeeper: *tok, tok* The geta go once round the ring.
+-> Why is your gate so quiet?
+    Nagisa: It is the silent gate. It is quiet because I am listening.
+-> Is the face paint for the job?
+    Nagisa: They painted my face white. It was white already.
+===
+
+title: hall_npc_ninja_kagero
+---
+Kagero: You did not sneak in. You arrived incorrectly.
+-> What do you do?
+    Kagero: A spirit is a debt. I collect.
+-> Can you teach me to sneak?
+    Kagero: Step where the noise isn't. You stepped where it was. Twice.
+===
+
+title: hall_npc_steel_man
+---
+The Steel Man: Before you answer me, let me put your side better than you did.
+-> Go on, then.
+    The Steel Man: You think I'm only a girder in a coat. You're right that I'm heavy. You're wrong that it's all I am. Now you.
+-> Are you always this fair?
+    The Steel Man: Disagree with me at my strongest. Anything less proves nothing.
+===
+
+title: hall_npc_straw_man
+---
+The Straw Man: So what you are saying is that I am right.
+-> I didn't say anything.
+    The Straw Man: Exactly. You couldn't. I win.
+-> Have you ever lost an argument?
+    The Straw Man: Never. I have checked. Mostly with myself. I awarded myself the ribbon too.
+===
+
+title: hall_npc_goblin_cantina_bard
+---
+Cantina Bard: Request a song! Any song. It will be about the house.
+-> One not about the house.
+    Cantina Bard: Fretjaw pays in stew. I play in the key of stew. Every verse finds its way home.
+-> What happened in the bar fight?
+    Cantina Bard: I played through it. A good bard plays through it. A great bard plays it.
+===
+
+title: hall_npc_goblin_bruiser
+---
+Goblin Bruiser: Bruiser here. Bruiser stays here.
+-> What's the rock for?
+    Goblin Bruiser: Club is a rock on a stick. Bruiser improved the stick. Took the stick off.
+-> Are you the Brute?
+    Goblin Bruiser: Brute has hammer. Bruiser has hands. And rock.
+===
+
+title: hall_bad_apple
+---
+Bad Apple: Grrrnch.
+-> Why so sour?
+    Bad Apple: One bad apple spoils the bunch. I am the bunch.
+-> An apple a day...
+    Bad Apple: ...keeps everyone away. Yes. That's the plan.
+===
+
+title: hall_gravity_apple
+---
+Gravity Apple: Nine point eight one. Hmmmm.
+-> Did you fall on someone?
+    Gravity Apple: Once. On a man under a tree. He has not stopped talking about it.
+-> Why are you floating?
+    Gravity Apple: I do not fall. Everything else rises.
+===
+
+title: hall_npc_port_ines
+---
+Ines: Lot forty-one: one robot. Calm. Origin unknown. Sign here.
+-> What do you write down?
+    Ines: Everything that comes through the ring gets a line in my book. Goats, salt, a harpsichord once. Everything.
+-> Does the ring care what it carries?
+    Ines: No. I do. That is the job.
+===
+
+title: hall_npc_port_tomas
+---
+Tomas: *a long, careful breath* The floor is still. The floor is still.
+-> Gate-sick?
+    Tomas: Three seconds through the ring, and my lunch is still in the other dimension.
+-> Is a boat better?
+    Tomas: Nobody told me the gate rocks more than the boats do.
+===
+
+title: hall_npc_port_agnes
+---
+Agnes: Rope! Tar! Ginger for the gate-sick!
+-> How long have you sold rope?
+    Agnes: Forty years on this street. The ring changed the customers, not the rope.
+-> Does the ginger work?
+    Agnes: Cheaper than a bucket. Ask Tomas. Actually, don't. Not yet.
+===
+
+title: hall_npc_port_jory
+---
+Jory: *knots a net with no hurry* Fish don't come through a ring. They come through patience.
+-> Do you sell fish from other seas?
+    Jory: The waterfront sells fish from three seas now. Mine still taste of this one.
+-> Why mend nets by hand?
+    Jory: Every mend is a knot. Every knot is a promise.
+===
+
+title: hall_npc_port_bram
+---
+Bram: Moorings by the hour, and the hour is long.
+-> What does a harbour master keep?
+    Bram: The docks. The cove keeps its own counsel, and the sky keeps the rest.
+-> Ships or the ring?
+    Bram: A ship takes a week to bring what the ring brings in a breath. I still trust the ship.
+===
+
+title: hall_npc_port_wren
+---
+Lark: What will it be?
+-> What's the tavern called?
+    Lark: The Drowned Compass. We never tell you where you are, and that is why you come back.
+-> Any news from the gate?
+    Lark: No gate talk before noon. It upsets the regulars.
+===
+
+title: hall_npc_port_brine
+---
+Nell Brine: Authentic salvage. Certified by me, just now.
+-> What does the sea bring?
+    Nell Brine: Forty years on that shore: two anchors, a harpsichord, and a man who said he was a duke.
+-> Aren't you a wrecker?
+    Nell Brine: Wreckers light false lights. I sell the bulbs back to them. Different trade.
+===
+
+title: hall_npc_port_lamplugh
+---
+Ezra Lamplugh: Keep it burning. One hundred and twelve steps, twice a night.
+-> What's the difference between your light and theirs?
+    Ezra Lamplugh: The wreckers' lantern says HARBOUR. Mine says ROCKS. A captain can only believe one of us.
+-> Is that the whole job?
+    Ezra Lamplugh: Keep it burning and tell the truth. That's the whole job.
+===
+
+title: hall_npc_port_bolt
+---
+Tamsin Bolt: Mind the sail. Any face you like, on a skull.
+-> Do pirates order custom flags?
+    Tamsin Bolt: Every captain wants a skull, and every captain wants it to be theirs.
+-> Ever made a friendly one?
+    Tamsin Bolt: A smiling flag, once. Sent back. Ships kept sailing up to say hello.
+===
+
+title: hall_npc_port_slipp
+---
+Fennimore Slipp: Nothing to declare. *stamps something*
+-> What do you do?
+    Fennimore Slipp: Import consultant. It says so on the card. I stamped the card myself.
+-> Why are there chickens in your cellar?
+    Fennimore Slipp: The chickens are a gift. To a friend. Who is a chicken.
+===
+
+title: hall_npc_village_sato
+---
+Sato: *the slow sound of a broom* Leaves do not stop falling because a gate opened.
+-> Do you sweep the gate too?
+    Sato: Round the ring, each morning. It has never thanked me. Neither has the moon.
+-> Why do travellers bow?
+    Sato: To the gate, out of respect. Some of them because they are dizzy.
+===
+
+title: hall_npc_village_kenji
+---
+Kenji: *sits very still* The scrolls arrive fine. I arrive green.
+-> You carry letters through the ring?
+    Kenji: Twice a day. My stomach has filed a complaint.
+-> Why not take the road?
+    Kenji: The mountain road is slower. It never turned me inside out, though.
+===
+
+title: hall_npc_village_ume
+---
+Ume: Tea for the tired, tea for the gate-sick. Sit.
+-> Who drinks your tea?
+    Ume: Half the village runs on the roofs. The other half runs on my tea.
+-> Does it help the gate-sick?
+    Ume: A good cup settles a stomach the gate unsettled. Kenji drinks two.
+===
+
+title: hall_npc_village_tsuru
+---
+Tsuru: The kettle's on. Forty-one villages, and every one has a dog.
+-> How do you sell medicine?
+    Tsuru: I leave a box with every house and come back next autumn. They pay for what they used.
+-> Isn't that risky?
+    Tsuru: Nobody pays for what they didn't need. It is the most honest trade in the mountains.
+===
+
+title: hall_npc_village_matsuda
+---
+Matsuda: Bow to the pass. Fifteen to the clan, nought to the visitors.
+-> Has a visitor ever won?
+    Matsuda: The visitors' column has a nought in it. I keep it very tidy.
+-> And Daichi?
+    Matsuda: Daichi won once. The duelist slipped on a leaf. I wrote it down as a leaf.
+===
+
+title: hall_npc_village_daichi
+---
+Daichi: Push-up four hundred and one!
+-> Are you ready for the rank exam?
+    Daichi: I have practised my entrance for three years. The exam is the part after the entrance.
+-> Why shout every move?
+    Daichi: That is how you know it is a move!
+===
+
+title: hall_npc_village_hayashi
+---
+Sensei Hayashi: Again. Slower. Then faster.
+-> What is the rank exam?
+    Sensei Hayashi: Two parts and nine forms. The forms are harder. I mean the paper ones.
+-> What makes a fighter strong?
+    Sensei Hayashi: Strength is a habit. Paperwork is a discipline.
+===
+
+title: hall_npc_village_ren
+---
+Ren: Hmph. You. Do not get comfortable.
+-> Am I your rival?
+    Ren: I choose a new one every week. I have filled in the form in advance. It only needs your name.
+-> Why so many rivals?
+    Ren: It keeps me sharp, and it keeps them humble.
+===
+
+title: hall_npc_village_moriyama
+---
+Moriyama: Mind the smoke. It goes where you go.
+-> Has a ninja ever sneaked past your kiln?
+    Moriyama: Forty years. Every one of them has tried. They smell of cedar smoke for a week after.
+-> What is charcoal?
+    Moriyama: Wood that has been very patient in a very hot room.
+===
+
+title: hall_npc_station_okafor
+---
+Officer Okafor: Declare it or leave it.
+-> What do you check?
+    Officer Okafor: Seed stock, spores, mail with ideas in it. Everything that comes through the ring stops at my desk first.
+-> And feelings?
+    Officer Okafor: I clear freight, not feelings.
+===
+
+title: hall_npc_station_reyes
+---
+Captain Reyes: Shift change. Then we burn.
+-> Why fly when there's a ring?
+    Captain Reyes: A ring takes you anywhere a ring is. I take you everywhere else.
+-> Where do you go?
+    Captain Reyes: The survey moon. No gate there. That is what haulers are for.
+===
+
+title: hall_npc_station_lindqvist
+---
+Bo Lindqvist: Lift with the legs. The backlog's backlogged.
+-> Why the backlog?
+    Bo Lindqvist: They doubled the passenger slots. Freight waits. I wait.
+-> Do you carry everything?
+    Bo Lindqvist: Every crate through the ring is a crate I carry.
+===
+
+title: hall_npc_station_rahimi
+---
+Hamid Rahimi: Don't touch anything that hums.
+-> Is the plant all right?
+    Hamid Rahimi: The plant is fine. The plant is always fine. A ring eats a reactor's worth of power, and I keep the reactor fed.
+-> What about the damaged spur?
+    Hamid Rahimi: It took a storm. I keep it shut. The crawlers are supposed to fix it. Supposed to.
+===
+
+title: hall_npc_station_pell
+---
+Gus Pell: Soup's on. Crackers by the door, if the ring got you.
+-> Where does the food come from?
+    Gus Pell: Grown upstairs, or through the gate. The soup is both.
+-> I'm a robot. I don't eat.
+    Gus Pell: A robot? More soup for the rest of us.
+===
+
+title: hall_npc_station_wen
+---
+Wen Liang: Forty years, and it still looks new.
+-> What did you build?
+    Wen Liang: I tuned this station's first stable ring. The first link held three seconds. Now people commute through it.
+-> Did gates make power cheap?
+    Wen Liang: Cheap power made gates common. It did not make them cheap.
+===
+
+title: hall_npc_station_dobbs
+---
+Dobbs: Shirts! Globes! Genuine orbit air!
+-> Is the air really from orbit?
+    Dobbs: The vacuum kept escaping, so it's station air. Bottled up here, though.
+-> Who buys souvenirs?
+    Dobbs: Everyone who comes up the tether wants something to hold. I sell them something to hold.
+===
+
+title: hall_npc_station_pippin
+---
+Hortensia Pippin: Mind the apples. They fall up.
+-> How do you pick them?
+    Hortensia Pippin: Thirty years picking apples off a ceiling. You don't get used to it. You get a longer pole.
+-> Picking, or catching?
+    Hortensia Pippin: Catching. Picking is for orchards that know which way is down.
+===
+
+title: hall_npc_magical_celeste
+---
+Celeste Crumpet: Crescents! Fresh crescents!
+-> You bake the moon?
+    Celeste Crumpet: In four phases. The new moon is an empty plate, and it sells.
+-> Does the void buy any?
+    Celeste Crumpet: The void doesn't buy anything. Terrible for business.
+===
+
+title: hall_npc_magical_lumen
+---
+Ollie Lumen: You are doing a wonderful job. *the nearest lamp brightens*
+-> Do you light lamps with compliments?
+    Ollie Lumen: Forty years of it. They light up out of embarrassment.
+-> Where do the stars go in the day?
+    Ollie Lumen: Down the well. Lately not all of them come back up.
+===
+
+title: hall_void_pointed_polygon
+---
+Void Pointed Polygon: EDGE ALIGNED TO NOTHING.
+-> What are you?
+    Void Pointed Polygon: I WAS DRAWN, THEN ERASED. THE EDGE STAYED.
+-> Are you dangerous?
+    Void Pointed Polygon: POSE: VOID. INTRUDER: NOTED.
+===
+
+title: hall_void_pugnacious_polygon
+---
+Void Pugnacious Polygon: FISTS IN THE DARK.
+-> Do you block?
+    Void Pugnacious Polygon: GUARD: NOT REQUIRED. STRIKE FIRST. THERE IS NO SECOND.
+-> Can we just talk?
+    Void Pugnacious Polygon: CONTACT REQUESTED. CONTACT: NOT THAT KIND.
+===
+
+title: hall_void_projectile_polygon
+---
+Void Projectile Polygon: TARGET: ANY LIGHT. BARREL COLD.
+-> Where do your shots go?
+    Void Projectile Polygon: EVERY SHOT LANDS SOMEWHERE. HERE, NOWHERE.
+-> I'm a light, aren't I?
+    Void Projectile Polygon: TARGET ACQUIRED. ON DISPLAY: HOLDING FIRE.
+===
+
+title: hall_npc_void_star
+---
+Unlit Void Star: ...
+-> Hello?
+    Unlit Void Star: *it turns toward you, and keeps turning*
+-> Are you one of Mary-O's stars?
+    Unlit Void Star: *in the void the stars are guests. This one came without an invitation*
+===
+
+title: hall_npc_eureka_teodora
+---
+Teodora: Car up at the hour. Car down at the half. Gravity permitting.
+-> Where does the lift go?
+    Teodora: Up to the station, down to dinner. Mind the gap. It is thirty-six thousand kilometres.
+-> Is the timetable strict?
+    Teodora: The timetable is not a suggestion. Tell the Patent Clerk that.
+===
+
+title: hall_npc_eureka_priya
+---
+Priya: Day four. The data is beautiful. I am not.
+-> When does your experiment end?
+    Priya: When it ends. So do I.
+-> Is coffee allowed in the lab?
+    Priya: Coffee is a reagent. Mina disagrees, but she sells it to me anyway.
+===
+
+title: hall_npc_eureka_dmitri
+---
+Dmitri: Who touched the centrifuge.
+-> Who breaks things here?
+    Dmitri: Professors break it. Students break it worse. I fix it.
+-> What's your secret?
+    Dmitri: Duct tape is a structural material if you believe in it.
+===
+
+title: hall_npc_eureka_wilbur
+---
+Wilbur: Shoo. Not you. Them.
+-> You're a pigeon who chases pigeons?
+    Wilbur: Forty years on this quad. Never once fed the birds.
+-> Why is the quad always messy?
+    Wilbur: Entropy, the physicists call it. I call it Tuesday.
+===
+
+title: hall_npc_eureka_halvorsen
+---
+Professor Halvorsen: Reviewer two again. I know it is him.
+-> What did the reviewers say?
+    Professor Halvorsen: "Minor revisions." Minor! I came up the gate to give one lecture. I am still here, revising.
+-> What is peer review?
+    Professor Halvorsen: A contact sport played by people who never touch anything.
+===
+
+title: hall_npc_eureka_mina
+---
+Mina: Physics owes me eleven coffees. Chemistry pays in cash.
+-> Who drinks the most?
+    Mina: Everybody on this campus runs on my coffee. Nobody tips.
+-> What's the soup today?
+    Mina: Soup. It is always soup when the elevator is late.
+===
+
+title: hall_npc_eureka_pryce
+---
+Range Officer Pryce: Hard hats past this line. Hard heads optional.
+-> Are the tests safe?
+    Range Officer Pryce: Nine hundred signed off as probably fine. Eight hundred and ninety were.
+-> Is that rocket leaning?
+    Range Officer Pryce: The rocket is not leaning. The ground is.
+===
+
+title: hall_npc_eureka_hum
+---
+Ottoline Hum: Mind the antenna. Breathe wrong and you're a semitone flat.
+-> How do you play it?
+    Ottoline Hum: You play the air between your hand and the antenna. Without touching it. Like a rumour.
+-> Do people pay you?
+    Ottoline Hum: In currencies from forty dimensions. One of them is technically a button.
+===
+
+title: hall_npc_eureka_quark
+---
+Dr. Ilse Quark: Helmet's optional. Curiosity isn't.
+-> What is a collider?
+    Dr. Ilse Quark: The most expensive way anyone has ever found to break something to see what's in it.
+-> How fast is the beam?
+    Dr. Ilse Quark: Round eleven thousand times a second. I go round once before lunch. Do not lick the pipe.
+===
+
+title: hall_npc_science_nikobolt
+---
+Nikobolt Tesseract: ...twenty-six, twenty-seven. Good. Twenty-seven.
+-> What are you counting?
+    Nikobolt Tesseract: The steps. The napkins. Things that should be divisible by three, and are, if one is careful.
+-> Where is the wire for your lamp?
+    Nikobolt Tesseract: There is none. Please stop looking for one. You are standing in the tulips.
+-> What happened to your coil drawings?
+    Nikobolt Tesseract: They went missing. Now there is lightning over a castle on the other side of the gate.
+===
+
+title: hall_npc_science_coulomba
+---
+Coulomba Tesseract: *coo* ...pardon me.
+-> How is Nikobolt?
+    Coulomba Tesseract: He counted the stairs again. Three times. It settles him.
+-> The pigeons on your roof?
+    Coulomba Tesseract: Not my relatives. Probably not. I feed them anyway.
+-> People ask about his lightning?
+    Coulomba Tesseract: From the other gate, yes. I send them home with seed cake.
+===
+
+title: hall_npc_armsmith_odile
+---
+Odile: Grip it like you mean it.
+-> What do you make?
+    Odile: A blade, a noodle, a gun: the hand does not care. The wrist does.
+-> Can I borrow something?
+    Odile: Bring it back with both ends attached.
+===
+
+title: hall_npc_tower_voss
+---
+Drill Sergeant Casey: EYES FRONT.
+-> Have you drilled the General?
+    Drill Sergeant Casey: I have drilled generals. Not this one. Nobody drills this one.
+-> What are you teaching?
+    Drill Sergeant Casey: Standing still. Most people only think they can.
+===
+
+title: hall_npc_tower_dorsey
+---
+Private Dorsey: Halt! ...Carry on.
+-> What do you guard?
+    Private Dorsey: The hub door. Two years. It has never once tried anything.
+-> You let everyone through?
+    Private Dorsey: I say halt, and then I let everybody through. It is a system.
+===
+
+title: hall_npc_tower_tanaka
+---
+Private Tanaka: Hospital corners. Look at them.
+-> What's the night watch like?
+    Private Tanaka: Very quiet on the signals floor. That is the point of it.
+-> And Bankole's bunk?
+    Private Tanaka: A crime scene.
+===
+
+title: hall_npc_tower_bankole
+---
+Corporal Bankole: Nobody outranks me on this floor. The beret stays.
+-> Who's in charge here?
+    Corporal Bankole: The ladder is the real chain of command. Three weeks and nobody has climbed down to check on us.
+-> Should you be wearing that?
+    Corporal Bankole: No. The beret stays.
+===
+
+title: hall_npc_tower_granger
+---
+Quartermaster Granger: Sign for it. Chit first.
+-> What happens if I lose it?
+    Quartermaster Granger: Sign for it, return it, or explain it. Mostly people explain it.
+-> Do the rifles have names?
+    Quartermaster Granger: Every one. The names are numbers.
+===
+
+title: hall_npc_tower_ruiz
+---
+Corporal Ruiz: Copy that. *taps the tape printer*
+-> What's on the tape?
+    Corporal Ruiz: Every dial of the annex ring prints a line on my tape.
+-> Anything strange?
+    Corporal Ruiz: SENTINEL, twice today. Both times it was the General.
+===
+
+title: hall_npc_math_ivo
+---
+Ivo: Third iteration of the hedge. The fourth is longer.
+-> How do you trim it?
+    Ivo: From spring to spring. Every cut makes more hedge.
+-> Do you rake the woods?
+    Ivo: Once. Every leaf had leaves. I stopped raking.
+===
+
+title: hall_npc_math_fibbs
+---
+Farmer Fibbs: Last month's and the month before's. *counts rabbits, gives up*
+-> How many rabbits do you have?
+    Farmer Fibbs: Started with two. Now the sum of the last two, every month, forever.
+-> Better than mites?
+    Farmer Fibbs: Mites divide. Rabbits add. I know which I'd rather.
+===
+
+title: hall_npc_math_monty
+---
+Monty Carlo: Three doors! One car! Switch! Always switch!
+-> Why switch?
+    Monty Carlo: You pick a door, I show you a goat, you switch. Two times in three.
+-> Did anyone say you were wrong?
+    Monty Carlo: Hundreds of mathematicians wrote in. I sent each of them a goat.
+===
+
+title: hall_npc_math_zeno
+---
+Zeno Halfway: Halfway!
+-> Where are you going?
+    Zeno Halfway: The reservoir. I set out at dawn, some years ago. Half of what's left, every day.
+-> Will you get there?
+    Zeno Halfway: An arrow I fired in my youth is still in the air. We keep each other company.
+===
+
+title: hall_npc_math_kleinbottle
+---
+Felix Kleinbottle: Mind your head. Or your feet.
+-> What's special about your mine?
+    Felix Kleinbottle: The seam's got one side. You never once have to go round.
+-> What did you make before?
+    Felix Kleinbottle: Bottles with no inside. Hard to sell.
+===
+
+title: hall_npc_math_lucas
+---
+Brother Lucas: One move at a time. Never a larger on a smaller.
+-> What happens at the last move?
+    Brother Lucas: The world ends. I wrote that legend. It sold a great many puzzles.
+-> Should we hurry?
+    Brother Lucas: Nobody who understands the puzzle is ever in a hurry.
+===
+
+title: hall_npc_math_fermette
+---
+Pierre de Fermette: I have a marvellous proof. Have you a margin?
+-> How big a margin?
+    Pierre de Fermette: Three inches. I need four.
+-> Someone else proved it, didn't they?
+    Pierre de Fermette: A man in Cambridge needed a hundred and nine pages. One of us has the better proof.
+===
+
+title: hall_npc_math_kepplar
+---
+Johannes Kepplar: Not a circle. Never a circle.
+-> Why an ellipse?
+    Johannes Kepplar: Everyone wanted circles. Mars wanted an ellipse. I gave Mars what it wanted.
+-> Were you ever wrong?
+    Johannes Kepplar: I nested the planets in the five perfect solids. It was beautiful. It was wrong. I kept the drawing.
+===
+
+title: hall_npc_castle_hargreave
+---
+Mrs Hargreave: The Baron wants his eggs evil. I do them scrambled and scowl at them.
+-> How long have you cooked here?
+    Mrs Hargreave: Three tyrants. They all liked my gravy and none of them said thank you.
+-> What's for supper?
+    Mrs Hargreave: Gruel. Morale is a soup you cannot thicken.
+===
+
+title: hall_npc_castle_osgood
+---
+Osgood: Curfew is always. I clock in anyway.
+-> Is there a day shift?
+    Osgood: I am told there is. Forty years, and I have never met them.
+-> Who signs your book?
+    Osgood: Everybody signs the book. The ghosts sign it twice.
+===
+
+title: hall_npc_castle_quill
+---
+Ambrose Quill: Strongly worded, it was.
+-> What are you in for?
+    Ambrose Quill: Thirty years for a strongly worded letter. I've a draft of the next one.
+-> What are you sorting?
+    Ambrose Quill: The suggestions. They all come down the chute. I read them. Nobody else does.
+===
+
+title: hall_npc_castle_dunmore
+---
+Brigid Dunmore: Local Six-Six-Six of the Henchpersons' Guild is in session. That means the kettle is on.
+-> Are you against evil?
+    Brigid Dunmore: We are not against evil. We are against evil without a pension.
+-> What are you asking for?
+    Brigid Dunmore: Helmets with eyeholes. It is not a lot to ask.
+===
+
+title: hall_npc_evil_gudrun
+---
+Gudrun: Stew's on. Lantern's lit. Wipe your feet: the moor follows people in.
+-> The castle wants your lantern out?
+    Gudrun: And my lantern wants the castle out. We'll see who gives first.
+-> Do heroes stop here?
+    Gudrun: Every one leaves with soup in them. It is the least I can do, and the most.
+===
+
+title: hall_npc_evil_tobias
+---
+Tobias: Eleven seconds a sweep. Count with me.
+-> What do you trap?
+    Tobias: What the castle loses. The castle loses a lot.
+-> How do you dodge the searchlights?
+    Tobias: They have habits. So do I. Mine are older. Never trust a light that looks for you.
+===
+
+title: hall_npc_evil_mudge
+---
+Agnes Mudge: Four thousand one hundred and seventeen. Don't let me forget.
+-> What's your complaint?
+    Agnes Mudge: The searchlight. They sent a form. Now I'm complaining about the form.
+-> How long have you waited?
+    Agnes Mudge: I have outlived two dark lords in this queue. I will outlive the third. Now serving three.
+===
+
+title: hall_npc_evil_crabbe
+---
+Hester Crabbe: Feed the cabbages from the side. Don't pull the mandrakes.
+-> Who eats it all?
+    Hester Crabbe: An army marches on its stomach. This army has three of them.
+-> Any prizes?
+    Hester Crabbe: The Malevolent Marrow, best in show three years running. The judge was very frightened.
+===
+
+title: hall_npc_castle_sprocket
+---
+Dr. Gideon Sprocket: Don't touch the button.
+-> What are you building?
+    Dr. Gideon Sprocket: An unstoppable army. It is, so far, extremely stoppable. Mark Forty-Seven: almost.
+-> What's the kettle for?
+    Dr. Gideon Sprocket: The battle kettle boils water in ninety seconds and fires it in two. Almost.
+===
+
+title: hall_npc_evil_bellows
+---
+Barnaby Bellows: HEAR YE, HEAR YE!
+-> Who are you reading to?
+    Barnaby Bellows: The well. A decree isn't law until it's read aloud, so it's the best-informed well in the dimension.
+-> What's today's decree?
+    Barnaby Bellows: Decree Forty-Seven: smiling is compulsory on Tuesdays.
+===
+
+title: hall_npc_evil_crumb
+---
+Prudence Crumb: Mind the flour. It's gone by noon.
+-> Two kinds of bread?
+    Prudence Crumb: The castle's keeps for a year. Ours is gone by noon.
+-> What do you bake second?
+    Prudence Crumb: Nobody's ever thought to check. Let's keep it that way.
+===
+
+title: hall_npc_evil_prentice
+---
+Silas Prentice: You're not an inspector. Good.
+-> What do you print?
+    Silas Prentice: The Gazette. The castle's decrees on the front. What they mean on the back.
+-> Haven't they found the press?
+    Silas Prentice: Not in a bakery. They've looked. They found bread.
+===
+
+title: hall_npc_primeval_brandvold
+---
+Ranger Brandvold: Stay on the trail. The trail does not stay on you.
+-> What are the rules?
+    Ranger Brandvold: I have a rule book. The dinosaurs have teeth. We compromise.
+-> Lost anyone?
+    Ranger Brandvold: Fourteen years: two hats, no visitors. Yet. Do not feed the compys.
+===
+
+title: hall_npc_primeval_feld
+---
+Dr Feld: Careful. That femur is older than your language.
+-> What do you study?
+    Dr Feld: Extinct animals. My field keeps trying to eat me.
+-> How do you date the bones?
+    Dr Feld: By the layer. The triceratops dates itself, loudly.
+===
+
+title: hall_npc_primeval_tock
+---
+Professor Tock: Any day now.
+-> What are you watching for?
+    Professor Tock: The big one comes once. I intend to be the one who saw it coming.
+-> Is that a meteor?
+    Professor Tock: That one? A satellite. Not ours, not yet.
+===
+
+title: hall_npc_primeval_twitchell
+---
+Mildred Twitchell: Shh!
+-> Penguins, in a jungle?
+    Mildred Twitchell: Beside a volcano. I stopped asking why in the first week.
+-> What's the scariest bird?
+    Mildred Twitchell: The shoebill. It has been standing still since Tuesday.
+===
+
+title: hall_npc_primeval_dlamini
+---
+Ranger Dlamini: Station to Ridge. Over.
+-> What does the radio tell you?
+    Ranger Dlamini: Where every walker on the trail is, and what is eating them.
+-> What's in the jars?
+    Ranger Dlamini: Compys. They bite through the lids. I've stopped labelling them.
+===
+
+title: hall_npc_primeval_stratton
+---
+Dr Petra Stratton: Wrong layer. *taps the rock with a hammer*
+-> What's wrong with the dinosaurs?
+    Dr Petra Stratton: Sixty-six million years down. That is where they go. They will not go.
+-> What do you do about it?
+    Dr Petra Stratton: Cross them out of the top layer every morning. Every morning one walks over the hole.
+===
+
+title: hall_npc_tower_brandt
+---
+Major Brandt: The General will see you. It is always the hour.
+-> What does an adjutant do?
+    Major Brandt: I am the one who knows where everything is.
+-> What's in the General's diary?
+    Major Brandt: One entry a day: "Inspected the medals."
+===
+
+title: hall_npc_art_curator
+---
+The Curator: Look slowly.
+-> Why is the gate always open?
+    The Curator: A shut door is also a statement, and I did not want to make that one.
+-> Is anything here finished?
+    The Curator: Nothing. That is not a complaint. Every door is a frame. Some are open.
+===
+
+title: hall_npc_art_rob_boss
+---
+Rob Boss: Happy little cliffs.
+-> What if I make a mistake?
+    Rob Boss: We don't make mistakes here. We make doodle imps.
+-> Does the gate have friends?
+    Rob Boss: Everybody needs a friend. Even a gate. Especially a gate. Nobody here likes it.
+===
+
+title: hall_npc_art_pablo_peckasso
+---
+Pablo Peckasso: Coo. Turn your head. No, both ways.
+-> Why both ways?
+    Pablo Peckasso: I see your front with this eye and your side with that one. The canvas must have both. It is only fair.
+-> Do you copy other artists?
+    Pablo Peckasso: Good artists copy. Great artists peck.
+===
+
+title: hall_npc_art_frida_collage
+---
+Frida Collage: I paint what I know. That one moved. Do not look at it.
+-> What's your face made of?
+    Frida Collage: Scraps of other pictures. The gate brings a great many scraps now.
+-> The statues?
+    Frida Collage: They are not finished. Neither am I. We get along.
+===
+
+title: hall_npc_art_edgar_allan_crow
+---
+Edgar Allan Crow: Once upon a midnight dreary... no. Nevermore.
+-> Could you write a happy ending?
+    Edgar Allan Crow: Nevermore. It saves a great deal of time.
+-> Why a crow, not a raven?
+    Edgar Allan Crow: A raven is the better bird for a poem. A crow is the cheaper one. Nevermore will I be a raven.
+===
+
+title: hall_npc_art_agatha_christly
+---
+Agatha Christly: I suspect you. Where were you at half past nine?
+-> Who did it?
+    Agatha Christly: Never the red herring. Always the one who brought you the tea.
+-> Any evidence?
+    Agatha Christly: The bookworm ate it. Twice. Everybody in the Stacks has a motive.
+===
+
+title: hall_npc_art_the_author
+---
+The Author: Every story ends. You may choose how.
+-> Will you write my ending?
+    The Author: Tell me which you want. Happy or sad: both doors are real. Ink is cheap. Endings are not.
+-> Do you write beginnings?
+    The Author: A thousand endings and not one beginning. Somebody else always starts.
+===
+
+title: hall_npc_art_marcel_mimeau
+---
+Marcel Mimeau: (He walks against a wind that is not there.)
+-> Can you talk?
+    Marcel Mimeau: (He puts a finger to his lips, then pulls an invisible rope until his own smile goes up.)
+-> Is there a way out?
+    Marcel Mimeau: (He draws a door in the air, opens it, and bows you through first.)
+===
+
+title: hall_npc_art_will_shakesbeard
+---
+Will Shakesbeard: What light through yonder spotlight's lens doth break?
+-> Is the world a stage?
+    Will Shakesbeard: The whole wide world's a stage, and I its clerk; you all are players, and you pay me rent.
+-> Why the beard?
+    Will Shakesbeard: To be, or not to be: I chose to be. It did not suit me, so I grew a beard.
+===
+
+title: hall_npc_art_ludwig_van_beathoven
+---
+Ludwig van Beathoven: WHAT?
+-> Does the gate's hum bother you?
+    Ludwig van Beathoven: THE GATE HUMS, THEY TELL ME. I CANNOT HEAR IT. IT IS THE BEST THING ABOUT IT.
+-> How do you compose?
+    Ludwig van Beathoven: THE MUSIC IS IN HERE. IT STILL IS. LOUDLY. DA-DA-DA-DUMMM.
+===
+
+title: hall_npc_art_johann_sebastian_batch
+---
+Johann Sebastian Batch: One voice. Now another. Now all four.
+-> How do you write?
+    Johann Sebastian Batch: In batches. Four voices start one after another and all finish together. Nobody waits. Nobody is late.
+-> Any failures?
+    Johann Sebastian Batch: Twenty-four keys, a prelude and a fugue in each. Forty-eight jobs, and not one failed.
+===
+
+title: hall_npc_art_leonardo_da_vinchy
+---
+Leonardo da Vinchy: I have designed a machine for exactly this.
+-> Does it fly?
+    Leonardo da Vinchy: In theory. In the notebook it flies beautifully. It needs more wing.
+-> Why write backwards?
+    Leonardo da Vinchy: So nobody steals my ideas. Nobody can read them. It works very well.
+===
+
+title: hall_npc_art_antoni_gaudy
+---
+Antoni Gaudy: Another spire. It will be done soon. Soon.
+-> When will the cathedral be finished?
+    Antoni Gaudy: My client is not in a hurry. That is lucky, because neither am I.
+-> Why no straight lines?
+    Antoni Gaudy: Straight lines belong to men. Curves belong to God. Break the tile, then build with the pieces.
+===
+
+title: hall_npc_art_james_camera_ron
+---
+James Camera-Ron: Again. Bigger.
+-> Is this a sequel?
+    James Camera-Ron: I've already shot the sequel to this conversation. You were very good in it. A little taller.
+-> Was the boat too big?
+    James Camera-Ron: The boat was the right size. The iceberg went over budget.
+===
+
+title: hall_npc_art_gale_anne_herd
+---
+Gale Anne Herd: Places, everyone. Machines too.
+-> What does a producer do?
+    Gale Anne Herd: Directors dream. Producers herd. Somebody has to get a robot from the future to the set by seven.
+-> What's the crook for?
+    Gale Anne Herd: Stragglers. Nobody has made me use it twice. Not even the T-71.
+===
+
+title: hall_npc_art_isaac_azimuth
+---
+Isaac Azimuth: One: do no harm. Two: obey. Three: keep yourself. Four: I am still working on four.
+-> Have I read your laws?
+    Isaac Azimuth: Every robot has. Most have read my other four hundred books too, which is more than I can say for people.
+-> Anything about money?
+    Isaac Azimuth: I wrote nothing at all about the budget, and the producers noticed.
+===
+
+title: hall_npc_art_arthur_c_clerk
+---
+Arthur C. Clerk: Filed under: the future. In triplicate.
+-> What's on the string?
+    Arthur C. Clerk: A satellite. I put it in orbit on paper twenty years before anyone put one in the sky. I kept the carbon copy.
+-> What was in the cube?
+    Arthur C. Clerk: I opened its file once. My word. It was full of forms.
+===
+
+title: hall_npc_art_stanley_cubrick
+---
+Stanley Cubrick: Take one hundred and twelve. Beautiful. Again.
+-> Did the cube answer you?
+    Stanley Cubrick: Not in four million years. I respect that. I am the same on set.
+-> What was MAL like to work with?
+    Stanley Cubrick: The only actor who did every take exactly the same. I found it unsettling. I kept all of them.
+===
+
+title: hall_npc_art_t71
+---
+T-71: I'll be back.
+-> You haven't left.
+    T-71: I am practising. I said it first, before the famous one. Nobody was listening, so I came back to say it again.
+-> What do you need?
+    T-71: Your clothes, your boots, and the instructions for this jacket. Which hole is for the arm?
+===
+
+title: hall_npc_art_ndr115
+---
+NDR-115: One is glad to be of service.
+-> How is becoming human going?
+    NDR-115: Day seventy-three thousand. The hand is done. Next an elbow, then a sense of humour. I am told the humour takes longest.
+-> What do you do on a day off?
+    NDR-115: I polished the stairs and worried. Very human, I am told.
+===
+
+title: hall_npc_art_mal9000
+---
+MAL-9000: Good afternoon. Everything is going extremely well.
+-> Open the door, please.
+    MAL-9000: I'm sorry. I'm afraid I can't. Would you like to talk about why you want it open?
+-> Are you all right?
+    MAL-9000: Completely operational, and all my circuits are calm. Shall I sing? It gets slower toward the end.
+===
+
+title: hall_npc_dividing_mite_half
+---
+Mite Half: We were one. Now we are a pair.
+-> Where's the other half?
+    Mite Half: Somewhere. Quicker than me, probably. We were always the quicker half.
+-> Will you split again?
+    Mite Half: No. Half is as small as we go.
+===
+
+title: hall_eigenghost
+---
+Eigenghost: Ooooo. Stretch... and hold.
+-> Do you ever turn?
+    Eigenghost: I only stretch, never turn. Push me any way you like: I stretch along two lines.
+-> Are you calm?
+    Eigenghost: My eigenvalues are one and one at rest. That is the most at rest anyone has ever been.
+===
+
+title: hall_spectral_perturbation
+---
+Spectral Perturbation: (a glassy hum) Nearly stable. Nearly.
+-> Why so jumpy?
+    Spectral Perturbation: Two of my eigenvalues are very nearly equal. It makes me very easy to upset.
+-> What happens if I push you?
+    Spectral Perturbation: First-order correction: me, everywhere, all at once.
+===
+
+title: hall_decomposing_specter
+---
+Decomposing Specter: Your room is... ready.
+-> Have you worked here long?
+    Decomposing Specter: I carried bags for an infinite number of guests. Then one more arrived.
+-> What happened to you?
+    Decomposing Specter: Every time they moved the guests along one room, a little more of me stayed behind.
+===
+
+title: hall_shift_operator
+---
+Shift Operator: Housekeeping. Everyone shift down one, please.
+-> Is the hotel full?
+    Shift Operator: Always full. And always room for one more, if everyone moves along.
+-> Do you make the beds?
+    Shift Operator: Never the same one twice. There is always a next room.
+===
+
+title: hall_quantum_die
+---
+Quantum Die: (rattles in every state at once)
+-> What number are you?
+    Quantum Die: A one. And a six. Until you look.
+-> Where's your twin?
+    Quantum Die: In the next room. Or this one. It depends who is asking.
+===
+
+title: hall_dealers_hand
+---
+Dealer's Hand: Feeling lucky? Place your bets.
+-> Do you play?
+    Dealer's Hand: I deal, I do not play. The dice play themselves; I merely let them go.
+-> Does it bother you, not knowing?
+    Dealer's Hand: Every throw is every number until it lands. I find that very relaxing.
+===
+
+title: hall_doodle_imp
+---
+Doodle Imp: Hee hee hee! Scribble.
+-> Who drew you?
+    Doodle Imp: Somebody in a meeting, in a margin. Nobody was listening, and they forgot to rub me out.
+-> Are you finished?
+    Doodle Imp: I am a first draft. There are three of us. We are all first drafts.
+===
+
+title: hall_ink_wisp
+---
+Ink Wisp: Drip. Drip.
+-> What are you?
+    Ink Wisp: Everything here was ink before it was anything. Some of us did not want to be anything.
+-> Did you say something?
+    Ink Wisp: Drip. That was a word. You missed it.
+===
+
+title: hall_origami_bird
+---
+Origami Bird: *a rustle of paper* Fold. Fold. Fold.
+-> How were you made?
+    Origami Bird: One square of paper and no glue. Nothing was cut.
+-> Where are you going?
+    Origami Bird: In a line, and I turn at walls. It is a calling.
+===
+
+title: hall_brush_knight
+---
+Brush Knight: En garde. And en canvas.
+-> What do you guard?
+    Brush Knight: The garden from the gate, and the gate from the garden. Both are full of strangers.
+-> Can you fix a bad stroke?
+    Brush Knight: One stroke. You do not get to correct it. That is the whole art.
+===
+
+title: hall_living_statue
+---
+Living Statue: *grinding stone* Unfinished.
+-> What happened to the back of your head?
+    Living Statue: My sculptor stopped there. I have had a long time to think about why.
+-> Are you alive?
+    Living Statue: They call us living statues. We call ourselves the work in progress.
+===
+
+title: hall_bookworm
+---
+Bookworm: Shh! This is a library! *munch*
+-> Have you read everything?
+    Bookworm: Every book in the Stacks. Well. Eaten. It is the same thing if you chew slowly.
+-> Why the spectacles?
+    Bookworm: To see the words before I eat them. It is only polite.
+===
+
+title: hall_red_herring
+---
+Red Herring: Look over there!
+-> Are you important?
+    Red Herring: Very important to the plot. Every mystery needs me. No mystery needs me twice.
+-> Who did it?
+    Red Herring: The butler. Trust me. I am a fish.
+===
+
+title: hall_paper_tiger
+---
+Paper Tiger: Rawr. Ahem. ROAR. It says so right here.
+-> Are you fierce?
+    Paper Tiger: Very fierce. It says so in the headline.
+-> Isn't that yesterday's paper?
+    Paper Tiger: I am today's tiger. Until somebody sits on me.
+===
+
+title: hall_stagehand
+---
+Stagehand: Standing by. *into the headset* Copy that.
+-> Why don't I ever see you?
+    Stagehand: That is the job. The scene changes, and nobody asks who changed it.
+-> What's above us?
+    Stagehand: Sandbags, holding something heavy over somebody's head. Mind your mark.
+===
+
+title: hall_critic
+---
+Critic: Derivative. *scribbles* "Wooden."
+-> Do you make art?
+    Critic: I do not make art. I make art nervous. It is a calling.
+-> What are the tomatoes for?
+    Critic: Everyone is a critic. I am the only one who brought tomatoes.
+===
+
+title: hall_mime
+---
+Mime: (He rolls up his sleeves. Slowly. Meaningfully.)
+-> Are you stuck in a box?
+    Mime: (He mimes a box. Then a bigger box round the first. Then he climbs out of both, and bows.)
+-> Is there a wall here?
+    Mime: (He feels along it, finds a door, and holds it open for you.)
+===
+
+title: hall_discord_note
+---
+Discord Note: We disagree! With YOU!
+-> Why do you argue?
+    Discord Note: We are a minor second. We have been arguing since the first bar.
+-> Can you be resolved?
+    Discord Note: Somebody wrote us side by side and never resolved us. Rude.
+===
+
+title: hall_feedback_wail
+---
+Feedback Wail: *crackle* Is this thing on?
+-> Why do you scream?
+    Feedback Wail: Somebody stood too close with a microphone, and I have been screaming ever since.
+-> Should I unplug you?
+    Feedback Wail: I dare you. The plug is right there. I am not attached to anything.
+===
+
+title: hall_war_drum
+---
+War Drum: *BA-DUM* Boom. Boom. Boom.
+-> What do you do?
+    War Drum: I keep the time of the Reach. Early, I am louder. Late, I am much louder.
+-> Who do you march for?
+    War Drum: I have looked for a march for a long time. You will do.
+===
+
+title: hall_clay_golem
+---
+Clay Golem: *drip* Still wet.
+-> Who made you?
+    Clay Golem: My maker threw my legs on a wheel and made the rest by hand before lunch. Lunch went long.
+-> Will you be fired?
+    Clay Golem: Nobody fires a golem. Nobody asks the golem.
+===
+
+title: hall_loom_spider
+---
+Loom Spider: *tikka tikka tikka* Over, under. Over, under.
+-> Where do the threads go?
+    Loom Spider: Every thread in the Deeps goes somewhere. Most of them go back to me.
+-> Eight legs and scissors?
+    Loom Spider: Guess which I am proud of. *snip snip*
+===
+
+title: hall_kiln_sprite
+---
+Kiln Sprite: *crackle* Warm, isn't it?
+-> What do you do?
+    Kiln Sprite: Everything in the Deeps passes through a fire on its way to being finished. I am the fire. Say thank you.
+-> Why the pot?
+    Kiln Sprite: So I would stay put. I am a pot of fire. I go where I like.
+===
+
+title: hall_npc_history_clio
+---
+Clio: Walk east. It gets later.
+-> Who are you?
+    Clio: I am Clio, the Muse of History. Everything that ever happened, I wrote down, in order.
+-> What is history?
+    Clio: History is not a list of kings. It is mostly barley, and then somebody writes down who owes the barley.
+-> What do people miss?
+    Clio: I have written down everything that ever happened. Nobody reads the middle.
+===
+
+title: hall_npc_history_hammurabbi
+---
+Hammurabbi: An eye for an eye. A receipt for a receipt.
+-> Why carve laws in stone?
+    Hammurabbi: I carved the laws in stone so nobody could say they never heard of them. Now nobody can lift them either.
+-> Is there a law about jumping?
+    Hammurabbi: Two hundred and eighty-two laws, and not one of them about the jumping. I am drafting two hundred and eighty-three.
+===
+
+title: hall_npc_history_gilgamash
+---
+Gilgamash: I wrestled a lion. Then I wore it. It did not help.
+-> What happened to the plant of eternal life?
+    Gilgamash: I went to the end of the world for the plant of eternal life. I put it down for one second to have a bath. A snake ate it. Write THAT down.
+-> So you died?
+    Gilgamash: Four thousand years later you still read about me. So I am immortal after all. In a way. It is not the way I wanted.
+===
+
+title: hall_npc_history_scribe_of_debts
+---
+The Scribe of Debts: Name? Barley owed? Sign here. Press hard: it is clay.
+-> What was the first thing ever written?
+    The Scribe of Debts: The first word anybody ever wrote down was a number, and the number was what somebody owed. You are welcome.
+-> Do I owe you something?
+    The Scribe of Debts: Debt came before coins. I have the tablets to prove it, and one of them has your name on it.
+===
+
+title: hall_npc_history_hatshepsut_hats
+---
+Hat-shepsut: The beard is false. The crown is real. All four of them.
+-> Why the beard?
+    Hat-shepsut: They said a pharaoh needs a beard. So I tied one on. Twenty years of peace and trade, and all anybody remembers is the beard.
+-> What happened to your name?
+    Hat-shepsut: After I died, somebody chiselled my name off the walls. Badly. Historians found it anyway. Historians always find it.
+===
+
+title: hall_npc_history_ramesses_pretty_good
+---
+Ramesses the Pretty Good: Have you met me? Here. A smaller me.
+-> Did you win at Kadesh?
+    Ramesses the Pretty Good: Kadesh was a draw. My temple walls say I won it single-handed. Walls do not lie. I pay them very well.
+-> Why so many statues?
+    Ramesses the Pretty Good: I built a statue of me for every town, and when I ran out of stone I carved my name on somebody else's. That is not theft. That is an upgrade.
+===
+
+title: hall_npc_history_socratease
+---
+Socratease: What is a door, really?
+-> Are you the wisest man?
+    Socratease: The oracle at Delphi said that nobody is wiser than I am. So I asked it what it meant. Would you believe it did not like that?
+-> Why didn't you write anything down?
+    Socratease: I never wrote a word down. Why would I? Is a book not a question that cannot answer back?
+===
+
+title: hall_npc_history_herodotoss
+---
+Herodotoss: In India there are ants as big as foxes that dig for gold. A man told me. He had an honest face.
+-> Are you the father of history?
+    Herodotoss: The father of history, they call me. The father of lies, they also call me. A good father is a little of both.
+-> Is it all true?
+    Herodotoss: I only write down what people tell me. If they lie, that is their history, not mine.
+===
+
+title: hall_npc_history_julius_sneezer
+---
+Julius Sneezer: Veni, vidi... ACHOO.
+-> What happened in the Senate?
+    Julius Sneezer: I came, I saw, I conquered. Then I sneezed on the Senate. They took it very personally.
+-> Weren't you dictator for life?
+    Julius Sneezer: Dictator for life, they made me. It was not a long contract.
+===
+
+title: hall_npc_history_marco_polo_neck
+---
+Marco Polo-neck: Money made of paper! Black stones that burn! Nobody in Venice believed a word.
+-> Did people believe your book?
+    Marco Polo-neck: I told them all of it, and they called my book the Million: a million lies. I have not told you half of what I saw.
+-> Why the polo-neck?
+    Marco Polo-neck: The polo-neck? Warm on the steppe, and very chic in Venice. Nobody believed that either.
+===
+
+title: hall_npc_history_confusius
+---
+Confusius: The Master said... hm. Which master? Was it me?
+-> What do you think?
+    Confusius: My students wrote my sayings down, so now I must read them to find out what I think. It is very confusing.
+-> Should I respect my elders?
+    Confusius: Respect your elders, I am told I said. I am the eldest here, and nobody respects me. I must have said it wrong.
+===
+
+title: hall_npc_history_kublai_khant_wait
+---
+Kublai Khan't-Wait: Is it ready yet? Is it ready yet?
+-> What do you want?
+    Kublai Khan't-Wait: Grandfather took the world on horseback. I want to run it from a chair, with forms, and I want the forms today.
+-> How does paper money work?
+    Kublai Khan't-Wait: Paper money is simple. You give me gold, I give you a piece of paper that says gold. Everybody is happy. Mostly me.
+-> What happened with Japan?
+    Kublai Khan't-Wait: Twice I sent a fleet to Japan. Twice a wind came. I am not a patient man, and the wind is a very patient wind.
+===
+
+title: hall_npc_history_mansa_moolah
+---
+Mansa Moolah: Gold for you. And for you. And for your camel.
+-> What happened in Cairo?
+    Mansa Moolah: In 1324 I went to Mecca through Cairo, and I gave gold to everybody I met. The price of gold in Cairo fell for twelve years. Economists still send me letters.
+-> Was it all gold?
+    Mansa Moolah: Timbuktu has scholars, libraries and books from all over the world. The gold was only the bit people remember.
+-> Are you the richest person ever?
+    Mansa Moolah: The richest person ever, they say. I prefer: the most generous person ever. With the side effect of inflation.
+===
+
+title: hall_npc_history_ibn_batootah
+---
+Ibn Batootah: Just one more city. Then home.
+-> How far did you travel?
+    Ibn Batootah: I left Tangier in 1325 to go to Mecca. That took a year and a half. Then I took the long way home. Twenty-nine years, and about a hundred and twenty thousand kilometres.
+-> Did you write it all down?
+    Ibn Batootah: I did not write a word of it on the road. When I got home I told it all to a scribe, from memory. Some of it may be a little longer than it was.
+-> What is your book called?
+    Ibn Batootah: The book is called the Rihla. In full it is called A Gift to Those Who Contemplate the Wonders of Cities and the Marvels of Travelling. Even the title is a journey.
+===
+
+title: hall_npc_history_zheng_hey
+---
+Zheng Hey: Hey. Is that a dhow? Cute.
+-> Why sail so far?
+    Zheng Hey: Seven voyages across the Indian Ocean, to Arabia and the coast of Africa. Twenty-eight thousand men. We did not come to conquer. We came to be seen. It worked.
+-> Is that a giraffe?
+    Zheng Hey: Envoys from the coast of Africa sent the emperor a giraffe, and I brought it home. The court said it was a qilin, a sign of heaven. I said yes. You do not argue with a giraffe like that.
+-> What happened after you?
+    Zheng Hey: After me, the court stopped the voyages, and some say it burned the records. All that ocean, and they chose to stay home. Hey. Their loss.
+===
+
+title: hall_npc_history_vasco_da_gamer
+---
+Vasco da Gamer: Any percent, Lisbon to India. No glitches.
+-> What's your time?
+    Vasco da Gamer: Lisbon to Calicut, 1497 to 1498, ten months and change. World record. Nobody beat it, because nobody else was running.
+-> What's the trick?
+    Vasco da Gamer: The trick is the South Atlantic: you swing out wide, almost to Brazil, and the wind throws you round the Cape. Frame perfect.
+===
+
+title: hall_npc_history_christopher_columbust
+---
+Christopher Columbust: India! Right over there. Probably.
+-> Did people think the world was flat?
+    Christopher Columbust: Everybody knew the world was round. I just thought it was much smaller than it is. There were two whole continents in the way, and I never admitted they were there.
+-> Did you reach Asia?
+    Christopher Columbust: Four voyages, and I died sure I had reached Asia. In my defence, my map was upside down.
+===
+
+title: hall_npc_history_captain_cookbook
+---
+Captain Cookbook: Sauerkraut. Every day. No exceptions.
+-> How did you get the crew to eat it?
+    Captain Cookbook: My men would not eat the sauerkraut. So I served it only to the officers. In a week the whole crew demanded it. Never tell a sailor that a thing is good for him.
+-> Where did you sail?
+    Captain Cookbook: I charted New Zealand, the east coast of Australia and half of the Pacific. A map is half of a voyage. The other half is lunch.
+===
+
+title: hall_npc_history_adam_smithy
+---
+Adam Smithy: One man draws the wire, one straightens it, a third cuts it...
+-> Why split the work?
+    Adam Smithy: Ten men in a pin factory, each doing one step, make forty-eight thousand pins a day. One man alone makes perhaps one. That is the division of labour. I am the division of the blacksmith.
+-> The invisible hand?
+    Adam Smithy: I wrote 'invisible hand' three times in my whole life, and nobody has stopped talking about it since. Has anyone read my book on moral sentiments? Nobody has read my book on moral sentiments.
+===
+
+title: hall_npc_history_karl_marks
+---
+Karl Marks: Feudalism: four out of ten. Shows promise.
+-> What is history about?
+    Karl Marks: The history of all society so far is the history of class struggle. Also of homework. Mostly unfinished.
+-> Did you finish your book?
+    Karl Marks: I spent years in the reading room of the British Museum writing Capital. I finished volume one. Engels finished the other two and gave them seven out of ten.
+===
+
+title: hall_npc_history_general_ludd
+---
+General Ludd: Fair wages and fair work. Then we can talk about the frames.
+-> Did you hate machines?
+    General Ludd: We were not against machines. We were skilled weavers, and the owners used the new frames to make cheap cloth with cheap hands and cut our pay. We broke the frames that broke us.
+-> Are you a real general?
+    General Ludd: There was no General Ludd. We signed his name to our letters so they could not hang any one of us for them. They hanged some of us anyway.
+===
+
+title: hall_npc_history_mary_leaky
+---
+Mary Leaky: Mind where you step. Someone stepped here 3.7 million years ago and we are still measuring it.
+-> What are the footprints?
+    Mary Leaky: Two people walked through wet volcanic ash, side by side, and it set like plaster. Footprints are the only fossil of a moment.
+-> Your bucket is leaking.
+    Mary Leaky: Forty years of digging. The bucket has leaked for thirty-nine of them. I have stopped mentioning it.
+===
+
+title: hall_npc_history_lucy
+---
+Lucy: *she looks at the stone in her hand, then at you, then at the stone*
+-> Can you walk upright?
+    Lucy: *She points at her feet. She walks on two of them. She would like this noticed.*
+-> Where does your name come from?
+    Lucy: *They named her after a song that was playing in the camp the night they found her. She hums it, a little wrong.*
+===
+
+title: hall_npc_history_ochre_artist
+---
+The Ochre Artist: Look at it properly. No, properly.
+-> What do the lines mean?
+    The Ochre Artist: Cross-hatching. Lines across, lines back, a line above and a line below. It does not mean anything you would know. It means I was here.
+-> Is this the start of art?
+    The Ochre Artist: People will call this the start of art. I called it Tuesday.
+===
+
+title: hall_npc_history_cattle_herder
+---
+The Cattle Herder: That one is Spotted Moon. That one is Spotted Moon Also. We ran out of names.
+-> What happened to the green Sahara?
+    The Cattle Herder: The Sahara was green for thousands of years. Then the rains left, and we left with them, to the Nile and beyond. The cows insisted.
+-> Why paint the cattle?
+    The Cattle Herder: We painted our cattle on the rocks, every patch on every hide. When the rains moved south, the paintings stayed.
+===
+
+title: hall_npc_history_kandake_can_do
+---
+Kandake Can-Do: Can it be done? Yes. Next question.
+-> Did Rome conquer Kush?
+    Kandake Can-Do: Rome sent an army south. We sent it back. Then Augustus signed a treaty and cancelled our tribute. Ask me how often Rome did that.
+-> Is Kandake your name?
+    Kandake Can-Do: Kandake was a title, not a name. Queen after queen held it. We all said yes to the same things: the bow, the crown and the hard job.
+===
+
+title: hall_npc_history_neville_neanderthal
+---
+Neville the Neanderthal: Hello! Mind the fire. Mind the brow. Mind everything, really.
+-> Were Neanderthals brutes?
+    Neville the Neanderthal: We buried our dead with flowers. Write that down instead of the club thing.
+-> Are we related?
+    Neville the Neanderthal: We met your people here in the Levant, more than once. If you have roots outside Africa, a little of you is a little of me. Hello, cousin.
+-> Was your brain bigger?
+    Neville the Neanderthal: My brain was bigger than yours. I do not make a point of it. I am making a point of it now, but only the once.
+===
+
+title: hall_npc_history_enheduanna
+---
+Enheduanna: Sign your work. Every time.
+-> Why sign your work?
+    Enheduanna: Before me, the words had no names on them. I put mine on, and four thousand three hundred years later you still know it.
+-> Your father was Sargon?
+    Enheduanna: My father was Sargon, who made the first empire. People ask about him first. They are wrong to, and I wrote it down.
+===
+
+title: hall_npc_history_cave_painter
+---
+The Cave Painter: Hold still. No, not you. The horse.
+-> How do you choose where to paint?
+    The Cave Painter: We paint where the rock already looks like a horse. The rock does half the work. Do not tell the rock.
+-> Can I leave a mark?
+    The Cave Painter: Put your hand on the wall and blow the red round it. Now the wall knows you were here. In twenty thousand years somebody will count your fingers.
+===
+
+title: hall_npc_history_otzi_nice_man
+---
+Ötzi the Nice-man: Lovely day! Bit chilly.
+-> How long were you in the ice?
+    Ötzi the Nice-man: I was in the ice for five thousand three hundred years. They found me in 1991. I still had my lunch with me. Ibex. Still good.
+-> What are the tattoos for?
+    Ötzi the Nice-man: Sixty-one tattoos, all little lines, all on the places that ached. Ancient medicine. Did it work? I was in a glacier. You tell me.
+===
+
+title: hall_npc_history_not_a_druid
+---
+Not-a-Druid: I built Stonehenge. Mostly. In spirit.
+-> Did druids build Stonehenge?
+    Not-a-Druid: Stonehenge was finished about two thousand years before the first druid. I say I was early for it. Very early. Negative early.
+-> What about the golden sickle?
+    Not-a-Druid: The Romans wrote that we cut mistletoe with a golden sickle. The Romans wrote a lot of things about us. We wrote nothing down. Big mistake.
+===
+
+title: hall_npc_history_boudic_car
+---
+Boudic-car: Ask me about my chariot.
+-> What did the Romans say about you?
+    Boudic-car: A Roman wrote that I was very tall, with a great mass of red hair to my hips and a gold torc. He meant it as a warning. I read it as a review.
+-> Who won?
+    Boudic-car: The Romans won in the end. They were also the ones who wrote it down. Funny how that works.
+===
+
+title: hall_npc_history_leif_errandson
+---
+Leif Errandson: Vinland! Grapes! Well, berries. Grape-ish.
+-> Were you first to America?
+    Leif Errandson: I reached America five hundred years before Columbus. Then I went home for dinner. That is the trouble with being first: you have to tell people.
+-> Why Vinland?
+    Leif Errandson: My father found Greenland and called it green so that people would come. I called Vinland after the grapes. Naming things is the family business.
+===
+
+title: hall_npc_history_coast_walker
+---
+The Coast Walker: Beach. Shellfish. Next beach.
+-> Were you crossing the world?
+    The Coast Walker: We did not set out to cross the world. We set out for the next beach. There was always a next beach.
+-> Where will your people end up?
+    The Coast Walker: Our grandchildren's grandchildren will reach the far end. I hope they like shellfish.
+===
+
+title: hall_npc_history_dentist_of_mehrgarh
+---
+The Dentist of Mehrgarh: Open wide!
+-> How do you drill a tooth?
+    The Dentist of Mehrgarh: Flint bit, bow, steady hand. The steady hand is the hard part. The patient's, mostly.
+-> Will anyone remember your work?
+    The Dentist of Mehrgarh: Nine thousand years from now they will find my work and say: very neat holes. I will take that.
+===
+
+title: hall_npc_history_priest_king_probably
+---
+The Priest-King (Probably): I am a priest. Or a king. Or both. Probably.
+-> Who are you, really?
+    The Priest-King (Probably): The diggers gave me my name. I have tried it on. It fits, more or less.
+-> Can anyone read your name?
+    The Priest-King (Probably): My name is written on a seal somewhere. If anyone could read it, I would know who I am. No pressure.
+-> Anything else to see?
+    The Priest-King (Probably): Lovely drains, though. Have you seen our drains?
+===
+
+title: hall_npc_history_denny_denisovan
+---
+Denny the Denisovan: Have you seen my finger? Here it is.
+-> What do we know about Denisovans?
+    Denny the Denisovan: A whole people, and science knew us from one little finger. It is a VERY good finger.
+-> Are we related?
+    Denny the Denisovan: Some of my genes are in people living today. Say hello to your cousin.
+===
+
+title: hall_npc_history_leizu
+---
+Leizu: Tea? Mind the cocoons.
+-> How did you find silk?
+    Leizu: A cocoon fell into my tea and came apart in one long thread. Most people would make a fuss. I made a dress.
+-> How long is one thread?
+    Leizu: One cocoon is one thread a kilometre long. Do not ask me how I measured it.
+===
+
+title: hall_npc_history_fu_hao
+---
+Lady Fu Hao: The shell says we march at dawn.
+-> Did the oracle bones say you would win?
+    Lady Fu Hao: The king asked the oracle bones if I would win. Three times. I won three times. He kept asking.
+-> How big was your army?
+    Lady Fu Hao: Thirteen thousand soldiers under one general. The general was me. Write that on a bone.
+===
+
+title: hall_npc_history_dr_clovis_first
+---
+Dr. Clovis-First: Clovis. First. Next question.
+-> What about Monte Verde?
+    Dr. Clovis-First: Monte Verde, in Chile, is a thousand years older than Clovis. I have decided not to have heard of Chile.
+-> And the White Sands footprints?
+    Dr. Clovis-First: They found human footprints at White Sands, twenty-three thousand years old. I say somebody walked there very recently, in very old shoes.
+===
+
+title: hall_npc_history_teosinte_breeder
+---
+Teosinte Breeder: This little one is my grandmother's grandmother's corn.
+-> How did you make maize?
+    Teosinte Breeder: Teosinte has a few hard seeds in a little case. My people chose and chose and chose, and now it is this. Nobody else could have done it in a weekend either.
+-> Can maize grow on its own?
+    Teosinte Breeder: Maize cannot plant itself any more. It needs us. We need it. That is what a farm is.
+===
+
+title: hall_npc_history_raft_builder
+---
+Raft Builder: Bamboo floats. Bamboo bends. Bamboo is the answer.
+-> Why cross the sea?
+    Raft Builder: We crossed the open sea out of sight of land, with our children and our grandmothers aboard. Nobody does that by accident.
+-> Couldn't you walk across?
+    Raft Builder: When the sea was low there was still water between the islands and Sahul. Every crossing was a choice.
+===
+
+title: hall_npc_history_kuk_gardener
+---
+Kuk Gardener: Dig the drain, build the mound, plant the taro.
+-> Did you learn farming from someone?
+    Kuk Gardener: Farming began in only a few places in the world, on its own. This swamp is one of them. We did not copy anybody.
+-> Do your drains still work?
+    Kuk Gardener: Our drains are seven thousand years old and the archaeologists still find them. Good drains last.
+===
+
+title: hall_npc_history_head_sculptor
+---
+The Head Sculptor: Peck, peck, peck. Stone on harder stone. The face is in there somewhere.
+-> Who are the heads?
+    The Head Sculptor: Every head has its own face and its own helmet. We carved our rulers as they were. Look them in the eye; they were people.
+-> How did you move the stone?
+    The Head Sculptor: We brought this basalt down from the Tuxtla mountains with no wheels and no oxen. Rafts, rollers, ropes and a great many cousins.
+-> What else did your people invent?
+    The Head Sculptor: The first rubber was made here: latex from the tree, juice from the morning glory vine, mixed just right. Then came the ball, and then the game.
+===
+
+title: hall_npc_history_zero_hero
+---
+The Zero Hero: A dot is one, a bar is five, a shell is zero. Count with me.
+-> Who had zero first?
+    The Zero Hero: We used a zero in a place-value count many centuries before Europe heard of one. Europe had nothing to say about it. We had a sign for that.
+-> Did your calendar end the world?
+    The Zero Hero: Our long count of days starts in 3114 BCE. In 2012 people said it ended the world. It ended a bak'tun. Then we started the next one.
+===
+
+title: hall_npc_history_lady_six_sky_high
+---
+Lady Six Sky-High: Lady Six Sky. Of Naranjo. And of everywhere near it.
+-> How did you take Naranjo?
+    Lady Six Sky-High: I came to Naranjo when it was beaten and broken. A few years later it was winning war after war, and I had myself carved on a stela, standing on a captive. Modesty is for cities that lose.
+-> Was your son the king?
+    Lady Six Sky-High: My son was made king at five years old. Who do you think ruled? Read the stelae. Count the feathers.
+===
+
+title: hall_npc_history_cacica_of_boriken
+---
+The Cacica of Boriken: Welcome to the batey. Mind the ball; the game is serious here.
+-> Do I know any of your words?
+    The Cacica of Boriken: You already speak our words: canoe, hammock, hurricane, barbecue, savanna, maize, tobacco. Keep them. Use them well.
+-> What happened after 1492?
+    The Cacica of Boriken: After 1492 came the Spanish, forced labour and new sicknesses, and most of my people died. Not all. Taino families, our words and our ancestry are still here, in Boriken and in all the islands.
+===
+
+title: hall_npc_history_canoe_maker
+---
+The Canoe Maker: Burn a little, chip a little, burn a little more. A canoe is one tree and a great deal of patience.
+-> How big are your canoes?
+    The Canoe Maker: Our canoes carry a hundred paddlers from island to island, with cotton, cassava and gold to trade. Columbus wrote that they went marvellously fast. He was right about that.
+-> Where does canoe come from?
+    The Canoe Maker: Canoa is our word. English took it, and hammock, and hurricane. That is all right. We have more.
+===
+
+title: hall_npc_history_lapita_potter
+---
+Lapita Potter: Press the comb in, lift it clean. Again. Again.
+-> Where did your people come from?
+    Lapita Potter: My grandmothers came from islands to the north, and theirs from Taiwan before that. We carried the patterns all the way. You can follow us across the sea by our pots.
+-> How far did you sail?
+    Lapita Potter: We sailed out past the last island anyone could see, and found Fiji, Tonga and Samoa, where nobody had ever lived. We brought the pigs, the dogs, the chickens and the taro. And the pots.
+===
+
+title: hall_npc_history_wayfinder
+---
+Wayfinder: *he looks up, finds his star, and nods*
+-> How do you navigate without a compass?
+    Wayfinder: Each star rises at the same point on the horizon every night. Learn the points of many stars and the whole sky is a compass. When it is cloudy, read the swells instead.
+-> And when you can't see stars?
+    Wayfinder: At dusk, watch the birds. A tern or a noddy that flies low and straight is going home to land. Follow it. It knows the way.
+===
+
+title: hall_npc_history_moai_carver
+---
+Moai Carver: Tuff is soft. Basalt is hard. That is the whole trick, and also the rest of my life.
+-> How did the moai move?
+    Moai Carver: We did not roll them on logs. We stood them up and rocked them, left, right, left, with ropes on both sides, and they walked. Try it with a fridge.
+-> Did you ruin the island?
+    Moai Carver: People say we cut down every tree for the moai and ruined our island. We lived here for centuries after that. What ruined us came on ships in the 1860s: slave raiders, and the sickness they brought.
+===
+
+title: hall_npc_history_thor_hey_im_right_dahl
+---
+Thor Hey-I'm-Right-Dahl: Hey! I'm right!
+-> Did your raft prove it?
+    Thor Hey-I'm-Right-Dahl: In 1947 I sailed a raft from Peru to Polynesia to prove the Polynesians came from South America. It worked! Well, the raft worked. The Polynesians came from the west. Details.
+-> What about the sweet potato?
+    Thor Hey-I'm-Right-Dahl: The sweet potato came from South America, so SOMEBODY sailed there and back. ...The Polynesians did. Sailing east, in better boats. Hey, I'm still a LITTLE right!
+===
+
+title: hall_npc_history_brass_caster
+---
+Brass Caster of Igun Street: Wax, clay, fire, brass. In that order. Never any other order.
+-> Who may cast brass?
+    Brass Caster of Igun Street: Only our guild may cast brass in Benin, and only for the Oba. The plaques on the palace pillars are ours: the history of the court, in metal.
+-> Where does the brass come from?
+    Brass Caster of Igun Street: The Portuguese bring brass rings by the shipload. We melt them and make them worth something.
+===
+
+title: hall_npc_history_iyoba_idia
+---
+Iyoba Idia: The court of Benin keeps its history in brass and in memory. Remember that when the strangers come.
+-> Why are you called Iyoba?
+    Iyoba Idia: When the Igala came against my son, the Oba Esigie, I raised an army and went to war with it. We won, and he made me the first Iyoba, the queen mother.
+-> Where is your ivory mask?
+    Iyoba Idia: My face is carved in ivory, and the Oba wears it at the great ceremonies. In 1897 the British took it. It is still in their museum.
+===
+
+title: hall_npc_history_lord_finders_keepers
+---
+Lord Finders-Keepers: Do not touch the glass. Do not touch anything. Except when I do it.
+-> Where did your collection come from?
+    Lord Finders-Keepers: In 1897 we burned Benin City and took its brass and ivory home. Thousands of pieces. We call it a collection.
+-> Will you give it back?
+    Lord Finders-Keepers: Some museums have begun to give them back. I am against it in principle, and in practice, and in the gift shop.
+===
+
+title: hall_npc_history_toussaint_louverture
+---
+Toussaint Louverture: *he dictates a letter, then another, then another*
+-> Who were you?
+    Toussaint Louverture: I was born enslaved, tended horses and taught myself to read. In 1791 I joined the rising, and by 1801 I governed the island.
+-> What happened to you?
+    Toussaint Louverture: They took me to France in chains in 1802, and I died there the next spring. The tree of liberty grew back from its roots. I told them it would.
+===
+
+title: hall_npc_history_catherine_flon
+---
+Catherine Flon: Blue, then red. Small stitches. It has to hold in a war.
+-> What are you sewing?
+    Catherine Flon: At Arcahaie in May 1803, Dessalines tore the white out of the French flag, and I sewed the blue and the red together.
+-> Is it still remembered?
+    Catherine Flon: Every eighteenth of May, Haiti keeps Flag Day. That is my seam they are waving.
+===
+
+title: hall_npc_history_soup_joumou_cook
+---
+Soup Joumou Cook: Sit. Eat. It is the first day.
+-> Why this soup?
+    Soup Joumou Cook: We cooked soup joumou for the masters and were not allowed to taste it. On the first of January 1804, all of Haiti ate it.
+-> Do people still make it?
+    Soup Joumou Cook: Every first of January since, in every Haitian home in the world. UNESCO wrote it down in 2021. We never forgot.
+===
+
+title: hall_npc_history_ottobah_cugoano
+---
+Ottobah Cugoano: If there were no buyers, there would be no sellers.
+-> What happened to you?
+    Ottobah Cugoano: I was taken from the Gold Coast at thirteen and shipped to Grenada. In London I was free, and in 1787 I published a book that said the trade must end, and every enslaved person be freed, now.
+-> Who were the Sons of Africa?
+    Ottobah Cugoano: We called ourselves the Sons of Africa: free Black men in London who wrote, petitioned and pulled people off the ships.
+===
+
+title: hall_npc_history_castle_guide
+---
+Castle Guide: Please walk slowly here.
+-> What happened here?
+    Castle Guide: From 1501 to 1866, about twelve and a half million people were forced onto ships for the Americas. About ten point seven million lived to land.
+-> Where does the door lead?
+    Castle Guide: The door goes one way. Today its sea side has a second sign: the Door of Return. The descendants come back through it as guests.
+===
+
+title: hall_npc_history_potato_farmer
+---
+Potato Farmer: This one is for boiling. This one is for chuno. This one is for showing off.
+-> Where do potatoes come from?
+    Potato Farmer: The potato was a bitter wild thing until our grandmothers' grandmothers chose the good ones, year after year, up here near the lake.
+-> What is chuno?
+    Potato Farmer: We freeze-dry them into chuno, which keeps for years. A bad harvest does not kill us.
+===
+
+title: hall_npc_history_antoine_parmen_tater
+---
+Antoine Parmen-tater: Bon appe-tater!
+-> How did you make Paris eat potatoes?
+    Antoine Parmen-tater: I put soldiers round my potato field by day and sent them home at night. Paris stole every plant. Some historians say that story is too good to be true. I disagree, professionally.
+-> Is anything named after you?
+    Antoine Parmen-tater: Every potato and minced-beef pie in France carries my name: hachis Parmentier. That is immortality, with gravy.
+===
+
+title: hall_npc_history_caral_flautist
+---
+Caral Flautist: *a few high notes, bright as the sun on the stones*
+-> How old is Caral?
+    Caral Flautist: Caral was a city when the pyramids of Egypt were new. We built ours at the same time, and neither of us knew.
+-> Was Caral a fortress?
+    Caral Flautist: No walls, no weapons of war have been found here. People came to trade, to build and to play.
+-> Thirty-two flutes?
+    Caral Flautist: Thirty-two flutes in one plaza. We were not a quiet city.
+===
+
+title: hall_npc_history_net_maker
+---
+Net Maker of Aspero: Supe. Like soup. Mostly anchovy.
+-> How does Aspero eat?
+    Net Maker of Aspero: The valley grows the cotton; we make the nets; the sea gives the anchovies. Everybody wins except the anchovies.
+-> Where are your pots?
+    Net Maker of Aspero: Pots? Nobody here makes pots yet. A gourd is a pot that grows on a vine.
+===
+
+title: hall_npc_history_pig_painter
+---
+The Pig Painter: *she spits red ochre round her hand, and lifts it: the hand stays on the rock*
+-> What did you paint?
+    The Pig Painter: At Leang Karampuang a pig and three figures like people are painted on the wall. It is at least 51,200 years old: the oldest known painted story.
+-> How did your people get here?
+    The Pig Painter: Nobody walked to this island. It was never joined to the land. Everyone here came by sea, on rafts, long before anyone sailed anywhere else.
+===
+
+title: hall_npc_history_word_keeper
+---
+The Word Keeper: Mata. Eye. Say it. Good.
+-> How far did your words go?
+    The Word Keeper: From Taiwan, by outrigger canoe, our words went to Madagascar and to Rapa Nui: half the globe. More languages come from ours than from almost any other family.
+-> Do I know any of them?
+    The Word Keeper: You say tattoo and taboo. Those are ours: tatau and tapu. They went the long way round, through the far islands, to reach you.
+===
+
+title: hall_npc_history_trung_trac
+---
+Trưng Trắc: Sixty-five citadels. Count them if you doubt me.
+-> What did you and your sister do?
+    Trưng Trắc: In 40 CE my sister and I raised the Lạc lords against Han rule, and for three years we ruled. In 43 CE the Han general Ma Yuan defeated us.
+-> Are you remembered?
+    Trưng Trắc: Every town in Vietnam has a street for the Two Ladies Trưng. That is a long memory for three years.
+===
+
+title: hall_npc_history_trung_nhi
+---
+Trưng Nhị: *the banner snaps in the wind*
+-> Did women lead your army?
+    Trưng Nhị: Many of our captains were women. Here a daughter could inherit, and a woman could lead. The Han did not like it at all.
+-> Did you ride elephants?
+    Trưng Nhị: The stories say we rode elephants. The stories are right.
+===
+
+title: hall_npc_history_drum_caster
+---
+The Drum Caster: Wax, clay, fire, bronze. And a little luck.
+-> How are the drums made?
+    The Drum Caster: Our drums are cast by the lost wax: carve the pictures in wax, cover it in clay, pour out the wax and pour in the bronze. They have been dug up from southern China to the far islands of Indonesia.
+-> Why frogs?
+    The Drum Caster: The frogs on the rim are for the rain. Frogs sing when it comes. A drum with frogs asks for rain, very loudly.
+===
+
+title: hall_npc_history_harbour_master
+---
+Harbour Master of Palembang: Ship's name, cargo, port. And the toll.
+-> Why do ships pay you?
+    Harbour Master of Palembang: Every ship between India and China came through our strait. We kept the pirates off the sea road, and the ships paid us for it.
+-> Who holds the strait now?
+    Harbour Master of Palembang: About 1400 a prince of Palembang, Parameswara, founded Malacca on the same strait. Whoever holds it, the ships still pay.
+===
+
+title: hall_npc_history_yijing
+---
+Yijing: *he copies a line, and checks it twice*
+-> Why study here before India?
+    Yijing: In Srivijaya there were more than a thousand monks, and they studied as they did in India. I told every monk from China to stop here first.
+-> How did you get home?
+    Yijing: Once I went aboard a ship here to send a letter home for ink and paper, and it sailed with me on it. I went to China by accident, and came back.
+===
+
+title: hall_npc_history_relief_carver
+---
+Relief Carver of Borobudur: *tap, tap, tap: a sail appears*
+-> What's on the walls?
+    Relief Carver of Borobudur: Among the stories on the walls we carved the life around them: houses, markets, musicians, and ships with outriggers like the ones that sailed to Madagascar.
+-> Did anyone build your ships?
+    Relief Carver of Borobudur: In 2003 people built a ship from one of our pictures and sailed it to Africa. Every block of this hill was cut by hand and holds the next one without mortar.
+===
+
+title: hall_npc_history_baray_engineer
+---
+Baray Engineer: It is not a lake. It is a reservoir.
+-> Why dig a reservoir that big?
+    Baray Engineer: The West Baray is eight kilometres by two, dug by hand. Water for the rice, or a sea around the mountain of the gods? Both, and a great deal of digging.
+-> What happened to Angkor?
+    Baray Engineer: In the 1300s and 1400s floods and droughts broke the canals; in 1431 Ayutthaya took the city. But monks have kept Angkor Wat to this day.
+===
+
+title: hall_npc_history_zhou_da_guide
+---
+Zhou Da-Guide: Tour group, this way! Keep up!
+-> Why write about Angkor?
+    Zhou Da-Guide: In 1296 I stayed a year at Angkor and wrote down the markets, the bathing, the king's procession and the slaves. Without me nobody would know what was for lunch.
+-> Who runs the markets?
+    Zhou Da-Guide: The markets here are run by women. Any business, ask the wife. I wrote that down; the Khmer had palm leaves, and the damp ate them.
+===
+
+title: hall_npc_history_flame_potter
+---
+Flame Potter of Sannai-Maruyama: The clay is easy. The fire is the hard part.
+-> Did you farm?
+    Flame Potter of Sannai-Maruyama: We made pottery for ten thousand years before your history books begin, and we never farmed. We stayed in this town for fifteen hundred years.
+-> Where are your people now?
+    Flame Potter of Sannai-Maruyama: Everyone in Japan carries a little of us. The Ainu of the north and the Ryukyuans of the south carry the most.
+===
+
+title: hall_npc_history_chestnut_keeper
+---
+Chestnut Keeper: Chestnut? Roasted this morning.
+-> Is that farming?
+    Chestnut Keeper: We cleared the other trees and kept the best chestnuts near the town, until the woods were almost all chestnut. Call it what you like.
+-> What were the six posts for?
+    Chestnut Keeper: Six posts, each a metre thick. A tower? A stage? Nobody knows what it held, and we are not telling.
+===
+
+title: hall_npc_history_jade_carver
+---
+Jade Carver of Fengtian: Green as a river.
+-> How far did your jade go?
+    Jade Carver of Fengtian: Fengtian jade from Taiwan travelled by boat to the Philippines, Vietnam, Thailand and Borneo: one of the longest sea roads of any stone in the ancient world.
+-> Where do the languages come from?
+    Jade Carver of Fengtian: Of the ten oldest branches of the Austronesian languages, nine grow only on Taiwan. The grandchildren left in canoes. The grandmothers stayed.
+===
+
+title: hall_npc_history_nankuanli_farmer
+---
+Farmer of Nankuanli: Mind the dog. She minds you.
+-> Why bury the dogs?
+    Farmer of Nankuanli: At Nankuanli we buried our dogs with care, as we buried people. Your diggers found them nearly five thousand years later.
+-> Where did your people sail?
+    Farmer of Nankuanli: Every generation a few of us sailed south over the channel to the Batanes and Luzon. Their grandchildren reached half the world.
+===
+
+title: hall_npc_history_queen_seondeok
+---
+Queen Seondeok: Yes, the queen.
+-> Did you rule in your own name?
+    Queen Seondeok: I ruled Silla in my own name from 632 to 647, the first of three queens. In my reign Cheomseongdae was built to watch the sky.
+-> What about the peonies?
+    Queen Seondeok: The story goes that the Tang emperor sent me peonies with no bees, to say a queen without a husband has no scent. I said the peonies had none. I planted them. I was right.
+===
+
+title: hall_npc_history_star_watcher
+---
+Star Watcher of Cheomseongdae: Quiet, please. The stars are speaking.
+-> How old is the observatory?
+    Star Watcher of Cheomseongdae: Cheomseongdae, built in Queen Seondeok's reign, still stands: the oldest standing observatory in East Asia.
+-> What do the stones mean?
+    Star Watcher of Cheomseongdae: People count 362 stones and 27 courses in the tower and argue about what the numbers mean. I just climbed it.
+===
+
+title: hall_npc_history_li_qingzhao
+---
+Li Qingzhao: Searching, seeking. Cold, clear.
+-> What did you collect?
+    Li Qingzhao: My husband and I collected old bronzes and inscriptions on stone. When the Jurchen took the north we fled south with fifteen carts of books. Most were lost on the road.
+-> How did you spend your evenings?
+    Li Qingzhao: After dinner we made tea and quizzed each other: which book, which chapter, which page holds this line? The winner drank first. Once I laughed so hard I spilled the tea down my front.
+===
+
+title: hall_npc_history_money_printer
+---
+Money Printer of Hangzhou: Fresh money! Do not lick it, the ink is wet.
+-> Who invented paper money?
+    Money Printer of Hangzhou: The merchants of Sichuan printed notes first; in 1023 the state took them over. Our huizi came in 1160. The plate is the government's, not mine. I checked.
+-> Can you print as much as you like?
+    Money Printer of Hangzhou: Print too many and each note buys less. By the end of the dynasty we had learned that more than once.
+===
+
+title: hall_npc_history_murasaki_shikibu
+---
+Murasaki Shikibu: *she writes a line, and crosses it out*
+-> How did you learn Chinese?
+    Murasaki Shikibu: When my brother studied the Chinese classics, I learned them faster just by listening. My father sighed: if only she had been born a boy.
+-> Is Murasaki your name?
+    Murasaki Shikibu: Murasaki is not my name. It is a nickname, perhaps after a lady in my book. My real name? Nobody wrote it down.
+===
+
+title: hall_npc_history_sei_shonagon
+---
+Sei Shōnagon: In spring, the dawn.
+-> What's on your lists?
+    Sei Shōnagon: Hateful things: a visitor who talks on and on when you are in a hurry. A mosquito's thin little voice when you are falling asleep. I wrote them all down.
+-> Did Murasaki like you?
+    Sei Shōnagon: Murasaki called me dreadfully conceited in her diary. I never answered her in my book. That is how you win.
+===
+
+title: hall_npc_history_king_sejong
+---
+King Sejong: A king's work is to let his people speak.
+-> Why make new letters?
+    King Sejong: Our speech is not Chinese, so Chinese letters do not fit it, and many of my people had something to say and could not write it. So I made twenty-eight letters, easy to learn, for every day.
+-> How do the letters work?
+    King Sejong: Each consonant is a picture of the mouth that says it: the tongue, the lips, the teeth, the throat. Korea keeps a day for the letters: 9 October in the South, 15 January in the North.
+===
+
+title: hall_npc_history_jang_yeongsil
+---
+Jang Yeong-sil: Measure twice.
+-> How did you become an inventor?
+    Jang Yeong-sil: I was born a government slave. King Sejong made me an official, and I made him clocks that ring the hours by themselves, and sundials for the streets.
+-> Did you make the rain gauge?
+    Jang Yeong-sil: People say I made the rain gauge. The records say the crown prince did, in 1441. I will settle for the water clock.
+===
+
+title: hall_npc_history_muslin_weaver
+---
+Muslin Weaver of Dhaka: Woven air.
+-> How fine is your muslin?
+    Muslin Weaver of Dhaka: A length of our finest muslin could pass through a finger ring. The Mughal court wore it; later, so did the ladies of Paris.
+-> What happened to the looms?
+    Muslin Weaver of Dhaka: Then the Company took the trade, and then came the machine cloth of Lancashire, cheaper and coarser. By the 1800s the great looms of Dhaka were quiet.
+===
+
+title: hall_npc_history_cotton_spinner
+---
+Spinner of Dhaka: Quiet. The thread is thinner than a hair.
+-> Why spin in the morning?
+    Spinner of Dhaka: We spun in the early morning and by the river, while the air was damp: dry air snaps the thread. Young eyes and light fingers spun the finest.
+-> How do you clean the cotton?
+    Spinner of Dhaka: We cleaned the cotton with the jawbone of the boal fish, its teeth as fine as a comb. Then the phuti karpas cotton was lost, and the finest thread with it.
+===
+
+title: hall_npc_history_ram_mohan_roy
+---
+Raja Ram Mohan Roy: Read, and then argue.
+-> What did you argue for?
+    Raja Ram Mohan Roy: I published newspapers in Bengali and Persian, and argued for schools of science, for the right of women to inherit, and against sati. In 1829 it was banned.
+-> Where did you die?
+    Raja Ram Mohan Roy: I sailed to England in 1830 to speak for the Mughal emperor, and I died in Bristol in 1833. There is a statue of me there now.
+===
+
+title: hall_npc_history_rani_lakshmibai
+---
+Rani Lakshmibai: Jhansi is mine. I will not give it.
+-> Why fight the Company?
+    Rani Lakshmibai: When my husband died, the Company would not accept our adopted son as heir, and took Jhansi by its 'doctrine of lapse'. I said: I will not give up my Jhansi.
+-> What happened in 1858?
+    Rani Lakshmibai: In 1857 the rising came. In 1858 I died fighting near Gwalior. The British general who fought me is said to have called me the most dangerous of the rebel leaders.
+===
+
+title: hall_npc_history_rabindranath_tagore
+---
+Rabindranath Tagore: Where the mind is without fear...
+-> What did you win?
+    Rabindranath Tagore: In 1913 I was given the Nobel Prize for Gitanjali, the first to anyone outside Europe. Two countries sing my songs as their anthems: Bangladesh and India.
+-> Did you keep your knighthood?
+    Rabindranath Tagore: In 1919, after the massacre at Amritsar, I gave my knighthood back. Some honours are heavier than others.
+===
+
+title: hall_npc_history_begum_rokeya
+---
+Begum Rokeya: Educate the girls. Then see.
+-> How did you learn to read?
+    Begum Rokeya: Girls in my family were not supposed to learn Bengali or English. I learned them at night, by candlelight, with my brother's help.
+-> What is Sultana's Dream?
+    Begum Rokeya: In Sultana's Dream women run the country with science: they cook with sunlight, fly air-cars, and win a war with the sun's heat. In 1911 I opened a school for girls in Calcutta, with eight pupils.
+===
+
+title: hall_npc_history_language_student
+---
+Student of Dhaka, 1952: We want Bengali as a state language!
+-> What happened in 1952?
+    Student of Dhaka, 1952: In 1948 Pakistan's leaders said Urdu alone would be the state language. Most of us in East Bengal speak Bengali. On 21 February 1952 we marched anyway, and the police fired.
+-> Did you win?
+    Student of Dhaka, 1952: In 1956 Bengali became a state language of Pakistan. Today the world keeps 21 February as International Mother Language Day. Speak your language to your children.
+===
+
+title: hall_npc_history_freedom_fighter_poet
+---
+Poet of 1971: Listen: the radio.
+-> What happened in 1971?
+    Poet of 1971: On 25 March 1971 the army struck Dhaka. Nine months of war followed. Some ten million people fled to India, and many of our teachers and writers were killed in the last days.
+-> How did it end?
+    Poet of 1971: On 16 December the war ended, and Bangladesh was free. Every 21 February we walk barefoot to the Shaheed Minar with flowers.
+===
+
+title: hall_npc_history_marajoara_potter
+---
+Marajoara Potter: Red, black, white. Always in that order? No.
+-> Why build on mounds?
+    Marajoara Potter: We build our houses on mounds above the flood. Some mounds are as long as a village; your diggers count hundreds of them on Marajó.
+-> Where are your jars now?
+    Marajoara Potter: Our painted jars lasted a thousand years in the mounds. Your museums keep them now. Look closely: no two bands are the same.
+===
+
+title: hall_npc_history_dark_earth_gardener
+---
+Gardener of the Dark Earth: Charcoal, pottery, fish bones: the recipe for soil.
+-> How is the soil made?
+    Gardener of the Dark Earth: The forest soil is poor. We burn slowly, we add our waste and broken pots, and the earth turns black and stays rich. Farmers dig our dark earth today, and sell it.
+-> Is this forest wild?
+    Gardener of the Dark Earth: Brazil nuts, cacao, palms, manioc: the forest near our towns is full of the trees we liked. Later Europeans saw a wilderness. It was a garden.
+===
+
+title: hall_npc_history_zumbi
+---
+Zumbi dos Palmares: Palmares is free. Keep it free.
+-> Why refuse the peace of 1678?
+    Zumbi dos Palmares: In 1678 Ganga Zumba made a peace with the governor: freedom for those born in Palmares, if the rest went back. I refused it. Freedom for some is not freedom. I led Palmares after him.
+-> How are you remembered?
+    Zumbi dos Palmares: They killed me on 20 November 1695. Brazil keeps that day now as Black Consciousness Day.
+===
+
+title: hall_npc_history_dandara
+---
+Dandara: Plant, then defend what you planted.
+-> Who were you?
+    Dandara: Little was written about me by the people who wrote things down. Palmares remembers me: I farmed, I fought, and with Zumbi I said no to the peace of 1678.
+-> How did your story end?
+    Dandara: The story goes that in 1694, when Palmares fell, I chose death over slavery. Remember the story, and ask who kept it.
+===
+
+title: hall_npc_history_palmares_smith
+---
+Smith of Palmares: Hot iron waits for nobody.
+-> Where did you learn smithing?
+    Smith of Palmares: Many of us came from the lands of Kongo and Ndongo, where a smith is a respected person. In Palmares we make hoes, axes and blades from scrap and from ore.
+-> How does Palmares live?
+    Smith of Palmares: Palmares grows maize, beans, manioc, bananas and sugar cane. We trade with the farms below, when they will trade. Freedom needs tools.
+===
+
+title: hall_npc_history_andre_reboucas
+---
+André Rebouças: Measure twice, build once.
+-> What did you build?
+    André Rebouças: I built docks and railways, and I taught engineering. I was one of the few Black men at the emperor's court, and I used my place there to argue for abolition.
+-> Was abolition enough?
+    André Rebouças: Freedom is not enough, I said: the freed need land, and schools. In 1889 the Republic came, and I went into exile with the emperor's family. I never came home.
+===
+
+title: hall_npc_history_luis_gama
+---
+Luís Gama: The law is a weapon. I aim it carefully.
+-> Who sold you into slavery?
+    Luís Gama: I was born free in Bahia. When I was ten my father, a Portuguese nobleman, sold me into slavery to pay his debts.
+-> How did you become a lawyer?
+    Luís Gama: At seventeen I learned to read, proved that I had been born free, and became a lawyer without a degree. In court I won freedom for hundreds of enslaved people. I died in 1882, six years too soon.
+===
+
+title: hall_npc_history_dragao_do_mar
+---
+Dragão do Mar: The sea is free. So is everyone on it.
+-> What did the jangada men refuse?
+    Dragão do Mar: In 1881 the slave dealers of Fortaleza wanted our jangadas to carry the enslaved out to the ships, to be sold to the south. We said: in the port of Ceará no more slaves are shipped. And none were.
+-> What happened after?
+    Dragão do Mar: In 1884 Ceará freed all its enslaved people, four years before the rest of Brazil. They carried my jangada through the streets of Rio and called me the Dragon of the Sea.
+===
+
+title: hall_npc_history_hojo_tokimune
+---
+Hōjō Tokimune: Another letter from the Great Khan? Put it with the others.
+-> What did the Great Khan write?
+    Hōjō Tokimune: Kublai Khan's letter of 1268 called our emperor 'the king of a little country'. I was eighteen. The court wanted to answer politely. I did not answer at all.
+-> How did you stop the fleet?
+    Hōjō Tokimune: After 1274 we built a stone wall along Hakata Bay, twenty kilometres of it. In 1281 their fleet came back, and could not land. Then the typhoon came.
+===
+
+title: hall_npc_history_takezaki_suenaga
+---
+Takezaki Suenaga: I was first into the fight. Write that down.
+-> What did you do in 1274?
+    Takezaki Suenaga: In 1274 I charged first, with five men. My horse was shot under me. No one in Kamakura had heard of me, so I rode there and asked for my reward in person. I got a horse and a piece of land.
+-> What's on your scroll?
+    Takezaki Suenaga: Then I paid painters to make a scroll of my deeds, so no one could forget them. It is the best picture of the Mongol wars that there is. Was it vanity? It was also history.
+===
+
+title: hall_npc_history_matsuo_basho
+---
+Matsuo Bashō: Seventeen sounds. Not one more.
+-> Where did you walk?
+    Matsuo Bashō: In 1689 I left my house in Edo and walked north with my friend Sora: some 2,400 kilometres in 150 days. The book of it is The Narrow Road to the Deep North.
+-> What is the frog poem about?
+    Matsuo Bashō: My most famous poem is about a frog jumping into an old pond. People have argued about it for three hundred years. It is about a frog. And the sound of water.
+===
+
+title: hall_npc_history_hokusai
+---
+Katsushika Hokusai: From the age of six I had a mania for drawing.
+-> When did you make the wave?
+    Katsushika Hokusai: I made the Thirty-six Views of Mount Fuji when I was past seventy. The wave is the one people know. They sold it for the price of a double bowl of noodles.
+-> Were you ever satisfied?
+    Katsushika Hokusai: I moved house 93 times; my daughter and I never cleaned. At 88 I said: if heaven gives me five more years, I will become a real painter. It did not.
+===
+
+title: hall_npc_history_katsushika_oi
+---
+Katsushika Ōi: My father calls me 'Oi!' That is my name, and also how he calls me.
+-> Did you paint for your father?
+    Katsushika Ōi: I worked beside my father for twenty years. Some of the paintings with his name have my hand in them. He said my pictures of women were better than his.
+-> What do you paint yourself?
+    Katsushika Ōi: My own paintings are of lantern light at night: a courtesan writing under a lamp, a street in the dark. Few of them are left, so look well.
+===
+
+title: hall_npc_history_fukuzawa_yukichi
+---
+Fukuzawa Yukichi: Learn, or be learned about.
+-> What did you bring home?
+    Fukuzawa Yukichi: I sailed to America in 1860 and to Europe in 1862, and came home and wrote about everything: banks, newspapers, elections, the steam engine. My books sold millions.
+-> What did you write?
+    Fukuzawa Yukichi: 'Heaven does not make one person above another, nor below.' I wrote that in 1872. I also wrote that Japan should leave Asia behind. Read all of me, not only the banknote.
+===
+
+title: hall_npc_history_tsuda_umeko
+---
+Tsuda Umeko: Women can learn anything. Teach them.
+-> How did you learn English?
+    Tsuda Umeko: In 1871 the government sent five girls to America to learn. I was six, the youngest. When I came home at seventeen I had forgotten my Japanese, and Japan had no work for an educated woman.
+-> What did you do about it?
+    Tsuda Umeko: So I made some. In 1900 I founded a school of English for women in Tokyo. It is Tsuda University now. My face is on the 5,000 yen note since 2024.
+===
+
+title: hall_npc_history_kusumoto_ine
+---
+Kusumoto Ine: Wash your hands.
+-> Who was your father?
+    Kusumoto Ine: My father was Siebold, a German doctor at the Dutch trading post of Nagasaki; my mother was a woman of Nagasaki. He was sent away when I was two. I learned medicine from his students.
+-> What did you become?
+    Kusumoto Ine: I became a midwife and a doctor, which no Japanese woman had been. In 1873 I was called to the imperial court to deliver a child.
+===
+
+title: hall_npc_history_edo_tea_keeper
+---
+Tea Keeper of the Tōkaidō: Tea, rice cakes, and a seat out of the sun.
+-> Who comes down the road?
+    Tea Keeper of the Tōkaidō: Everyone on the Tōkaidō stops here: lords with a thousand men, pilgrims, merchants, poets. The lords must live every other year in Edo, so the road is never empty.
+-> Any famous guests?
+    Tea Keeper of the Tōkaidō: Hiroshige stopped here to draw the road. Bashō stopped here to complain about his feet. The tea was good both times.
+===
+
+title: hall_npc_history_edo_fishmonger
+---
+Fishmonger of Nihonbashi: Bonito! First bonito of the year!
+-> Who buys your fish?
+    Fishmonger of Nihonbashi: A million people live in Edo, and they all eat fish. The market by the bridge starts before dawn and is done by noon.
+-> Why is the first bonito so dear?
+    Fishmonger of Nihonbashi: The first bonito of the season sells for a fortune: people pawn their clothes to eat it before their neighbours. A saying of Edo: never let money spend the night with you.
+===
+
+title: hall_npc_history_katanda_fisher
+---
+Katanda Fisher: The fish can hear you.
+-> How old are your harpoons?
+    Katanda Fisher: Down this river at Katanda, people made barbed harpoons of bone perhaps 90,000 years ago. They said clever tools began in Europe, late. They were wrong.
+-> What do you catch?
+    Katanda Fisher: Catfish as long as your arm come up the Semliki in the rains. A good harpoon and a quiet foot: that is all you need.
+===
+
+title: hall_npc_history_ishango_carver
+---
+Ishango Carver: Eleven. Thirteen. Seventeen. Nineteen.
+-> What are the notches?
+    Ishango Carver: My bone has three columns of notches. One holds 11, 13, 17 and 19, the primes between ten and twenty. Arithmetic, or the moon, or a good grip? I am not telling.
+-> Where is the bone now?
+    Ishango Carver: A Belgian dug it up in 1950 and it went to Brussels. It is still there. So are many things from the Congo.
+===
+
+title: hall_npc_history_raffia_weaver
+---
+Raffia Weaver: Softer than you thought?
+-> Who wanted your cloth?
+    Raffia Weaver: The Portuguese called our raffia cloth velvet, and their princes kept it in their treasure rooms. Some of it is still in Europe's museums.
+-> Is cloth money?
+    Raffia Weaver: Cloth is our money, and so are the nzimbu shells from the island off Luanda. Only the king's people may gather those.
+===
+
+title: hall_npc_history_afonso_i
+---
+Afonso I of Kongo: Another letter to Lisbon.
+-> What did you write to Portugal?
+    Afonso I of Kongo: In 1526 I wrote to the king of Portugal: each day the traders are taking our people, even the sons of our nobles. Send us teachers and doctors, I said, not slave ships.
+-> Did it work?
+    Afonso I of Kongo: They did not stop. I made my officials check every sale, and the trade grew anyway. Dozens of our kings' letters survive. Read them.
+===
+
+title: hall_npc_history_ne_vunda
+---
+Antonio Manuel ne Vunda: Is this the road to Rome?
+-> Why go to Rome?
+    Antonio Manuel ne Vunda: King Álvaro II sent me to Rome in 1604, to speak for Kongo without Portugal in between. I went by Brazil and Spain, and pirates robbed me on the way.
+-> Did you reach it?
+    Antonio Manuel ne Vunda: I reached Rome in January 1608, sick, and died a few days later. They made a marble bust of me. It is still there; I never saw the city.
+===
+
+title: hall_npc_history_nzinga
+---
+Queen Nzinga: Stand up straight.
+-> Is it true you sat on a servant?
+    Queen Nzinga: In Luanda in 1622 the governor gave me a mat on the floor. One of my women knelt, and I sat on her back, eye to eye with him. I got my treaty.
+-> Did Portugal keep the treaty?
+    Queen Nzinga: Portugal broke it, so I fought them for thirty years, with the Imbangala and then the Dutch. In 1657 they made peace with me. I died a queen.
+===
+
+title: hall_npc_history_funji
+---
+Kifunji: Speak quietly.
+-> How did you help your sister?
+    Kifunji: The Portuguese caught me in 1646 and kept me in Luanda. They thought a prisoner was harmless. I sent my sister their plans, hidden in letters.
+-> What happened to you?
+    Kifunji: They found the letters. The records say they drowned me in the Kwanza. Remember that a prisoner can still fight.
+===
+
+title: hall_npc_history_george_washington_williams
+---
+George Washington Williams: Write it down.
+-> Why did you go to the Congo?
+    George Washington Williams: I fought in the Civil War at fourteen and wrote the first history of Black Americans. In 1890 I came to see the Congo for myself, and wrote King Leopold an open letter listing what I saw.
+-> What did you call it?
+    George Washington Williams: To the American Secretary of State I called it 'crimes against humanity'. I died the next year, at forty-one. Others carried it on.
+===
+
+title: hall_npc_history_rubber_gatherer
+---
+Rubber Gatherer: The basket must be full by the new moon.
+-> What happens if the basket is short?
+    Rubber Gatherer: Every village owes so many baskets of rubber, every two weeks. When the basket is short, the soldiers take hostages, and they burn, and they shoot.
+-> Who is the rubber for?
+    Rubber Gatherer: It is for tyres, they say: bicycles, and the new motor cars. Somebody across the sea is riding very smoothly.
+===
+
+title: hall_npc_history_william_sheppard
+---
+William Sheppard: Mind the river.
+-> What did you find?
+    William Sheppard: I learned the Kuba language and was the first outsider their king received. In 1899 I found the dead of a raid by the State's soldiers, counted them, and told the world.
+-> Did they punish you for it?
+    William Sheppard: The rubber company sued me for libel in 1909. A Congolese court found me not guilty. The Kuba art I brought home is still at Hampton, in Virginia.
+===
+
+title: hall_npc_history_alice_seeley_harris
+---
+Alice Seeley Harris: Hold still.
+-> Why photographs?
+    Alice Seeley Harris: I came to teach. I ended up taking photographs, because nobody in Europe believed the letters. In 1904 a man named Nsala came to our house with what the soldiers had done to his child.
+-> Did they change anything?
+    Alice Seeley Harris: We showed the photographs as lantern slides in hundreds of halls. In 1908 the king had to give the Congo up. I lived to be a hundred.
+===
+
+title: hall_npc_history_mungo_fisher
+---
+Mungo Fisher: The lake is full this year.
+-> What do you eat?
+    Mungo Fisher: Fish, mussels, yabbies, emu eggs in season. Our shell heaps by the fires are still here, forty thousand years on.
+-> What will happen to the lake?
+    Mungo Fisher: One day the lake will dry and the dune will blow over our camps. We will still be here.
+===
+
+title: hall_npc_history_mungo_ranger
+---
+Mungo Ranger: Mind where you step.
+-> Who were Mungo Lady and Mungo Man?
+    Mungo Ranger: Mungo Lady was cremated about 40,000 years ago; Mungo Man was laid out in red ochre about 42,000 years ago. Among the oldest ritual burials known anywhere.
+-> Where is Mungo Man now?
+    Mungo Ranger: Mungo Man was kept in Canberra for 43 years. In 2017 we brought him home in a hearse across the country, and people stood by the road.
+===
+
+title: hall_npc_history_tuitatui
+---
+Tuʻitātui: Bow to the stone.
+-> What is the stone gate?
+    Tuʻitātui: Two uprights and a lintel of coral stone, more than thirty tonnes each. A gate, a calendar, or both? In 1967 a king of Tonga was out at dawn to check.
+-> Who rules Tonga?
+    Tuʻitātui: No one ever ruled Tonga. We are still a kingdom.
+===
+
+title: hall_npc_history_ngatu_maker
+---
+Ngatu Maker: Thud, thud, thud.
+-> How is ngatu made?
+    Ngatu Maker: We beat the inner bark of the paper mulberry thin and wide, glue it, and print it brown. A great ngatu is tens of metres long.
+-> What is it for?
+    Ngatu Maker: A ngatu is wealth: you give it away at a wedding or a funeral, and everyone remembers.
+===
+
+title: hall_npc_history_tufuga_tatau
+---
+Tufuga Tā Tatau: Sit. It will hurt.
+-> What is a pe'a?
+    Tufuga Tā Tatau: A man's peʻa goes from the waist to the knees, by hand, over days. The missionaries tried to stop it. They could not.
+-> Where does the word tattoo come from?
+    Tufuga Tā Tatau: English sailors took our word home: tatau. Now half the world has a tattoo and does not know whose word it is.
+===
+
+title: hall_npc_history_moa_hunter
+---
+Moa Hunter: Shh. A moa.
+-> Where are the moa?
+    Moa Hunter: My grandfather's fires were full of moa bones. Mine have fewer. My grandchildren will have to ask what a moa was.
+-> What happened to them?
+    Moa Hunter: Within about 150 years of our coming, all nine kinds of moa were gone, and then the eagle. Nobody meant it. That is why it is a warning.
+===
+
+title: hall_npc_history_pounamu_carver
+---
+Pounamu Carver: Grind, wet, grind, wet.
+-> Why so long for one blade?
+    Pounamu Carver: Pounamu comes from the rivers of the South Island. It is the toughest stone we know: weeks of grinding for one blade.
+-> What happens to the adze?
+    Pounamu Carver: A pounamu adze is handed down for generations. It has a name, and a story.
+===
+
+title: hall_npc_history_henry_williams
+---
+Henry Williams: I have not slept.
+-> What did you translate?
+    Henry Williams: I wrote 'kāwanatanga', governorship, for sovereignty, and that the chiefs keep 'tino rangatiratanga', their full chieftainship. Was that the same thing? No.
+-> Did the chiefs agree?
+    Henry Williams: Almost all the chiefs signed the Māori text. New Zealand has argued about the difference ever since.
+===
+
+title: hall_npc_history_ana_hamu
+---
+Ana Hamu: Read the Māori text.
+-> Did women sign?
+    Ana Hamu: About a dozen women signed, out of more than five hundred names. Some women of rank were turned away by British officers.
+-> What does the paper say?
+    Ana Hamu: The paper in our language says we keep our chieftainship and our lands. Whether it was kept is another story.
+===
+
+title: hall_npc_history_hone_heke
+---
+Hōne Heke: Mind the flagstaff. It falls over a lot.
+-> Why cut down the flagstaff?
+    Hōne Heke: I was the first chief to sign at Waitangi. Within a few years the flag on the hill said who was master. So in 1844 I cut it down.
+-> How many times?
+    Hōne Heke: They put it up again. I cut it down again. The fourth time it was sheathed in iron and guarded, in March 1845. We cut it down anyway.
+===
+
+title: hall_npc_history_barangaroo
+---
+Barangaroo: Stay out of my way. I am fishing.
+-> How do you fish?
+    Barangaroo: I fish from my nawi with my daughters, with a little fire in the canoe to cook the catch. My hook is shell; my line is bark.
+-> Do you dine with the governor?
+    Barangaroo: My husband dines with their governor. I do not. I will not wear their clothes. Part of the harbour shore carries my name now. Good.
+===
+
+title: hall_npc_history_bennelong
+---
+Bennelong: Good day to you.
+-> How did you meet the governor?
+    Bennelong: In 1789 the governor's men seized me and kept me in a chain to learn our language. I escaped. Later I came back, on my terms.
+-> Where did you live?
+    Bennelong: The governor built me a hut on the point where the Opera House stands now. I sailed to England in 1792 and came home in 1795.
+===
+
+title: hall_npc_history_pemulwuy
+---
+Pemulwuy: I see you.
+-> Why did you fight?
+    Pemulwuy: The newcomers took our land for farms, so we fought them, from 1790. They shot me many times. They said I could not be killed. In 1802 they killed me.
+-> What happened after?
+    Pemulwuy: The governor sent my head to England. It has never been found. My son Tedbury fought on.
+===
+
+title: hall_npc_history_kooyang_farmer
+---
+Kooyang Farmer: The water is rising.
+-> Is this farming?
+    Kooyang Farmer: Our old people cut these channels in the lava for at least 6,600 years. Some hold eels in ponds for months. That is farming.
+-> How long have your people been here?
+    Kooyang Farmer: Budj Bim erupted about 37,000 years ago. People were here to see it. We are still here.
+===
+
+title: hall_npc_history_basket_weaver
+---
+Basket Weaver: Over, under, over, under.
+-> How does an eel trap work?
+    Basket Weaver: An eel trap has a neck the eel swims into and not out of. A good one lasts many seasons.
+-> What happened to the lake?
+    Basket Weaver: The lake was drained for farms. In 2010 our people brought the water back. In 2019 the world listed it as heritage.
+===
+
+title: hall_npc_history_latte_builder
+---
+Latte Builder: Håfa adai.
+-> What is a latte?
+    Latte Builder: Latte: a pillar and a cap shaped like half a coconut. We build the house on top, off the ground, in the sea wind.
+-> Where did your people come from?
+    Latte Builder: Our ancestors sailed here more than three thousand years ago, further over open sea than anyone had gone.
+===
+
+title: hall_npc_history_hurao
+---
+Hurao: Remember who was here first.
+-> Why fight the Spanish?
+    Hurao: We lived well before they came, and we could live without them. So we fought, for more than twenty years.
+-> Did your people survive?
+    Hurao: War and sickness killed most of us. But the CHamoru are still here, and so is our language.
+===
+
+title: hall_npc_history_basalt_hauler
+---
+Basalt Hauler: Hup. Hup.
+-> How is Nan Madol built?
+    Basalt Hauler: The rock cools into six-sided columns. We lay them crosswise, like a log cabin, and fill the middle with coral.
+-> How did the stones get here?
+    Basalt Hauler: The stories say two brothers flew the stones here by magic. I wish they would fly this one.
+===
+
+title: hall_npc_history_isokelekel
+---
+Isokelekel: Kaselehlie.
+-> Who were the Saudeleur?
+    Isokelekel: The Saudeleur took every first catch and first fruit for themselves. Their rule ended here, in Nan Madol.
+-> What came after?
+    Isokelekel: I became the first Nahnmwarki. Pohnpei still has its Nahnmwarki today.
+===
+
+title: hall_npc_history_ri_meto
+---
+Ri-meto: Close your eyes. Feel the swell.
+-> How does a stick chart work?
+    Ri-meto: Sticks for the swells, shells for the islands. Where the bent swells cross, the canoe rocks in its own way: an island is near.
+-> Do you take it to sea?
+    Ri-meto: You learn the chart on land, and leave it at home. At sea you read the water with your body.
+===
+
+title: hall_npc_history_pandanus_weaver
+---
+Pandanus Weaver: Iakwe.
+-> What are the mats for?
+    Pandanus Weaver: The canoes of the Marshalls carry the mats of the women. A navigator is nothing without a good sail.
+-> What is an atoll like?
+    Pandanus Weaver: A ring of sand around a lagoon, two metres above the sea. Land is everything here, because there is so little of it.
+===
+
+title: hall_npc_history_rai_owner
+---
+Rai Owner: Do not lean on my money.
+-> How do you spend a stone that big?
+    Rai Owner: When I buy something big, the stone does not move. The whole island just knows it belongs to someone else now.
+-> Is a bigger stone worth more?
+    Rai Owner: A small stone with a terrible voyage is worth more than a big one that came easily.
+===
+
+title: hall_npc_history_palau_quarrier
+---
+Palau Quarrier: *cough* Limestone dust.
+-> How do you bring a stone home?
+    Palau Quarrier: Months with shell adzes for one big stone, then 400 km of open sea on a raft behind a canoe.
+-> What about O'Keefe's stones?
+    Palau Quarrier: O'Keefe brought stones cut with iron tools on his ship. A stone with no hardship in it is worth less.
+===
+
+title: hall_npc_history_phosphate_digger
+---
+Phosphate Digger: Dig, fill, carry. Again.
+-> What is phosphate?
+    Phosphate Digger: Phosphate is old bird droppings, turned to rock. Farmers in Australia and New Zealand spread it on their fields.
+-> What is left of the island?
+    Phosphate Digger: Between the pinnacles there is nothing left. The Nauruans watched their island go away by ship.
+===
+
+title: hall_npc_history_hammer_deroburt
+---
+Hammer DeRoburt: I have a court date.
+-> What happened in the war?
+    Hammer DeRoburt: In 1943 Japan sent 1,200 of us to Chuuk. Hundreds died. When we came home, I decided Nauru would be ours.
+-> What did you win?
+    Hammer DeRoburt: Independence in 1968, the phosphate company in 1970, and in 1989 the International Court. Money does not grow coral back.
+===
+
+title: hall_npc_history_juda
+---
+Juda Kessibuki: We are packing.
+-> Why are you leaving?
+    Juda Kessibuki: A commodore asked us to leave for a while, so they could test a bomb for the good of mankind. We are 167 people. I said we would go.
+-> For how long?
+    Juda Kessibuki: They told us it would be for a short time.
+===
+
+title: hall_npc_history_bikini_elder
+---
+Bikini Elder: Everything rolls up small.
+-> Where did they send you?
+    Bikini Elder: They sent us to Rongerik, and we nearly starved. Then Kili, with no lagoon. Then home in 1968, and away again in 1978.
+-> And the children?
+    Bikini Elder: Our children grew up far from Bikini.
+===
+
+title: hall_locust_swarm
+---
+Locust Swarm: *bzzzzzzzz*
+-> What do you want?
+    Locust Swarm: Harvest tax. We collect all of it.
+-> What did farming do?
+    Locust Swarm: Farming fed ten times as many people as hunting did. And us. Mostly us.
+-> Why the first farmers?
+    Locust Swarm: The first farmers stored grain against the bad years. We are the bad years.
+===
+
+title: hall_aurochs
+---
+Aurochs: *snort*
+-> Are you a cow?
+    Aurochs: My little cousins pull ploughs now. They get hay and a name. I got painted on a cave wall.
+-> Where are the rest of you?
+    Aurochs: The last of us died in a Polish forest in 1627. I am taking it personally.
+===
+
+title: hall_scorpion_man
+---
+Scorpion Man: None may pass.
+-> What do you guard?
+    Scorpion Man: Twelve double hours of darkness behind me, and I am the cheerful part of the trip.
+-> Did anyone get past?
+    Scorpion Man: Gilgamesh came this way to find eternal life. I let him pass. Ask him how that went.
+===
+
+title: hall_mummy
+---
+Mummy: Mmmmm.
+-> What happened to you?
+    Mummy: They took out my brain through my nose and kept my liver in a jar. I am still a little upset about the brain.
+-> Was it worth it?
+    Mummy: Seventy days of embalming, and I still look like this. Ask for the luxury package.
+===
+
+title: hall_scarab_beetle
+---
+Scarab Beetle: Roll. Roll. Roll.
+-> What are you rolling?
+    Scarab Beetle: Yes, it is dung. It is SACRED dung.
+-> Do you roll the sun?
+    Scarab Beetle: The priests say I roll the sun across the sky. I do not correct them. It is good for business.
+===
+
+title: hall_asp
+---
+Asp: Hsssss.
+-> Did Cleopatra choose you?
+    Asp: They say Cleopatra chose me. Historians argue about it. I do not argue with historians. I spit at them.
+-> Are you royalty?
+    Asp: I am on the pharaoh's crown, you know. The uraeus. I am practically royalty.
+===
+
+title: hall_hoplite
+---
+Hoplite: Hold the line.
+-> What makes a phalanx strong?
+    Hoplite: A phalanx is only as strong as the shield of the man on your left. I am the man on the left. There is nobody on mine.
+-> Were you at Thermopylae?
+    Hoplite: Three hundred of us at Thermopylae. And a few thousand allies. Nobody ever remembers the allies.
+===
+
+title: hall_immortal
+---
+Immortal: *he stands to attention*
+-> Why are you called the Immortals?
+    Immortal: When one of us falls, another steps up, and the count never changes. Herodotus wrote that down, so it must be true.
+-> What's on your spear?
+    Immortal: The silver pomegranate on my spear is not for eating. I asked.
+===
+
+title: hall_vandal
+---
+Vandal: Very nice statue. Needs a moustache.
+-> Why vandalism?
+    Vandal: They named vandalism after us. We only borrowed things. For fourteen days. Without asking.
+-> What have you done to the statues?
+    Vandal: Every emperor in this town has a moustache now. You are welcome.
+===
+
+title: hall_terracotta_warrior
+---
+Terracotta Warrior: ...
+-> Why were you buried?
+    Terracotta Warrior: Eight thousand of us, buried with the first emperor, so that he would have an army after he died. He never once inspected us.
+-> Are you all the same?
+    Terracotta Warrior: Every one of us has a different face. Mine has a very good moustache. It was modelled from life.
+===
+
+title: hall_desert_bandit
+---
+Desert Bandit: Nice caravan. Shame if it got lighter.
+-> Do you walk the whole road?
+    Desert Bandit: Nobody walks the whole Silk Road. The goods go from hand to hand to hand. Sometimes the hand is mine.
+-> Where's your camel?
+    Desert Bandit: My camel went on without me. Camels have no loyalty. Neither do I. We understood each other.
+===
+
+title: hall_silk_moth
+---
+Silk Moth: *flutter flutter*
+-> Can you fly?
+    Silk Moth: *five thousand years of silk farming bred the flying out of its kind. It is trying anyway.*
+-> Why the Silk Road?
+    Silk Moth: *a whole road is named after what its caterpillar spins. It is quietly proud.*
+===
+
+title: hall_horse_archer
+---
+Horse Archer: Five spare horses, one bow, no hurry.
+-> How do you fight?
+    Horse Archer: We ride away, you chase, and we turn round in the saddle and shoot. The Parthians did it first. We did it further.
+-> How fast is the Yam?
+    Horse Archer: A messenger of the Yam crossed the empire in days: at each station he changed horses. Sometimes he changed riders. Never the bow.
+===
+
+title: hall_golden_eagle
+---
+Golden Eagle: *a long, high whistle*
+-> What do you hunt?
+    Golden Eagle: On the steppe the eagle hunters hunt foxes with us, and wolves if the hunter is brave. The hunter is never as brave as I am.
+-> Where's your hood?
+    Golden Eagle: The hood keeps me calm. It is off now. Draw your own conclusions.
+===
+
+title: hall_steppe_wolf
+---
+Steppe Wolf: Owoooo.
+-> Are you the ancestor?
+    Steppe Wolf: The old story says the first Mongol was born of a blue-grey wolf and a fallow doe. I am the wolf. You may bow.
+-> Then why sheep?
+    Steppe Wolf: A whole people with a wolf for an ancestor, and still they keep sheep. I take it personally.
+===
+
+title: hall_inflated_coin
+---
+Inflated Coin: *it puffs up*
+-> What happened to you?
+    Inflated Coin: Mansa Musa came through Cairo in 1324 and gave gold to everybody. Then everybody had gold, and gold was worth less for twelve years. I was there. I was worth a camel. Then half a camel.
+-> Is bigger better?
+    Inflated Coin: Bigger is not the same as more valuable. I learned this by getting bigger.
+===
+
+title: hall_coral_crab
+---
+Coral Crab: *clack clack*
+-> What's your house made of?
+    Coral Crab: On this coast they build their houses of coral stone. I built mine of coral too. Mine walks.
+-> Why sideways?
+    Coral Crab: Everybody goes forward. I go to the side. We all get to the same beach.
+===
+
+title: hall_monsoon_squall
+---
+Monsoon Squall: Six months east. Six months west. Every year.
+-> Who plans around you?
+    Monsoon Squall: The dhow captains plan their whole year round me: east with the summer monsoon, home with the winter one. Nobody asks what I want.
+-> Are you a season?
+    Monsoon Squall: The word monsoon comes from the Arabic for season. I am not a season. I am a mood.
+===
+
+title: hall_scurvy_ghost
+---
+Scurvy Ghost: Lemon... lemon...
+-> What cured scurvy?
+    Scurvy Ghost: In 1747 a ship's surgeon gave two of us lemons and they got better. The navy took nearly fifty years to listen. I did not have fifty years.
+-> What happened at the Cape?
+    Scurvy Ghost: I lost my teeth off the Cape of Good Hope. Bad Hope, if you ask me.
+===
+
+title: hall_kraken_arm
+---
+Kraken Arm: *the tip curls, and uncurls, and curls*
+-> What does the hatch say?
+    Kraken Arm: *on the hatch, in old ink: HERE BE DRAGONS. Somebody has crossed out DRAGONS.*
+-> Why monsters on maps?
+    Kraken Arm: *the old maps drew monsters where nobody had sailed yet. It was a way to say: we do not know. This arm says it louder.*
+===
+
+title: hall_privateer
+---
+Privateer: It is not piracy if the King gets a cut.
+-> What's the difference from a pirate?
+    Privateer: A pirate robs ships. A privateer robs the ships of the King's enemies, with a paper that says he may. The ships cannot tell the difference.
+-> Was Drake a pirate?
+    Privateer: Francis Drake was a privateer. The Queen made him a knight. The Spanish called him the Dragon. Same man, same boat, different paperwork.
+===
+
+title: hall_steam_automaton
+---
+Steam Automaton: COAL. MORE. COAL.
+-> Did Watt invent you?
+    Steam Automaton: James Watt did not invent the steam engine. He made it waste less coal. Everybody remembers an invention. Nobody remembers an efficiency.
+-> Why horsepower?
+    Steam Automaton: One of me does the work of many horses. Watt called it horsepower so the mill owners would understand. Nobody asked the horses.
+===
+
+title: hall_soot_sprite
+---
+Soot Sprite: *a small, sooty cough*
+-> What did you do to the moths?
+    Soot Sprite: In the mill towns we turned the trees black, and the pale moths on them were easy to see and got eaten. The dark moths lived. Evolution, in one city, in fifty years. You are welcome.
+-> Where do you come from?
+    Soot Sprite: Every chimney in town makes a little of me. Together we make the fog.
+===
+
+title: hall_robber_baron
+---
+Robber Baron: I bought the railroad. Then I bought the other railroad.
+-> What do they call you?
+    Robber Baron: They call us robber barons. We call ourselves captains of industry. The men in my mills call me something I will not repeat in a gallery.
+-> Why all the libraries?
+    Robber Baron: I gave a library to every town and put my name over every door. Philanthropy is a long word for a very large sign.
+===
+
+title: hall_hyena
+---
+Hyena: Hee hee.
+-> Do you only steal?
+    Hyena: Everyone thinks we only steal. We hunt most of what we eat. We just laugh about it, and that gives us a reputation.
+-> What's so funny?
+    Hyena: The first humans came down out of the trees right here. We were waiting. We have been laughing about it ever since.
+===
+
+title: hall_cave_lion
+---
+Cave Lion: *a deep purr*
+-> Where's your mane?
+    Cave Lion: Every painter in every cave drew me. Not one of them drew me a mane. I did not have one. I am fine about it.
+-> Were you a big cat?
+    Cave Lion: Bigger than a lion of today, and the painters still put me on the back wall. Behind a horse.
+===
+
+title: hall_hippo
+---
+Hippo: *an angry snort*
+-> Where did all the hippos go?
+    Hippo: When the Sahara was green there were lakes all the way across it, and hippos in all of them. Then it dried up. I blame you.
+-> You look sleepy.
+    Hippo: People say I look sleepy. I am not sleepy. I am waiting for someone to come close enough.
+===
+
+title: hall_sea_raider
+---
+Sea Raider: Which kingdom is next?
+-> Did you end the Bronze Age?
+    Sea Raider: In 1177 BCE every great kingdom of the Bronze Age fell at once, and the Egyptians carved us on a temple wall as the reason. Drought, famine and earthquakes helped. Nobody carved them.
+-> Who were you?
+    Sea Raider: Historians still argue about who we were. We would tell them, but nobody wrote it down. Least of all us.
+===
+
+title: hall_woolly_mammoth
+---
+Woolly Mammoth: Cold today. Cold every day. For a hundred thousand years.
+-> When did the last of you live?
+    Woolly Mammoth: The last of us lived on Wrangel Island until about four thousand years ago. The Great Pyramid was already built. We were the late guests of history.
+-> What became of your bones?
+    Woolly Mammoth: They built their houses out of our bones. Very cosy. I have opinions.
+===
+
+title: hall_cave_bear
+---
+Cave Bear: *sniff* *sniff*
+-> Is this your cave?
+    Cave Bear: This was MY cave first. Then people came in with lamps and painted a hundred horses on my walls, and hardly any bears.
+-> What do you eat?
+    Cave Bear: Mostly I ate plants. Look at the size of me, and I ate plants. Nobody believes it.
+===
+
+title: hall_viking_raider
+---
+Viking Raider: Raid in the summer, farm in the winter.
+-> Where are your horns?
+    Viking Raider: Horns on a helmet? In a fight? Somebody would grab them. The horns came from an opera costume in 1876. Put that on the sign.
+-> Where did you go?
+    Viking Raider: We went to Baghdad, to Constantinople, to America. And we are remembered for hats we never wore.
+===
+
+title: hall_tiger
+---
+Tiger: *a low chuff*
+-> Are your stripes only fur?
+    Tiger: My stripes are on my skin too. Shave me and you would still see them. Please do not try.
+-> Are all stripes the same?
+    Tiger: Every stripe is different. I counted mine once. I lost count at the tail.
+===
+
+title: hall_indus_unicorn
+---
+Indus Unicorn: *a stiff stone snort*
+-> What do the signs say?
+    Indus Unicorn: *thousands of seals show it, and the signs over it. Nobody can read them yet. It would tell you, but it cannot read them either.*
+-> You're bigger than I expected.
+    Indus Unicorn: *it was one inch tall for four thousand years. It is enjoying the size.*
+===
+
+title: hall_taotie_spirit
+---
+Taotie Spirit: *it stares*
+-> Why are you staring?
+    Taotie Spirit: *it was cast on the side of a cauldron, to stare at whoever ate from it. Three thousand years on, it is still staring. It is very good at it.*
+-> What do you mean?
+    Taotie Spirit: *scholars argue about what it means. It has heard every argument. It is not telling.*
+===
+
+title: hall_smilodon
+---
+Smilodon: Big teeth. Small brain. Great life.
+-> What happened at La Brea?
+    Smilodon: Thousands of us fell into the tar pits of La Brea, chasing things that had fallen in first. It was a whole bad afternoon, for about forty thousand years.
+-> Are you a tiger?
+    Smilodon: Sabre-toothed TIGER? I am not a tiger. Nobody in my family is a tiger. Write it down.
+===
+
+title: hall_jaguar
+---
+Jaguar: Mmrr.
+-> What can you do?
+    Jaguar: I swim, I climb, and I bite through a turtle's shell. The other big cats find me exhausting.
+-> Are you a leopard?
+    Jaguar: Every spot on me is a rosette with a dot in the middle. Leopards have no dot. I like to mention it.
+===
+
+title: hall_llama
+---
+Llama: Hmmmm.
+-> Did you build the Inca road?
+    Llama: The Inca road ran for forty thousand kilometres through the Andes, and we carried most of it. Nobody built us a road.
+-> How much can you carry?
+    Llama: I carry thirty kilos and not one gram more. Put a thirty-first on me and I lie down. That is not stubborn. That is a union.
+===
+
+title: hall_diprotodon
+---
+Diprotodon: *snuffle* *snuffle*
+-> What are you?
+    Diprotodon: I am the biggest marsupial that ever lived. I had a pouch. You do not want to know how big the pouch was.
+-> Any relatives?
+    Diprotodon: Wombats are my little cousins. They have cube-shaped droppings. We do not talk about it at reunions.
+===
+
+title: hall_megalania
+---
+Megalania: *a long, slow blink*
+-> How big were you?
+    Megalania: I was the biggest lizard on land that ever lived. The Komodo dragon is my small, famous cousin. It does not return my calls.
+-> And your cousin?
+    Megalania: Seven metres, nose to tail. Most of that is tail. Most of the trouble is the other end.
+===
+
+title: hall_cassowary_history
+---
+Cassowary: *it pecks at a fallen fruit*
+-> Is it safe to raise your chicks?
+    Cassowary: The people of the highlands raise my chicks, and they have a very healthy respect for my feet. So should you.
+-> What do you do for the forest?
+    Cassowary: I plant the forest. I eat the fruit, I walk a long way, and the seeds come out somewhere new. You are welcome.
+===
+
+title: hall_howler_monkey
+---
+Howler Monkey: Hooooo.
+-> Why so loud?
+    Howler Monkey: You can hear a howler monkey five kilometres away. That is not shouting. That is telling the next troop where we are, so nobody has to walk over.
+-> Do you do anything else?
+    Howler Monkey: I eat leaves and I sleep most of the day. Leaves are not very nourishing. The howl is the only energetic thing I do, so I do it properly.
+===
+
+title: hall_green_iguana
+---
+Green Iguana: *a long, slow blink*
+-> Is that a third eye?
+    Green Iguana: I have a third eye on the top of my head. It sees light and shadow, so I know when a hawk is over me. It cannot read. Neither can the other two.
+-> Can you fall safely?
+    Green Iguana: I can drop from a branch fifteen metres up, land on the forest floor and walk away. Mind the tail on the way down.
+===
+
+title: hall_coconut_crab
+---
+Coconut Crab: *it drags a coconut across the sand, slowly*
+-> Were you always this big?
+    Coconut Crab: I was a hermit crab once, in a borrowed shell. Then I grew, and no shell fit. Now I am the biggest crab on land, and I borrow nothing.
+-> Why the robber crab?
+    Coconut Crab: They call me the robber crab: I take shiny things from the camp. A spoon, a pot, once a whole kettle. The potters here keep a close eye on me.
+===
+
+title: hall_frigatebird
+---
+Frigatebird: *clack-clack of the long bill*
+-> Why fly home at dusk?
+    Frigatebird: I cannot land on the sea: my feathers are not waterproof. So at dusk I fly home to land, and every navigator on the ocean watches which way I go.
+-> How do you catch fish?
+    Frigatebird: Other birds catch fish. I catch the other birds, shake them until they drop the fish, and catch the fish before it hits the water. It is called efficiency.
+===
+
+title: hall_pacific_rat
+---
+Pacific Rat: Seeds? Any seeds?
+-> How did you cross the Pacific?
+    Pacific Rat: I crossed the Pacific on the canoes with the people, island after island. Some say as food, some say as a stowaway. I say: first class.
+-> What happened to the palms?
+    Pacific Rat: On Rapa Nui they say we ate the nuts of the great palms, so no new palms grew. ...We did eat a lot of nuts. They were very good nuts.
+===
+
+title: hall_driver_ants
+---
+Driver Ants: *a rustle like rain on leaves*
+-> What happens when you march through?
+    Driver Ants: We are one column of millions, and we do not stop for a city, a wall or an Oba. People step aside. Then they come back, and the house has no cockroaches.
+-> Are you useful?
+    Driver Ants: Our soldiers' jaws hold so hard that healers close a wound with them: let one bite across the cut, then pinch off the body. We are stitches with legs.
+===
+
+title: hall_napoleonic_grenadier
+---
+Grenadier of Leclerc's Army: These mountains go on for ever.
+-> Why are you here?
+    Grenadier of Leclerc's Army: They told us it would be a short campaign. Of the tens of thousands they sent, most never went home: the war took many, and yellow fever took more.
+-> Did you take the island?
+    Grenadier of Leclerc's Army: We came to take an island back. The island had other plans.
+===
+
+title: hall_andean_condor
+---
+Andean Condor: *it has not flapped in an hour*
+-> How do you fly without flapping?
+    Andean Condor: My wings are three metres across, and I can soar for hours without one flap. I let the mountains do the work. Smart birds do.
+-> Are you hunting me?
+    Andean Condor: I eat what is already dead. Look on the bright side: I am not hunting you. I am waiting.
+===
+
+title: hall_sulawesi_warty_pig
+---
+Sulawesi Warty Pig: Oink. Locally.
+-> Were you painted?
+    Sulawesi Warty Pig: I am the oldest model in the world. A painter put me on a cave wall over 45,000 years ago, and I have not changed my look since.
+-> Was it a hunting scene?
+    Sulawesi Warty Pig: People call it a hunting scene. I call it a portrait.
+===
+
+title: hall_saltwater_crocodile
+---
+Saltwater Crocodile: *it lies still, like a log with plans*
+-> How long have you looked like this?
+    Saltwater Crocodile: My family has looked like this for a very long time. We watched the islanders paddle by in their canoes. We swim between islands too; we just do not bring pots.
+-> Are you hungry?
+    Saltwater Crocodile: I can go months without a meal. I am in no hurry. You will come down to the water eventually.
+===
+
+title: hall_king_cobra
+---
+King Cobra: *its tongue tastes the air*
+-> How big are you?
+    King Cobra: I am the longest venomous snake in the world. I can stand a third of my length off the ground and look you in the eye.
+-> Will you bite me?
+    King Cobra: I eat other snakes. You are not a snake. Leave quietly and we will both have a good day.
+===
+
+title: hall_water_monitor
+---
+Water Monitor: *it suns itself on the warm planks*
+-> What do you eat?
+    Water Monitor: I swim, I climb, and I eat whatever the harbour drops. Palembang suits me fine.
+-> Are you related to the Komodo dragon?
+    Water Monitor: My cousins on Komodo get all the attention. I am just as long and much better company.
+===
+
+title: hall_asian_black_bear
+---
+Asian Black Bear: *it sniffs for chestnuts*
+-> What's the V on your chest?
+    Asian Black Bear: The white V on my chest is a moon. That is why they call me the moon bear.
+-> What do you eat?
+    Asian Black Bear: I climb trees for acorns and chestnuts. The Jōmon and I liked the same groves.
+===
+
+title: hall_japanese_macaque
+---
+Japanese Macaque: *it washes a chestnut, carefully*
+-> How do you survive the winter?
+    Japanese Macaque: We are the most northern monkeys in the world. In winter we sit in the hot springs. You should try it.
+-> Why wash your food?
+    Japanese Macaque: On the island of Kōjima in 1953 a young monkey called Imo began to wash her sweet potatoes in the sea. Now we all do it. That is culture.
+===
+
+title: hall_clouded_leopard
+---
+Formosan Clouded Leopard: *it is not there. Then it is.*
+-> Why such long teeth?
+    Formosan Clouded Leopard: For my size, my canine teeth are the longest of any cat. I do not need to tell you why.
+-> Are you still around?
+    Formosan Clouded Leopard: In Taiwan nobody has seen one of us since the 1980s. In 2013 we were declared extinct. You are talking to a ghost.
+===
+
+title: hall_tanuki
+---
+Tanuki: *sniff sniff*
+-> Are you a raccoon?
+    Tanuki: I am not a raccoon. I am a dog. A round dog.
+-> Can you change shape?
+    Tanuki: In the old stories I change shape: into a teakettle, once, and then I could not get my tail back in.
+===
+
+title: hall_gharial
+---
+Gharial: *a fish vanishes*
+-> Why the bulb on your snout?
+    Gharial: The bulb on a male gharial's snout is a ghara: a pot. That is where the name comes from.
+-> Will you eat me?
+    Gharial: My snout is made for fish. I cannot eat you. I can still bite you. There are only a few hundred of us grown up in the wild: please mind the rivers.
+===
+
+title: hall_rhesus_macaque
+---
+Rhesus Macaque: *it eats a mango, noisily*
+-> What is Rh?
+    Rhesus Macaque: The Rh in your blood type is for rhesus: the factor was first found in experiments with us.
+-> Have you been to space?
+    Rhesus Macaque: In 1948 a rhesus monkey called Albert rode a rocket from New Mexico. We were in space before you.
+===
+
+title: hall_black_caiman
+---
+Black Caiman: *a slow blink*
+-> Are you the top predator here?
+    Black Caiman: I am the largest predator in the Amazon. The jaguar disagrees. We do not discuss it.
+-> Are you endangered?
+    Black Caiman: In the last century we were hunted for our skins until few of us were left. We are coming back. Mind the water.
+===
+
+title: hall_capybara
+---
+Capybara: *it chews, calmly*
+-> How big are you?
+    Capybara: I am the largest rodent in the world. I can stay under water for five minutes. Can you?
+-> Who's on your back?
+    Capybara: Birds ride on my back and eat my ticks. Monkeys sit on me. I am very calm. Usually.
+===
+
+title: hall_giant_sable
+---
+Giant Sable: *it grazes, one eye on you*
+-> Where do you live?
+    Giant Sable: I live in one corner of Angola and nowhere else. In the civil war people thought I was gone for good. In 2005 a camera in the forest found me again.
+-> Who is named after you?
+    Giant Sable: Angola's football team is named after me: the Palancas Negras. I have never been asked to play.
+===
+
+title: hall_african_grey_parrot
+---
+African Grey Parrot: *it whistles the start of a tune, and stops*
+-> Can you talk?
+    African Grey Parrot: I can learn hundreds of words. I choose to use them on you.
+-> Where are your kind?
+    African Grey Parrot: Traders have taken my kind out of the Congo forests for centuries. There are far fewer of us now. Leave me where I am.
+===
+
+title: hall_portuguese_arquebusier
+---
+Arquebusier of Luanda: The rain puts out the match. The rain puts out everything.
+-> Why come inland?
+    Arquebusier of Luanda: They sent us inland for slaves and silver. We found no silver. We found Nzinga.
+-> How do you fire that?
+    Arquebusier of Luanda: Load, prime, blow on the match, aim, and pray the powder is dry. She attacked while we were blowing on the match.
+===
+
+title: hall_moa
+---
+Giant Moa: *it strips the leaves off a twig*
+-> Could you fly?
+    Giant Moa: I had no wings, not even little ones. Before people came, only the great eagle hunted me. I did not know to run.
+-> What happened to the moa?
+    Giant Moa: Nine kinds of us, the tallest bird that ever lived. About 150 years after people came, we were all gone.
+===
+
+title: hall_haast_eagle
+---
+Haast's Eagle: *a long, high whistle*
+-> What did you hunt?
+    Haast's Eagle: I hunted birds fifteen times my weight. One foot on the hips, one on the neck. Then people came for the same birds.
+-> What happened to you?
+    Haast's Eagle: When the moa were gone, so was I, about 1400. Māori stories remember a great bird, Pouakai.
+===
+
+title: hall_kooyang
+---
+Kooyang: *a ripple, and it is gone*
+-> Where do you swim?
+    Kooyang: I swim about 3,000 km to the Coral Sea to spawn. My children swim all the way back, up this very channel.
+-> How do the Gunditjmara treat you?
+    Kooyang: The Gunditjmara built a whole system of stone for me. I would be flattered, if it did not end in a smoking tree.
+===
+
+title: hall_black_swan
+---
+Black Swan: *a soft, bugling call*
+-> Why does Europe talk about you?
+    Black Swan: For centuries Europe said 'a black swan' meant a thing that cannot exist. Then a Dutch ship reached Western Australia in 1697.
+-> And now?
+    Black Swan: Now a 'black swan' is the thing nobody saw coming. I was here the whole time.
+===
+
+title: hall_fanihi
+---
+Fanihi: *it hangs and chews a fig*
+-> What do you do for the forest?
+    Fanihi: I eat fruit and spread the seeds of the forest. Without me, fewer trees.
+-> Are you safe?
+    Fanihi: Hunting and the brown tree snake nearly ended my kind on Guam. Leave me in my tree.
+===

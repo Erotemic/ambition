@@ -178,6 +178,8 @@ pub fn interaction_input_system(
     // Hit-stun gate reads the DRIVEN body's reaction state — the body actually
     // being driven by this seat, home avatar or possessed actor.
     combat_q: Query<&ambition_characters::actor::BodyCombat>,
+    // A flying body moves with Up, so Up is not a gesture for it.
+    flight_q: Query<&ae::BodyFlightState>,
     primary_q: Query<
         Entity,
         (
@@ -220,7 +222,13 @@ pub fn interaction_input_system(
             || frame.burst_pressed || frame.grab_pressed || frame.shield_held
             || frame.projectile_pressed || frame.projectile_held
             || frame.blink_pressed || frame.blink_held;
-        if direction_is_claimed {
+        // Flying, Up is the way up, so it is neither a held-Up interact (that
+        // would talk to whoever the body flies past) nor a double-tap door
+        // request.
+        let up_moves_the_body = body
+            .and_then(|body| flight_q.get(body).ok())
+            .is_some_and(|flight| flight.fly_enabled);
+        if direction_is_claimed || up_moves_the_body {
             interaction.cancel_up_interact(feel.interaction_hold_time);
         }
         let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);

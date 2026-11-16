@@ -109,12 +109,13 @@ or walk around the country. Every way is open from the start.
 [THE WORKSHOP]--[HOBFORD LANE]                                          [THE HIGH MEADOW]--[THE GATE CLEARING]
  intro_wake_room  intro_hobford_lane                                     intro_high_meadow   intro_gate_clearing
                         \ the bank path down             the hill path up /                   \ the freight track down
-                         [THE MILLSTREAM]--[HOBFORD]--[HOBFORD WOODS]                             [THE FREIGHT SIDING]
-                          intro_millstream  intro_hobford intro_woods (Bob's camp)                 intro_freight_yard
+                         [THE MILLSTREAM]--[HOBFORD]--[HOBFORD WOODS]                             [THE FREIGHT SIDING]--[THE FELL]
+                          intro_millstream  intro_hobford intro_woods (Bob's camp)                 intro_freight_yard    intro_fell
 ```
 
 One line of rooms, west to east: the barn on the west hill, the valley, the
-gate on the east hill. Each join is an edge at one height; the lane, the
+gate on the east hill, and past the siding the fell, the mountain beside
+the gate's hill. Each join is an edge at one height; the lane, the
 meadow and the clearing are hill rooms that climb between the hilltops'
 height and the valley's on slopes. The design and its reasons are in
 [Hobford polish](hobford-polish.md) ("The land").
@@ -132,8 +133,9 @@ under the gate stack, outside level 1 (D5).
 | `intro_high_meadow` | THE HIGH MEADOW | the hill path up from the woods, the shepherd's terrace, a dry-stone wall | a farm dog |
 | `intro_gate_clearing` | THE GATE CLEARING | the gate on the hilltop, the guard post, the barrier and its lever, the freight track down | the gatekeeper (`npc_valley_gatekeeper`, D20) |
 | `intro_freight_yard` | THE FREIGHT SIDING | the goblins' camp: a fight in tiers of stacked freight | goblin raiders, their foreman |
-| `intro_millstream` | THE MILLSTREAM | stepping stones, the mill wheel, the pond (swim), a cracked wall behind the wheel | the miller (not built, D20) |
-| `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | villagers (not built, D20) |
+| `intro_fell` | THE FELL | the climb: the drove road up slopes, the sheepfold's wall, the scree, two crags, the top and its cairn | the shepherd (`npc_valley_shepherd`) |
+| `intro_millstream` | THE MILLSTREAM | stepping stones, the mill wheel, the pond (swim), a cracked wall behind the wheel | the miller (`npc_valley_miller`) |
+| `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | the trader and the innkeeper (`npc_valley_trader`, `npc_valley_innkeeper`) |
 | `intro_woods` | HOBFORD WOODS | roots and fallen trunks, the goblins' trail, a hollow tree | Bob |
 
 ## Scene by scene

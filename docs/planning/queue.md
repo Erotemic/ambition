@@ -1104,8 +1104,9 @@ band stands at its places, and Full Stack plays idle, riff and strum. The
 real kill clears him, and Full Stack plays `outro`. Through the grille, the
 retirement plays at the green room's trigger. Two things read badly and are
 fixed. First, the green room was empty while the Boss spoke his
-retirement: he now stands on its dais as `npc_bossofthegame_retired`, with
-retirement lines and no fight lines. Second, the one-way door to the lobby
+retirement: he now stands on its dais, as `npc_bossofthegame` himself
+(2026-11-15, Jon: one body, one actor, one path; the second catalog row
+`npc_bossofthegame_retired` is deleted, and retired is the world's flag). Second, the one-way door to the lobby
 stood 88 units from the east wall, so its "ONE WAY: NO RETURN" warning ran
 off the room; it now stands 260 in. Full Stack is not in the green room
 (he is 480 high and the room is 640), so his line there is a voice.

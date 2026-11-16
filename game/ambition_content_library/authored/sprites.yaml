@@ -1305,6 +1305,7 @@ collections:
   - valley_innkeeper
   - valley_trader
   - valley_gatekeeper
+  - valley_shepherd
   - tower_voss
   - tower_dorsey
   - tower_tanaka

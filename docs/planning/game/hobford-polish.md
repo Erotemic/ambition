@@ -42,7 +42,7 @@ applies are in the [level design guide](../../authoring/level-design-guide.md).
 | 4 | The raid: the barn is the interior and its yard is outside; the goblins start beyond the yard, out of shot, and walk in through the open barn door while the camera holds Scout, the Creator and the door. The arena lock is the yard gate (the encounter's own wall), so no one leaves mid-fight; the Creator's last words wait for the fight (`after_encounter` on the trigger) | done: the raiders appear in the doorway about a second after the bar breaks and break in on arrival; the probe's frame log is in the commit message |
 | 5 | Edges between Hobford's outdoor rooms; the barn and other interiors by doors; then a census of every world's doors with a queue row for the rest | done: level 1's outdoor joins are all edges (the four doors are gone); the census of the other worlds is below, and its candidates are the queue row [DOOR-EDGES](../queue.md#door-edges--outdoor-joins-that-are-still-doors) |
 | 6 | A Hobford background without the gate (`hobford_gateside`) for the gate clearing and the siding | done: `hobford_gateside` is the country drawn from the same seed without the ring, scaffold and cable poles; the two rooms name it in the new level field `backdrop` (the background's theme alone; the skin stays the country's) |
-| 7 | The land: hills instead of two rows of rooms joined by doors | first pass done: one line of rooms west to east (below); the lane, the meadow and the clearing are hill rooms that climb between the hilltops' height and the valley's on filled `SurfaceChain` slopes, which the navigation graph walks (`NavLegKind::Slope`). Next: the mountain behind the meadow, dressing on the long slopes |
+| 7 | The land: hills instead of two rows of rooms joined by doors | first pass done: one line of rooms west to east (below); the lane, the meadow and the clearing are hill rooms that climb between the hilltops' height and the valley's on filled `SurfaceChain` slopes, which the navigation graph walks (`NavLegKind::Slope`). The mountain: THE FELL (`intro_fell`, 2026-11-15), east of the siding, the line's east end. The drove road climbs 832 px from the siding's floor to a summit far above the gate's hill: slopes, the sheepfold terrace with its wall to hop and the shepherd, a scree ledge, two 64 px crags, the top with its cairn and a lookout camera zone. The census walks it with level 1's kit (slope, hop, slope, hop, hop, slope, hop). Open: dressing on the long slopes (rocks, gorse, sheep as props) |
 | 8 | Props (`hill_village_props.py`, nine pieces, name-neutral ids `hill_*`): publish, place, capture | published and placed; captures pending |
 | 10 | The lane as the first view: from the barn door the land falls away east; the valley, the village roofs and the gate on the far hill are in view, and the bank path is visibly the way down | done: the lane is high on the west hill and the bank path goes down to the mill in two pitches. On the hilltops (the lane, the meadow's top, the clearing's road) a lookout `CameraZone` lifts the frame 180 px (`LOOKOUT_LIFT`): framed on Scout, the hill's earth filled the lower half and hid the background; lifted, the village roofs, the valley and the gate on the far hill are in view from the barn door |
 | 9 | People: villagers, the miller, the gatekeeper, from the existing cast or new chargen residents | done: four new chargen residents (`valley_miller`, `valley_innkeeper`, `valley_trader`, `valley_gatekeeper`; ids carry no proper names, the shown names are their trades, the lore's "Gatekeeper" as in Nagisa the Gatekeeper). The miller is at the millstream, the trader and the innkeeper in the village, the gatekeeper in the gate clearing. Each has a Yarn node that reads the world (the miller and the others know when the Creator is dead). The lost hen is now a small errand: asked, found, brought back, and the innkeeper gives a potion for it. In the Hall of Characters they have their own wing. Not checked on screen (this VM has no display) |
@@ -54,11 +54,12 @@ applies are in the [level design guide](../../authoring/level-design-guide.md).
 Level 1 was two rows of rooms, one above the other, joined by doors that
 stood for paths down a bank. It is now one line of rooms west to east, and
 the land's height is the land's: the barn on the west hill, the valley with
-the mill, the village and the woods, and the gate on the east hill.
+the mill, the village and the woods, the gate on the east hill, and past
+the siding the fell, the mountain beside it.
 
     [workshop]--[lane]                              [meadow]--[clearing]
                      \ bank path       hill path /              \ freight track
-                      [millstream]--[village]--[woods]             [siding]
+                      [millstream]--[village]--[woods]             [siding]--[fell]
 
 | Room | Its heights | Joins |
 |---|---|---|
@@ -67,7 +68,8 @@ the mill, the village and the woods, and the gate on the east hill.
 | millstream, village, woods | the valley floor | each to the next |
 | meadow | the valley's west, hilltop height east: the hill path up, the shepherd's terrace halfway | woods (west, low); clearing (east, high) |
 | clearing | the road and the gate at hilltop height; the freight track down to the valley's height | meadow (west, high); siding (east, low) |
-| siding | the valley floor, a dead end below the gate | clearing |
+| siding | the valley floor below the gate | clearing; the fell (east) |
+| fell | the valley floor west, the summit (832 over it) east: the drove road up | siding |
 
 Why one line and not a web. In a side view a room can join two rooms on
 one side at two heights only if one way passes over the other, and a

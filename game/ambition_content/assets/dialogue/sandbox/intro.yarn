@@ -326,6 +326,28 @@ title: valley_gatekeeper
 <<endif>>
 ===
 
+title: valley_shepherd
+---
+<<present_speaker "npc_valley_shepherd">>
+<<if condition("world.flag_set", "valley_shepherd_met")>>
+    Shepherd: Forty-one. Forty-two. Don't stand there, you're putting me off.
+    -> What can you see from up here?
+        Shepherd: The whole valley. The mill, the Plough's chimney, the woods, the gate. Past the gate, nothing. The weather doesn't go through it either.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "valley_shepherd_met" true>>
+    Shepherd: You climbed the fell for the view? Nobody climbs the fell for the view. They climb it for a sheep.
+    -> The dog in the meadow. Is it yours?
+        Shepherd: She's minding the hut. She minds everything. She'd mind the gate if they let her near it.
+    -> Did you see goblins come past the siding?
+        Shepherd: Five, with a handcart. They sat on their crate and ate the bread I'd left on the wall.
+        <<if condition("world.flag_set", "intro_creator_dead")>>
+            Shepherd: And you're from the barn. I heard. I'm sorry. He waved at me every morning, and I never once waved back.
+        <<endif>>
+    -> ⟨go⟩
+<<endif>>
+===
+
 title: hobford_dog
 ---
 The dog sniffs your knee for a long time. Then it wags.

@@ -29,7 +29,10 @@ _DISPLAY = re.compile(r'display_name:\s*"([^"]+)"')
 _HALL_ID = re.compile(r'hall_dialogue_id:\s*Some\("([a-z_0-9]+)"\)')
 _NODE = re.compile(r"^title:\s*([A-Za-z_0-9]+)\s*$\n---\n(.*?)^===", re.M | re.S)
 #: `Speaker: line` at the start of a line, the Yarn convention this cast uses.
-_SPEAKER = re.compile(r"^\s*([A-Za-z0-9 '\-\.\(\)]+?):", re.M)
+#: A name is any letters (`\w` is Unicode: Hōjō Tokimune, Trưng Trắc,
+#: Tuʻitātui) and may hold a comma (Student of Dhaka, 1952); a choice (`->`)
+#: or a command (`<<`) does not start with a letter.
+_SPEAKER = re.compile(r"^\s*(\w[\w '\-\.\(\),]*?):", re.M)
 
 
 def _pedestals() -> dict[str, tuple[str, str]]:

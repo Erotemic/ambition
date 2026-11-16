@@ -134,6 +134,7 @@ npc_valley_miller
 npc_valley_innkeeper
 npc_valley_trader
 npc_valley_gatekeeper
+npc_valley_shepherd
 
 [The orbital station]
 npc_station_okafor
@@ -442,6 +443,7 @@ npc_ghoul_skulker
 perfect_cellular_automaton
 imperfect_cellular_automaton
 npc_dividing_mite
+npc_dividing_mite_half
 npc_exploding_mite
 
 [The primeval trail]
@@ -591,6 +593,16 @@ npc_snakes_on_a_paper_plane
 sanic
 smash_george_booul
 arena_duelist_close
+
+[The final boss: the bossofthegame, his agents and Full Stack]
+npc_bossofthegame
+npc_full_stack
+npc_geppetto
+npc_clause
+npc_wren
+npc_geppetto_band
+npc_clause_band
+npc_wren_band
 
 [Bosses, by where they are fought]
 npc_flying_spaghetti_monster_boss

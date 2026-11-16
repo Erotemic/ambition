@@ -1745,7 +1745,7 @@
             fields: (
                 character_id: "npc_goblin_cantina_bard",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_cantina_bard",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2645,7 +2645,7 @@
             fields: (
                 character_id: "npc_steel_man",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_steel_man",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2663,7 +2663,7 @@
             fields: (
                 character_id: "npc_straw_man",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_straw_man",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2681,7 +2681,7 @@
             fields: (
                 character_id: "npc_port_ines",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_ines",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2699,7 +2699,7 @@
             fields: (
                 character_id: "npc_port_tomas",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_tomas",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2717,7 +2717,7 @@
             fields: (
                 character_id: "npc_port_agnes",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_agnes",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2735,7 +2735,7 @@
             fields: (
                 character_id: "npc_port_jory",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_jory",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2753,7 +2753,7 @@
             fields: (
                 character_id: "npc_port_bram",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_bram",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2771,7 +2771,7 @@
             fields: (
                 character_id: "npc_port_wren",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_wren",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2789,7 +2789,7 @@
             fields: (
                 character_id: "npc_port_brine",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_brine",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2807,7 +2807,7 @@
             fields: (
                 character_id: "npc_port_lamplugh",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_lamplugh",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2825,7 +2825,7 @@
             fields: (
                 character_id: "npc_port_bolt",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_bolt",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2843,7 +2843,7 @@
             fields: (
                 character_id: "npc_port_slipp",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_port_slipp",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2861,7 +2861,7 @@
             fields: (
                 character_id: "npc_village_sato",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_sato",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2879,7 +2879,7 @@
             fields: (
                 character_id: "npc_village_nagisa",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_nagisa",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2897,7 +2897,7 @@
             fields: (
                 character_id: "npc_village_kenji",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_kenji",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2915,7 +2915,7 @@
             fields: (
                 character_id: "npc_village_ume",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_ume",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2933,7 +2933,7 @@
             fields: (
                 character_id: "npc_village_tsuru",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_tsuru",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2951,7 +2951,7 @@
             fields: (
                 character_id: "npc_village_matsuda",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_matsuda",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2969,7 +2969,7 @@
             fields: (
                 character_id: "npc_village_daichi",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_daichi",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2987,7 +2987,7 @@
             fields: (
                 character_id: "npc_village_hayashi",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_hayashi",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3005,7 +3005,7 @@
             fields: (
                 character_id: "npc_village_ren",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_ren",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3023,7 +3023,7 @@
             fields: (
                 character_id: "npc_village_moriyama",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_village_moriyama",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3041,7 +3041,7 @@
             fields: (
                 character_id: "npc_valley_miller",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_valley_miller",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3059,7 +3059,7 @@
             fields: (
                 character_id: "npc_valley_innkeeper",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_valley_innkeeper",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3077,7 +3077,7 @@
             fields: (
                 character_id: "npc_valley_trader",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_valley_trader",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3095,7 +3095,7 @@
             fields: (
                 character_id: "npc_valley_gatekeeper",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_valley_gatekeeper",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3104,6 +3104,24 @@
             type: "NpcSpawn",
             px: [
                 1456,
+                5152,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_valley_shepherd",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_valley_shepherd",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1584,
                 5152,
             ],
             size: [
@@ -3113,7 +3131,7 @@
             fields: (
                 character_id: "npc_station_okafor",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_station_okafor",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3121,7 +3139,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 5152,
             ],
             size: [
@@ -3131,7 +3149,7 @@
             fields: (
                 character_id: "npc_station_reyes",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_station_reyes",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3139,7 +3157,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 5152,
             ],
             size: [
@@ -3149,7 +3167,7 @@
             fields: (
                 character_id: "npc_station_lindqvist",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_station_lindqvist",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3157,7 +3175,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 5152,
             ],
             size: [
@@ -3167,7 +3185,7 @@
             fields: (
                 character_id: "npc_station_rahimi",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_station_rahimi",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3175,8 +3193,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                5152,
+                48,
+                4960,
             ],
             size: [
                 32,
@@ -3185,7 +3203,7 @@
             fields: (
                 character_id: "npc_station_pell",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_station_pell",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3193,7 +3211,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 4960,
             ],
             size: [
@@ -3203,7 +3221,7 @@
             fields: (
                 character_id: "npc_station_wen",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_station_wen",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3211,7 +3229,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 4960,
             ],
             size: [
@@ -3221,7 +3239,7 @@
             fields: (
                 character_id: "npc_station_dobbs",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_station_dobbs",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3229,7 +3247,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 4960,
             ],
             size: [
@@ -3239,7 +3257,7 @@
             fields: (
                 character_id: "npc_station_pippin",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_station_pippin",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3247,7 +3265,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 4960,
             ],
             size: [
@@ -3257,7 +3275,7 @@
             fields: (
                 character_id: "npc_magical_celeste",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_magical_celeste",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3265,7 +3283,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 4960,
             ],
             size: [
@@ -3275,7 +3293,7 @@
             fields: (
                 character_id: "npc_magical_lumen",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_magical_lumen",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3283,7 +3301,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 4960,
             ],
             size: [
@@ -3293,7 +3311,7 @@
             fields: (
                 character_id: "npc_void_star",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_void_star",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3301,7 +3319,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 4960,
             ],
             size: [
@@ -3311,7 +3329,7 @@
             fields: (
                 character_id: "npc_eureka_teodora",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_teodora",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3319,7 +3337,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 4960,
             ],
             size: [
@@ -3329,7 +3347,7 @@
             fields: (
                 character_id: "npc_eureka_priya",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_priya",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3337,7 +3355,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 4960,
             ],
             size: [
@@ -3347,7 +3365,7 @@
             fields: (
                 character_id: "npc_eureka_dmitri",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_dmitri",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3355,7 +3373,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 4960,
             ],
             size: [
@@ -3365,7 +3383,7 @@
             fields: (
                 character_id: "npc_eureka_wilbur",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_wilbur",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3373,7 +3391,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 4960,
             ],
             size: [
@@ -3383,7 +3401,7 @@
             fields: (
                 character_id: "npc_eureka_halvorsen",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_halvorsen",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3391,7 +3409,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 4960,
             ],
             size: [
@@ -3401,7 +3419,7 @@
             fields: (
                 character_id: "npc_eureka_mina",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_mina",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3409,7 +3427,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 4960,
             ],
             size: [
@@ -3419,7 +3437,7 @@
             fields: (
                 character_id: "npc_eureka_pryce",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_pryce",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3427,7 +3445,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 4960,
             ],
             size: [
@@ -3437,7 +3455,7 @@
             fields: (
                 character_id: "npc_eureka_hum",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_hum",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3445,7 +3463,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 4960,
             ],
             size: [
@@ -3455,7 +3473,7 @@
             fields: (
                 character_id: "npc_eureka_quark",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_eureka_quark",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3463,8 +3481,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                4960,
+                48,
+                4768,
             ],
             size: [
                 32,
@@ -3473,7 +3491,7 @@
             fields: (
                 character_id: "npc_science_nikobolt",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_science_nikobolt",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3481,7 +3499,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 4768,
             ],
             size: [
@@ -3491,7 +3509,7 @@
             fields: (
                 character_id: "npc_science_coulomba",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_science_coulomba",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3499,7 +3517,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 4768,
             ],
             size: [
@@ -3509,7 +3527,7 @@
             fields: (
                 character_id: "npc_armsmith_odile",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_armsmith_odile",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3517,7 +3535,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 4768,
             ],
             size: [
@@ -3527,7 +3545,7 @@
             fields: (
                 character_id: "npc_tower_voss",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_tower_voss",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3535,7 +3553,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 4768,
             ],
             size: [
@@ -3545,7 +3563,7 @@
             fields: (
                 character_id: "npc_tower_dorsey",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_tower_dorsey",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3553,7 +3571,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 4768,
             ],
             size: [
@@ -3563,7 +3581,7 @@
             fields: (
                 character_id: "npc_tower_tanaka",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_tower_tanaka",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3571,7 +3589,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 4768,
             ],
             size: [
@@ -3581,7 +3599,7 @@
             fields: (
                 character_id: "npc_tower_bankole",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_tower_bankole",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3589,7 +3607,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 4768,
             ],
             size: [
@@ -3599,7 +3617,7 @@
             fields: (
                 character_id: "npc_tower_granger",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_tower_granger",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3607,7 +3625,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 4768,
             ],
             size: [
@@ -3617,7 +3635,7 @@
             fields: (
                 character_id: "npc_tower_ruiz",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_tower_ruiz",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3625,7 +3643,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 4768,
             ],
             size: [
@@ -3635,7 +3653,7 @@
             fields: (
                 character_id: "npc_math_ivo",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_math_ivo",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3643,7 +3661,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 4768,
             ],
             size: [
@@ -3653,7 +3671,7 @@
             fields: (
                 character_id: "npc_math_fibbs",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_math_fibbs",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3661,7 +3679,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 4768,
             ],
             size: [
@@ -3671,7 +3689,7 @@
             fields: (
                 character_id: "npc_math_monty",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_math_monty",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3679,7 +3697,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 4768,
             ],
             size: [
@@ -3689,7 +3707,7 @@
             fields: (
                 character_id: "npc_math_zeno",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_math_zeno",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3697,7 +3715,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 4768,
             ],
             size: [
@@ -3707,7 +3725,7 @@
             fields: (
                 character_id: "npc_math_kleinbottle",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_math_kleinbottle",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3715,7 +3733,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 4768,
             ],
             size: [
@@ -3725,7 +3743,7 @@
             fields: (
                 character_id: "npc_math_lucas",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_math_lucas",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3733,7 +3751,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 4768,
             ],
             size: [
@@ -3743,7 +3761,7 @@
             fields: (
                 character_id: "npc_math_fermette",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_math_fermette",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3751,8 +3769,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                4768,
+                48,
+                4576,
             ],
             size: [
                 32,
@@ -3761,7 +3779,7 @@
             fields: (
                 character_id: "npc_math_kepplar",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_math_kepplar",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3769,7 +3787,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 4576,
             ],
             size: [
@@ -3779,7 +3797,7 @@
             fields: (
                 character_id: "npc_castle_hargreave",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_castle_hargreave",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3787,7 +3805,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 4576,
             ],
             size: [
@@ -3797,7 +3815,7 @@
             fields: (
                 character_id: "npc_castle_osgood",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_castle_osgood",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3805,7 +3823,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 4576,
             ],
             size: [
@@ -3815,7 +3833,7 @@
             fields: (
                 character_id: "npc_castle_quill",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_castle_quill",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3823,7 +3841,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 4576,
             ],
             size: [
@@ -3833,7 +3851,7 @@
             fields: (
                 character_id: "npc_castle_dunmore",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_castle_dunmore",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3841,7 +3859,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 4576,
             ],
             size: [
@@ -3851,7 +3869,7 @@
             fields: (
                 character_id: "npc_evil_gudrun",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_evil_gudrun",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3859,7 +3877,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 4576,
             ],
             size: [
@@ -3869,7 +3887,7 @@
             fields: (
                 character_id: "npc_evil_tobias",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_evil_tobias",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3877,7 +3895,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 4576,
             ],
             size: [
@@ -3887,7 +3905,7 @@
             fields: (
                 character_id: "npc_evil_mudge",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_evil_mudge",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3895,7 +3913,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 4576,
             ],
             size: [
@@ -3905,7 +3923,7 @@
             fields: (
                 character_id: "npc_evil_crabbe",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_evil_crabbe",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3913,7 +3931,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 4576,
             ],
             size: [
@@ -3923,7 +3941,7 @@
             fields: (
                 character_id: "npc_castle_sprocket",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_castle_sprocket",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3931,7 +3949,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 4576,
             ],
             size: [
@@ -3941,7 +3959,7 @@
             fields: (
                 character_id: "npc_evil_bellows",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_evil_bellows",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3949,7 +3967,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 4576,
             ],
             size: [
@@ -3959,7 +3977,7 @@
             fields: (
                 character_id: "npc_evil_crumb",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_evil_crumb",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3967,7 +3985,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 4576,
             ],
             size: [
@@ -3977,7 +3995,7 @@
             fields: (
                 character_id: "npc_evil_prentice",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_evil_prentice",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -3985,7 +4003,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 4576,
             ],
             size: [
@@ -3995,7 +4013,7 @@
             fields: (
                 character_id: "npc_primeval_brandvold",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_primeval_brandvold",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4003,7 +4021,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 4576,
             ],
             size: [
@@ -4013,7 +4031,7 @@
             fields: (
                 character_id: "npc_primeval_feld",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_primeval_feld",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4021,7 +4039,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 4576,
             ],
             size: [
@@ -4031,7 +4049,7 @@
             fields: (
                 character_id: "npc_primeval_tock",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_primeval_tock",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4039,8 +4057,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                4576,
+                48,
+                4384,
             ],
             size: [
                 32,
@@ -4049,7 +4067,7 @@
             fields: (
                 character_id: "npc_primeval_twitchell",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_primeval_twitchell",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4057,7 +4075,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 4384,
             ],
             size: [
@@ -4067,7 +4085,7 @@
             fields: (
                 character_id: "npc_primeval_dlamini",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_primeval_dlamini",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4075,7 +4093,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 4384,
             ],
             size: [
@@ -4085,7 +4103,7 @@
             fields: (
                 character_id: "npc_primeval_stratton",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_primeval_stratton",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4093,7 +4111,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 4384,
             ],
             size: [
@@ -4103,7 +4121,7 @@
             fields: (
                 character_id: "npc_tower_brandt",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_tower_brandt",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4111,7 +4129,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 4384,
             ],
             size: [
@@ -4121,7 +4139,7 @@
             fields: (
                 character_id: "npc_art_curator",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_curator",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4129,7 +4147,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 4384,
             ],
             size: [
@@ -4139,7 +4157,7 @@
             fields: (
                 character_id: "npc_art_rob_boss",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_rob_boss",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4147,7 +4165,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 4384,
             ],
             size: [
@@ -4157,7 +4175,7 @@
             fields: (
                 character_id: "npc_art_pablo_peckasso",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_pablo_peckasso",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4165,7 +4183,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 4384,
             ],
             size: [
@@ -4175,7 +4193,7 @@
             fields: (
                 character_id: "npc_art_frida_collage",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_frida_collage",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4183,7 +4201,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 4384,
             ],
             size: [
@@ -4193,7 +4211,7 @@
             fields: (
                 character_id: "npc_art_edgar_allan_crow",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_edgar_allan_crow",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4201,7 +4219,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 4384,
             ],
             size: [
@@ -4211,7 +4229,7 @@
             fields: (
                 character_id: "npc_art_agatha_christly",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_agatha_christly",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4219,7 +4237,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 4384,
             ],
             size: [
@@ -4229,7 +4247,7 @@
             fields: (
                 character_id: "npc_art_the_author",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_the_author",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4237,7 +4255,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 4384,
             ],
             size: [
@@ -4247,7 +4265,7 @@
             fields: (
                 character_id: "npc_art_marcel_mimeau",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_marcel_mimeau",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4255,7 +4273,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 4384,
             ],
             size: [
@@ -4265,7 +4283,7 @@
             fields: (
                 character_id: "npc_art_will_shakesbeard",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_will_shakesbeard",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4273,7 +4291,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 4384,
             ],
             size: [
@@ -4283,7 +4301,7 @@
             fields: (
                 character_id: "npc_art_ludwig_van_beathoven",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_ludwig_van_beathoven",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4291,7 +4309,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 4384,
             ],
             size: [
@@ -4301,7 +4319,7 @@
             fields: (
                 character_id: "npc_art_johann_sebastian_batch",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_johann_sebastian_batch",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4309,7 +4327,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 4384,
             ],
             size: [
@@ -4319,7 +4337,7 @@
             fields: (
                 character_id: "npc_art_leonardo_da_vinchy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_leonardo_da_vinchy",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4327,8 +4345,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                4384,
+                48,
+                4192,
             ],
             size: [
                 32,
@@ -4337,7 +4355,7 @@
             fields: (
                 character_id: "npc_art_antoni_gaudy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_antoni_gaudy",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4345,7 +4363,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 4192,
             ],
             size: [
@@ -4355,7 +4373,7 @@
             fields: (
                 character_id: "npc_art_james_camera_ron",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_james_camera_ron",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4363,7 +4381,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 4192,
             ],
             size: [
@@ -4373,7 +4391,7 @@
             fields: (
                 character_id: "npc_art_gale_anne_herd",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_gale_anne_herd",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4381,7 +4399,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 4192,
             ],
             size: [
@@ -4391,7 +4409,7 @@
             fields: (
                 character_id: "npc_art_isaac_azimuth",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_isaac_azimuth",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4399,7 +4417,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 4192,
             ],
             size: [
@@ -4409,7 +4427,7 @@
             fields: (
                 character_id: "npc_art_arthur_c_clerk",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_arthur_c_clerk",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4417,7 +4435,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 4192,
             ],
             size: [
@@ -4427,7 +4445,7 @@
             fields: (
                 character_id: "npc_art_stanley_cubrick",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_stanley_cubrick",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4435,7 +4453,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 4192,
             ],
             size: [
@@ -4445,7 +4463,7 @@
             fields: (
                 character_id: "npc_art_t71",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_t71",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4453,7 +4471,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 4192,
             ],
             size: [
@@ -4463,7 +4481,7 @@
             fields: (
                 character_id: "npc_art_ndr115",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_ndr115",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4471,7 +4489,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 4192,
             ],
             size: [
@@ -4481,7 +4499,7 @@
             fields: (
                 character_id: "npc_art_mal9000",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_art_mal9000",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4489,7 +4507,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 4192,
             ],
             size: [
@@ -4499,7 +4517,7 @@
             fields: (
                 character_id: "npc_history_clio",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_clio",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4507,7 +4525,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 4192,
             ],
             size: [
@@ -4517,7 +4535,7 @@
             fields: (
                 character_id: "npc_history_hammurabbi",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_hammurabbi",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4525,7 +4543,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 4192,
             ],
             size: [
@@ -4535,7 +4553,7 @@
             fields: (
                 character_id: "npc_history_gilgamash",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_gilgamash",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4543,7 +4561,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 4192,
             ],
             size: [
@@ -4553,7 +4571,7 @@
             fields: (
                 character_id: "npc_history_scribe_of_debts",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_scribe_of_debts",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4561,7 +4579,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 4192,
             ],
             size: [
@@ -4571,7 +4589,7 @@
             fields: (
                 character_id: "npc_history_hatshepsut_hats",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_hatshepsut_hats",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4579,7 +4597,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 4192,
             ],
             size: [
@@ -4589,7 +4607,7 @@
             fields: (
                 character_id: "npc_history_ramesses_pretty_good",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ramesses_pretty_good",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4597,7 +4615,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 4192,
             ],
             size: [
@@ -4607,7 +4625,7 @@
             fields: (
                 character_id: "npc_history_socratease",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_socratease",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4615,8 +4633,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                4192,
+                48,
+                4000,
             ],
             size: [
                 32,
@@ -4625,7 +4643,7 @@
             fields: (
                 character_id: "npc_history_herodotoss",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_herodotoss",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4633,7 +4651,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 4000,
             ],
             size: [
@@ -4643,7 +4661,7 @@
             fields: (
                 character_id: "npc_history_julius_sneezer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_julius_sneezer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4651,7 +4669,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 4000,
             ],
             size: [
@@ -4661,7 +4679,7 @@
             fields: (
                 character_id: "npc_history_marco_polo_neck",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_marco_polo_neck",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4669,7 +4687,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 4000,
             ],
             size: [
@@ -4679,7 +4697,7 @@
             fields: (
                 character_id: "npc_history_confusius",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_confusius",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4687,7 +4705,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 4000,
             ],
             size: [
@@ -4697,7 +4715,7 @@
             fields: (
                 character_id: "npc_history_kublai_khant_wait",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_kublai_khant_wait",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4705,7 +4723,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 4000,
             ],
             size: [
@@ -4715,7 +4733,7 @@
             fields: (
                 character_id: "npc_history_mansa_moolah",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_mansa_moolah",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4723,7 +4741,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 4000,
             ],
             size: [
@@ -4733,7 +4751,7 @@
             fields: (
                 character_id: "npc_history_ibn_batootah",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ibn_batootah",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4741,7 +4759,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 4000,
             ],
             size: [
@@ -4751,7 +4769,7 @@
             fields: (
                 character_id: "npc_history_zheng_hey",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_zheng_hey",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4759,7 +4777,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 4000,
             ],
             size: [
@@ -4769,7 +4787,7 @@
             fields: (
                 character_id: "npc_history_vasco_da_gamer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_vasco_da_gamer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4777,7 +4795,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 4000,
             ],
             size: [
@@ -4787,7 +4805,7 @@
             fields: (
                 character_id: "npc_history_christopher_columbust",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_christopher_columbust",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4795,7 +4813,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 4000,
             ],
             size: [
@@ -4805,7 +4823,7 @@
             fields: (
                 character_id: "npc_history_captain_cookbook",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_captain_cookbook",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4813,7 +4831,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 4000,
             ],
             size: [
@@ -4823,7 +4841,7 @@
             fields: (
                 character_id: "npc_history_adam_smithy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_adam_smithy",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4831,7 +4849,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 4000,
             ],
             size: [
@@ -4841,7 +4859,7 @@
             fields: (
                 character_id: "npc_history_karl_marks",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_karl_marks",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4849,7 +4867,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 4000,
             ],
             size: [
@@ -4859,7 +4877,7 @@
             fields: (
                 character_id: "npc_history_general_ludd",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_general_ludd",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4867,7 +4885,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 4000,
             ],
             size: [
@@ -4877,7 +4895,7 @@
             fields: (
                 character_id: "npc_history_mary_leaky",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_mary_leaky",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4885,7 +4903,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 4000,
             ],
             size: [
@@ -4895,7 +4913,7 @@
             fields: (
                 character_id: "npc_history_lucy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_lucy",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4903,8 +4921,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                4000,
+                48,
+                3808,
             ],
             size: [
                 32,
@@ -4913,7 +4931,7 @@
             fields: (
                 character_id: "npc_history_ochre_artist",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ochre_artist",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4921,7 +4939,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 3808,
             ],
             size: [
@@ -4931,7 +4949,7 @@
             fields: (
                 character_id: "npc_history_cattle_herder",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_cattle_herder",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4939,7 +4957,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 3808,
             ],
             size: [
@@ -4949,7 +4967,7 @@
             fields: (
                 character_id: "npc_history_kandake_can_do",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_kandake_can_do",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4957,7 +4975,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 3808,
             ],
             size: [
@@ -4967,7 +4985,7 @@
             fields: (
                 character_id: "npc_history_neville_neanderthal",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_neville_neanderthal",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4975,7 +4993,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 3808,
             ],
             size: [
@@ -4985,7 +5003,7 @@
             fields: (
                 character_id: "npc_history_enheduanna",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_enheduanna",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -4993,7 +5011,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 3808,
             ],
             size: [
@@ -5003,7 +5021,7 @@
             fields: (
                 character_id: "npc_history_cave_painter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_cave_painter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5011,7 +5029,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 3808,
             ],
             size: [
@@ -5021,7 +5039,7 @@
             fields: (
                 character_id: "npc_history_otzi_nice_man",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_otzi_nice_man",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5029,7 +5047,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 3808,
             ],
             size: [
@@ -5039,7 +5057,7 @@
             fields: (
                 character_id: "npc_history_not_a_druid",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_not_a_druid",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5047,7 +5065,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 3808,
             ],
             size: [
@@ -5057,7 +5075,7 @@
             fields: (
                 character_id: "npc_history_boudic_car",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_boudic_car",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5065,7 +5083,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 3808,
             ],
             size: [
@@ -5075,7 +5093,7 @@
             fields: (
                 character_id: "npc_history_leif_errandson",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_leif_errandson",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5083,7 +5101,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 3808,
             ],
             size: [
@@ -5093,7 +5111,7 @@
             fields: (
                 character_id: "npc_history_coast_walker",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_coast_walker",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5101,7 +5119,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 3808,
             ],
             size: [
@@ -5111,7 +5129,7 @@
             fields: (
                 character_id: "npc_history_dentist_of_mehrgarh",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_dentist_of_mehrgarh",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5119,7 +5137,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 3808,
             ],
             size: [
@@ -5129,7 +5147,7 @@
             fields: (
                 character_id: "npc_history_priest_king_probably",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_priest_king_probably",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5137,7 +5155,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 3808,
             ],
             size: [
@@ -5147,7 +5165,7 @@
             fields: (
                 character_id: "npc_history_denny_denisovan",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_denny_denisovan",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5155,7 +5173,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 3808,
             ],
             size: [
@@ -5165,7 +5183,7 @@
             fields: (
                 character_id: "npc_history_leizu",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_leizu",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5173,7 +5191,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 3808,
             ],
             size: [
@@ -5183,7 +5201,7 @@
             fields: (
                 character_id: "npc_history_fu_hao",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_fu_hao",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5191,8 +5209,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                3808,
+                48,
+                3616,
             ],
             size: [
                 32,
@@ -5201,7 +5219,7 @@
             fields: (
                 character_id: "npc_history_dr_clovis_first",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_dr_clovis_first",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5209,7 +5227,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 3616,
             ],
             size: [
@@ -5219,7 +5237,7 @@
             fields: (
                 character_id: "npc_history_teosinte_breeder",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_teosinte_breeder",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5227,7 +5245,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 3616,
             ],
             size: [
@@ -5237,7 +5255,7 @@
             fields: (
                 character_id: "npc_history_raft_builder",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_raft_builder",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5245,7 +5263,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 3616,
             ],
             size: [
@@ -5255,7 +5273,7 @@
             fields: (
                 character_id: "npc_history_kuk_gardener",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_kuk_gardener",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5263,7 +5281,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 3616,
             ],
             size: [
@@ -5273,7 +5291,7 @@
             fields: (
                 character_id: "npc_history_head_sculptor",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_head_sculptor",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5281,7 +5299,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 3616,
             ],
             size: [
@@ -5291,7 +5309,7 @@
             fields: (
                 character_id: "npc_history_zero_hero",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_zero_hero",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5299,7 +5317,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 3616,
             ],
             size: [
@@ -5309,7 +5327,7 @@
             fields: (
                 character_id: "npc_history_lady_six_sky_high",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_lady_six_sky_high",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5317,7 +5335,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 3616,
             ],
             size: [
@@ -5327,7 +5345,7 @@
             fields: (
                 character_id: "npc_history_cacica_of_boriken",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_cacica_of_boriken",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5335,7 +5353,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 3616,
             ],
             size: [
@@ -5345,7 +5363,7 @@
             fields: (
                 character_id: "npc_history_canoe_maker",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_canoe_maker",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5353,7 +5371,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 3616,
             ],
             size: [
@@ -5363,7 +5381,7 @@
             fields: (
                 character_id: "npc_history_lapita_potter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_lapita_potter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5371,7 +5389,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 3616,
             ],
             size: [
@@ -5381,7 +5399,7 @@
             fields: (
                 character_id: "npc_history_wayfinder",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_wayfinder",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5389,7 +5407,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 3616,
             ],
             size: [
@@ -5399,7 +5417,7 @@
             fields: (
                 character_id: "npc_history_moai_carver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_moai_carver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5407,7 +5425,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 3616,
             ],
             size: [
@@ -5417,7 +5435,7 @@
             fields: (
                 character_id: "npc_history_thor_hey_im_right_dahl",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_thor_hey_im_right_dahl",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5425,7 +5443,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 3616,
             ],
             size: [
@@ -5435,7 +5453,7 @@
             fields: (
                 character_id: "npc_history_brass_caster",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_brass_caster",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5443,7 +5461,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 3616,
             ],
             size: [
@@ -5453,7 +5471,7 @@
             fields: (
                 character_id: "npc_history_iyoba_idia",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_iyoba_idia",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5461,7 +5479,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 3616,
             ],
             size: [
@@ -5471,7 +5489,7 @@
             fields: (
                 character_id: "npc_history_lord_finders_keepers",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_lord_finders_keepers",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5479,8 +5497,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                3616,
+                48,
+                3424,
             ],
             size: [
                 32,
@@ -5489,7 +5507,7 @@
             fields: (
                 character_id: "npc_history_toussaint_louverture",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_toussaint_louverture",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5497,7 +5515,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 3424,
             ],
             size: [
@@ -5507,7 +5525,7 @@
             fields: (
                 character_id: "npc_history_catherine_flon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_catherine_flon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5515,7 +5533,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 3424,
             ],
             size: [
@@ -5525,7 +5543,7 @@
             fields: (
                 character_id: "npc_history_soup_joumou_cook",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_soup_joumou_cook",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5533,7 +5551,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 3424,
             ],
             size: [
@@ -5543,7 +5561,7 @@
             fields: (
                 character_id: "npc_history_ottobah_cugoano",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ottobah_cugoano",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5551,7 +5569,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 3424,
             ],
             size: [
@@ -5561,7 +5579,7 @@
             fields: (
                 character_id: "npc_history_castle_guide",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_castle_guide",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5569,7 +5587,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 3424,
             ],
             size: [
@@ -5579,7 +5597,7 @@
             fields: (
                 character_id: "npc_history_potato_farmer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_potato_farmer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5587,7 +5605,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 3424,
             ],
             size: [
@@ -5597,7 +5615,7 @@
             fields: (
                 character_id: "npc_history_antoine_parmen_tater",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_antoine_parmen_tater",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5605,7 +5623,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 3424,
             ],
             size: [
@@ -5615,7 +5633,7 @@
             fields: (
                 character_id: "npc_history_caral_flautist",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_caral_flautist",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5623,7 +5641,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 3424,
             ],
             size: [
@@ -5633,7 +5651,7 @@
             fields: (
                 character_id: "npc_history_net_maker",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_net_maker",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5641,7 +5659,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 3424,
             ],
             size: [
@@ -5651,7 +5669,7 @@
             fields: (
                 character_id: "npc_history_pig_painter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_pig_painter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5659,7 +5677,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 3424,
             ],
             size: [
@@ -5669,7 +5687,7 @@
             fields: (
                 character_id: "npc_history_word_keeper",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_word_keeper",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5677,7 +5695,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 3424,
             ],
             size: [
@@ -5687,7 +5705,7 @@
             fields: (
                 character_id: "npc_history_trung_trac",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_trung_trac",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5695,7 +5713,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 3424,
             ],
             size: [
@@ -5705,7 +5723,7 @@
             fields: (
                 character_id: "npc_history_trung_nhi",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_trung_nhi",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5713,7 +5731,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 3424,
             ],
             size: [
@@ -5723,7 +5741,7 @@
             fields: (
                 character_id: "npc_history_drum_caster",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_drum_caster",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5731,7 +5749,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 3424,
             ],
             size: [
@@ -5741,7 +5759,7 @@
             fields: (
                 character_id: "npc_history_harbour_master",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_harbour_master",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5749,7 +5767,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 3424,
             ],
             size: [
@@ -5759,7 +5777,7 @@
             fields: (
                 character_id: "npc_history_yijing",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_yijing",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5767,8 +5785,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                3424,
+                48,
+                3232,
             ],
             size: [
                 32,
@@ -5777,7 +5795,7 @@
             fields: (
                 character_id: "npc_history_relief_carver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_relief_carver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5785,7 +5803,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 3232,
             ],
             size: [
@@ -5795,7 +5813,7 @@
             fields: (
                 character_id: "npc_history_baray_engineer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_baray_engineer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5803,7 +5821,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 3232,
             ],
             size: [
@@ -5813,7 +5831,7 @@
             fields: (
                 character_id: "npc_history_zhou_da_guide",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_zhou_da_guide",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5821,7 +5839,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 3232,
             ],
             size: [
@@ -5831,7 +5849,7 @@
             fields: (
                 character_id: "npc_history_flame_potter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_flame_potter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5839,7 +5857,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 3232,
             ],
             size: [
@@ -5849,7 +5867,7 @@
             fields: (
                 character_id: "npc_history_chestnut_keeper",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_chestnut_keeper",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5857,7 +5875,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 3232,
             ],
             size: [
@@ -5867,7 +5885,7 @@
             fields: (
                 character_id: "npc_history_jade_carver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_jade_carver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5875,7 +5893,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 3232,
             ],
             size: [
@@ -5885,7 +5903,7 @@
             fields: (
                 character_id: "npc_history_nankuanli_farmer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_nankuanli_farmer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5893,7 +5911,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 3232,
             ],
             size: [
@@ -5903,7 +5921,7 @@
             fields: (
                 character_id: "npc_history_queen_seondeok",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_queen_seondeok",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5911,7 +5929,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 3232,
             ],
             size: [
@@ -5921,7 +5939,7 @@
             fields: (
                 character_id: "npc_history_star_watcher",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_star_watcher",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5929,7 +5947,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 3232,
             ],
             size: [
@@ -5939,7 +5957,7 @@
             fields: (
                 character_id: "npc_history_li_qingzhao",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_li_qingzhao",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5947,7 +5965,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 3232,
             ],
             size: [
@@ -5957,7 +5975,7 @@
             fields: (
                 character_id: "npc_history_money_printer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_money_printer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5965,7 +5983,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 3232,
             ],
             size: [
@@ -5975,7 +5993,7 @@
             fields: (
                 character_id: "npc_history_murasaki_shikibu",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_murasaki_shikibu",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -5983,7 +6001,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 3232,
             ],
             size: [
@@ -5993,7 +6011,7 @@
             fields: (
                 character_id: "npc_history_sei_shonagon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_sei_shonagon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6001,7 +6019,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 3232,
             ],
             size: [
@@ -6011,7 +6029,7 @@
             fields: (
                 character_id: "npc_history_king_sejong",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_king_sejong",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6019,7 +6037,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 3232,
             ],
             size: [
@@ -6029,7 +6047,7 @@
             fields: (
                 character_id: "npc_history_jang_yeongsil",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_jang_yeongsil",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6037,7 +6055,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 3232,
             ],
             size: [
@@ -6047,7 +6065,7 @@
             fields: (
                 character_id: "npc_history_muslin_weaver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_muslin_weaver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6055,8 +6073,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                3232,
+                48,
+                3040,
             ],
             size: [
                 32,
@@ -6065,7 +6083,7 @@
             fields: (
                 character_id: "npc_history_cotton_spinner",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_cotton_spinner",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6073,7 +6091,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 3040,
             ],
             size: [
@@ -6083,7 +6101,7 @@
             fields: (
                 character_id: "npc_history_ram_mohan_roy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ram_mohan_roy",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6091,7 +6109,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 3040,
             ],
             size: [
@@ -6101,7 +6119,7 @@
             fields: (
                 character_id: "npc_history_rani_lakshmibai",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_rani_lakshmibai",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6109,7 +6127,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 3040,
             ],
             size: [
@@ -6119,7 +6137,7 @@
             fields: (
                 character_id: "npc_history_rabindranath_tagore",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_rabindranath_tagore",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6127,7 +6145,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 3040,
             ],
             size: [
@@ -6137,7 +6155,7 @@
             fields: (
                 character_id: "npc_history_begum_rokeya",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_begum_rokeya",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6145,7 +6163,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 3040,
             ],
             size: [
@@ -6155,7 +6173,7 @@
             fields: (
                 character_id: "npc_history_language_student",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_language_student",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6163,7 +6181,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 3040,
             ],
             size: [
@@ -6173,7 +6191,7 @@
             fields: (
                 character_id: "npc_history_freedom_fighter_poet",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_freedom_fighter_poet",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6181,7 +6199,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 3040,
             ],
             size: [
@@ -6191,7 +6209,7 @@
             fields: (
                 character_id: "npc_history_marajoara_potter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_marajoara_potter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6199,7 +6217,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 3040,
             ],
             size: [
@@ -6209,7 +6227,7 @@
             fields: (
                 character_id: "npc_history_dark_earth_gardener",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_dark_earth_gardener",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6217,7 +6235,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 3040,
             ],
             size: [
@@ -6227,7 +6245,7 @@
             fields: (
                 character_id: "npc_history_zumbi",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_zumbi",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6235,7 +6253,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 3040,
             ],
             size: [
@@ -6245,7 +6263,7 @@
             fields: (
                 character_id: "npc_history_dandara",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_dandara",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6253,7 +6271,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 3040,
             ],
             size: [
@@ -6263,7 +6281,7 @@
             fields: (
                 character_id: "npc_history_palmares_smith",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_palmares_smith",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6271,7 +6289,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 3040,
             ],
             size: [
@@ -6281,7 +6299,7 @@
             fields: (
                 character_id: "npc_history_andre_reboucas",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_andre_reboucas",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6289,7 +6307,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 3040,
             ],
             size: [
@@ -6299,7 +6317,7 @@
             fields: (
                 character_id: "npc_history_luis_gama",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_luis_gama",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6307,7 +6325,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 3040,
             ],
             size: [
@@ -6317,7 +6335,7 @@
             fields: (
                 character_id: "npc_history_dragao_do_mar",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_dragao_do_mar",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6325,7 +6343,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 3040,
             ],
             size: [
@@ -6335,7 +6353,7 @@
             fields: (
                 character_id: "npc_history_hojo_tokimune",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_hojo_tokimune",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6343,8 +6361,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                3040,
+                48,
+                2848,
             ],
             size: [
                 32,
@@ -6353,7 +6371,7 @@
             fields: (
                 character_id: "npc_history_takezaki_suenaga",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_takezaki_suenaga",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6361,7 +6379,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 2848,
             ],
             size: [
@@ -6371,7 +6389,7 @@
             fields: (
                 character_id: "npc_history_matsuo_basho",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_matsuo_basho",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6379,7 +6397,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 2848,
             ],
             size: [
@@ -6389,7 +6407,7 @@
             fields: (
                 character_id: "npc_history_hokusai",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_hokusai",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6397,7 +6415,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 2848,
             ],
             size: [
@@ -6407,7 +6425,7 @@
             fields: (
                 character_id: "npc_history_katsushika_oi",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_katsushika_oi",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6415,7 +6433,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 2848,
             ],
             size: [
@@ -6425,7 +6443,7 @@
             fields: (
                 character_id: "npc_history_fukuzawa_yukichi",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_fukuzawa_yukichi",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6433,7 +6451,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 2848,
             ],
             size: [
@@ -6443,7 +6461,7 @@
             fields: (
                 character_id: "npc_history_tsuda_umeko",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_tsuda_umeko",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6451,7 +6469,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 2848,
             ],
             size: [
@@ -6461,7 +6479,7 @@
             fields: (
                 character_id: "npc_history_kusumoto_ine",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_kusumoto_ine",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6469,7 +6487,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 2848,
             ],
             size: [
@@ -6479,7 +6497,7 @@
             fields: (
                 character_id: "npc_history_edo_tea_keeper",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_edo_tea_keeper",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6487,7 +6505,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 2848,
             ],
             size: [
@@ -6497,7 +6515,7 @@
             fields: (
                 character_id: "npc_history_edo_fishmonger",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_edo_fishmonger",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6505,7 +6523,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 2848,
             ],
             size: [
@@ -6515,7 +6533,7 @@
             fields: (
                 character_id: "npc_history_katanda_fisher",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_katanda_fisher",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6523,7 +6541,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 2848,
             ],
             size: [
@@ -6533,7 +6551,7 @@
             fields: (
                 character_id: "npc_history_ishango_carver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ishango_carver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6541,7 +6559,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 2848,
             ],
             size: [
@@ -6551,7 +6569,7 @@
             fields: (
                 character_id: "npc_history_raffia_weaver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_raffia_weaver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6559,7 +6577,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 2848,
             ],
             size: [
@@ -6569,7 +6587,7 @@
             fields: (
                 character_id: "npc_history_afonso_i",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_afonso_i",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6577,7 +6595,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 2848,
             ],
             size: [
@@ -6587,7 +6605,7 @@
             fields: (
                 character_id: "npc_history_ne_vunda",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ne_vunda",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6595,7 +6613,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 2848,
             ],
             size: [
@@ -6605,7 +6623,7 @@
             fields: (
                 character_id: "npc_history_nzinga",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_nzinga",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6613,7 +6631,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 2848,
             ],
             size: [
@@ -6623,7 +6641,7 @@
             fields: (
                 character_id: "npc_history_funji",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_funji",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6631,8 +6649,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                2848,
+                48,
+                2656,
             ],
             size: [
                 32,
@@ -6641,7 +6659,7 @@
             fields: (
                 character_id: "npc_history_george_washington_williams",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_george_washington_williams",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6649,7 +6667,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 2656,
             ],
             size: [
@@ -6659,25 +6677,7 @@
             fields: (
                 character_id: "npc_history_rubber_gatherer",
                 prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                176,
-                2656,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_history_william_sheppard",
-                prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_rubber_gatherer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6693,9 +6693,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_alice_seeley_harris",
+                character_id: "npc_history_william_sheppard",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_william_sheppard",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6711,9 +6711,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_mungo_fisher",
+                character_id: "npc_history_alice_seeley_harris",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_alice_seeley_harris",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6729,9 +6729,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_mungo_ranger",
+                character_id: "npc_history_mungo_fisher",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_mungo_fisher",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6747,9 +6747,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_tuitatui",
+                character_id: "npc_history_mungo_ranger",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_mungo_ranger",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6765,9 +6765,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_ngatu_maker",
+                character_id: "npc_history_tuitatui",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_tuitatui",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6783,9 +6783,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_tufuga_tatau",
+                character_id: "npc_history_ngatu_maker",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ngatu_maker",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6801,9 +6801,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_moa_hunter",
+                character_id: "npc_history_tufuga_tatau",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_tufuga_tatau",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6819,9 +6819,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_pounamu_carver",
+                character_id: "npc_history_moa_hunter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_moa_hunter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6837,9 +6837,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_henry_williams",
+                character_id: "npc_history_pounamu_carver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_pounamu_carver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6855,9 +6855,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_ana_hamu",
+                character_id: "npc_history_henry_williams",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_henry_williams",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6873,9 +6873,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_hone_heke",
+                character_id: "npc_history_ana_hamu",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ana_hamu",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6891,9 +6891,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_barangaroo",
+                character_id: "npc_history_hone_heke",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_hone_heke",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6909,9 +6909,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_bennelong",
+                character_id: "npc_history_barangaroo",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_barangaroo",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6927,9 +6927,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_pemulwuy",
+                character_id: "npc_history_bennelong",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_bennelong",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6945,9 +6945,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_kooyang_farmer",
+                character_id: "npc_history_pemulwuy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_pemulwuy",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6963,9 +6963,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_basket_weaver",
+                character_id: "npc_history_kooyang_farmer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_kooyang_farmer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6981,9 +6981,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_latte_builder",
+                character_id: "npc_history_basket_weaver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_basket_weaver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -6999,9 +6999,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_hurao",
+                character_id: "npc_history_latte_builder",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_latte_builder",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7017,9 +7017,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_basalt_hauler",
+                character_id: "npc_history_hurao",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_hurao",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7035,9 +7035,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_isokelekel",
+                character_id: "npc_history_basalt_hauler",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_basalt_hauler",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7053,9 +7053,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_ri_meto",
+                character_id: "npc_history_isokelekel",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_isokelekel",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7071,9 +7071,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_pandanus_weaver",
+                character_id: "npc_history_ri_meto",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_ri_meto",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7089,9 +7089,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_rai_owner",
+                character_id: "npc_history_pandanus_weaver",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_pandanus_weaver",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7107,9 +7107,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_palau_quarrier",
+                character_id: "npc_history_rai_owner",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_rai_owner",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7125,9 +7125,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_phosphate_digger",
+                character_id: "npc_history_palau_quarrier",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_palau_quarrier",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7143,9 +7143,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_hammer_deroburt",
+                character_id: "npc_history_phosphate_digger",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_phosphate_digger",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7161,9 +7161,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_juda",
+                character_id: "npc_history_hammer_deroburt",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_hammer_deroburt",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7179,9 +7179,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_history_bikini_elder",
+                character_id: "npc_history_juda",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_history_juda",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7190,6 +7190,24 @@
             type: "NpcSpawn",
             px: [
                 1840,
+                2464,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_history_bikini_elder",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_history_bikini_elder",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1968,
                 2464,
             ],
             size: [
@@ -7207,8 +7225,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                2464,
+                48,
+                2272,
             ],
             size: [
                 32,
@@ -7225,7 +7243,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 2272,
             ],
             size: [
@@ -7243,7 +7261,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 2272,
             ],
             size: [
@@ -7261,7 +7279,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 2272,
             ],
             size: [
@@ -7279,7 +7297,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 2272,
             ],
             size: [
@@ -7297,7 +7315,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 2272,
             ],
             size: [
@@ -7315,7 +7333,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 2272,
             ],
             size: [
@@ -7333,7 +7351,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 2272,
             ],
             size: [
@@ -7343,7 +7361,7 @@
             fields: (
                 character_id: "npc_goblin_bruiser",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_bruiser",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -7351,7 +7369,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 2272,
             ],
             size: [
@@ -7369,7 +7387,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 2272,
             ],
             size: [
@@ -7387,7 +7405,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 2272,
             ],
             size: [
@@ -7405,7 +7423,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 2272,
             ],
             size: [
@@ -7423,7 +7441,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 2272,
             ],
             size: [
@@ -7441,7 +7459,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 2272,
             ],
             size: [
@@ -7459,7 +7477,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 2272,
             ],
             size: [
@@ -7477,7 +7495,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 2272,
             ],
             size: [
@@ -7495,8 +7513,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                2272,
+                48,
+                2080,
             ],
             size: [
                 32,
@@ -7513,7 +7531,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 2080,
             ],
             size: [
@@ -7531,7 +7549,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 2080,
             ],
             size: [
@@ -7549,7 +7567,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 2080,
             ],
             size: [
@@ -7567,7 +7585,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 2080,
             ],
             size: [
@@ -7585,7 +7603,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 2080,
             ],
             size: [
@@ -7603,7 +7621,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 2080,
             ],
             size: [
@@ -7621,7 +7639,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 2080,
             ],
             size: [
@@ -7639,7 +7657,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 2080,
             ],
             size: [
@@ -7657,7 +7675,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 2080,
             ],
             size: [
@@ -7675,7 +7693,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 2080,
             ],
             size: [
@@ -7693,7 +7711,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
                 2080,
             ],
             size: [
@@ -7711,7 +7729,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1584,
                 2080,
             ],
             size: [
@@ -7729,7 +7747,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1712,
                 2080,
             ],
             size: [
@@ -7747,7 +7765,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1840,
                 2080,
             ],
             size: [
@@ -7765,7 +7783,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1968,
                 2080,
             ],
             size: [
@@ -7783,8 +7801,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                2080,
+                48,
+                1888,
             ],
             size: [
                 32,
@@ -7801,7 +7819,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                176,
                 1888,
             ],
             size: [
@@ -7819,7 +7837,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                304,
                 1888,
             ],
             size: [
@@ -7837,7 +7855,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                432,
                 1888,
             ],
             size: [
@@ -7855,7 +7873,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                560,
                 1888,
             ],
             size: [
@@ -7873,7 +7891,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                688,
                 1888,
             ],
             size: [
@@ -7891,7 +7909,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                816,
                 1888,
             ],
             size: [
@@ -7909,7 +7927,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                944,
                 1888,
             ],
             size: [
@@ -7927,7 +7945,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1072,
                 1888,
             ],
             size: [
@@ -7945,7 +7963,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1200,
                 1888,
             ],
             size: [
@@ -7963,7 +7981,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1328,
                 1888,
             ],
             size: [
@@ -7981,7 +7999,25 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1456,
+                1888,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_dividing_mite_half",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_dividing_mite_half",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1584,
                 1888,
             ],
             size: [
@@ -7999,7 +8035,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 1888,
             ],
             size: [
@@ -8017,7 +8053,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 1888,
             ],
             size: [
@@ -8035,7 +8071,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 1888,
             ],
             size: [
@@ -8053,8 +8089,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                1888,
+                48,
+                1696,
             ],
             size: [
                 32,
@@ -8071,8 +8107,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                1888,
+                176,
+                1696,
             ],
             size: [
                 32,
@@ -8089,7 +8125,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 1696,
             ],
             size: [
@@ -8107,7 +8143,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 1696,
             ],
             size: [
@@ -8125,7 +8161,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 1696,
             ],
             size: [
@@ -8143,7 +8179,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 1696,
             ],
             size: [
@@ -8161,7 +8197,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 1696,
             ],
             size: [
@@ -8179,7 +8215,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 1696,
             ],
             size: [
@@ -8197,7 +8233,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 1696,
             ],
             size: [
@@ -8215,7 +8251,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 1696,
             ],
             size: [
@@ -8233,7 +8269,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 1696,
             ],
             size: [
@@ -8251,7 +8287,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 1696,
             ],
             size: [
@@ -8269,7 +8305,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 1696,
             ],
             size: [
@@ -8287,7 +8323,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 1696,
             ],
             size: [
@@ -8305,7 +8341,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 1696,
             ],
             size: [
@@ -8323,7 +8359,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 1696,
             ],
             size: [
@@ -8333,43 +8369,7 @@
             fields: (
                 character_id: "bad_apple",
                 prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1840,
-                1696,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "gravity_apple",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1968,
-                1696,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "eigenghost",
-                prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_bad_apple",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8385,9 +8385,9 @@
                 48,
             ],
             fields: (
-                character_id: "spectral_perturbation",
+                character_id: "gravity_apple",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_gravity_apple",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8403,9 +8403,9 @@
                 48,
             ],
             fields: (
-                character_id: "decomposing_specter",
+                character_id: "eigenghost",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_eigenghost",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8421,9 +8421,9 @@
                 48,
             ],
             fields: (
-                character_id: "shift_operator",
+                character_id: "spectral_perturbation",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_spectral_perturbation",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8439,9 +8439,9 @@
                 48,
             ],
             fields: (
-                character_id: "quantum_die",
+                character_id: "decomposing_specter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_decomposing_specter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8457,9 +8457,9 @@
                 48,
             ],
             fields: (
-                character_id: "dealers_hand",
+                character_id: "shift_operator",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_shift_operator",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8468,6 +8468,42 @@
             type: "NpcSpawn",
             px: [
                 688,
+                1504,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "quantum_die",
+                prompt: "Inspect",
+                dialogue_id: "hall_quantum_die",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                816,
+                1504,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "dealers_hand",
+                prompt: "Inspect",
+                dialogue_id: "hall_dealers_hand",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                944,
                 1504,
             ],
             size: [
@@ -8485,7 +8521,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 1504,
             ],
             size: [
@@ -8503,7 +8539,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 1504,
             ],
             size: [
@@ -8521,7 +8557,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 1504,
             ],
             size: [
@@ -8539,7 +8575,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 1504,
             ],
             size: [
@@ -8557,7 +8593,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 1504,
             ],
             size: [
@@ -8575,7 +8611,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 1504,
             ],
             size: [
@@ -8593,7 +8629,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 1504,
             ],
             size: [
@@ -8611,7 +8647,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 1504,
             ],
             size: [
@@ -8629,8 +8665,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                1504,
+                48,
+                1312,
             ],
             size: [
                 32,
@@ -8647,8 +8683,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                1504,
+                176,
+                1312,
             ],
             size: [
                 32,
@@ -8665,7 +8701,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 1312,
             ],
             size: [
@@ -8675,7 +8711,7 @@
             fields: (
                 character_id: "doodle_imp",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_doodle_imp",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8683,7 +8719,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 1312,
             ],
             size: [
@@ -8693,7 +8729,7 @@
             fields: (
                 character_id: "ink_wisp",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_ink_wisp",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8701,7 +8737,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 1312,
             ],
             size: [
@@ -8711,7 +8747,7 @@
             fields: (
                 character_id: "origami_bird",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_origami_bird",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8719,7 +8755,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 1312,
             ],
             size: [
@@ -8729,7 +8765,7 @@
             fields: (
                 character_id: "brush_knight",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_brush_knight",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8737,7 +8773,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 1312,
             ],
             size: [
@@ -8747,7 +8783,7 @@
             fields: (
                 character_id: "living_statue",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_living_statue",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8755,7 +8791,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 1312,
             ],
             size: [
@@ -8765,7 +8801,7 @@
             fields: (
                 character_id: "bookworm",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_bookworm",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8773,7 +8809,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 1312,
             ],
             size: [
@@ -8783,7 +8819,7 @@
             fields: (
                 character_id: "red_herring",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_red_herring",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8791,7 +8827,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 1312,
             ],
             size: [
@@ -8801,7 +8837,7 @@
             fields: (
                 character_id: "paper_tiger",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_paper_tiger",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8809,7 +8845,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 1312,
             ],
             size: [
@@ -8819,7 +8855,7 @@
             fields: (
                 character_id: "stagehand",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_stagehand",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8827,7 +8863,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 1312,
             ],
             size: [
@@ -8837,7 +8873,7 @@
             fields: (
                 character_id: "critic",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_critic",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8845,7 +8881,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 1312,
             ],
             size: [
@@ -8855,7 +8891,7 @@
             fields: (
                 character_id: "mime",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_mime",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8863,7 +8899,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 1312,
             ],
             size: [
@@ -8873,7 +8909,7 @@
             fields: (
                 character_id: "discord_note",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_discord_note",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8881,7 +8917,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 1312,
             ],
             size: [
@@ -8891,7 +8927,7 @@
             fields: (
                 character_id: "feedback_wail",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_feedback_wail",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8899,7 +8935,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 1312,
             ],
             size: [
@@ -8909,7 +8945,7 @@
             fields: (
                 character_id: "war_drum",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_war_drum",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8917,8 +8953,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                1312,
+                48,
+                1120,
             ],
             size: [
                 32,
@@ -8927,7 +8963,7 @@
             fields: (
                 character_id: "clay_golem",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_clay_golem",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8935,8 +8971,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                1312,
+                176,
+                1120,
             ],
             size: [
                 32,
@@ -8945,7 +8981,7 @@
             fields: (
                 character_id: "loom_spider",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_loom_spider",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8953,7 +8989,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 1120,
             ],
             size: [
@@ -8963,7 +8999,7 @@
             fields: (
                 character_id: "kiln_sprite",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_kiln_sprite",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8971,7 +9007,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 1120,
             ],
             size: [
@@ -8981,7 +9017,7 @@
             fields: (
                 character_id: "locust_swarm",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_locust_swarm",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -8989,7 +9025,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 1120,
             ],
             size: [
@@ -8999,7 +9035,7 @@
             fields: (
                 character_id: "aurochs",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_aurochs",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9007,7 +9043,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 1120,
             ],
             size: [
@@ -9017,7 +9053,7 @@
             fields: (
                 character_id: "scorpion_man",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_scorpion_man",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9025,7 +9061,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 1120,
             ],
             size: [
@@ -9035,7 +9071,7 @@
             fields: (
                 character_id: "mummy",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_mummy",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9043,7 +9079,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 1120,
             ],
             size: [
@@ -9053,7 +9089,7 @@
             fields: (
                 character_id: "scarab_beetle",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_scarab_beetle",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9061,7 +9097,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 1120,
             ],
             size: [
@@ -9071,7 +9107,7 @@
             fields: (
                 character_id: "asp",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_asp",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9079,7 +9115,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 1120,
             ],
             size: [
@@ -9089,7 +9125,7 @@
             fields: (
                 character_id: "hoplite",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_hoplite",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9097,7 +9133,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 1120,
             ],
             size: [
@@ -9107,7 +9143,7 @@
             fields: (
                 character_id: "immortal",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_immortal",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9115,7 +9151,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 1120,
             ],
             size: [
@@ -9125,7 +9161,7 @@
             fields: (
                 character_id: "vandal",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_vandal",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9133,7 +9169,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 1120,
             ],
             size: [
@@ -9143,7 +9179,7 @@
             fields: (
                 character_id: "terracotta_warrior",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_terracotta_warrior",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9151,7 +9187,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 1120,
             ],
             size: [
@@ -9161,7 +9197,7 @@
             fields: (
                 character_id: "desert_bandit",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_desert_bandit",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9169,7 +9205,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 1120,
             ],
             size: [
@@ -9179,7 +9215,7 @@
             fields: (
                 character_id: "silk_moth",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_silk_moth",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9187,7 +9223,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 1120,
             ],
             size: [
@@ -9197,7 +9233,7 @@
             fields: (
                 character_id: "horse_archer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_horse_archer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9205,8 +9241,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                1120,
+                48,
+                928,
             ],
             size: [
                 32,
@@ -9215,7 +9251,7 @@
             fields: (
                 character_id: "golden_eagle",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_golden_eagle",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9223,8 +9259,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                1120,
+                176,
+                928,
             ],
             size: [
                 32,
@@ -9233,7 +9269,7 @@
             fields: (
                 character_id: "steppe_wolf",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_steppe_wolf",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9241,7 +9277,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 928,
             ],
             size: [
@@ -9251,7 +9287,7 @@
             fields: (
                 character_id: "inflated_coin",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_inflated_coin",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9259,7 +9295,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 928,
             ],
             size: [
@@ -9269,7 +9305,7 @@
             fields: (
                 character_id: "coral_crab",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_coral_crab",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9277,7 +9313,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 928,
             ],
             size: [
@@ -9287,7 +9323,7 @@
             fields: (
                 character_id: "monsoon_squall",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_monsoon_squall",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9295,7 +9331,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 928,
             ],
             size: [
@@ -9305,7 +9341,7 @@
             fields: (
                 character_id: "scurvy_ghost",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_scurvy_ghost",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9313,7 +9349,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 928,
             ],
             size: [
@@ -9323,7 +9359,7 @@
             fields: (
                 character_id: "kraken_arm",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_kraken_arm",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9331,7 +9367,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 928,
             ],
             size: [
@@ -9341,7 +9377,7 @@
             fields: (
                 character_id: "privateer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_privateer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9349,7 +9385,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 928,
             ],
             size: [
@@ -9359,7 +9395,7 @@
             fields: (
                 character_id: "steam_automaton",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_steam_automaton",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9367,7 +9403,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 928,
             ],
             size: [
@@ -9377,7 +9413,7 @@
             fields: (
                 character_id: "soot_sprite",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_soot_sprite",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9385,7 +9421,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 928,
             ],
             size: [
@@ -9395,7 +9431,7 @@
             fields: (
                 character_id: "robber_baron",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_robber_baron",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9403,7 +9439,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 928,
             ],
             size: [
@@ -9413,7 +9449,7 @@
             fields: (
                 character_id: "hyena",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_hyena",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9421,7 +9457,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 928,
             ],
             size: [
@@ -9431,7 +9467,7 @@
             fields: (
                 character_id: "cave_lion",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_cave_lion",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9439,7 +9475,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 928,
             ],
             size: [
@@ -9449,7 +9485,7 @@
             fields: (
                 character_id: "hippo",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_hippo",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9457,7 +9493,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 928,
             ],
             size: [
@@ -9467,7 +9503,7 @@
             fields: (
                 character_id: "sea_raider",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_sea_raider",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9475,7 +9511,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 928,
             ],
             size: [
@@ -9485,7 +9521,7 @@
             fields: (
                 character_id: "woolly_mammoth",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_woolly_mammoth",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9493,8 +9529,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
-                928,
+                48,
+                736,
             ],
             size: [
                 32,
@@ -9503,7 +9539,7 @@
             fields: (
                 character_id: "cave_bear",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_cave_bear",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9511,8 +9547,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
-                928,
+                176,
+                736,
             ],
             size: [
                 32,
@@ -9521,7 +9557,7 @@
             fields: (
                 character_id: "viking_raider",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_viking_raider",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9529,7 +9565,7 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
+                304,
                 736,
             ],
             size: [
@@ -9539,7 +9575,7 @@
             fields: (
                 character_id: "tiger",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_tiger",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9547,7 +9583,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                432,
                 736,
             ],
             size: [
@@ -9557,7 +9593,7 @@
             fields: (
                 character_id: "indus_unicorn",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_indus_unicorn",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9565,7 +9601,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                560,
                 736,
             ],
             size: [
@@ -9575,7 +9611,7 @@
             fields: (
                 character_id: "taotie_spirit",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_taotie_spirit",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9583,7 +9619,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                688,
                 736,
             ],
             size: [
@@ -9593,7 +9629,7 @@
             fields: (
                 character_id: "smilodon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_smilodon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9601,7 +9637,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                816,
                 736,
             ],
             size: [
@@ -9611,7 +9647,7 @@
             fields: (
                 character_id: "jaguar",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_jaguar",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9619,7 +9655,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                944,
                 736,
             ],
             size: [
@@ -9629,7 +9665,7 @@
             fields: (
                 character_id: "llama",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_llama",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9637,7 +9673,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 736,
             ],
             size: [
@@ -9647,43 +9683,7 @@
             fields: (
                 character_id: "diprotodon",
                 prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                944,
-                736,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "megalania",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1072,
-                736,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "cassowary_history",
-                prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_diprotodon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9699,9 +9699,9 @@
                 48,
             ],
             fields: (
-                character_id: "howler_monkey",
+                character_id: "megalania",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_megalania",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9717,9 +9717,9 @@
                 48,
             ],
             fields: (
-                character_id: "green_iguana",
+                character_id: "cassowary_history",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_cassowary_history",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9735,9 +9735,9 @@
                 48,
             ],
             fields: (
-                character_id: "coconut_crab",
+                character_id: "howler_monkey",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_howler_monkey",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9753,9 +9753,9 @@
                 48,
             ],
             fields: (
-                character_id: "frigatebird",
+                character_id: "green_iguana",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_green_iguana",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9771,9 +9771,9 @@
                 48,
             ],
             fields: (
-                character_id: "pacific_rat",
+                character_id: "coconut_crab",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_coconut_crab",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9789,9 +9789,9 @@
                 48,
             ],
             fields: (
-                character_id: "driver_ants",
+                character_id: "frigatebird",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_frigatebird",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9807,9 +9807,9 @@
                 48,
             ],
             fields: (
-                character_id: "napoleonic_grenadier",
+                character_id: "pacific_rat",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_pacific_rat",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9825,9 +9825,9 @@
                 48,
             ],
             fields: (
-                character_id: "andean_condor",
+                character_id: "driver_ants",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_driver_ants",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9843,9 +9843,9 @@
                 48,
             ],
             fields: (
-                character_id: "sulawesi_warty_pig",
+                character_id: "napoleonic_grenadier",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_napoleonic_grenadier",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9861,9 +9861,9 @@
                 48,
             ],
             fields: (
-                character_id: "saltwater_crocodile",
+                character_id: "andean_condor",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_andean_condor",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9879,9 +9879,9 @@
                 48,
             ],
             fields: (
-                character_id: "king_cobra",
+                character_id: "sulawesi_warty_pig",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_sulawesi_warty_pig",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9897,9 +9897,9 @@
                 48,
             ],
             fields: (
-                character_id: "water_monitor",
+                character_id: "saltwater_crocodile",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_saltwater_crocodile",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9915,9 +9915,9 @@
                 48,
             ],
             fields: (
-                character_id: "asian_black_bear",
+                character_id: "king_cobra",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_king_cobra",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9933,9 +9933,9 @@
                 48,
             ],
             fields: (
-                character_id: "japanese_macaque",
+                character_id: "water_monitor",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_water_monitor",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9951,9 +9951,9 @@
                 48,
             ],
             fields: (
-                character_id: "clouded_leopard",
+                character_id: "asian_black_bear",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_asian_black_bear",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9969,9 +9969,9 @@
                 48,
             ],
             fields: (
-                character_id: "tanuki",
+                character_id: "japanese_macaque",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_japanese_macaque",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -9987,9 +9987,9 @@
                 48,
             ],
             fields: (
-                character_id: "gharial",
+                character_id: "clouded_leopard",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_clouded_leopard",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10005,9 +10005,9 @@
                 48,
             ],
             fields: (
-                character_id: "rhesus_macaque",
+                character_id: "tanuki",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_tanuki",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10023,9 +10023,9 @@
                 48,
             ],
             fields: (
-                character_id: "black_caiman",
+                character_id: "gharial",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_gharial",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10041,9 +10041,9 @@
                 48,
             ],
             fields: (
-                character_id: "capybara",
+                character_id: "rhesus_macaque",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_rhesus_macaque",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10059,9 +10059,9 @@
                 48,
             ],
             fields: (
-                character_id: "giant_sable",
+                character_id: "black_caiman",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_black_caiman",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10077,9 +10077,9 @@
                 48,
             ],
             fields: (
-                character_id: "african_grey_parrot",
+                character_id: "capybara",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_capybara",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10095,9 +10095,9 @@
                 48,
             ],
             fields: (
-                character_id: "portuguese_arquebusier",
+                character_id: "giant_sable",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_giant_sable",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10113,9 +10113,9 @@
                 48,
             ],
             fields: (
-                character_id: "moa",
+                character_id: "african_grey_parrot",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_african_grey_parrot",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10131,9 +10131,9 @@
                 48,
             ],
             fields: (
-                character_id: "haast_eagle",
+                character_id: "portuguese_arquebusier",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_portuguese_arquebusier",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10149,9 +10149,9 @@
                 48,
             ],
             fields: (
-                character_id: "kooyang",
+                character_id: "moa",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_moa",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10167,9 +10167,9 @@
                 48,
             ],
             fields: (
-                character_id: "black_swan",
+                character_id: "haast_eagle",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_haast_eagle",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10185,9 +10185,9 @@
                 48,
             ],
             fields: (
-                character_id: "fanihi",
+                character_id: "kooyang",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_kooyang",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10196,6 +10196,42 @@
             type: "NpcSpawn",
             px: [
                 688,
+                352,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "black_swan",
+                prompt: "Inspect",
+                dialogue_id: "hall_black_swan",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                816,
+                352,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "fanihi",
+                prompt: "Inspect",
+                dialogue_id: "hall_fanihi",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                944,
                 352,
             ],
             size: [
@@ -10213,7 +10249,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1072,
                 352,
             ],
             size: [
@@ -10231,7 +10267,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1200,
                 352,
             ],
             size: [
@@ -10249,7 +10285,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                1328,
                 352,
             ],
             size: [
@@ -10267,7 +10303,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                1456,
                 352,
             ],
             size: [
@@ -10285,7 +10321,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1584,
                 352,
             ],
             size: [
@@ -10303,7 +10339,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1712,
                 352,
             ],
             size: [
@@ -10321,7 +10357,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1840,
                 352,
             ],
             size: [
@@ -10339,7 +10375,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1968,
                 352,
             ],
             size: [
@@ -10349,43 +10385,7 @@
             fields: (
                 character_id: "npc_geppetto",
                 prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1840,
-                352,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_clause",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1968,
-                352,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_wren",
-                prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_geppetto",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10401,9 +10401,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_geppetto_band",
+                character_id: "npc_clause",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_clause",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10419,9 +10419,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_clause_band",
+                character_id: "npc_wren",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_wren",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10437,9 +10437,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_wren_band",
+                character_id: "npc_geppetto_band",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_geppetto",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10455,9 +10455,27 @@
                 48,
             ],
             fields: (
-                character_id: "npc_dividing_mite_half",
+                character_id: "npc_clause_band",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_clause",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                560,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_wren_band",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_wren",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10475,7 +10493,7 @@
             fields: (
                 character_id: "npc_ninja_kagero",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_ninja_kagero",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10511,7 +10529,7 @@
             fields: (
                 character_id: "void_pointed_polygon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_void_pointed_polygon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10529,7 +10547,7 @@
             fields: (
                 character_id: "void_pugnacious_polygon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_void_pugnacious_polygon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10547,7 +10565,7 @@
             fields: (
                 character_id: "void_projectile_polygon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_void_projectile_polygon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10556,6 +10574,24 @@
             type: "NpcSpawn",
             px: [
                 744,
+                7056,
+            ],
+            size: [
+                48,
+                80,
+            ],
+            fields: (
+                character_id: "npc_bossofthegame",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_bossofthegame",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1256,
                 7056,
             ],
             size: [
@@ -10573,7 +10609,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1256,
+                1768,
                 7056,
             ],
             size: [
@@ -10591,8 +10627,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1768,
-                7056,
+                232,
+                7440,
             ],
             size: [
                 48,
@@ -10609,7 +10645,7 @@
         (
             type: "NpcSpawn",
             px: [
-                232,
+                744,
                 7440,
             ],
             size: [
@@ -10627,7 +10663,7 @@
         (
             type: "NpcSpawn",
             px: [
-                744,
+                1256,
                 7440,
             ],
             size: [
@@ -10645,7 +10681,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1256,
+                1768,
                 7440,
             ],
             size: [
@@ -10663,8 +10699,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1768,
-                7440,
+                232,
+                7824,
             ],
             size: [
                 48,
@@ -10681,7 +10717,7 @@
         (
             type: "NpcSpawn",
             px: [
-                232,
+                744,
                 7824,
             ],
             size: [
@@ -10699,7 +10735,7 @@
         (
             type: "NpcSpawn",
             px: [
-                744,
+                1256,
                 7824,
             ],
             size: [
@@ -10717,7 +10753,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1256,
+                1768,
                 7824,
             ],
             size: [
@@ -10735,8 +10771,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1768,
-                7824,
+                232,
+                8208,
             ],
             size: [
                 48,
@@ -10753,7 +10789,7 @@
         (
             type: "NpcSpawn",
             px: [
-                232,
+                744,
                 8208,
             ],
             size: [
@@ -10771,7 +10807,7 @@
         (
             type: "NpcSpawn",
             px: [
-                744,
+                1256,
                 8208,
             ],
             size: [
@@ -10789,42 +10825,6 @@
         (
             type: "NpcSpawn",
             px: [
-                1256,
-                8208,
-            ],
-            size: [
-                48,
-                80,
-            ],
-            fields: (
-                character_id: "npc_bossofthegame",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1768,
-                8208,
-            ],
-            size: [
-                48,
-                80,
-            ],
-            fields: (
-                character_id: "npc_bossofthegame_retired",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-                brain_override: "stand_still",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
                 488,
                 9056,
             ],
@@ -10833,9 +10833,9 @@
                 80,
             ],
             fields: (
-                character_id: "npc_giant_gnu_whole",
+                character_id: "npc_full_stack",
                 prompt: "Inspect",
-                dialogue_id: "hall_npc_giant_gnu",
+                dialogue_id: "hall_npc_full_stack",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -10851,9 +10851,9 @@
                 80,
             ],
             fields: (
-                character_id: "npc_full_stack",
+                character_id: "npc_giant_gnu_whole",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_giant_gnu",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),

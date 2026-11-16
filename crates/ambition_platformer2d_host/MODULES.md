@@ -6,11 +6,12 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`developer_keys`](src/developer_keys.rs) | The physical keys of the developer actions: the default deck, the player's settings over it, and the one reader that turns a pressed chord into a [`DeveloperAction`]. |
 | [`framepace`](src/framepace.rs) | Apply the host's frame cap to a rendered native window. |
 | [`gameplay_presentation`](src/gameplay_presentation.rs) | Visible-host integration for gameplay presentation profiles. |
 | [`portal`](src/portal.rs) | Ambition-specific host glue for the reusable portal mechanic and renderer. |
 
-_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

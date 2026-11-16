@@ -11,12 +11,12 @@
 | [`binding`](src/binding.rs) | THE BINDING BOUNDARY MOVED OUT OF THIS CRATE — this is only the door. |
 | [`block_nudge`](src/block_nudge.rs) | A struck block flinches — the presentation half of hitting one. |
 | [`body`](src/body.rs) | Unified body kinematics for every controllable platformer body. |
-| [`camera_ease`](src/camera_ease.rs) | Smoothed camera scale + world-target state with tunable ease rates, plus the per-body [`PlayerBlinkCameraState`] the arrival ease reads. |
+| [`camera_ease`](src/camera_ease.rs) | The camera vocabulary lower layers share: the simulation's requests (a shake, a finishing zoom), the amplitude laws that turn a landing or a hit into a request, the tuning resources a route's presentation profile publishes, and the per-body blink/snap state the simulation writes. |
 | [`camera_layers`](src/camera_layers.rs) | Shared presentation-camera markers and render-layer reservations. |
 | [`capability`](src/capability.rs) | The engine's removable capabilities, and the sets their systems run in. |
 | [`class_b`](src/class_b.rs) | Per-frame ledger for discontinuous Class-B body remaps. |
 | [`construction`](src/construction/mod.rs) | Content-free construction planning and explicit spawn provenance. |
-| [`developer_hotkeys`](src/developer_hotkeys.rs) | Canonical keyboard deck for developer-only host actions. |
+| [`developer_hotkeys`](src/developer_hotkeys.rs) | The developer actions: the vocabulary every consumer listens for. |
 | [`feature_kind`](src/feature_kind.rs) | The feature-visual TAXONOMY shared by the sim (which stamps it at spawn) and every read-model/presentation consumer. |
 | [`feature_overlay`](src/feature_overlay.rs) | A live room's transient collision contributions, rebuilt from ECS feature state, on that room's own root. |
 | [`frame_env`](src/frame_env.rs) | Per-body movement-frame resolution. |

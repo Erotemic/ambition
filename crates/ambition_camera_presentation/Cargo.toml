@@ -1,0 +1,16 @@
+[package]
+name = "ambition_camera_presentation"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The camera's live presentation state (eased view, shake, finishing zoom) and the systems that apply and settle it; the requests and tunings are the platformer foundation's."
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+bevy = { version = "0.19.1", default-features = false }

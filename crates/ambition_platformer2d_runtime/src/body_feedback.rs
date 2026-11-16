@@ -7,7 +7,7 @@ use ambition_platformer2d_actor_monolith::body::{
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_characters::actor::{BodyAnimFacts, BodyCombat};
 use ambition_platformer2d_shared_tangle::{
-    camera_ease::{CameraShakeState, CameraShakeTuning, PlayerBlinkCameraState, hard_fall_shake_amplitude},
+    camera_ease::{CameraShakeRequest, PlayerBlinkCameraState, hard_fall_shake_amplitude},
     lifecycle::InRoomInstance,
     markers::PrimaryPlayer,
 };
@@ -18,8 +18,9 @@ use ambition_vfx::vfx::VfxWriter;
 pub(crate) fn emit_body_movement_feedback(
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
-    mut shake: Option<ResMut<CameraShakeState>>,
-    shake_tuning: Option<Res<CameraShakeTuning>>,
+    // A request, not the live shake: this runs in the simulation, and a landing
+    // a correction erases must not have moved the camera.
+    mut shake: MessageWriter<CameraShakeRequest>,
     mut bodies: Query<(
         &BodyKinematics,
         &BodyFrameOutput,
@@ -53,10 +54,8 @@ pub(crate) fn emit_body_movement_feedback(
             }
         }
         if followed {
-            if let (Some(shake), Some(tuning)) = (shake.as_deref_mut(), shake_tuning.as_deref()) {
-                let amplitude = hard_fall_shake_amplitude(events.ground_contact.landing_impact_speed());
-                if amplitude > 0.0 { shake.kick_in(room.map(|room| room.0), amplitude, *tuning); }
-            }
+            let amplitude_px = hard_fall_shake_amplitude(events.ground_contact.landing_impact_speed());
+            if amplitude_px > 0.0 { shake.write(CameraShakeRequest { amplitude_px, room: room.map(|room| room.0) }); }
         }
     }
 }

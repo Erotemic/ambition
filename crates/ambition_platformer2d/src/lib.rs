@@ -881,6 +881,8 @@ pub mod extension {
     pub use ambition_platformer2d_runtime::extension_composition::add_shipped_script;
 }
 pub use ambition_platformer2d_shared_tangle as platformer;
+/// The camera's live presentation state; its requests and tunings are `platformer::camera_ease`.
+pub use ambition_camera_presentation as camera_presentation;
 #[cfg(feature = "ambition_portal2d")]
 pub use ambition_portal2d as portal;
 #[cfg(feature = "ambition_portal2d_presentation")]

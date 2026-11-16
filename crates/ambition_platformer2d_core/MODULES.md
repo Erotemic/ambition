@@ -16,6 +16,7 @@
 | [`confirmed_frame`](src/confirmed_frame.rs) | Host-published boundary between confirmed and speculative simulation frames. |
 | [`content_epoch`](src/content_epoch.rs) | Content activation identity and peer-stable content identity. |
 | [`control_frame`](src/control_frame.rs) | Device-agnostic per-frame control vocabulary. |
+| [`effects`](src/effects.rs) | Timed numeric effects on a body, each owned by its source. |
 | [`frame`](src/frame.rs) | `frame` — the engine-level aperture vocabulary (docs/concepts/movement-collision.md). |
 | [`geo_id`](src/geo_id.rs) | Durable geometry identity — `GeoId`/`GeoFaceRef` (docs/concepts/movement-collision.md). |
 | [`hit_response`](src/hit_response.rs) | Carved down from `ambition_damage` (FB6b, fighter-brain.md §12.3 route 1) so ONE formula answers both callers: |
@@ -40,7 +41,7 @@
 | [`walkable_lines`](src/walkable_lines.rs) | A body that walks stands on a slope: the room's surface lines are ground for the ordinary (axis-swept) body too, as one-way floors. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_33 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_34 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

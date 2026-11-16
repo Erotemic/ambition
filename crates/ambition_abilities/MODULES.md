@@ -8,17 +8,20 @@
 |---|---|
 | [`ability_cooldown`](src/ability_cooldown.rs) | Shared per-body cooldown for movement abilities such as Blink and Grapple. |
 | [`body_conditions`](src/body_conditions.rs) | Authored BODY-CAPABILITY conditions — "can the body do this verb at all?" |
+| [`equipment_ceiling`](src/equipment_ceiling.rs) | The verbs a body's worn equipment withholds, as a ceiling on its abilities (ABILITY-VARIANTS 3). |
 | [`extension`](src/extension.rs) | The held-item domain's extension adapters (fast-iteration I7: a wielded ability as a procedural module). |
+| [`group`](src/group.rs) | The adapters of a coordinated group (`ambition.actor.group_think`): one invocation for each room whose live bodies carry a bound catalog tag, and their steering intent. |
 | [`mana`](src/mana.rs) | Mana pool access, spending, and regeneration policy. |
 | [`module_entity`](src/module_entity.rs) | Module-owned entities (fast-iteration I7): the adapters of `ambition.world.spawn_module_entity` and `ambition.world.module_entity_tick`. |
 | [`ranged`](src/ranged/mod.rs) | Ranged abilities: the bomb. |
 | [`ride`](src/ride.rs) | The adapters of a summoned ride: `ambition.world.summon_ride`, the facts `ambition.body.ride`, `ambition.body.saddle`, `ambition.body.presses`, `ambition.body.tumbling` and `ambition.body.room`, and the requests `ambition.mount.dismount`, `ambition.body.hold_course` and `ambition.world.dismiss`. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
+| [`room_ceiling`](src/room_ceiling.rs) | A room's withheld verbs, as a ceiling on each player's body (LEVEL-1-KIT). |
 | [`test_support`](src/test_support.rs) | Test-only fixtures for ability modules. |
 | [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade and the puppy-slug gun. |
 | [`traversal`](src/traversal/mod.rs) | Traversal rules a held item uses through its ports: the blink rule and the mark, which the blink, dive and mark/recall modules use. |
 
-_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

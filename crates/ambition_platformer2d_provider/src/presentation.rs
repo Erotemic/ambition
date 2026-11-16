@@ -289,9 +289,8 @@ mod tests {
     /// The ceiling is the ROUTE's now, and a kick obeys it.
     #[test]
     fn a_kick_is_clamped_by_the_routes_ceiling_not_a_constant() {
-        use ambition_platformer2d_shared_tangle::camera_ease::{
-            CameraShakeState, CameraShakeTuning,
-        };
+        use ambition_camera_presentation::CameraShakeState;
+        use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning;
 
         let mut shake = CameraShakeState::default();
         shake.kick(

@@ -142,7 +142,9 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # guest whose simulation sleeps: nothing rewinds there, and its resolver in
     # the sim is asleep.
     "ControlledSubject": "a sleeping hosted guest's camera subject; nothing rewinds on a guest",
-    "CameraShakeState": "presentation; the sim requests, the camera decays it",
+    # ✅ `CameraShakeState` left 2026-11-16 because it stopped crossing: the
+    # hard-fall shake (`emit_body_movement_feedback`, in the sim) kicked it in
+    # place and now writes a `CameraShakeRequest` like every other producer.
     # ✅ `DeveloperRuntimeState` left 2026-09-24 because it stopped crossing:
     # AP17 (5539d8667) moved its HUD-flash decay out of the simulation into
     # `Update`, so only the host side writes it now.

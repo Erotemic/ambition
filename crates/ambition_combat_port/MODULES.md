@@ -9,7 +9,9 @@
 | [`attachments`](src/attachments.rs) | The named points of a body's rig: a jaw, a saddle, a grip, a muzzle, a hand. |
 | [`blast`](src/blast.rs) | A blast: damage where a body is, credited to another body. |
 | [`contact`](src/contact.rs) | The ports of a contact rule: what a touch on a body does, decided by a module in `body_contact` (`ambition_extension_sdk::phases::BODY_CONTACT`). |
+| [`custody`](src/custody.rs) | The custody requests: a body takes an item lying in its room, or lets go of the one it holds (runtime authoring audit P4: the coconut swallows). |
 | [`force`](src/force.rs) | A field of force a module holds over a region of its room: a wind, a tide, the low weight of space. |
+| [`group`](src/group.rs) | The ports of a coordinated group: the bodies of one room that share a tag decide together, in one invocation (runtime authoring audit P4, `docs/planning/engine/runtime-authoring-audit-2026-11-14/execution-plan.md`). |
 | [`hold`](src/hold.rs) | A body held by another: seized, carried at a point, pummelled, thrown, released. |
 | [`launch`](src/launch.rs) | The axes of an authored hit's launch direction. |
 | [`ledge`](src/ledge.rs) | A body and the stage's ledges: the facts a move that reaches for a ledge reads, and the line the player sees while it does. |
@@ -28,7 +30,7 @@
 | [`think`](src/think.rs) | The ports of a custom brain: a body whose brain is a `CharacterBrain::Custom` key that a module binds decides through `actor_think` (`ambition_extension_sdk::phases::ACTOR_THINK`). |
 | [`wielded`](src/wielded.rs) | The held-item domain's extension ports: a body uses the item it holds, pays for it from its resource bank, and is heard doing it. |
 
-_21 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -20,7 +20,7 @@ mod host_adapter {
 
     use ambition_platformer2d_core::RoomGeometry;
     use ambition_platformer2d_runtime::host_seams::DeveloperRuntimeState;
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+    use ambition_camera_presentation::CameraEaseState;
     use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
     use ambition_platformer2d_shared_tangle::markers::{
         ControlledSubject, PlayerEntity, PrimaryPlayer,
@@ -1691,7 +1691,7 @@ mod tests {
     /// is not.
     #[test]
     fn two_views_whose_bodies_cross_at_once_are_each_carried() {
-        use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+        use ambition_camera_presentation::CameraEaseState;
         use ambition_portal2d::{PlacedPortal, PortalBodyTransited, PortalChannel, PortalChannelColor, PortalTransit};
         use ambition_portal2d_presentation::{
             PortalCameraContinuityConfig, PortalCameraContinuitySelection, PortalCameraContinuityState,

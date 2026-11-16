@@ -38,6 +38,7 @@
     "ambition_boss_encounter",
     "ambition_boss_special_port",
     "ambition_breakables",
+    "ambition_camera_presentation",
     "ambition_character_sprites",
     "ambition_characters",
     "ambition_combat",
@@ -104,7 +105,7 @@
     "ambition_world_items",
     "ambition_world_returns"
   ],
-  "closure_size": 73,
+  "closure_size": 74,
   "never_asked_for": [
     "ambition_abilities",
     "ambition_audio",
@@ -246,5 +247,6 @@
   "asset_owner_entered_the_closure_2026_10_26": "Asset catalog assembly and character materialization move above the body kernel. The new package contains code the consumer already linked. The kernel has no production edge to this owner or to the audio catalog.",
   "world_object_owners_entered_the_closure_2026_10_26": "Three owner crates replace code already linked through the actor kernel. This cut separates transition authority and does not prune capability profiles.",
   "sprite_part_format_entered_the_closure_2026_10_31": "The published sprite-part schema moved from ambition_sprite_sheet into ambition_sprite_part_format. Build tools and the live reader now use the same types. This adds one compilation unit for code that the consumer already linked. It adds no Bevy dependency and no scheduled system. The closure grows from 70 to 71 packages.",
-  "observation_and_life_planning_entered_the_closure_2026_11_10": "GOBS-1 (21bab8c44) adds ambition_geometry_observation, a new shared provider registry and observation vocabulary. The world owner registers its physical geometry; no renderer or scheduled observation work is required. This is a new common service, not a carve. dc206fea9 extracts ambition_life_planning from the HTN backend. The consumer now links the planning contract and no HTN backend. The contract is new relative to this baseline and remains an unrequested NPC dependency for a movement-only game. It joins never_asked_for and the actor closure. Both packages enter the measured closure; no baseline package leaves. The closure grows from 71 to 73 and the unrequested count grows from 33 to 34."
+  "observation_and_life_planning_entered_the_closure_2026_11_10": "GOBS-1 (21bab8c44) adds ambition_geometry_observation, a new shared provider registry and observation vocabulary. The world owner registers its physical geometry; no renderer or scheduled observation work is required. This is a new common service, not a carve. dc206fea9 extracts ambition_life_planning from the HTN backend. The consumer now links the planning contract and no HTN backend. The contract is new relative to this baseline and remains an unrequested NPC dependency for a movement-only game. It joins never_asked_for and the actor closure. Both packages enter the measured closure; no baseline package leaves. The closure grows from 71 to 73 and the unrequested count grows from 33 to 34.",
+  "camera_presentation_entered_the_closure_2026_11_16": "P6 step 5 (runtime-authoring execution plan) carves ambition_camera_presentation out of ambition_platformer2d_shared_tangle::camera_ease: the live camera state (CameraEaseState, CameraShakeState, FinishZoomState) and the systems that apply and settle it. A carve, not new code: the sentinel already compiled it inside shared_tangle, and the runtime depends on it unconditionally, so the same code arrives by the same route under its own name. It stays on the wanted side: a drawn movement game eases its own camera. What it buys: shared_tangle keeps the requests, tunings, amplitude laws and the per-body blink state, so a change to how the camera moves no longer rebuilds the 67 workspace crates that depend on shared_tangle. The closure grows from 73 to 74; the unrequested count is unchanged at 34."
 }

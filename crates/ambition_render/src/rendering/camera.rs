@@ -111,12 +111,12 @@ pub fn camera_follow(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
+    shake: Res<ambition_camera_presentation::CameraShakeState>,
     // Required, not `Option<Res<..>>`. An `Option` would keep test fixtures
     // passing and silently disable the finish zoom in production if the
     // registration were dropped. `shake` above is already a required `Res`,
     // so a host missing this would already fail on `CameraShakeState`.
-    finish_zoom: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>,
+    finish_zoom: Res<ambition_camera_presentation::FinishZoomState>,
     finish_zoom_tuning: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>,
     // A playing cutscene's camera (`CameraPan`, `CameraRelease`), for the
     // views of the room it plays for. Applied here, downstream of the
@@ -284,7 +284,7 @@ pub fn camera_follow(
 mod two_views_one_simulation_tests {
     use super::*;
     use ambition_platformer2d_core as ae;
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState;
+    use ambition_camera_presentation::CameraShakeState;
     use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
     use ambition_sim_view::camera_snapshot::CameraSnapshot2d;
     use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
@@ -359,7 +359,7 @@ mod two_views_one_simulation_tests {
             room(),
         );
         world.init_resource::<CameraShakeState>();
-        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>();
+        world.init_resource::<ambition_camera_presentation::FinishZoomState>();
         world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
 
         let left = spawn_view(&mut world, 0, ae::Vec2::new(100.0, 200.0), 2.0);
@@ -419,7 +419,7 @@ mod two_views_one_simulation_tests {
             let mut world = World::new();
             ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, room());
             world.init_resource::<CameraShakeState>();
-            world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>();
+            world.init_resource::<ambition_camera_presentation::FinishZoomState>();
             world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
             let script = ambition_cutscene::CutsceneScript::new(
                 "look_there",
@@ -506,7 +506,7 @@ mod two_views_one_simulation_tests {
         let mut world = World::new();
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, room());
         world.init_resource::<CameraShakeState>();
-        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>();
+        world.init_resource::<ambition_camera_presentation::FinishZoomState>();
         world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
         world.init_resource::<PortalCameraContinuityHostView>();
         world.init_resource::<PortalObserverViews>();
@@ -560,7 +560,7 @@ mod two_views_one_simulation_tests {
             )),
         ));
         world.init_resource::<CameraShakeState>();
-        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>();
+        world.init_resource::<ambition_camera_presentation::FinishZoomState>();
         world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
         let center = ae::Vec2::new(100.0, 200.0);
         let views = [

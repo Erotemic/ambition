@@ -11,6 +11,7 @@
 | [`hold`](src/hold.rs) | Project conversation authority onto participant control. |
 | [`instance`](src/instance.rs) | Deterministic identity for one logical conversation. |
 | [`ledger`](src/ledger.rs) | Bridges narrative inputs from non-rollback dialogue into deterministic simulation ticks. |
+| [`membership`](src/membership.rs) | Authored verbs that change who is in the live conversation: `conversation.join` and `conversation.leave`. |
 | [`music`](src/music.rs) | Conversation-selected music is presentation state scoped to the current room. |
 | [`opening`](src/opening.rs) | Deciding that a conversation happens, and opening it. |
 | [`plugin`](src/plugin.rs) | Conversation-domain plugin registration and schedule ownership. |
@@ -19,7 +20,7 @@
 | [`rules`](src/rules.rs) | Conversation continuity rules and cut notifications. |
 | [`ui_bridge`](src/ui_bridge.rs) | Bridge conversation simulation authority and the presentation text runner. |
 
-_12 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

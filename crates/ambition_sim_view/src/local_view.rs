@@ -754,7 +754,7 @@ mod tests {
         CameraScreenFraming, CameraViewport, ResolvedCameraSnapshot,
     };
     use ambition_platformer2d_core as ae;
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+    use ambition_camera_presentation::CameraEaseState;
     use bevy::prelude::*;
 
     /// A LAYOUT THAT COVERS THE DISPLAY EXACTLY ONCE.

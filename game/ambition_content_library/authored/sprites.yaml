@@ -1237,6 +1237,7 @@ collections:
   - hill_standing_stone
   - hill_meadow_wall
   - hill_meadow_hut
+  - hill_gate_barrier
   - catacombs_west
   - catacombs_east
   - ridge_west

@@ -188,6 +188,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_content",
  "ambition_content_pack",
+ "ambition_content_schemas",
  "ambition_demo_mary_o",
  "ambition_demo_pocket",
  "ambition_demo_sanic",
@@ -339,6 +340,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_camera_presentation"
+version = "0.1.0"
+dependencies = [
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_causal"
 version = "0.1.0"
 dependencies = [
@@ -375,6 +385,7 @@ dependencies = [
 name = "ambition_combat"
 version = "0.1.0"
 dependencies = [
+ "ambition_camera_presentation",
  "ambition_causal",
  "ambition_characters",
  "ambition_combat_port",
@@ -1077,6 +1088,7 @@ dependencies = [
  "ambition_body_seed",
  "ambition_boss_encounter",
  "ambition_breakables",
+ "ambition_camera_presentation",
  "ambition_causal",
  "ambition_character_sprites",
  "ambition_characters",
@@ -1312,6 +1324,7 @@ name = "ambition_platformer2d_host"
 version = "0.1.0"
 dependencies = [
  "ambition_boss_encounter",
+ "ambition_camera_presentation",
  "ambition_characters",
  "ambition_combat",
  "ambition_content_pack",
@@ -1415,6 +1428,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_audio",
  "ambition_boss_encounter",
+ "ambition_camera_presentation",
  "ambition_characters",
  "ambition_game_shell",
  "ambition_load",
@@ -1500,6 +1514,7 @@ dependencies = [
  "ambition_body_seed",
  "ambition_boss_encounter",
  "ambition_breakables",
+ "ambition_camera_presentation",
  "ambition_causal",
  "ambition_character_sprites",
  "ambition_characters",
@@ -1767,6 +1782,7 @@ name = "ambition_render"
 version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
+ "ambition_camera_presentation",
  "ambition_characters",
  "ambition_cutscene",
  "ambition_dev_tools",
@@ -1863,6 +1879,7 @@ dependencies = [
  "ambition_abilities",
  "ambition_boss_encounter",
  "ambition_breakables",
+ "ambition_camera_presentation",
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",

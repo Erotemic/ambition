@@ -16,6 +16,9 @@ impl Plugin for PlayerSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         ambition_platformer2d_session::participants::require_participants_on_session_root(app);
+        // The hard-fall shake is a request; its channel may arrive before the
+        // engine group that registers it.
+        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>();
         app.add_systems(sim, crate::body_feedback::emit_body_movement_feedback
             .in_set(GameplayGated)
             .in_set(PlayerSimulationSet::PostPossession));

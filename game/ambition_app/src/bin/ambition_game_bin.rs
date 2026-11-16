@@ -11,8 +11,15 @@
 //! finishes loading. See `docs/recipes/web-build.md` for the bootstrap.
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() {
+fn main() -> std::process::ExitCode {
+    // `content ...` and `--schema-identity` are the binary's own validator
+    // (`app::content_check`); anything else starts the game.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(code) = ambition_app::app::content_check::run_if_asked(&args) {
+        return code;
+    }
     ambition_app::app::run_visible();
+    std::process::ExitCode::SUCCESS
 }
 
 #[cfg(target_arch = "wasm32")]

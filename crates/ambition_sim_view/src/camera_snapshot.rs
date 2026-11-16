@@ -13,7 +13,8 @@ use bevy_math::UVec2;
 use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
 use ambition_platformer2d_world::rooms::{apply_forward_only_x, CameraClampMode, CameraScrollPolicy, CameraZoneSpec};
-use ambition_platformer2d_shared_tangle::camera_ease::{CameraEaseState, CameraEaseTuning};
+use ambition_camera_presentation::CameraEaseState;
+use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::NormalizedScreenRegion;
 
 /// Upper bound on `dt` for camera scale + target easing.
@@ -476,7 +477,7 @@ pub fn resolve_follow_camera_snapshot(
                 // First resolve for this view: ADOPT.
                 None => target_roll,
                 Some(current) => {
-                    ambition_platformer2d_shared_tangle::camera_ease::ease_roll_radians(
+                    ambition_camera_presentation::ease_roll_radians(
                         current,
                         target_roll,
                         input.dt,
@@ -1446,7 +1447,7 @@ pub fn resolve_camera_observation(
             &crate::local_view::ResolvedViewSubject,
             Option<&crate::local_view::ViewParticipant>,
             Option<&crate::local_view::ViewSubject>,
-            &mut ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
+            &mut ambition_camera_presentation::CameraEaseState,
             &mut ResolvedCameraSnapshot,
         ),
         bevy::prelude::With<crate::local_view::LocalView>,
@@ -2148,7 +2149,7 @@ pub fn local_view_facts() -> impl bevy::prelude::Bundle {
         CameraScreenFraming::default(),
         CameraPresentationInputs::default(),
         CameraReferenceFrame::default(),
-        ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState::default(),
+        ambition_camera_presentation::CameraEaseState::default(),
         ResolvedCameraSnapshot::default(),
         // Where this view is looking, resolved from its own declaration before
         // anything frames it. Here rather than at the two spawn sites for the
@@ -2224,7 +2225,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
 #[cfg(test)]
 mod m2_forward_scroll_tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+    use ambition_camera_presentation::CameraEaseState;
 
     fn world() -> ae::World {
         ae::World::new(
@@ -2341,7 +2342,7 @@ mod m2_forward_scroll_tests {
 #[cfg(test)]
 mod zone_change_tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+    use ambition_camera_presentation::CameraEaseState;
 
     const ZONE_TOP: f32 = 256.0;
     const BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
@@ -2727,7 +2728,7 @@ mod cast_framing_tests {
 #[cfg(test)]
 mod soft_framing_tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+    use ambition_camera_presentation::CameraEaseState;
 
     /// ⛔⛔ ONE PLACE DECIDES THE DEFAULT FRAMING.
     ///
@@ -3292,9 +3293,7 @@ mod reference_frame_tests {
 #[cfg(test)]
 mod observer_roll_continuity_tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::camera_ease::{
-        ease_roll_radians, CameraEaseState, OBSERVER_ROLL_EASE_RAD_PER_S,
-    };
+    use ambition_camera_presentation::{ease_roll_radians, CameraEaseState, OBSERVER_ROLL_EASE_RAD_PER_S};
 
     fn world() -> ae::World {
         ae::World::new(
@@ -3991,7 +3990,7 @@ mod resolved_snapshot_lifetime_tests {
 #[cfg(test)]
 mod zone_blend_tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+    use ambition_camera_presentation::CameraEaseState;
 
     fn zone(id: &str, x0: f32, x1: f32, offset: f32, zoom: Option<f32>, clamp: CameraClampMode) -> CameraZoneSpec {
         CameraZoneSpec {

@@ -266,6 +266,8 @@ ambition_load_presentation = { path = "../ambition_load_presentation", default-f
 ambition_menu = { path = "../ambition_menu", features = ["ldtk"], optional = true }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The live camera state (eased view, shake, finishing zoom) and its systems.
+ambition_camera_presentation = { path = "../ambition_camera_presentation" }
 ambition_platformer2d_provider = { path = "../ambition_platformer2d_provider" }
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }

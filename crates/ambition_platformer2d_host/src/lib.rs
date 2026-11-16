@@ -513,18 +513,15 @@ impl Plugin for HostCameraPlugin {
         // its provider and publishing readouts; a route that declared none
         // spawns nothing, so this is inert for every game that has no HUD.
         app.add_plugins(ambition_render::hud::declared::DeclaredHudPlugin);
+        if !app.is_plugin_added::<ambition_camera_presentation::CameraSettlePlugin>() {
+            app.add_plugins(ambition_camera_presentation::CameraSettlePlugin);
+        }
         app.add_systems(
             Update,
-            (
-                ambition_platformer2d_shared_tangle::camera_ease::tick_camera_shake,
-                // ⭐ CHAINED AHEAD OF `camera_follow` FOR THE SAME REASON THE
-                // SHAKE IS: the follow reads both live values, so ticking after
-                // it would present a value one frame stale on every frame.
-                ambition_platformer2d_shared_tangle::camera_ease::tick_finish_zoom
-                    .run_if(ambition_platformer2d_shared_tangle::camera_ease::finish_zoom_is_active),
-                camera_follow,
-            )
-                .chain()
+            camera_follow
+                // The follow reads the live shake and zoom: settle them first,
+                // or every frame presents a value one frame stale.
+                .after(ambition_camera_presentation::CameraPresentationSet::Settle)
                 .after(ambition_render::rendering::BossAnimation)
                 // Read THIS frame's resolved snapshot, not last frame's.
                 .after(ambition_sim_view::camera_snapshot::CameraObservationSet)

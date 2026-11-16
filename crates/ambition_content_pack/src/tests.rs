@@ -1103,3 +1103,30 @@ fn an_ungenerated_library_source_is_a_warning_and_an_absent_authored_one_is_an_e
     let failure = ContentPackDraft::read_from_dir(&tree.root).expect_err("an absent authored source refuses the pack");
     assert!(failure.has(DiagnosticCode::MalformedSource), "{failure}");
 }
+
+/// The identity is the installed set, not the order it was installed in, and
+/// a schema's version or one more capability moves it.
+#[test]
+fn a_schema_set_identity_names_what_is_installed() {
+    let mut reversed = SchemaRegistry::new();
+    let forward = registry();
+    let mut schemas: Vec<_> = forward.schemas().cloned().collect();
+    schemas.reverse();
+    for schema in schemas {
+        reversed.register(schema).expect("fresh registry");
+    }
+    assert_eq!(forward.identity(), reversed.identity());
+
+    let mut bumped = SchemaRegistry::new();
+    for mut schema in forward.schemas().cloned() {
+        if schema.id == SchemaId::new(HABITAT) {
+            schema.version = SchemaVersion(2);
+        }
+        bumped.register(schema).expect("fresh registry");
+    }
+    assert_ne!(forward.identity(), bumped.identity(), "a version bump left the identity");
+
+    let mut wider = forward.clone();
+    wider.install_capability(CapabilityId::new("weather"));
+    assert_ne!(forward.identity(), wider.identity(), "a capability left the identity");
+}

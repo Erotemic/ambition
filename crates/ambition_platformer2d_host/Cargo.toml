@@ -11,6 +11,8 @@ ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The live camera state (eased view, shake, finishing zoom) and its systems.
+ambition_camera_presentation = { path = "../ambition_camera_presentation" }
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }

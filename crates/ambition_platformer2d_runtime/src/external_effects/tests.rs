@@ -311,9 +311,8 @@ mod camera_shake {
     use ambition_characters::actor::BodyCombat;
     use ambition_combat::hit_camera_shake::shake_camera_on_landed_hits;
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-    use ambition_platformer2d_shared_tangle::camera_ease::{
-        apply_camera_shake_requests, CameraShakeRequest, CameraShakeState, CameraShakeTuning,
-    };
+    use ambition_camera_presentation::{apply_camera_shake_requests, CameraShakeState};
+    use ambition_platformer2d_shared_tangle::camera_ease::{CameraShakeRequest, CameraShakeTuning};
     use bevy::prelude::Entity;
 
     /// A speculating host holding one body, the quarantine, and a camera.
@@ -496,9 +495,8 @@ mod finish_zoom {
     use super::*;
     use ambition_combat::finish_zoom::zoom_camera_on_decided_match;
     use ambition_combat::stocks::{MatchVerdict, StocksMatchDecided};
-    use ambition_platformer2d_shared_tangle::camera_ease::{
-        apply_finish_zoom_requests, FinishZoomRequest, FinishZoomState, FinishZoomTuning,
-    };
+    use ambition_camera_presentation::{apply_finish_zoom_requests, FinishZoomState};
+    use ambition_platformer2d_shared_tangle::camera_ease::{FinishZoomRequest, FinishZoomTuning};
 
     /// A speculating host with the quarantine and a camera, and nothing else.
     struct Match {

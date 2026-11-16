@@ -271,7 +271,7 @@ def main() -> int:
             # is not. `SHARED` is excluded because every capability may name its sets and
             # run-conditions — but a block that registers `shared_tangle`'s own systems is
             # installing another crate's code, and the owner cannot take that with it.
-            # Measured: the camera block installs `camera_ease::tick_camera_shake` and
+            # Measured: the camera block installed `camera_ease::tick_camera_shake` and
             # `tick_finish_zoom` beside render's `camera_follow`, and read as
             # single-capability until this line existed.
             installs_shared = any(f"{s}::" in resolved for s in SHARED)

@@ -819,7 +819,7 @@ fn sample_camera(app: &mut App, camera: &mut CameraTally) {
         }
         camera.stocks_seen = now.into_iter().map(|(_, r)| r).collect();
     }
-    if let Some(zoom) = world.get_resource::<ambition_platformer2d::platformer::camera_ease::FinishZoomState>() {
+    if let Some(zoom) = world.get_resource::<ambition_platformer2d::camera_presentation::FinishZoomState>() {
         let closing = zoom.closeness > 0.0;
         if closing && !camera.zoom_was_closing {
             camera.finish_zooms.push(tick);

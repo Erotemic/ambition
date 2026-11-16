@@ -705,7 +705,7 @@ const SHAKE_FIELD: u64 = 4 + 1 + 4;
 
 /// The largest shake any view of `sim` holds now.
 fn shaking(sim: &mut Platformer2dSimHarness) -> f32 {
-    let shake = sim.world_mut().resource::<ambition_platformer2d::platformer::camera_ease::CameraShakeState>();
+    let shake = sim.world_mut().resource::<ambition_platformer2d::camera_presentation::CameraShakeState>();
     shake.rooms.values().copied().fold(shake.amplitude_px, f32::max)
 }
 

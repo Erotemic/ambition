@@ -19,6 +19,15 @@ cargo build -p ambition_content_schemas --bin ambition_content_check
 schemas can use the generic binary, `cargo run -p ambition_content_cli --bin
 ambition_content -- <pack-dir>`.
 
+**The game binary carries the same validator.** With a built game and no
+Rust toolchain, `ambition_game_bin content <pack-dir> [options]` runs this CLI
+with the schemas the game compiles its pack against (the options are the
+ones above). `ambition_game_bin --schema-identity` prints the identity of the
+schema set the running game installs; `ambition_content_check
+--schema-identity` prints the same value when the two agree, so a separately
+built validator can be checked against the runtime it claims to match.
+`--list-schemas` ends with that identity too.
+
 ⚠ **pass that `--asset-root`.** Ambition's binary payloads live in the engine's
 asset tree, not beside `pack.ron`, so the pack-root-only default can report
 shared sprites and music tracks as missing. That is the asset check working

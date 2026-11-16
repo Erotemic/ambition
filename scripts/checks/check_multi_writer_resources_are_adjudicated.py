@@ -232,6 +232,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "ExtensionInvocations": (
         "crates/ambition_abilities/src/extension.rs",
+        "crates/ambition_abilities/src/group.rs",
         "crates/ambition_abilities/src/module_entity.rs",
         "crates/ambition_boss_encounter/src/conduct.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
@@ -248,6 +249,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "ExtensionOutbox": (
         "crates/ambition_abilities/src/extension.rs",
+        "crates/ambition_abilities/src/group.rs",
         "crates/ambition_abilities/src/module_entity.rs",
         "crates/ambition_abilities/src/ride.rs",
         "crates/ambition_boss_encounter/src/conduct.rs",
@@ -520,6 +522,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "AuthoredOccurrences": (
         "crates/ambition_breakables/src/returns.rs",
         "crates/ambition_held_items/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/direction.rs",
         "crates/ambition_platformer2d_actor_monolith/src/body/errand.rs",
         "crates/ambition_platformer2d_construction/src/whereabouts.rs",
         "crates/ambition_platformer2d_items/src/chests.rs",
@@ -720,10 +723,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "ActiveGameplaySession": (
         "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_platformer2d_provider/src/lifecycle.rs",
-    ),
-    "CameraShakeState": (
-        "crates/ambition_platformer2d_shared_tangle/src/camera_ease.rs",
-        "crates/ambition_platformer2d_runtime/src/body_feedback.rs",
     ),
     "ClockState": (
         "crates/ambition_platformer2d_session/src/teardown.rs",
@@ -1175,7 +1174,9 @@ ADJUDICATED: dict[str, str] = {
         "file, phase body_contact) the seventh; the combat crate's reaction "
         "triggers `queue_parries` and `queue_strikes` (phase hit_reaction), "
         "its `queue_fighter_specials` and `queue_status_ticks` (phase "
-        "technique_execution), are the eighth to tenth files. "
+        "technique_execution), are the eighth to tenth files; the group "
+        "trigger `queue_group_thinks` (in the abilities crate's group file, phase "
+        "group_think, one item per room) is the eleventh. "
         "Each adapter appends only for its own port and phase."
     ),
     "ExtensionOutbox": (
@@ -1215,7 +1216,10 @@ ADJUDICATED: dict[str, str] = {
         "(`Refusal::DuplicateOffer`); `BlastPort` and `HoldStatusPort` are each "
         "offered in two phases, by one adapter per phase. "
         "The wear adapter in conduct/wear.rs drains WearPort in BOSS_CONDUCT; "
-        "it consumes only that port's admitted requests."
+        "it consumes only that port's admitted requests. The group adapters "
+        "`lower_steers`, `lower_takes` and `lower_releases` (in the abilities "
+        "crate's group file) drain `SteerPort`, `TakeItemPort` and "
+        "`ReleaseItemPort` in ACTOR_THINK, each only its own port."
     ),
     "BrokenBricks": (
         "A SET THAT ONLY GROWS IN A TICK, ON DISJOINT NAMES (read 2026-10-12). "
@@ -2178,7 +2182,10 @@ ADJUDICATED: dict[str, str] = {
         "stale duplicate to that producer. Its witness (with the write "
         "removed, the rebuilt hub had a second dog) was deleted in 392defdb08, "
         "when the dog tests were cut to one build per question; NO ARM WITNESSES "
-        "THIS WRITE NOW (2026-11-11).\n"
+        "THIS WRITE NOW (2026-11-11). The tenth FILE, added 2026-11-16 "
+        "(SS1), is `leave_through_zones` (`actor_monolith/src/body/direction.rs`): "
+        "a body a cutscene sends out through a loading zone takes the same "
+        "`admit_crossing`, under the same refusals; no new method.\n"
         "    ⛔⛤ AND THE REGISTRATION HISTORY IS THE OPPOSITE OF A FIX TO REACH "
         "FOR. This was `declare_rollback_derived_resource` — in no snapshot — "
         "while `adopt_rows` was already a non-rederived producer, which its own "
@@ -2898,20 +2905,6 @@ ADJUDICATED: dict[str, str] = {
         "the sibling audio types "
         "(`crates/ambition_platformer2d_audio/src/plugin.rs:293`, "
         "sets `playback.last_played = None`). Measured by CalculexAmbition, "
-        "2026-09-18."
-    ),
-    "CameraShakeState": (
-        "A COMMUTATIVE MAX-COMBINE, ORDER-INDEPENDENT BY CONSTRUCTION. "
-        "`apply_camera_shake_requests`/`tick_camera_shake` "
-        "(`crates/ambition_platformer2d_shared_tangle/src/camera_ease.rs:229,248`) "
-        "are message-kick and per-frame-decay. `emit_body_movement_feedback` "
-        "(`crates/ambition_platformer2d_runtime/src/body_feedback.rs:29`) reaches the same "
-        "`kick()` method (`camera_ease.rs:193`) through a helper — "
-        "`if target > self.amplitude_px { self.amplitude_px = target }` — so "
-        "multiple simultaneous kicks converge on the loudest regardless of "
-        "order. The type's own doc (`camera_ease.rs:203`) states the "
-        "simulation must not touch it directly — a deliberate "
-        "sim/presentation boundary. Measured by CalculexAmbition, "
         "2026-09-18."
     ),
     "PortalViewConeDebugDumpRequest": (

@@ -45,6 +45,8 @@ bevy = { version = "0.19.1", default-features = false, features = ["bevy_asset"]
 ron = { workspace = true }
 
 [dev-dependencies]
+# A test reads the live shake its requests drive.
+ambition_camera_presentation = { path = "../ambition_camera_presentation" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-support"] }
 ambition_sfx = { path = "../ambition_sfx" }
 # `test_boss_catalog` is the shipped boss fixture, used by the

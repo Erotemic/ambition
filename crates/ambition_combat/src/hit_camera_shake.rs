@@ -62,9 +62,8 @@ pub fn shake_camera_on_landed_hits(
 mod tests {
     use super::*;
     use ambition_characters::actor::BodyCombat;
-    use ambition_platformer2d_shared_tangle::camera_ease::{
-        apply_camera_shake_requests, CameraShakeState, CameraShakeTuning,
-    };
+    use ambition_camera_presentation::{apply_camera_shake_requests, CameraShakeState};
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning;
 
     /// The fixture a home avatar CANNOT satisfy: bodies with no `PlayerEntity`
     /// and no `PrimaryPlayer` at all, which is what a CPU-versus-CPU match is.

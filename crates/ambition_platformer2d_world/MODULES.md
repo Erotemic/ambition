@@ -12,6 +12,7 @@
 | [`gated_lock_walls`](src/gated_lock_walls.rs) | Authored condition-gated lock walls. |
 | [`geometry_observers`](src/geometry_observers.rs) | The collision world's geometry, for observation (GOBS-1, `docs/planning/engine/geometry-observability-and-f1.md`). |
 | [`governing_rules`](src/governing_rules.rs) | The rules that govern each live room: the reading of the declarations in [`crate::scoped_rules`], for the room a system or an entity is in. |
+| [`light_source`](src/light_source.rs) | A lamp in a room: a light that a dark room's light map draws (`docs/planning/engine/dark-rooms-and-tunnels.md`, DR2). |
 | [`navigation`](src/navigation/mod.rs) | Platformer navigation: where a body can stand in a room, and how it gets from one place to the next, measured by the movement kernel it really runs. |
 | [`placements`](src/placements.rs) | Authored placement records on the room IR. |
 | [`platforms`](src/platforms/mod.rs) | Authored moving platforms: the spec an editor writes, the motion it resolves to, and the runtime state the simulation advances. |
@@ -22,7 +23,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`world_manifest`](src/world_manifest.rs) | Which authored world documents a game ships, and where play starts. |
 
-_15 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

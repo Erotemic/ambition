@@ -2778,9 +2778,8 @@ fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
 /// bus keeps a message for two (measured 2026-10-04).
 #[test]
 fn an_effect_that_a_session_asked_for_is_not_presented_by_the_next() {
-    use ambition_platformer2d::platformer::camera_ease::{
-        CameraShakeRequest, CameraShakeState, FinishZoomRequest, FinishZoomState,
-    };
+    use ambition_platformer2d::camera_presentation::{CameraShakeState, FinishZoomState};
+    use ambition_platformer2d::platformer::camera_ease::{CameraShakeRequest, FinishZoomRequest};
     use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, LiveRoomInstance};
     use ambition_platformer2d::sfx::{AudioContextOwner, OwnedSfxMessage, PresentationSourceId, SfxMessage};
     use ambition_platformer2d::vfx::vfx::VfxMessage;

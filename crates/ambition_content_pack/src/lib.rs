@@ -37,7 +37,7 @@ pub use refs::{
 };
 pub use schema::{
     AggregateOutcome, Aggregation, ContentSchemaHandler, DefinedContent, FacetOutcome, FacetSource,
-    LoweredFragment, RuntimeDisposition, SchemaRegistration, SchemaRegistry,
+    LoweredFragment, RuntimeDisposition, SchemaRegistration, SchemaRegistry, SchemaSetIdentity,
 };
 
 use std::collections::{BTreeMap, BTreeSet};

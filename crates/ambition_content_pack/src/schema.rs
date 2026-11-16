@@ -348,4 +348,35 @@ impl SchemaRegistry {
     pub fn known_schema_ids(&self) -> Vec<String> {
         self.schemas.keys().map(|id| id.0.clone()).collect()
     }
+
+    /// What this composition installs, as one value: its capabilities and
+    /// each schema's id, version, owner and disposition.
+    ///
+    /// Two builds that print the same identity check a pack the same way, so
+    /// a validator and the runtime it was shipped with can be compared by it.
+    /// A handler's code is not in it: a schema whose rules change bumps its
+    /// version.
+    pub fn identity(&self) -> SchemaSetIdentity {
+        let mut canonical = String::new();
+        for capability in &self.capabilities {
+            canonical.push_str(&format!("capability\t{capability}\n"));
+        }
+        for schema in self.schemas.values() {
+            canonical.push_str(&format!(
+                "schema\t{}\t{}\t{}\t{:?}\n",
+                schema.id, schema.version, schema.capability, schema.disposition
+            ));
+        }
+        SchemaSetIdentity(crate::ContentFingerprint::of(canonical.as_bytes()).0)
+    }
+}
+
+/// [`SchemaRegistry::identity`]: one installed schema set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SchemaSetIdentity(pub u64);
+
+impl std::fmt::Display for SchemaSetIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "schemas-{:016x}", self.0)
+    }
 }

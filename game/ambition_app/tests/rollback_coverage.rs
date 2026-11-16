@@ -97,6 +97,10 @@ const WAIVED: &[(&str, &str)] = &[
     ("ambition_audio::", "presentation audio"),
     ("ambition_portal2d_presentation::", "presentation"),
     ("ambition_load_presentation::", "presentation"),
+    (
+        "ambition_camera_presentation::",
+        "camera presentation: the eased view, shake and finishing zoom follow the presented pose",
+    ),
     ("ambition_menu", "UI"),
     ("ambition_settings_menu::", "UI"),
     ("ambition_inventory_ui::", "UI"),

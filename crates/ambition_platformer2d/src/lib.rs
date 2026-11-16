@@ -101,6 +101,10 @@ pub mod content {
     /// no installed capability owns the game's schema.
     #[cfg(feature = "content_check")]
     pub use ambition_content_cli::main_with as check_pack_main;
+    /// [`check_pack_main`] over given arguments, for a binary that carries the
+    /// check as one of its commands.
+    #[cfg(feature = "content_check")]
+    pub use ambition_content_cli::main_with_args as check_pack_main_with_args;
 
     pub fn engine_schemas() -> ambition_content_pack::SchemaRegistry {
         ambition_engine_schemas::engine_schemas()
@@ -881,6 +885,8 @@ pub mod extension {
     pub use ambition_platformer2d_runtime::extension_composition::add_shipped_script;
 }
 pub use ambition_platformer2d_shared_tangle as platformer;
+/// The camera's live presentation state; its requests and tunings are `platformer::camera_ease`.
+pub use ambition_camera_presentation as camera_presentation;
 #[cfg(feature = "ambition_portal2d")]
 pub use ambition_portal2d as portal;
 #[cfg(feature = "ambition_portal2d_presentation")]

@@ -45,6 +45,8 @@ ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The live camera state (eased view, shake, finishing zoom) and its systems.
+ambition_camera_presentation = { path = "../ambition_camera_presentation" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }

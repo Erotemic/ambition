@@ -56,6 +56,8 @@ serde = { workspace = true }
 bevy = { version = "0.19.1", default-features = false }
 
 [dev-dependencies]
+# A test reads the live shake its requests drive.
+ambition_camera_presentation = { path = "../ambition_camera_presentation" }
 # Fixtures publish the prepared cast a barrier would (`prepare_cast_for_test`).
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 

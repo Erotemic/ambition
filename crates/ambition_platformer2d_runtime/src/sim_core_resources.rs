@@ -173,9 +173,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // answer, not something a second observer would disagree about.
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning>()
-            .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>()
-            .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>()
             // Track B: the rollback-registered slot a lifecycle op records into
             // under a rollback host, committed on a confirmed frame.
             .init_resource::<ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit>()
@@ -235,52 +233,22 @@ impl Plugin for SimCoreResourcesPlugin {
         // system's name and its schedule are the crate's and went with it.
         crate::sim_clock::time_control::install_sim_clock_reporting(app);
 
-        // The presentation half of the camera shake (P0.1). The simulation
-        // publishes a `CameraShakeRequest`; this is the only thing that turns one
-        // into a screen the player sees, which is what lets the confirmed-frame
-        // quarantine hold a predicted hit's shake back until the host settles the
-        // frame that produced it.
+        // The presentation half of the camera shake and the finishing zoom
+        // (P0.1). The simulation publishes requests; the camera crate's appliers
+        // are the only thing that turns one into a screen the player sees, which
+        // is what lets the confirmed-frame quarantine hold a predicted hit's
+        // shake back until the host settles the frame that produced it.
         //
-        // in the ENGINE group, not the windowed host. `tick_camera_shake`
-        // and `camera_follow` are the host's because a headless run has no camera
-        // to move — but a headless run still ASKS for shakes and still has the
-        // amplitude read off it (`app_it::hit_shakes_the_camera` watches a duel
-        // through the sim harness). Registering the applier beside the resource
-        // it writes keeps the seam wired in every composition that owns the
-        // state, which is the same reason `shake_camera_on_landed_hits` lives in
-        // the engine combat schedule rather than in `ambition_app`.
-        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>()
-            .add_systems(
-                Update,
-                ambition_platformer2d_shared_tangle::camera_ease::apply_camera_shake_requests
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>)
-                    .before(ambition_platformer2d_shared_tangle::camera_ease::tick_camera_shake),
-            );
+        // In the ENGINE group, not the windowed host: a headless run has no
+        // camera to move, but it still asks for shakes and still has the
+        // amplitude read off it. The settle half is the host's.
+        if !app.is_plugin_added::<ambition_camera_presentation::CameraRequestsPlugin>() {
+            app.add_plugins(ambition_camera_presentation::CameraRequestsPlugin);
+        }
         // A composition with a direct session root begins with the bag it
         // was built with. On a shell host the adoption of each session gives
         // it the bag of its experience (`StartingBag::begin_the_session`).
         ambition_platformer2d_items::starting_bag::install_starting_bag(app);
-        // The camera of a session that ended is not the camera of the next
-        // one. A composition with no session lifecycle has no activation; the
-        // reader then reads an empty channel.
-        app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>()
-            .add_systems(
-                Update,
-                ambition_platformer2d_shared_tangle::camera_ease::rest_the_camera_on_activation
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>)
-                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
-            );
-        // The finishing zoom's applier, wired for the same reason and in the
-        // same order: apply the released intents BEFORE the hold/release tick,
-        // so a request that arrives this frame gets its full hold rather than
-        // being decayed by the tick that ran ahead of it.
-        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>()
-            .add_systems(
-                Update,
-                ambition_platformer2d_shared_tangle::camera_ease::apply_finish_zoom_requests
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>)
-                    .before(ambition_platformer2d_shared_tangle::camera_ease::tick_finish_zoom),
-            );
 
         // The engine's closed actor construction recipes. `init_resource` above
         // does not clobber a pre-inserted fixture/host registry, and registration

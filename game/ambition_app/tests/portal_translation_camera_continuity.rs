@@ -195,9 +195,9 @@ impl HeadlessCameraHarness {
         let view = ambition_platformer2d::sim_view::the_only_view(world);
         *world
             .entity_mut(view)
-            .get_mut::<ambition_platformer2d::platformer::camera_ease::CameraEaseState>()
+            .get_mut::<ambition_platformer2d::camera_presentation::CameraEaseState>()
             .expect("the local view's ease state") =
-            ambition_platformer2d::platformer::camera_ease::CameraEaseState::default();
+            ambition_platformer2d::camera_presentation::CameraEaseState::default();
         *world.resource_mut::<PortalCameraContinuityHostView>() =
             PortalCameraContinuityHostView::default();
         if let Some(mut samples) =

@@ -299,7 +299,14 @@ pub(super) fn material_support_at_rest(
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> Result<bool, crate::frame::thread::Refusal> {
     let policy = BodyCollisionPolicy { body_mode: clusters.body_mode, env_contact: clusters.env_contact, carrier: clusters.carrier };
-    let hits = material_axis_hits(world, clusters.kinematics, policy,
+    // Feet that rest ON a floor do not overlap it, and the hits are overlaps:
+    // the body is asked CONTACT_SLOP further along gravity, the band the
+    // resting-support rule allows (`surface_supports_body_at_rest`). Asked
+    // where it stands, every body placed on its floor read airborne and
+    // "landed" on its first tick, with a landing sound.
+    let mut probe = *clusters.kinematics;
+    probe.pos += gravity_dir.normalize_or_zero() * crate::collision_semantics::CONTACT_SLOP;
+    let hits = material_axis_hits(world, &probe, policy,
         crate::collision_semantics::gravity_axis(gravity_dir), clusters.kinematics.aabb().feet_coord(gravity_dir),
         false, gravity_dir, admission)?;
     Ok(hits.iter().any(|(_, hit)| hit.contact.normal.dot(-gravity_dir) > 0.5))

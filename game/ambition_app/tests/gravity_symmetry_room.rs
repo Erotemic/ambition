@@ -139,6 +139,21 @@ fn local_down_jump() -> AgentAction {
     }
 }
 
+/// Stand the teleported body in its arm's frame, as a body that walked into
+/// the arm would stand once righted. A body turns toward its gravity over
+/// several ticks, about a corner when it rests on its side, so a body dropped
+/// upright into a turned arm starts somewhere else in its arm than the down
+/// arm's body does: a different start, not a frame leak.
+fn stand_in_the_arm(sim: &mut Platformer2dSimHarness, dir: Vec2) {
+    let world = sim.world_mut();
+    let mut body = world
+        .query_filtered::<&mut ambition_platformer2d::engine_core::BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single_mut(world)
+        .expect("the primary body");
+    let turn = body.material.righting_turn(dir, std::f64::consts::PI).expect("a finite turn");
+    body.material = body.material.turned(turn).expect("a finite material");
+}
+
 fn open_arm_sim(arm: Arm, spot: StartSpot) -> Platformer2dSimHarness {
     let mut sim = fixed_60hz_room_sim("symmetry_room");
     // This makes AgentAction axes mean controlled-body-local side/down. The room
@@ -153,6 +168,7 @@ fn open_arm_sim(arm: Arm, spot: StartSpot) -> Platformer2dSimHarness {
     let start_local = Vec2::new(spot.local_x, spot.support_y - half_h);
     let world = world_from_local(arm.dir, start_local);
     sim.teleport_player((world.x, world.y));
+    stand_in_the_arm(&mut sim, arm.dir);
     for _ in 0..8 {
         sim.step(base());
     }
@@ -532,6 +548,7 @@ fn settle_on_injected_one_way(arm: Arm) -> Platformer2dSimHarness {
     );
     let world = world_from_local(arm.dir, local_start);
     sim.teleport_player((world.x, world.y));
+    stand_in_the_arm(&mut sim, arm.dir);
     for _ in 0..50 {
         if sim.step(base()).on_ground {
             break;

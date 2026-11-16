@@ -33,8 +33,9 @@ carries closed campaigns. Unselected or customer-gated plans live in
    player's glow by quality tier, DR1 (room darkness: the catacombs and
    the ossuary), TN2 (the salt run under Hobford) and DR2 (the light map
    at High: players, `LightSource` lamps, and whatever carries
-   `CastsLight`, which actor glows and fires do) are done (2026-11-16);
-   next: DR3 (occlusion) and TN3 (the lantern).
+   `CastsLight`, which actor glows and fires do) and DR3 (Ultra's shadows:
+   light stops at the room's solid ground) are done (2026-11-16); next:
+   TN3 (the lantern) and TN1 (navigation over painted terrain).
 0b. **Runtime authoring: a scripting language (Jon, 2026-11-14: "I think its
    time for a scripting language"; after the audit's obvious fixes, scripting
    is the feature priority).** The

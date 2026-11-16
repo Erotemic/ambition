@@ -31,6 +31,19 @@ use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 
 use super::daylight::DAYLIGHT_VEIL_Z;
+use super::occlusion::{lit_part, SolidGrid};
+
+/// Which room's geometry a solid grid was built from: its name, size and
+/// how many blocks and lines it has (a reloaded room that changed is new).
+type GridKey = (String, Vec2, usize, usize);
+
+/// A dark room's solid ground, and the reach of each of its lamps over it,
+/// in the room's order.
+pub struct RoomShadows {
+    key: GridKey,
+    grid: SolidGrid,
+    lamps: Vec<Vec<f32>>,
+}
 
 /// Over the daylight veil, under the UI.
 pub const DARKNESS_VEIL_Z: f32 = DAYLIGHT_VEIL_Z + 0.5;
@@ -98,7 +111,17 @@ fn lamp_light(lamp: &Lamp, p: Vec2) -> f32 {
 /// about `center`, `perceived` dark in `ambient` (sRGB), less what each lamp
 /// lights. A texel's colour is the ambient and the lamps' colours, each as
 /// much as it is there (the darkness left, each lamp's light).
-fn light_map(texels: UVec2, center: Vec2, size: Vec2, perceived: f32, ambient: [f32; 3], lamps: &[Lamp]) -> Vec<u8> {
+/// With `reaches` (`ShadowedLightMap`; each lamp's, [`SolidGrid::reach`]),
+/// a lamp's light stops at the ground.
+fn light_map(
+    texels: UVec2,
+    center: Vec2,
+    size: Vec2,
+    perceived: f32,
+    ambient: [f32; 3],
+    lamps: &[Lamp],
+    reaches: Option<&[Vec<f32>]>,
+) -> Vec<u8> {
     let count = (texels.x * texels.y) as usize;
     // Per texel: the darkness left, the light, and the light's colour.
     let mut texel_light = vec![[1.0f32, 0.0, 0.0, 0.0, 0.0]; count];
@@ -107,14 +130,21 @@ fn light_map(texels: UVec2, center: Vec2, size: Vec2, perceived: f32, ambient: [
     let span = |low: f32, high: f32, n: u32| -> (u32, u32) {
         (low.floor().clamp(0.0, n as f32) as u32, high.ceil().clamp(0.0, n as f32) as u32)
     };
-    for lamp in lamps.iter().filter(|lamp| lamp.intensity > 0.0) {
+    for (n, lamp) in lamps.iter().enumerate().filter(|(_, lamp)| lamp.intensity > 0.0) {
         let r = lamp.radius.max(1.0);
         let (x0, x1) = span((lamp.at.x - r - top_left.x) / texel.x, (lamp.at.x + r - top_left.x) / texel.x, texels.x);
         let (y0, y1) = span((top_left.y - lamp.at.y - r) / texel.y, (top_left.y - lamp.at.y + r) / texel.y, texels.y);
+        if x0 >= x1 || y0 >= y1 {
+            continue;
+        }
+        let reach = reaches.and_then(|reaches| reaches.get(n));
         for y in y0..y1 {
             for x in x0..x1 {
                 let p = Vec2::new(top_left.x + (x as f32 + 0.5) * texel.x, top_left.y - (y as f32 + 0.5) * texel.y);
-                let light = lamp_light(lamp, p);
+                let mut light = lamp_light(lamp, p);
+                if let (Some(reach), true) = (reach, light > 0.0) {
+                    light *= lit_part(reach, lamp.at, p);
+                }
                 if light <= 0.0 {
                     continue;
                 }
@@ -184,13 +214,35 @@ fn hole_image() -> Image {
 }
 
 /// The darkness of the primary live room, as a veil colour, and its lamps;
-/// or `None` when the room is not dark.
-fn room_darkness(rooms: Option<LiveRoomSpecs>, primary: Option<PrimaryLiveRoom>) -> Option<(Color, Vec<Lamp>)> {
+/// or `None` when the room is not dark. With `solid`, the room's solid grid
+/// is kept there, built again only for another room.
+fn room_darkness(
+    rooms: Option<LiveRoomSpecs>,
+    primary: Option<PrimaryLiveRoom>,
+    solid: Option<&mut Option<RoomShadows>>,
+) -> Option<(Color, Vec<Lamp>)> {
     let (rooms, primary) = (rooms?, primary?);
     let definition = rooms.definition_named(primary.get())?;
     let spec = rooms.rooms().spec(definition);
     let profile = &spec.metadata.visual_profile;
     let pct = profile.darkness_pct.filter(|pct| *pct > 0)?;
+    if let Some(solid) = solid {
+        let world = &spec.world;
+        let key = (spec.id.to_string(), world.size, world.blocks.iter().count(), world.chains.iter().count());
+        if solid.as_ref().map(|built| &built.key) != Some(&key) {
+            let grid = SolidGrid::of_world(world);
+            // The room's lamps do not move: their reach is measured once.
+            let lamps = spec
+                .lights
+                .iter()
+                .map(|light| {
+                    let at = ambition_platformer2d_core::config::world_to_bevy(world, light.payload.position, 0.0);
+                    grid.reach(at.truncate(), light.payload.radius.max(1.0))
+                })
+                .collect();
+            *solid = Some(RoomShadows { key, grid, lamps });
+        }
+    }
     let ambient = profile
         .ambient
         .as_deref()
@@ -223,7 +275,7 @@ fn layout(piece: DarknessVeil, quality: DarknessQuality, camera: Vec2, light: Op
     let r = LIGHT_RADIUS;
     match (quality, light) {
         // The light map is one piece; the others' place is its own.
-        (DarknessQuality::LightMap, _) => None,
+        (DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap, _) => None,
         _ if piece == DarknessVeil::Map => None,
         // Flat, or no player to light: one veil over all.
         (DarknessQuality::Flat, _) | (DarknessQuality::AroundThePlayer, None) => {
@@ -255,9 +307,14 @@ pub fn darken_the_room(
     casters: Query<(&GlobalTransform, &CastsLight, &InheritedVisibility)>,
     mut veils: Query<(&DarknessVeil, &mut Transform, &mut Sprite, &mut Visibility)>,
     // What the light map was last drawn from: a still frame draws nothing.
-    mut drawn: Local<Option<(Vec2, Vec2, f32, [f32; 3], Vec<Lamp>)>>,
+    mut drawn: Local<Option<(Vec2, Vec2, f32, [f32; 3], Vec<Lamp>, Option<GridKey>)>>,
+    // The room's solid ground, when the light map is shadowed.
+    mut solid: Local<Option<RoomShadows>>,
 ) {
-    let darkness = room_darkness(rooms, primary);
+    let quality = quality.map_or(DarknessQuality::default(), |q| q.budget.glow.darkness);
+    let shadowed = quality == DarknessQuality::ShadowedLightMap;
+    let darkness = room_darkness(rooms, primary, shadowed.then_some(&mut *solid));
+    let room_lamps = darkness.as_ref().map_or(0, |(_, lamps)| lamps.len());
     if veils.is_empty() {
         if darkness.is_none() {
             return;
@@ -305,10 +362,11 @@ pub fn darken_the_room(
         }
         return;
     };
-    let quality = quality.map_or(DarknessQuality::default(), |q| q.budget.glow.darkness);
     let perceived = match quality {
         DarknessQuality::Flat => darkness.alpha().min(FLAT_CAP),
-        DarknessQuality::AroundThePlayer | DarknessQuality::LightMap => darkness.alpha(),
+        DarknessQuality::AroundThePlayer | DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap => {
+            darkness.alpha()
+        }
     };
     let (camera, view) = cameras.iter().next().map_or((Vec2::ZERO, Vec2::new(1280.0, 720.0)), |(transform, projection)| {
         let view = match projection {
@@ -318,7 +376,7 @@ pub fn darken_the_room(
         (transform.translation.truncate(), view)
     });
     let light = players.iter().next().map(|player| player.translation().truncate());
-    if quality == DarknessQuality::LightMap {
+    if matches!(quality, DarknessQuality::LightMap | DarknessQuality::ShadowedLightMap) {
         let size = view * MAP_MARGIN;
         let ambient = darkness.to_srgba();
         let ambient = [ambient.red, ambient.green, ambient.blue];
@@ -335,10 +393,18 @@ pub fn darken_the_room(
             intensity: light.intensity.clamp(0.0, 1.0),
             color: light.color,
         }));
-        let inputs = (camera, size, perceived, ambient, all);
+        let shadows = solid.as_ref().filter(|_| shadowed);
+        let inputs = (camera, size, perceived, ambient, all, shadows.map(|shadows| shadows.key.clone()));
         if drawn.as_ref() != Some(&inputs) {
             if let Some(mut image) = map.as_ref().and_then(|map| images.get_mut(&map.0)) {
-                image.data = Some(light_map(MAP_TEXELS, camera, size, perceived, ambient, &inputs.4));
+                // The room's lamps' reach was measured with the room; the
+                // lights that move are measured now.
+                let reaches = shadows.map(|shadows| {
+                    let mut reaches = shadows.lamps.clone();
+                    reaches.extend(inputs.4[room_lamps..].iter().map(|lamp| shadows.grid.reach(lamp.at, lamp.radius.max(1.0))));
+                    reaches
+                });
+                image.data = Some(light_map(MAP_TEXELS, camera, size, perceived, ambient, &inputs.4, reaches.as_deref()));
                 *drawn = Some(inputs);
             }
         }
@@ -409,7 +475,7 @@ mod tests {
         ];
         let texels = UVec2::new(160, 90);
         let size = Vec2::new(1600.0, 900.0);
-        let map = light_map(texels, Vec2::ZERO, size, 0.7, [0.0, 0.0, 0.05], &lamps);
+        let map = light_map(texels, Vec2::ZERO, size, 0.7, [0.0, 0.0, 0.05], &lamps, None);
         // The texel whose middle is at world `p`, its channel `c`.
         let texel = |p: Vec2, c: u32| {
             let x = ((p.x / size.x + 0.5) * texels.x as f32) as u32;

@@ -440,6 +440,9 @@ pub enum DarknessQuality {
     /// A light map over the view: the player's light and every lamp of the
     /// room (`LightSource`) take the darkness away where they reach.
     LightMap,
+    /// The light map, and a light does not pass through the room's solid
+    /// ground: a tunnel's bends cast shadow.
+    ShadowedLightMap,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -643,7 +646,7 @@ impl VisualQualityBudget {
                     max_particles: 1024,
                     spawn_rate_scale: 1.0,
                 },
-                glow: GlowBudget { actor_glow: ActorGlowQuality::Light, darkness: DarknessQuality::LightMap },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Light, darkness: DarknessQuality::ShadowedLightMap },
                 raster: RasterBudget {
                     max_scale_factor: None,
                     msaa_samples: 4,

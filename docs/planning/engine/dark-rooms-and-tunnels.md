@@ -1,6 +1,6 @@
 # Dark rooms and tunnels
 
-**State:** OPEN, planned 2026-11-14; DR1, TN2 and DR2 landed 2026-11-16. Asked by Jon on 2026-11-14: "we have to
+**State:** OPEN, planned 2026-11-14; DR1, TN2, DR2 and DR3 landed 2026-11-16. Asked by Jon on 2026-11-14: "we have to
 start thinking about how to model "dark" or "dim" rooms with limited
 visibilities and effectively tunnels. We don't have any rooms that are based
 on tunnels, and tunnels in a metroidvania are fun and how we make good use of
@@ -47,8 +47,8 @@ item can carry a light (a lantern).
 |---|---|---|
 | Potato | one flat veil, at most 0.5 | none drawn |
 | Low, Medium | one veil sprite with a soft hole around the player (the player's light only) | the player's |
-| High | a light map: a half-resolution target per view, cleared to the ambient darkness, each light added into it with the dithered falloff, then multiplied over the world under the UI | every light in view, to a budget |
-| Ultra | the light map at full resolution, and occlusion: a light does not pass through solid blocks (the room's collision as a mask texture; a light's reach marched against it in the light shader), so a tunnel's bends cast shadow | every light, shadows |
+| High | a light map: a 160x90 texture over the view (computed on the CPU, drawn smooth), the ambient darkness less each light's falloff | every light in view |
+| Ultra | the light map, and occlusion: a light does not pass through the room's solid ground (its solid cells, a light's reach marched over them), so a tunnel's bends cast shadow | every light, shadows |
 
 The light map is the "real lighting" the Ultra glow points at: at Ultra the
 player's glow becomes a light in the map, and lights the tunnel around it.
@@ -132,6 +132,23 @@ is down there (coins, a note).
   renderer type. The lantern a player carries is TN3.
 - **DR3. Occlusion (Ultra).** Lights stopped by solid blocks. Acceptance:
   a lamp round a corner leaves the far side dark; the frame cost measured.
+  **Landed 2026-11-16.** Ultra's `DarknessQuality::ShadowedLightMap`. The
+  room's solid ground becomes a grid of 16-unit cells once a room
+  (`ambition_render::rendering::occlusion::SolidGrid`): solid blocks, solid
+  outlines, painted earth and the earth under a filled ground line; a line
+  a body only walks on stops no light. Each light's reach is marched along
+  about one direction a cell round its rim (32 to 256), measured once a
+  room for its lamps and each redraw for lights that move; a texel past the
+  reach in its direction is dark, the face a cell deep lit, the edge a cell
+  soft. A lamp hung into the ceiling shines from where it leaves the rock.
+  The direction is a "diamond" turn, not an angle (no trigonometry per
+  texel). Measured on this VM (release, six lamps of radius 260 over a
+  1600x900 view): the map 0.38 ms unshadowed and 0.46 shadowed, a moving
+  light's reach 0.03 ms more; the first per-texel `atan2` version cost
+  0.81. Captured: the salt run's hatch at Ultra (the rock dark, the faces
+  the lantern sees lit) beside High (light through the walls). Not done
+  from the plan: the light map at full resolution at Ultra (160x90 there
+  too).
 - **TN1. Navigation over painted terrain.** The graph's surfaces from the
   `Terrain` layer, so a tunnel can be painted and still walked by NPCs and
   the census.

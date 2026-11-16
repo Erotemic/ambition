@@ -876,6 +876,13 @@ pub mod extension {
     };
     #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
     pub use ambition_platformer2d_runtime::extension_composition::load_module_file;
+    /// The module files looked at with the content they use: one candidate
+    /// for a script and its content (`ambition_content::content_watch`).
+    #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+    pub use ambition_platformer2d_runtime::extension_composition::{
+        discard_paired_modules, look_at_module_files, propose_staged_modules, publish_paired_modules,
+        stage_module_file_changes, ModuleFileChanges, ModuleFilesLookedWithContent,
+    };
     pub use ambition_extension_host::linked_modules;
     /// The ports a `.rhai` module may name, by alias.
     #[cfg(feature = "script_modules")]

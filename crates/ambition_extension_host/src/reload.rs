@@ -178,8 +178,18 @@ pub fn stage_module_changes(
     Ok(())
 }
 
+/// Drop the staged candidate unpublished. The running code stays. For a
+/// candidate staged with a content generation that will not activate: the
+/// pair is published together or not at all. Returns whether there was one.
+pub fn discard_staged_replacement(world: &mut World) -> bool {
+    world
+        .get_resource_mut::<StagedModuleReplacement>()
+        .is_some_and(|mut staged| staged.candidate.take().is_some())
+}
+
 /// Switch to the staged candidate. Call it only where the mechanical-edit
-/// admission said `Publish`. Returns whether there was a candidate.
+/// admission said `Publish`, or at the commit of the content generation it
+/// was staged with. Returns whether there was a candidate.
 pub fn publish_staged_replacement(world: &mut World) -> bool {
     let Some((admitted, declared)) = world
         .get_resource_mut::<StagedModuleReplacement>()

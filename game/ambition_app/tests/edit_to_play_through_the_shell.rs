@@ -746,3 +746,100 @@ fn launch_speed(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> f32 {
     }
     peak
 }
+
+/// ⭐ A SCRIPT AND THE CONTENT IT USES ARE ONE CANDIDATE (runtime authoring
+/// plan P5 step 1). Saved together, they publish on one frame, or neither
+/// does: a script that does not load keeps the content, and content that does
+/// not compile keeps the script.
+///
+/// The script's observable is the module publication count; the content's is
+/// the selected pack's fingerprint. Both are read every frame, so a script
+/// that ran ahead of its content would show as a frame where one moved and
+/// the other had not.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_script_and_its_content_change_together_or_not_at_all() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_app::AmbitionSim as _;
+    type Sim = ambition_sim_harness::Platformer2dSimHarness;
+
+    let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let shipped = std::fs::read_to_string(here.join("game/ambition_content_modules/rhai/sentry.rhai")).unwrap();
+    assert!(shipped.contains("const ARM_DELAY_S = 0.25;"), "the premise: the script states its delay");
+    let script = |delay: &str| shipped.replace("const ARM_DELAY_S = 0.25;", &format!("const ARM_DELAY_S = {delay};"));
+    let stamp = format!(
+        "{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("clock").as_nanos()
+    );
+    let modules = here.join(format!("target/extension-modules/pair_test_{stamp}"));
+    std::fs::create_dir_all(&modules).unwrap();
+    let file = modules.join("sentry.rhai");
+    std::fs::write(&file, script("0.25")).unwrap();
+    let root = std::env::temp_dir().join(format!("ambition_pair_watch_{stamp}"));
+
+    let options = common::fixed_60hz_room_options("proving_grounds").with_extension_module_files(vec![modules.clone()]);
+    let mut sim = Sim::new_with_options(options).expect("the room builds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    let published = |sim: &Sim| {
+        sim.world().resource::<ambition_platformer2d::extension::reload::StagedModuleReplacement>().published()
+    };
+    let content = |sim: &Sim| ambition_content::pack::selected(sim.world()).map(|pack| pack.fingerprint);
+
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        assert!(ambition_content::pack::export_sources_to(&root).expect("sources export") > 10);
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        for _ in 0..40 {
+            sim.step(common::base());
+        }
+        let catalog_path = root.join("data/character_catalog.ron");
+        let shipped_catalog = std::fs::read_to_string(&catalog_path).unwrap();
+        let with_goblin_hp = |hp: i32| {
+            let start = shipped_catalog.find("\"goblin\": (").expect("the catalog has a goblin row");
+            let at = start + shipped_catalog[start..].find("max_health: Some(").expect("the row states its HP");
+            let end = at + shipped_catalog[at..].find(')').unwrap() + 1;
+            format!("{}max_health: Some({hp}){}", &shipped_catalog[..at], &shipped_catalog[end..])
+        };
+        // Both halves in one save; a file system's clock can be coarse.
+        let save = |script_text: &str, catalog_text: &str| {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            std::fs::write(&file, script_text).unwrap();
+            std::fs::write(&catalog_path, catalog_text).unwrap();
+        };
+
+        // ── 1. a script that does not load, with content that compiles ──────
+        let (code, pack) = (published(&sim), content(&sim));
+        save("fn turret( {", &with_goblin_hp(7));
+        for _ in 0..240 {
+            sim.step(common::base());
+        }
+        assert_eq!(published(&sim), code, "a script that does not load was published");
+        assert_eq!(content(&sim), pack, "its content was published without it");
+
+        // ── 2. a script that loads, with content that does not compile ──────
+        save(&script("0.5"), "(((");
+        for _ in 0..240 {
+            sim.step(common::base());
+        }
+        assert_eq!(published(&sim), code, "a script was published without its content, which was refused");
+        assert_eq!(content(&sim), pack, "content that does not compile was published");
+
+        // ── 3. both good: one frame publishes both ──────────────────────────
+        save(&script("0.75"), &with_goblin_hp(8));
+        let mut frames = 0;
+        while content(&sim) == pack {
+            assert_eq!(published(&sim), code, "frame {frames}: the script ran ahead of its content");
+            sim.step(common::base());
+            frames += 1;
+            assert!(frames < 900, "900 frames after the save, the content was not published");
+        }
+        assert_eq!(published(&sim), code + 1, "the content was published and its script was not");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&modules);
+    if let Err(panic) = outcome {
+        std::panic::resume_unwind(panic);
+    }
+}

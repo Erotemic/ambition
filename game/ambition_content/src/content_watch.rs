@@ -29,6 +29,11 @@ pub struct ContentSourceWatch {
     waiting: Option<String>,
     /// Reloads this watch asked for. For tests and the inspector.
     pub requested: u32,
+    /// The host looks at these sources together with the module files
+    /// ([`look_at_content_sources`], [`request_from_sources`]), so a script
+    /// and the content it uses are one candidate; [`watch_content_sources`]
+    /// then stays out.
+    pub paired: bool,
 }
 
 impl ContentSourceWatch {
@@ -48,6 +53,7 @@ impl ContentSourceWatch {
             dirty: false,
             waiting: None,
             requested: 0,
+            paired: false,
         }
     }
 
@@ -75,56 +81,83 @@ fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
 /// Look at the files; on a change, compile the pack from disk and request a
 /// reload.
 pub fn watch_content_sources(world: &mut World) {
-    let root = {
+    {
         let Some(mut watch) = world.get_resource_mut::<ContentSourceWatch>() else {
             return;
         };
+        if watch.paired {
+            return;
+        }
         if watch.frames_until_poll > 0 {
             watch.frames_until_poll -= 1;
             return;
         }
         watch.frames_until_poll = POLL_FRAMES;
-        let root = watch.root.clone();
-        let mut changed = Vec::new();
-        for (path, seen) in &mut watch.files {
-            let now = modified(&root.join(path.as_str()));
-            if now != *seen {
-                *seen = now;
-                changed.push(path.clone());
-            }
+    }
+    if let Some(root) = look_at_content_sources(world) {
+        request_from_sources(world, &root);
+    }
+}
+
+/// How [`request_from_sources`] was answered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SourcesAnswer {
+    /// A reload of the changed content is in flight.
+    Requested,
+    /// The compiled content is what runs: nothing to publish.
+    Unchanged,
+    /// No route can re-prepare now; the change is asked for again at the
+    /// next look.
+    Waiting,
+    /// The change does not compile or was refused; the running content stays.
+    Refused,
+}
+
+/// Look at the files now. `Some(root)` while a change waits for an answer: a
+/// change seen now, or one an earlier look kept ([`SourcesAnswer::Waiting`]).
+pub fn look_at_content_sources(world: &mut World) -> Option<std::path::PathBuf> {
+    let mut watch = world.get_resource_mut::<ContentSourceWatch>()?;
+    let root = watch.root.clone();
+    let mut changed = Vec::new();
+    for (path, seen) in &mut watch.files {
+        let now = modified(&root.join(path.as_str()));
+        if now != *seen {
+            *seen = now;
+            changed.push(path.clone());
         }
-        if changed.iter().any(|path| path == "pack.ron") {
-            // The list moved: a source the old list did not have is new now,
-            // so it is a change; one that stayed keeps the time it was seen at.
-            let old = std::mem::take(&mut watch.files);
-            watch.files = watched_files(&root)
-                .into_iter()
-                .map(|path| match old.iter().find(|(was, _)| *was == path) {
-                    Some((_, seen)) => (path, *seen),
-                    None => {
-                        let seen = modified(&root.join(&path));
-                        changed.push(path.clone());
-                        (path, seen)
-                    }
-                })
-                .collect();
-        }
-        if !changed.is_empty() {
-            info!("content sources changed: {changed:?}");
-            watch.dirty = true;
-            watch.waiting = None;
-        }
-        if !watch.dirty {
-            return;
-        }
-        root
-    };
-    let pack = match crate::pack::compile_pack_from(&root) {
+    }
+    if changed.iter().any(|path| path == "pack.ron") {
+        // The list moved: a source the old list did not have is new now,
+        // so it is a change; one that stayed keeps the time it was seen at.
+        let old = std::mem::take(&mut watch.files);
+        watch.files = watched_files(&root)
+            .into_iter()
+            .map(|path| match old.iter().find(|(was, _)| *was == path) {
+                Some((_, seen)) => (path, *seen),
+                None => {
+                    let seen = modified(&root.join(&path));
+                    changed.push(path.clone());
+                    (path, seen)
+                }
+            })
+            .collect();
+    }
+    if !changed.is_empty() {
+        info!("content sources changed: {changed:?}");
+        watch.dirty = true;
+        watch.waiting = None;
+    }
+    watch.dirty.then_some(root)
+}
+
+/// Compile the pack under `root` from disk and request a reload of it.
+pub fn request_from_sources(world: &mut World, root: &std::path::Path) -> SourcesAnswer {
+    let pack = match crate::pack::compile_pack_from(root) {
         Ok(pack) => pack,
         Err(diagnostic) => {
             error!("content sources changed and do not compile; the running content stays:\n{diagnostic}");
             world.resource_mut::<ContentSourceWatch>().dirty = false;
-            return;
+            return SourcesAnswer::Refused;
         }
     };
     let candidate = ambition_content_pack::CandidateGeneration::prepared_against(std::sync::Arc::new(pack), None);
@@ -141,22 +174,27 @@ pub fn watch_content_sources(world: &mut World) {
             }
             watch.requested += 1;
             watch.dirty = false;
+            SourcesAnswer::Requested
         }
         ReloadRequest::CancelledInFlight { cancelled } => {
             info!("content sources changed back to what is running; the reload in flight ({cancelled:?}) was cancelled");
             watch.dirty = false;
+            SourcesAnswer::Unchanged
         }
         ReloadRequest::Unchanged => {
             info!("content sources changed and the compiled content did not");
             watch.dirty = false;
+            SourcesAnswer::Unchanged
         }
         ReloadRequest::PackRefused(diagnostic) => {
             error!("content reload refused; the running content stays:\n{diagnostic}");
             watch.dirty = false;
+            SourcesAnswer::Refused
         }
         ReloadRequest::Refused(reason) => {
             warn!("content reload refused; the running content stays: {reason:?}");
             watch.dirty = false;
+            SourcesAnswer::Refused
         }
         // Kept: asked for again at the next look.
         ReloadRequest::NoActiveRoute
@@ -166,7 +204,17 @@ pub fn watch_content_sources(world: &mut World) {
                 info!("content sources changed; the reload waits: {said}");
                 watch.waiting = Some(said);
             }
+            SourcesAnswer::Waiting
         }
+    }
+}
+
+/// Stop asking for a change a paired refusal answered: the running content
+/// stays, and the next save is a new change.
+pub fn forget_source_change(world: &mut World) {
+    if let Some(mut watch) = world.get_resource_mut::<ContentSourceWatch>() {
+        watch.dirty = false;
+        watch.waiting = None;
     }
 }
 

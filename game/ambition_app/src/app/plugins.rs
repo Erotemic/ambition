@@ -132,6 +132,10 @@ pub fn add_simulation_plugins(app: &mut App) {
     // `RoomTransitionSchedulePlugin` module docs).
     register_app_local_sim_systems(app);
 
+    // A script and the content it uses reload as one candidate.
+    #[cfg(not(any(target_arch = "wasm32", feature = "static_content")))]
+    app.add_plugins(super::source_pairing::SourcePairingPlugin);
+
     // All construction/snapshot registries are now installed. Publish the
     // direct-entry session root from the same immutable prepared-content path
     // used by shell activation.

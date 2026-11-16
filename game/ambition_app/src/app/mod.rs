@@ -34,6 +34,8 @@ mod plugins;
 pub mod project;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod content_check;
+#[cfg(not(any(target_arch = "wasm32", feature = "static_content")))]
+pub mod source_pairing;
 mod resources;
 mod scene_setup;
 mod setup_systems;

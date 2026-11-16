@@ -178,6 +178,8 @@ MODULE_HARNESS_PACKAGE = "ambition_content"
 MODULE_ARMS = (
     "a_boss_special_runs_on_the_extension_host",
     "a_loaded_module_keeps_session_state",
+    "a_script_module_runs_without_a_build",
+    "edit_to_play_through_the_shell",
     "fsm_fight",
     "gnu_ton_fight",
     "hunny_fight",

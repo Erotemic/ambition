@@ -53,7 +53,7 @@ fn watch_project_sources(world: &mut World, mut frames_until_poll: Local<u32>, m
         return;
     }
     // Asserted at every look: a host or a test may put a new watch in place.
-    world.resource_mut::<ContentSourceWatch>().paired = true;
+    content_watch::pair_with_modules(world);
     if *frames_until_poll > 0 {
         *frames_until_poll -= 1;
         return;

@@ -14,14 +14,18 @@
 //!     modules: ["modules"],
 //!     // The room the run starts in.
 //!     entry_room: Some("hall_of_characters"),
+//!     // The bag every session begins with: catalog ids and counts. Absent,
+//!     // the game's own starting bag.
+//!     starting_items: Some([("bomb", 3), ("lantern", 1)]),
 //! )
 //! ```
 //!
 //! Paths are relative to the manifest's directory. This adapter lowers the
 //! manifest into the composition inputs that already exist: the module files
-//! (`ExtensionModuleFiles`), the selected pack (`select_pack`) and the start
-//! room (`StartRoomOverride`). It is part of the host: a project implements
-//! no `GameModule`.
+//! (`ExtensionModuleFiles`), the selected pack (`select_pack`), the start
+//! room (`StartRoomOverride`) and the starting bag (`PreparedStartingBag`,
+//! which the bag's owner reads in place of the game's Rust callback). It is
+//! part of the host: a project implements no `GameModule`.
 //!
 //! The run: `ambition_app --project path/to/project.ron` (or its directory).
 
@@ -47,6 +51,8 @@ pub struct ProjectManifest {
     pub modules: Vec<String>,
     #[serde(default)]
     pub entry_room: Option<String>,
+    #[serde(default)]
+    pub starting_items: Option<Vec<(String, u32)>>,
 }
 
 /// A manifest with its paths resolved and checked.
@@ -58,6 +64,8 @@ pub struct Project {
     pub content_root: Option<PathBuf>,
     pub module_files: Vec<PathBuf>,
     pub entry_room: Option<String>,
+    /// Catalog ids and counts; `None` keeps the game's starting bag.
+    pub starting_items: Option<Vec<(String, u32)>>,
 }
 
 impl Project {
@@ -98,6 +106,16 @@ impl Project {
                 problems.push("entry_room is empty".to_string());
             }
         }
+        // Whether an id names an item is the catalog's to say, when the pack
+        // is selected (`PreparedStartingBag::bag`); the shape is checked here.
+        for (id, count) in parsed.starting_items.iter().flatten() {
+            if id.trim().is_empty() {
+                problems.push("starting_items has an empty item id".to_string());
+            }
+            if *count == 0 {
+                problems.push(format!("starting_items gives \"{id}\" a count of 0"));
+            }
+        }
         if !problems.is_empty() {
             return Err(format!("{at}:\n  {}", problems.join("\n  ")));
         }
@@ -107,6 +125,7 @@ impl Project {
             content_root,
             module_files,
             entry_room: parsed.entry_room,
+            starting_items: parsed.starting_items,
         })
     }
 
@@ -125,6 +144,9 @@ impl Project {
             frames_until_poll: POLL_FRAMES,
         });
         app.add_systems(bevy::prelude::Update, watch_project);
+        if let Some(items) = &self.starting_items {
+            app.insert_resource(ambition_platformer2d::item_runtime::starting_bag::PreparedStartingBag(items.clone()));
+        }
         // A `--start-room` typed beside `--project` is the request.
         #[cfg(not(target_arch = "wasm32"))]
         let typed_room = super::cli::cli_start_room_arg().is_some();

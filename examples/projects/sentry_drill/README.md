@@ -25,6 +25,7 @@ which line.
 | `content` | optional: a content pack root, a directory with its own `pack.ron` |
 | `modules` | `.rhai` sources (or `.wasm` builds), or directories of them; each replaces the linked module its file names |
 | `entry_room` | optional: the room the run starts in, a runtime room id; `--start-room` beside `--project` wins |
+| `starting_items` | optional: the bag every session begins with, catalog ids and counts (`Some([("bomb", 3), ("lantern", 1)])`); absent, the game's own starting bag |
 
 The tools take the project too:
 

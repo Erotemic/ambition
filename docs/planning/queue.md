@@ -65,10 +65,11 @@ carries closed campaigns. Unselected or customer-gated plans live in
    (`examples/projects/sentry_drill`, no Rust).
    **Next action:** the rest of P3's project entry (the
    [plan's progress note](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p3-run-source-scripts-and-a-project-on-the-prebuilt-host):
-   initial conditions as prepared data; module discovery from the
-   manifest, the tools' `--project`, the rollback and fault witnesses
-   through a project, and modules a script declares (`fn declare()`)
-   landed 2026-11-16); describing the
+   body grants and behaviour attachments as a project's data when a
+   customer needs them; module discovery from the manifest, the tools'
+   `--project`, the rollback and fault witnesses through a project,
+   modules a script declares (`fn declare()`) and the starting bag as data
+   (`starting_items`) landed 2026-11-16); describing the
    other ports as scripts need them.
    Story sequences (SS1, SS2, landed) are the first content customer of
    the authored command catalog a script will call.

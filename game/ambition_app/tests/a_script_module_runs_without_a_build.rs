@@ -367,3 +367,35 @@ fn a_module_a_script_declares_runs_with_its_own_record() {
     assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Initial conditions as prepared data (P3, the project entry's step 3): a
+/// project lists its starting bag (`starting_items`), and its sessions begin
+/// with that bag and not the game's own (Ambition's starter unlocks its
+/// abilities, the Fireball among them). The control: the example project
+/// lists none and begins with the game's.
+#[test]
+fn a_projects_starting_bag_is_its_data() {
+    use ambition_platformer2d::item::{Item, OwnedItems};
+    let dir = root().join(format!("target/extension-modules/project_test_{}_bag", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("project.ron"),
+        r#"(schema: "ambition.project.v1", name: "a bag", starting_items: Some([("bomb", 3), ("lantern", 1)]))"#,
+    )
+    .unwrap();
+    let options = || Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    let project = ambition_app::app::project::Project::load(&dir).expect("the project loads");
+    let sim = project.sim(options()).expect("the project builds");
+    let bag = sim.world().resource::<OwnedItems>();
+    assert_eq!(bag.count(Item::Bomb), 3, "the listed bombs");
+    assert!(bag.has(Item::Lantern), "the listed lantern");
+    assert!(!bag.has(Item::Fireball), "the game's starter is not added to the listed bag");
+
+    let example = ambition_app::app::project::Project::load(&root().join("examples/projects/sentry_drill"))
+        .expect("the example project loads");
+    let sim = example.sim(options()).expect("the example builds");
+    let bag = sim.world().resource::<OwnedItems>();
+    assert!(bag.has(Item::Fireball) && !bag.has(Item::Lantern), "control: no list, the game's starting bag");
+    let _ = std::fs::remove_dir_all(&dir);
+}

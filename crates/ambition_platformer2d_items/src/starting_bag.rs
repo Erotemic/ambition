@@ -75,6 +75,36 @@ impl StartingBag {
     }
 }
 
+/// A starting bag given as data: catalog ids (`dialog_id`) and counts, as a
+/// project lists them (`project.ron`'s `starting_items`). It is the bag every
+/// session of the run begins with, in place of the one its experience
+/// declares in Rust (scripting audit P3: initial conditions as prepared
+/// data).
+///
+/// ⛔ HOST CONFIGURATION. Inserted before the App's plugins build.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct PreparedStartingBag(pub Vec<(String, u32)>);
+
+impl PreparedStartingBag {
+    /// The bag, from `catalog`. An id the catalog has not is a mistake in the
+    /// data, and is named, not skipped in silence.
+    pub fn bag(&self, catalog: &ItemCatalog) -> Result<OwnedItems, String> {
+        let mut bag = OwnedItems::default();
+        let mut unknown = Vec::new();
+        for (id, count) in &self.0 {
+            match catalog.item_by_dialog_id(id) {
+                Some(item) => bag.grant(catalog, item, *count),
+                None => unknown.push(id.as_str()),
+            }
+        }
+        if unknown.is_empty() {
+            Ok(bag)
+        } else {
+            Err(format!("the starting bag names items the catalog has not: {unknown:?}"))
+        }
+    }
+}
+
 /// The bag that a session of an experience begins with, built from the item
 /// catalog of the App. A plain function: the bag is the same for each session
 /// of the experience.
@@ -118,12 +148,27 @@ pub struct StartingBagOf<'w> {
     /// (the record of `Startup`). Read only to report a bag that no
     /// experience declares.
     composition: Option<Res<'w, StartingBag>>,
+    /// A bag given as data, which every experience's sessions begin with.
+    prepared: Option<Res<'w, PreparedStartingBag>>,
 }
 
 impl StartingBagOf<'_> {
-    /// The bag that a session of `experience_id` begins with: the declared
-    /// one, or an empty bag.
+    /// The bag that a session of `experience_id` begins with: the prepared
+    /// one, the declared one, or an empty bag.
     pub fn of(&self, experience_id: &str) -> StartingBag {
+        if let Some(prepared) = self.prepared.as_deref() {
+            return match prepared.bag(self.items.get()) {
+                Ok(bag) => StartingBag(bag),
+                Err(why) => {
+                    bevy::log::error!("{why}; the session begins with the bag of its experience");
+                    self.declared_of(experience_id)
+                }
+            };
+        }
+        self.declared_of(experience_id)
+    }
+
+    fn declared_of(&self, experience_id: &str) -> StartingBag {
         let declared = self
             .declared
             .as_deref()
@@ -150,7 +195,19 @@ impl StartingBagOf<'_> {
     }
 }
 
-fn record_the_starting_bag(owned: Res<OwnedItems>, mut commands: Commands) {
+fn record_the_starting_bag(
+    mut owned: ResMut<OwnedItems>,
+    prepared: Option<Res<PreparedStartingBag>>,
+    items: ItemCatalogRead,
+    mut commands: Commands,
+) {
+    // The direct road has no adoption: a bag given as data is put in here.
+    if let Some(prepared) = prepared {
+        match prepared.bag(items.get()) {
+            Ok(bag) => *owned = bag,
+            Err(why) => bevy::log::error!("{why}; the session begins with the bag it was built with"),
+        }
+    }
     commands.insert_resource(StartingBag(owned.clone()));
 }
 

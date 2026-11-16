@@ -108,8 +108,9 @@ an example, a tally kept on each sentry turret:
 `a_module_a_script_declares_runs_with_its_own_record` in
 `game/ambition_app/tests/a_script_module_runs_without_a_build.rs`.
 
-A **project** names its scripts (and optionally its own content pack and
-start room) in a `project.ron`, so a run needs no variable:
+A **project** names its scripts (and optionally its own content pack, start
+room and starting bag, `starting_items: Some([("bomb", 3)])`) in a
+`project.ron`, so a run needs no variable:
 
 ```bash
 ./target/debug/ambition_game_bin --project examples/projects/sentry_drill

@@ -499,7 +499,10 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::BodySoundPort>("sound")
         .add::<ambition_combat_port::EndModuleEntityPort>("end_module_entity")
         .add::<ambition_combat_port::PullBodiesPort>("pull_bodies")
-        .add::<ambition_combat_port::LaunchToucherPort>("launch_toucher");
+        .add::<ambition_combat_port::LaunchToucherPort>("launch_toucher")
+        .add::<ambition_combat_port::ActorThinkPort>("actor_think")
+        .add::<ambition_combat_port::ActorFirePort>("fire")
+        .add::<ambition_combat_port::SetVelocityPort>("velocity");
     ports
 }
 

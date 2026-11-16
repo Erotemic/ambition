@@ -352,13 +352,22 @@ impl Port for SetVelocityPort {
     type Value = SetVelocity;
 
     fn encode(v: &SetVelocity, out: &mut Vec<u8>) {
-        wire::put_vec2(out, v.velocity);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<SetVelocity, WireError> {
-        Ok(SetVelocity { velocity: r.vec2()? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
+
+ambition_extension_sdk::port_record! {
+    SetVelocity {
+        /// The body's new velocity (world frame, units per second, +Y down).
+        velocity: [f32; 2],
+    }
+}
+
+ambition_extension_sdk::script_port!(SetVelocityPort);
 
 /// The request port marker for a hit mark: the mark that shows where a hit
 /// or a catch landed.

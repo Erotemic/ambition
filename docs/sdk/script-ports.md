@@ -74,3 +74,34 @@ Port `ambition.world.launch_toucher@1`, request: `this.requests.push(request("<a
 | `toucher` | integer (u32) | required | Which of this tick's `touchers` (its index in the trigger's list). |
 | `velocity` | [x, y] | required | The velocity it leaves at (world units per second, +Y down); set, not added. |
 
+## `actor_think`
+
+Port `ambition.actor.think@2`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `position` | [x, y] | The body's centre (world units, +Y down). |
+| `velocity` | [x, y] | Its velocity (world units per second). |
+| `size` | [x, y] | Its box, width and height. |
+| `facing` | number | The way it faces: `1.0` is +x, `-1.0` is -x. |
+| `on_ground` | bool | Whether it stands on the ground. |
+| `health` | integer (i32) | Its health. |
+| `target` | [x, y] or () | Where its target is now, or `()` when it has none. |
+| `placement` | text or () | The id of the placement that built it, or `()` for a body no placement built. |
+
+## `fire`
+
+Port `ambition.actor.fire@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `direction` | [x, y] | required | Which way to fire (world frame; its length does not matter). |
+
+## `velocity`
+
+Port `ambition.motion.velocity@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `velocity` | [x, y] | required | The body's new velocity (world frame, units per second, +Y down). |
+

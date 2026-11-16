@@ -71,9 +71,10 @@ carries closed campaigns. Unselected or customer-gated plans live in
    modules a script declares (`fn declare()`) and the starting bag as data
    (`starting_items`) landed 2026-11-16); describing the
    other ports as scripts need them (a module entity's own requests,
-   `end_module_entity`, `pull_bodies` and `launch_toucher`, landed
-   2026-11-16; the next are the ones P4's swallows need: body facts, item
-   custody and control intent).
+   `end_module_entity`, `pull_bodies` and `launch_toucher`, and a brain's
+   `actor_think`, `fire` and `velocity` with Mary-O's laden swallow as a
+   Rhai script, landed 2026-11-16; the next are the ones P4's swallows
+   need: item custody, control intent and room-coordinated invocation).
    Story sequences (SS1, SS2, landed) are the first content customer of
    the authored command catalog a script will call.
 1. **Network architecture (maintainer priority, updated 2026-11-10):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. **Direction set 2026-11-10:** the metroidvania moves to a hybrid model, with rollback kept inside a room boundary while it is easy to maintain and its room-level cost measured, and hosted authority for the world around the rooms: [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) is selected and runs beside the experiment.

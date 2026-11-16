@@ -6,7 +6,9 @@
 //! the integration, over two drop periods, and compares it with the module's
 //! own rule (`drops_on`, `over`): a coconut straight down exactly on its
 //! placement's tick while it is over Mary-O, and nothing else. A swallow a
-//! script holds drops nothing.
+//! script holds drops nothing. The same rule in Rhai
+//! (`rhai/laden_swallow.rhai`), loaded in place of the native `think`,
+//! drops on the same ticks.
 
 use bevy::prelude::*;
 
@@ -57,7 +59,16 @@ fn record(
 /// Two drop periods in 1-3, with Mary-O held under the first swallow. She
 /// cannot be hurt: a coconut that killed her would replay the room.
 fn two_periods(held: bool) -> Vec<Seen> {
-    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    two_periods_loading(held, Vec::new())
+}
+
+fn two_periods_loading(held: bool, files: Vec<std::path::PathBuf>) -> Vec<Seen> {
+    let scripted = !files.is_empty();
+    let mut app = if scripted {
+        ambition_demo_mary_o_app::build_demo_app_loading(files)
+    } else {
+        ambition_demo_mary_o_app::build_demo_app()
+    };
     app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(SKY.to_string()));
     let birds: Vec<Entity> = (0..600)
         .find_map(|_| {
@@ -74,6 +85,19 @@ fn two_periods(held: bool) -> Vec<Seen> {
             (seated && !birds.is_empty()).then(|| birds.into_iter().map(|(_, entity)| entity).collect())
         })
         .expect("1-3 builds its swallows and seats Mary-O");
+    if scripted {
+        let admitted = app.world().resource::<ambition_platformer2d::extension::AdmittedExtensions>();
+        let entry = admitted
+            .0
+            .entries
+            .iter()
+            .find(|e| e.path == "mary_o::laden_swallow/think")
+            .expect("the swallow's think entry is admitted");
+        assert!(
+            matches!(entry.runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. }),
+            "the think entry runs from the script"
+        );
+    }
     if held {
         for bird in &birds {
             app.world_mut().entity_mut(*bird).insert(ControlHolds::only(ControlHold::Sequence));
@@ -124,4 +148,23 @@ fn the_laden_swallow_drops_on_its_modules_rule_and_not_when_held() {
     let held = two_periods(true);
     let dropped: Vec<_> = held.iter().filter(|seen| seen.fire.is_some()).collect();
     assert!(dropped.is_empty(), "the gate removes the drop of a swallow a script holds: {dropped:?}");
+}
+
+/// ⭐ THE BRAIN IN RHAI: the same rule as a script (`actor_think` in,
+/// `fire` out, both described ports), loaded in place of the native code,
+/// gives the same gated frame on every tick: the module's drop or nothing.
+#[test]
+fn the_laden_swallow_in_rhai_drops_on_the_same_rule() {
+    let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../ambition_demo_mary_o_modules/rhai/laden_swallow.rhai");
+    let seen = two_periods_loading(false, vec![script]);
+    assert!(seen.len() as u64 >= DROP_EVERY_TICKS * 2, "the probe saw the swallows on {} frames", seen.len());
+    let mut drops = 0;
+    for seen in &seen {
+        let expected =
+            (drops_on(seen.tick, &seen.placement) && over(seen.bird, seen.her)).then(|| ae::Vec2::from(DROP_DIRECTION));
+        assert_eq!(seen.fire, expected, "tick {} ({}): the script's frame is the rule's", seen.tick, seen.placement);
+        drops += usize::from(expected.is_some());
+    }
+    assert!(drops >= 2, "the scripted swallow over her drops once a period: {drops} drops");
 }

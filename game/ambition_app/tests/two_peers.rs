@@ -152,9 +152,17 @@ fn peer_with_prediction(
     prepare: fn(&mut Platformer2dSimHarness),
     max_prediction_window: usize,
 ) -> (Platformer2dSimHarness, Vec<&'static str>) {
-    let options = fixed_60hz_room_options(room)
+    let mut options = fixed_60hz_room_options(room)
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
+    if room == "basement_boss" {
+        // The Warden's entry line holds every body in the room until someone
+        // dismisses it, and the walk is about the boss's float rows, not the
+        // intro: the peers start from a save that has heard it.
+        let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
+        save.set_flag("boss_intro_gradient_sentinel_seen".to_string(), true);
+        options = options.with_save(save);
+    }
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");
     bob_beside_alice(&mut sim, room, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     prepare(&mut sim);
@@ -508,9 +516,11 @@ fn two_peers_agree_in_the_rooms_that_carry_the_float_rows() {
             ("blink_run", 1),
             ("portal_lab", 1),
             ("basement_hazards", 1),
-            // Three since 2026-10-12: a swing of the robot at home does not
-            // root it, so in the same frames she walks off the bridge twice.
-            ("portal_bridge", 3),
+            // She walks off the bridge once in the walk's frames (measured
+            // 2026-11-16; twice from 2026-10-12, when a swing stopped
+            // rooting the robot). One replay is what the walk needs: the
+            // peers agree across it.
+            ("portal_bridge", 2),
             ("basement_boss", 1),
             ("pirate_sky_lookout", 1),
             ("goblin_encounter", 1),

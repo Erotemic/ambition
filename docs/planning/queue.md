@@ -29,8 +29,9 @@ carries closed campaigns. Unselected or customer-gated plans live in
    covered by SS1+SS4 (the raid's escape is one). Story sequences are done
    but for `present_when`, which waits for a customer. Dark
    rooms and the first tunnel (under Hobford, the mill wheel to the hollow
-   oak) are [dark rooms and tunnels](engine/dark-rooms-and-tunnels.md), DR1
-   first; the player's glow by quality tier, its first piece, is done.
+   oak) are [dark rooms and tunnels](engine/dark-rooms-and-tunnels.md): the
+   player's glow by quality tier and DR1 (room darkness: the catacombs and
+   the ossuary, 2026-11-16) are done; DR2, the light map, is next.
 0b. **Runtime authoring: a scripting language (Jon, 2026-11-14: "I think its
    time for a scripting language"; after the audit's obvious fixes, scripting
    is the feature priority).** The

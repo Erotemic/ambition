@@ -165,6 +165,13 @@ impl Plugin for SessionRoomVisualsPlugin {
                 .run_if(resource_exists::<crate::rendering::daylight::DaylightStyle>)
                 .after(crate::rendering::camera_follow),
         );
+        // The darkness of a dark room (its level fields `darkness` and
+        // `ambient`), over the camera's view; it sleeps in a lit room once
+        // its veil is hidden.
+        app.add_systems(
+            Update,
+            crate::rendering::darkness::darken_the_room.after(crate::rendering::camera_follow),
+        );
         // The light a boss asks for in its room (`ambition.boss.stage`).
         // Both sleep where no live room's game has named bosses, after the
         // frame that puts the light and the card away.

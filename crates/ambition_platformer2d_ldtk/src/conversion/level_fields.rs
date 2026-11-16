@@ -46,6 +46,9 @@ impl LdtkLevel {
                 lighting_hint: take("lighting_hint"),
                 foreground_treatment: take("foreground_treatment"),
                 sky_scroll_px_s: self.field_i32("sky_scroll").filter(|px_s| *px_s != 0),
+                // A percent: out of range is clamped, not refused, as a slider is.
+                darkness_pct: self.field_i32("darkness").filter(|pct| *pct > 0).map(|pct| pct.min(100) as u8),
+                ambient: take("ambient"),
             },
             nameplate_policy: ambition_platformer2d_world::rooms::RoomNameplatePolicy {
                 full_opacity_count: take_count("nameplate_full_opacity_count"),

@@ -426,9 +426,25 @@ pub enum ActorGlowQuality {
     Light,
 }
 
+/// How a dark room's darkness is drawn ([`GlowBudget`]): the room's level
+/// fields `darkness` and `ambient` say how dark it is. Every tier can play
+/// every room, so the cheapest tier draws it flat and caps it at half.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum DarknessQuality {
+    /// One flat veil, at most half dark: nothing that must be seen is hidden.
+    Flat,
+    /// The veil with a soft hole of light round each player. The default,
+    /// for a saved budget from before the field.
+    #[default]
+    AroundThePlayer,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GlowBudget {
     pub actor_glow: ActorGlowQuality,
+    /// `serde(default)`: a budget saved before the field parses.
+    #[serde(default)]
+    pub darkness: DarknessQuality,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -492,7 +508,7 @@ impl VisualQualityBudget {
                     max_particles: 16,
                     spawn_rate_scale: 0.1,
                 },
-                glow: GlowBudget { actor_glow: ActorGlowQuality::Off },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Off, darkness: DarknessQuality::Flat },
                 raster: RasterBudget {
                     max_scale_factor: Some(1.0),
                     msaa_samples: 1,
@@ -525,7 +541,7 @@ impl VisualQualityBudget {
                     max_particles: 128,
                     spawn_rate_scale: 0.5,
                 },
-                glow: GlowBudget { actor_glow: ActorGlowQuality::Mask },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Mask, darkness: DarknessQuality::AroundThePlayer },
                 raster: RasterBudget {
                     max_scale_factor: Some(1.0),
                     msaa_samples: 1,
@@ -558,7 +574,7 @@ impl VisualQualityBudget {
                     max_particles: 256,
                     spawn_rate_scale: 0.75,
                 },
-                glow: GlowBudget { actor_glow: ActorGlowQuality::Mask },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Mask, darkness: DarknessQuality::AroundThePlayer },
                 raster: RasterBudget {
                     max_scale_factor: Some(1.0),
                     msaa_samples: 1,
@@ -591,7 +607,7 @@ impl VisualQualityBudget {
                     max_particles: 512,
                     spawn_rate_scale: 1.0,
                 },
-                glow: GlowBudget { actor_glow: ActorGlowQuality::Smooth },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Smooth, darkness: DarknessQuality::AroundThePlayer },
                 raster: RasterBudget {
                     max_scale_factor: None,
                     msaa_samples: 4,
@@ -624,7 +640,7 @@ impl VisualQualityBudget {
                     max_particles: 1024,
                     spawn_rate_scale: 1.0,
                 },
-                glow: GlowBudget { actor_glow: ActorGlowQuality::Light },
+                glow: GlowBudget { actor_glow: ActorGlowQuality::Light, darkness: DarknessQuality::AroundThePlayer },
                 raster: RasterBudget {
                     max_scale_factor: None,
                     msaa_samples: 4,

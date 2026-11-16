@@ -397,6 +397,10 @@ OPTIONAL_LEVEL_FIELDS = (
     # The verbs a player's body does without here
     # (`RoomMetadata::withheld_verbs`).
     "withheld_verbs",
+    # How dark the room is, in percent, and the colour of its darkness
+    # (`RoomVisualProfile::darkness_pct`, `::ambient`).
+    "darkness",
+    "ambient",
 )
 
 

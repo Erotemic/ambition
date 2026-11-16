@@ -22,7 +22,7 @@ pub use controls::{
 };
 pub use gameplay::{AssistMode, GameplaySettings};
 pub use video::{
-    profile_override_from_env, seed_profile_for_gpu, ActorGlowQuality, BackgroundTextureBudget, CameraAspectPolicy, GlowBudget,
+    profile_override_from_env, seed_profile_for_gpu, ActorGlowQuality, BackgroundTextureBudget, DarknessQuality, CameraAspectPolicy, GlowBudget,
     DetectedGpuClass, GameplayViewShape, ParallaxBudget, ParticleBudget, PortalCaptureBudget, RasterBudget,
     ResolvedVisualQuality, ScreenShaderSettings, ShaderBudget, SpriteTextureBudget,
     TextureResolutionScale, VideoSettings, VisualQualityBudget, VisualQualityProfile,

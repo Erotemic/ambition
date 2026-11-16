@@ -38,6 +38,13 @@ pub struct RoomVisualProfile {
     /// factor of it, and wraps (level field `sky_scroll`). The Mockingbird's
     /// air chase: a stage that stands still and a sky that never stops.
     pub sky_scroll_px_s: Option<i32>,
+    /// How dark the room is, in percent: 0 none, 100 black (level field
+    /// `darkness`). The place gives it: a tunnel under the hill, a cellar
+    /// with its door shut. Presentation only: no simulation fact reads it.
+    pub darkness_pct: Option<u8>,
+    /// The colour of the darkness, `#rrggbb` (level field `ambient`); unset,
+    /// a deep blue-black.
+    pub ambient: Option<String>,
 }
 
 impl RoomVisualProfile {
@@ -49,6 +56,8 @@ impl RoomVisualProfile {
             && self.lighting_hint.is_none()
             && self.foreground_treatment.is_none()
             && self.sky_scroll_px_s.is_none()
+            && self.darkness_pct.is_none()
+            && self.ambient.is_none()
     }
 
     pub fn merge(&mut self, other: RoomVisualProfile) {
@@ -72,6 +81,12 @@ impl RoomVisualProfile {
         }
         if self.sky_scroll_px_s.is_none() {
             self.sky_scroll_px_s = other.sky_scroll_px_s;
+        }
+        if self.darkness_pct.is_none() {
+            self.darkness_pct = other.darkness_pct;
+        }
+        if self.ambient.is_none() {
+            self.ambient = other.ambient;
         }
     }
 

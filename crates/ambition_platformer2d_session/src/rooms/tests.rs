@@ -826,6 +826,8 @@ fn room_visual_profile_merge_prefers_existing_values() {
         lighting_hint: None,
         foreground_treatment: None,
         sky_scroll_px_s: None,
+        darkness_pct: None,
+        ambient: None,
     };
     let b = RoomVisualProfile {
         id: Some("conflict".into()),
@@ -835,6 +837,8 @@ fn room_visual_profile_merge_prefers_existing_values() {
         lighting_hint: Some("low_key".into()),
         foreground_treatment: Some("dust".into()),
         sky_scroll_px_s: Some(-600),
+        darkness_pct: Some(70),
+        ambient: None,
     };
     a.merge(b);
     assert_eq!(a.id.as_deref(), Some("intro"));

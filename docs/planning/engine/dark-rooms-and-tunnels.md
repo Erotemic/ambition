@@ -1,6 +1,6 @@
 # Dark rooms and tunnels
 
-**State:** OPEN, planned 2026-11-14. Asked by Jon on 2026-11-14: "we have to
+**State:** OPEN, planned 2026-11-14; DR1 landed 2026-11-16. Asked by Jon on 2026-11-14: "we have to
 start thinking about how to model "dark" or "dim" rooms with limited
 visibilities and effectively tunnels. We don't have any rooms that are based
 on tunnels, and tunnels in a metroidvania are fun and how we make good use of
@@ -86,6 +86,22 @@ is down there (coins, a note).
 - **DR1. Room darkness.** The `darkness` and `ambient` level fields; the veil
   (flat at Potato, with the player's hole at Low and Medium). Acceptance: a
   dark room at each tier, captured; Potato no darker than half.
+  **Landed 2026-11-16.** `darkness` is a level field in percent (Int, 0 to
+  100; `RoomVisualProfile::darkness_pct`) and `ambient` a `#rrggbb` colour
+  (unset: a deep blue-black); the area tool writes both
+  (`OPTIONAL_LEVEL_FIELDS`). The tier's `GlowBudget::darkness`
+  (`DarknessQuality`) is `Flat` at Potato (one veil, capped at half) and
+  `AroundThePlayer` above it: a soft round hole of light (radius 200, clear
+  to a third of it) on the first player, and four flat pieces round it
+  (`ambition_render::rendering::darkness`, `darken_the_room`, over the
+  daylight veil, on its layer so no portal capture darkens a window twice).
+  High and Ultra draw the hole veil until DR2's light map. The first dark
+  rooms are the catacombs under the moor and the ossuary behind them
+  (`evil_moor` generator, 70%). The percent is what the eye sees: the
+  veil is blended in linear light, where an alpha of 0.7 took a bright
+  skull from sRGB 211 only to 125, so the veil's alpha is
+  `1 - (1 - pct)^2.2` (captured: 211 to 64 at 70%, to 108 at Potato's
+  half).
 - **DR2. The light map (High).** `LightSource`, the per-view target, actor
   glows and fire glows drawn into it. Acceptance: a tunnel lit by its lamps
   and the player; the cost measured (one target per view at half size).

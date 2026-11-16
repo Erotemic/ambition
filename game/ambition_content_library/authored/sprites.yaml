@@ -1230,6 +1230,13 @@ collections:
   - hill_fell_sheep_grazing
   - hill_fell_fold_wall
   - hill_fell_cairn
+  - hill_stepping_stone
+  - hill_stepping_stone_narrow
+  - hill_stream_rock
+  - hill_woods_root
+  - hill_standing_stone
+  - hill_meadow_wall
+  - hill_meadow_hut
   - catacombs_west
   - catacombs_east
   - ridge_west

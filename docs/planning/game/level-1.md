@@ -339,8 +339,8 @@ room draws the default grid). Published with
 `WORKSHOP_LOOK`, `COUNTRY_LOOK` and `WOODS_LOOK` name them.
 
 The props are `targets/props/hill_village_props.py` (nine pieces with
-name-neutral `hill_*` ids), published and placed; their captures are
-[Hobford polish](hobford-polish.md) row 8. The villagers are the valley's
+name-neutral `hill_*` ids), published, placed and captured
+([Hobford polish](hobford-polish.md) row 8). The villagers are the valley's
 residents (row 9 there).
 
 ## Provisional decisions

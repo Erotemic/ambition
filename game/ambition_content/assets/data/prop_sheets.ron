@@ -912,6 +912,15 @@
     "hill_survey_station": (),
     "hill_meadow_oak": (),
     "hill_gate_office": (),
+    // The fell's dressing, placed many times along its road and terraces.
+    "hill_fell_rocks": (),
+    "hill_fell_rocks_slope": (),
+    "hill_fell_gorse": (),
+    "hill_fell_gorse_slope": (),
+    "hill_fell_sheep": (),
+    "hill_fell_sheep_grazing": (),
+    "hill_fell_fold_wall": (),
+    "hill_fell_cairn": (),
     // The catacombs under the moor (Evil).
     "catacombs_west": (),
     "catacombs_east": (),

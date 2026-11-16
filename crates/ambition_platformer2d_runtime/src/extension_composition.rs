@@ -362,6 +362,7 @@ fn load_developer_modules(app: &mut App) {
     app.insert_resource(WatchedModuleFiles {
         listed,
         files: watched,
+        attempted: None,
         frames_until_poll: 0,
     });
     app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
@@ -567,6 +568,7 @@ struct WatchedModuleFiles {
     listed: Vec<std::path::PathBuf>,
     files: Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>,
     frames_until_poll: u32,
+    attempted: Option<Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>>,
 }
 
 /// Frames between two looks at the files: a stat per file is cheap, and a
@@ -603,39 +605,21 @@ fn propose_module_reload(world: &mut World) {
         Some(files) => files.0.clone(),
         None => world.resource::<WatchedModuleFiles>().listed.clone(),
     };
-    let present = discover_module_files(&listed);
+    let current: Vec<_> = discover_module_files(&listed).into_iter()
+        .map(|path| { let seen = modified(&path); (path, seen) }).collect();
     let (changed, removed) = {
         let mut watched = world.resource_mut::<WatchedModuleFiles>();
-        let mut changed = Vec::new();
-        let mut removed = Vec::new();
-        watched.files.retain(|(path, _)| {
-            let stays = present.contains(path);
-            if !stays {
-                removed.push(path.clone());
-            }
-            stays
-        });
-        for (path, seen) in &mut watched.files {
-            let now = modified(path);
-            if now.is_some() && now != *seen {
-                *seen = now;
-                changed.push(path.clone());
-            }
-        }
-        for path in present {
-            if !watched.files.iter().any(|(seen, _)| *seen == path) {
-                watched.files.push((path.clone(), modified(&path)));
-                changed.push(path);
-            }
-        }
+        if current == watched.files || watched.attempted.as_ref() == Some(&current) { return; }
+        let changed: Vec<_> = current.iter().filter(|row| !watched.files.contains(row))
+            .map(|(path, _)| path.clone()).collect();
+        let removed: Vec<_> = watched.files.iter()
+            .filter(|(path, _)| !current.iter().any(|(present, _)| present == path))
+            .map(|(path, _)| path.clone()).collect();
+        watched.attempted = Some(current.clone());
         (changed, removed)
     };
-    if changed.is_empty() && removed.is_empty() {
-        return;
-    }
-    // ⛔ ONE POLL IS ONE CANDIDATE: every changed file that loads goes into
-    // one staged generation (`stage_loaded_replacements`). A file that does
-    // not load keeps its running code; the others still reload.
+    // One observed file set is one candidate. A failed compile keeps every
+    // running module and keeps the previous file set for the next attempt.
     let linked = ambition_extension_host::linked_modules(world);
     let mut loaded = Vec::new();
     for path in &changed {
@@ -648,11 +632,10 @@ fn propose_module_reload(world: &mut World) {
                     modules,
                 })
             }
-            Err(reason) => error!(
-                "{EXTENSION_MODULES_VAR}: {} changed and does NOT load; its running code \
-                 stays: {reason}",
-                path.display()
-            ),
+            Err(reason) => {
+                error!("{EXTENSION_MODULES_VAR}: {} does not load; the complete running module set stays: {reason}", path.display());
+                return;
+            }
         }
     }
     if loaded.is_empty() && removed.is_empty() {
@@ -664,6 +647,9 @@ fn propose_module_reload(world: &mut World) {
     names.extend(removed.iter().map(|name| format!("{name} (removed)")));
     match ambition_extension_host::reload::stage_module_changes(world, loaded, removed) {
         Ok(()) => {
+            let mut watched = world.resource_mut::<WatchedModuleFiles>();
+            watched.files = current;
+            watched.attempted = None;
             info!("{EXTENSION_MODULES_VAR}: {names:?} changed; reload proposed");
             world
                 .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()

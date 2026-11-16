@@ -77,6 +77,7 @@ pub struct ActorMut<'a> {
     pub body_mode: &'a mut BodyModeState,
     pub env_contact: &'a mut BodyEnvironmentContact,
     pub resources: Option<&'a mut ambition_platformer2d_core::resources::ActorResources>,
+    pub effects: &'a mut ae::BodyEffects,
     pub action_buffer: &'a mut BodyActionBuffer,
     pub restart: &'a mut BodyRestartLatch,
 }
@@ -104,6 +105,7 @@ impl<'a> ActorMut<'a> {
             body_mode: &mut *self.body_mode,
             env_contact: &mut *self.env_contact,
             resources: self.resources.as_deref_mut(),
+            effects: &mut *self.effects,
             action_buffer: &mut *self.action_buffer,
             restart: &mut *self.restart,
         }
@@ -160,6 +162,7 @@ pub struct ActorClusterQueryData {
     pub body_mode: &'static mut BodyModeState,
     pub env_contact: &'static mut BodyEnvironmentContact,
     pub resources: Option<&'static mut ambition_platformer2d_core::resources::ActorResources>,
+    pub effects: &'static mut ae::BodyEffects,
     pub action_buffer: &'static mut BodyActionBuffer,
     pub restart: &'static mut BodyRestartLatch,
 }
@@ -200,6 +203,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
             resources: self.resources.as_deref_mut(),
+            effects: &mut self.effects,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
         }
@@ -255,6 +259,7 @@ impl SeedActorMut for ActorClusterSeed {
             body_mode: &mut body.body_mode,
             env_contact: &mut body.env_contact,
             resources: body.resources.as_mut(),
+            effects: &mut body.effects,
             action_buffer: &mut body.action_buffer,
             restart: &mut body.restart,
         }

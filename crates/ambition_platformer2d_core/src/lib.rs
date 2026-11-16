@@ -14,6 +14,7 @@ pub mod config;
 pub mod confirmed_frame;
 pub mod content_epoch;
 pub mod control_frame;
+pub mod effects;
 pub mod party_controls;
 pub mod frame;
 pub mod geo_id;
@@ -66,6 +67,7 @@ pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities, MatchBody};
 pub use ability_projection::{project_body_abilities, AbilityContribution, AbilityContributions};
 pub use bevy_math::Vec2;
 pub use carried_component::CarriedComponent;
+pub use effects::{BodyEffects, EffectSource, NumericAttribute, NumericEffect, NumericOp};
 pub use body_clusters::{
     announce_body_restarts, refresh_movement_resources_clusters, reset_body_clusters, AbilityBase,
     ActorSurfaceState, AuthoredMovementTuning, BodyAbilities, BodyActionBuffer, BodyBaseSize,
@@ -128,7 +130,7 @@ pub use movement::{
     MovementAction, MovementOp, MovementTuning, NormalSpineCtx, OcclusionSpan, OutOfShield,
     OutOfShieldAction, OutOfShieldGate, ParryTiming, PhasedGravityJumpTuning, PhasedJumpState,
     SquatDecidedJumpTuning,
-    PoseOwnedExternally, PoseHold, claim_pose_hold, claim_pose_hold_on, release_pose_hold, release_pose_hold_on, ResetCause, RouteDeparture, ShieldTuning, SurfaceMomentumMotion, MomentumBoost,
+    PoseOwnedExternally, PoseHold, claim_pose_hold, claim_pose_hold_on, release_pose_hold, release_pose_hold_on, ResetCause, RouteDeparture, ShieldTuning, SurfaceMomentumMotion,
     SurfaceMotion, SurfaceRef, TraversalAbilityTuning, WireState, AIR_ACCEL, AIR_DODGE_ENDLAG,
     AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE,
     BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME,

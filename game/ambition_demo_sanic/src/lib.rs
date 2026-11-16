@@ -816,13 +816,13 @@ fn toggle_sanic_form(
     mut bodies: bevy::prelude::Query<(
         &ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges,
         &mut ambition_platformer2d::characters::actor::CharacterForm,
-        &mut ambition_platformer2d::engine_core::MotionModel,
+        &mut ambition_platformer2d::engine_core::BodyEffects,
     )>,
 ) {
     let Some(entity) = subject.and_then(|subject| subject.0) else {
         return;
     };
-    let Ok((edges, mut worn, mut model)) = bodies.get_mut(entity) else {
+    let Ok((edges, mut worn, mut effects)) = bodies.get_mut(entity) else {
         return;
     };
     if !edges.pressed(TRANSFORM_TECHNIQUE_ID) {
@@ -838,9 +838,7 @@ fn toggle_sanic_form(
     // `sync_super_form_traits`. This only wears the form and ends any live
     // shoes.
     *worn = ambition_platformer2d::characters::actor::CharacterForm::new(next);
-    if let ambition_platformer2d::engine_core::MotionModel::SurfaceMomentum(momentum) = &mut *model {
-        momentum.boost = None;
-    }
+    effects.end(crate::monitors::SPEED_SHOES);
 }
 
 /// Sanic's transformation beat: its length and its slow-down are `super_form`

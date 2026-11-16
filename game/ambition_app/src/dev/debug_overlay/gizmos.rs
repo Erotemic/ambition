@@ -297,7 +297,7 @@ pub(crate) fn draw_body_debug(
     let on_wall = clusters.wall.on_wall;
     let wall_normal_x = clusters.wall.wall_normal_x;
     // The overlay's maneuver reads via the same projection the sim publishes.
-    let facts = ae::BodyMotionFacts::from_model(motion_model);
+    let facts = ae::BodyMotionFacts::from_model(motion_model, clusters.effects);
     // Use the accepted physical shape on the presentation clock.
     let Ok(volume) = clusters.kinematics.canonical_box().and_then(|source| {
         let map = clusters.kinematics.material_map()?;

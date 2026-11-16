@@ -30,12 +30,13 @@ pub fn drive_commanded_moves(
         &ambition_characters::control::CommandedMove,
         &mut ActorControl,
         Option<&ambition_platformer2d_core::MotionModel>,
+        &ambition_platformer2d_core::BodyEffects,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         Option<&mut ambition_characters::brain::boss_pattern::BossAttackIntent>,
         Option<&BodyHealth>,
     )>,
 ) {
-    for (kin, command, mut control, motion_model, frame, attack_intent, health) in &mut bodies {
+    for (kin, command, mut control, motion_model, effects, frame, attack_intent, health) in &mut bodies {
         if health.is_some_and(|health| !health.alive()) {
             continue;
         }
@@ -46,7 +47,7 @@ pub fn drive_commanded_moves(
         }
         let walker = motion_model.map(|model| {
             (
-                model.commanded_top_speed(),
+                model.commanded_top_speed(effects),
                 frame.map_or_else(
                     || ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default().get(),
                     |frame| frame.get(),

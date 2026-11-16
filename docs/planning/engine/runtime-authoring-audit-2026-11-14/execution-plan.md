@@ -130,8 +130,13 @@ The contact rule (`body_contact`) is still keyed by the brain and skips driven b
 
 **Form dimensions, done (2026-11-16):** the sizes of the ordinary smaller forms (crouch, crawl, slide, ball) are prepared data: `BodyForms` (core), each form a box of its own or a share of the standing box, from the character's catalog row (`forms`; a form the row leaves out is the engine's, `BodyForms::ENGINE`, the old constants). The projection grants it with the character and retracts it with the next; it is rollback state (`body.forms`, schema 475). `BodyMode::shape` takes the table, so every reader names whose sizes it uses: the transition helper, the body-mode driver, the spawn and grant stance edits, the posed-body box and its placement, and the crouch hurtbox inset (the row's). `Submerged` and `Climbing` keep the standing box: a move-owned absence is not a resize. Witnesses: `a_body_curls_into_the_ball_its_row_states` (the driver, ordinary and sideways gravity, feet planted both ways) and `a_rows_form_sizes_go_with_the_character_a_body_wears` (the projection grants and retracts). Not done: a refused transition still returns a bare `false` to the driver (the audit's semantic refusal), and a form is not a new mode: a compact form other than the four is still an enum arm.
 
-Still open in P4:
-- the numeric-effect-sources customer.
+**Numeric effect sources, done (2026-11-16):** a body's live numeric effects are `BodyEffects` (core `effects`), required by every body and rollback state (`body.effects`, schema 476). Each effect is one instance per (source, attribute): a stable `EffectSource` key, an attribute (`TopSpeed`, `GroundAccel`, `Gravity`), an `Add` or `Mul` (`NumericOp`) and the seconds left. A source's second application replaces its first; two sources on one attribute both count and end apart. The value a step reads is `effects::fold` over the authored base, the equipment rule, which equipment's `resolved_param` now calls with the same `NumericOp` (its own `ModifierOp` is gone; authored rows read unchanged). Each policy's step spends the effects on its own clock. Customers:
+- Speed Shoes are the Sanic source `sanic.speed_shoes` on top speed and ground acceleration (the super form ends it); `MomentumBoost` and the momentum model's `boost` slot are gone, and the kernel reads `params_under(effects)`;
+- the timed gravity modifier is the source `movement.maneuver_gravity` (a move's gravity beat and the aimed air dodge's weightless window share it, so the latest replaces the last, as before); the axis state's scale/timer pair is gone.
+
+Witnesses: `two_effects_on_one_number_expire_apart_and_rewind_across_both` (app_it: two sources halve Alice's gravity for a quarter and a half second; under a GGRS sync-test session the gravity and fall each tick are the fixed world's), the core unit tests in `effects.rs`, and the existing boost, gravity-expiry and super-form tests, moved onto the effects. Not done: an effect's lifetime is timed only (worn equipment keeps its own lifetime), and only the three attributes the customers need exist.
+
+P4 is complete.
 
 **Bounded parallel customers:**
 

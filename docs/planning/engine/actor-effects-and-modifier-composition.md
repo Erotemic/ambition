@@ -1,7 +1,20 @@
 # Actor effects and modifier composition
 
-**State:** PLANNED. This plan is ready for selection, but
-[`queue.md`](../queue.md) alone selects execution order.
+**State:** PHASES 0-5 DONE (2026-11-16); phase 6 waits for a true status
+effect. [`queue.md`](../queue.md) alone selects execution order.
+
+**Progress (2026-11-16).** `ambition_platformer2d_core::effects`:
+`BodyEffects` (a body's live effects, rollback `body.effects`), `EffectSource`,
+`NumericAttribute`, `NumericOp` and the shared `fold`. Equipment's
+`resolved_param` folds through it (phase 1). Speed Shoes and the timed gravity
+modifier are sources on it (phases 3-4); `MomentumBoost` and the
+scale/timer pair are deleted. Stacking is one instance per (source,
+attribute): a re-application replaces its own instance, and sources are
+independent. The cross-source fixture (phase 5) is
+`two_effects_on_one_number_expire_apart_and_rewind_across_both` (app_it, a
+sync-test session). The sections below are the design as planned; where they
+describe `ModifierOp`, `MomentumBoost` or the gravity pair, they describe the
+code before this work.
 
 **Scope:** numeric actor modifiers, timed buffs/debuffs, effect lifetime and the
 boundary between effects, capabilities, resources and intrinsic actor tuning.

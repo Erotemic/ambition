@@ -72,18 +72,11 @@ pub struct ParamModifier {
     /// [`ModifierScope::Body`] modifier, or a move's own authored param key for a
     /// [`ModifierScope::Move`]/[`ModifierScope::Verb`] modifier.
     pub param: String,
-    /// Add or multiply.
-    pub op: ModifierOp,
+    /// Add or multiply (the shared numeric vocabulary).
+    pub op: ambition_platformer2d_core::NumericOp,
     /// Which resolution context this modifier applies in. Defaults to the body.
     #[serde(default)]
     pub scope: ModifierScope,
-}
-
-/// Add or multiply. Adds apply before Muls (see [`resolved_param`]).
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-pub enum ModifierOp {
-    Add(f32),
-    Mul(f32),
 }
 
 /// Where a modifier applies. A `Body` modifier folds at body-param reads; a
@@ -276,18 +269,7 @@ pub fn resolved_param(
             .flat_map(|r| r.modifiers.iter())
             .filter(|m| m.param == param && m.scope.applies_in(scope))
     };
-    let mut value = base;
-    for m in matching() {
-        if let ModifierOp::Add(a) = m.op {
-            value += a;
-        }
-    }
-    for m in matching() {
-        if let ModifierOp::Mul(x) = m.op {
-            value *= x;
-        }
-    }
-    value
+    ambition_platformer2d_core::effects::fold(base, matching().map(|m| m.op))
 }
 
 /// Param keys a ranged shot resolves against worn modifiers at fire
@@ -349,7 +331,7 @@ mod tests {
     // this module's production code names one.
     use crate::brain::action_set::RangedStyle;
 
-    fn modifier(param: &str, op: ModifierOp, scope: ModifierScope) -> ParamModifier {
+    fn modifier(param: &str, op: ambition_platformer2d_core::NumericOp, scope: ModifierScope) -> ParamModifier {
         ParamModifier {
             param: param.to_string(),
             op,
@@ -385,12 +367,12 @@ mod tests {
             vec![
                 modifier(
                     body_param::MAX_HEALTH,
-                    ModifierOp::Mul(2.0),
+                    ambition_platformer2d_core::NumericOp::Mul(2.0),
                     ModifierScope::Body,
                 ),
                 modifier(
                     body_param::MAX_HEALTH,
-                    ModifierOp::Add(10.0),
+                    ambition_platformer2d_core::NumericOp::Add(10.0),
                     ModifierScope::Body,
                 ),
             ],
@@ -407,7 +389,7 @@ mod tests {
             "a",
             vec![modifier(
                 body_param::BODY_SCALE,
-                ModifierOp::Mul(1.5),
+                ambition_platformer2d_core::NumericOp::Mul(1.5),
                 ModifierScope::Body,
             )],
         );
@@ -415,7 +397,7 @@ mod tests {
             "b",
             vec![modifier(
                 body_param::BODY_SCALE,
-                ModifierOp::Mul(2.0),
+                ambition_platformer2d_core::NumericOp::Mul(2.0),
                 ModifierScope::Body,
             )],
         );
@@ -438,7 +420,7 @@ mod tests {
             "gear",
             vec![modifier(
                 "damage",
-                ModifierOp::Mul(2.0),
+                ambition_platformer2d_core::NumericOp::Mul(2.0),
                 ModifierScope::Body,
             )],
         )]);
@@ -463,7 +445,7 @@ mod tests {
             "fire_flower",
             vec![modifier(
                 "damage",
-                ModifierOp::Mul(1.5),
+                ambition_platformer2d_core::NumericOp::Mul(1.5),
                 ModifierScope::Move("fireball".to_string()),
             )],
         )]);
@@ -501,7 +483,7 @@ mod tests {
             "gauntlet",
             vec![modifier(
                 "speed",
-                ModifierOp::Add(100.0),
+                ambition_platformer2d_core::NumericOp::Add(100.0),
                 ModifierScope::Verb("ranged".to_string()),
             )],
         )]);
@@ -668,12 +650,12 @@ mod tests {
             modifiers: vec![
                 ParamModifier {
                     param: ranged_param::DAMAGE.to_string(),
-                    op: ModifierOp::Mul(1.5),
+                    op: ambition_platformer2d_core::NumericOp::Mul(1.5),
                     scope: ModifierScope::Move("fireball".to_string()),
                 },
                 ParamModifier {
                     param: ranged_param::SPEED.to_string(),
-                    op: ModifierOp::Add(60.0),
+                    op: ambition_platformer2d_core::NumericOp::Add(60.0),
                     scope: ModifierScope::Verb("ranged".to_string()),
                 },
             ],

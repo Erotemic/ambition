@@ -415,14 +415,14 @@ fn a_gravity_modifier_expires_on_the_movement_clock() {
     scratch.kinematics.material = crate::frame::BodyMaterial::new(1.0, bevy_math::Mat2::from_cols(f.side, f.down)).unwrap();
 
     {
-        let (model, _) = scratch.parts();
+        let (model, clusters) = scratch.parts();
         assert!(
-            model.set_gravity_modifier(0.25, 0.20),
+            model.set_gravity_modifier(clusters.effects, 0.25, 0.20),
             "the test body's policy cannot hold a modifier, so this rig proves \
              nothing about expiry"
         );
         assert_eq!(
-            model.gravity_modifier(),
+            model.gravity_modifier(clusters.effects),
             0.25,
             "the modifier did not take before the clock was ever run"
         );
@@ -439,9 +439,9 @@ fn a_gravity_modifier_expires_on_the_movement_clock() {
             TEST_TUNING,
         );
     }
-    let (model, _) = scratch.parts();
+    let (model, clusters) = scratch.parts();
     assert_eq!(
-        model.gravity_modifier(),
+        model.gravity_modifier(clusters.effects),
         0.25,
         "a 0.20s regime was already gone after 0.10s — it is being cleared \
          rather than counted down, so every duration an author writes is a lie"
@@ -457,9 +457,9 @@ fn a_gravity_modifier_expires_on_the_movement_clock() {
             TEST_TUNING,
         );
     }
-    let (model, _) = scratch.parts();
+    let (model, clusters) = scratch.parts();
     assert_eq!(
-        model.gravity_modifier(),
+        model.gravity_modifier(clusters.effects),
         1.0,
         "the regime OUTLIVED its authored duration — nobody else owes an 'off', \
          so a body that floats past its timer floats forever"

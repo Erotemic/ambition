@@ -93,7 +93,7 @@ pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
     catch_the_wire, cut_the_wire, footstool_victim, knock_off_ledge, switch_motion_model,
     AxisManeuverState, AxisSweptMotion, BodySpawnShape, MotionModel, MotionModelKind, MotionModelSpec,
-    MomentumBoost, PhasedJumpState, SurfaceMomentumMotion, WireState,
+    PhasedJumpState, SurfaceMomentumMotion, WireState,
 };
 pub use ops::MovementOp;
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
@@ -239,6 +239,7 @@ pub(crate) fn update_body_control_in_frame(
             clusters.kinematics,
             clusters.dodge,
             state,
+            clusters.effects,
             clusters.ground,
             clusters.abilities,
             input,
@@ -545,10 +546,10 @@ fn update_body_simulation_inner(
         clusters.dash.cooldown = dec(clusters.dash.cooldown);
         clusters.blink.cooldown = dec(clusters.blink.cooldown);
         state.blink_grace_timer = dec(state.blink_grace_timer);
-        // ⭐ THE MOVEMENT DOMAIN OWNS THE CLOCK, which is the whole point of
-        // putting the modifier here: it expires on the same tick every other
-        // maneuver timer does, and no move has to remember to end it.
-        state.gravity_modifier_timer = dec(state.gravity_modifier_timer);
+        // The body's effects (a move's gravity) run on this clock too: they
+        // expire on the tick every other maneuver timer does, and no move has
+        // to remember to end one.
+        clusters.effects.spend(dt);
         state.held_velocity_timer = dec(state.held_velocity_timer);
         state.rebound_cooldown = dec(state.rebound_cooldown);
         // ⭐⭐ THE ROLL HANDS OFF TO ITS OWN ENDLAG, exactly as the air dodge

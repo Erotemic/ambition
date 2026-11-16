@@ -1212,11 +1212,13 @@ pub fn advance_move_playback(
         // system that holds the clock, so it is the one place that can apply it
         // at the authored instant.
         //
-        // ⛔ THE MOVE WRITES A REQUEST, NOT A REGIME. `MotionModel`'s own
-        // `set_gravity_modifier` stores a scale and a DURATION, and the movement
-        // kernel spends the clock; nothing here owes a matching "off". `None`
-        // for a bare test body, which then has no policy to float.
+        // ⛔ THE MOVE WRITES A REQUEST, NOT A REGIME. `MotionModel`'s
+        // `set_gravity_modifier` puts a scale and a DURATION on the body's
+        // effects, and the movement step spends the clock; nothing here owes a
+        // matching "off". `None` for a bare test body, which then has no policy
+        // to float.
         Option<&mut ae::MotionModel>,
+        Option<&mut ae::BodyEffects>,
         // The quad the body is drawn at: an authored blade is drawn in frame
         // pixels, so it is scaled by the art's own quad, not a re-derived one.
         Option<&crate::components::ActorRenderSize>,
@@ -1263,6 +1265,7 @@ pub fn advance_move_playback(
         scale,
         owner_sim_id,
         mut motion,
+        mut effects,
         drawn,
     ) in &mut players
     {
@@ -1485,13 +1488,13 @@ pub fn advance_move_playback(
                 // somewhere else is the follow-up-call shape this tree keeps
                 // paying for.
                 if let MoveEventKind::GravityModifier { scale, seconds } = &ev.kind {
-                    if let Some(motion) = motion.as_deref_mut() {
+                    if let (Some(motion), Some(effects)) = (motion.as_deref(), effects.as_deref_mut()) {
                         // ⛔ THE BOOL IS READ. `set_gravity_modifier` answers
                         // `false` when the owner runs a policy that cannot float
                         // — momentum, crawler — and swallowing that would author
                         // a move whose whole effect silently does nothing, which
                         // is the failure this campaign has now found six times.
-                        if !motion.set_gravity_modifier(*scale, *seconds) {
+                        if !motion.set_gravity_modifier(effects, *scale, *seconds) {
                             bevy::log::warn!(
                                 target: "ambition::moves",
                                 "move `{}` asked for a gravity modifier and its owner's \

@@ -699,7 +699,7 @@ fn the_air_dodge_window_grants_i_frames_and_its_endlag_does_not() {
     let world = test_world();
     let mut scratch = airborne_scratch(&world);
     step_air_dodger(&world, &mut scratch, air_dodge_input(1.0, 0.0));
-    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
     assert!(facts.air_dodging, "the aerial fact is published");
     assert!(!facts.dodge_rolling, "and it is not the roll's fact");
     assert!(facts.evading(), "so the damage rule sees an evade");
@@ -709,7 +709,7 @@ fn the_air_dodge_window_grants_i_frames_and_its_endlag_does_not() {
     for _ in 0..30 {
         step_air_dodger(&world, &mut scratch, InputState::default());
         scratch.ground.on_ground = false;
-        let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+        let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
         if facts.air_dodge_endlag {
             endlag_seen = true;
             assert!(
@@ -938,7 +938,7 @@ fn the_floor_game_publishes_how_the_body_was_thrown_how_it_lies_and_how_it_rose(
         scratch.ground.on_ground = false;
         scratch.flight.pending_launch = velocity;
         step_fighter(&world, &mut scratch, InputState::default());
-        crate::movement::BodyMotionFacts::from_model(&scratch.model).launched
+        crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects).launched
     };
     assert_eq!(thrown(Vec2::new(100.0, -900.0)), Some(LaunchDirection::Up));
     assert_eq!(thrown(Vec2::new(-700.0, -300.0)), Some(LaunchDirection::Side));
@@ -952,7 +952,7 @@ fn the_floor_game_publishes_how_the_body_was_thrown_how_it_lies_and_how_it_rose(
         let mut knocked = false;
         for _ in 0..200 {
             let events = step_fighter(&world, &mut scratch, InputState::default());
-            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
             if let Some(direction) = facts.launched {
                 assert_eq!(direction, LaunchDirection::Side, "the launch pose changed in the arc");
             }
@@ -962,7 +962,7 @@ fn the_floor_game_publishes_how_the_body_was_thrown_how_it_lies_and_how_it_rose(
             }
         }
         assert!(knocked, "the landing resolved into a knockdown");
-        let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+        let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
         assert_eq!(facts.prone_face_down, face_down, "facing {facing}");
         let mut stood = false;
         for _ in 0..120 {
@@ -973,7 +973,7 @@ fn the_floor_game_publishes_how_the_body_was_thrown_how_it_lies_and_how_it_rose(
             }
         }
         assert!(stood, "the knockdown ends on its own");
-        let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+        let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
         assert_eq!(facts.getup, Some(GetupKind::Getup));
         assert_eq!(facts.prone_face_down, face_down, "the getup kept the way the body lay");
     }
@@ -1021,7 +1021,7 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
     }
     assert!(teched, "the timed press teched the landing");
     assert_eq!(scratch.axis().knockdown_timer, 0.0, "no prone state at all");
-    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
     assert!(
         facts.evading(),
         "a tech is invulnerable through the one term the damage rule reads"
@@ -1247,7 +1247,7 @@ fn a_tumbling_body_can_tech_off_a_wall() {
         "the tech left the body pinned against the wall it came off ({:?})",
         scratch.kinematics.vel
     );
-    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
     assert!(
         facts.evading(),
         "a wall tech is invulnerable through the one term the damage rule reads"
@@ -1679,7 +1679,7 @@ fn a_tumbling_body_can_tech_off_a_ceiling() {
         0.0,
         "the tumble survived the ceiling tech, so the fall is still helpless"
     );
-    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
     assert!(
         facts.evading(),
         "a ceiling tech is invulnerable through the one term the damage rule reads"
@@ -1829,7 +1829,7 @@ fn a_roll_stops_when_its_window_closes_and_owes_recovery() {
         scratch.axis().dodge_roll_endlag_timer > 0.0,
         "the roll handed off to nothing, so it ends instantly actionable"
     );
-    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
     assert!(
         facts.dodge_roll_endlag,
         "the endlag is not published, so no defender or animation can read it"
@@ -2095,7 +2095,7 @@ fn an_evade_is_committed_until_its_tail_and_only_when_declared() {
         // Sample the published fact across the whole evade.
         let mut seen = Vec::new();
         for _ in 0..20 {
-            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
             if facts.dodge_rolling {
                 seen.push(facts.evade_committed);
             }
@@ -2489,7 +2489,7 @@ fn an_aimed_air_dodge_has_its_own_timing_and_landing_in_one_costs_its_lag() {
             // Held at its height, so it never lands: these are the AIRBORNE
             // timings, and a landing would charge the landing lag.
             scratch.kinematics.pos.y = height;
-            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
             if facts.air_dodging {
                 window += dt;
                 fall_during = scratch.kinematics.vel.y;
@@ -2533,7 +2533,7 @@ fn an_aimed_air_dodge_has_its_own_timing_and_landing_in_one_costs_its_lag() {
         (lag - 0.25 * 0.73).abs() < 2.0 * dt,
         "landing in a dodge aimed down charges 0.73 of its landing lag (0.25 s), got {lag}"
     );
-    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
     assert!(facts.air_dodge_endlag, "the landing lag is published as the dodge's endlag, which refuses moves");
     // Planted: the stick does not walk it.
     let x0 = scratch.kinematics.pos.x;
@@ -2550,7 +2550,7 @@ fn an_aimed_air_dodge_has_its_own_timing_and_landing_in_one_costs_its_lag() {
     for _ in 0..30 {
         step(&mut scratch, InputState::with_axes(1.0, 0.0));
     }
-    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
     assert!(!facts.air_dodge_endlag, "the landing lag is over half a second after landing");
     assert!(
         scratch.kinematics.pos.x - x0 > 5.0,

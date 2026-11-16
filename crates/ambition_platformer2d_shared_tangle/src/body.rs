@@ -315,6 +315,8 @@ pub struct AncillaryMovementBundle {
     pub env_contact: BodyEnvironmentContact,
     pub action_buffer: BodyActionBuffer,
     pub restart: BodyRestartLatch,
+    /// Live numeric effects the scratch body was built with (usually none).
+    pub effects: ambition_platformer2d_core::BodyEffects,
     /// Diagnostics only; not a cluster member and not rollback state.
     pub life_stats: BodyLifeStats,
     /// The per-tick environment-resolved frame artifact (ADR 0024): spawned at
@@ -364,6 +366,7 @@ impl AncillaryMovementBundle {
             body_mode,
             env_contact,
             resources,
+            effects,
             action_buffer,
             restart,
         } = scratch;
@@ -390,6 +393,7 @@ impl AncillaryMovementBundle {
             env_contact,
             action_buffer,
             restart,
+            effects,
             life_stats: Default::default(),
             frame: Default::default(),
             motion_facts: Default::default(),

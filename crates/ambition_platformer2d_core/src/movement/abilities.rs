@@ -489,6 +489,7 @@ pub(super) fn apply_dodge(
     kinematics: &mut BodyKinematics,
     dodge: &mut BodyDodgeState,
     state: &mut AxisManeuverState,
+    effects: &mut crate::effects::BodyEffects,
     ground: &BodyGroundState,
     abilities: &BodyAbilities,
     input: InputState,
@@ -601,7 +602,8 @@ pub(super) fn apply_dodge(
     // for the window, then an endlag that falls normally. A neutral dodge
     // keeps the body's own arc.
     if directional {
-        state.set_gravity_modifier(0.0, window);
+        effects.apply(crate::effects::EffectSource::MANEUVER_GRAVITY, crate::effects::NumericAttribute::Gravity,
+            crate::effects::NumericOp::Mul(0.0), window);
     }
     state.air_dodge_endlag_timer = 0.0;
     state.fast_falling = false;
@@ -989,6 +991,7 @@ mod burst_maneuver_tests {
                     &mut kinematics,
                     &mut dodge,
                     &mut run_state,
+                    &mut crate::effects::BodyEffects::default(),
                     &grounded,
                     &abilities,
                     input,
@@ -1042,6 +1045,7 @@ mod burst_maneuver_tests {
             &mut kinematics,
             dodge,
             &mut state,
+            &mut crate::effects::BodyEffects::default(),
             ground,
             abilities,
             input,

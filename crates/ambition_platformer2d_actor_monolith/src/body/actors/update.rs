@@ -1585,7 +1585,7 @@ pub fn integrate_sim_bodies(
         );
         // Publish the semantic movement facts this step produced (ADR 0024):
         // presentation/combat consumers read THESE, never policy internals.
-        *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
+        *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, em.effects);
     }
 
     // ── HOME/PLAYER bodies, integrated in this SAME phase ──────────────────────
@@ -1660,7 +1660,7 @@ pub fn integrate_sim_bodies(
             contact.field_for(player_entity, &mut contact_scratch),
             passages.as_deref().and_then(|p| p.motion_for(player_entity, body_rooms.get(player_entity).ok().map(|room| room.0))),
         );
-        *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
+        *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, clusters.effects);
         // Input-relative facts the model projection can't know: republished
         // here, beside the ridden-surface fact (all are per-tick projections of
         // this integration; the roll reflex and the anim picker consume them).

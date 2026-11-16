@@ -226,6 +226,10 @@ impl SpentMonitors {
 /// rolling player overlapping it, breaks it once: burst + cue + the grant.
 ///
 /// Every monitor pops on a roll-through, the classic Sonic feel.
+/// The source of a pair of speed shoes. A second pair replaces the first, so
+/// it only restarts the clock.
+pub const SPEED_SHOES: ae::EffectSource = ae::EffectSource::named("sanic.speed_shoes");
+
 pub fn break_monitor_boxes(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut spent: ResMut<SpentMonitors>,
@@ -239,7 +243,8 @@ pub fn break_monitor_boxes(
             Entity,
             &ae::BodyKinematics,
             &ambition_platformer2d::characters::actor::CharacterForm,
-            &mut ae::MotionModel,
+            &ae::MotionModel,
+            &mut ae::BodyEffects,
             Option<&crate::ball_dash::Rolling>,
             Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
             Option<&ambition_platformer2d::platformer::sim_id::SimId>,
@@ -255,9 +260,9 @@ pub fn break_monitor_boxes(
     let breakers = ambition_platformer2d::platformer::sim_selection::in_deterministic_order(
         players.iter_mut(),
         |_| 0.0,
-        |(_, _, _, _, _, _, id)| *id,
+        |(_, _, _, _, _, _, _, id)| *id,
     );
-    for (player, kin, worn, mut model, rolling, mut wallet, _) in breakers {
+    for (player, kin, worn, model, mut effects, rolling, mut wallet, _) in breakers {
         let (Some(room), Some(room_geometry)) = (geometry.room_of(player), geometry.of(player)) else {
             continue;
         };
@@ -324,18 +329,15 @@ pub fn break_monitor_boxes(
                 }
                 name if name.starts_with(SPEED_MONITOR) => {
                     let shoes = crate::rules::sanic_rules().speed_shoes;
-                    // The shoes are a boost on the momentum the body rides: the
-                    // kernel folds it into the authored params and spends it, so
-                    // a second pair only restarts the clock. The super form
-                    // authors its own speed, so it takes no shoes.
-                    if worn.id() != SUPER_SANIC_CHARACTER_ID {
-                        if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
-                            momentum.boost = Some(ae::MomentumBoost {
-                                top_speed_scale: shoes.top_speed_factor,
-                                ground_accel_scale: shoes.accel_factor,
-                                remaining_s: shoes.seconds,
-                            });
-                        }
+                    // The shoes are effects on the momentum the body rides: the
+                    // kernel resolves them over the authored params and spends
+                    // them, so a second pair only restarts the clock. The super
+                    // form authors its own speed, so it takes no shoes.
+                    if worn.id() != SUPER_SANIC_CHARACTER_ID && matches!(model, ae::MotionModel::SurfaceMomentum(_)) {
+                        effects.apply(SPEED_SHOES, ae::NumericAttribute::TopSpeed,
+                            ae::NumericOp::Mul(shoes.top_speed_factor), shoes.seconds);
+                        effects.apply(SPEED_SHOES, ae::NumericAttribute::GroundAccel,
+                            ae::NumericOp::Mul(shoes.accel_factor), shoes.seconds);
                     }
                 }
                 other => {

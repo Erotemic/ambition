@@ -289,7 +289,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 472 -> 473: a body a scene posed (`actor.posed`).
 // 473 -> 474: the swallows' fetch is a script; `content.swallow_fetch` is gone.
 // 474 -> 475: a body's form sizes, from its character's row (`body.forms`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 475;
+// 475 -> 476: a body's live numeric effects (`body.effects`); the momentum
+// boost and the axis gravity pair leave `actor.motion_model`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 476;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -228,36 +228,6 @@ pub struct AxisManeuverState {
     pub blink_aiming: bool,
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
-    /// A TIMED GRAVITY MULTIPLIER this body is under: a parasol, a float, a
-    /// slow-fall. Applied by the movement kernel as a THIRD FACTOR beside
-    /// `water_gravity_scale` and `jump_gravity_scale`, which
-    /// `integration::integrate_normal_spine` resolves together. ⚠ This named an
-    /// `integration::apply_gravity` until 2026-09-17; no such function exists. <!-- cite-ok: quotes the dead name this correction is about -->
-    ///
-    /// ⭐⭐ A MOVE ASKS FOR THIS AND NEVER OWNS IT. That is this campaign's rule
-    /// stated as a data layout: the move writes a scale and a duration, and the
-    /// movement domain owns the clock, the composition and the expiry. Nothing
-    /// outside this crate can make a body float FOREVER by forgetting to
-    /// restore something, because there is nothing to restore.
-    ///
-    /// ⛔⛔ THE TIMER IS THE ACTIVATION SWITCH, NOT THE SCALE, AND THAT IS
-    /// DELIBERATE. The neutral value of a multiplier is `1.0` while the neutral
-    /// value of an `f32` is `0.0`, so a scale read unconditionally would make
-    /// every zeroed body — a `Default`, a rollback restore of an untouched
-    /// frame, a bare fixture — fall under ZERO gravity. Reading the scale only
-    /// while `gravity_modifier_timer > 0.0` makes the dangerous state
-    /// unrepresentable instead of merely avoided. See
-    /// [`Self::gravity_modifier`].
-    ///
-    /// ⚠ IT DOES NOT REPLACE `ActorSurfaceState::gravity_scale`, and must not:
-    /// that field is the body's authored scale, folded into the frame by
-    /// `gravity/resolve.rs` BEFORE the kernel's product. A capture still saves,
-    /// sets and restores it. This joins at the other end and saves no prior, so
-    /// it cannot disagree with a writer there about what to restore.
-    pub gravity_modifier_scale: f32,
-    /// Seconds left on [`Self::gravity_modifier_scale`]. `<= 0.0` means NO
-    /// modifier, and the scale beside it is then not read.
-    pub gravity_modifier_timer: f32,
     /// Seconds the body's side speed stays the MOVE's: while positive the
     /// spine neither steers nor brakes it, exactly as for an accepted roll.
     /// A move's timed step is an impulse plus this hold; without the hold,
@@ -484,36 +454,6 @@ pub struct AxisManeuverState {
     pub phased_jump: PhasedJumpState,
 }
 
-impl AxisManeuverState {
-    /// The gravity multiplier this body is under RIGHT NOW: the authored scale
-    /// while the modifier is live, and `1.0` — the identity of a product —
-    /// otherwise.
-    ///
-    /// ⭐ THE ONE READER OF THE PAIR, so the "timer gates the scale" rule is
-    /// enforced in a single place rather than restated at every call site. A
-    /// caller that reached for `gravity_modifier_scale` directly would get the
-    /// zero this exists to hide.
-    pub fn gravity_modifier(&self) -> f32 {
-        if self.gravity_modifier_timer > 0.0 {
-            self.gravity_modifier_scale
-        } else {
-            1.0
-        }
-    }
-
-    /// Put this body under a timed gravity multiplier. A non-positive duration
-    /// clears it; the LAST caller wins rather than stacking, because two floats
-    /// multiplying into a body is a regime nobody authored.
-    pub fn set_gravity_modifier(&mut self, scale: f32, seconds: f32) {
-        if seconds <= 0.0 {
-            self.gravity_modifier_timer = 0.0;
-            return;
-        }
-        self.gravity_modifier_scale = scale;
-        self.gravity_modifier_timer = seconds;
-    }
-}
-
 impl Default for AxisManeuverState {
     /// No in-flight maneuver: everything zero/false/None except the blink aim
     /// offset, which rests at "one blink forward" (matching the historical
@@ -539,12 +479,6 @@ impl Default for AxisManeuverState {
             blink_aiming: false,
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
-            // Both zero = NO modifier. The scale is deliberately 0.0 rather
-            // than 1.0 to prove the point above: it is never read while the
-            // timer is spent, so an unsafe-looking value is inert by
-            // construction rather than by everyone remembering.
-            gravity_modifier_scale: 0.0,
-            gravity_modifier_timer: 0.0,
             held_velocity_timer: 0.0,
             dodge_roll_timer: 0.0,
             evade_invuln_timer: 0.0,
@@ -628,23 +562,6 @@ pub struct SurfaceMomentumMotion {
     /// [`crate::OcclusionSpan`]): non-collidable until the body separates.
     /// Empty while riding.
     pub occlusions: crate::DepthOcclusions,
-    /// A timed scale on the params, if one is live. See [`MomentumBoost`].
-    pub boost: Option<MomentumBoost>,
-}
-
-/// A timed scale on a momentum body's top speed and ground acceleration (a
-/// pair of speed shoes).
-///
-/// The kernel folds it into the params it reads and spends it on the step's
-/// clock. The authored params are never written, so the expiry has nothing to
-/// put back, and a re-wear that replaces the params keeps the boost over the
-/// new ones.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct MomentumBoost {
-    pub top_speed_scale: f32,
-    pub ground_accel_scale: f32,
-    /// Seconds left.
-    pub remaining_s: f32,
 }
 
 impl SurfaceMomentumMotion {
@@ -706,29 +623,19 @@ impl SurfaceMomentumMotion {
             depth_lane: 0,
             route_memory: None,
             occlusions: crate::DepthOcclusions::default(),
-            boost: None,
         }
     }
 
-    /// The params the kernel reads: the authored ones with any live boost
-    /// folded in.
-    pub fn effective_params(&self) -> MomentumParams {
+    /// The params the kernel reads: the authored ones under the body's live
+    /// effects (Speed Shoes). The authored params are never written, so an
+    /// expiry has nothing to put back, and a re-wear that replaces the params
+    /// keeps the effect over the new ones.
+    pub fn params_under(&self, effects: &crate::effects::BodyEffects) -> MomentumParams {
+        use crate::effects::NumericAttribute;
         let mut params = self.params;
-        if let Some(boost) = self.boost {
-            params.top_speed *= boost.top_speed_scale;
-            params.ground_accel *= boost.ground_accel_scale;
-        }
+        params.top_speed = effects.resolve(NumericAttribute::TopSpeed, params.top_speed);
+        params.ground_accel = effects.resolve(NumericAttribute::GroundAccel, params.ground_accel);
         params
-    }
-
-    /// Spend `dt` of a live boost; it ends when its time runs out.
-    pub fn spend_boost(&mut self, dt: f32) {
-        if let Some(boost) = &mut self.boost {
-            boost.remaining_s -= dt;
-            if boost.remaining_s <= 0.0 {
-                self.boost = None;
-            }
-        }
     }
 }
 
@@ -839,41 +746,33 @@ impl MotionModel {
         }
     }
 
-    /// The gravity multiplier this body is under, or `1.0` — the identity of
-    /// the product it joins — for a policy that has no such state.
+    /// The gravity multiplier this body is under: its live effects on
+    /// [`NumericAttribute::Gravity`], or `1.0` (the identity of the product it
+    /// joins) for a policy that does not read them.
     ///
-    /// ⭐ THE READ SIBLING of [`Self::set_gravity_modifier`], and a real reader
-    /// rather than a test hatch: presentation wants it (a floating body is worth
-    /// drawing differently) and so does anything asking "why is this fighter
-    /// falling slowly". ⛔ Never `0.0` for a body that simply has no modifier —
-    /// see [`AxisManeuverState::gravity_modifier`] for why that distinction is
-    /// enforced one layer down rather than restated here.
-    pub fn gravity_modifier(&self) -> f32 {
+    /// [`NumericAttribute::Gravity`]: crate::effects::NumericAttribute::Gravity
+    pub fn gravity_modifier(&self, effects: &crate::effects::BodyEffects) -> f32 {
         match self {
-            Self::AxisSwept(axis) => axis.state.gravity_modifier(),
+            Self::AxisSwept(_) => effects.resolve(crate::effects::NumericAttribute::Gravity, 1.0),
             Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => 1.0,
         }
     }
 
-    /// Put this body under a TIMED GRAVITY MULTIPLIER, or do nothing for a
-    /// policy that has no such state. Returns whether it landed.
-    ///
-    /// ⭐ THE WRITE SIBLING of [`Self::jump_squat_remaining`] and
-    /// [`Self::holds_a_ledge`], and it exists for their reason turned around:
-    /// "float for a moment" is ASKED of any body while only one variant can
-    /// hold the answer, and matching the variant at the call site is how one
-    /// rule ends up spelled twice. A move should not have to know which
-    /// movement policy its owner runs.
+    /// Put this body under a timed gravity multiplier from the maneuver
+    /// source ([`EffectSource::MANEUVER_GRAVITY`]): the latest request replaces
+    /// the last. A non-positive duration ends it.
     ///
     /// ⚠ THE BOOL IS NOT DECORATION. `false` means the request reached a body
-    /// whose policy cannot float — a momentum or crawler body — and a caller
-    /// that ignores it has authored a move that silently does nothing, which is
-    /// the failure this campaign keeps finding. It is returned rather than
-    /// logged so the decision belongs to whoever asked.
-    pub fn set_gravity_modifier(&mut self, scale: f32, seconds: f32) -> bool {
+    /// whose policy cannot float (a momentum or crawler body); nothing is
+    /// applied, and a caller that ignores it has authored a move that silently
+    /// does nothing.
+    ///
+    /// [`EffectSource::MANEUVER_GRAVITY`]: crate::effects::EffectSource::MANEUVER_GRAVITY
+    pub fn set_gravity_modifier(&self, effects: &mut crate::effects::BodyEffects, scale: f32, seconds: f32) -> bool {
         match self {
-            Self::AxisSwept(axis) => {
-                axis.state.set_gravity_modifier(scale, seconds);
+            Self::AxisSwept(_) => {
+                effects.apply(crate::effects::EffectSource::MANEUVER_GRAVITY, crate::effects::NumericAttribute::Gravity,
+                    crate::effects::NumericOp::Mul(scale), seconds);
                 true
             }
             Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => false,
@@ -950,23 +849,23 @@ impl MotionModel {
     /// number in its own words, which is exactly why the question belongs here —
     /// asking the body's *actor configuration* instead makes a generic controlled
     /// seam depend on one game's authoring types.
-    pub fn commanded_top_speed(&self) -> f32 {
+    pub fn commanded_top_speed(&self, effects: &crate::effects::BodyEffects) -> f32 {
         match self {
-            Self::AxisSwept(axis) => axis.params.locomotion.max_run_speed,
-            Self::SurfaceMomentum(momentum) => momentum.effective_params().top_speed,
-            Self::AdhesiveCrawler(crawler) => crawler.params.crawl_speed,
+            Self::SurfaceMomentum(momentum) => momentum.params_under(effects).top_speed,
+            _ => self.unboosted_top_speed(),
         }
     }
 
-    /// The body's own top speed without a timed boost (speed shoes).
+    /// The body's own top speed without its live effects (Speed Shoes).
     ///
     /// A picture asks this, not [`Self::commanded_top_speed`]: a classic
     /// momentum runner shows its full-speed run at its ordinary top speed, and
     /// a boost does not move that line.
     pub fn unboosted_top_speed(&self) -> f32 {
         match self {
+            Self::AxisSwept(axis) => axis.params.locomotion.max_run_speed,
             Self::SurfaceMomentum(momentum) => momentum.params.top_speed,
-            _ => self.commanded_top_speed(),
+            Self::AdhesiveCrawler(crawler) => crawler.params.crawl_speed,
         }
     }
 
@@ -1295,15 +1194,10 @@ mod tests {
     fn a_boost_moves_the_commanded_top_speed_only() {
         let params = MomentumParams::default();
         let mut model = MotionModel::surface_momentum(params);
-        let MotionModel::SurfaceMomentum(motion) = &mut model else {
-            unreachable!();
-        };
-        motion.boost = Some(MomentumBoost {
-            top_speed_scale: 1.4,
-            ground_accel_scale: 1.5,
-            remaining_s: 8.0,
-        });
-        assert_eq!(model.commanded_top_speed(), params.top_speed * 1.4);
+        let mut effects = crate::effects::BodyEffects::default();
+        effects.apply(crate::effects::EffectSource::named("test.shoes"), crate::effects::NumericAttribute::TopSpeed,
+            crate::effects::NumericOp::Mul(1.4), 8.0);
+        assert_eq!(model.commanded_top_speed(&effects), params.top_speed * 1.4);
         assert_eq!(model.unboosted_top_speed(), params.top_speed);
         assert_eq!(model.ground_speed(), None);
 

@@ -649,7 +649,7 @@ fn step_surface_momentum(
         occlusions: motion.occlusions,
     };
     let mut contacts = Vec::new();
-    let params = motion.effective_params();
+    let params = motion.params_under(clusters.effects);
     let jump_pressed = ctx.input.jump_pressed();
     let was_riding = body.riding();
     surface_momentum::step_surface_body(
@@ -702,7 +702,8 @@ fn step_surface_momentum(
     motion.depth_lane = body.depth_lane;
     motion.route_memory = body.route_memory;
     motion.occlusions = body.occlusions;
-    motion.spend_boost(ctx.dt);
+    // Each policy spends the body's effects on its own step clock.
+    clusters.effects.spend(ctx.dt);
     write_sweep_sample(clusters, sweep_entry, body_down);
 
     let mut events = FrameEvents {
@@ -738,6 +739,7 @@ fn step_adhesive_crawler(
     // several early returns, so an emit-at-the-end rule inside it would silently
     // skip exactly the paths that exit early. One derivation, no path to miss.
     let was_attached = motion.state.is_attached();
+    clusters.effects.spend(ctx.dt);
     adhesive_crawler::step_crawler(
         motion,
         ctx.world,

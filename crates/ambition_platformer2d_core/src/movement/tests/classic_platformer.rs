@@ -443,31 +443,29 @@ fn a_timed_gravity_modifier_scales_the_fall_and_then_gives_it_back() {
          factor is not reaching the product"
     );
 
-    // ── the state half: the timer gates the scale, and the movement domain
-    // spends it.
-    let mut state = crate::movement::AxisManeuverState::default();
+    // ── the state half: an empty body is neutral, and the movement domain
+    // spends the effect.
+    let model = crate::MotionModel::default();
+    let mut effects = crate::effects::BodyEffects::default();
     assert_eq!(
-        state.gravity_modifier(),
+        model.gravity_modifier(&effects),
         1.0,
-        "a DEFAULT body reported a gravity modifier of {} — a zeroed struct \
-         must read as NEUTRAL, or every untouched body in the game is weightless",
-        state.gravity_modifier()
+        "a DEFAULT body reported a gravity modifier — an untouched body must read \
+         as NEUTRAL, or every untouched body in the game is weightless"
     );
 
-    state.set_gravity_modifier(0.35, 0.5);
+    assert!(model.set_gravity_modifier(&mut effects, 0.35, 0.5));
     assert_eq!(
-        state.gravity_modifier(),
+        model.gravity_modifier(&effects),
         0.35,
         "a move asked for a modifier and the body did not take it"
     );
 
     // ⛔ A NON-POSITIVE DURATION CLEARS RATHER THAN ARMS. A move that asks for
-    // zero seconds of float is asking for none, and the alternative — storing
-    // the scale with a dead timer — is the state this design exists to make
-    // unrepresentable.
-    state.set_gravity_modifier(0.0, 0.0);
+    // zero seconds of float is asking for none.
+    assert!(model.set_gravity_modifier(&mut effects, 0.0, 0.0));
     assert_eq!(
-        state.gravity_modifier(),
+        model.gravity_modifier(&effects),
         1.0,
         "a zero-second request armed a ZERO-GRAVITY modifier instead of clearing"
     );

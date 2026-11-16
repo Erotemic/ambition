@@ -100,6 +100,7 @@ pub fn tick_controlled_brains(
         &BodyGroundState,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         Option<&ambition_platformer2d_core::MotionModel>,
+        &ambition_platformer2d_core::BodyEffects,
         &DrivingParticipant,
         &mut ActorControl,
         Option<&HeldControlFrame>,
@@ -108,7 +109,7 @@ pub fn tick_controlled_brains(
     for entity in &undriven {
         commands.entity(entity).remove::<HeldControlFrame>();
     }
-    for (entity, kin, ground, resolved_frame, motion_model, driver, mut control, hold) in &mut controlled
+    for (entity, kin, ground, resolved_frame, motion_model, effects, driver, mut control, hold) in &mut controlled
     {
         // Input interpretation uses the same resolved frame as this tick's physics.
         let control_down = resolved_frame.down();
@@ -213,7 +214,7 @@ pub fn tick_controlled_brains(
             sim_time: 0.0,
             dt: 0.0,
             // Free-mover velocity targets use the body's own commanded top speed.
-            max_run_speed: motion_model.map_or(0.0, |model| model.commanded_top_speed()),
+            max_run_speed: motion_model.map_or(0.0, |model| model.commanded_top_speed(effects)),
             // The player brain does not predict; it translates a stick. Nothing
             // on this path reads a movement law, and claiming one would be a
             // fact the avatar path never resolved.

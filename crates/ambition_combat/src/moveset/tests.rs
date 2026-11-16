@@ -10402,7 +10402,7 @@ fn an_authored_gravity_beat_reaches_the_movement_policy_and_outlives_the_move() 
         app.world()
             .get::<ae::MotionModel>(body)
             .expect("the body kept its motion model")
-            .gravity_modifier()
+            .gravity_modifier(app.world().get::<ae::BodyEffects>(body).expect("every body carries its effects"))
     };
 
     assert_eq!(

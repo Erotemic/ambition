@@ -239,7 +239,7 @@ fn a_light_tilt_walks_and_a_full_one_runs() {
         }
         (
             scratch.kinematics.vel.x,
-            crate::movement::BodyMotionFacts::from_model(&scratch.model).running,
+            crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects).running,
         )
     };
 
@@ -287,7 +287,7 @@ fn the_run_gait_does_not_depend_on_the_dash_ability() {
     for _ in 0..40 {
         step_scratch(&world, &mut scratch, hold_right);
     }
-    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects);
     assert!(
         facts.running,
         "a body holding a direction on the floor for 40 ticks never reached the \
@@ -307,7 +307,7 @@ fn the_run_gait_does_not_depend_on_the_dash_ability() {
         step_scratch(&world, &mut scratch, InputState::default());
     }
     assert!(
-        !crate::movement::BodyMotionFacts::from_model(&scratch.model).running,
+        !crate::movement::BodyMotionFacts::from_model(&scratch.model, &scratch.effects).running,
         "a body that let go of the stick is still reported as running \
          (travelling {} px/s)",
         scratch.kinematics.vel.x,
@@ -466,11 +466,11 @@ fn a_stick_under_the_dash_threshold_walks_and_never_reads_as_a_run() {
         "a 0.7 stick must carry the body past the commit speed ({} of {top}) or the arm proves nothing",
         walked.kinematics.vel.x
     );
-    assert!(!crate::movement::BodyMotionFacts::from_model(&walked.model).running, "a stick under the dash threshold read as a RUN");
+    assert!(!crate::movement::BodyMotionFacts::from_model(&walked.model, &walked.effects).running, "a stick under the dash threshold read as a RUN");
     let ran = walk(with_threshold(0.8), 1.0);
-    assert!(crate::movement::BodyMotionFacts::from_model(&ran.model).running, "a stick past the dash threshold did not read as a run");
+    assert!(crate::movement::BodyMotionFacts::from_model(&ran.model, &ran.effects).running, "a stick past the dash threshold did not read as a run");
     let engine = walk(with_threshold(0.5), 0.7);
-    assert!(crate::movement::BodyMotionFacts::from_model(&engine.model).running, "a body at the engine's threshold lost its speed-only run");
+    assert!(crate::movement::BodyMotionFacts::from_model(&engine.model, &engine.effects).running, "a body at the engine's threshold lost its speed-only run");
 }
 
 #[test]
@@ -1655,7 +1655,7 @@ fn staling_wears_an_evades_i_frames_and_leaves_its_distance_alone() {
         let mut ticks = 0;
         let mut intangible_ticks = 0;
         while body.axis().dodge_roll_timer > 0.0 && ticks < 40 {
-            if crate::movement::BodyMotionFacts::from_model(&body.model).evading() {
+            if crate::movement::BodyMotionFacts::from_model(&body.model, &body.effects).evading() {
                 intangible_ticks += 1;
             }
             super::update_player_with_tuning_scratch(

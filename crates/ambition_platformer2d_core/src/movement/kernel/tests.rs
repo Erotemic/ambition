@@ -1657,7 +1657,8 @@ fn a_momentum_boost_lifts_the_run_cap_without_writing_the_params() {
     .with_chains(vec![chain]);
     let frame = MotionFrame::from_acceleration(Vec2::new(0.0, 900.0)).unwrap();
     let authored = MomentumParams::default();
-    let ride = |boost: Option<crate::MomentumBoost>| {
+    let shoes = crate::effects::EffectSource::named("test.shoes");
+    let ride = |boost: Option<f32>| {
         let mut scratch =
             BodyClusterScratch::new_with_abilities(Vec2::new(600.0, 590.0), AbilitySet::default());
         let mut model = MotionModel::surface_momentum(authored);
@@ -1669,7 +1670,11 @@ fn a_momentum_boost_lifts_the_run_cap_without_writing_the_params() {
             s: 600.0,
             v_t: 0.0,
         };
-        motion.boost = boost;
+        if let Some(seconds) = boost {
+            for attribute in [crate::effects::NumericAttribute::TopSpeed, crate::effects::NumericAttribute::GroundAccel] {
+                scratch.effects.apply(shoes, attribute, crate::effects::NumericOp::Mul(1.5), seconds);
+            }
+        }
         for _ in 0..120 {
             let run = InputState {
                 axes: LocalAxes::new(1.0, 0.0),
@@ -1680,31 +1685,26 @@ fn a_momentum_boost_lifts_the_run_cap_without_writing_the_params() {
         let MotionModel::SurfaceMomentum(motion) = model else {
             unreachable!();
         };
-        motion
-    };
-    let boost = |remaining_s| crate::MomentumBoost {
-        top_speed_scale: 1.5,
-        ground_accel_scale: 1.5,
-        remaining_s,
+        (motion, scratch.effects)
     };
     let speed = |motion: &SurfaceMomentumMotion| motion.tangential_speed().expect("still riding");
 
-    let plain = ride(None);
+    let (plain, _) = ride(None);
     assert!(
         (speed(&plain) - authored.top_speed).abs() < 1.0,
         "control: the authored cap binds a plain run, got {}",
         speed(&plain)
     );
-    let boosted = ride(Some(boost(10.0)));
+    let (boosted, effects) = ride(Some(10.0));
     assert!(
         speed(&boosted) > authored.top_speed * 1.4,
         "the boost did not reach the cap the kernel reads, got {}",
         speed(&boosted)
     );
     assert_eq!(boosted.params, authored, "the boost wrote the authored params");
-    assert!(boosted.boost.is_some(), "a ten-second boost ended in two");
+    assert!(effects.holds(shoes), "a ten-second boost ended in two");
     assert!(
-        ride(Some(boost(0.5))).boost.is_none(),
+        !ride(Some(0.5)).1.holds(shoes),
         "a half-second boost outlived two seconds of steps"
     );
 }

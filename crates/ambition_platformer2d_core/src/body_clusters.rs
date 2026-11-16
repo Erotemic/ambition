@@ -37,6 +37,8 @@ pub struct BodyClustersMut<'a> {
     /// The body's resource bank, when something declared one for it. Absent is
     /// a body that holds no resource — a complete composition.
     pub resources: Option<&'a mut crate::resources::ActorResources>,
+    /// The body's live numeric effects: what changes its numbers now.
+    pub effects: &'a mut crate::effects::BodyEffects,
     pub action_buffer: &'a mut BodyActionBuffer,
     pub restart: &'a mut BodyRestartLatch,
 }
@@ -64,6 +66,7 @@ pub struct BodyClusterQueryData {
     pub body_mode: &'static mut BodyModeState,
     pub env_contact: &'static mut BodyEnvironmentContact,
     pub resources: Option<&'static mut crate::resources::ActorResources>,
+    pub effects: &'static mut crate::effects::BodyEffects,
     pub action_buffer: &'static mut BodyActionBuffer,
     pub restart: &'static mut BodyRestartLatch,
 }
@@ -93,6 +96,7 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
             body_mode: &mut *self.body_mode,
             env_contact: &mut *self.env_contact,
             resources: self.resources.as_deref_mut(),
+            effects: &mut *self.effects,
             action_buffer: &mut *self.action_buffer,
             restart: &mut *self.restart,
         }
@@ -155,7 +159,7 @@ pub struct AuthoredMovementTuning(pub crate::movement::MovementTuning);
 /// Mutable queries for this component must have disjoint entity sets.
 /// Restored bodies require the same derived contact facts as new bodies.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
-#[require(BodyEnvironmentContact, crate::BodyMotionFacts)]
+#[require(BodyEnvironmentContact, crate::BodyMotionFacts, crate::effects::BodyEffects)]
 pub struct BodyKinematics {
     pub pos: Vec2,
     pub vel: Vec2,
@@ -1155,6 +1159,9 @@ pub fn reset_body_clusters(
     if let crate::movement::MotionModel::AxisSwept(axis) = model {
         axis.state = crate::movement::AxisManeuverState::default();
     }
+    // A maneuver's gravity belongs to the maneuver the reset ends. Other
+    // effects keep their own clocks.
+    clusters.effects.end(crate::effects::EffectSource::MANEUVER_GRAVITY);
     // `base_size` is deliberately NOT written: see the note above.
     *clusters.ground = BodyGroundState::uninitialized();
     *clusters.wall = BodyWallState::default();
@@ -1418,6 +1425,7 @@ pub struct BodyClusterScratch {
     pub env_contact: BodyEnvironmentContact,
     /// See [`BodyClustersMut::resources`].
     pub resources: Option<crate::resources::ActorResources>,
+    pub effects: crate::effects::BodyEffects,
     pub action_buffer: BodyActionBuffer,
     pub restart: BodyRestartLatch,
 }
@@ -1457,6 +1465,7 @@ impl BodyClusterScratch {
             body_mode: BodyModeState::default(),
             env_contact: BodyEnvironmentContact::default(),
             resources: None,
+            effects: Default::default(),
             action_buffer: BodyActionBuffer::default(),
             restart: BodyRestartLatch::default(),
         }
@@ -1503,6 +1512,7 @@ impl BodyClusterScratch {
             action_buffer: (*body.action_buffer).clone(),
             restart: (*body.restart).clone(),
             resources: body.resources.as_deref().cloned(),
+            effects: (*body.effects).clone(),
         }
     }
 
@@ -1524,6 +1534,7 @@ impl BodyClusterScratch {
         *body.env_contact = self.env_contact;
         *body.action_buffer = self.action_buffer;
         *body.restart = self.restart;
+        *body.effects = self.effects;
         if let (Some(target), Some(value)) = (body.resources.as_deref_mut(), self.resources) { *target = value; }
     }
 
@@ -1552,6 +1563,7 @@ impl BodyClusterScratch {
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
             resources: self.resources.as_mut(),
+            effects: &mut self.effects,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
         };
@@ -1598,6 +1610,7 @@ impl BodyClusterScratch {
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
             resources: self.resources.as_mut(),
+            effects: &mut self.effects,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
         }

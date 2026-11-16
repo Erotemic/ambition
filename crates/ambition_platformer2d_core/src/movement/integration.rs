@@ -183,6 +183,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.env_contact,
             clusters.abilities,
             clusters.body_mode,
+            clusters.effects.resolve(crate::effects::NumericAttribute::Gravity, 1.0),
             input,
             dt,
             frame,
@@ -559,7 +560,7 @@ pub(super) fn integrate_velocity_clusters(
     {
         if state.air_dodge_timer > 0.0 && state.air_dodge_directional {
             // The weightless window ends with the dodge.
-            state.set_gravity_modifier(1.0, 0.0);
+            clusters.effects.end_on(crate::effects::EffectSource::MANEUVER_GRAVITY, crate::effects::NumericAttribute::Gravity);
         }
         // An aimed dodge's landing lag follows its angle: a dodge aimed down
         // lands lighter, one aimed up heavier (Ultimate: 11 to 19 frames).
@@ -722,6 +723,8 @@ pub(super) fn integrate_normal_clusters(
     // how fast the stick may carry you. Threaded rather than read from clusters
     // because the spine is actor-generic and takes neither.
     body_mode: &crate::body_clusters::BodyModeState,
+    // The body's live gravity multiplier (its effects on gravity).
+    gravity_modifier: f32,
     input: InputState,
     dt: f32,
     frame: MotionFrame,
@@ -731,10 +734,6 @@ pub(super) fn integrate_normal_clusters(
     // the actor-generic spine context (ability components → gating flags) and
     // run the one spine.
     let initial_dash_dir = resolve_initial_dash(state, ground.on_ground, input, dt, tuning);
-    // Read BEFORE the call, which borrows `state` mutably for three of its
-    // arguments — the same reason `initial_dash_dir` is resolved on the line
-    // above rather than inline.
-    let gravity_modifier = state.gravity_modifier();
 
     integrate_normal_spine(
         &mut kinematics.vel,

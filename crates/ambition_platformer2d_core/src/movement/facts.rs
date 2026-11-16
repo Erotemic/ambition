@@ -356,7 +356,7 @@ impl BodyMotionFacts {
         amounts.iter().fold(bits, |acc, amount| acc.rotate_left(13) ^ u64::from(amount.to_bits()))
     }
 
-    pub fn from_model(model: &MotionModel) -> Self {
+    pub fn from_model(model: &MotionModel, effects: &crate::effects::BodyEffects) -> Self {
         // the crawler is answered BEFORE the early return. Every fact below
         // is axis-swept state, so the old `else { return default() }` gave a
         // crawler a facts block claiming it was not crawling — which is the exact
@@ -377,7 +377,7 @@ impl BodyMotionFacts {
                 crate::movement::surface_momentum::SurfaceMotion::Riding { v_t, .. } => {
                     v_t.abs()
                         >= crate::movement::tuning::RUN_COMMIT_FRAC
-                            * momentum.effective_params().top_speed
+                            * momentum.params_under(effects).top_speed
                 }
                 crate::movement::surface_momentum::SurfaceMotion::Airborne => false,
             };
@@ -461,7 +461,7 @@ mod tests {
         axis.state.dash_timer = 0.1;
         axis.state.blink_hold_active = true;
         axis.state.wall_clinging = true;
-        let facts = BodyMotionFacts::from_model(&model);
+        let facts = BodyMotionFacts::from_model(&model, &Default::default());
         assert!(facts.dashing && facts.blink_telegraph && facts.wall_clinging);
         assert!(!facts.blink_aiming && !facts.gliding && facts.ledge.is_none());
     }
@@ -470,7 +470,7 @@ mod tests {
     fn a_non_axis_policy_can_never_expose_stale_axis_facts() {
         let model = MotionModel::surface_momentum(MomentumParams::default());
         assert_eq!(
-            BodyMotionFacts::from_model(&model),
+            BodyMotionFacts::from_model(&model, &Default::default()),
             BodyMotionFacts::default()
         );
     }
@@ -492,13 +492,13 @@ mod tests {
                 s: 0.0,
                 v_t,
             };
-            BodyMotionFacts::from_model(&model).running
+            BodyMotionFacts::from_model(&model, &Default::default()).running
         };
         assert!(riding_at(params.top_speed), "full speed along the tangent is a run");
         assert!(riding_at(-params.top_speed), "either direction along the tangent");
         assert!(!riding_at(params.top_speed * 0.25), "a quarter of top speed is a walk");
         assert!(
-            !BodyMotionFacts::from_model(&MotionModel::surface_momentum(params)).running,
+            !BodyMotionFacts::from_model(&MotionModel::surface_momentum(params), &Default::default()).running,
             "an airborne body is not running"
         );
     }

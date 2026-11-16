@@ -36,15 +36,6 @@ impl SnapshotState for crate::MotionModel {
                     put_u32(out, span.first_segment as u32);
                     put_u32(out, span.last_segment as u32);
                 }
-                match motion.boost {
-                    None => put_bool(out, false),
-                    Some(boost) => {
-                        put_bool(out, true);
-                        put_f32(out, boost.top_speed_scale);
-                        put_f32(out, boost.ground_accel_scale);
-                        put_f32(out, boost.remaining_s);
-                    }
-                }
             }
             MotionModel::AdhesiveCrawler(motion) => {
                 put_u8(out, 2);
@@ -96,22 +87,12 @@ impl SnapshotState for crate::MotionModel {
                         last_segment: r.u32()? as usize,
                     });
                 }
-                let boost = if r.bool()? {
-                    Some(crate::MomentumBoost {
-                        top_speed_scale: r.f32()?,
-                        ground_accel_scale: r.f32()?,
-                        remaining_s: r.f32()?,
-                    })
-                } else {
-                    None
-                };
                 MotionModel::SurfaceMomentum(SurfaceMomentumMotion {
                     params,
                     state,
                     depth_lane,
                     route_memory,
                     occlusions,
-                    boost,
                 })
             }
             2 => {
@@ -155,12 +136,6 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_bool(out, state.blink_aiming);
     put_vec2(out, state.blink_aim_offset);
     put_f32(out, state.blink_grace_timer);
-    // ⛔ THE PAIR TRAVELS TOGETHER AND IN THIS ORDER. Write order here and read
-    // order below are one wire format; splitting the two fields across the
-    // struct would still work, but keeping them adjacent is what makes a future
-    // reader able to check the halves match by eye.
-    put_f32(out, state.gravity_modifier_scale);
-    put_f32(out, state.gravity_modifier_timer);
     put_f32(out, state.held_velocity_timer);
     put_f32(out, state.dodge_roll_timer);
     put_f32(out, state.evade_invuln_timer);
@@ -224,8 +199,6 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         blink_aiming: r.bool()?,
         blink_aim_offset: r.vec2()?,
         blink_grace_timer: r.f32()?,
-        gravity_modifier_scale: r.f32()?,
-        gravity_modifier_timer: r.f32()?,
         held_velocity_timer: r.f32()?,
         dodge_roll_timer: r.f32()?,
         evade_invuln_timer: r.f32()?,
@@ -821,31 +794,6 @@ mod tests {
         assert!(axis.state.phased_jump.active);
         assert!(axis.state.phased_jump.hold_cancelled);
         assert_eq!(axis.state.buffer_jump, 0.03125);
-    }
-
-    /// A live boost changes how the next tick moves, so a rewind must bring
-    /// it back with the motion.
-    #[test]
-    fn a_momentum_boost_round_trips() {
-        use crate::{MomentumBoost, MomentumParams, MotionModel};
-
-        let boost = MomentumBoost {
-            top_speed_scale: 1.4,
-            ground_accel_scale: 1.5,
-            remaining_s: 3.25,
-        };
-        let mut model = MotionModel::surface_momentum(MomentumParams::default());
-        let MotionModel::SurfaceMomentum(motion) = &mut model else {
-            unreachable!();
-        };
-        motion.boost = Some(boost);
-
-        let restored = decode_state::<MotionModel>(&encode_state(&model))
-            .expect("codec must accept its own bytes");
-        let MotionModel::SurfaceMomentum(motion) = restored else {
-            panic!("momentum policy identity did not survive rollback");
-        };
-        assert_eq!(motion.boost, Some(boost));
     }
 }
 

@@ -15,6 +15,11 @@ This is the repository operating guide for coding agents. Keep it short, session
 
 ## Commit attribution
 
+**Always commit your task changes before handoff.** Do not leave completed work
+uncommitted. Put related changes in logical commits. Commit only your own
+changes, and push them as required below. The user must not have to request a
+commit for each task.
+
 Every agent-authored commit must carry a `Co-authored-by:` trailer naming the exact model (and weights/config variant, when known) that produced it, per its own runtime identification — never copied from earlier commits; if undeterminable, say so.
 
 ## Cold start

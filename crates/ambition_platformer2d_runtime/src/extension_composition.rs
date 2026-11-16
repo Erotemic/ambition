@@ -449,6 +449,28 @@ fn load_wasm(
     Ok((backend, modules))
 }
 
+/// A module the game ships as a script that declares itself (`fn
+/// declare()`): its text is in the binary, so every target runs it with no
+/// file to read, and it joins admission as any module does. `artifact` names
+/// it in faults and in inspection (its source path). To change it while the
+/// game runs, list the file in `AMBITION_EXTENSION_MODULES`: a file that
+/// declares the same module replaces it.
+///
+/// ⛔ A shipped script that does not load stops the build of the App: it is
+/// part of the game.
+#[cfg(feature = "script_modules")]
+pub fn add_shipped_script(app: &mut App, artifact: &str, text: &str) {
+    use ambition_extension_host::ExtensionAppExt;
+    let (backend, modules) = ambition_extension_rhai::RhaiModules::load_declared(
+        artifact,
+        text,
+        script_ports(),
+        ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
+    )
+    .unwrap_or_else(|e| panic!("the shipped script {artifact} does not load: {e}"));
+    app.add_loaded_extension_modules(artifact, backend, modules, false);
+}
+
 /// Compile the script `path` as the code of the linked module its stem names.
 #[cfg(feature = "script_modules")]
 fn bind_script(

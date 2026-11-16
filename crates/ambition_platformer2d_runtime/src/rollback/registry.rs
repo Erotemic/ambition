@@ -287,7 +287,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // sequences); a directed body's `actor.leaving` zone.
 // 471 -> 472: a cutscene beat can be a `CameraRelease`.
 // 472 -> 473: a body a scene posed (`actor.posed`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 473;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 474;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

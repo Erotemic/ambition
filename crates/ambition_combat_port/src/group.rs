@@ -32,6 +32,7 @@ pub struct GroupThinkPort;
 /// What a group reads: its members and the room's items.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GroupThink {
+    pub dt: f32,
     pub members: Vec<GroupMember>,
     pub items: Vec<GroupItem>,
 }
@@ -62,7 +63,8 @@ pub struct GroupItem {
 }
 
 impl Port for GroupThinkPort {
-    const KEY: PortKey = PortKey::new("ambition.actor.group_think", 1);
+    /// Version 2 (2026-11-16): `dt`.
+    const KEY: PortKey = PortKey::new("ambition.actor.group_think", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = GroupThink;
 
@@ -77,6 +79,9 @@ impl Port for GroupThinkPort {
 
 ambition_extension_sdk::port_record! {
     GroupThink {
+        /// The room's step this tick (seconds): the simulation's, at the
+        /// room's own pace, so zero while the room is held.
+        dt: f32,
         /// The room's members, in the order of their identity.
         members: Vec<GroupMember>,
         /// The items lying in the room (not held), in the order of their
@@ -184,6 +189,7 @@ mod tests {
     #[test]
     fn a_group_and_a_steer_go_there_and_back() {
         let think = GroupThink {
+            dt: 1.0 / 60.0,
             members: vec![GroupMember {
                 id: "placement:a".into(),
                 form: "african_swallow".into(),

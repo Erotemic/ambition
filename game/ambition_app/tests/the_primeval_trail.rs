@@ -129,8 +129,12 @@ fn an_african_swallow_takes_a_coconut_and_lets_it_go_over_the_player() {
     use ambition_platformer2d::held_items::{GroundItem, ItemCustody};
 
     let mut sim = room("primeval_rookery");
-    // The tuning this App plays: the bird lets go no lower than this.
-    let least_over = sim.world().resource::<ambition_content::tuning::AmbitionTuning>().0.swallow_fetch.let_go_over;
+    // The rule this App plays: the bird lets go no lower than this.
+    let least_over: f32 = ambition_content::primeval::SWALLOWS_SCRIPT
+        .lines()
+        .find_map(|line| line.strip_prefix("const LET_GO_OVER = "))
+        .and_then(|value| value.trim_end_matches(';').parse().ok())
+        .expect("the swallows' script states LET_GO_OVER");
     // Each coconut a swallow holds now, and how far over the player the first
     // one to be let go was when it left the bird.
     let mut in_its_feet: Vec<Entity> = Vec::new();

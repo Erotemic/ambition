@@ -219,7 +219,16 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
         linked_modules.contains("module\tambition::overfit_volley\tnative ambition_content_modules "),
         "the linked overfit volley is in the linked session's generation:\n{linked_modules}"
     );
-    assert!(!linked_modules.contains("loaded"), "the linked session's generation names no loaded code:\n{linked_modules}");
+    // The modules the game ships as scripts (the swallows) are loaded code in
+    // every session; the linked session runs no other.
+    let shipped: std::collections::BTreeSet<String> = linked_modules
+        .lines()
+        .filter(|line| line.contains("\tloaded "))
+        .map(|line| {
+            assert!(line.contains("\tloaded rhai-"), "the linked session loads no code but its shipped scripts:\n{linked_modules}");
+            line.split('\t').nth(1).expect("a module line names its module").to_owned()
+        })
+        .collect();
     drop(linked);
 
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -264,8 +273,11 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
     let is_loaded = |runner: &ambition_platformer2d::extension::EntryRunner| {
         matches!(runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. })
     };
-    let (provided, others): (Vec<_>, Vec<_>) =
-        admitted.entries.iter().partition(|e| e.module.to_string().starts_with("ambition::"));
+    let (provided, others): (Vec<_>, Vec<_>) = admitted
+        .entries
+        .iter()
+        .filter(|e| !shipped.contains(&e.module.to_string()))
+        .partition(|e| e.module.to_string().starts_with("ambition::"));
     assert_eq!(
         provided.iter().filter(|e| is_loaded(&e.runner)).count(),
         provided.len(),

@@ -107,10 +107,11 @@ Port `ambition.motion.velocity@1`, request: `this.requests.push(request("<alias>
 
 ## `group_think`
 
-Port `ambition.actor.group_think@1`, trigger: read as `this.trigger`.
+Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
+| `dt` | number | The room's step this tick (seconds): the simulation's, at the room's own pace, so zero while the room is held. |
 | `members` | list of { id: text, form: text, position: [x, y], velocity: [x, y], size: [x, y], alive: bool, driven: bool, held: text or (), supporter: text or (), target: [x, y] or (), target_velocity: [x, y] or () } | The room's members, in the order of their identity. |
 | `items` | list of { id: text, kind: text, position: [x, y], at_rest: bool } | The items lying in the room (not held), in the order of their identity. |
 

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v469
+ggrs-rollback-schema-v474
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -41,6 +41,7 @@ actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; not in the se
 actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; not in the session checksum
 actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; not in the session checksum
 actor.interaction	component-clone	ActorInteraction	bevy_ggrs clone snapshot; not in the session checksum
+actor.leaving	component-clone	Leaving	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.ledge	component-canonical	BodyLedgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.life	component-clone	Life	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.life_ledger	resource-clone-custom-checksum	LifeLedger	bevy_ggrs clone snapshot + each character's facts and planned hour, and the hours booked
@@ -58,6 +59,7 @@ actor.perception_memory	component-canonical	PerceptionMemory	bevy_ggrs canonical
 actor.persona_baseline	component-clone	PersonaBaseline	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.pet_beat	component-clone	PetBeat	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.policy	component-clone	ActorPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.posed	component-clone	Posed	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.projected_character_kit	component-clone	ProjectedCharacterKit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.proper_time_scale	component-canonical	ProperTimeScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.ranged_refire	component-canonical	RangedRefire	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -162,7 +164,6 @@ content.sanic_rolling	component-clone	Rolling	bevy_ggrs clone snapshot; value-pr
 content.sanic_scattered_ring	component-clone	ScatteredRing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_spent_monitors	resource-clone-custom-checksum	SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
 content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.swallow_fetch	component-clone-custom-checksum	FetchFlight	bevy_ggrs clone snapshot + goal, phase, elapsed
 cutscene.changes_in_rooms	resource-canonical	CutscenesInRooms	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.last_room	component-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
@@ -191,6 +192,8 @@ derived.contact_touchers	derived	ContactTouchers	written again in each tick's bo
 derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from the synchronized input stream
 derived.controlled_subject	derived	ControlledSubject	resolved from the entity holding DrivingParticipant for the active slot
 derived.custody_residency	derived	InCustodyOf	room residency reprojected from ItemCustody every tick
+derived.cutscene_line_refusals	derived	CutsceneLineRefusals	the cutscene library's lines checked against the catalogs when the library changes; read by no tick
+derived.cutscene_wait_answer	derived	CutsceneWaitAnswer	the waiting beat's condition, asked again each tick before the playback ticks
 derived.encounter_progress	derived	EncounterProgress	recomputed from lifecycle and participant health every tick
 derived.encounter_switch_index	derived	EncounterSwitchIndex	rebuilt from SwitchFeature and the save's switch map each frame
 derived.encounter_view	derived	EncounterView	presentation-intent read model republished each tick
@@ -273,7 +276,6 @@ entity:respawn_grace	component-canonical	RespawnGrace	bevy_ggrs canonical codec 
 entity:sanic_mode_owner	required-rollback	SanicActState	component presence automatically installs bevy_ggrs::Rollback
 entity:settled_item	required-rollback	SettledItem	component presence automatically installs bevy_ggrs::Rollback
 entity:supported_carry	required-rollback	SupportedCarry	component presence automatically installs bevy_ggrs::Rollback
-entity:swallow_fetch	required-rollback	FetchFlight	component presence automatically installs bevy_ggrs::Rollback
 entity:temporary_zone	required-rollback	TemporaryZone	component presence automatically installs bevy_ggrs::Rollback
 entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
 entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback

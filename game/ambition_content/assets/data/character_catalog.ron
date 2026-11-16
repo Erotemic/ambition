@@ -6253,7 +6253,7 @@
                 tactics: (dive_tell_s: 0.25),
             )),
             max_health: Some(1),
-            tags: ["enemy", "bird", "minion"],
+            tags: ["enemy", "bird", "minion", "swallow"],
             cues: (tell: Some("enemy.swallow.tell"), swing: Some("enemy.flyer.attack_dive")),
         barks: (
             on_hit: ["Tswit!", "Unladen, I said!"],
@@ -6290,7 +6290,7 @@
                 tactics: (dive_tell_s: 0.25),
             )),
             max_health: Some(2),
-            tags: ["enemy", "bird", "minion"],
+            tags: ["enemy", "bird", "minion", "swallow"],
             cues: (tell: Some("enemy.swallow.tell"), swing: Some("enemy.flyer.attack_dive")),
         barks: (
             on_hit: ["Tswit. Oof.", "I was going to carry something!"],

@@ -72,6 +72,7 @@ pub fn queue_group_thinks(
     ids: Query<&SimId>,
     tracked: Query<&ae::BodyKinematics>,
     rooms: LiveRooms,
+    pace: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     if time.sim_dt() <= 0.0 {
         return;
@@ -132,7 +133,8 @@ pub fn queue_group_thinks(
             };
             members.sort_by(|a, b| a.id.cmp(&b.id));
             let items = room_items.get(&room).cloned().unwrap_or_default();
-            invocations.trigger::<GroupThinkPort>(&ACTOR_THINK, tag.clone(), root, None, false, GroupThink { members, items });
+            let dt = time.sim_dt() * pace.scale_of(root);
+            invocations.trigger::<GroupThinkPort>(&ACTOR_THINK, tag.clone(), root, None, false, GroupThink { dt, members, items });
         }
     }
 }

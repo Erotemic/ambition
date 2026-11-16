@@ -872,6 +872,9 @@ pub mod extension {
     /// The ports a `.rhai` module may name, by alias.
     #[cfg(feature = "script_modules")]
     pub use ambition_platformer2d_runtime::extension_composition::script_ports;
+    /// A module the game ships as a script.
+    #[cfg(feature = "script_modules")]
+    pub use ambition_platformer2d_runtime::extension_composition::add_shipped_script;
 }
 pub use ambition_platformer2d_shared_tangle as platformer;
 #[cfg(feature = "ambition_portal2d")]

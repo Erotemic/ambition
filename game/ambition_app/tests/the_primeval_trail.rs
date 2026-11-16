@@ -561,3 +561,38 @@ fn a_room_record_keeps_its_flock_by_reference() {
     assert!(matches!(flock.get(FieldRef(2)), Ok(Value::U32(ticks)) if *ticks >= 100), "kept each tick: {:?}", flock.get(FieldRef(2)));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// ⭐ A PAIR LETS GO SAFELY WHEN A PARTNER IS DRIVEN: once a player drives
+/// the supporting swallow, the pair is no longer whole, and the bird holding
+/// the coconut lets it go at once, dropped, not thrown, and the sling ends.
+#[test]
+fn a_european_pair_drops_its_coconut_when_a_partner_is_driven() {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::held_items::{GroundItem, ItemCustody, Release, ReleasedAs, SupportedCarry};
+    let mut sim = room("primeval_run");
+    bring_player_into_swallow_range(&mut sim);
+    let mut pair = None;
+    for _ in 0..60 * 35 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut pairs = world.query::<(Entity, &CharacterForm, &SupportedCarry)>();
+        pair = pairs.iter(world).find(|(_, worn, _)| worn.id() == "european_swallow").map(|(e, _, link)| (e, link.supporter));
+        if pair.is_some() {
+            break;
+        }
+    }
+    let (leader, supporter) = pair.expect("the authored European pair joined a load");
+    let item = {
+        let world = sim.world_mut();
+        let mut items = world.query::<(Entity, &GroundItem, &ItemCustody)>();
+        items.iter(world).find(|(_, ground, custody)| ground.spec.id == "coconut" && custody.held_by(leader)).map(|(e, ..)| e).unwrap()
+    };
+    sim.world_mut().entity_mut(supporter).insert(DrivingParticipant(PlayerSlot(1)));
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+    let world = sim.world();
+    assert!(world.get::<ItemCustody>(item).unwrap().in_world(), "the coconut is let go");
+    assert_eq!(world.get::<ReleasedAs>(item), Some(&ReleasedAs(Release::Drop)), "dropped, not thrown");
+    assert!(world.get::<SupportedCarry>(leader).is_none(), "the sling ends");
+}

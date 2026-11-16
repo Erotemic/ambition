@@ -3,6 +3,10 @@
 use crate::{BodyKinematics, SourceTurn, SweepSample, Vec2, World};
 use crate::frame::{NumericFault, thread::{MotionAdmission, Refusal, RefusalReason}};
 
+/// The smallest turn worth proving: a nanoradian moves the corner of a
+/// thousand-pixel body by a micropixel.
+const MIN_TURN: f64 = 1e-9;
+
 /// Keep an accepted translation when a solid blocks the proposed turn.
 /// Numerical and representation failures refuse the complete candidate.
 ///
@@ -30,6 +34,10 @@ pub fn admit_body_righting(
     if !body.canonical_size.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
     if body.canonical_size.min_element() <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
     let turn = body.material.righting_turn(target_down, max_step).map_err(numeric)?;
+    // A body already aligned asks for a turn of rounding noise (1e-17 rad).
+    // Proving a turn that slow clear of a curved surface exhausts the cast's
+    // work budget, and the refusal stopped a rider dead on a hill.
+    let turn = if turn.abs() < MIN_TURN { 0.0 } else { turn };
     let domain = body.canonical_box().map_err(numeric)?;
     let vel = body.vel;
     // Is `proposal`'s whole path clear of what the body stands or turns against?

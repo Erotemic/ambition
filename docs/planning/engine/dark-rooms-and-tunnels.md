@@ -111,5 +111,12 @@ is down there (coins, a note).
   `Terrain` layer, so a tunnel can be painted and still walked by NPCs and
   the census.
 - **TN2. The first tunnel** (above), in blocks if TN1 is not done.
+  **Landed 2026-11-16 in blocks** (TN1 is not done): `intro_salt_run`, THE
+  SALT RUN, an old smugglers' passage (salt under the gate's toll), 6240
+  wide under the millstream, the village and the woods; a hatch in the
+  millstream hollow's floor and the gap between the hollow oak's roots are
+  its doors (`presentation: SceneArt`, drawn as `hill_salt_run_hatch` and
+  `hill_woods_hollow_oak`, which also draws the oak round its climb, which
+  was boards in the air). Dark at 75%. Its lamps wait for DR2.
 - **TN3. The lantern.** A held light that widens the player's light: the
   first item whose worth is seeing.

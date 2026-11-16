@@ -137,6 +137,7 @@ under the gate stack, outside level 1 (D5).
 | `intro_millstream` | THE MILLSTREAM | stepping stones, the mill wheel, the pond (swim), a cracked wall behind the wheel | the miller (`npc_valley_miller`) |
 | `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | the trader and the innkeeper (`npc_valley_trader`, `npc_valley_innkeeper`) |
 | `intro_woods` | HOBFORD WOODS | roots and fallen trunks, the goblins' trail, a hollow tree | Bob |
+| `intro_salt_run` | THE SALT RUN | under the valley, dark (75%): the old mill race's steps and channel, the foot of the well, boards up the oak's roots | puppy slugs |
 
 ## Scene by scene
 
@@ -249,7 +250,8 @@ out is back up the track.
 ### The millstream (`intro_millstream`)
 
 A west bank with a hollow under it behind a cracked wall (breaks to the
-strike; coins inside), the stream with stepping stones flush with the bank
+strike; coins inside, and a hatch in its floor down to the salt run), the
+stream with stepping stones flush with the bank
 (a miss drops Scout in the water, which slows and costs a climb out), the
 mill's porch, upper floor and loft window (coins). East is Hobford.
 
@@ -260,9 +262,25 @@ smithy loft), the well, signs for the gate goods shed and the inn, the
 notice board (the freight window, a lost hen, strangers at the ring). West
 the millstream, east the woods.
 
+### The salt run (`intro_salt_run`)
+
+The smugglers' passage under the valley (2026-11-16, [TN2](../engine/dark-rooms-and-tunnels.md)):
+salt came this way and not through the gate's toll (the smithy sells it as
+gate goods). From the hatch in the millstream's hollow the old mill race
+steps down to its channel (ankle-deep water, two puppy slugs), climbs out
+under the village past the smugglers' chalk tally ("112 SACKS. 0 TOLLS."),
+reaches the foot of the well under the village's well (its shaft open
+above, a bucket of coins: "SOMEBODY UP THERE THREW A WISH DOWN HERE"), and
+runs on to a note ("IF YOU CAN READ THIS, YOU ARE NOT WORTH YOUR SALT. TURN
+BACK.") and the boards the smugglers wedged between the oak's roots, up to
+the shelf under the oak and the way up into the woods. It is a way, not a
+gate: the street above is always open. Dark at 75% (DR1).
+
 ### Hobford woods (`intro_woods`)
 
-Roots, a fallen trunk, a hollow oak with ledges inside (a health pickup),
+Roots, a fallen trunk, a hollow oak split open with three shelves inside
+(a health pickup at the top) and a gap between its roots down to the salt
+run,
 the lost hen, a goblin lookout at the far end. **Bob**, `bob_woods`:
 
 - Without Alice's message: "Just walking through." (the noise on the

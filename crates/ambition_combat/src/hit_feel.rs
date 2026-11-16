@@ -13,6 +13,7 @@
 //! ordinary hit deals 1 gets the floor of that law on every hit.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 /// A game's hit feel for its own rooms.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
@@ -71,7 +72,7 @@ const RECOIL_HOLD_S: f32 = 0.12;
 /// is the recoil lock, and that reads as hitstun to every brain and breaks a
 /// conversation: the wrong fact about the body that landed the hit.
 pub fn recoil_attackers_on_connects(
-    mut hits: MessageReader<crate::hitbox::ResolvedBodyHit>,
+    mut hits: ReplayMessageReader<crate::hitbox::ResolvedBodyHit>,
     rules: ambition_platformer2d_world::governing_rules::RulesOf<HitFeelRules>,
     mut bodies: Query<(
         &mut ambition_platformer2d_core::BodyKinematics,

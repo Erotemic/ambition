@@ -15,6 +15,7 @@
 //! unit-tested without a `World`; what changed is who calls them and when.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::actor::BodyWallet;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
@@ -39,7 +40,7 @@ fn narrative_write(
 /// Dated in the room of the seat whose conversation gave it, so a rewind of
 /// that room takes the grant back (ISL-2d) and its replay gives it again.
 pub fn apply_item_grants(
-    mut requests: MessageReader<ItemGrantRequested>,
+    mut requests: ReplayMessageReader<ItemGrantRequested>,
     mut owned: ResMut<OwnedItems>,
     items: ambition_items::ItemCatalogRead,
     (drivers, rooms, tick, mut log, mut since): (
@@ -83,7 +84,7 @@ pub fn apply_item_grants(
 /// or gives up is dated in that body's room (ISL-2d); the wallet is on the
 /// body, so a rewind of its room puts the wallet back with it.
 pub fn apply_shop_transactions(
-    mut requests: MessageReader<ShopTransactionRequested>,
+    mut requests: ReplayMessageReader<ShopTransactionRequested>,
     mut owned: ResMut<OwnedItems>,
     mut wallets: Query<&mut BodyWallet>,
     primary: Query<Entity, (With<BodyWallet>, With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>)>,
@@ -235,7 +236,7 @@ impl BagUsesInRooms {
 /// Mana Cell: there is nothing for the cell to restore.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_item_uses(
-    mut requests: MessageReader<ambition_items::ItemUseRequested>,
+    mut requests: ReplayMessageReader<ambition_items::ItemUseRequested>,
     mut owned: ResMut<OwnedItems>,
     mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
     drivers: Query<(Entity, &DrivingParticipant)>,
@@ -324,7 +325,7 @@ pub fn level_worn_abilities(
 /// [`WornEquipment::equip`]: ambition_characters::equipment::WornEquipment::equip
 pub fn apply_item_equips(
     mut commands: Commands,
-    mut requests: MessageReader<ambition_items::ItemEquipRequested>,
+    mut requests: ReplayMessageReader<ambition_items::ItemEquipRequested>,
     owned: Res<OwnedItems>,
     items: ambition_items::ItemCatalogRead,
     drivers: Query<(Entity, &DrivingParticipant)>,

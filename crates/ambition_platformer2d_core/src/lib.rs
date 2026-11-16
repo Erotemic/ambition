@@ -29,6 +29,7 @@ pub mod movement;
 pub mod navigation;
 pub mod player_state;
 pub mod resources;
+pub mod replay_messages;
 pub mod rollback_registration;
 pub mod sim_random;
 pub mod rollback_kind;

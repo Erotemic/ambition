@@ -6,6 +6,7 @@
 //! adapter gives the holder a generator while the gun is in hand).
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use super::color::PortalGunColor;
 use super::messages::{TogglePortalGenerator, TogglePortalGeneratorsActive};
@@ -58,7 +59,7 @@ impl Default for PortalGenerator {
 /// of its own pair (blue↔orange for pair 0). The host decides whether a press
 /// is a toggle (not a door or NPC interaction). This never changes the pair.
 pub fn portal_toggle_system(
-    mut toggles: MessageReader<TogglePortalGenerator>,
+    mut toggles: ReplayMessageReader<TogglePortalGenerator>,
     mut generators: Query<&mut PortalGenerator>,
 ) {
     for toggle in toggles.read() {
@@ -78,7 +79,7 @@ pub fn portal_toggle_system(
 /// while other mechanics are tested. The host reads the key and writes the
 /// intent; this is the only writer of `PortalGenerator::active` for it.
 pub fn portal_generators_active_toggle_system(
-    mut toggles: MessageReader<TogglePortalGeneratorsActive>,
+    mut toggles: ReplayMessageReader<TogglePortalGeneratorsActive>,
     mut generators: Query<&mut PortalGenerator>,
 ) {
     for _ in toggles.read() {

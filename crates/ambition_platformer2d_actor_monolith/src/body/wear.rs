@@ -19,6 +19,7 @@
 //! once.
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::actor::{RecharacterizeBody, CharacterForm};
 use ambition_entity_catalog::CharacterId;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveBodies, LiveBodyId};
@@ -52,7 +53,7 @@ pub struct WearRequested {
 /// look ([`arrival_beat`]).
 pub fn apply_wear_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
-    mut requests: MessageReader<WearRequested>,
+    mut requests: ReplayMessageReader<WearRequested>,
     ids: LiveBodies,
     catalog: Res<CharacterCatalog>,
     authored: Option<Res<AuthoredSheets>>,

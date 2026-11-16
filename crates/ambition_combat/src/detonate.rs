@@ -7,6 +7,7 @@
 //! death cue plays and its fate is recorded.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
 use ambition_entity_catalog::detonate::DETONATE;
@@ -15,7 +16,7 @@ use crate::events::{HitEvent, HitMode, HitSource, HitTarget};
 
 /// End each body whose move reached its authored detonation.
 pub fn apply_authored_detonations(
-    mut actions: MessageReader<ActorActionMessage>,
+    mut actions: ReplayMessageReader<ActorActionMessage>,
     bodies: Query<(
         &ambition_characters::actor::body::BodyHealth,
         &ambition_platformer2d_core::BodyKinematics,

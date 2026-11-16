@@ -7,6 +7,7 @@
 //! reads.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_combat::death_rules::{ActorDiedMessage, DeathLook, OutOfPlay};
 use ambition_platformer2d_core::BodyKinematics;
@@ -17,7 +18,7 @@ const SCALE: f32 = 1.0;
 
 /// The departure, where a participant died, in its own room's look.
 pub fn draw_death_departures(
-    mut deaths: MessageReader<ActorDiedMessage>,
+    mut deaths: ReplayMessageReader<ActorDiedMessage>,
     looks: ambition_platformer2d_world::governing_rules::RulesOf<DeathLook>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // Out of play already: the window opened on this death before this ran.

@@ -13,6 +13,7 @@
 //! (Q134).
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::{AmbitionGameSaveData, PersistedFlag, PersistedQuest};
@@ -128,7 +129,7 @@ pub struct FactCheckpointRestoreInputs(pub CheckpointFacts);
 
 /// Take the baseline on a checkpoint commit.
 pub fn capture_facts_baseline(
-    mut commits: MessageReader<CheckpointCommitted>,
+    mut commits: ReplayMessageReader<CheckpointCommitted>,
     save: Option<Res<AmbitionGameSave>>,
     baseline: Option<SessionWorldMut<FactsBaseline>>,
 ) {

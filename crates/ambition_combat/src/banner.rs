@@ -1,6 +1,7 @@
 //! Gameplay banner ticking and deferred-request application.
 
 use super::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 /// The banner's request drain, then its timer. A composition that orders the
 /// banner against its own systems names this set, not the two functions.
@@ -37,7 +38,7 @@ pub fn tick_gameplay_banner(world_time: Res<WorldTime>, mut banner: ResMut<Gamep
 /// Apply deferred banner requests from high-param systems.
 pub fn apply_gameplay_banner_requests(
     mut banner: ResMut<GameplayBanner>,
-    mut requests: MessageReader<GameplayBannerRequested>,
+    mut requests: ReplayMessageReader<GameplayBannerRequested>,
 ) {
     for request in requests.read() {
         banner.show_in(request.room, request.text.clone(), request.duration);

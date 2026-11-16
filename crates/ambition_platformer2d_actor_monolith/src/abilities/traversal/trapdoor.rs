@@ -14,6 +14,7 @@
 //! invulnerability projection. This file only moves her between modes.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
 use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
@@ -26,7 +27,7 @@ use ambition_platformer2d_core::{self as ae};
 pub fn apply_authored_trapdoors(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     mut commands: Commands,
-    mut actions: MessageReader<ActorActionMessage>,
+    mut actions: ReplayMessageReader<ActorActionMessage>,
     mut bodies: Query<(
         ae::BodyClusterQueryData,
         // ⭐ THE BODY'S OWN FRAME, because "which way is up" is not a constant.

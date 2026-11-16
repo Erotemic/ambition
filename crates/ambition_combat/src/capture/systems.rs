@@ -6,6 +6,7 @@
 //! in deterministic order.
 
 use bevy::math::bounding::IntersectsVolume as _;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
 use super::{captive_of, CaptureAttemptRequested, CapturedBy, GrabsParried};
@@ -77,7 +78,7 @@ pub struct CaptorView {
 /// so arbitration is deterministic rather than query-order dependent.
 pub fn acquire_captures(
     mut commands: Commands,
-    mut attempts: MessageReader<CaptureAttemptRequested>,
+    mut attempts: ReplayMessageReader<CaptureAttemptRequested>,
     mut parried: MessageWriter<GrabsParried>,
     captors: Query<CaptorView, Without<ambition_characters::control::ControlHolds>>,
     victims: Query<StrikeVictim, Without<ambition_characters::control::ControlHolds>>,
@@ -386,7 +387,7 @@ pub fn acquire_captures(
 /// [`acquire_captures`] in the same tick, so the parry and its rebound are one
 /// step and no rewind can fall between them.
 pub fn rebound_from_parried_grabs(
-    mut parried: MessageReader<GrabsParried>,
+    mut parried: ReplayMessageReader<GrabsParried>,
     tuning: crate::rules::CombatTuningOf,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
     mut bodies: Query<(&mut ae::BodyKinematics, &mut ambition_characters::actor::BodyCombat)>,
@@ -2995,7 +2996,7 @@ pub fn finalize_new_capture_pose(
 /// fired — a race the release path already won, and the honest resolution is
 /// that the release wins.
 pub fn apply_capture_carries(
-    mut requests: MessageReader<crate::capture::CaptureCarryRequested>,
+    mut requests: ReplayMessageReader<crate::capture::CaptureCarryRequested>,
     mut captives: Query<(&mut CapturedBy, &mut ambition_characters::smash_hold_state::SmashHoldState)>,
 ) {
     for request in requests.read() {
@@ -3167,7 +3168,7 @@ pub fn release_interrupted_captures(
 /// target, consult shields/i-frames, or arm knockback, hitstun, or recoil. Health
 /// damage still uses the canonical `BodyHealth::damage` path.
 pub fn apply_capture_pummels(
-    mut requests: MessageReader<crate::capture::CapturePummelRequested>,
+    mut requests: ReplayMessageReader<crate::capture::CapturePummelRequested>,
     mut captives: Query<(
         &CapturedBy,
         &mut ambition_characters::smash_hold_state::SmashHoldState,
@@ -3212,7 +3213,7 @@ pub fn apply_capture_pummels(
 /// throws inherit weight, DI, gravity, carried momentum, hitstun, and hitstop.
 pub fn apply_capture_throws(
     mut commands: Commands,
-    mut requests: MessageReader<crate::capture::CaptureThrowRequested>,
+    mut requests: ReplayMessageReader<crate::capture::CaptureThrowRequested>,
     // ⭐ THE CAPTOR'S OWN METER, FOR RAGE. A throw is the one launch in the
     // game whose attacker is not reachable from a hitbox entity, so the health
     // it rages from has to be queried beside the facing it throws along.
@@ -3472,7 +3473,7 @@ pub fn apply_capture_throws(
 // ---------------------------------------------------------------------------
 /// Translate this tick's authored capture effects into typed runtime requests.
 pub fn translate_authored_capture_effects(
-    mut actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
+    mut actions: ReplayMessageReader<ambition_characters::brain::ActorActionMessage>,
     mut attempts: MessageWriter<super::CaptureAttemptRequested>,
     mut pummels: MessageWriter<super::CapturePummelRequested>,
     mut throws: MessageWriter<super::CaptureThrowRequested>,

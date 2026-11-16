@@ -11,6 +11,7 @@
 //! slot, so other bodies (Ambition's player, room enemies) are not reachable.
 
 use bevy::prelude::*;
+use ambition_platformer2d::engine_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d::engine_core::resources::{ActorResources, ResourceLevel};
 use ambition_platformer2d::entity_catalog::smash_limit::{LimitMeterFill, LIMIT};
@@ -54,8 +55,8 @@ pub fn fill_limit_meters(
     // room's rule was the rule of no room, and no meter filled.
     rule: ambition_platformer2d::world::governing_rules::RulesOf<SmashLimitFill>,
     time: Res<ambition_platformer2d::time::WorldTime>,
-    mut hits: MessageReader<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>,
-    mut blocks: MessageReader<ambition_platformer2d::combat::hitbox::BlockedBodyHit>,
+    mut hits: ReplayMessageReader<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>,
+    mut blocks: ReplayMessageReader<ambition_platformer2d::combat::hitbox::BlockedBodyHit>,
     mut meters: Query<(Entity, &mut ActorResources)>,
 ) {
     // The fill that pays `body`: its room's, when that room's game has a meter.

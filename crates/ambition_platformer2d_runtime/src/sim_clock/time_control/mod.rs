@@ -4,6 +4,7 @@
 //! game-policy requests such as hitstop, bullet-time, and developer slow-motion.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::actor::BodyCombat;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
@@ -266,8 +267,8 @@ const SIM_CLOCK_FROZEN_EPS: f32 = 1e-4;
 pub fn report_sim_clock_changes(
     clock: Res<ClockState>,
     target: Res<RequestedClockScale>,
-    mut scale_requests: MessageReader<ClockScaleRequest>,
-    mut reset_requests: MessageReader<ClockResetRequest>,
+    mut scale_requests: ReplayMessageReader<ClockScaleRequest>,
+    mut reset_requests: ReplayMessageReader<ClockResetRequest>,
     mut last: Local<Option<(f32, f32)>>,
 ) {
     let live = clock.time_scale;

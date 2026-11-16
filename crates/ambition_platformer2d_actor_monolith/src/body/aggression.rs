@@ -7,6 +7,7 @@
 //! already-hostile re-derive — in place, no cluster swap, no entity churn.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_combat::events::GameplayBanner;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage, VfxWriter};
@@ -25,7 +26,7 @@ pub fn apply_actor_stimuli(
     // The prepared cast, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name.
     prepared: ambition_characters::prepared::SessionCast,
-    mut stimuli: MessageReader<ActorStimulus>,
+    mut stimuli: ReplayMessageReader<ActorStimulus>,
     catalog: Res<CharacterCatalog>,
     mut banner: ResMut<GameplayBanner>,
     mut vfx: VfxWriter,
@@ -232,7 +233,7 @@ pub struct ChallengeRequested {
 /// [`tick_pending_challenges`] emits the actual stimulus only after the box
 /// closes and the grace elapses. See [`PendingChallenge`].
 pub fn arm_requested_challenges(
-    mut requests: MessageReader<ChallengeRequested>,
+    mut requests: ReplayMessageReader<ChallengeRequested>,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut commands: Commands,
 ) {

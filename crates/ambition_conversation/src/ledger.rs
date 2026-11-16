@@ -272,6 +272,7 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
             .add_systems(
                 sim,
                 release_narrative_inputs::<M>
+                    .in_set(crate::plugin::ConversationSimulation)
                     .in_set(GameplaySimulationRoot)
                     // Released after the clock names this step's tick: an
                     // input stamped for tick N+1 is acted on in the step that

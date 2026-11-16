@@ -16,6 +16,7 @@
 | [`confirmed_frame`](src/confirmed_frame.rs) | Host-published boundary between confirmed and speculative simulation frames. |
 | [`content_epoch`](src/content_epoch.rs) | Content activation identity and peer-stable content identity. |
 | [`control_frame`](src/control_frame.rs) | Device-agnostic per-frame control vocabulary. |
+| [`effects`](src/effects.rs) | Timed numeric effects on a body, each owned by its source. |
 | [`frame`](src/frame.rs) | `frame` — the engine-level aperture vocabulary (docs/concepts/movement-collision.md). |
 | [`geo_id`](src/geo_id.rs) | Durable geometry identity — `GeoId`/`GeoFaceRef` (docs/concepts/movement-collision.md). |
 | [`hit_response`](src/hit_response.rs) | Carved down from `ambition_damage` (FB6b, fighter-brain.md §12.3 route 1) so ONE formula answers both callers: |
@@ -29,6 +30,7 @@
 | [`navigation`](src/navigation.rs) | The navigation contract: one leg of a route, and the rule that follows it. |
 | [`party_controls`](src/party_controls.rs) | Fixed-width participant requests for party travel preferences. |
 | [`player_state`](src/player_state.rs) | Reusable player-state vocabulary. |
+| [`replay_messages`](src/replay_messages.rs) | A replay uses separate message buffers and reader cursors. |
 | [`resources`](src/resources.rs) | The per-actor resource bank: the one mutable authority for every resource a body holds. |
 | [`rollback_kind`](src/rollback_kind.rs) | What a rollback registration IS, and the sentence that describes it. |
 | [`rollback_registration`](src/rollback_registration.rs) | The engine floor's own rollback declarations. |
@@ -40,7 +42,7 @@
 | [`walkable_lines`](src/walkable_lines.rs) | A body that walks stands on a slope: the room's surface lines are ground for the ordinary (axis-swept) body too, as one-way floors. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_33 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -34,6 +34,7 @@ pub use motion::ground_item_physics;
 pub use release::{HeldMaterialBasis, ItemReleaseWorld, PreparedItemRelease, put_down, release_carried_item};
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::brain::HeldItemSpec;
 use ambition_characters::control::ActorControl;
@@ -1046,8 +1047,8 @@ pub fn item_in_hand(
 /// owned is refused with a log.
 pub fn apply_hand_requests(
     mut commands: Commands,
-    mut equips: MessageReader<ambition_items::ItemEquipRequested>,
-    mut stows: MessageReader<ambition_items::ItemStowRequested>,
+    mut equips: ReplayMessageReader<ambition_items::ItemEquipRequested>,
+    mut stows: ReplayMessageReader<ambition_items::ItemStowRequested>,
     owned: Res<ambition_items::OwnedItems>,
     items: ambition_items::ItemCatalogRead,
     drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,

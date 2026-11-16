@@ -1,9 +1,10 @@
 //! Apply typed flag, quest, switch, and audio effects.
 
 use ambition_combat::events::{GameplaySfxRequested, SetFlagRequested};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_encounter::switches::SwitchActivated;
 use ambition_persistence::quest::QuestAdvanceRequested;
-use bevy::prelude::{MessageReader, Res, ResMut};
+use bevy::prelude::{Res, ResMut};
 
 /// Save writes first so quest conditions that read flags see them this same
 /// frame. `on == true` also mirrors into `QuestAdvanceEvent::FlagSet`, matching
@@ -14,7 +15,7 @@ use bevy::prelude::{MessageReader, Res, ResMut};
 /// caused by it, so a rewind of that room takes both back (ISL-2d). Without
 /// the log (a bare fixture) the writes are only applied.
 pub fn apply_flag_effects(
-    mut effects: MessageReader<SetFlagRequested>,
+    mut effects: ReplayMessageReader<SetFlagRequested>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut log: Option<ResMut<ambition_combat::events::FlagWritesInRooms>>,
@@ -84,7 +85,7 @@ pub fn retract_room_flag_writes(
 /// ([`ambition_combat::events::QuestCausesInRooms`]); the causes no rewind
 /// can reach any longer are forgotten here.
 pub fn apply_quest_effects(
-    mut effects: MessageReader<QuestAdvanceRequested>,
+    mut effects: ReplayMessageReader<QuestAdvanceRequested>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     (causes, tick): (
         Option<ResMut<ambition_combat::events::QuestCausesInRooms>>,
@@ -140,7 +141,7 @@ pub fn retract_room_quest_causes(
 /// so this consumer just forwards it to the encounter queue and emits the
 /// click SFX.
 pub fn apply_switch_effects(
-    mut effects: MessageReader<SwitchActivated>,
+    mut effects: ReplayMessageReader<SwitchActivated>,
     mut switch_activations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         ambition_encounter::switches::SwitchActivationQueue,
     >,
@@ -165,7 +166,7 @@ pub fn apply_switch_effects(
 /// semantics should use their own typed messages; this reader only handles
 /// bare SFX requests.
 pub fn apply_gameplay_sfx_effects(
-    mut effects: MessageReader<GameplaySfxRequested>,
+    mut effects: ReplayMessageReader<GameplaySfxRequested>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     for effect in effects.read() {

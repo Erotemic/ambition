@@ -2,6 +2,7 @@
 //! input, and routes hits through ECS-native feature damage messages.
 
 use ambition_breakables::BreakableFeature;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
@@ -86,7 +87,7 @@ pub fn charge_projectile_input(
         ),
         With<ambition_characters::brain::ChargesProjectiles>,
     >,
-    mut brain_actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
+    mut brain_actions: ReplayMessageReader<ambition_characters::brain::ActorActionMessage>,
     // The projected policy, not `Res<UserSettings>` — see `PlayerDamagePolicy`.
     damage_policy: Res<ambition_damage::PlayerDamagePolicy>,
     // The open, content-owned motion-technique registry. The named gesture

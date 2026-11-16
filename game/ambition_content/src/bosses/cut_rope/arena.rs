@@ -10,6 +10,7 @@
 //! behemoth. No anvil physics or boss steering lives here.
 
 use super::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_boss_encounter::{EncounterGate, FallingHazard};
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
@@ -76,8 +77,8 @@ pub fn a_cut_rope_arena_is_live_or_held(
 pub fn detect_cut_rope_rope_cut(
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     mut state: ResMut<CutRopeBossArenaState>,
-    mut hit_events: MessageReader<HitEvent>,
-    mut reset_events: MessageReader<RoomReplayAdmitted>,
+    mut hit_events: ReplayMessageReader<HitEvent>,
+    mut reset_events: ReplayMessageReader<RoomReplayAdmitted>,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     mut gate_writer: MessageWriter<EncounterGate>,
@@ -159,7 +160,7 @@ pub fn tick_cut_rope_flavor(
     mut state: ResMut<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     tuning: Res<crate::tuning::AmbitionTuning>,
-    mut gates: MessageReader<EncounterGate>,
+    mut gates: ReplayMessageReader<EncounterGate>,
     hazards: Query<(Entity, &CenteredAabb, &FallingHazard)>,
     bosses: Query<(Entity, BossClusterRef), With<FeatureSimEntity>>,
     mut banner: ResMut<GameplayBanner>,

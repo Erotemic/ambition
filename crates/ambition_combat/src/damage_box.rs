@@ -5,6 +5,7 @@ use crate::{
     strike::{DamageBox, HitSide},
     targeting::MatchTeam,
 };
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::{actor::ActorFaction, control::DrivingParticipant};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -141,7 +142,7 @@ impl DamageBoxSpawner<'_, '_> {
 /// Run at the damage-box materialization boundary, before contact resolution.
 pub fn materialize_damage_boxes(
     mut commands: Commands,
-    mut requests: MessageReader<DamageBoxRequest>,
+    mut requests: ReplayMessageReader<DamageBoxRequest>,
 ) {
     for request in requests.read() {
         materialize(&mut commands, request.clone());

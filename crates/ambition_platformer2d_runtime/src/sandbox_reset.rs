@@ -18,6 +18,7 @@
 //! [`crate::PlatformerEnginePlugins`] gives all three hosts one consumer.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_combat::RoomReplayAdmitted;
@@ -160,7 +161,7 @@ pub struct RoomReplayConsequences;
 /// and lost: a death in one player's room never replayed it. With no subject,
 /// the room is the sole live room's, and there is none while two are live.
 pub fn admit_room_replay(
-    mut requests: MessageReader<
+    mut requests: ReplayMessageReader<
         ambition_platformer2d_session::reset::RoomReplayRequested,
     >,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,

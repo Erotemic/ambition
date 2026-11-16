@@ -40,6 +40,7 @@
 //! talks and the pet does not take the conversation's place.
 
 use ambition_characters::actor::body::{PETTED_CLIPS, PETTING_CLIPS};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::actor::BodyCombat;
@@ -219,7 +220,7 @@ pub(super) fn half_on(half_size: ambition_platformer2d_core::Vec2, axis: ambitio
 pub fn apply_pet_requests(
     poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     mut commands: Commands,
-    mut requests: MessageReader<PetRequested>,
+    mut requests: ReplayMessageReader<PetRequested>,
     ids: LiveBodies,
     catalog: Res<CharacterCatalog>,
     pettable: Query<(&CenteredAabb, &ActorInteraction)>,

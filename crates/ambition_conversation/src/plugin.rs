@@ -30,6 +30,7 @@ const DIALOGUE: ambition_platformer2d_shared_tangle::capability::CapabilitySet =
 impl Plugin for ConversationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        app.configure_sets(sim, ConversationSimulation.run_if(conversation_room_is_running));
 
         // Conversation authority is simulation state; its UI projection is presentation state.
         app.init_resource::<ActiveConversation>();
@@ -46,6 +47,7 @@ impl Plugin for ConversationPlugin {
         app.add_systems(
             sim,
             super::rooms::log_conversation_changes_in_rooms
+                .in_set(ConversationSimulation)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
         app.init_resource::<crate::NarrativeMusicRequest>();
@@ -79,6 +81,7 @@ impl Plugin for ConversationPlugin {
         app.add_systems(
             sim,
             close_conversation_on_narrative_end
+                .in_set(ConversationSimulation)
                 .run_if(ambition_platformer2d_core::a_message_waits::<ConversationEnded>)
                 .in_set(FeatureInteractionSet::NarrativeIntake)
                 .in_set(DIALOGUE),
@@ -96,15 +99,35 @@ impl Plugin for ConversationPlugin {
             (interrupt_a_conversation_on_a_threat, break_dialogue_on_hit_or_separation)
                 .chain()
                 .run_if(a_conversation_is_live)
+                .in_set(ConversationSimulation)
                 .in_set(FeatureInteractionSet::Continuity)
                 .in_set(DIALOGUE),
         );
         app.add_systems(
             sim,
             project_conversation_hold
+                .in_set(ConversationSimulation)
                 .run_if(super::hold::a_hold_is_owed)
                 .in_set(FeatureInteractionSet::HoldProjection)
                 .in_set(DIALOGUE),
         );
     }
+}
+
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct ConversationSimulation;
+
+fn conversation_room_is_running(
+    conversation: bevy::prelude::Res<ActiveConversation>,
+    replay: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
+    rooms: bevy::prelude::Query<
+        &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
+        bevy::ecs::query::Allow<bevy::ecs::entity_disabling::Disabled>,
+    >,
+) -> bool {
+    let Some(replay) = replay else { return true };
+    if !conversation.is_live() { return true; }
+    let owner = conversation.initiator().or(conversation.talker())
+        .and_then(|body| rooms.get(body).ok()).map(|room| room.0);
+    replay.allows(owner)
 }

@@ -14,6 +14,7 @@
 //! draws them. The simulation spawns nothing for a line.
 
 use std::sync::Arc;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox, InBossConduct, InTechniqueExecution, LowersIn};
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION};
@@ -230,7 +231,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
     mut portals: Query<(Entity, &HeldPortalOf, &mut PlacedPortal, &mut PortalLook)>,
     rooms: Query<&InRoomInstance>,
     others: Query<(Entity, &PlacedPortal), Without<HeldPortalOf>>,
-    mut transits: MessageReader<crate::PortalBodyTransited>,
+    mut transits: ReplayMessageReader<crate::PortalBodyTransited>,
     straddlers: Query<(Entity, &crate::PortalTransit)>,
 ) {
     let submitted = outbox.drain::<HeldPortalPairPort>(&L::PHASE);

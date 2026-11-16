@@ -9,6 +9,7 @@
 //! `DamageBox` shockwave and scream VFX on dramatic transitions.
 
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
 use ambition_cutscene::CutsceneTriggerQueue;
@@ -477,7 +478,7 @@ fn ae_vec(x: f32, y: f32) -> ambition_platformer2d_core::Vec2 {
 /// [`update_boss_encounters`] so phase-derived music and edge events see the
 /// change in the same frame.
 pub fn notify_bosses_on_mount_death(
-    mut mount_deaths: MessageReader<ambition_platformer2d_shared_tangle::body::MountDied>,
+    mut mount_deaths: ReplayMessageReader<ambition_platformer2d_shared_tangle::body::MountDied>,
     mut riders: Query<&mut crate::BossEncounter, With<crate::BossConfig>>,
 ) {
     for ev in mount_deaths.read() {
@@ -526,7 +527,7 @@ const BOSS_DEFEAT_FREEZE_TICKS: u64 = 24;
 /// from the rollback-owned phase machine rather than being re-derived here.
 pub fn boss_phase_transition_feedback(
     mut damage_boxes: ambition_combat::damage_box::DamageBoxSpawner,
-    mut phase_changes: MessageReader<super::events::BossPhaseChanged>,
+    mut phase_changes: ReplayMessageReader<super::events::BossPhaseChanged>,
     mut sfx: ambition_sfx::SfxWriter,
     // An intent, not a write. The kick is applied after the confirmed-frame
     // boundary, so a phase change on a predicted frame that a correction

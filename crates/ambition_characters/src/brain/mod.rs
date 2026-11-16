@@ -64,6 +64,7 @@ pub use state_machine::{
 
 #[cfg(test)]
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
 /// Autonomous policy attached to an actor.
@@ -458,7 +459,7 @@ pub struct BrainActionCounter {
 /// resolver output. Useful for EFFECTS-consumer verification
 /// without a HUD readout. Not registered by default.
 #[allow(dead_code, reason = "diagnostic system; off by default")]
-pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) {
+pub fn log_brain_action_messages(mut reader: ReplayMessageReader<ActorActionMessage>) {
     for msg in reader.read() {
         bevy::log::debug!(
             target: "crate::brain",

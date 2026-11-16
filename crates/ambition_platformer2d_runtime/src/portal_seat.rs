@@ -8,6 +8,7 @@
 //! are part of `PortalSchedulePlugin`, so every game with portals has them.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
 use ambition_portal2d::pieces::portal_map_vec;
@@ -36,7 +37,7 @@ use ambition_portal2d::{
 pub fn guard_the_driven_body_after_portal_transit(
     mut commands: Commands,
     tuning: Res<PortalTuning>,
-    mut transited: MessageReader<PortalBodyTransited>,
+    mut transited: ReplayMessageReader<PortalBodyTransited>,
     mut teleported: MessageWriter<BodyTeleported>,
     mut trail_breaks: MessageWriter<TrailContinuityBreak>,
     latches: Option<Res<ambition_characters::control::SlotControlLatches>>,

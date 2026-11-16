@@ -5,7 +5,8 @@
 //! important ownership rule is that on-hit code does not rediscover contact. This module
 //! projects that fact to the authored effect.
 
-use bevy::prelude::{Component, Entity, Message, MessageReader, MessageWriter, Query};
+use bevy::prelude::{Component, Entity, Message, MessageWriter, Query};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_entity_catalog::EffectRef;
 use ambition_platformer2d_core as ae;
@@ -67,7 +68,7 @@ pub struct OnHitEffectMessage {
 
 /// Project resolved body contacts to their authored on-hit techniques.
 pub fn dispatch_landed_hit_effects(
-    mut landed_hits: MessageReader<LandedBodyHit>,
+    mut landed_hits: ReplayMessageReader<LandedBodyHit>,
     on_hit: Query<&HitboxOnHit>,
     mut out: MessageWriter<OnHitEffectMessage>,
 ) {
@@ -113,7 +114,7 @@ pub fn pogo_sfx_from(effect: &EffectRef) -> Option<ambition_sfx::SfxId> {
 /// on-hit effect came from a resolved body strike and the victim's pogo policy
 /// accepts that same contact.
 pub fn apply_pogo_bounce(
-    mut messages: MessageReader<OnHitEffectMessage>,
+    mut messages: ReplayMessageReader<OnHitEffectMessage>,
     // The rules of the owner's live room. A composition that never installs
     // the rules projection keeps the baseline, which pogos.
     rules: crate::rules::CombatTuningOf,

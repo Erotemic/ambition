@@ -81,3 +81,30 @@ pub fn retract_room_writes(world: &mut World, room: LiveRoomInstance, saved_at: 
         retract(world, room, saved_at);
     }
 }
+
+/// The only room whose simulation can write during a replay. A resource
+/// writer uses its owner's room to take part in this scope. World-owned
+/// operations wait for the host's next normal tick.
+#[derive(Resource, Clone, Copy)]
+pub struct RoomReplay {
+    pub room: LiveRoomInstance,
+}
+
+impl RoomReplay {
+    pub fn allows(&self, owner: Option<LiveRoomInstance>) -> bool {
+        owner == Some(self.room)
+    }
+}
+
+/// Begin the room's simulation scope and suspend live message streams.
+pub fn begin_room_replay(world: &mut World, room: LiveRoomInstance) {
+    assert!(!world.contains_resource::<RoomReplay>(), "room replays cannot nest");
+    world.insert_resource(RoomReplay { room });
+    super::session_messages::isolate_channels_for_room_replay(world);
+}
+
+/// Restore live message streams and leave the room's simulation scope.
+pub fn end_room_replay(world: &mut World) {
+    super::session_messages::restore_channels_after_room_replay(world);
+    world.remove_resource::<RoomReplay>();
+}

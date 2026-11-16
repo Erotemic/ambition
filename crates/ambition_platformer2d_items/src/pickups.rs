@@ -2,6 +2,7 @@
 
 #[cfg(test)]
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
@@ -795,7 +796,7 @@ impl ConsumedSinceCheckpoint {
 /// A committed checkpoint makes every consumption since the last one part of
 /// the baseline.
 pub fn forget_consumed_pickups_at_checkpoint(
-    mut commits: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>,
+    mut commits: ReplayMessageReader<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>,
     mut since: ResMut<ConsumedSinceCheckpoint>,
 ) {
     // Drained unconditionally, like every other reader of this channel.

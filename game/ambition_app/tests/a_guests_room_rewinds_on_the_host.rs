@@ -47,15 +47,19 @@ enum Alice {
     Beside,
 }
 
-fn run(alice: Alice, arrival: Arrival, rewinds: bool) -> Run {
-    let mut host = Platformer2dSimHarness::build(fixed_60hz_room_options(ROOM), |app, options| {
+fn boot_host(room: &str) -> Platformer2dSimHarness {
+    Platformer2dSimHarness::build(fixed_60hz_room_options(room), |app, options| {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         app.add_plugins((RepliconPlugins.set(ServerPlugin::new(PostUpdate)), HostedWorldPlugin { role: HostedRole::Host }));
         app.finish();
         app.cleanup();
         Ok(())
     })
-    .expect("the room boots");
+    .expect("the room boots")
+}
+
+fn host_with_rooms(alice: Alice) -> (Platformer2dSimHarness, bool) {
+    let mut host = boot_host(ROOM);
     bob_beside_alice(&mut host, ROOM, Some(PlayerSlot(1)));
     if alice == Alice::Apart {
         alice_on_the_hub_door(&mut host);
@@ -67,6 +71,11 @@ fn run(alice: Alice, arrival: Arrival, rewinds: bool) -> Run {
     }
     let (hub, lab) = where_they_are(&mut host);
     let apart = hub.is_some() && lab.flatten().is_some() && hub != lab.flatten();
+    (host, apart)
+}
+
+fn run(alice: Alice, arrival: Arrival, rewinds: bool) -> Run {
+    let (mut host, apart) = host_with_rooms(alice);
     let client = host.world_mut().spawn(GuestSeat(PlayerSlot(1))).id();
     if rewinds {
         host.world_mut().insert_resource(RewindsGuestRooms);
@@ -158,5 +167,169 @@ fn a_guests_late_input_rewinds_a_room_the_host_shares() {
     assert!(!on_time.apart, "premise: Alice and Bob share a room");
     assert!(wrong.is_empty(), "the rewinding host does not end where the on-time host ends: {wrong:?}");
     assert!(!control_wrong.is_empty(), "the control: late inputs applied on arrival ended where on-time ones do");
+}
+
+
+/// Two guest rooms receive their changed past input in the same host update.
+#[test]
+fn two_guest_rooms_keep_their_histories_when_both_rewind() {
+    let run = |late: bool| {
+        let (mut host, apart) = host_with_rooms(Alice::Apart);
+        assert!(apart);
+        host.world_mut().insert_resource(RewindsGuestRooms);
+        let clients = [0, 1].map(|seat| host.world_mut().spawn(GuestSeat(PlayerSlot(seat))).id());
+        let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 + 2;
+        for frame in 1..=12 {
+            if frame == if late { 6 } else { 2 } {
+                for (seat, client) in clients.iter().enumerate() {
+                    host.world_mut().write_message(FromClient {
+                        client_id: ClientId::Client(*client),
+                        message: GuestInput { tick, frame: ControlFrame {
+                            axis_x: if seat == 0 { 1.0 } else { -1.0 },
+                            ..Default::default()
+                        } },
+                    });
+                }
+            }
+            host.app_mut().update();
+        }
+        (bodies(&mut host, None), *host.world().resource::<RoomRollbackStats>())
+    };
+    let (on_time, normal_stats) = run(false);
+    let (late, stats) = run(true);
+    assert_eq!(normal_stats.rewinds, 0);
+    assert_eq!(stats.rewinds, 2, "each guest room has its own saved tick");
+    assert_eq!(stats.not_rewound, 0);
+    assert!(differing(&on_time, &late).is_empty(), "both rooms must reach the on-time result");
+}
+
+/// A pending heal in the other room must survive a guest room's replay.
+#[test]
+fn a_room_rewind_preserves_another_rooms_pending_heal() {
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::damage::healing::BodyHealRequested;
+    use ambition_platformer2d::combat::components::FeatureId;
+    use ambition_platformer2d::characters::actor::Health;
+    let (mut host, apart) = host_with_rooms(Alice::Apart);
+    assert!(apart);
+    host.world_mut().insert_resource(RewindsGuestRooms);
+    let client = host.world_mut().spawn(GuestSeat(PlayerSlot(0))).id();
+    for _ in 0..8 {
+        host.app_mut().update();
+    }
+    let bob = {
+        let world = host.world_mut();
+        world.query::<(bevy::prelude::Entity, &FeatureId)>().iter(world)
+            .find(|(_, id)| id.0 == "ow1_bob").unwrap().0
+    };
+    host.world_mut().entity_mut(bob).insert(BodyHealth::new(Health { current: 1, max: 10, invulnerable: Default::default() }));
+    host.world_mut().write_message(BodyHealRequested::new(3, bob));
+    let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 - 3;
+    host.world_mut().write_message(FromClient {
+        client_id: ClientId::Client(client),
+        message: GuestInput { tick, frame: ControlFrame { axis_x: 1.0, ..Default::default() } },
+    });
+    host.app_mut().update();
+    assert_eq!(host.world().resource::<RoomRollbackStats>().rewinds, 1);
+    assert_eq!(host.world().get::<BodyHealth>(bob).unwrap().current(), 4);
+    host.world_mut().write_message(BodyHealRequested::new(3, bob));
+    let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 - 2;
+    host.world_mut().write_message(FromClient {
+        client_id: ClientId::Client(client),
+        message: GuestInput { tick, frame: ControlFrame { axis_x: -1.0, ..Default::default() } },
+    });
+    host.app_mut().update();
+    assert_eq!(host.world().resource::<RoomRollbackStats>().rewinds, 2);
+    assert_eq!(host.world().get::<BodyHealth>(bob).unwrap().current(), 7,
+        "restoring a stream must also preserve its reader's cursor");
+}
+
+/// The other room's narrative takes one normal step, with no replay steps.
+#[test]
+fn a_guest_room_replay_does_not_advance_or_close_another_rooms_narrative() {
+    use ambition_platformer2d::conversation::{ActiveConversation, LiveConversation};
+    use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat, CutsceneRuntime, CutsceneScript};
+    use ambition_platformer2d::combat::components::FeatureId;
+    use ambition_platformer2d::engine_core::{AabbExt as _, BodyKinematics};
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    let run = |late: bool, queued: bool| {
+        let (mut host, apart) = host_with_rooms(Alice::Beside);
+        assert!(!apart);
+        let bob = {
+            let world = host.world_mut();
+            world.query::<(bevy::prelude::Entity, &FeatureId)>().iter(world)
+                .find(|(_, id)| id.0 == "ow1_bob").unwrap().0
+        };
+        let room = host.world().get::<InRoomInstance>(bob).unwrap().0;
+        let pos = host.world().get::<BodyKinematics>(bob).unwrap().aabb().center();
+        host.spawn_enemy_character_at("review_initiator", "Initiator", (pos.x, pos.y), (12.0, 16.0),
+            ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive, "sandbag_infinite");
+        host.spawn_enemy_character_at("review_talker", "Talker", (pos.x + 8.0, pos.y), (12.0, 16.0),
+            ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive, "sandbag_infinite");
+        for _ in 0..4 { host.app_mut().update(); }
+        let bob = {
+            let world = host.world_mut();
+            world.query::<(bevy::prelude::Entity, &FeatureId)>().iter(world)
+                .find(|(_, id)| id.0 == "review_initiator").unwrap().0
+        };
+        let talker = {
+            let world = host.world_mut();
+            world.query::<(bevy::prelude::Entity, &FeatureId)>().iter(world)
+                .find(|(_, id)| id.0 == "review_talker").unwrap().0
+        };
+        alice_on_the_hub_door(&mut host);
+        for frame in 1..=60 {
+            host.drive_seat(0, alice_leaves(frame));
+            host.drive_seat(1, ControlFrame::default());
+            host.app_mut().update();
+        }
+        let (alice_room, bob_room) = where_they_are(&mut host);
+        assert_ne!(alice_room, bob_room.flatten());
+        host.world_mut().insert_resource(RewindsGuestRooms);
+        let client = host.world_mut().spawn(GuestSeat(PlayerSlot(0))).id();
+        for _ in 0..8 { host.app_mut().update(); }
+        for body in [bob, talker] {
+            assert!(host.world().get::<ambition_platformer2d::engine_core::CenteredAabb>(body).is_some(), "a conversation member needs its footprint");
+        }
+        host.world_mut().resource_mut::<ActiveConversation>().open(LiveConversation::for_test(
+            Some(bob), Some(talker), "review_room_b", ambition_platformer2d::input::InputOwner::AllParticipants,
+        ));
+        let conversation = host.world().resource::<ActiveConversation>().clone();
+        let script = CutsceneScript::new("review_room_b", vec![
+            CutsceneBeat::Wait { seconds: 0.05 },
+            CutsceneBeat::SetFlag { id: "review_room_b_advanced".into(), on: true },
+            CutsceneBeat::Wait { seconds: 10.0 },
+        ]);
+        if queued {
+            host.world_mut().resource_mut::<ambition_platformer2d::cutscene::CutsceneLibrary>().insert(script);
+            host.world_mut().resource_mut::<ambition_platformer2d::cutscene::CutsceneTriggerQueue>()
+                .request_in("review_room_b", room.ordinal());
+        } else {
+            let mut active = host.world_mut().resource_mut::<ActiveCutscene>();
+            active.room = Some(room.ordinal());
+            active.runtime = Some(CutsceneRuntime::new(script));
+        }
+        if late {
+            let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 - 3;
+            host.world_mut().write_message(FromClient {
+                client_id: ClientId::Client(client),
+                message: GuestInput { tick, frame: ControlFrame { axis_x: 1.0, ..Default::default() } },
+            });
+        }
+        host.app_mut().update();
+        assert_eq!(*host.world().resource::<ActiveConversation>(), conversation,
+            "the other room's conversation must keep its members and authority (late={late})");
+        let scene = host.world().resource::<ActiveCutscene>().runtime.as_ref().unwrap();
+        let flag = host.world().resource::<ambition_platformer2d::session::AmbitionGameSave>().data().flag("review_room_b_advanced");
+        ((scene.beat_index, scene.elapsed, flag), host.world().resource::<RoomRollbackStats>().rewinds)
+    };
+    for queued in [false, true] {
+        let (normal, no_rewinds) = run(false, queued);
+        let (replayed, rewinds) = run(true, queued);
+        assert_eq!(no_rewinds, 0);
+        assert_eq!(rewinds, 1);
+        assert!(normal.1 > 0.0 && !normal.2, "the scene advances one normal tick");
+        assert_eq!(replayed, normal, "a foreign room's replay must not advance dialogue or story effects (queued={queued})");
+    }
 }
 

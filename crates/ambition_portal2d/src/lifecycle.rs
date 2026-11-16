@@ -2,6 +2,7 @@
 //! cooldowns.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use super::messages::ClearPortals;
 use super::types::{PlacedPortal, PortalTransitCooldown};
@@ -14,7 +15,7 @@ use super::types::{PlacedPortal, PortalTransitCooldown};
 /// them back to their authored spec.
 pub fn clear_portals_on_reset(
     mut commands: Commands,
-    mut resets: MessageReader<ClearPortals>,
+    mut resets: ReplayMessageReader<ClearPortals>,
     portals: Query<(Entity, &PlacedPortal)>,
     cooldowns: Query<Entity, With<PortalTransitCooldown>>,
 ) {

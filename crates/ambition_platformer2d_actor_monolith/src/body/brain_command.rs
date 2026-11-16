@@ -9,6 +9,7 @@
 //! switch live. Provocation remains a separate disposition authority.
 
 use ambition_characters::actor::character_catalog::{qualify_preset_like, BrainPresetId, CharacterCatalog};
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::control::brain_binding::AuthoredBrainContext;
 use ambition_characters::control::brain_binding::BrainBinding;
 use ambition_characters::control::brain_binding::BrainBuildContext;
@@ -248,7 +249,7 @@ pub fn apply_brain_commands(
     // `ActorPolicy` a provocation has overwritten. `Option`
     // because compositions that register no cast are ordinary.
     prepared: ambition_characters::prepared::SessionCast,
-    mut commands_in: MessageReader<BrainCommand>,
+    mut commands_in: ReplayMessageReader<BrainCommand>,
     mut actors: Query<(
         Entity,
         &SimId,
@@ -424,7 +425,7 @@ fn apply_catalog_mode(
 /// free" semantic, distinct from the target-liveness stand-down (which keeps the
 /// aggression mode so a duelist re-engages when a foe reappears).
 pub fn apply_release_provocations(
-    mut releases: MessageReader<ReleaseProvocation>,
+    mut releases: ReplayMessageReader<ReleaseProvocation>,
     mut brain_commands: MessageWriter<BrainCommand>,
     mut provocations: MessageWriter<ambition_persistence::npc_provocation::NpcProvocationChanged>,
     mut actors: Query<(

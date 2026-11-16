@@ -7,6 +7,7 @@
 //! command runner.
 
 use std::collections::BTreeMap;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use bevy::prelude::*;
 
@@ -133,7 +134,7 @@ pub fn prepare_authored_switch_commands(
 pub fn request_authored_switch_commands(
     prepared: Res<AuthoredSwitchCommands>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    mut activations: MessageReader<ambition_encounter::switches::SwitchActivated>,
+    mut activations: ReplayMessageReader<ambition_encounter::switches::SwitchActivated>,
     mut requests: MessageWriter<RunAuthoredCommand>,
 ) {
     for activation in activations.read() {

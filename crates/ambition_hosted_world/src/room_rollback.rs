@@ -24,7 +24,7 @@
 use std::collections::BTreeMap;
 
 use bevy::ecs::entity_disabling::Disabled;
-use bevy::ecs::message::{Message, Messages};
+use bevy::ecs::message::Message;
 use bevy::prelude::*;
 
 use ambition_combat::impact_hitstop::ImpactHitstop;
@@ -216,7 +216,10 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
             let snapshot = rows.save(world, &entities);
             inputs.saved.entry(room).or_default().insert(tick, (snapshot, now));
         }
-        inputs.saved.retain(|room, _| rooms.values().any(|at| at == room));
+        // Hidden rooms still have guests and rollback history during replay.
+        if !inputs.replaying {
+            inputs.saved.retain(|room, _| rooms.values().any(|at| at == room));
+        }
         world.insert_resource(rows);
     }
     inputs.forget_before(tick);
@@ -301,7 +304,7 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     let entities = of_room(world, room);
     rows.restore(world, &mut snapshot, &entities);
     world.insert_resource(rows);
-    ambition_platformer2d_shared_tangle::lifecycle::clear_channels_for_a_rewind(world);
+    ambition_platformer2d_shared_tangle::lifecycle::begin_room_replay(world, room);
     set_clock(world, at);
     ambition_platformer2d_shared_tangle::lifecycle::retract_room_writes(world, room, at.0 .0);
     let others: Vec<LiveRoomInstance> = world
@@ -332,18 +335,10 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     if published {
         world.insert_resource(ConfirmedFrameBoundary { current: tick as i32, confirmed: tick as i32 - 1, session });
     }
-    // What the replayed ticks present was presented when they first ran.
-    let effects = world.get_resource::<ReplayHidesEffects>().map(|hides| hides.0.clone()).unwrap_or_default();
-    for (lift, _) in &effects {
-        lift(world);
-    }
     let mut ticks = 0;
     while world.resource::<SimTick>().0 < now {
         run_one_tick(world);
         ticks += 1;
-    }
-    for (_, put_back) in &effects {
-        put_back(world);
     }
     world.resource_mut::<GuestInputs>().replaying = false;
     if published {
@@ -367,46 +362,19 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
             entity.remove::<Disabled>();
         }
     }
+    ambition_platformer2d_shared_tangle::lifecycle::end_room_replay(world);
     Some(ticks)
 }
 
-/// The presentation channels (sounds, visuals, shakes: the families
-/// `for_each_presentation_effect` names) a replay writes nowhere. Each
-/// family's lift puts an empty channel in and the real one aside, and its
-/// put-back restores the real one, so readers' cursors still match it. The
-/// replayed ticks were presented when they first ran; a replay that
-/// presented them again played a rewound room's sounds and visuals twice.
-#[derive(Resource, Default)]
-pub(crate) struct ReplayHidesEffects(Vec<(fn(&mut World), fn(&mut World))>);
-
-impl ReplayHidesEffects {
-    pub(crate) fn of_app(app: &mut App) -> Self {
-        struct Collect(Vec<(fn(&mut World), fn(&mut World))>);
-        impl ambition_platformer2d_runtime::external_effects::PresentationEffectVisitor for Collect {
-            fn visit<M: Message>(&mut self, _app: &mut App) {
-                self.0.push((lift::<M>, put_back::<M>));
-            }
+/// Presentation output stays at the live boundary while a room replays.
+pub(crate) fn register_presentation_replay_channels(app: &mut App) {
+    struct Register;
+    impl ambition_platformer2d_runtime::external_effects::PresentationEffectVisitor for Register {
+        fn visit<M: Message>(&mut self, app: &mut App) {
+            ambition_platformer2d_shared_tangle::lifecycle::register_room_replay_message::<M>(app);
         }
-        let mut collect = Collect(Vec::new());
-        ambition_platformer2d_runtime::external_effects::for_each_presentation_effect(app, &mut collect);
-        Self(collect.0)
     }
-}
-
-#[derive(Resource)]
-struct Lifted<M: Message>(Messages<M>);
-
-fn lift<M: Message>(world: &mut World) {
-    if let Some(mut channel) = world.get_resource_mut::<Messages<M>>() {
-        let real = std::mem::take(&mut *channel);
-        world.insert_resource(Lifted(real));
-    }
-}
-
-fn put_back<M: Message>(world: &mut World) {
-    if let Some(Lifted(real)) = world.remove_resource::<Lifted<M>>() {
-        *world.resource_mut::<Messages<M>>() = real;
-    }
+    ambition_platformer2d_runtime::external_effects::for_each_presentation_effect(app, &mut Register);
 }
 
 /// Run one simulation step, as the host's own loop runs it.

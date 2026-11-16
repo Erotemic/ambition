@@ -14,6 +14,7 @@
 //! run the teleport executor does not make the teleport's sound.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
 use ambition_entity_catalog::smash_flyline::{FlylineParams, FLYLINE};
@@ -32,7 +33,7 @@ use ambition_platformer2d_core::{self as ae};
 /// there is none. That is clause one of the ask — *"it is not a teleport"* —
 /// stated in the shape of the code rather than in a comment.
 pub fn apply_authored_flylines(
-    mut actions: MessageReader<ActorActionMessage>,
+    mut actions: ReplayMessageReader<ActorActionMessage>,
     mut bodies: Query<(
         &ae::BodyKinematics,
         // ⭐ THE BODY'S OWN FRAME, because "which way is the sky" is not a

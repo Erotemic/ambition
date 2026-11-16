@@ -25,10 +25,6 @@ use crate::common::fixed_60hz_room_options;
 use crate::hosted_world::{alice_fights, bobs, bodies, holds_right, UpdateTimes, LATENCY};
 use crate::two_players_two_live_rooms::{bob_beside_alice, where_they_are, ROOM};
 
-/// Empty the rollback-cleared message channels at a rewind, as `bevy_ggrs`
-/// does on a load.
-const CLEAR_MESSAGES: bool = true;
-
 struct Scene {
     name: &'static str,
     room: &'static str,
@@ -130,9 +126,7 @@ fn with_room_rollback(scene: &Scene) -> RoomRollbackRun {
         let (mut snapshot, at) = saved.remove(&arrived).expect("the room was saved before the frame it rewinds to");
         let entities = of_room(host.world_mut(), room);
         rows.restore(host.world_mut(), &mut snapshot, &entities);
-        if CLEAR_MESSAGES {
-            ambition_platformer2d::platformer::lifecycle::clear_channels_for_a_rewind(host.world_mut());
-        }
+        ambition_platformer2d::platformer::lifecycle::begin_room_replay(host.world_mut(), room);
         set_clock(host.world_mut(), at);
         // The world stores the room wrote after `arrived` take its writes
         // back; the replay writes again what it writes again (ISL-2d).
@@ -145,6 +139,7 @@ fn with_room_rollback(scene: &Scene) -> RoomRollbackRun {
             step(host, &rows, room, saved, run, frame, (scene.alice)(frame), bob);
             run.replayed += 1;
         }
+        ambition_platformer2d::platformer::lifecycle::end_room_replay(host.world_mut());
     };
 
     for frame in 1..=scene.frames {

@@ -8,6 +8,7 @@
 
 #![allow(unused_imports)]
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::sprite::Anchor;
 
 /// This boss's claim on the encounter layer's priority music tier.
@@ -167,7 +168,7 @@ pub fn a_release_waits_or_an_arena_is_live(
 
 pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
     conversation: Res<ambition_conversation::ActiveConversation>,
-    mut chosen: MessageReader<CutRopeRoomReplayRequested>,
+    mut chosen: ReplayMessageReader<CutRopeRoomReplayRequested>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
     mut replay_requests: MessageWriter<
         ambition_platformer2d_session::reset::RoomReplayRequested,

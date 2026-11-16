@@ -15,6 +15,7 @@ presenting their findings as current architecture.
 | World and room loading | [LDtk world composition](ldtk-world-composition.md) |
 | Save data and progression | [Persistence](persistence-settings-and-progression.md) |
 | Headless runtime | [Headless simulation](headless-simulation.md) |
+| Room replay ownership | [Room replay](room-replay.md) |
 | Gameplay messages | [Gameplay effects](gameplay-effects.md) |
 | Audio and visual effects | [Audio and VFX](audio-and-vfx.md) |
 | Traces | [Gameplay trace recorder](gameplay-trace-recorder.md) |

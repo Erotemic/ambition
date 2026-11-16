@@ -7,9 +7,10 @@
 //! description only answers how to reconstruct it.
 
 use std::collections::BTreeMap;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use bevy::prelude::{
-    App, Commands, Component, Entity, IntoScheduleConfigs, MessageReader, Plugin, Query, Res, ResMut,
+    App, Commands, Component, Entity, IntoScheduleConfigs, Plugin, Query, Res, ResMut,
     Resource, With,
 };
 
@@ -124,7 +125,7 @@ impl MintedItemBaseline {
 /// carry a description the custody baseline has no row for; a surplus
 /// description is never consulted, whereas a missing one would lose an object.
 pub fn capture_minted_item_baseline(
-    mut commits: MessageReader<CheckpointCommitted>,
+    mut commits: ReplayMessageReader<CheckpointCommitted>,
     carried: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
     baseline: Option<SessionWorldMut<MintedItemBaseline>>,
 ) {
@@ -214,7 +215,7 @@ impl OwnedItemsBaseline {
 }
 
 pub fn capture_owned_items_baseline(
-    mut commits: MessageReader<CheckpointCommitted>,
+    mut commits: ReplayMessageReader<CheckpointCommitted>,
     owned: Option<Res<ambition_items::OwnedItems>>,
     wallets: Query<
         &ambition_characters::actor::BodyWallet,
@@ -663,7 +664,7 @@ impl ConversationBagSinceCheckpoint {
 /// A committed checkpoint makes every grant, every bag spend and every
 /// conversation's move since the last one part of the baseline.
 pub fn forget_bag_records_at_checkpoint(
-    mut commits: MessageReader<CheckpointCommitted>,
+    mut commits: ReplayMessageReader<CheckpointCommitted>,
     mut grants: ResMut<RewardGrantsSinceCheckpoint>,
     mut spends: ResMut<ambition_held_items::BagSpendsSinceCheckpoint>,
     mut conversations: ResMut<ConversationBagSinceCheckpoint>,

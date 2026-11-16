@@ -24,6 +24,7 @@
 //! music that plays over it, and the lives it costs.
 
 use bevy::prelude::*;
+use ambition_platformer2d::engine_core::replay_messages::ReplayMessageReader;
 
 /// How long the level holds on her death before it starts again (s): the
 /// interlude of her pack's death rule (`assets/data/room_rules.ron`, where
@@ -103,7 +104,7 @@ const DEATH_MUSIC_OWNER: &str = "mary_o_death";
 /// nothing plays a cue for it. The music the beat runs over is
 /// [`play_death_music`] above.
 pub fn voice_her_death(
-    mut deaths: MessageReader<ambition_platformer2d::combat::death_rules::ActorDiedMessage>,
+    mut deaths: ReplayMessageReader<ambition_platformer2d::combat::death_rules::ActorDiedMessage>,
     subject: Option<
         bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
     >,

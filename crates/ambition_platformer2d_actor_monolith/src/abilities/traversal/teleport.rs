@@ -15,6 +15,7 @@
 //! the authored radius the arrival is placed STANDING on the ledge instead.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
 use ambition_entity_catalog::smash_teleport::{TeleportParams, TELEPORT};
@@ -292,7 +293,7 @@ fn is_teleport(message: &ActorActionMessage) -> bool {
 
 pub fn apply_authored_teleports(
     world: ambition_platformer2d_world::collision::CollisionWorld,
-    mut actions: MessageReader<ActorActionMessage>,
+    mut actions: ReplayMessageReader<ActorActionMessage>,
     // ⛔ A PARAM SET BECAUSE THE TWO QUERIES ALIAS. `BodyClusterQueryData` takes
     // `BodyKinematics` mutably and the foe scan reads it, so Bevy refuses them
     // as two plain queries. Candidates are gathered ONCE up front, which is also

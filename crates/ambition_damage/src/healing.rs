@@ -1,6 +1,7 @@
 //! Health restoration requests and their application to bodies.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::actor::BodyHealth;
 
 /// Restore health on one named body.
@@ -17,7 +18,7 @@ impl BodyHealRequested {
 }
 
 pub fn apply_body_heal_requests(
-    mut heals: MessageReader<BodyHealRequested>,
+    mut heals: ReplayMessageReader<BodyHealRequested>,
     mut bodies: Query<&mut BodyHealth>,
 ) {
     for heal in heals.read() {

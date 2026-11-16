@@ -4,7 +4,7 @@
 //! action messages rather than from per-actor integration loops.
 //!
 //! This module owns the consumer Bevy systems that read
-//! `MessageReader<ActorActionMessage>` and produce effects. Each
+//! `ReplayMessageReader<ActorActionMessage>` and produce effects. Each
 //! system is one variant of `ActionRequest`; the upstream
 //! `emit_brain_action_messages` resolver translates the actor's
 //! `ActorControl` frame + `ActionSet` into the per-request stream
@@ -17,6 +17,7 @@
 //!   doesn't consume)
 
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
 use ambition_characters::brain::{
@@ -91,7 +92,7 @@ pub fn muzzle_world_pos(
 
 pub fn spawn_projectiles_from_brain_actions(
     births: ambition_projectiles::ProjectileBirth,
-    mut messages: MessageReader<ActorActionMessage>,
+    mut messages: ReplayMessageReader<ActorActionMessage>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
     mut sfx: SfxWriter,

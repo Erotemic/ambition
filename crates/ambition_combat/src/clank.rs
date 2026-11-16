@@ -29,6 +29,7 @@
 //! whichever hitbox the query yielded first land before the trade was known.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_core as ae;
 
@@ -287,7 +288,7 @@ fn sides_are_opposed(
 /// definition reaching toward each other, and facing is the thing a spinning or
 /// mid-turn body is least reliable about.
 pub fn rebound_from_clanks(
-    mut clanked: MessageReader<AttacksClanked>,
+    mut clanked: ReplayMessageReader<AttacksClanked>,
     // The rules of each rebounding body's own live room.
     tuning: crate::rules::CombatTuningOf,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,

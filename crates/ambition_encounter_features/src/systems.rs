@@ -19,6 +19,7 @@
 //! projection, and the trace sink.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionCommands;
@@ -160,7 +161,7 @@ pub struct WaveEncounterDriven;
 pub fn drive_wave_encounters(
     mut commands: SessionCommands<'_, '_>,
     world_time: Res<ambition_time::WorldTime>,
-    mut died_messages: MessageReader<ambition_combat::death_rules::ActorDiedMessage>,
+    mut died_messages: ReplayMessageReader<ambition_combat::death_rules::ActorDiedMessage>,
     mut encounters: Query<(
         Entity,
         &Encounter,
@@ -547,7 +548,7 @@ pub fn drive_wave_encounters(
 pub fn apply_wave_encounter_effects(
     // Not `mut`: this adapter stopped spawning when the reward sync left.
     commands: SessionCommands<'_, '_>,
-    mut events_in: MessageReader<EncounterEventMsg>,
+    mut events_in: ReplayMessageReader<EncounterEventMsg>,
     encounters: Query<(
         &Encounter,
         &EncounterLifecycle,
@@ -749,7 +750,7 @@ pub fn apply_wave_encounter_effects(
 /// has not seen its entity yet (same-tick end).
 pub fn apply_encounter_cleanup(
     mut commands: Commands,
-    mut events_in: MessageReader<EncounterEventMsg>,
+    mut events_in: ReplayMessageReader<EncounterEventMsg>,
     mut encounters: Query<(
         Entity,
         &Encounter,

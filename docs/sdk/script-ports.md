@@ -49,3 +49,28 @@ Port `ambition.feedback.body_sound@2`, request: `this.requests.push(request("<al
 | `cue` | text | required | The sound cue's id in the game's sound registry (`world.rock.hit`). |
 | `at` | one of: [x, y]: a point in the world \| (): the body the invocation ran for | `()` | Where it plays. |
 
+## `end_module_entity`
+
+Port `ambition.world.end_module_entity@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+No fields: `request("end_module_entity", #{})`.
+
+## `pull_bodies`
+
+Port `ambition.world.pull_bodies@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `center` | [x, y] | required | The point bodies are pulled toward (world units, +Y down). |
+| `radius` | number | required | How far from `center` a body's centre may be and be pulled. |
+| `rate` | number | required | The part of its distance a body closes per second (a move of `min(rate * dt, 1)` of it this tick). |
+
+## `launch_toucher`
+
+Port `ambition.world.launch_toucher@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `toucher` | integer (u32) | required | Which of this tick's `touchers` (its index in the trigger's list). |
+| `velocity` | [x, y] | required | The velocity it leaves at (world units per second, +Y down); set, not added. |
+

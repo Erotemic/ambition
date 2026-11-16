@@ -56,6 +56,8 @@ P6 is a parallel engine-development track. It must not block P1-P5. P4 and P5 sh
 5. Add stable reference support when the next customer needs it. Preserve separate authored definition, live body, persistent occurrence, room instance, and request identities. Never use an allocator entity bit pattern as a persisted reference.
 6. Extend nested state structure only as required by the selected customer. Keep field tags, canonical encoding, finiteness, and bounds. Do not create a universal property database.
 
+**Progress.** The sentry's ports landed 2026-11-14 (`module_entity_tick`, `projectile`, `sound`). On 2026-11-16 a module entity's own requests followed, as the next script customer needed them: `end_module_entity`, `pull_bodies` and `launch_toucher`, each one `port_record!` whose bytes are the hand-written codec's (`the_described_module_entity_requests_keep_their_bytes`), named for scripts in `script_ports()` and in the generated [reference](../../../sdk/script-ports.md) (a request with no fields reads `request("end_module_entity", #{})`). Witness: `a_script_ends_a_turret_through_a_described_port` (a declared module ends each turret on its tenth tick under a sync-test session; the control keeps it).
+
 **Completion:** the same sentry port declaration supplies native wire conversion, a script conversion, and a machine-readable description. A deliberate wrong field/type/reference produces a source-located diagnostic. Native and script callers reach the same domain adapter.
 
 **Boundary:** schema output cannot advertise runtime support that the host did not install. Static type/help generation does not prove that a requested action can succeed in the current world.

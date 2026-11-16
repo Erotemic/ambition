@@ -264,6 +264,9 @@ impl ScriptPorts {
             };
             out.push_str(&format!("## `{}`\n\nPort `{}`, {role}.\n\n", entry.alias, entry.key));
             match &entry.shape {
+                Some(crate::structure::Shape::Record(fields)) if fields.is_empty() => {
+                    out.push_str(&format!("No fields: `request(\"{}\", #{{}})`.\n", entry.alias));
+                }
                 Some(crate::structure::Shape::Record(fields)) => {
                     // Only a script writes a request, so only a request has
                     // fields it may leave out.

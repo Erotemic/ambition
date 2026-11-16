@@ -483,18 +483,23 @@ fn bind_script(
     Ok((backend, modules))
 }
 
-/// The ports a script may name, and the name it uses (`inv.requests.push(#{
-/// port: "projectile", value: ... })`). Each port's converter is its own
-/// crate's (`ScriptPort`). ⚠ The first list; an entry that uses a port not
-/// here faults on its first invocation, naming the port. Generating the
-/// converters from port descriptions is the audit's P2.
+/// The ports a script may name, and the name it uses
+/// (`this.requests.push(request("projectile", #{ .. }))`). Each port's
+/// converter comes from its one description in its own crate
+/// (`ambition_extension_sdk::structure`, `script_port!`). A port is added
+/// here when a script needs it; an entry that uses a port not here faults on
+/// its first invocation, naming the port. The generated reference is
+/// `docs/sdk/script-ports.md`.
 #[cfg(feature = "script_modules")]
 pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
     let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
     ports
         .add::<ambition_combat_port::ModuleEntityTickPort>("module_entity_tick")
         .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
-        .add::<ambition_combat_port::BodySoundPort>("sound");
+        .add::<ambition_combat_port::BodySoundPort>("sound")
+        .add::<ambition_combat_port::EndModuleEntityPort>("end_module_entity")
+        .add::<ambition_combat_port::PullBodiesPort>("pull_bodies")
+        .add::<ambition_combat_port::LaunchToucherPort>("launch_toucher");
     ports
 }
 

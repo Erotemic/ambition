@@ -172,12 +172,20 @@ impl Port for EndModuleEntityPort {
     const ROLE: PortRole = PortRole::Request;
     type Value = EndModuleEntity;
 
-    fn encode(_: &EndModuleEntity, _: &mut Vec<u8>) {}
+    fn encode(v: &EndModuleEntity, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
 
-    fn decode(_: &mut WireReader<'_>) -> Result<EndModuleEntity, WireError> {
-        Ok(EndModuleEntity)
+    fn decode(r: &mut WireReader<'_>) -> Result<EndModuleEntity, WireError> {
+        ambition_extension_sdk::structure::read(r)
     }
 }
+
+ambition_extension_sdk::port_record! {
+    EndModuleEntity {}
+}
+
+ambition_extension_sdk::script_port!(EndModuleEntityPort);
 
 /// The request port marker for a pull toward a point.
 ///
@@ -204,23 +212,31 @@ pub struct PullBodies {
     pub rate: f32,
 }
 
+ambition_extension_sdk::port_record! {
+    PullBodies {
+        /// The point bodies are pulled toward (world units, +Y down).
+        center: [f32; 2],
+        /// How far from `center` a body's centre may be and be pulled.
+        radius: f32,
+        /// The part of its distance a body closes per second (a move of
+        /// `min(rate * dt, 1)` of it this tick).
+        rate: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(PullBodiesPort);
+
 impl Port for PullBodiesPort {
     const KEY: PortKey = PortKey::new("ambition.world.pull_bodies", 1);
     const ROLE: PortRole = PortRole::Request;
     type Value = PullBodies;
 
     fn encode(v: &PullBodies, out: &mut Vec<u8>) {
-        wire::put_vec2(out, v.center);
-        wire::put_f32(out, v.radius);
-        wire::put_f32(out, v.rate);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<PullBodies, WireError> {
-        Ok(PullBodies {
-            center: r.vec2()?,
-            radius: r.f32()?,
-            rate: r.f32()?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -246,18 +262,29 @@ pub struct LaunchToucher {
     pub velocity: [f32; 2],
 }
 
+ambition_extension_sdk::port_record! {
+    LaunchToucher {
+        /// Which of this tick's `touchers` (its index in the trigger's list).
+        toucher: u32,
+        /// The velocity it leaves at (world units per second, +Y down); set,
+        /// not added.
+        velocity: [f32; 2],
+    }
+}
+
+ambition_extension_sdk::script_port!(LaunchToucherPort);
+
 impl Port for LaunchToucherPort {
     const KEY: PortKey = PortKey::new("ambition.world.launch_toucher", 1);
     const ROLE: PortRole = PortRole::Request;
     type Value = LaunchToucher;
 
     fn encode(v: &LaunchToucher, out: &mut Vec<u8>) {
-        wire::put_u32(out, v.toucher);
-        wire::put_vec2(out, v.velocity);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<LaunchToucher, WireError> {
-        Ok(LaunchToucher { toucher: r.u32()?, velocity: r.vec2()? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -555,6 +582,36 @@ impl Port for ToucherCreditsPort {
 
 #[cfg(test)]
 mod tests {
+
+    /// Described structurally, the three module-entity requests keep the
+    /// bytes their hand-written codecs published.
+    #[test]
+    fn the_described_module_entity_requests_keep_their_bytes() {
+        let mut out = Vec::new();
+        EndModuleEntityPort::encode(&EndModuleEntity, &mut out);
+        assert!(out.is_empty());
+
+        let pull = PullBodies { center: [1.5, -2.0], radius: 64.0, rate: 3.0 };
+        let (mut described, mut by_hand) = (Vec::new(), Vec::new());
+        PullBodiesPort::encode(&pull, &mut described);
+        wire::put_vec2(&mut by_hand, pull.center);
+        wire::put_f32(&mut by_hand, pull.radius);
+        wire::put_f32(&mut by_hand, pull.rate);
+        assert_eq!(described, by_hand);
+        let mut r = WireReader::new(&described);
+        assert_eq!(PullBodiesPort::decode(&mut r).unwrap(), pull);
+        r.finish().unwrap();
+
+        let launch = LaunchToucher { toucher: 3, velocity: [120.0, -480.0] };
+        let (mut described, mut by_hand) = (Vec::new(), Vec::new());
+        LaunchToucherPort::encode(&launch, &mut described);
+        wire::put_u32(&mut by_hand, launch.toucher);
+        wire::put_vec2(&mut by_hand, launch.velocity);
+        assert_eq!(described, by_hand);
+        let mut r = WireReader::new(&described);
+        assert_eq!(LaunchToucherPort::decode(&mut r).unwrap(), launch);
+        r.finish().unwrap();
+    }
     use super::*;
 
     /// The item and flight ports decode to what was encoded.

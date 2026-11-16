@@ -399,3 +399,69 @@ fn a_projects_starting_bag_is_its_data() {
     assert!(bag.has(Item::Fireball) && !bag.has(Item::Lantern), "control: no list, the game's starting bag");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A declared module that ends each sentry turret on its tenth tick, through
+/// the `end_module_entity` port (described for scripts with `pull_bodies` and
+/// `launch_toucher`, P2: "the other ports as scripts need them").
+const SHORT_FUSE: &str = r#"
+fn declare() {
+    #{
+        provider: "drill",
+        key: "short_fuse",
+        schemas: [
+            #{ key: "short_fuse.count", attachment: "body",
+               fields: [ #{ tag: 1, name: "ticks", kind: "u32" } ] },
+        ],
+        entries: [
+            #{ key: "fuse", phase: "module_entity_tick",
+               trigger: #{ port: "module_entity_tick", selector: "sentry" },
+               writes: ["short_fuse.count"], requests: ["end_module_entity"], limit: 1 },
+        ],
+    }
+}
+
+fn fuse() {
+    let c = this.state.count;
+    c.ticks += 1;
+    this.state.count = c;
+    if c.ticks == 10 {
+        this.requests.push(request("end_module_entity", #{}));
+    }
+}
+"#;
+
+/// ⭐ A SCRIPT ENDS ITS ENTITY THROUGH A DESCRIBED PORT: the turret is gone
+/// a few ticks after its tenth, through every rewind of a sync-test session.
+/// The control: the same deploy with no such module keeps its turret.
+#[test]
+fn a_script_ends_a_turret_through_a_described_port() {
+    let turrets = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world.query::<&ModuleEntity>().iter(world).filter(|entity| entity.kind == "sentry").count()
+    };
+    let deployed = |files: Vec<std::path::PathBuf>| -> (usize, usize) {
+        let options = Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10)
+            .with_extension_module_files(files);
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        hold_the_sentry(&mut sim);
+        sim.step(AgentAction { attack: true, ..AgentAction::default() });
+        for _ in 0..5 {
+            sim.step(AgentAction::default());
+        }
+        let early = turrets(&mut sim);
+        for _ in 0..25 {
+            sim.step(AgentAction::default());
+        }
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+        (early, turrets(&mut sim))
+    };
+    let dir = root().join(format!("target/extension-modules/script_test_{}_fuse", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("short_fuse.rhai"), SHORT_FUSE).unwrap();
+    assert_eq!(deployed(vec![dir.join("short_fuse.rhai")]), (1, 0), "deployed, then ended by the script");
+    assert_eq!(deployed(Vec::new()), (1, 1), "control: with no fuse the turret stays");
+    let _ = std::fs::remove_dir_all(&dir);
+}

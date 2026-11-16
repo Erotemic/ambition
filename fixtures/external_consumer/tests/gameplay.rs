@@ -437,7 +437,7 @@ fn a_consumers_character_that_authors_no_kit_is_not_handed_the_hosts() {
 
     let world = app.world_mut();
     let mut bodies =
-        world.query::<(&ambition_platformer2d::character::WornCharacter, &ActionSet)>();
+        world.query::<(&ambition_platformer2d::character::CharacterForm, &ActionSet)>();
     let outlanders: Vec<&ActionSet> = bodies
         .iter(world)
         .filter(|(worn, _)| worn.id() == outlander::OUTLANDER_CHARACTER_ID)

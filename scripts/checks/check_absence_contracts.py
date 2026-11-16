@@ -1469,10 +1469,16 @@ FEATURELESS_FACADE = "ambition_platformer2d"
 # render is a separate question with a separate witness
 # (`every_room_the_map_calls_visited_has_its_visit_on_the_save`, which reddens
 # when the facade stops forwarding `ambition_platformer2d_runtime/map`).
+#
+# `ambition_load_presentation` joined 2026-11-16 (P6's first cut): the loading
+# screen's model is the facade's and the provider's `load_presentation`
+# feature, which the renderer implies; the A9 headless fixture went 70 crates
+# to 69.
 FEATURELESS_FACADE_FORBIDS = (
     "ambition_render",
     "ambition_sprite_fx",
     "ambition_menu",
+    "ambition_load_presentation",
 )
 # ⛔ THE ANTI-VACUITY FLOOR. A `cargo tree` that fails, or one whose output shape
 # changes, yields an empty set — and an empty set contains no forbidden crate, so

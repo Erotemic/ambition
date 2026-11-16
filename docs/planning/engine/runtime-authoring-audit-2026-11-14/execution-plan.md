@@ -175,6 +175,13 @@ P4 is complete.
 
 **Completion:** a useful body/world run still works, and the selected absent domain leaves the external consumer's resolved closure. Record changed compilation units and actual edit-to-run timing. Further generic/code-generation, crate, linker, or cache work follows the dominant measured cost.
 
+**First cut, done (2026-11-16): the loading screen.** Steps 1-3 for one domain. The A9 fixture (`fixtures/headless_profile`, facade with no feature) resolved 70 internal crates. Of the candidates its closure holds, `ambition_load_presentation` had the fewest parents: the facade (a re-export, and `world_flow`, already behind `ambition_render`) and the provider (an experience's `loading` spec, and the shell load presentation it installs for every experience). The presentation adds a route hold only while it shows a screen, so a consumer without it has no hold to wait on. It is now the facade's `load_presentation` feature, forwarded to the provider's; `ambition_render` and `basic_shell_presentation` imply it, so every drawing consumer keeps it unchanged. Measured:
+- the headless closure is 69 crates; the one compilation unit gone is `ambition_load_presentation` (2,068 lines); the fixture's tests pass (a body falls onto the room's block);
+- `the-featureless-facade-links-none-of-these` now names it (`check_absence_contracts.py`);
+- edit-to-run, warm dev profile, this 14-CPU x86_64 VM: touching `ambition_platformer2d_provider/src/composition.rs` recompiles the provider, the facade and the fixture, 30.0 s wall to the body test's result (3.6 s of it the test).
+
+The same pass repaired two inherited fixture reds: Outlander's test named `WornCharacter` (now `CharacterForm`), and `minimal_game` warned on a dead import. Open in P6: steps 2-3 for a domain with gameplay parents (dialogue: `ambition_conversation`/`ambition_dialog` have six parents and about 90 references, most in the actor monolith and the runtime), and steps 4-6. The dominant cost is not yet measured: a cut of one leaf crate saves its own unit only, so the next measurement should be the edit-to-run of a change in a crate many others depend on.
+
 Avoid generic splitting of `actor_monolith`, a large matrix of all features, a universal dynamic registry, or a new process guard for every dependency fact. The source already has optional render/rollback paths, mold, incremental development builds, and aggregated tests. Repeating those recommendations has no payoff.
 
 ## Measurements and acceptance evidence

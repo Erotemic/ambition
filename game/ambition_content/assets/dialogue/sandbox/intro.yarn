@@ -272,6 +272,12 @@ The hen looks at you with one eye, then the other, and goes back to the ground.
 -> ⟨leave her⟩
 ===
 
+title: hobford_sheep
+---
+The sheep lifts its black face, chews twice, and puts its head down to the grass again.
+-> ⟨leave it⟩
+===
+
 title: hobford_lost_hen
 ---
 <<if condition("world.flag_set", "valley_hen_found")>>

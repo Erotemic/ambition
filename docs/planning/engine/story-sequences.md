@@ -161,7 +161,12 @@ language.
   row). In content, the Creator turns to the escaping raider and points
   (`gesture`), and the scene lets him go at its end; the raid witness
   checks the pose while he runs and its end. The turn itself is not
-  witnessed: his facing was not shown to change.
+  witnessed: his facing was not shown to change. `actor.hold <character>
+  <held item>` (2026-11-17) puts a held item of the registry in each body's
+  empty hand (a hand that holds something else is refused). It is the
+  body's own, not a world object: it goes where the body goes and out of the
+  world with it. The raid's last raider takes the Creator's case
+  (`creator_case`) that way before he runs, and is drawn carrying it.
 - **SS2, cutscene beats** (`crates/ambition_cutscene`):
   `Command { line }` runs a prepared command in the cutscene's room (a skip
   still runs it), `WaitFor { condition, seconds_at_most }` holds until the

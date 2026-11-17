@@ -84,6 +84,7 @@ collections:
   - throwing_javelin
   - coconut
   - seam_gauge
+  - creator_case
   - evil_chain_gun
   - coconut_palm
   - gate_cradle
@@ -1361,6 +1362,7 @@ static_props:
   evil_chain_gun: evil_chain_gun
   coconut: coconut
   seam_gauge: seam_gauge
+  creator_case: creator_case
   pool_noodle: pool_noodle
   lasersword_with_guns: gunsword
   portal_gun_blue: portal_gun_blue

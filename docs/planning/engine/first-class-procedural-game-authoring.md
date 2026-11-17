@@ -382,7 +382,12 @@ cargo check -p ambition_app
 cargo check -p ambition_app_tools --bin extension_inspect
 ```
 
-Logs use `target/procedural-save-final-*`. The saved-schema diagnostic artifact
+Commit `bb812e8d3` adds saved-schema admission. Results: 46 host tests,
+2 project-state tests, 2 promotion tests, the session gate test, the existing
+durable-session save test, both compile checks, documentation links, and all
+53 absence contracts passed. Workspace policy had 33 passes and 2 failures
+with the same eight findings listed in the earlier character slice. No waiver
+was added. Logs use `target/procedural-save-final-*`. The saved-schema artifact
 is `target/procedural-project-state/save-admission-refusals.json`. Native build
 identity, release packaging, backend measurements, and platform loader checks
 remain.

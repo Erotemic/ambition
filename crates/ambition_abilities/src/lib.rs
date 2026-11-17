@@ -36,6 +36,7 @@ pub mod ranged;
 pub mod ride;
 pub mod thrown;
 pub mod traversal;
+pub mod whereabouts;
 
 #[cfg(any(test, feature = "test-support"))]
 // Test-only. `any(test, feature)`, not the feature alone: this crate's own

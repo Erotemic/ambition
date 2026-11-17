@@ -43,6 +43,38 @@ impl SimId {
         Self(format!("placement:{}", escape_segment(id)))
     }
 
+    /// The authored id this identity was made from by [`Self::placement`],
+    /// or `None` for any other kind of identity.
+    ///
+    /// The one inverse of the spelling, kept beside the constructor so the two
+    /// cannot drift: [`Self::placement`] is the identity a save file already
+    /// uses, and a fact the save keys by the authored id (a recorded death,
+    /// `enemy_<id>_dead`) is found from the identity through this. Nothing
+    /// else is recovered from a `SimId`'s text (see [`Self::as_str`]).
+    pub fn placement_key(&self) -> Option<String> {
+        let escaped = self.0.strip_prefix("placement:")?;
+        // `placement` escapes every separator, so a raw one is a descendant
+        // (`placement:p/3`, a mint of `p`), not a placement.
+        if escaped.contains(['/', ':']) {
+            return None;
+        }
+        let mut out = String::with_capacity(escaped.len());
+        let mut rest = escaped;
+        while let Some(at) = rest.find('%') {
+            out.push_str(&rest[..at]);
+            let code = rest.get(at + 1..at + 3)?;
+            out.push(match code {
+                "25" => '%',
+                "2F" => '/',
+                "3A" => ':',
+                _ => return None,
+            });
+            rest = &rest[at + 3..];
+        }
+        out.push_str(rest);
+        Some(out)
+    }
+
     /// A player body, by its slot. Not by which entity happens to hold the brain:
     /// possession transfers `DrivingParticipant(slot)` between bodies, and the body's
     /// identity does not travel with it.
@@ -221,6 +253,17 @@ impl SimIdCounter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The authored id comes back out of a placement identity, escapes and
+    /// all, and out of no other kind.
+    #[test]
+    fn a_placement_identity_gives_back_its_authored_id() {
+        for id in ["EnemySpawn-1", "a/b:c%d", "%2F", ""] {
+            assert_eq!(SimId::placement(id).placement_key().as_deref(), Some(id));
+        }
+        assert_eq!(SimId::player_slot(0).placement_key(), None);
+        assert_eq!(SimId::spawned(&SimId::placement("p"), 3).placement_key(), None, "a mint of a placement is not one");
+    }
 
     /// A restored owner counter must mint the same identity on replay.
     /// Rollback registration must restore the counter; this unit test alone

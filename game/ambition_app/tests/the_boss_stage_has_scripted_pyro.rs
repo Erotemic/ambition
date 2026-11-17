@@ -54,6 +54,7 @@ fn trace(rollback: bool) -> Vec<(u32, i32)> {
     let mut trace = Vec::new();
     let mut landed = 0;
     let mut warned = false;
+    let mut placed = false;
     let started = std::time::Instant::now();
     for _ in 0..680 {
         sim.step(AgentAction::default());
@@ -65,6 +66,12 @@ fn trace(rollback: bool) -> Vec<(u32, i32)> {
                 warned = true;
                 assert_eq!(bolts, 0, "the warning creates no damaging projectile");
             }
+        }
+        if warned && !placed {
+            // Place the recipient in the east outer jet after the entrance beats.
+            sim.teleport_player((2080.0, 840.0));
+            sim.rebase_rollback_history().unwrap();
+            placed = true;
         }
         if count > 0 {
             landed += sim.world().resource::<Messages<HitEvent>>().iter_current_update_messages()

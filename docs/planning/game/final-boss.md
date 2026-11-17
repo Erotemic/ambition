@@ -145,10 +145,10 @@ Stack's body is a box; its surfaces are ground:
 - **The amp's top handle and the cabinet's step** (`ledges`): one-way
   ledges on each side.
 
-The view: the stage's camera zone opens the view to about 790 world units
-high (zoom 2.6, clamped to the room), so the floor, the risers, Full Stack
-and the Boss with his barks are on the screen at once from anywhere on the
-stage.
+The stage's camera zone uses zoom 1.4, about 430 world units high at scale 1.
+It follows the player's climb. From the risers, the view includes Full
+Stack's top and the Boss. The stage generator keeps this closer view in
+place of the earlier whole-stage view.
 
 The look: the dimension has a biome of its own, `boss_stage` (the renderer's
 `backgrounds/boss_stage.py` and its skin, decor, door and confetti in
@@ -243,6 +243,15 @@ a level and:
   stage (`npc_agent_swarm`, `BossSummon`), again on its cooldown.
 - **The solo**: power chord, backspace, feedback, keystroke rain and riff
   one after another with short rests (the enrage steps of the profile row).
+- **Stage jets** (`boss_stage_pyro`): the encore entrance warns for 1.4
+  seconds at four points across the side risers. Two outer jets and two
+  inner jets fire in alternating pairs for 1.1 seconds. The central climb
+  stays clear. A 1.3-second rest follows. The beat also runs once per normal
+  encore cycle, after the riff. The
+  [Rhai script](../../../game/ambition_content/rhai/boss_stage_pyro.rhai)
+  owns the warning and pulse sequence. Native projectile collision owns
+  the damage. The [authoring recipe](../../recipes/scripted-stage-attacks.md)
+  describes live edits and measurement.
 
 ### The end — "The Escape Clause" (the retirement)
 
@@ -355,8 +364,7 @@ end), and its `idle` strum between.
   generic engine piece, a falling body that settles into a one-way platform
   and expires; the first cut has keycaps that hurt and break on the floor.
 - Ideas kept for a later pass, none started: the light rig's colour follows
-  the phase (blue for Make No Mistakes, red for the encore); pyro columns at
-  the speaker towers when the encore opens; the crowd's hands go up on a
+  the phase (blue for Make No Mistakes, red for the encore); the crowd's hands go up on a
   phase change; the agents bark to each other (Clause hedges, Wren answers in
   another language, Geppetto overpromises).
 - A fork ending ("change the rules in a fork of the open-source game").

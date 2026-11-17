@@ -128,6 +128,8 @@ pub(crate) struct GuestInputs {
     replaying: bool,
     /// Each guest room's state at the start of a tick, by tick.
     saved: BTreeMap<LiveRoomInstance, BTreeMap<u64, (RoomSnapshot, Clock)>>,
+    /// The live checkpoint commits read so far.
+    commits: bevy::ecs::message::MessageCursor<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>,
 }
 
 impl GuestInputs {
@@ -233,6 +235,18 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
     if inputs.replaying {
         if let Some(mut boundary) = world.get_resource_mut::<ConfirmedFrameBoundary>() {
             boundary.current = tick as i32;
+        }
+    } else if let Some(commits) =
+        world.get_resource::<bevy::ecs::message::Messages<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>>()
+    {
+        // A checkpoint commit is the world's agreement on every room at once,
+        // and every domain takes its baseline from it: a rewind to before it
+        // would run the commit again with the other rooms hidden. A live
+        // commit drops every room's history, so a late input for an earlier
+        // tick drives its seat from the next one. A replay commits nothing:
+        // the shrine and the authored checkpoint hold theirs for a live tick.
+        if inputs.commits.read(commits).count() > 0 {
+            inputs.saved.clear();
         }
     }
     for seat in rooms.keys() {

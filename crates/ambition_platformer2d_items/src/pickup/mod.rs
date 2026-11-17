@@ -112,7 +112,8 @@ impl Plugin for ItemPickupSimulationPlugin {
                 sim,
                 (
                     ambition_shrine::commit_authored_checkpoint
-                        .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                        .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                        .run_if(not(resource_exists::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>)),
                     ambition_shrine::hold_authored_checkpoint_requests,
                 )
                     .chain()

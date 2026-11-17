@@ -1092,6 +1092,23 @@ tick, and the system is now registered off replays so that does not rest on
 the schedule's order. The census reads a replay gate after other chained
 conditions. Census: 27 unclassified over 8 types.
 
+**Checkpoint commits are live-only, and a horizon (2026-11-17).** This settles
+the checkpoint part of the open question above. A commit is the world's
+agreement on every room at once, and every domain takes its baseline from it;
+run in a replay it would capture those baselines with the other rooms hidden.
+So: (1) the room rollback host drops every room's history when a commit lands
+on a live tick, so no replay runs a live commit again, and a late input for an
+earlier tick drives its seat from the next one; (2) during a replay the shrine
+heals (the room half replays) and holds its rest in `PendingAuthoredCheckpoint`
+(`rest: true`), and `commit_authored_checkpoint`, now registered off replays,
+commits it on the next live tick with the revival of dead-until-rest bodies. A
+temporary probe measured both halves: healed in the replay with the flag still
+set and no commit, then one commit and the flag cleared on the live tick. Only
+the shrine crate writes `CheckpointCommitted`, so its readers
+(`compact_ended_mints_at_checkpoint` and the baseline captures) act on live
+ticks only. Census: 22 unclassified over 6 types. Still open: `run_gate_network`'s
+save writes and `PendingLifecycleCommit`'s crossings.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

@@ -193,6 +193,11 @@ TOOL_SOURCES: dict[str, str] = {
 
 #: Host state that a rewind, whole or of one room, does not change.
 WORLD_OWNED: dict[str, str] = {
+    "PendingAuthoredCheckpoint": (
+        "\"It carries a checkpoint's world half from a room replay to the next live "
+        "tick\": the hold may run in a replay, and `commit_authored_checkpoint` runs "
+        "only on live ticks (`ambition_shrine/src/lib.rs`, read 2026-11-17)"
+    ),
     "LiveMatchTicks": (
         "a match's, written only while one is active; no room replays alone while a match is prepared or active (`register_room_replay_refusal`, `session/src/match_lifecycle.rs`, consulted by `take_arrived_inputs`, read 2026-11-17)"
     ),
@@ -267,6 +272,12 @@ MIRRORS: dict[str, str] = {
 
 #: Systems whose write follows a world fact a room replay does not change.
 WORLD_FACT_WRITERS: dict[str, str] = {
+    "compact_ended_mints_at_checkpoint": (
+        "acts only on `CheckpointCommitted`, which only live ticks write: the shrine's "
+        "rest and the authored commit hold theirs for a live tick during a replay, and "
+        "the room rollback host drops every room's history at a live commit "
+        "(`ambition_shrine`, `room_rollback.rs`, read 2026-11-17)"
+    ),
     "track_room_visits": (
         "sets a room's visited flag while the room is live, and only on the edge; "
         "a room replay does not change which rooms are live (it hides the others "
@@ -301,7 +312,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 27
+UNCLASSIFIED_CEILING = 22
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200

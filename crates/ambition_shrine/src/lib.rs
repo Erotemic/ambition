@@ -68,6 +68,7 @@ pub fn heal_save_shrine_system(
         &BodyKinematics,
         &mut BodyHealth,
         Option<&mut ambition_platformer2d_core::resources::ActorResources>,
+        Option<&ambition_characters::control::DrivingParticipant>,
     )>,
     // ⚠ THE STARTUP-FRAME FALLBACK SUBJECT, and nothing else. Before a seat is
     // attached there is no driven body at all, and the primary avatar is the
@@ -95,6 +96,11 @@ pub fn heal_save_shrine_system(
     >,
     mut activation: ResMut<ShrineActivationPulse>,
     mut sfx: ambition_sfx::SfxWriter,
+    // During a room replay the heal is the room's and replays; the checkpoint
+    // is the world's, and waits in `PendingAuthoredCheckpoint` for the next
+    // live tick ([`commit_authored_checkpoint`]).
+    replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
+    mut pending: Option<ResMut<PendingAuthoredCheckpoint>>,
 ) {
     // ⚠ THE FALLBACK IS THE STARTUP FRAME and nothing else.
     let mut subjects = driven.entities();
@@ -112,7 +118,7 @@ pub fn heal_save_shrine_system(
     // checkpoint (`the_checkpoint_records_where_the_resting_body_stood`).
     let mut checkpoint_written = false;
     for subject in subjects {
-        let Ok((control, kin, mut health, mut bank)) = bodies.get_mut(subject) else {
+        let Ok((control, kin, mut health, mut bank, driver)) = bodies.get_mut(subject) else {
             continue;
         };
         if !control.0.interact_pressed {
@@ -140,6 +146,13 @@ pub fn heal_save_shrine_system(
             continue;
         }
         checkpoint_written = true;
+        if replay.is_some() {
+            if let Some(pending) = pending.as_deref_mut() {
+                pending.asked = Some(driver.map(|driver| driver.0.0));
+                pending.rest = true;
+            }
+            continue;
+        }
 
         // ⛔⛔ **THE REST REVIVES WHAT RESTED-AWAY DEATH RECORDED, and until now
         // nothing did.** An `OnRest` placement's death writes
@@ -228,23 +241,32 @@ fn record_checkpoint_at(
     }
 }
 
-/// An authored checkpoint asked for and not yet committed (Q164). Rollback
-/// state: a rewind between the request and its commit must keep it.
+/// An authored checkpoint asked for and not yet committed (Q164), or a
+/// shrine's rest first made during a room replay. Rollback state: a rewind
+/// between the request and its commit must keep it.
+///
+/// It carries a checkpoint's world half from a room replay to the next live
+/// tick: a commit captures every domain's baseline, which must see every
+/// room, and the room rollback host drops its rooms' history at each live
+/// commit, so no replay runs a commit twice (ISL-2d).
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingAuthoredCheckpoint {
     /// The seat whose body it is at (`CheckpointEstablishRequested::seat`),
     /// once asked.
     pub asked: Option<Option<u8>>,
+    /// A rest: the commit also revives what resting brings back.
+    pub rest: bool,
 }
 
 impl PendingAuthoredCheckpoint {
     /// The checksum projection.
     pub fn probe(&self) -> u64 {
-        match self.asked {
+        let asked = match self.asked {
             None => 0,
             Some(None) => 1,
             Some(Some(seat)) => 2 + u64::from(seat),
-        }
+        };
+        asked | (u64::from(self.rest) << 32)
     }
 }
 
@@ -262,9 +284,11 @@ pub fn hold_authored_checkpoint_requests(
 
 /// Commit the authored checkpoint held from the tick before: record where its
 /// body comes back and raise the checkpoint, before this tick's capture, as a
-/// shrine's rest does. No heal and no revival: those are the rest's.
+/// shrine's rest does. No heal: that is the rest's, and a rest held from a
+/// room replay healed there. Its revival is made here. Live ticks only.
 pub fn commit_authored_checkpoint(
     mut pending: ResMut<PendingAuthoredCheckpoint>,
+    mut activation: Option<ResMut<ShrineActivationPulse>>,
     bodies: Query<(Entity, &BodyKinematics, &ambition_characters::control::DrivingParticipant)>,
     primary: Query<(Entity, &BodyKinematics), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
@@ -274,6 +298,12 @@ pub fn commit_authored_checkpoint(
     let Some(seat) = pending.asked.take() else {
         return;
     };
+    if std::mem::take(&mut pending.rest) {
+        save.data_mut().clear_dead_until_rest_flags();
+        if let Some(activation) = activation.as_deref_mut() {
+            activation.remaining = 0.78;
+        }
+    }
     let subject = match seat {
         Some(seat) => bodies
             .iter()

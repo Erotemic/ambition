@@ -509,6 +509,13 @@ pub fn versus_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRul
 
 /// Register the versus experience: a launcher entry, a route, and the stage.
 pub fn compose_versus_experience(app: &mut App) {
+    // A round settles across every fighter from its Starting phase on, before
+    // the match is activated: no room replays alone while the stage is played.
+    ambition_platformer2d::platformer::lifecycle::register_room_replay_refusal(app, "the versus stage", |world| {
+        world.get_resource::<ambition_platformer2d::game_shell::ShellRouter>().is_some_and(|router| {
+            router.active.as_ref().is_some_and(|active| active.route_id.as_str() == VERSUS_GAMEPLAY_ROUTE)
+        })
+    });
     // The duelists are the stage's content pack: their rows and move tables.
     let seats = super::versus_rules::versus_seats();
     let default_character = seats.fighter(0);

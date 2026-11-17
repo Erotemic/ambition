@@ -193,6 +193,21 @@ TOOL_SOURCES: dict[str, str] = {
 
 #: Host state that a rewind, whole or of one room, does not change.
 WORLD_OWNED: dict[str, str] = {
+    "LiveMatchTicks": (
+        "a match's, written only while one is active; no room replays alone while a match is prepared or active (`register_room_replay_refusal`, `session/src/match_lifecycle.rs`, consulted by `take_arrived_inputs`, read 2026-11-17)"
+    ),
+    "StocksMatchSettled": (
+        "a match's, written only while one is active; no room replays alone while a match is prepared or active (`register_room_replay_refusal`, `session/src/match_lifecycle.rs`, consulted by `take_arrived_inputs`, read 2026-11-17)"
+    ),
+    "SuddenDeathEntered": (
+        "a match's, written only while one is active; no room replays alone while a match is prepared or active (`register_room_replay_refusal`, `session/src/match_lifecycle.rs`, consulted by `take_arrived_inputs`, read 2026-11-17)"
+    ),
+    "VersusMatch": (
+        "the versus round's, written only while the versus route is played (`versus_stage_is_active`); no room replays alone then (`register_room_replay_refusal` in `compose_versus_experience`, read 2026-11-17)"
+    ),
+    "ActiveRoundScope": (
+        "the versus round's, written only while the versus route is played (`versus_stage_is_active`); no room replays alone then (`register_room_replay_refusal` in `compose_versus_experience`, read 2026-11-17)"
+    ),
     "SimulationReplayState": (
         "\"Host-owned marker for a historical replay pass\": the rollback host "
         "raises and clears it around a replay (`ambition_sim_schedule`, read 2026-11-17)"
@@ -286,7 +301,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 34
+UNCLASSIFIED_CEILING = 29
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200

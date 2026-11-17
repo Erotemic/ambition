@@ -1069,6 +1069,19 @@ a body (room state) in the same press, so gating the system would drop the
 replayed press. It wants a split of each into its room half and a queued
 world half.
 
+**No room replays alone during a match (2026-11-17).** A match is one contest
+across every seat: `count_the_live_match_ticks` would count a replayed room's
+ticks a second time (and its item cadence would see the last live step's
+crossing on every replayed tick), and `decide_stocks_match` and
+`settle_versus_round` settle the whole cast. None of it is any one room's.
+`register_room_replay_refusal` (beside the retractors in `room_writes.rs`)
+names the states in which the host may not replay a room;
+`take_arrived_inputs` drives a late input from the next tick instead, as it
+does during a crossing. The match lifecycle refuses while a match is prepared
+or active, the versus stage while its route is played. Versus netplay rewinds
+the whole world instead, so nothing is lost. Census: 29 unclassified over 10
+types.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

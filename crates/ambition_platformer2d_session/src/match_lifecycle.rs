@@ -11,6 +11,14 @@ impl Plugin for MatchLifecyclePlugin {
         let sim = app.sim_schedule();
         crate::participants::require_participants_on_session_root(app);
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<crate::party_travel::PartyTravel>(app);
+        // A match is one contest across every seat: its clock, stocks and
+        // settlement are not any one room's, so no room replays alone while
+        // one is prepared or fought (ISL-2d). Versus netplay rewinds the
+        // whole world instead.
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_replay_refusal(app, "a match", |world| {
+            world.contains_resource::<ambition_match::PreparedMatch>()
+                || world.contains_resource::<ambition_match::ActiveMatch>()
+        });
         app.init_resource::<ambition_match::live_match_clock::LiveMatchTicks>()
             .init_resource::<ambition_match::seating::SessionMatchOrdinal>()
             .add_systems(

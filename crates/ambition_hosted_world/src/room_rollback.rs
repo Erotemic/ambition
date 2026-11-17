@@ -322,11 +322,13 @@ pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u
     }
     // A crossing spans two rooms, and a replay hides every room but one: the
     // crossing's plan would not find the room it joins and would build a
-    // second one. While a crossing is recorded or loading, a late input
-    // drives the seat from the next tick instead.
-    let crossing = a_crossing_is_under_way(world);
+    // second one. While a crossing is recorded or loading, or a registered
+    // refusal holds (a match), a late input drives the seat from the next
+    // tick instead.
+    let refused = a_crossing_is_under_way(world)
+        || ambition_platformer2d_shared_tangle::lifecycle::room_replay_refusal(world).is_some();
     for (room, tick) in rewind {
-        if crossing {
+        if refused {
             stats.not_rewound += 1;
             continue;
         }

@@ -88,4 +88,6 @@ pub use session_time::{GameplayElapsedAdvanced, SessionElapsedPlugin};
 mod attempt;
 pub use attempt::SpawnedThisAttempt;
 
-pub use room_writes::{RoomReplay, begin_room_replay, end_room_replay};
+pub use room_writes::{
+    RoomReplay, RoomReplayRefusals, begin_room_replay, end_room_replay, register_room_replay_refusal, room_replay_refusal,
+};

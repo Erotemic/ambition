@@ -118,6 +118,34 @@ impl RoomReplay {
     }
 }
 
+type Refusal = fn(&World) -> bool;
+
+/// The states in which no room may replay alone: each is one contest or one
+/// operation across rooms, whose state a single room's replay would run a
+/// second time without taking the first back. The host drives a late input
+/// from its next tick instead.
+#[derive(Resource, Default)]
+pub struct RoomReplayRefusals {
+    refusals: Vec<(&'static str, Refusal)>,
+}
+
+/// Register `refuses` under `name`. A second registration under one name
+/// replaces the first.
+pub fn register_room_replay_refusal(app: &mut App, name: &'static str, refuses: Refusal) {
+    let mut known = app.world_mut().get_resource_or_insert_with(RoomReplayRefusals::default);
+    if let Some(slot) = known.refusals.iter_mut().find(|(known, _)| *known == name) {
+        slot.1 = refuses;
+    } else {
+        known.refusals.push((name, refuses));
+    }
+}
+
+/// The first registered refusal that holds now, by name.
+pub fn room_replay_refusal(world: &World) -> Option<&'static str> {
+    let known = world.get_resource::<RoomReplayRefusals>()?;
+    known.refusals.iter().find(|(_, refuses)| refuses(world)).map(|(name, _)| *name)
+}
+
 /// Begin the room's simulation scope and suspend live message streams.
 pub fn begin_room_replay(world: &mut World, room: LiveRoomInstance) {
     assert!(!world.contains_resource::<RoomReplay>(), "room replays cannot nest");

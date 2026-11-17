@@ -64,7 +64,14 @@ impl Plugin for ProgressionSchedulePlugin {
         app.add_systems(
             sim,
             (
-                crate::quest::push_room_entered_quest_events,
+                // Not during a room replay: only the replayed room is live
+                // then, so its memory of the live rooms would shrink to that
+                // one and the others would be entered again after it.
+                crate::quest::push_room_entered_quest_events.run_if(bevy::ecs::schedule::common_conditions::not(
+                    bevy::ecs::schedule::common_conditions::resource_exists::<
+                        ambition_platformer2d_shared_tangle::lifecycle::RoomReplay,
+                    >,
+                )),
                 // Only with an event to apply: it took the registry mutably
                 // each tick, so the registry read as changed each tick.
                 ambition_persistence::quest::apply_quest_advance_events.run_if(

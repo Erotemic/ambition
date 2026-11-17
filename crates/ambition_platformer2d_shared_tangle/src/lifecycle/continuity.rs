@@ -1141,6 +1141,10 @@ pub struct AwayFromAuthoredRoom(pub BTreeSet<SimId>);
 /// and that is recoverable today only by reading a filter two crates away.
 pub fn project_custody_onto_authored_occurrences(
     carried: Query<&SimId, (With<InCustodyOf>, With<RoomScopedEntity>)>,
+    // During a room replay the other rooms' entities are disabled, and what
+    // they carry is still carried: the replay does not run their rooms.
+    hidden: Query<&SimId, (With<InCustodyOf>, With<RoomScopedEntity>, With<bevy::ecs::entity_disabling::Disabled>)>,
+    replay: Option<Res<super::RoomReplay>>,
     away: Option<Res<AwayFromAuthoredRoom>>,
     // Required: `HeldItemSimulationPlugin` adds this system and the ledger
     // together.
@@ -1148,6 +1152,7 @@ pub fn project_custody_onto_authored_occurrences(
 ) {
     let alive: BTreeSet<SimId> = carried
         .iter()
+        .chain(hidden.iter().filter(|_| replay.is_some()))
         .chain(away.iter().flat_map(|away| away.0.iter()))
         .cloned()
         .collect();

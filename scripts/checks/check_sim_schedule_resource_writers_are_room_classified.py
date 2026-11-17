@@ -234,6 +234,16 @@ MIRRORS: dict[str, str] = {
         "rebuilds the save's occurrence rows from `AuthoredOccurrences` and the "
         "live custody (`session/src/durable_horizon.rs`)"
     ),
+    "keep_life_ledger": (
+        "\"Keep each living body's facts and plan hour in the ledger\": each row "
+        "is overwritten from its body's `Life`, a component the room's snapshot "
+        "restores; a replay sees only its own room's bodies (`body/life.rs`)"
+    ),
+    "record_placed_bodies": (
+        "rewrites each resting body's `Placed` row from its live kinematics; a "
+        "replay sees only its own room's bodies, which the room's snapshot "
+        "restored (`construction/src/whereabouts.rs`)"
+    ),
     "persist_module_records_to_save": (
         "\"Mirror the session's durable module records into the save when they "
         "differ from the saved rows\" (`runtime/src/module_save_road.rs`)"
@@ -276,7 +286,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 38
+UNCLASSIFIED_CEILING = 34
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200
@@ -349,7 +359,7 @@ def host_rewound_types(repo: Path = REPO) -> frozenset[str]:
 
 
 _REPLAY_GATED = re.compile(
-    r"\b(\w+)\s*\.run_if\(\s*(?:[\w:]+::)?not\(\s*(?:[\w:]+::)?resource_exists::<\s*(?:[\w:]+::)?RoomReplay\s*>"
+    r"\b(\w+)\s*\.run_if\(\s*(?:[\w:]+::)?not\(\s*(?:[\w:]+::)?resource_exists::<\s*(?:[\w:]+::)?RoomReplay\s*,?\s*>"
 )
 
 

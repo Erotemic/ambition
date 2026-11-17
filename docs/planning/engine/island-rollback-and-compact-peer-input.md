@@ -1050,6 +1050,25 @@ rewound room's switches back. Census rulings by system: the save's four
 session-start loaders behind their own flag, and `ResolvedSwitchActivations`
 (replaced each tick). Census: 38 unclassified over 16 types.
 
+**Room entry and custody through a replay (2026-11-17).** During a replay only
+the replayed room is live, so `push_room_entered_quest_events` shrank its
+memory of the live rooms to that one and announced the others as entered
+again afterwards; it is now registered off replays, as the cutscene entry
+trigger is (the census reads `run_if(not(resource_exists::<RoomReplay>))`
+however it is wrapped). `project_custody_onto_authored_occurrences` rebuilt
+the custody set from the carriers it could see, so the other rooms' custody
+left the ledger for the length of a replay; during a replay it now counts the
+hidden (`Disabled`) carriers too. Rulings: `keep_life_ledger` and
+`record_placed_bodies` mirror bodies the room snapshot restores. Census: 34
+unclassified over 14 types. **Open, a design question:** a checkpoint commit
+is a world-owned operation (`commit_authored_checkpoint`,
+`heal_save_shrine_system`, `run_gate_network`'s save writes,
+`PendingLifecycleCommit`'s crossings and returns). The contract says such
+operations wait for the host's next normal tick, but the shrine's rest heals
+a body (room state) in the same press, so gating the system would drop the
+replayed press. It wants a split of each into its room half and a queued
+world half.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

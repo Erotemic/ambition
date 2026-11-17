@@ -1632,6 +1632,12 @@ fn geometry_for_viewport(base: MenuCubeGeometry, size: Option<Vec2>) -> MenuCube
     }
 }
 
+/// A menu viewport lower than this (logical px) is a short screen (a phone in
+/// landscape).
+const SHORT_SCREEN_HEIGHT: f32 = 480.0;
+/// The fraction of a short screen's height the active face fills.
+const SHORT_SCREEN_FACE_FILL: f32 = 0.96;
+
 fn fit_cube_camera_regions(
     config: Res<KaleidoscopeMenuConfig>,
     mut cameras: Query<(&Camera, &mut Projection), With<KaleidoscopePauseCamera>>,
@@ -1642,8 +1648,15 @@ fn fit_cube_camera_regions(
         };
         let geometry = config.geometry;
         let ratio = (geometry.page_width / geometry.page_height / (size.x / size.y)).max(1.0);
+        // The page is laid in face-relative units, so its words are as large as
+        // the face is: on a short screen the active face fills the height.
+        let short = camera
+            .logical_viewport_size()
+            .is_some_and(|logical| logical.y < SHORT_SCREEN_HEIGHT);
+        let fill = if short { SHORT_SCREEN_FACE_FILL } else { ambition_menu::MenuCubeGeometry::TARGET_FACE_FILL };
+        let zoom = ambition_menu::MenuCubeGeometry::TARGET_FACE_FILL / fill;
         let fov = 2.0
-            * ((ambition_menu::MenuCubeGeometry::CAMERA_FOV_RADIANS * 0.5).tan() * ratio).atan();
+            * ((ambition_menu::MenuCubeGeometry::CAMERA_FOV_RADIANS * 0.5).tan() * ratio * zoom).atan();
         // Keep the camera at the cube's viewing point. Moving back exposes the rear face.
         let Projection::Perspective(current) = &*projection else {
             continue;

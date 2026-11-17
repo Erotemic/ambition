@@ -1723,10 +1723,11 @@ the item columns, from the menu region: under 480 px high the face shows 4
 taller rows and a 1.35x description, and the wheel, drag and window helpers
 take the count from the same region. Witness: `capture_scene --route
 ambition_gameplay OUT 640x360 --press "wait:60,Escape,wait:30" --include-ui`
-(labels about 11 px; 1280x720 unchanged at six rows). What still limits it
-is the face itself, 79% of the screen height (`MenuCubeGeometry::TARGET_FACE_FILL`):
-the next step is a short screen's camera filling the height with the active
-face. The inventory comes after it.
+(1280x720 unchanged at six rows). The cube camera on a short screen also
+narrows its field of view so the active face fills 96% of the height, not
+80% (`SHORT_SCREEN_FACE_FILL`, `fit_cube_camera_regions`): labels read at
+about 13 px. The inventory face is next. Maintainer 2026-11-17: mobile UX
+waits behind higher-value queue items, so the rest of this row is deferred.
 
 ### CONTENT-AS-DATA — content still written as Rust
 

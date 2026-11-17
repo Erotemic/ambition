@@ -845,6 +845,8 @@ fn discover_module_files(listed: &[std::path::PathBuf]) -> Vec<std::path::PathBu
             files.push(path.clone());
         }
     }
+    let mut seen = std::collections::BTreeSet::new();
+    files.retain(|path| seen.insert(path.canonicalize().unwrap_or_else(|_| path.clone())));
     files
 }
 
@@ -873,5 +875,7 @@ fn module_files(listed: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
             files.push(path);
         }
     }
+    let mut seen = std::collections::BTreeSet::new();
+    files.retain(|path| seen.insert(path.canonicalize().unwrap_or_else(|_| path.clone())));
     files
 }

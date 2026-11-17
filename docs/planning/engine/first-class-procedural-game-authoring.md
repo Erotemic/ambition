@@ -193,7 +193,8 @@ Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
 | Gate | Executed evidence | Remaining work |
 | --- | --- | --- |
 | A3 | SDK comparison tests: 3 passed. Active replacement inspection: 1 passed. Independent Rhai/Rust declaration: 1 passed. The inspection tool matched all 30 linked content modules with a fresh WASM build. Pulse Forge refused changed field type, attachment, and missing request port with status 1 and field paths. | Native build identity; the promoted game mechanic and its full contract checks. |
-| A1, A2, A4-A10 | Existing foundation retained. These gates are not claimed complete by this slice. | Execute each gate on the external project. |
+| A4 | Explicit project selection passed on real Sentry Rhai, WASM, and linked implementations with one inspection executable and no compiler on PATH. Host tests prove that only the selected implementation emits requests. Removing its file refuses and keeps the last good implementation. | Promote the external project's own mechanic and run it beside its second Rhai module. |
+| A1, A2, A5-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Execute each gate on the external project. |
 
 Commands for this slice:
 
@@ -211,8 +212,37 @@ The inspection executable SHA-256 was
 `acef8cefe64643151d86d01746483fac0118d4fbe16067b8e6299fc618e043ba`.
 The WASM SHA-256 was
 `30d1fe400df2a575cbe87c4c4909b26702cd755163007b6634834c626c985798`.
-Logs are under `target/procedural-contract-*`. The next step is explicit
-project selection of one implementation per module key.
+Logs are under `target/procedural-contract-*`.
+
+Selection slice checks:
+
+```bash
+cargo test -p ambition_extension_host --lib
+cargo test -p ambition_app --lib app::project::tests
+cargo test -p ambition_app --test app_it -- a_project_authors_a_technique
+cargo check -p ambition_app
+cargo build -p ambition_app_tools --bin extension_inspect
+PATH=/nonexistent ./target/debug/extension_inspect --project target/procedural-selection-projects/rhai.ron
+PATH=/nonexistent ./target/debug/extension_inspect --project target/procedural-selection-projects/wasm.ron
+PATH=/nonexistent ./target/debug/extension_inspect --project target/procedural-selection-projects/linked.ron
+```
+
+Results: 46 host tests, 4 project tests, and 5 gameplay tests passed. The app
+check passed. Each runtime manifest listed the same Sentry script and content
+WASM artifact. Only its `implementations` choice changed. The manifest syntax
+is in the [module recipe](../../recipes/writing-a-procedural-module.md).
+Moving an identical selected artifact to another directory keeps generation
+identity. Selection changes require a restart; selected-file edits still reload.
+
+`cargo test -p ambition_workspace_policy` had 33 passes and 2 failed tests.
+It reported nine violations outside this slice: four dependency allowlist
+entries, three direct body writes, and two optional-catalog diagnostics. The full
+diagnostics are in `target/procedural-selection-policy.log`. Other selection
+logs use the same prefix. The next step is the Pulse Forge Rust module and
+its three-backend gameplay fixture.
+
+The selection executable SHA-256 was
+`296479b1b9fa00351df40b21227c4378a453876d5921847cd60b39bb29bcfb39`.
 
 ## Owner documents and source locations
 

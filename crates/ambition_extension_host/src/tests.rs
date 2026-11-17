@@ -8,7 +8,7 @@ use ambition_extension_sdk::{
     Invocation, Limits, ModuleDescriptor, ModuleKey, Phase, PortKey, SaveEligibility, SchemaKey,
     StateSchema, TriggerBinding, Value,
 };
-use ambition_extension_sdk::{wire, EntryCode, IdlePolicy};
+use ambition_extension_sdk::{wire, EntryCode, EntryFn, IdlePolicy};
 use ambition_time::SimTick;
 use bevy::ecs::schedule::ScheduleLabel;
 
@@ -662,6 +662,75 @@ fn contract_inspection_compares_the_active_replacement() {
     assert!(refusal.contains(".limits: expected Limits { max_requests: 2 }; got Limits { max_requests: 1 }"), "{refusal}");
     let refusal = inspect::compare_contracts(app.world(), &[candidate.clone(), candidate]).unwrap_err();
     assert!(refusal.contains("repeats this module key"), "{refusal}");
+}
+
+#[test]
+fn a_project_selects_one_implementation_and_keeps_it_when_its_file_leaves() {
+    fn marker<const N: u32>(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+        inv.submit::<Emit>((N, 0, 0.0))
+    }
+    let descriptor = |run| {
+        let mut descriptor = module(vec![entry("a", vec![])]);
+        descriptor.entries[0].run = EntryCode::Native(run);
+        descriptor
+    };
+    let mut generations = Vec::new();
+    for (choice, expected) in [
+        (ModuleImplementation::Linked, 1),
+        (ModuleImplementation::Artifact("clock.rhai".into()), 2),
+        (ModuleImplementation::Artifact("clock.wasm".into()), 3),
+    ] {
+        let mut app = App::new();
+        app.init_schedule(Sim);
+        app.insert_resource(ModuleSelections([(ModuleKey::new("test", "counter"), choice)].into()));
+        app.add_plugins(ExtensionHostPlugin::new(Sim))
+            .init_resource::<Lowered>().init_resource::<SimTick>().init_resource::<ambition_time::WorldTime>()
+            .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+            .install_extension_observation::<Height>(PHASE, "test", height_of)
+            .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
+            .add_extension_module(descriptor(marker::<1>));
+        for (artifact, run, digest) in [("clock.rhai", marker::<2> as EntryFn, 2), ("clock.wasm", marker::<3> as EntryFn, 3)] {
+            let (backend, mut modules) = loaded(vec![descriptor(run)]);
+            modules[0].code = CodeIdentity::Loaded { abi: "test".into(), digest };
+            app.add_loaded_extension_modules(artifact, backend, modules, true);
+        }
+        app.finish();
+        app.world_mut().spawn((Poked(1), Tall(1.0)));
+        step(&mut app);
+        assert_eq!(app.world().resource::<Lowered>().0[0].2.0, expected);
+        let generation = app.world().resource::<ExtensionGeneration>().clone();
+        generations.push(generation.clone());
+        if expected == 2 {
+            let mut moved = app.world().resource::<ExtensionComposition>().declared.clone();
+            for module in &mut moved {
+                if let ModuleCode::Loaded { artifact, .. } = &mut module.code {
+                    if artifact.as_ref() == "clock.rhai" { *artifact = "/package/clock.rhai".into(); }
+                }
+            }
+            let selections = ModuleSelections([(
+                ModuleKey::new("test", "counter"), ModuleImplementation::Artifact("/package/clock.rhai".into()),
+            )].into());
+            assert_eq!(ExtensionGeneration::with_selections(&moved, &selections), generation,
+                "the same code in another directory keeps its generation identity");
+            let refusal = reload::stage_module_changes(app.world_mut(), vec![], vec!["clock.rhai".into()]).unwrap_err();
+            assert!(refusal.contains("selected Artifact(\"clock.rhai\") provides 0 implementations"), "{refusal}");
+            assert!(!reload::publish_staged_replacement(app.world_mut()));
+            assert_eq!(*app.world().resource::<ExtensionGeneration>(), generation);
+            step(&mut app);
+            assert_eq!(app.world().resource::<Lowered>().0.last().unwrap().2.0, expected);
+        }
+    }
+    assert!(generations.windows(2).all(|pair| pair[0] != pair[1]));
+}
+
+#[test]
+fn a_selected_implementation_must_export_the_selected_key() {
+    let key = ModuleKey::new("test", "counter");
+    for choice in [ModuleImplementation::Linked, ModuleImplementation::Artifact("missing.wasm".into())] {
+        let selections = ModuleSelections([(key.clone(), choice)].into());
+        let refusals = admit_selected(API_VERSION, &offers(), &Default::default(), &[], &selections).unwrap_err();
+        assert!(matches!(&refusals[0], Refusal::SelectedImplementation { module, found: 0, .. } if module == &key));
+    }
 }
 
 #[test]

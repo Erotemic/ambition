@@ -156,7 +156,7 @@ pub fn stage_module_changes(
     for (at, _, modules) in placed {
         declared.splice(at..at, modules);
     }
-    let candidate = crate::admit_with_roads(API_VERSION, &composition.offers, &composition.save_roads, &declared)
+    let candidate = crate::admit_selected(API_VERSION, &composition.offers, &composition.save_roads, &declared, &composition.selections)
         .map_err(|refusals| {
         let lines: Vec<String> = refusals.iter().map(|r| format!("  - {r}")).collect();
         format!("the reloaded composition is refused:\n{}", lines.join("\n"))
@@ -209,7 +209,9 @@ pub fn publish_staged_replacement(world: &mut World) -> bool {
     );
     let before = world.resource::<AdmittedExtensions>().0.clone();
     migrate_records(world, &before, &admitted);
-    world.insert_resource(crate::ExtensionGeneration::of(&declared));
+    let selections = &world.resource::<ExtensionComposition>().selections;
+    let generation = crate::ExtensionGeneration::with_selections(&declared, selections);
+    world.insert_resource(generation);
     world.resource_mut::<ExtensionComposition>().declared = declared;
     world.insert_resource(AdmittedExtensions(admitted));
     true

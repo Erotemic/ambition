@@ -19,6 +19,24 @@ Use the built executables for each development run:
 ./target/debug/ambition_game_bin --project examples/projects/pulse_forge
 ```
 
+To select an implementation explicitly, add this field to `project.ron`:
+
+```ron
+implementations: [
+    (provider: "pulse_forge", module: "emitter", implementation: File("modules/pulse_forge.rhai")),
+],
+```
+
+`File` adds the selected file to the watched inputs. It can name Rhai source
+or a WASM artifact that exports the same module key. `Linked` selects code
+compiled into the executable. This host does not yet link the Pulse Forge
+module, so `Linked` refuses for this example. If several files export a key,
+the selection picks one. With no selection, duplicate replacements refuse.
+Each selected implementation must exist. Removing its file keeps the last
+good generation. Change the selection and restart the project to use another
+implementation; this does not rebuild the host. Selecting linked code requires
+a host build that contains it. Edits to the selected file still reload.
+
 A headless load check also works with no compiler on `PATH`:
 
 ```bash

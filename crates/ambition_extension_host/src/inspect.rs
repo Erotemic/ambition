@@ -27,7 +27,7 @@ pub fn compare_contracts(
         return Err("extension host: admit the composition before comparison".into());
     }
     let mut refusals = Vec::new();
-    let (active, _) = crate::admission::resolve_replacements(&composition.declared, &mut refusals);
+    let (active, _) = crate::admission::resolve_replacements(&composition.declared, &composition.selections, &mut refusals);
     if !refusals.is_empty() {
         return Err(format!("extension composition is ambiguous: {refusals:?}"));
     }

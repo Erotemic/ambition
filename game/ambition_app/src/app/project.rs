@@ -58,9 +58,26 @@ pub struct ProjectManifest {
     #[serde(default)]
     pub modules: Vec<String>,
     #[serde(default)]
+    pub implementations: Vec<ProjectModuleSelection>,
+    #[serde(default)]
     pub entry_room: Option<String>,
     #[serde(default)]
     pub starting_items: Option<Vec<(String, u32)>>,
+}
+
+/// One explicit choice for a module key. A file path is project-relative.
+#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectModuleSelection {
+    pub provider: String,
+    pub module: String,
+    pub implementation: ProjectImplementation,
+}
+
+#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum ProjectImplementation {
+    Linked,
+    File(String),
 }
 
 /// A manifest with its paths resolved and checked.
@@ -72,6 +89,7 @@ pub struct Project {
     pub content_root: Option<PathBuf>,
     pub worlds_root: Option<PathBuf>,
     pub module_files: Vec<PathBuf>,
+    pub module_selections: ambition_platformer2d::extension::ModuleSelections,
     pub entry_room: Option<String>,
     /// Catalog ids and counts; `None` keeps the game's starting bag.
     pub starting_items: Option<Vec<(String, u32)>>,
@@ -119,12 +137,42 @@ impl Project {
             }
             None => None,
         };
-        let module_files: Vec<PathBuf> = parsed.modules.iter().map(|module| dir.join(module)).collect();
+        let mut module_files: Vec<PathBuf> = parsed.modules.iter().map(|module| dir.join(module)).collect();
         for (written, path) in parsed.modules.iter().zip(&module_files) {
             if !path.exists() {
                 problems.push(format!("module \"{written}\" does not exist ({})", path.display()));
             }
         }
+        use ambition_platformer2d::extension::{ModuleImplementation, ModuleSelections, sdk::ModuleKey};
+        let mut module_selections = ModuleSelections::default();
+        for selection in parsed.implementations {
+            let key = ModuleKey { provider: selection.provider.into(), key: selection.module.into() };
+            if key.provider.trim().is_empty() || key.key.trim().is_empty() {
+                problems.push("implementations needs a nonempty provider and module key".into());
+            }
+            let implementation = match selection.implementation {
+                ProjectImplementation::Linked => ModuleImplementation::Linked,
+                ProjectImplementation::File(written) => {
+                    let path = dir.join(&written);
+                    if !path.is_file() || !matches!(path.extension().and_then(|s| s.to_str()), Some("rhai" | "wasm")) {
+                        problems.push(format!("implementation for {key}: \"{written}\" must name a .rhai or .wasm file"));
+                    }
+                    module_files.push(path.clone());
+                    let path = path.canonicalize().unwrap_or(path);
+                    ModuleImplementation::Artifact(path.display().to_string().into())
+                }
+            };
+            if module_selections.0.insert(key.clone(), implementation).is_some() {
+                problems.push(format!("implementations selects {key} more than once; select one implementation"));
+            }
+        }
+        for path in &mut module_files {
+            if let Ok(resolved) = path.canonicalize() {
+                *path = resolved;
+            }
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        module_files.retain(|path| seen.insert(path.clone()));
         if let Some(room) = &parsed.entry_room {
             if room.trim().is_empty() {
                 problems.push("entry_room is empty".to_string());
@@ -149,6 +197,7 @@ impl Project {
             content_root,
             worlds_root,
             module_files,
+            module_selections,
             entry_room: parsed.entry_room,
             starting_items: parsed.starting_items,
         })
@@ -177,6 +226,7 @@ impl Project {
         // Even with no modules: the list is the project's (not the developer
         // variable's), and the host watches it for files added later.
         app.insert_resource(ambition_platformer2d::extension::ExtensionModuleFiles(self.module_files.clone()));
+        app.insert_resource(self.module_selections.clone());
         app.insert_resource(ProjectWatch {
             seen: modified(&self.manifest),
             project: self.clone(),
@@ -296,6 +346,10 @@ fn watch_project(
             return;
         }
     };
+    if next.module_selections != watch.project.module_selections {
+        bevy::log::warn!("project \"{}\": implementation selection changed; restart the project to use it", next.name);
+        return;
+    }
     if next.content_root != watch.project.content_root || next.worlds_root != watch.project.worlds_root || next.entry_room != watch.project.entry_room {
         bevy::log::warn!("project \"{}\": a new content root, world directory, or entry room is read at the next start", next.name);
     }
@@ -362,7 +416,7 @@ mod tests {
     fn the_example_project_resolves_against_its_own_directory() {
         let project = Project::load(&example()).expect("the example project loads");
         assert_eq!(project.manifest, example().join(PROJECT_FILE));
-        assert_eq!(project.module_files, vec![example().join("modules/sentry.rhai")]);
+        assert_eq!(project.module_files, vec![example().join("modules/sentry.rhai").canonicalize().unwrap()]);
         assert!(project.entry_room.is_some());
     }
 
@@ -381,6 +435,13 @@ mod tests {
         let refused = Project::from_manifest(manifest, r#"(schema: "ambition.project.v1", name: "x", mods: [])"#)
             .unwrap_err();
         assert!(refused.contains("mods"), "{refused}");
+        let refused = Project::from_manifest(manifest, r#"(
+            schema: "ambition.project.v1", name: "x", implementations: [
+                (provider: "x", module: "clock", implementation: Linked),
+                (provider: "x", module: "clock", implementation: Linked),
+            ]
+        )"#).unwrap_err();
+        assert!(refused.contains("selects x::clock more than once"), "{refused}");
     }
 
     #[test]

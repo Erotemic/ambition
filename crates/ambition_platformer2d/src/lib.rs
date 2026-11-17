@@ -960,7 +960,8 @@ pub use ambition_shrine as shrine;
 pub mod extension {
     pub use ambition_extension_host::{
         AdmittedExtensions, BodyRecords, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
-        ExtensionHostPlugin, ExtensionSet, ModuleBackend, ModuleCode, ModuleImplementation, ModuleSelections,
+        ExtensionHostPlugin, ExtensionSet, ExtensionProfile, EntryProfile,
+        ModuleBackend, ModuleCode, ModuleImplementation, ModuleSelections,
         SessionRecords,
     };
     pub use ambition_extension_host::{inspect, reload};

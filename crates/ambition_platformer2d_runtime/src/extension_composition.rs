@@ -541,6 +541,7 @@ pub fn load_module_file(
 pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
     let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
     ports
+        .add::<ambition_boss_special_port::BossSpecialCast>("boss_special")
         .add::<ambition_combat_port::TechniqueUsePort>("technique_use")
         .add::<ambition_combat_port::WieldedUsePort>("wielded_use")
         .add::<ambition_combat_port::WieldedAlternatePort>("wielded_alternate")
@@ -549,6 +550,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ModuleEntityTickPort>("module_entity_tick")
         .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
         .add::<ambition_combat_port::BodySoundPort>("sound")
+        .add::<ambition_combat_port::EffectPort>("effect")
         .add::<ambition_combat_port::EndModuleEntityPort>("end_module_entity")
         .add::<ambition_combat_port::PullBodiesPort>("pull_bodies")
         .add::<ambition_combat_port::LaunchToucherPort>("launch_toucher")

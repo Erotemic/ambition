@@ -674,7 +674,7 @@ pub(crate) fn apply_actor_hit(
                 // drops can read the same component without adding archetype-specific Rust
                 // branches."*
                 if let (true, Some(spec), Some(parent)) =
-                    (caps.drops_held_item, held_at_death.clone(), &parent)
+                    (caps.drops_held_item && !writers.carries_an_object(actor_entity), held_at_death.clone(), &parent)
                 {
                     ambition_platformer2d_items::loot::drop_held_weapon(
                         &mut writers.commands,

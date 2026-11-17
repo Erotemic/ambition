@@ -161,9 +161,17 @@ pub struct FeatureHitWriters<'w, 's> {
     /// Which character a struck body IS right now, by entity — the gameplay
     /// identity a bark speaks in, which a runtime re-wear changes.
     pub worn: Query<'w, 's, &'static ambition_characters::actor::CharacterForm>,
+    /// Custody of every world object, to ask whether a dying body carries one.
+    pub carried: Query<'w, 's, &'static ambition_held_items::ItemCustody, bevy::prelude::With<ambition_held_items::GroundItem>>,
 }
 
 impl FeatureHitWriters<'_, '_> {
+    /// Whether `body` carries a world object. Its death then mints no weapon:
+    /// the object itself comes down (`return_released_items`).
+    pub fn carries_an_object(&self, body: bevy::prelude::Entity) -> bool {
+        self.carried.iter().any(|custody| custody.held_by(body))
+    }
+
     /// The presentation source for one body, if it has one.
     ///
     /// Returns an OWNED id rather than a reference: callers need it alongside `&mut writers.sfx`,

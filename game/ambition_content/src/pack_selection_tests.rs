@@ -716,7 +716,10 @@ fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
             let ident_len = after
                 .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
                 .unwrap_or(after.len());
-            if after[ident_len..].starts_with('(') {
+            // A `shipped_*` reader's name STARTS there: `add_shipped_script`
+            // registers a script and reads no pack.
+            let starts_a_name = rest[..at].chars().next_back().is_none_or(|c| !(c.is_ascii_alphanumeric() || c == '_'));
+            if starts_a_name && after[ident_len..].starts_with('(') {
                 count += 1;
             }
             rest = &after[ident_len..];

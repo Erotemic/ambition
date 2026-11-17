@@ -963,15 +963,19 @@ cross-room desync, as these fixes were.
 **Census and ratchet, done (2026-11-17).**
 `scripts/checks/check_sim_schedule_resource_writers_are_room_classified.py`
 (a `run_tests.py` job) classifies each `ResMut` binding of a sim-schedule
-system: room-gated (`.allows(`), room-stamped (`RoomWrite`), derived (a
-ruled type the scan checks is rebuilt each run, not accumulated), instrument
-(a census, trace or capture tool), or unclassified. First measurement: 228
-bindings; 11 room-gated, 14 room-stamped, 40 derived, 16 instrument and 147
-unclassified over 69 types. The ceiling is 147 and may only fall. **Open:**
-the 69 unclassified types, each to be gated, stamped or ruled world-owned. The
-largest are `AmbitionGameSave` (17 bindings), `QuestRegistry` (8),
-`PendingLifecycleCommit` (7), `GameplayBanner` and `SlotInteractionState` (6
-each).
+system: room-gated (`.allows(`), room-stamped (`RoomWrite`), retracted (a
+registered room-write retractor takes the write back: the retractor's own log,
+a store this writer also logs to, or a store diffed whole at the tick's tail),
+derived (a ruled type the scan checks is rebuilt each run, not accumulated),
+instrument (a census, trace, capture tool or presentation-only state), or
+unclassified. Measured: 228 bindings; 11 room-gated, 14 room-stamped, 22
+retracted, 40 derived, 20 instrument and 121 unclassified. The ceiling is 121
+and may only fall. **Open:** the unclassified types, each to be gated, stamped,
+logged or ruled world-owned. The largest are `AmbitionGameSave` (writers other
+than the boss-defeat retraction), `QuestRegistry`, `PendingLifecycleCommit`,
+`GameplayBanner` and `SlotInteractionState`; the clocks (`SimTick`,
+`WorldTime`, `ClockState`) and the seat input frames want a ruling on whether a
+room rewind replays them.
 
 ## Order, exclusions and integration
 

@@ -15,12 +15,17 @@ adjudicated.py` scans) is one of:
 
     room-gated      the system asks `.allows(` of `RoomReplay`
     room-stamped    the system writes with a `RoomWrite` (or `from_room`) stamp
+    retracted       a registered room-write retractor (`register_room_write_
+                    retractor`) takes back what this write did: the type is one
+                    of the retractor's own logs (`*InRooms`, `*SinceCheckpoint`),
+                    or a store it restores that this writer also logs to, or a
+                    store a tail logger diffs whole each tick (`TAIL_LOGGED`)
     derived         its type is rebuilt from live state each run, and the scan
                     CHECKS that: no binding of the type accumulates unless the
                     same system resets it or the resource-memory guard names the
                     reset-before-contribute ordering
-    instrument      its type is an observation, trace or dev/demo tool that no
-                    gameplay system reads
+    instrument      its type is an observation, trace, dev/demo tool or
+                    presentation-only state that no gameplay system reads
     unclassified    none of the above
 
 The unclassified count is a ratchet: it may only fall, and the ceiling must be
@@ -35,6 +40,7 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import functools
+import re
 import sys
 from pathlib import Path
 
@@ -43,6 +49,16 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 from scripts.checks import check_rollback_mutators_run_in_sim as sim  # noqa: E402
 from scripts.checks import check_sim_schedule_resource_memory_is_adjudicated as memory  # noqa: E402
+
+#: A store a retractor restores whose every write is captured, because one
+#: system diffs the whole value into the retractor's log at the tick's tail.
+TAIL_LOGGED: dict[str, str] = {
+    "ActiveConversation": (
+        "`log_conversation_changes_in_rooms` diffs it into `ConversationsInRooms` "
+        "in `FeatureViewSync`; `retract_room_conversations` opens or closes it "
+        "back (`ambition_conversation/src/rooms.rs`, read 2026-11-17)"
+    ),
+}
 
 #: A type rebuilt from live state on each run of its writers. The reading names
 #: the writer; the scan checks it does not accumulate.
@@ -92,14 +108,66 @@ INSTRUMENT: dict[str, str] = {
     "Forced": "a Smash capture probe (`ambition_demo_smash_app` tools)",
     "StandAt": "a Sanic capture tool (`ambition_demo_sanic_app`)",
     "Warmup": "a Mary-O capture tool (`ambition_demo_mary_o_app`)",
+    # Presentation only: set in the simulation, read only by effects and
+    # visuals, so a room rewind that replays a write repeats an effect at worst.
+    "ShrineActivationPulse": "presentation only (the resource-memory guard's `tick_shrine_activation_pulse` reading)",
+    "CutRopeBossArenaState": "presentation only (the resource-memory guard's `detect_cut_rope_rope_cut` reading)",
 }
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 147
+UNCLASSIFIED_CEILING = 121
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200
+
+
+_RETRACTED_TYPE = re.compile(
+    r"(?:resource_mut|get_resource_mut|session_world_component_mut)\s*::<\s*((?:\w+::)*[A-Z]\w*)\s*>"
+    r"|Mut<\s*((?:\w+::)*[A-Z]\w*)\s*>"
+)
+
+
+@functools.cache
+def _function_text(repo: Path, name: str) -> str:
+    """The signature and body of every production `fn name`."""
+    out = []
+    for _src, text in sim._production_sources(repo):
+        for match in re.finditer(rf"\bfn\s+{re.escape(name)}\s*[<(]", text):
+            brace = text.find("{", match.end())
+            if brace >= 0:
+                out.append(text[match.start():brace] + sim._braced(text, brace))
+    return "\n".join(out)
+
+
+@functools.cache
+def retracted_types(repo: Path = REPO) -> frozenset[str]:
+    """The types a registered room-write retractor mutates."""
+    found: set[str] = set()
+    for _src, text in sim._production_sources(repo):
+        for match in re.finditer(r"register_room_write_retractor\s*\(", text):
+            depth, end = 0, match.end() - 1
+            for end in range(match.end() - 1, len(text)):
+                if text[end] == "(":
+                    depth += 1
+                elif text[end] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+            call = text[match.end():end]
+            # A retractor passed by name: read that function too.
+            named = re.search(r"((?:\w+::)*)(\w+)\s*,?\s*$", call)
+            if named and "|" not in call:
+                call += _function_text(repo, named.group(2))
+            for hit in _RETRACTED_TYPE.finditer(call):
+                ty = hit.group(1) or hit.group(2)
+                found.add(ty.rsplit("::", 1)[-1])
+    return frozenset(found)
+
+
+def _is_log(ty: str) -> bool:
+    """A retractor's own log, as opposed to a store it restores."""
+    return ty.endswith(("InRooms", "SinceCheckpoint"))
 
 
 @functools.cache
@@ -107,6 +175,7 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
     """`(system, file, type, class)` per sim-schedule `ResMut` binding."""
     population = memory.memory.sim_schedule_systems(repo)
     found: list[tuple[str, str, str, str]] = []
+    retracted = retracted_types(repo)
     for src, text in sim._production_sources(repo):
         for match in sim._PUB_FN.finditer(text):
             name = match.group(1)
@@ -127,6 +196,12 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
                     kind = "room-gated"
                 elif "RoomWrite" in body or "from_room" in body:
                     kind = "room-stamped"
+                elif short in retracted and (
+                    _is_log(short)
+                    or short in TAIL_LOGGED
+                    or any(_is_log(log) and re.search(rf"\b{log}\b", params + body) for log in retracted)
+                ):
+                    kind = "retracted"
                 elif short in DERIVED:
                     kind = "derived"
                 elif short in INSTRUMENT:
@@ -158,7 +233,7 @@ def main() -> int:
     unclassified = [row for row in found if row[3] == "unclassified"]
     print(
         f"{len(found)} `ResMut` binding(s) in the rewinding schedule: "
-        + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("room-gated", "room-stamped", "derived", "instrument", "unclassified"))
+        + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("room-gated", "room-stamped", "retracted", "derived", "instrument", "unclassified"))
     )
     types = sorted({ty for _n, _f, ty, _k in unclassified})
     print(f"unclassified types ({len(types)}): {', '.join(types)}")
@@ -169,7 +244,7 @@ def main() -> int:
     for ty, name, rel in derived_that_accumulate():
         print(f"⛔ `{ty}` is ruled derived, but `{name}` ({rel}) accumulates it without a reset")
         failed = True
-    stale = sorted((set(DERIVED) | set(INSTRUMENT)) - {ty for _n, _f, ty, _k in found})
+    stale = sorted((set(DERIVED) | set(INSTRUMENT) | set(TAIL_LOGGED)) - {ty for _n, _f, ty, _k in found})
     for ty in stale:
         print(f"⛔ a ruling for `{ty}`, which no sim-schedule system writes any more: delete it")
         failed = True

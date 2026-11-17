@@ -33,6 +33,12 @@ pub struct PlacementRecord {
     pub schema: PlacementSchema,
     /// Authored footprint (pos + size).
     pub aabb: ae::Aabb,
+    /// When the placement is in its room at all. `None`: always. Answered
+    /// when the room's plan is prepared, from the durable save, so a record
+    /// that is absent has no row, no root and no id (see
+    /// `RoomFeatureConstructionPlan::prepare`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub present_when: Option<PresenceCondition>,
 }
 
 impl PlacementRecord {
@@ -43,11 +49,49 @@ impl PlacementRecord {
             id,
             schema,
             aabb,
+            present_when: None,
         }
+    }
+
+    /// Is this placement in its room, given which world flags are set?
+    pub fn is_present(&self, flag_set: &dyn Fn(&str) -> bool) -> bool {
+        self.present_when.as_ref().is_none_or(|condition| condition.holds(flag_set))
     }
 
     pub fn kind(&self) -> PlacementKind {
         self.schema.kind()
+    }
+}
+
+/// When an authored placement is in its room: while a world flag is set, or
+/// (`negated`) while it is not. The `gated_by` grammar of a `LockWall`,
+/// narrowed to the one question a plan can answer from the save before the
+/// room exists: `world.flag_set <flag>` or `not world.flag_set <flag>`.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PresenceCondition {
+    pub flag: String,
+    pub negated: bool,
+}
+
+impl PresenceCondition {
+    /// Read `world.flag_set <flag>` or `not world.flag_set <flag>`; any other
+    /// text is refused, so a misspelt condition is not read as "always".
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let text = text.trim();
+        let (negated, rest) = match text.strip_prefix("not ") {
+            Some(rest) => (true, rest.trim()),
+            None => (false, text),
+        };
+        let flag = rest
+            .strip_prefix("world.flag_set ")
+            .map(str::trim)
+            .filter(|flag| !flag.is_empty() && !flag.contains(char::is_whitespace))
+            .ok_or_else(|| format!("`{text}` is not `world.flag_set <flag>` or `not world.flag_set <flag>`"))?;
+        Ok(Self { flag: flag.to_string(), negated })
+    }
+
+    pub fn holds(&self, flag_set: &dyn Fn(&str) -> bool) -> bool {
+        flag_set(&self.flag) != self.negated
     }
 }
 

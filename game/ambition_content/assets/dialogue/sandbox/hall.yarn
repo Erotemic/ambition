@@ -2407,6 +2407,22 @@ Farmer Fibbs: Last month's and the month before's. *counts rabbits, gives up*
     Farmer Fibbs: Mites divide. Rabbits add. I know which I'd rather.
 ===
 
+title: hall_npc_math_goat
+---
+Goat: *chew, chew*
+-> Which door were you behind?
+    Goat: Mehh. *all of them, sooner or later*
+-> Pat the goat.
+    Goat: *she lets you, and keeps chewing*
+===
+
+title: hall_npc_math_car
+---
+The Car: *toot* (Someone has polished the bow.)
+-> Look inside.
+    The Car: *the keys are in it; the closet has no way out wide enough for a car*
+===
+
 title: hall_npc_math_monty
 ---
 Monty Carlo: Three doors! One car! Switch! Always switch!

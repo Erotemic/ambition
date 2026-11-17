@@ -24,10 +24,11 @@ carries closed campaigns. Unselected or customer-gated plans live in
    landed 2026-11-14 with the raid's last raider running out through the
    lane with the case; SS3's first part (a death in a scene stays: the
    Creator lies where he fell on a later visit) landed the same day, and
-   its `present_when` waits for a customer; SS5 (cutscene camera pans that
+   its `present_when` landed 2026-11-17 (the game show's goat and car are
+   actors in their closets); SS5 (cutscene camera pans that
    hold until released) landed the same day, as did `actor.face`/`actor.pose`; SS6 (retreat) is
-   covered by SS1+SS4 (the raid's escape is one). Story sequences are done
-   but for `present_when`, which waits for a customer. Dark
+   covered by SS1+SS4 (the raid's escape is one). Story sequences are
+   done. Dark
    rooms and the first tunnel (under Hobford, the mill wheel to the hollow
    oak) are [dark rooms and tunnels](engine/dark-rooms-and-tunnels.md): the
    player's glow by quality tier, DR1 (room darkness: the catacombs and

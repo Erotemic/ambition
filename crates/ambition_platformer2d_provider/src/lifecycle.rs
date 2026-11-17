@@ -2373,6 +2373,10 @@ impl PlatformerSessionBuilder<'_, '_> {
         // session resource is written here; `adopt` installs it if and only if
         // this candidate becomes the live session.
         let (horizon, prepared_from) = self.save.horizon_of(experience_id.as_str());
+        // The candidate's own save answers its rooms' `present_when` flags, as
+        // its ledger answers their continuity.
+        let save_flags = prepared_from.data().map(|save| move |flag: &str| save.flag(flag));
+        let world_flags = save_flags.as_ref().map(|flags| flags as &dyn Fn(&str) -> bool);
         // ⛔ THE BAG OF THE CANDIDATE'S EXPERIENCE, AS A VALUE. No resource is
         // written here: the session that plays keeps its bag, and `adopt`
         // installs this one.
@@ -2586,7 +2590,8 @@ impl PlatformerSessionBuilder<'_, '_> {
                                 minted: Some(horizon.minted()),
                             },
                         ),
-                    ),
+                    )
+                    .with_world_flags(world_flags),
                 boss_catalog: &mechanical.bosses,
             },
         );

@@ -649,6 +649,22 @@ fn loaded_app(replaces: bool, also_native: bool) -> App {
 }
 
 #[test]
+fn contract_inspection_compares_the_active_replacement() {
+    let mut app = loaded_app(true, true);
+    let reference = module(vec![entry("a", vec![])]);
+    let composition = app.world_mut().resource_mut::<ExtensionComposition>().into_inner();
+    let replacement = composition.declared.iter_mut().find(|m| m.replaces).unwrap();
+    replacement.descriptor.entries[0].limits.max_requests = 2;
+    let candidate = replacement.descriptor.clone();
+    let report = inspect::compare_contracts(app.world(), &[candidate.clone()]).unwrap();
+    assert!(report.contains("MATCH:"), "{report}");
+    let refusal = inspect::compare_contracts(app.world(), &[reference]).unwrap_err();
+    assert!(refusal.contains(".limits: expected Limits { max_requests: 2 }; got Limits { max_requests: 1 }"), "{refusal}");
+    let refusal = inspect::compare_contracts(app.world(), &[candidate.clone(), candidate]).unwrap_err();
+    assert!(refusal.contains("repeats this module key"), "{refusal}");
+}
+
+#[test]
 fn a_loaded_module_runs_the_same_as_its_native_build_across_the_wire() {
     let run = |mut app: App| {
         let a = app.world_mut().spawn((Poked(1), Tall(2.0))).id();

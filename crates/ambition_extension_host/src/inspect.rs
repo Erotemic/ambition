@@ -13,6 +13,60 @@ use bevy::prelude::*;
 
 use crate::{AdmittedExtensions, BodyRecords, EntryRunner, ExtensionGeneration, RecordSet, SessionRecords};
 
+/// Compare a file's declarations with the active modules of the same keys.
+/// A refusal contains the complete report. This does not publish the file or
+/// prove that its algorithms produce the same results.
+pub fn compare_contracts(
+    world: &World,
+    candidates: &[ambition_extension_sdk::ModuleDescriptor],
+) -> Result<String, String> {
+    let Some(composition) = world.get_resource::<crate::ExtensionComposition>() else {
+        return Err("extension host: no composition to compare".into());
+    };
+    if !world.contains_resource::<AdmittedExtensions>() {
+        return Err("extension host: admit the composition before comparison".into());
+    }
+    let mut refusals = Vec::new();
+    let (active, _) = crate::admission::resolve_replacements(&composition.declared, &mut refusals);
+    if !refusals.is_empty() {
+        return Err(format!("extension composition is ambiguous: {refusals:?}"));
+    }
+    let mut out = String::new();
+    let mut matches = !candidates.is_empty();
+    let mut seen = std::collections::BTreeSet::new();
+    for candidate in candidates {
+        let _ = writeln!(out, "contract {}:", candidate.key);
+        if !seen.insert(&candidate.key) {
+            let _ = writeln!(out, "  REFUSED: the candidate repeats this module key");
+            matches = false;
+            continue;
+        }
+        let Some(reference) = active.iter().find(|m| m.descriptor.key == candidate.key) else {
+            let _ = writeln!(out, "  REFUSED: no active module has this key; select its reference implementation");
+            matches = false;
+            continue;
+        };
+        let reference = &reference.descriptor;
+        let _ = writeln!(out, "  reference code: {:?}", reference.code);
+        let _ = writeln!(out, "  candidate code: {:?}", candidate.code);
+        let differences = reference.semantic_differences(candidate);
+        if differences.is_empty() {
+            let digest = ambition_extension_sdk::digest::digest_bytes(&reference.semantic_bytes());
+            let _ = writeln!(out, "  MATCH: semantic declaration {digest:016x}");
+        } else {
+            matches = false;
+            let _ = writeln!(out, "  MISMATCH: {} differences", differences.len());
+            for difference in differences {
+                let _ = writeln!(out, "    {difference}");
+            }
+        }
+    }
+    if candidates.is_empty() {
+        let _ = writeln!(out, "REFUSED: the file declares no modules");
+    }
+    if matches { Ok(out) } else { Err(out) }
+}
+
 /// The admitted composition as text. Before admission, says so.
 pub fn describe_composition(world: &World) -> String {
     let mut out = String::new();

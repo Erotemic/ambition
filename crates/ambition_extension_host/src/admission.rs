@@ -410,7 +410,7 @@ pub fn admit_with_roads(
 /// Apply explicit replacements: where several modules share a key and
 /// exactly one says `replaces`, that one stays. Every other shared key stays
 /// a duplicate for the main loop to refuse.
-fn resolve_replacements(
+pub(crate) fn resolve_replacements(
     declared: &[DeclaredModule],
     refusals: &mut Vec<Refusal>,
 ) -> (Vec<DeclaredModule>, Vec<String>) {

@@ -185,6 +185,25 @@ by field name, and, with `--try-replace`, whether admission would take a
 rebuilt file and why not. A body has a record only after a call changed it
 from its initial value.
 
+Compare a module file with the active implementation before a backend change:
+
+```bash
+./target/debug/extension_inspect --project examples/projects/pulse_forge \
+    --compare path/to/pulse_forge.wasm
+```
+
+The file can be Rhai source or WASM. Each module key in the file must match an
+active module. The command prints both code identities and a semantic match,
+or differences with their field paths. A mismatch exits with status 1. It does
+not publish the file. The SDK methods `ModuleDescriptor::semantic_bytes` and
+`semantic_differences` provide the same comparison to Rust tools.
+
+The comparison excludes code identity and diagnostic field names. It sorts
+schema and permission lists by key. It keeps entry and field order, port
+versions, triggers, dependencies, limits, idle rules, and all state contracts.
+A matching declaration does not prove matching gameplay. Run the same inputs
+and compare state and domain outcomes before you replace an implementation.
+
 ## Validation
 
 Build the module and exercise the affected technique in the running game.

@@ -21,6 +21,7 @@
 //! * [`invoke`] — the [`invoke::Invocation`] that an entry receives.
 
 pub mod digest;
+pub mod contract;
 pub mod invoke;
 pub mod module;
 pub mod port;
@@ -32,6 +33,7 @@ pub mod script;
 pub mod structure;
 
 pub use invoke::{Fault, HostParts, Invocation, Observation, OwnedPayload, Payload, StagedRequest};
+pub use contract::DeclarationDifference;
 pub use module::{
     phases, CodeIdentity, EntryCode, EntryDescriptor, EntryFn, IdlePolicy, Limits, ModuleDescriptor, ModuleKey, Phase,
     TriggerBinding,

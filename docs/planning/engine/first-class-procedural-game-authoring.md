@@ -186,6 +186,34 @@ The final handoff must contain:
 
 **Failure condition:** If a developer still needs to modify game-specific Rust code in the host for an ordinary new mechanic, or must rewrite content and bindings to move that mechanic from Rhai to portable Rust, this goal is not complete.
 
+## Execution status
+
+Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
+
+| Gate | Executed evidence | Remaining work |
+| --- | --- | --- |
+| A3 | SDK comparison tests: 3 passed. Active replacement inspection: 1 passed. Independent Rhai/Rust declaration: 1 passed. The inspection tool matched all 30 linked content modules with a fresh WASM build. Pulse Forge refused changed field type, attachment, and missing request port with status 1 and field paths. | Native build identity; the promoted game mechanic and its full contract checks. |
+| A1, A2, A4-A10 | Existing foundation retained. These gates are not claimed complete by this slice. | Execute each gate on the external project. |
+
+Commands for this slice:
+
+```bash
+cargo test -p ambition_extension_sdk -p ambition_extension_rhai -p ambition_extension_host --lib contract
+cargo test -p ambition_extension_rhai --lib an_independent_rhai_declaration
+cargo build -p ambition_app_tools --bin extension_inspect
+scripts/regen/build_extension_modules.sh ambition_content_modules
+./target/debug/extension_inspect --compare target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm
+./target/debug/extension_inspect --project examples/projects/pulse_forge --compare examples/projects/pulse_forge/modules/pulse_forge.rhai
+cargo check -p ambition_app
+```
+
+The inspection executable SHA-256 was
+`acef8cefe64643151d86d01746483fac0118d4fbe16067b8e6299fc618e043ba`.
+The WASM SHA-256 was
+`30d1fe400df2a575cbe87c4c4909b26702cd755163007b6634834c626c985798`.
+Logs are under `target/procedural-contract-*`. The next step is explicit
+project selection of one implementation per module key.
+
 ## Owner documents and source locations
 
 This goal refines, rather than replaces, the current owners:

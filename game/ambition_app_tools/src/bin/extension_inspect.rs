@@ -32,6 +32,7 @@ struct Args {
     boss: Option<String>,
     ticks: usize,
     try_replace: Option<std::path::PathBuf>,
+    compare: Option<std::path::PathBuf>,
     time: bool,
     project: Option<std::path::PathBuf>,
 }
@@ -42,6 +43,7 @@ fn parse() -> Args {
         boss: None,
         ticks: 0,
         try_replace: None,
+        compare: None,
         time: false,
         project: None,
     };
@@ -53,11 +55,13 @@ fn parse() -> Args {
             "--boss" => args.boss = Some(value()),
             "--ticks" => args.ticks = value().parse().expect("--ticks takes a number"),
             "--try-replace" => args.try_replace = Some(value().into()),
+            "--compare" => args.compare = Some(value().into()),
             "--time" => args.time = true,
             "--project" => args.project = Some(value().into()),
             "-h" | "--help" => {
                 println!(
-                    "extension_inspect [--project PATH] [--modules PATH]... [--boss PROFILE] [--ticks N] [--try-replace FILE]"
+                    "extension_inspect [--project PATH] [--modules PATH]... [--boss PROFILE] [--ticks N] [--try-replace FILE] [--compare FILE]\n\
+                     --compare checks the file against active module declarations; a mismatch exits with status 1."
                 );
                 std::process::exit(0);
             }
@@ -109,6 +113,21 @@ fn main() {
 
     print!("{}", inspect::describe_composition(sim.world()));
     print!("{}", inspect::describe_records(sim.world_mut()));
+
+    if let Some(file) = &args.compare {
+        let linked = ambition_platformer2d::extension::linked_modules(sim.world());
+        let result = ambition_platformer2d::extension::load_module_file(file, &linked)
+            .map_err(|error| format!("{}: REFUSED at load: {error}", file.display()))
+            .and_then(|(_, modules)| inspect::compare_contracts(sim.world(), &modules));
+        println!("compare {}:", file.display());
+        match result {
+            Ok(report) => print!("{report}"),
+            Err(report) => {
+                eprintln!("{report}");
+                std::process::exit(1);
+            }
+        }
+    }
 
     if let Some(file) = &args.try_replace {
         println!("try-replace {}:", file.display());

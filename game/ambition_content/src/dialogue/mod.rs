@@ -20,6 +20,7 @@ mod voiceprints;
 /// The authored Yarn dialogue set (sources, the Yarn Spinner plugin
 /// constructor, and the validator's known-id surface).
 pub mod yarn;
+pub(crate) mod settings;
 
 #[cfg(feature = "ui")]
 pub use yarn::yarn_spinner_plugin;

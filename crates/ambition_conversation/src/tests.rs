@@ -15,6 +15,35 @@ use super::{
     HeldByConversation,
 };
 
+#[test]
+fn conversation_settings_follow_their_own_room_and_stay_until_the_next_start() {
+    use ambition_dialog::{DialogSettings, TextReveal};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    let mut app = App::new();
+    let hall = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
+    let slow = DialogSettings { text_reveal: TextReveal::Typewriter { chars_per_second: 2.0 }, ..Default::default() };
+    let instant = DialogSettings { text_reveal: TextReveal::Instant, ..Default::default() };
+    app.declare_rules(RulesScope::UntaggedRooms, slow);
+    app.declare_rules(RulesScope::Mode("smash"), instant);
+    app.init_resource::<ActiveConversation>();
+    app.init_resource::<ambition_dialog::DialogState>();
+    app.add_systems(Update, super::ui_bridge::project_the_dialog_ui_from_the_conversation);
+    let hall_body = app.world_mut().spawn(InRoomInstance(hall)).id();
+    let stage_body = app.world_mut().spawn(InRoomInstance(hall.next())).id();
+    let outside = app.world_mut().spawn_empty().id();
+    for (body, node, expected) in [(hall_body, "hall", slow), (stage_body, "stage", instant), (outside, "outside", DialogSettings::default())] {
+        app.world_mut().resource_mut::<ActiveConversation>().open(super::LiveConversation::for_test(
+            Some(body), None, node, InputOwner::Primary,
+        ));
+        app.update();
+        assert_eq!(app.world().resource::<ambition_dialog::DialogState>().settings(), expected);
+        app.world_mut().resource_mut::<DeclaredRules<DialogSettings>>().amend(RulesScope::UntaggedRooms, |settings| *settings = instant);
+        app.update();
+        assert_eq!(app.world().resource::<ambition_dialog::DialogState>().settings(), expected);
+    }
+}
+
 fn body(app: &mut App, at: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((

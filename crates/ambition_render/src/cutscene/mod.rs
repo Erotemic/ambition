@@ -99,7 +99,7 @@ pub fn sync_cutscene_ui(
     // Rebuilt only when what it shows changes: the runtime republishes the
     // presentation each tick (a banner's countdown, which is not drawn), and a
     // rebuild lays out and measures the whole overlay again.
-    let showing = active.is_playing().then(|| DrawnCutscene::of(&active.presentation, skip_hold.progress()));
+    let showing = active.is_playing().then(|| DrawnCutscene::of(&active.presentation, skip_hold.progress(active.runtime.as_ref().map(|runtime| runtime.settings).unwrap_or_default())));
     let restyled = ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed())
         || presentation.as_ref().is_some_and(|presentation| presentation.is_changed());
     if !restyled && *drawn == showing && overlays.is_empty() == showing.is_none() {
@@ -124,7 +124,7 @@ pub fn sync_cutscene_ui(
     };
 
     let banner = active.presentation.banner.as_ref();
-    let skip_progress = skip_hold.progress();
+    let skip_progress = skip_hold.progress(active.runtime.as_ref().map(|runtime| runtime.settings).unwrap_or_default());
     let fade_alpha = active.presentation.fade_alpha.clamp(0.0, 1.0);
 
     // The fade is its own root. The card root below is placed inside the

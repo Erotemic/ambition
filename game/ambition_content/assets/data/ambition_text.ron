@@ -17,8 +17,12 @@
     // `{confirm}` and `{back}` are the controls of the seat that answers the
     // box, on its current device; `dialog.confirm` and `dialog.back` name them
     // when there is no control to show (touch).
-    "dialog.continue_hint": "{confirm}: continue    {back}: close",
-    "dialog.choice_hint": "Choose: arrows, stick, swipe, or wheel    {confirm}: select    {back}: close",
+    "dialog.continue_hint": "{confirm}: continue{close}",
+    "dialog.choice_hint": "Choose: arrows, stick, swipe, or wheel    {confirm}: select{close}",
+    "dialog.reveal_hint": "{confirm}: reveal text{close}",
+    "dialog.wait_hint": "Text appearing…{close}",
+    "dialog.close_hint": "{confirm}: close{close}",
+    "dialog.close_action": "    {back}: close",
     "dialog.cutscene_hint": "{confirm}: continue    hold {back}: skip",
     "dialog.confirm": "Confirm",
     "dialog.back": "Back",

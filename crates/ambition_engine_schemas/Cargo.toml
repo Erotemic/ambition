@@ -18,6 +18,7 @@ edition = "2021"
 # the list through the umbrella is the collapse that looks obvious and is wrong.
 # The facade re-exports THIS crate, not the other way round.
 [dependencies]
+ambition_dialog = { path = "../ambition_dialog", features = ["content_pack"] }
 ambition_content_pack = { path = "../ambition_content_pack" }
 ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
 ambition_items = { path = "../ambition_items", features = ["content_pack"] }

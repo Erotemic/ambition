@@ -322,6 +322,7 @@ dependencies = [
  "ambition_interaction",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_time",
  "bevy",
  "bevy_yarnspinner",
@@ -379,6 +380,7 @@ dependencies = [
  "ambition_ui_nav",
  "bevy",
  "bevy_yarnspinner",
+ "serde",
 ]
 
 [[package]]
@@ -390,6 +392,7 @@ dependencies = [
  "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_time",
  "bevy",
  "ron 0.11.0",
  "serde",

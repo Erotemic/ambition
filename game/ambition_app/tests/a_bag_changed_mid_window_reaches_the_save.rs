@@ -624,7 +624,7 @@ fn step_until_the_cutscene_waits(sim: &mut Platformer2dSimHarness) -> usize {
 /// on the first dialogue must land on the SECOND and stop there: beat 1 means
 /// the press was lost to the rewind, past beat 3 means it was spent twice. The
 /// skip is a HOLD of the seat's cancel, accumulated on the simulation clock:
-/// released before `SKIP_HOLD_THRESHOLD_SECS` (1.2 s) the partial hold resets
+/// released before `CutsceneSettings::skip_hold_seconds` the partial hold resets
 /// and the cutscene plays on; held past it the cutscene ends.
 #[test]
 fn a_cutscene_dismiss_and_skip_on_the_seats_input_survive_the_rewind_once() {

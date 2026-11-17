@@ -8,6 +8,56 @@ use ambition_ui_nav::visible_window_start;
 
 const DIALOG_VISIBLE_OPTIONS: usize = 4;
 
+fn configured(settings: DialogSettings) -> DialogState {
+    let mut state = DialogState::default();
+    state.start_with_settings("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary, settings);
+    state.start_revealing_line("A line that takes time to reveal.".into());
+    state
+}
+
+#[test]
+fn games_choose_instant_text_and_typewriter_speed() {
+    let instant = configured(DialogSettings { text_reveal: TextReveal::Instant, ..Default::default() });
+    assert!(instant.line_reveal_complete());
+    assert_eq!(instant.confirm_action(), DialogConfirmAction::Advance);
+    let mut slow = configured(DialogSettings { text_reveal: TextReveal::Typewriter { chars_per_second: 2.0 }, ..Default::default() });
+    let mut fast = configured(DialogSettings { text_reveal: TextReveal::Typewriter { chars_per_second: 8.0 }, ..Default::default() });
+    slow.tick_reveal(1.0);
+    fast.tick_reveal(1.0);
+    assert!(slow.body().len() < fast.body().len());
+}
+
+#[test]
+fn confirm_during_reveal_uses_the_games_policy_and_the_same_prompt() {
+    for (policy, prompt, revealed, advanced) in [
+        (RevealConfirm::RevealOnly, DialogConfirmAction::Reveal, true, false),
+        (RevealConfirm::RevealAndAdvance, DialogConfirmAction::Advance, true, true),
+        (RevealConfirm::Ignore, DialogConfirmAction::Wait, false, false),
+    ] {
+        let mut state = configured(DialogSettings { confirm_while_revealing: policy, ..Default::default() });
+        assert_eq!(state.confirm_action(), prompt);
+        state.confirm_or_advance();
+        assert_eq!(state.line_reveal_complete(), revealed);
+        assert_eq!(state.pending_advance, advanced);
+    }
+}
+
+#[test]
+fn staggered_choices_can_be_revealed_without_selecting_them() {
+    let mut state = configured(DialogSettings {
+        text_reveal: TextReveal::Instant,
+        choice_reveal: ChoiceReveal::Staggered { options_per_second: 2.0 },
+        ..Default::default()
+    });
+    state.current_options = vec![DialogChoice::default(); 3];
+    state.tick_options_reveal(0.5);
+    assert_eq!(state.options().len(), 1);
+    assert_eq!(state.confirm_action(), DialogConfirmAction::Reveal);
+    state.confirm_or_advance();
+    assert_eq!(state.options().len(), 3);
+    assert!(state.pending_select.is_none());
+}
+
 #[test]
 fn default_state_is_inactive() {
     let s = DialogState::default();

@@ -116,6 +116,7 @@ pub fn drain_cutscene_triggers(
     mut active: ResMut<ActiveCutscene>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
+    settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_cutscene::CutsceneSettings>,
 ) {
     if active.is_playing() {
         return;
@@ -139,7 +140,11 @@ pub fn drain_cutscene_triggers(
                 continue;
             }
         }
-        let runtime = CutsceneRuntime::new(script.clone());
+        let mut runtime = CutsceneRuntime::new(script.clone());
+        runtime.settings = match trigger.room {
+            Some(room) => settings.in_live_room(Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(room))),
+            None => settings.of_subject(None),
+        }.copied().unwrap_or_default();
         // The first beat's picture, before any tick — so a cutscene that starts
         // and is snapshotted in the same frame is not blank.
         active.presentation = runtime.presentation();
@@ -420,7 +425,7 @@ pub fn tick_active_cutscene(
 
     let skip = if seat.cancel_held {
         skip_hold.seconds += dt;
-        skip_hold.seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
+        skip_hold.seconds >= runtime.settings.skip_hold_seconds
     } else {
         skip_hold.seconds = 0.0;
         false
@@ -747,6 +752,51 @@ impl Plugin for CutsceneSchedulePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_games_cutscene_uses_its_own_skip_timing_and_meter() {
+        use ambition_cutscene::{CutsceneSettings, CutsceneSkipHold, CutsceneBeat, CutsceneScript};
+        use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
+        let mut app = App::new();
+        let hall = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
+        app.declare_rules(RulesScope::UntaggedRooms, CutsceneSettings { skip_hold_seconds: 0.2 });
+        app.declare_rules(RulesScope::Mode("smash"), CutsceneSettings { skip_hold_seconds: 0.6 });
+        app.insert_resource(ambition_time::WorldTime::new(0.1, 0.1));
+        app.init_resource::<ambition_characters::control::SlotControls>();
+        app.init_resource::<CutsceneSkipHold>();
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        app.init_resource::<CutsceneWaitAnswer>();
+        app.init_resource::<CutsceneTriggerQueue>();
+        app.init_resource::<ActiveCutscene>();
+        let mut library = CutsceneLibrary::default();
+        library.insert(CutsceneScript::new("long", vec![CutsceneBeat::Wait { seconds: 100.0 }]));
+        app.insert_resource(library);
+        app.add_systems(Update, (drain_cutscene_triggers, tick_active_cutscene).chain());
+        app.world_mut().resource_mut::<ambition_characters::control::SlotControls>().set(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+            ambition_platformer2d_core::ControlFrame { cancel_held: true, ..Default::default() },
+        );
+        for (room, duration) in [(hall, 0.2), (hall.next(), 0.6)] {
+            app.world_mut().resource_mut::<CutsceneTriggerQueue>().request_in("long", room.ordinal());
+            app.update();
+            let settings = app.world().resource::<ActiveCutscene>().runtime.as_ref().unwrap().settings;
+            assert_eq!(settings.skip_hold_seconds, duration);
+            let progress = app.world().resource::<CutsceneSkipHold>().progress(settings);
+            assert!((progress - 0.1 / duration).abs() < 0.0001);
+            app.world_mut().resource_mut::<DeclaredRules<CutsceneSettings>>().amend(
+                RulesScope::Mode("smash"), |settings| settings.skip_hold_seconds = 0.01,
+            );
+            if duration > 0.2 {
+                app.update();
+                assert!(app.world().resource::<ActiveCutscene>().is_playing());
+            }
+            for _ in 0..8 { app.update(); }
+            assert!(!app.world().resource::<ActiveCutscene>().is_playing());
+            app.world_mut().resource_mut::<DeclaredRules<CutsceneSettings>>().amend(
+                RulesScope::Mode("smash"), |settings| settings.skip_hold_seconds = 0.6,
+            );
+        }
+    }
 
     /// ⛔⛔ ENDING A CUTSCENE MUST RECORD THAT IT WAS SEEN, and until now nothing
     /// checked it: deleting the `set_flag` left every cutscene test green.

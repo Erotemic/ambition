@@ -61,6 +61,8 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         // Quests belong with the quest capability that registers them.
         ambition_persistence::quest::content_schema::quest_book_schema(),
         ambition_cutscene::content_schema::cutscene_library_schema(),
+        ambition_cutscene::content_schema::cutscene_settings_schema(),
+        ambition_dialog::dialogue_settings_schema(),
     ] {
         if omitted.contains(&schema.capability.0.as_str()) {
             continue;

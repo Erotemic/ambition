@@ -73,7 +73,7 @@ ambition_fighter_specials = { path = "../ambition_fighter_specials" }
 # Baseline machinery features: the sandbox lib was never built fully bare
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.
-ambition_dialog = { path = "../../crates/ambition_dialog", default-features = false }
+ambition_dialog = { path = "../../crates/ambition_dialog", default-features = false, features = ["content_pack"] }
 ambition_conversation = { path = "../../crates/ambition_conversation" }
 ambition_boss_encounter = { path = "../../crates/ambition_boss_encounter" }
 # The LDtk backend, named directly. This crate reached it through the actor

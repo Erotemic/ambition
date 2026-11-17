@@ -544,6 +544,7 @@ dependencies = [
  "ambition_interaction",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_time",
  "bevy",
  "bevy_yarnspinner",
@@ -718,12 +719,14 @@ dependencies = [
 name = "ambition_dialog"
 version = "0.1.0"
 dependencies = [
+ "ambition_content_pack",
  "ambition_input",
  "ambition_persistence",
  "ambition_sfx",
  "ambition_ui_nav",
  "bevy",
  "bevy_yarnspinner",
+ "serde",
 ]
 
 [[package]]
@@ -777,6 +780,7 @@ dependencies = [
  "ambition_combat",
  "ambition_content_pack",
  "ambition_cutscene",
+ "ambition_dialog",
  "ambition_encounter",
  "ambition_items",
  "ambition_match",

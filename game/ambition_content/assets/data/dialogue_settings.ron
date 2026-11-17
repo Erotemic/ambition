@@ -1,0 +1,9 @@
+// Ambition's conversation behavior. A reload applies to the next conversation.
+(
+    text_reveal: Typewriter(chars_per_second: 112.5),
+    confirm_while_revealing: RevealOnly,
+    line_advance: Manual,
+    choice_reveal: Immediate,
+    close_on_back: true,
+    speech_blips: true,
+)

@@ -342,7 +342,10 @@ fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>)
         });
         state.yarn_option_ids.push(option.id);
     }
-    state.reveal_full_options();
+    state.options_reveal = crate::runtime::OptionsRevealState::default();
+    if state.settings().choice_reveal == crate::ChoiceReveal::Immediate {
+        state.reveal_full_options();
+    }
     state.selected_option = 0;
 }
 

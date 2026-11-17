@@ -8,6 +8,27 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// Each game's cutscene skip timing. Playback keeps the value selected at its start.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CutsceneSettings {
+    pub skip_hold_seconds: f32,
+}
+
+impl Default for CutsceneSettings {
+    fn default() -> Self { Self { skip_hold_seconds: 0.9 } }
+}
+
+impl CutsceneSettings {
+    pub fn problems(&self) -> Vec<String> {
+        if self.skip_hold_seconds.is_finite() && self.skip_hold_seconds >= 0.0 {
+            Vec::new()
+        } else {
+            vec!["skip_hold_seconds must be finite and nonnegative".into()]
+        }
+    }
+}
+
 #[cfg(feature = "content_pack")]
 pub mod content_schema;
 
@@ -307,6 +328,7 @@ impl CutsceneScript {
 /// caller to apply (set flags, banners, dialogue lines).
 #[derive(Clone, Debug, PartialEq)]
 pub struct CutsceneRuntime {
+    pub settings: CutsceneSettings,
     /// Shared, not owned: the rollback log of a room's cutscene
     /// ([`CutscenesInRooms`]) keeps a state for each tick it changes, and the
     /// script does not change while it plays.
@@ -321,6 +343,7 @@ pub struct CutsceneRuntime {
 impl CutsceneRuntime {
     pub fn new(script: CutsceneScript) -> Self {
         Self {
+            settings: CutsceneSettings::default(),
             script: std::sync::Arc::new(script),
             beat_index: 0,
             elapsed: 0.0,
@@ -521,14 +544,9 @@ impl ActiveCutscene {
     }
 }
 
-/// Hold duration in seconds the player must keep the skip button held before the
-/// cutscene actually skips. Long enough that an accidental tap can't burn through
-/// scripted content.
-pub const SKIP_HOLD_THRESHOLD_SECS: f32 = 1.2;
-
 /// How long the participant has held cancel over the playing cutscene, in
 /// SIMULATION seconds. The skip fires when it reaches
-/// [`SKIP_HOLD_THRESHOLD_SECS`]; the HUD draws its progress.
+/// [`CutsceneSettings::skip_hold_seconds`]; the HUD draws its progress.
 ///
 /// ⛔ SIMULATION STATE, AND ROLLBACK STATE WITH IT. The hold is read from the
 /// seat's `ControlFrame::cancel_held` inside the timeline, so a rewind must
@@ -543,11 +561,11 @@ pub struct CutsceneSkipHold {
 impl CutsceneSkipHold {
     /// Fraction of the way through the skip-hold window. Useful for HUD progress
     /// bars; clamped to `[0, 1]`.
-    pub fn progress(&self) -> f32 {
-        if SKIP_HOLD_THRESHOLD_SECS <= 0.0 {
-            return 1.0;
+    pub fn progress(&self, settings: CutsceneSettings) -> f32 {
+        if settings.skip_hold_seconds <= 0.0 {
+            return if self.seconds > 0.0 { 1.0 } else { 0.0 };
         }
-        (self.seconds / SKIP_HOLD_THRESHOLD_SECS).clamp(0.0, 1.0)
+        (self.seconds / settings.skip_hold_seconds).clamp(0.0, 1.0)
     }
 }
 
@@ -1230,6 +1248,7 @@ mod snapshot {
                     put_u32(out, runtime.beat_index as u32);
                     put_f32(out, runtime.elapsed);
                     put_bool(out, runtime.finished);
+                    put_f32(out, runtime.settings.skip_hold_seconds);
                     match self.room {
                         Some(room) => {
                             put_bool(out, true);
@@ -1252,6 +1271,7 @@ mod snapshot {
                 beat_index: reader.u32()? as usize,
                 elapsed: reader.f32()?,
                 finished: reader.bool()?,
+                settings: CutsceneSettings { skip_hold_seconds: reader.f32()? },
             };
             let room = if reader.bool()? { Some(reader.u32()?) } else { None };
             Some(Self {
@@ -1273,6 +1293,7 @@ mod snapshot {
                     put_u32(out, runtime.beat_index as u32);
                     put_f32(out, runtime.elapsed);
                     put_bool(out, runtime.finished);
+                    put_f32(out, runtime.settings.skip_hold_seconds);
                 }
                 _ => put_bool(out, false),
             }
@@ -1293,6 +1314,7 @@ mod snapshot {
                     beat_index: reader.u32()? as usize,
                     elapsed: reader.f32()?,
                     finished: reader.bool()?,
+                    settings: CutsceneSettings { skip_hold_seconds: reader.f32()? },
                 })
             } else {
                 None
@@ -1645,6 +1667,7 @@ mod snapshot {
             )
             .with_seen_flag("seen_intro");
             let mut runtime = CutsceneRuntime::new(script);
+            runtime.settings.skip_hold_seconds = 0.37;
             runtime.beat_index = 3;
             runtime.elapsed = 0.125;
             let before = ActiveCutscene {

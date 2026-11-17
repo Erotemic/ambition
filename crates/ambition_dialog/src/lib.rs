@@ -11,6 +11,10 @@ mod continuity;
 mod runtime;
 mod speech_sfx;
 mod systems;
+mod settings;
+pub use settings::{DialogSettings, TextReveal, RevealConfirm, LineAdvance, ChoiceReveal, DialogConfirmAction};
+#[cfg(feature = "content_pack")]
+pub use settings::{dialogue_settings_schema, lowered_dialogue_settings, DIALOGUE_SETTINGS_SCHEMA};
 
 // The Yarn runner bridge + binding-installer machinery need `bevy_yarnspinner`.
 // The dialog-box overlay UI itself lives in the `ambition_render` crate.

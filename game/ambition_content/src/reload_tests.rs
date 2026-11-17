@@ -9,6 +9,41 @@
 //! still a text change on those bytes, so the tests exercise a changed file.
 
 use super::*;
+
+#[test]
+fn dialogue_and_cutscene_settings_reload_without_changing_another_games_rules() {
+    use ambition_platformer2d_world::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
+    use ambition_dialog::{DialogSettings, TextReveal};
+    use ambition_cutscene::CutsceneSettings;
+    let mut world = world_with_cutscenes_and_one_foreign_row();
+    let mut dialogue = DeclaredRules::<DialogSettings>::default();
+    dialogue.declare(crate::AMBITION_RULES, DialogSettings::default());
+    let foreign = DialogSettings { close_on_back: false, ..Default::default() };
+    dialogue.declare(RulesScope::Mode("foreign"), foreign);
+    world.insert_resource(dialogue);
+    let mut cutscene = DeclaredRules::<CutsceneSettings>::default();
+    cutscene.declare(crate::AMBITION_RULES, CutsceneSettings::default());
+    cutscene.declare(RulesScope::Mode("foreign"), CutsceneSettings { skip_hold_seconds: 2.0 });
+    world.insert_resource(cutscene);
+    let candidate = crate::pack::compile_pack_with(|path, text| match path {
+        "data/dialogue_settings.ron" => "(text_reveal: Instant, close_on_back: false)".into(),
+        "data/cutscene_settings.ron" => "(skip_hold_seconds: 0.4)".into(),
+        _ => text,
+    }).expect("the settings compile through their capability schemas");
+    crate::reload::publish_participant_families(&mut world, &candidate);
+    let dialogue = world.resource::<DeclaredRules<DialogSettings>>();
+    assert_eq!(dialogue.governing(ActiveRoom::Untagged).unwrap().text_reveal, TextReveal::Instant);
+    assert!(!dialogue.governing(ActiveRoom::Untagged).unwrap().close_on_back);
+    assert_eq!(dialogue.governing(ActiveRoom::Mode("foreign")), Some(&foreign));
+    let cutscene = world.resource::<DeclaredRules<CutsceneSettings>>();
+    assert_eq!(cutscene.governing(ActiveRoom::Untagged).unwrap().skip_hold_seconds, 0.4);
+    assert_eq!(cutscene.governing(ActiveRoom::Mode("foreign")).unwrap().skip_hold_seconds, 2.0);
+    assert_eq!(world.resource::<ambition_cutscene::ActiveCutscene>().runtime.as_ref().unwrap().settings, CutsceneSettings::default());
+    let bad = crate::pack::compile_pack_with(|path, text| {
+        if path == "data/cutscene_settings.ron" { "(skip_hold_seconds: -1.0)".into() } else { text }
+    });
+    assert!(bad.is_err(), "invalid skip timing must fail before publication");
+}
 use bevy::prelude::IntoScheduleConfigs;
 use ambition_characters::prepared::{
     close_preparation_barrier, stage_authored_character, CharacterBindings,

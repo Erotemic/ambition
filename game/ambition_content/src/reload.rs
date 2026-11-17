@@ -722,6 +722,14 @@ struct PackDerivedFamily {
 /// at the boundary.
 const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
     PackDerivedFamily {
+        domain: ambition_dialog::DIALOGUE_SETTINGS_SCHEMA,
+        publish: crate::dialogue::settings::publish_dialogue,
+    },
+    PackDerivedFamily {
+        domain: ambition_cutscene::content_schema::CUTSCENE_SETTINGS_SCHEMA,
+        publish: crate::dialogue::settings::publish_cutscenes,
+    },
+    PackDerivedFamily {
         domain: ambition_combat::brain::fighter::content_schema::FIGHTER_BRAIN_LADDER_SCHEMA,
         publish: publish_fighter_ladder,
     },

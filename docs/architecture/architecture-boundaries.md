@@ -110,6 +110,12 @@ A stale sentinel lockfile (`fixtures/minimal_game/Cargo.lock`) is reported as
 
 ## Changing a boundary
 
+Dialogue owns its reveal, confirm and advancement settings and their optional
+content schema. The pack compiler validates these values. Games declare the
+lowered settings for their own room scopes. Named text, portraits and bindings
+remain provider content. Cutscene playback retains its selected skip timing
+so a reload cannot change a running scene or a rewind.
+
 1. Identify the durable ownership rule, not just the current cycle.
 2. Check active planning and ADRs for intended direction.
 3. Prefer a declarative manifest/source rule; use custom Rust only when semantic

@@ -74,6 +74,39 @@ character. Each dialogue beat supplies its own identity.
 
 ## Edit loop
 
+### Game settings
+
+The engine owns two reusable settings schemas. Ambition selects them in
+`game/ambition_content/assets/data/dialogue_settings.ron` and
+`game/ambition_content/assets/data/cutscene_settings.ron`.
+
+Dialogue settings select:
+
+- `text_reveal`: `Instant` or `Typewriter(chars_per_second: 112.5)`.
+- `confirm_while_revealing`: `RevealOnly`, `RevealAndAdvance`, or `Ignore`.
+- `line_advance`: `Manual` or `Automatic(delay_seconds: 1.0)` after text finishes.
+  Automatic advancement waits for choices; it does not select an answer.
+- `choice_reveal`: `Immediate` or `Staggered(options_per_second: 4.0)`.
+- `close_on_back`: whether Back can close the conversation early.
+- `speech_blips`: whether text reveal emits speech sounds.
+
+Cutscene settings select `skip_hold_seconds`. The engine default is 0.9
+seconds. Zero skips on a cancel press. Values must be finite and nonnegative.
+Reveal rates must be finite and positive.
+
+A game registers the schemas and declares the lowered values through
+`DeclareRulesExt::declare_rules` for its own `RulesScope`. The runtime selects
+the rules of the conversation or cutscene's room. An undeclared room uses the
+engine defaults. A standalone game can declare `RulesScope::EveryRoom`.
+
+The settings are copied when playback starts. Content reload updates only
+that game's declarations; a running conversation or cutscene keeps its
+selected settings. Cutscene snapshots retain the selected skip duration.
+Input hints use the runtime's next confirm action, so they distinguish text
+reveal, advance, choice selection and close.
+
+### Content changes
+
 1. Edit the smallest `.yarn` file in the owning provider.
 2. Keep command names/arity aligned with the registered bridge.
 3. Keep actor-targeting explicit; a command acting on “the current NPC” must use

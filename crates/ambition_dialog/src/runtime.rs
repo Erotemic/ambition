@@ -25,6 +25,7 @@ use bevy::math::Vec2;
 use bevy_yarnspinner::prelude::OptionId;
 
 use ambition_input::InputOwner;
+use crate::{DialogSettings, TextReveal, RevealConfirm, LineAdvance, DialogConfirmAction};
 
 /// A `start()` request waiting for the Yarn bridge to drain it.
 ///
@@ -40,6 +41,7 @@ pub(crate) struct PendingStart {
 
 #[derive(Clone, Debug, Default, Resource)]
 pub struct DialogState {
+    settings: DialogSettings,
     /// Whether the dialogue UI is currently visible. Flipped to `true`
     /// when `start()` is called (so the UI shows even on the first
     /// frame, before `PresentLine` lands), flipped to `false` when
@@ -179,7 +181,7 @@ pub(crate) struct LineRevealState {
     full_line_byte_ends: Vec<usize>,
     revealed_chars: usize,
     elapsed_s: f32,
-    chars_per_second: f32,
+    complete_elapsed_s: f32,
 }
 
 impl Default for LineRevealState {
@@ -188,12 +190,19 @@ impl Default for LineRevealState {
             full_line_byte_ends: Vec::new(),
             revealed_chars: 0,
             elapsed_s: 0.0,
-            chars_per_second: 112.5,
+            complete_elapsed_s: 0.0,
         }
     }
 }
 
 impl DialogState {
+    pub fn settings(&self) -> DialogSettings { self.settings }
+
+    /// Start with the settings selected for this conversation's game.
+    pub fn start_with_settings(&mut self, dialogue_id: &str, npc_name: &str, context: DialogueContext, input_owner: InputOwner, settings: DialogSettings) {
+        self.start(dialogue_id, npc_name, context, input_owner);
+        self.settings = settings;
+    }
     /// Begin a conversation with the named Yarn node. Activates the
     /// UI immediately (so the player sees the dialog box even on
     /// the first frame, before `PresentLine` lands) and stashes a
@@ -202,6 +211,7 @@ impl DialogState {
     /// `AmbitionGameSave.dialog_visits[id]` so Yarn's `visit_count(id)`
     /// function reflects the new visit.
     pub fn start(&mut self, dialogue_id: &str, npc_name: &str, context: DialogueContext, input_owner: InputOwner) {
+        self.settings = DialogSettings::default();
         self.active = true;
         self.input_owner = Some(input_owner);
         self.dialogue_id = dialogue_id.to_string();
@@ -250,6 +260,7 @@ impl DialogState {
     /// `confirm_or_advance` dismisses accumulated text.
     /// dismisses accumulated text.
     pub(crate) fn clear_conversation_presentation(&mut self) {
+        self.settings = DialogSettings::default();
         self.active = false;
         self.input_owner = None;
         self.reset_presentation_identity();
@@ -399,10 +410,16 @@ impl DialogState {
         self.current_line = text;
         self.current_line_confirmed = false;
         self.line_reveal = LineRevealState::from_line(&self.current_line);
+        if self.settings.text_reveal == TextReveal::Instant {
+            self.reveal_full_line();
+        }
     }
 
     pub(crate) fn tick_reveal(&mut self, delta_s: f32) {
-        self.line_reveal.tick(delta_s, &self.current_line);
+        match self.settings.text_reveal {
+            TextReveal::Instant => self.reveal_full_line(),
+            TextReveal::Typewriter { chars_per_second } => self.line_reveal.tick(delta_s, &self.current_line, chars_per_second),
+        }
     }
 
     pub(crate) fn visible_line_char_count(&self) -> usize {
@@ -422,7 +439,6 @@ impl DialogState {
         self.speech_style
     }
 
-    #[cfg(any(feature = "input", test))]
     pub(crate) fn reveal_full_line(&mut self) {
         self.line_reveal.reveal_full_line(&self.current_line);
     }
@@ -445,11 +461,13 @@ impl DialogState {
     }
 
     pub(crate) fn tick_options_reveal(&mut self, delta_s: f32) {
-        self.options_reveal
-            .tick(delta_s, self.current_options.len());
+        if let crate::ChoiceReveal::Staggered { options_per_second } = self.settings.choice_reveal {
+            self.options_reveal.tick(delta_s, self.current_options.len(), options_per_second);
+        } else {
+            self.reveal_full_options();
+        }
     }
 
-    #[cfg(any(feature = "input", feature = "ui", test))]
     pub(crate) fn reveal_full_options(&mut self) {
         self.options_reveal.reveal_full(self.current_options.len());
     }
@@ -505,40 +523,57 @@ impl DialogState {
         self.selected_option = next;
     }
 
-    /// Player commits the current selection (or advances past a
-    /// non-branching line). Stashes the appropriate pending request;
-    /// the dispatch system drains it next tick. Returns the legacy
-    /// "was the dialogue closed" bool, which under Yarn always
-    /// returns `false` — closure now flows through the
-    /// `DialogueCompleted` observer. Callers that needed the return
-    /// value (legacy `if closed { next_mode.set(Playing) }`) get
-    /// their game-mode transition from the observer instead.
-    #[cfg(any(feature = "input", test))]
-    pub(crate) fn confirm_or_advance(&mut self) -> bool {
+    /// The action that input and the displayed hint assign to the next confirm.
+    pub fn confirm_action(&self) -> DialogConfirmAction {
         if !self.line_reveal_complete() {
-            self.reveal_full_line();
-            return false;
+            match self.settings.confirm_while_revealing {
+                RevealConfirm::RevealOnly => return DialogConfirmAction::Reveal,
+                RevealConfirm::Ignore => return DialogConfirmAction::Wait,
+                RevealConfirm::RevealAndAdvance => {}
+            }
         }
         if !self.options_reveal_complete() {
-            self.reveal_full_options();
-            return false;
+            return DialogConfirmAction::Reveal;
         }
         if self.runner_done_pending_close {
-            // Runner already finished; this press dismisses the
-            // final accumulated text and closes the dialog.
-            self.runner_done_pending_close = false;
-            self.clear_conversation_presentation();
-            self.pending_close = true;
+            DialogConfirmAction::Close
         } else if self.current_options.is_empty() {
-            self.current_line_confirmed = true;
-            self.pending_advance = true;
+            DialogConfirmAction::Advance
         } else {
-            self.pending_select = Some(
-                self.selected_option
-                    .min(self.current_options.len().saturating_sub(1)),
-            );
+            DialogConfirmAction::Select
         }
-        false
+    }
+
+    pub(crate) fn tick_automatic_advance(&mut self, delta_s: f32) {
+        let LineAdvance::Automatic { delay_seconds } = self.settings.line_advance else { return };
+        self.line_reveal.complete_elapsed_s += delta_s.max(0.0);
+        if self.line_reveal.complete_elapsed_s >= delay_seconds {
+            self.confirm_or_advance();
+        }
+    }
+
+    pub(crate) fn confirm_or_advance(&mut self) {
+        match self.confirm_action() {
+            DialogConfirmAction::Wait => {},
+            DialogConfirmAction::Reveal => {
+                self.reveal_full_line();
+                self.reveal_full_options();
+            },
+            DialogConfirmAction::Close => {
+                self.runner_done_pending_close = false;
+                self.clear_conversation_presentation();
+                self.pending_close = true;
+            },
+            DialogConfirmAction::Advance => {
+                self.reveal_full_line();
+                self.current_line_confirmed = true;
+                self.pending_advance = true;
+            },
+            DialogConfirmAction::Select => {
+                self.reveal_full_line();
+                self.pending_select = Some(self.selected_option.min(self.current_options.len().saturating_sub(1)));
+            },
+        }
     }
 }
 
@@ -558,11 +593,11 @@ impl LineRevealState {
             full_line_byte_ends,
             revealed_chars: 0,
             elapsed_s: 0.0,
-            chars_per_second: 112.5,
+            complete_elapsed_s: 0.0,
         }
     }
 
-    fn tick(&mut self, delta_s: f32, line: &str) {
+    fn tick(&mut self, delta_s: f32, line: &str, chars_per_second: f32) {
         if line.is_empty() || self.complete(line) {
             self.revealed_chars = self.full_line_byte_ends.len().saturating_sub(1);
             return;
@@ -572,11 +607,10 @@ impl LineRevealState {
         // - punctuation pauses
         // - metadata-based speed like `#slow`, `#fast`, `#instant`
         // - optional typing cursor / continue indicator
-        let chars = (self.elapsed_s * self.chars_per_second).floor() as usize;
+        let chars = (self.elapsed_s * chars_per_second).floor() as usize;
         self.revealed_chars = chars.min(self.full_line_byte_ends.len().saturating_sub(1));
     }
 
-    #[cfg(any(feature = "input", test))]
     fn reveal_full_line(&mut self, line: &str) {
         self.elapsed_s = 0.0;
         self.revealed_chars = self.full_line_byte_ends.len().saturating_sub(1);
@@ -607,7 +641,6 @@ impl LineRevealState {
 pub(crate) struct OptionsRevealState {
     visible_count: usize,
     elapsed_s: f32,
-    options_per_second: f32,
 }
 
 impl Default for OptionsRevealState {
@@ -615,23 +648,21 @@ impl Default for OptionsRevealState {
         Self {
             visible_count: 0,
             elapsed_s: 0.0,
-            options_per_second: 1.0,
         }
     }
 }
 
 impl OptionsRevealState {
-    fn tick(&mut self, delta_s: f32, total_count: usize) {
+    fn tick(&mut self, delta_s: f32, total_count: usize, options_per_second: f32) {
         if total_count == 0 || self.complete(total_count) {
             self.visible_count = total_count;
             return;
         }
         self.elapsed_s = (self.elapsed_s + delta_s.max(0.0)).max(0.0);
-        let visible = (self.elapsed_s * self.options_per_second).floor() as usize;
+        let visible = (self.elapsed_s * options_per_second).floor() as usize;
         self.visible_count = visible.min(total_count);
     }
 
-    #[cfg(any(feature = "input", feature = "ui", test))]
     fn reveal_full(&mut self, total_count: usize) {
         self.visible_count = total_count;
         self.elapsed_s = 0.0;
@@ -676,6 +707,7 @@ mod closed_state_tests {
         state.close();
 
         let DialogState {
+            settings,
             // —— cleared by `clear_conversation_presentation` ——
             active,
             input_owner,
@@ -711,6 +743,7 @@ mod closed_state_tests {
         } = &state;
 
         assert!(!active, "a closed dialogue is not active");
+        assert_eq!(*settings, DialogSettings::default());
         assert_eq!(*input_owner, None);
         assert!(conversation_character_id.is_empty());
         assert!(presented_speaker_character_id.is_empty());

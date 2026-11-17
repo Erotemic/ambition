@@ -84,6 +84,7 @@ pub fn project_the_dialog_ui_from_the_conversation(
     conversation: Res<ActiveConversation>,
     mut dialog: ResMut<ambition_dialog::DialogState>,
     mut attached: Local<Option<ConversationInstanceId>>,
+    settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
 ) {
     let Some(live) = conversation.live() else {
         // No conversation authority means the shared dialog surface must be closed and detached.
@@ -101,5 +102,6 @@ pub fn project_the_dialog_ui_from_the_conversation(
     }
     *attached = Some(live.instance.clone());
     // Instance identity includes dialogue context, so corrected participants restart Yarn state.
-    dialog.start(live.dialogue_id(), &live.speaker_name, live.context(), live.input_owner);
+    dialog.start_with_settings(live.dialogue_id(), &live.speaker_name, live.context(), live.input_owner,
+        settings.of_subject(live.initiator.or(live.talker)).copied().unwrap_or_default());
 }

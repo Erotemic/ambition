@@ -29,10 +29,16 @@ fn default_hint(dialogue: &DialogView) -> String {
     let back = named(&dialogue.controls.back, "Back");
     if dialogue.controls.hold_to_skip {
         format!("{confirm}: continue    hold {back}: skip")
-    } else if dialogue.option_labels.is_empty() {
-        format!("{confirm}: continue    {back}: close")
     } else {
-        format!("Up / Down: choose    {confirm}: select    {back}: close")
+        use ambition_sim_view::DialogConfirmAction;
+        let action = match dialogue.confirm_action {
+            DialogConfirmAction::Wait => "Text appearing…".to_owned(),
+            DialogConfirmAction::Reveal => format!("{confirm}: reveal text"),
+            DialogConfirmAction::Advance => format!("{confirm}: continue"),
+            DialogConfirmAction::Select => format!("Up / Down: choose    {confirm}: select"),
+            DialogConfirmAction::Close => format!("{confirm}: close"),
+        };
+        if dialogue.can_close { format!("{action}    {back}: close") } else { action }
     }
 }
 

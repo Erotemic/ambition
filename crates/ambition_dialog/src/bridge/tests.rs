@@ -18,7 +18,7 @@ fn final_line() -> App {
     app.add_plugins(YarnSpinnerPlugin::with_yarn_source(
         YarnFileSource::InMemory(YarnFile::new(
             "final_line.yarn",
-            "title: final\n---\nGuide: Final line.\n===\n",
+            "title: final\n---\nGuide: Final line.\n===\ntitle: choice\n---\nGuide: Pick one.\n-> A\n    Guide: One.\n-> B\n    Guide: Two.\n===\n",
         )),
     ));
     for _ in 0..1000 {
@@ -54,6 +54,56 @@ fn final_line() -> App {
         .resource_mut::<DialogState>()
         .reveal_full_line();
     app
+}
+
+#[test]
+fn automatic_dialogue_waits_then_closes_its_final_line_without_input() {
+    let mut app = final_line();
+    app.add_systems(
+        Update,
+        crate::dialog_reveal_tick.in_set(crate::DialogFrameSet::Input),
+    );
+    app.world_mut()
+        .resource_mut::<DialogState>()
+        .start_with_settings(
+            "final",
+            "Guide",
+            crate::DialogueContext::scripted(),
+            ambition_input::InputOwner::Primary,
+            crate::DialogSettings {
+                text_reveal: crate::TextReveal::Instant,
+                line_advance: crate::LineAdvance::Automatic { delay_seconds: 0.1 },
+                ..Default::default()
+            },
+        );
+    for _ in 0..3 {
+        app.update();
+    }
+    assert!(app.world().resource::<DialogState>().active());
+    for _ in 0..10 {
+        app.update();
+    }
+    assert!(!app.world().resource::<DialogState>().active());
+    app.world_mut()
+        .resource_mut::<DialogState>()
+        .start_with_settings(
+            "choice",
+            "Guide",
+            crate::DialogueContext::scripted(),
+            ambition_input::InputOwner::Primary,
+            crate::DialogSettings {
+                text_reveal: crate::TextReveal::Instant,
+                line_advance: crate::LineAdvance::Automatic { delay_seconds: 0.0 },
+                ..Default::default()
+            },
+        );
+    for _ in 0..20 {
+        app.update();
+    }
+    let state = app.world().resource::<DialogState>();
+    assert!(state.active());
+    assert_eq!(state.current_options.len(), 2);
+    assert!(state.pending_select.is_none());
 }
 
 #[test]

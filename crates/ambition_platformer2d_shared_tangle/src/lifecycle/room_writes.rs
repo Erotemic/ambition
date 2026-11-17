@@ -70,6 +70,28 @@ pub fn register_room_write_retractor(app: &mut App, name: &'static str, retract:
     }
 }
 
+/// Install `L`, a log that holds a store's room writes and nothing else, empty
+/// at each session's activation.
+///
+/// A new session counts its live rooms and its ticks from the start again, so
+/// a record the last session kept names a room and a tick of this one: a
+/// rewind of this session's first room would take back the last session's
+/// writes onto it, and the horizon would never drop them.
+pub fn register_room_write_log<L: Resource + Component<Mutability = bevy::ecs::component::Mutable> + Default>(app: &mut App) {
+    app.init_resource::<L>();
+    app.add_message::<super::SessionScopeActivated>();
+    app.add_systems(
+        Update,
+        forget_room_write_log::<L>
+            .in_set(super::SessionScopeSet::Activate)
+            .run_if(on_message::<super::SessionScopeActivated>),
+    );
+}
+
+fn forget_room_write_log<L: Resource + Component<Mutability = bevy::ecs::component::Mutable> + Default>(mut log: ResMut<L>) {
+    *log = L::default();
+}
+
 /// `room` rewinds to the tick it was saved at: every store drops the records
 /// that room wrote after it.
 pub fn retract_room_writes(world: &mut World, room: LiveRoomInstance, saved_at: u64) {

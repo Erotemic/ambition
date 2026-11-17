@@ -40,7 +40,7 @@ impl Plugin for GravityPlugin {
         app.init_resource::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
         // A rewound room puts back the gravity turns it made after the tick it
         // was saved at (ISL-2d).
-        app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityTurnsInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<ambition_platformer2d_shared_tangle::gravity::GravityTurnsInRooms>(app);
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "resource.gravity_turns_in_rooms",

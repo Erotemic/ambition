@@ -699,7 +699,7 @@ impl Plugin for CutsceneSchedulePlugin {
         // The cutscene's changes, dated in their room, so a room that rewinds
         // puts back the cutscene it had (ISL-1b). Logged at the tail of the
         // tick, after the playback and anything else that writes it.
-        app.init_resource::<ambition_cutscene::CutscenesInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<ambition_cutscene::CutscenesInRooms>(app);
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "cutscene.changes_in_rooms",

@@ -33,6 +33,52 @@ use crate::PortalRoom;
 #[derive(Resource, Default, Clone)]
 pub struct PortalFrameHistory(HashMap<(PortalRoom, PortalChannel), PortalAperture>);
 
+/// The history entries live rooms changed, each with the entry it replaced,
+/// so a rewound room puts back its frames (ISL-2d). Without it the first
+/// replayed tick compares the room's restored portals with the frames of the
+/// tick the rewind left, and a portal that moved in between reads as one
+/// that closed under its bodies. Bookkeeping for a rewind, not a fact: kept
+/// only within the rewind horizon.
+#[derive(Resource, Default, Clone)]
+pub struct PortalFramesInRooms {
+    writes: Vec<(
+        ambition_platformer2d_shared_tangle::lifecycle::RoomWrite,
+        (PortalRoom, PortalChannel),
+        Option<PortalAperture>,
+    )>,
+}
+
+/// The room retractor: `room` rewinds to `saved_at`, so the history entries
+/// it changed after that tick are put back, newest first.
+pub fn retract_room_portal_frames(
+    world: &mut World,
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    saved_at: u64,
+) {
+    let Some(mut log) = world.get_resource_mut::<PortalFramesInRooms>() else {
+        return;
+    };
+    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+        return;
+    }
+    let (taken, kept): (Vec<_>, Vec<_>) =
+        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
+    log.writes = kept;
+    let Some(mut history) = world.get_resource_mut::<PortalFrameHistory>() else {
+        return;
+    };
+    for (_, key, replaced) in taken.into_iter().rev() {
+        match replaced {
+            Some(aperture) => {
+                history.0.insert(key, aperture);
+            }
+            None => {
+                history.0.remove(&key);
+            }
+        }
+    }
+}
+
 /// Run condition of the eviction passes: a portal stands, or the last frame
 /// had one. The tick a portal closes, the history still holds it, so the
 /// bodies it straddled are pushed clear, and the history empties.
@@ -87,11 +133,18 @@ const EVICT_MARGIN: f32 = 1.0;
 
 /// Detect portals that moved or vanished since last frame, and push any body
 /// straddling the old plane fully to its centroid's side (see module docs).
+///
+/// During a room replay only that room's portals are live: the other rooms'
+/// entries are neither compared nor replaced. Each changed entry is logged
+/// in [`PortalFramesInRooms`] with its room and tick.
 pub fn evict_straddlers_on_portal_change(
     mut history: ResMut<PortalFrameHistory>,
     portals: Query<(Entity, &PlacedPortal)>,
     mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>), Without<ae::BodyInStorage>>,
     live: PortalRooms,
+    replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
+    tick: Option<Res<ambition_time::SimTick>>,
+    mut log: Option<ResMut<PortalFramesInRooms>>,
 ) {
     // A hosted aperture moving with its face is the same portal, not a close:
     // compare against the host-carried position. Unhosted portals have zero
@@ -102,10 +155,29 @@ pub fn evict_straddlers_on_portal_change(
     // of one channel. Keyed by channel alone, the two overwrote each other and
     // read as a portal that moved.
     let current = current_frames(&portals, &live);
-    for (room, plane) in closing_planes(&history, &current) {
+    let in_scope = |room: PortalRoom| replay.as_ref().is_none_or(|replay| replay.allows(room));
+    let scoped = PortalFrameHistory(history.0.iter().filter(|((room, _), _)| in_scope(*room)).map(|(k, v)| (*k, *v)).collect());
+    for (room, plane) in closing_planes(&scoped, &current) {
         evict_for_plane(plane, room, &mut bodies, &live);
     }
-    history.0 = current.into_iter().map(|(c, (ap, _))| (c, ap)).collect();
+    let mut next: HashMap<(PortalRoom, PortalChannel), PortalAperture> =
+        history.0.iter().filter(|((room, _), _)| !in_scope(*room)).map(|(k, v)| (*k, *v)).collect();
+    next.extend(current.into_iter().map(|(c, (ap, _))| (c, ap)));
+    if let (Some(log), Some(tick)) = (log.as_deref_mut(), tick.as_deref()) {
+        // In key order, so every host logs the same list.
+        let mut changed: Vec<_> = history.0.keys().chain(next.keys()).copied().collect();
+        changed.sort();
+        changed.dedup();
+        for key in changed {
+            let (old, new) = (history.0.get(&key).copied(), next.get(&key).copied());
+            let Some(room) = key.0 else { continue };
+            if old != new {
+                log.writes.retain(|(write, ..)| !write.beyond_the_horizon(tick.0));
+                log.writes.push((ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }, key, old));
+            }
+        }
+    }
+    history.0 = next;
 }
 
 type CurrentFrames = HashMap<(PortalRoom, PortalChannel), (PortalAperture, PortalFrame)>;

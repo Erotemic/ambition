@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v479
+ggrs-rollback-schema-v481
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -515,6 +515,7 @@ resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; not
 resource.gameplay_elapsed	component-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.gate_network_state	resource-clone-custom-checksum	GateNetworkState	bevy_ggrs clone snapshot + actor terminal uses, links, reports and recent addresses
 resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection
+resource.gate_portal_phases_in_rooms	resource-clone-custom-checksum	GatePortalPhasesInRooms	bevy_ggrs clone snapshot + room-write log of replaced portal phases, write-ordered checksum projection
 resource.gravity_field	derived	GravityField	re-derived from the primary body's ResolvedMotionFrame in FrameResolveSet; read only by presentation
 resource.gravity_turns_in_rooms	resource-clone-custom-checksum	GravityTurnsInRooms	bevy_ggrs clone snapshot + the gravity turns rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock
@@ -528,6 +529,7 @@ resource.pending_lifecycle_commit	resource-clone-custom-checksum	PendingLifecycl
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection
 resource.placement_continuity	resource-clone-custom-checksum	AuthoredOccurrences	bevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; not in the session checksum
+resource.portal_frames_in_rooms	resource-clone	PortalFramesInRooms	bevy_ggrs clone snapshot; not in the session checksum
 resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.quest_causes_in_rooms	resource-clone-custom-checksum	QuestCausesInRooms	bevy_ggrs clone snapshot + the quest events rooms queued within the rewind horizon, with the cause each is queued under, which a room rewind retracts (ISL-2d)

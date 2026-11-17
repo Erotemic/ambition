@@ -25,14 +25,26 @@ use bevy::prelude::*;
 /// and a replay rebuilds one player's room: the ambient of that room goes back
 /// down, and another live room keeps its own. A replay with nobody in it
 /// names no room, and resets the sole live room.
+///
+/// The reset is logged like a switch's turn: a rewind of that room to before
+/// its replay puts the room's turn back, and a replay that replays the room
+/// again resets it again.
 pub fn reset_gravity_on_room_reset(
     mut resets: ambition_combat::events::AdmittedReplays,
     mut base: ResMut<ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
+    mut log: Option<ResMut<ambition_platformer2d_shared_tangle::gravity::GravityTurnsInRooms>>,
+    tick: Option<Res<ambition_time::SimTick>>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for reset in resets.read() {
         let room = reset.subject.as_ref().and_then(|subject| subject.room).or_else(|| live.sole());
-        base.forget(room);
+        let written = room
+            .zip(tick.as_deref().map(|tick| tick.0))
+            .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick });
+        match log.as_deref_mut() {
+            Some(log) => base.turn_from(log, written, room, ambition_platformer2d_core::DEFAULT_GRAVITY_DIR),
+            None => base.forget(room),
+        }
     }
 }
 

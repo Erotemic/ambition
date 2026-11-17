@@ -32,6 +32,7 @@ use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core::{ConfirmedFrameBoundary, ControlFrame};
 use ambition_platformer2d_runtime::rollback::room_snapshot::{RoomSnapshot, RoomSnapshotRows};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+use ambition_time::time_control::RequestedClockScale;
 use ambition_time::{ClockState, DayClock, GameplayElapsed, SimTick, WorldTime};
 
 use crate::GuestSeat;
@@ -58,12 +59,15 @@ pub struct RoomRollbackStats {
 }
 
 /// The shared clock at the start of a tick: the timeline, the frame's time,
-/// the day, the scale, the session's elapsed seconds, and the impact freeze.
+/// the day, the scale, the session's elapsed seconds, the impact freeze, and
+/// the scale the clock is easing toward. A slowdown is a target the clock
+/// holds until another request: a request the replay takes back must take
+/// its target back with it, or the restored scale eases toward it again.
 /// The freeze is an expiry against the timeline that stops the shared clock
 /// while one room is live: a connect the replay takes back must take its
 /// freeze back with it.
 #[derive(Clone, Copy, Debug)]
-struct Clock(SimTick, WorldTime, DayClock, ClockState, GameplayElapsed, ImpactHitstop);
+struct Clock(SimTick, WorldTime, DayClock, ClockState, GameplayElapsed, ImpactHitstop, RequestedClockScale);
 
 fn clock(world: &World) -> Option<Clock> {
     Some(Clock(
@@ -73,6 +77,7 @@ fn clock(world: &World) -> Option<Clock> {
         *world.get_resource::<ClockState>()?,
         *ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<GameplayElapsed>(world)?,
         world.get_resource::<ImpactHitstop>().copied().unwrap_or_default(),
+        world.get_resource::<RequestedClockScale>().copied().unwrap_or_default(),
     ))
 }
 
@@ -82,6 +87,9 @@ fn set_clock(world: &mut World, clock: Clock) {
     world.insert_resource(clock.2);
     world.insert_resource(clock.3);
     world.insert_resource(clock.5);
+    if let Some(mut target) = world.get_resource_mut::<RequestedClockScale>() {
+        *target = clock.6;
+    }
     if let Some(mut elapsed) =
         ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<GameplayElapsed>(world)
     {

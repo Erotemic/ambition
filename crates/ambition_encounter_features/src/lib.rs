@@ -117,7 +117,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
         // The wave encounters rooms cleared: a rewound room puts back the
         // switches and quest steps its clears wrote after the tick it was
         // saved at (ISL-2d).
-        app.init_resource::<room_writes::EncounterClearsInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<room_writes::EncounterClearsInRooms>(app);
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "resource.encounter_clears_in_rooms",

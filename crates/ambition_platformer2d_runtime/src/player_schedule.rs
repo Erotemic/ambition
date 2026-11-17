@@ -407,7 +407,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.init_resource::<crate::death_fee::DeathFees>();
         // A rewound room puts back the fees and parcels it changed after the
         // tick it was saved at (ISL-2d).
-        app.init_resource::<crate::death_fee::DeathFeesInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<crate::death_fee::DeathFeesInRooms>(app);
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "resource.death_fees_in_rooms",

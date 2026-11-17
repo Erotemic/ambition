@@ -307,6 +307,78 @@ impl GatePortalPhases {
     }
 }
 
+/// The phase changes live rooms' portals made, each with the phase it
+/// replaced, so a rewound room puts its portals back (ISL-2d). A phase is an
+/// integral of the sim clock and the replay runs the room's ticks again, so a
+/// phase the rewind kept would open twice as far. Bookkeeping for a rewind,
+/// not a fact: kept only within the rewind horizon.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct GatePortalPhasesInRooms {
+    writes: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, String, Option<GatePortalPhase>)>,
+}
+
+impl GatePortalPhasesInRooms {
+    /// `zone_id`'s phase changed from `replaced` (`None`: it had none) on
+    /// `written`.
+    pub fn record(
+        &mut self,
+        written: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite,
+        zone_id: &str,
+        replaced: Option<GatePortalPhase>,
+    ) {
+        self.writes.retain(|(write, ..)| !write.beyond_the_horizon(written.tick));
+        self.writes.push((written, zone_id.to_owned(), replaced));
+    }
+
+    /// Entity-free value projection, in write order.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64, put_u8};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.writes.len() as u64);
+        for (written, zone_id, replaced) in &self.writes {
+            put_u64(&mut bytes, u64::from(written.room.ordinal()));
+            put_u64(&mut bytes, written.tick);
+            put_str(&mut bytes, zone_id);
+            match replaced {
+                Some(phase) => put_phase(&mut bytes, phase),
+                None => put_u8(&mut bytes, u8::MAX),
+            }
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// The room retractor: `room` rewinds to `saved_at`, so the phase changes its
+/// portals made after that tick are undone, newest first.
+pub fn retract_room_gate_portal_phases(
+    world: &mut bevy_ecs::world::World,
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    saved_at: u64,
+) {
+    let Some(mut log) = world.get_resource_mut::<GatePortalPhasesInRooms>() else {
+        return;
+    };
+    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+        return;
+    }
+    let (taken, kept): (Vec<_>, Vec<_>) =
+        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
+    log.writes = kept;
+    let Some(mut phases) = world.get_resource_mut::<GatePortalPhases>() else {
+        return;
+    };
+    for (_, zone_id, replaced) in taken.into_iter().rev() {
+        match replaced {
+            Some(phase) => {
+                phases.phases.insert(zone_id, phase);
+            }
+            None => {
+                phases.phases.remove(&zone_id);
+            }
+        }
+    }
+}
+
 /// The value projection behind the `resource.gate_portal_phases` rollback
 /// registration — the checksum a GGRS host folds into its per-frame desync
 /// detector, and the census a restore audit compares across a rewind.
@@ -317,26 +389,31 @@ impl GatePortalPhases {
 /// same checksum on every peer. The projection lives with the domain type so an
 /// added [`GatePortalPhase`] variant must update the exhaustive match here.
 pub fn gate_portal_phases_checksum(phases: &GatePortalPhases) -> u64 {
-    use ambition_platformer2d_core::snapshot::{checksum_bytes, put_f32, put_str, put_u64, put_u8};
+    use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
 
     let mut bytes = Vec::new();
     put_u64(&mut bytes, phases.phases.len() as u64);
     for (zone_id, phase) in &phases.phases {
         put_str(&mut bytes, zone_id);
-        match phase {
-            GatePortalPhase::Off => put_u8(&mut bytes, 0),
-            GatePortalPhase::Opening { elapsed } => {
-                put_u8(&mut bytes, 1);
-                put_f32(&mut bytes, *elapsed);
-            }
-            GatePortalPhase::On => put_u8(&mut bytes, 2),
-            GatePortalPhase::Closing { elapsed } => {
-                put_u8(&mut bytes, 3);
-                put_f32(&mut bytes, *elapsed);
-            }
-        }
+        put_phase(&mut bytes, phase);
     }
     checksum_bytes(&bytes)
+}
+
+fn put_phase(bytes: &mut Vec<u8>, phase: &GatePortalPhase) {
+    use ambition_platformer2d_core::snapshot::{put_f32, put_u8};
+    match phase {
+        GatePortalPhase::Off => put_u8(bytes, 0),
+        GatePortalPhase::Opening { elapsed } => {
+            put_u8(bytes, 1);
+            put_f32(bytes, *elapsed);
+        }
+        GatePortalPhase::On => put_u8(bytes, 2),
+        GatePortalPhase::Closing { elapsed } => {
+            put_u8(bytes, 3);
+            put_f32(bytes, *elapsed);
+        }
+    }
 }
 
 /// Owner label for this domain's rollback registrations. It is organizational,
@@ -356,6 +433,12 @@ where
         "resource.gate_portal_phases",
         "key-ordered phase/elapsed checksum projection",
         gate_portal_phases_checksum,
+    );
+    registrar.rollback_resource_clone_checksum::<GatePortalPhasesInRooms>(
+        GATE_PORTAL_ROLLBACK_OWNER,
+        "resource.gate_portal_phases_in_rooms",
+        "room-write log of replaced portal phases, write-ordered checksum projection",
+        GatePortalPhasesInRooms::checksum,
     );
 }
 
@@ -666,9 +749,10 @@ mod tests {
 
         assert_eq!(
             registrar.calls.len(),
-            1,
-            "the gate-portal domain registers exactly one piece of rollback state"
+            2,
+            "the gate-portal domain registers its phases and their room-write log"
         );
+        assert_eq!(registrar.calls[1].1, "resource.gate_portal_phases_in_rooms");
         let (owner, name, projection, type_name) = registrar.calls[0];
         assert_eq!(owner, GATE_PORTAL_ROLLBACK_OWNER);
         assert_eq!(

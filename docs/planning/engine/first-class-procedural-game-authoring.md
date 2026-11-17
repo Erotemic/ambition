@@ -192,7 +192,7 @@ Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
 
 | Gate | Executed evidence | Remaining work |
 | --- | --- | --- |
-| A3 | SDK comparison tests: 3 passed. Active replacement inspection: 1 passed. Independent Rhai/Rust declaration: 1 passed. The inspection tool matched all 30 linked content modules with a fresh WASM build. Pulse Forge refused changed field type, attachment, and missing request port with status 1 and field paths. | Native build identity; the promoted game mechanic and its full contract checks. |
+| A3 | Semantic comparison and refusal checks pass. The inspection tool matches all 30 linked content modules with WASM. Pulse Forge matches Rhai, WASM, and linked contracts. A real native rebuild at the same crate version changes its independently checked executable digest; a copy keeps it. | Browser and Android native artifact identity remains a loader limit in A8. |
 | A4 | Pulse Forge's emitter runs as Rhai, WASM, and linked Rust. Both Rust paths use `portable/src/lib.rs`. Explicit selection keeps the same world, catalogs, and module key. Its second Rhai module remains admitted in every mode. The debug host and stock runtime were executed with no compiler on PATH. | Release-host build belongs to A8. |
 | A5 | Two promotion tests pass. Six backend/rollback cases compare 280 input frames each. They compare initial and populated state, ordered requests, body and occurrence identities, cost admission, entity lifetime, projectile motion, and mana. A second release is refused for insufficient mana. Changed Rhai bolt speed produces a structured diff. | Keep this fixture when the authored actor and catalogs change. |
 | A1, A6 | Pulse Forge owns its two character rows, starting-character rule, LDtk world, technique binding, and a stateful Rhai group patrol. The stock debug runtime loads it without a compiler. The parity fixture proves emitter effects, patrol steering, horizontal motion, and turn state. The guide lists the domain interfaces. | Self-contained delivery belongs to A8. |
@@ -391,6 +391,44 @@ was added. Logs use `target/procedural-save-final-*`. The saved-schema artifact
 is `target/procedural-project-state/save-admission-refusals.json`. Native build
 identity, release packaging, backend measurements, and platform loader checks
 remain.
+
+Native build identity, Linux x86_64, debug host, 2026-11-17:
+
+Commit `25f88d451` binds linked code to the running executable's BLAKE3 digest,
+read once before simulation. Crate name and version alone could not distinguish
+two native builds. Descriptor identity includes the build digest; semantic
+comparison excludes it. Portable declarations keep `build: None`.
+
+The artifact probe copied the same executable to two paths and checked each
+reported digest against an independent file hash. It then changed only
+`BOLT_SPEED` from `240.0` to `241.0` in `portable/src/lib.rs`, rebuilt with the
+same command and version `0.1.0`, and repeated inspection. The digest changed
+from `19abf154906767ad45b7cf3885525472170834c0dc9bbbf8da867f3883dfdd0b`
+to `6741ae97a4d4ef1692b7b35606145394fa7fe7146f8e3238424044437863b288`.
+Both match semantic declaration `46370e7146c047f6`. Restoring the source
+reproduced the original executable bytes. Each edit/relink took about 2.9 s
+on this warm target. This is build evidence, not a gameplay performance result.
+
+```bash
+cargo test -p ambition_extension_sdk -p ambition_extension_host -p ambition_extension_rhai --lib
+cargo build -p pulse_forge_host -p ambition_app_tools --bin pulse_forge_host --bin extension_inspect
+PATH=/nonexistent ./target/debug/pulse_forge_host --project examples/projects/pulse_forge/project-linked.ron --headless-ticks 0 --compare examples/projects/pulse_forge/build/pulse_forge.wasm
+PATH=/nonexistent ./target/debug/extension_inspect --compare target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm --ticks 0
+cargo test -p pulse_forge_host --test promotion -- --test-threads=1
+cargo check -p ambition_app
+cargo check -p ambition_extension_sdk --target wasm32-unknown-unknown
+cargo check -p ambition_extension_sdk --target aarch64-linux-android
+```
+
+Results: 13 SDK tests, 46 host tests, 3 Rhai tests, both promotion tests, and
+the compile checks pass. All 30 content module contracts match. The linked
+host refuses a changed field kind with status 1 and a field path. Workspace
+policy has the same eight findings: 33 tests pass and 2 fail. The consumer
+lockfiles now include the host's hash dependency; all 53 absence contracts
+pass. Logs use `target/procedural-native-*`; artifact observations are in
+`target/procedural-native-builds/observations.json`. Browser and Android host
+loaders still need native artifact identity. The SDK cross-target checks do
+not prove either loader. Release delivery and backend measurements remain.
 
 ## Owner documents and source locations
 

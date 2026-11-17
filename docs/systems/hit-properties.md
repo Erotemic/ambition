@@ -8,7 +8,7 @@ hit. Two volumes in one Active window can use different properties.
 | `targets` | All three postures | Grounded, airborne, and prone are separate classes. Prone takes precedence over ground contact. A refused posture does not spend the strike contact or catch a parry. A body with no ground component is grounded. |
 | `clash` | `Normal` | `Transcendent` passes through attack contests. It can still hit bodies and guards. If a normal sibling volume loses a contest, the whole move ends. |
 | `hitlag_scale` | `1.0` | Scales the contact freeze, including a damage-only hit or a hit absorbed by motion armor. Zero gives no new freeze. |
-| `sdi_scale` | `1.0` | Scales manual and automatic SDI. The hit with the longest remaining freeze owns this scale. A tie uses the later resolved hit. |
+| `sdi_scale` | `1.0` | Scales manual and automatic SDI. The hit with the longest remaining freeze owns this scale. Equal freezes use the lower SDI scale, independent of contact order. |
 | `tech` | `Normal` | `Deny` prevents tech for this launch. It clears a buffered tech when the launch starts tumble. A later ordinary launch can be teched. |
 | `weight` | `Victim` | `Fixed(w)` uses the positive weight `w` for launch growth. Percent, staling, rage, and DI still apply. `Fixed(1.0)` uses the reference body weight. Fixed weight is distinct from fixed knockback (`knockback_growth: Some(0.0)`). |
 | `armor` | `Respect` | `Bypass` defeats motion armor. It does not bypass a guard, evasion, invulnerability, or health protection. |

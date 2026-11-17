@@ -194,8 +194,12 @@ pub fn apply_body_hit_reaction(
     // one fact here, not two, and `is_a_connect` never had to learn about it.
     if !gust {
         let hitlag = ae::hit_response::hitlag_duration(damage, &response) * properties.hitlag_scale;
-        if hitlag > 0.0 && hitlag >= combat.hitstop_timer {
-            combat.hitlag_sdi_scale = Some(properties.sdi_scale);
+        if hitlag > 0.0 {
+            if hitlag > combat.hitstop_timer {
+                combat.hitlag_sdi_scale = Some(properties.sdi_scale);
+            } else if hitlag == combat.hitstop_timer {
+                combat.hitlag_sdi_scale = Some(combat.hitlag_sdi_scale.unwrap_or(1.0).min(properties.sdi_scale));
+            }
         }
         combat.hitstop_timer = combat.hitstop_timer.max(hitlag);
         // The flash lasts at least the freeze: a smash's white pop holds for
@@ -1220,6 +1224,28 @@ mod super_armor_tests {
         assert!((chip.2.hitstop_timer - ordinary.2.hitstop_timer * 0.5).abs() < 1e-6);
         let no_freeze = apply(HitProperties { hitlag_scale: 0.0, ..Default::default() }, true);
         assert_eq!(no_freeze.2.hitstop_timer, 0.0);
+    }
+
+    #[test]
+    fn equal_freezes_choose_the_same_sdi_policy_in_either_contact_order() {
+        let run = |scales: [f32; 2]| {
+            let mut vel = ae::Vec2::ZERO;
+            let mut flight = ae::BodyFlightState::default();
+            let mut combat = BodyCombat::default();
+            for sdi_scale in scales {
+                apply_body_hit_reaction(&mut vel, &mut flight, &mut combat,
+                    ae::Vec2::ZERO, 1.0, ae::Vec2::Y, false, None, 12,
+                    ambition_hit_spec::HitProperties { sdi_scale, ..Default::default() },
+                    ae::Vec2::ZERO, VictimStance::default(), None, None, None, feel());
+            }
+            combat
+        };
+        let first = run([0.5, 0.0]);
+        let reversed = run([0.0, 0.5]);
+        assert!(first.hitstop_timer > 0.0);
+        assert_eq!(first.hitstop_timer, reversed.hitstop_timer);
+        assert_eq!(first.hitlag_sdi_scale, Some(0.0));
+        assert_eq!(first.hitlag_sdi_scale, reversed.hitlag_sdi_scale);
     }
 
 }

@@ -1698,12 +1698,25 @@ as the host's own layout does; `capture_scene --route smash_select` at
 overlay: the stick's fixed footprint (about 210 px of a 360 px height) hides
 P1's card and the page arrow, and the action buttons sit over START.
 
+**Done 2026-11-17, the dialogue box:** at 640x360 its body drew four lines
+into a two-line box, under the choice window. A text node that is itself an
+item of the panel's column was measured at one line, and the 48 px floor hid
+that at 1280x720, where a greeting fits two lines. The body text now sits in a
+row of its own, as the hint does. The phone-landscape profile also stopped
+adding a 58 px inset to a reading rect that already leaves out the HUD band,
+and it uses a smaller portrait and gap. Witness: `capture_scene
+math_hotel_ballroom player OUT 640x360 --warmup 200 --player-beside
+npc_math_monty --interact-at 90 --include-ui` shows the whole box and its
+four body lines on screen; at 1280x720 the box is unchanged. (A capture on a
+machine without the generated fonts falls back to Bevy's font, which has no
+`·` or `–`.) What still covers the box is the touch action cluster: Q178.
+
 **Blocked by:** Q178 for the touch overlay on small menus.
 
 **Next action:** the touch overlay waits on
 [Q178](awaiting-maintainer-decision.md#q178--on-a-small-screen-does-the-touch-overlay-give-way-to-a-menu);
-the dialogue box is next, one screen at a time, each with a `capture_scene`
-witness at 640x360 and 1280x720.
+the next screens are the in-session pause menu and the inventory, one at a
+time, each with a `capture_scene` witness at 640x360 and 1280x720.
 
 ### CONTENT-AS-DATA — content still written as Rust
 

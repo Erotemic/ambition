@@ -1244,6 +1244,10 @@ collections:
   - hill_salt_run_hatch
   - hill_salt_run_lantern
   - hill_salt_run_ladder
+  - hill_freight_crates
+  - hill_loading_stage
+  - hill_siding_notice
+  - hill_fingerpost
   - catacombs_west
   - catacombs_east
   - ridge_west

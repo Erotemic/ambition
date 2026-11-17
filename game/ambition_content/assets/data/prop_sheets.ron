@@ -934,6 +934,11 @@
     "hill_salt_run_hatch": (),
     "hill_salt_run_lantern": (),
     "hill_salt_run_ladder": (),
+    // The freight siding: its crates, loading stages, notice and fingerpost.
+    "hill_freight_crates": (),
+    "hill_loading_stage": (),
+    "hill_siding_notice": (),
+    "hill_fingerpost": (),
     // The catacombs under the moor (Evil).
     "catacombs_west": (),
     "catacombs_east": (),

@@ -312,6 +312,7 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
         .as_deref()
         .map(|fonts| fonts.text_font(18.0, crate::ui_fonts::UiFontWeight::Regular))
         .unwrap_or_default();
+    let bubble_quotes = ui_fonts.as_deref().is_some_and(crate::ui_fonts::UiFonts::has_dialog_font);
     let fault_font = ui_fonts
         .as_deref()
         .map(|fonts| fonts.text_font(8.0, crate::ui_fonts::UiFontWeight::Monospace))
@@ -448,7 +449,7 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
                 }
             }
             VfxMessage::SpeechBubble { pos, text } => {
-                spawn_speech_bubble(&mut commands, spawn_scope, world, pos, &text, &bubble_font);
+                spawn_speech_bubble(&mut commands, spawn_scope, world, pos, &text, &bubble_font, bubble_quotes);
             }
             // Drawn by `rendering::actors::animation::start_bark_poses`.
             VfxMessage::BarkGesture { .. } => {}
@@ -988,11 +989,17 @@ pub fn spawn_speech_bubble(
     // `label_layout` does, because a bubble lives about a second and one
     // frame in the wrong font is noticeable.
     font: &TextFont,
+    // Whether `font` is the dialogue face. Bevy's fallback,
+    // `FiraMono-subset.ttf`, has no typographic quotes and draws them as
+    // boxes, so without the face the line takes ASCII ones, as the menu's
+    // selector does (`UiFonts::selected_marker`).
+    typographic_quotes: bool,
 ) {
-    // The bubble adds its own non-ASCII quotes. With `TextFont::default()`
-    // they resolve to Bevy's `FiraMono-subset.ttf`, which lacks them. See
-    // `ambition_menu::render::bevy_ui::MenuFont`.
-    let bubble_text = format!("\u{201c}{text}\u{201d}");
+    let bubble_text = if typographic_quotes {
+        format!("\u{201c}{text}\u{201d}")
+    } else {
+        format!("\"{text}\"")
+    };
     let Some(session_scope) = session_scope else {
         return;
     };
@@ -1806,11 +1813,12 @@ mod tests {
                 .collect()
         }
 
-        /// The drawn speech lines only.
+        /// The drawn speech lines only: each opens with a quote, typographic
+        /// or (without the dialogue face) ASCII.
         fn drawn_lines(&mut self) -> Vec<(String, LabelBox)> {
             self.drawn()
                 .into_iter()
-                .filter(|(text, _)| text.starts_with('\u{201c}'))
+                .filter(|(text, _)| text.starts_with(['\u{201c}', '"']))
                 .collect()
         }
     }
@@ -1985,7 +1993,7 @@ mod tests {
         );
         let line = drawn
             .iter()
-            .find(|(text, _)| text.starts_with('\u{201c}'))
+            .find(|(text, _)| text != "George Booul")
             .expect("the taunt must be drawn");
         assert_ne!(
             line.1.center,

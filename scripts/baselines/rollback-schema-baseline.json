@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v477",
+    "version": "ggrs-rollback-schema-v478",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -134,6 +134,7 @@
       "resource.gameplay_elapsed\tcomponent-canonical\tGameplayElapsed",
       "resource.gate_network_state\tresource-clone-custom-checksum\tGateNetworkState\tbevy_ggrs clone snapshot + actor terminal uses, links, reports and recent addresses",
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
+      "resource.gravity_turns_in_rooms\tresource-clone-custom-checksum\tGravityTurnsInRooms\tbevy_ggrs clone snapshot + the gravity turns rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
       "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock",
       "resource.live_match_ticks\tresource-canonical-custom-checksum\tLiveMatchTicks\tbevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps",
       "resource.minted_item_baseline\tcomponent-clone-custom-checksum\tMintedItemBaseline\tbevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection",

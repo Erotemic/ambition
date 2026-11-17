@@ -106,4 +106,41 @@ mod tests {
             "(the room not replayed, the room replayed)"
         );
     }
+
+    /// A rewound room puts back the gravity turns it made after the tick it
+    /// was saved at, and only its own: the other room's turn stays. Without
+    /// the log, the replay presses the same switch again and flips the room
+    /// twice.
+    #[test]
+    fn a_rewound_room_puts_back_its_own_gravity_turns() {
+        use ambition_platformer2d_shared_tangle::gravity::{
+            GravityTurnsInRooms, retract_room_gravity_turns,
+        };
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomWrite};
+        let first = LiveRoomInstance::ACTIVATION.next();
+        let second = first.next();
+        let up = ambition_platformer2d_core::Vec2::new(0.0, -1.0);
+        let left = ambition_platformer2d_core::Vec2::new(-1.0, 0.0);
+        let mut world = bevy::prelude::World::new();
+        let mut base = BaseGravity::default();
+        let mut log = GravityTurnsInRooms::default();
+        base.turn_from(&mut log, Some(RoomWrite { room: first, tick: 5 }), Some(first), up);
+        base.turn_from(&mut log, Some(RoomWrite { room: first, tick: 12 }), Some(first), left);
+        base.turn_from(&mut log, Some(RoomWrite { room: second, tick: 12 }), Some(second), up);
+        world.insert_resource(base);
+        world.insert_resource(log);
+        retract_room_gravity_turns(&mut world, first, 10);
+        let base = world.resource::<BaseGravity>();
+        assert_eq!(
+            (base.dir_in(Some(first)), base.dir_in(Some(second))),
+            (up, up),
+            "(the rewound room is back to its tick-5 turn, the other room keeps its own)"
+        );
+        retract_room_gravity_turns(&mut world, first, 0);
+        assert_eq!(
+            world.resource::<BaseGravity>().dir_in(Some(first)),
+            BaseGravity::default().dir_in(None),
+            "a rewind before every turn puts the room back under the default"
+        );
+    }
 }

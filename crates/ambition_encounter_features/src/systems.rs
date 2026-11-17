@@ -438,11 +438,7 @@ pub fn drive_wave_encounters(
                         >(world)
                         .copied()
                     });
-                    let mut base = world
-                        .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>(
-                        );
-                    let dir = -base.dir_in(room);
-                    base.turn(room, dir);
+                    turn_gravity_from_switch(world, room, |base| -base.dir_in(room));
                 });
             }
             // Cardinal gravity switch (Noether Chamber kernel faces): the face
@@ -458,9 +454,7 @@ pub fn drive_wave_encounters(
                         >(world)
                         .copied()
                     });
-                    world
-                        .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>()
-                        .turn(room, dir);
+                    turn_gravity_from_switch(world, room, |_| dir);
                 });
             }
             ambition_encounter::switches::SwitchAction::ResetEncounter => {
@@ -848,4 +842,22 @@ fn the_outcome_that_stands(
     } else {
         held
     }
+}
+
+/// A gravity switch turns its room's ambient, logged as that room's write on
+/// this tick so a rewind of the room puts it back.
+fn turn_gravity_from_switch(
+    world: &mut bevy::prelude::World,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    dir: impl FnOnce(&ambition_platformer2d_shared_tangle::gravity::BaseGravity) -> bevy::prelude::Vec2,
+) {
+    use ambition_platformer2d_shared_tangle::gravity::{BaseGravity, GravityTurnsInRooms};
+    let written = room
+        .zip(world.get_resource::<ambition_time::SimTick>().map(|tick| tick.0))
+        .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick });
+    world.resource_scope(|world, mut base: bevy::prelude::Mut<BaseGravity>| {
+        let dir = dir(&base);
+        let mut log = world.get_resource_or_insert_with(GravityTurnsInRooms::default);
+        base.turn_from(&mut log, written, room, dir);
+    });
 }

@@ -982,6 +982,17 @@ clocks (`SimTick`, `ClockState`, `DayClock`) and the seat input frames
 (`SlotControls`, `SeatRawFrames`) want a ruling on whether a room replay runs
 them.
 
+**Gravity turns rewind with their room (2026-11-17).** The census missed one
+writer because it writes through a deferred world command: a `FlipGravity` or
+`SetGravity` switch turned its room's `BaseGravity` entry, and a rewind of
+that room kept the turn while the replay pressed the switch again, so a flip
+was applied twice. The switch arms now write through `BaseGravity::turn_from`,
+which logs the room, the tick and the replaced entry in `GravityTurnsInRooms`
+(rollback-registered, schema 478); `retract_room_gravity_turns` puts a rewound
+room's turns back. Witness: `a_rewound_room_puts_back_its_own_gravity_turns`.
+The census reads only `ResMut` parameters, so a write through
+`commands.queue` is still invisible to it.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

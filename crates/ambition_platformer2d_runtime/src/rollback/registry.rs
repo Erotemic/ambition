@@ -291,7 +291,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 474 -> 475: a body's form sizes, from its character's row (`body.forms`).
 // 475 -> 476: a body's live numeric effects (`body.effects`); the momentum
 // boost and the axis gravity pair leave `actor.motion_model`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 477;
+// 477 -> 478: the gravity turns rooms made, which a room rewind puts back
+// (`resource.gravity_turns_in_rooms`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 478;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -125,6 +125,25 @@ impl BaseGravity {
         self.turned.remove(&room);
     }
 
+    /// Set the ambient gravity of `room` to `dir` from that room's simulation
+    /// on a tick, logging what it replaced so a rewind of the room puts it
+    /// back ([`retract_room_gravity_turns`]). `written` is `None` for a world
+    /// with no live room or no tick, which nothing rewinds.
+    pub fn turn_from(
+        &mut self,
+        log: &mut GravityTurnsInRooms,
+        written: Option<crate::lifecycle::RoomWrite>,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
+        dir: Vec2,
+    ) {
+        let replaced = self.turned.get(&room).copied();
+        self.turn(room, dir);
+        if let Some(at) = written {
+            log.writes.retain(|(write, ..)| !write.beyond_the_horizon(at.tick));
+            log.writes.push((at, room, replaced));
+        }
+    }
+
     /// The rooms that are turned, with their gravity, in room order.
     pub fn turned(&self) -> impl Iterator<Item = (Option<crate::lifecycle::LiveRoomInstance>, Vec2)> + '_ {
         self.turned.iter().map(|(room, dir)| (*room, *dir))
@@ -155,6 +174,69 @@ impl BaseGravity {
             (0, -1) => "Up",
             (1, 0) => "Right",
             _ => "Custom",
+        }
+    }
+}
+
+/// The gravity turns live rooms made, each with the entry it replaced, so a
+/// rewound room puts its ambient back (ISL-2d). A replay presses the same
+/// switch again, so a flip it kept would be flipped twice. Bookkeeping for a
+/// rewind, not a fact: kept only within the rewind horizon.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct GravityTurnsInRooms {
+    writes: Vec<(
+        crate::lifecycle::RoomWrite,
+        Option<crate::lifecycle::LiveRoomInstance>,
+        Option<Vec2>,
+    )>,
+}
+
+impl GravityTurnsInRooms {
+    /// Entity-free value projection, in write order.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_f32, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.writes.len() as u64);
+        for (written, room, replaced) in &self.writes {
+            put_u64(&mut bytes, u64::from(written.room.ordinal()));
+            put_u64(&mut bytes, written.tick);
+            put_u64(&mut bytes, room.map_or(0, |room| u64::from(room.ordinal()) + 1));
+            match replaced {
+                Some(dir) => {
+                    put_u64(&mut bytes, 1);
+                    put_f32(&mut bytes, dir.x);
+                    put_f32(&mut bytes, dir.y);
+                }
+                None => put_u64(&mut bytes, 0),
+            }
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// The room retractor: `room` rewinds to `saved_at`, so the turns it made
+/// after that tick are undone, newest first.
+pub fn retract_room_gravity_turns(
+    world: &mut bevy::prelude::World,
+    room: crate::lifecycle::LiveRoomInstance,
+    saved_at: u64,
+) {
+    let Some(mut log) = world.get_resource_mut::<GravityTurnsInRooms>() else {
+        return;
+    };
+    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+        return;
+    }
+    let (taken, kept): (Vec<_>, Vec<_>) =
+        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
+    log.writes = kept;
+    let Some(mut base) = world.get_resource_mut::<BaseGravity>() else {
+        return;
+    };
+    for (_, turned, replaced) in taken.into_iter().rev() {
+        match replaced {
+            Some(dir) => base.turn(turned, dir),
+            None => base.forget(turned),
         }
     }
 }

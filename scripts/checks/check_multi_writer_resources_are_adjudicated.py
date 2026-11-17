@@ -439,7 +439,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/sim_systems.rs",
     ),
     "BaseGravity": (
-        "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/gravity.rs",
         "crates/ambition_platformer2d_runtime/src/gravity/lifecycle.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
@@ -1761,6 +1761,13 @@ ADJUDICATED: dict[str, str] = {
         "system, both rollback registrations, the view facts, the visual and "
         "the oracle row were removed together. A later pressure plate is an "
         "INPUT into `BaseGravity`, not a second implementation of it.\n"
+        "    ⭐ THE SWITCH ARMS WRITE THROUGH `BaseGravity::turn_from` "
+        "(2026-11-17), which logs each turn with the room, the tick and the "
+        "entry it replaced in `GravityTurnsInRooms`; the room retractor "
+        "`retract_room_gravity_turns` (`shared_tangle/src/gravity.rs`, now the "
+        "file the scan sees) puts a rewound room's turns back, newest first. It "
+        "restores only what that room wrote, so it does not compete with the "
+        "resets above, which put the whole room back to the default.\n"
     ),
     "VersusMatch": (
         "ROUTED — TWO WHOLE-RESOURCE WRITERS, AND ONE OF THEM IS THE SURVIVOR OF "

@@ -1474,11 +1474,17 @@ FEATURELESS_FACADE = "ambition_platformer2d"
 # screen's model is the facade's and the provider's `load_presentation`
 # feature, which the renderer implies; the A9 headless fixture went 70 crates
 # to 69.
+#
+# `ambition_conversation` and `ambition_dialog` joined 2026-11-16 (P6's second
+# cut): the facade's `dialogue` feature, forwarded through the runtime, host,
+# session, sim_view and actor monolith; the closure went 70 crates to 68.
 FEATURELESS_FACADE_FORBIDS = (
     "ambition_render",
     "ambition_sprite_fx",
     "ambition_menu",
     "ambition_load_presentation",
+    "ambition_conversation",
+    "ambition_dialog",
 )
 # ⛔ THE ANTI-VACUITY FLOOR. A `cargo tree` that fails, or one whose output shape
 # changes, yields an empty set — and an empty set contains no forbidden crate, so

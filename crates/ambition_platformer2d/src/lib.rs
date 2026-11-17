@@ -797,6 +797,7 @@ pub use ambition_platformer2d_trace as trace_recorder;
 /// module's header before assuming which one you want.
 pub use ambition_abilities as abilities;
 pub use ambition_body_seed as body_seed;
+#[cfg(feature = "dialogue")]
 pub use ambition_conversation as conversation;
 pub use ambition_cutscene as cutscene;
 /// THE MOUNT PAIR — two linked bodies where one carries the other. Carved out
@@ -807,6 +808,7 @@ pub use ambition_cutscene as cutscene;
 /// 2026-08-26, exposed as its own domain beside `mount` and `boss_encounter`.
 pub use ambition_damage as damage;
 pub use ambition_dev_tools as dev_tools;
+#[cfg(feature = "dialogue")]
 pub use ambition_dialog as dialog;
 pub use ambition_encounter as encounter;
 /// The room-feature side of encounters: LDtk loading, ECS spawning, banners,

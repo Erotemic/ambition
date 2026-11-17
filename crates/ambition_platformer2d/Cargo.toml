@@ -92,6 +92,17 @@ all_capabilities = [
     "ambition_render",
     "ambition_settings_menu",
     "ambition_touch_input",
+    "dialogue",
+]
+# Conversations with bodies and the dialogue box: the conversation and dialog
+# domains, and the runtime, host and actor halves that name them (P6, the
+# dialogue cut). A game without it links neither crate.
+dialogue = [
+    "dep:ambition_conversation",
+    "dep:ambition_dialog",
+    "ambition_platformer2d_runtime/dialogue",
+    "ambition_platformer2d_host/dialogue",
+    "ambition_platformer2d_actor_monolith/dialogue",
 ]
 rollback = ["dep:ambition_platformer2d_rollback_ggrs"]
 # ⭐ SPELLED OUT rather than left as the optional dependency's implicit feature,
@@ -173,7 +184,7 @@ audio = [
     "ambition_audio/kira",
     "ambition_platformer2d_provider/audio",
 ]
-ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_conversation/ui"]
+ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_conversation?/ui"]
 bevy_ui_menu = ["ambition_platformer2d_actor_monolith/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
 kaleidoscope_menu = ["ambition_platformer2d_actor_monolith/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
 relativity = ["dep:ambition_relativity", "dep:ambition_relativity2d"]
@@ -228,7 +239,7 @@ ambition_content_cli = { path = "../ambition_content_cli", optional = true }
 ambition_combat = { path = "../ambition_combat" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
-ambition_conversation = { path = "../ambition_conversation" }
+ambition_conversation = { path = "../ambition_conversation", optional = true }
 ambition_interaction = { path = "../ambition_interaction" }
 # ⛔⛔ THE EIGHT BELOW ARE NOT OPTIONAL AND ADVERTISING THEM WAS THE DEFECT (A9).
 # Measured by `scripts/measure/measure_minimum_profile_parentage.py`: each is linked by a
@@ -241,7 +252,7 @@ ambition_interaction = { path = "../ambition_interaction" }
 # were always linked.
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
-ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
+ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional = true }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_encounter_features = { path = "../ambition_encounter_features" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
@@ -255,7 +266,7 @@ ambition_resource_spec = { path = "../ambition_resource_spec" }
 # (`cargo tree -e normal --no-default-features -i ambition_render`) that did so.
 # The `ambition_render` feature below forwards it back for the compositions that
 # draw.
-ambition_platformer2d_host = { path = "../ambition_platformer2d_host", default-features = false, features = ["dialogue"] }
+ambition_platformer2d_host = { path = "../ambition_platformer2d_host", default-features = false }
 ambition_input = { path = "../ambition_input" }
 ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
 ambition_items = { path = "../ambition_items" }
@@ -277,7 +288,7 @@ ambition_relativity2d = { path = "../ambition_relativity2d", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
-ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime", default-features = false, features = ["dialogue"] }
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime", default-features = false }
 ambition_platformer2d_trace = { path = "../ambition_platformer2d_trace" }
 ambition_platformer2d_rollback_ggrs = { path = "../ambition_platformer2d_rollback_ggrs", optional = true }
 ambition_settings_menu = { path = "../ambition_settings_menu", optional = true }
@@ -299,7 +310,7 @@ ambition_touch_input = { path = "../ambition_touch_input", optional = true }
 # `ListCursor` in three places, so a consumer selecting NOTHING linked it anyway
 # while the manifest offered it as declinable. ⇒ Repaired in the honest
 # direction: the promise is withdrawn rather than the edge removed, because the
-# edge is real. `ambition_dialog` names it unconditionally too.
+# edge is real. `ambition_dialog` names it too.
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }

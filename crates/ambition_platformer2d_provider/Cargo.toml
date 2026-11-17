@@ -38,7 +38,7 @@ ambition_game_shell = { path = "../ambition_game_shell", default-features = fals
 ambition_load = { path = "../ambition_load" }
 ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false, optional = true }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
-ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime", default-features = false }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_asset"] }

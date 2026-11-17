@@ -171,6 +171,7 @@ minimizing a game's closure. Useful features include:
 | `basic_shell_presentation` | the minimal shell's own frames |
 | `desktop_platform` / `web_platform` / `android_platform` | target selection |
 | `audio` | sound (you still declare `no_audio()` if you author none) |
+| `dialogue` | conversations with bodies and the dialogue box (`ambition_conversation`, `ambition_dialog`); without it Interact still works switches |
 
 `ambition_platformer2d::app::prelude` re-exports `PlatformerApp`, `GameModule`,
 `ModuleManifest`, `ModuleDraft`, `AssetSource`, `SessionMode`, `StartAt`,

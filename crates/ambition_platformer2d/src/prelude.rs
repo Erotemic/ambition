@@ -19,6 +19,7 @@ pub use crate::load_presentation;
 
 // Capability edges (slice H): present exactly when their feature is — which
 // the default feature set turns on wholesale.
+#[cfg(feature = "dialogue")]
 pub use crate::dialog;
 pub use crate::encounter;
 #[cfg(feature = "ambition_menu")]

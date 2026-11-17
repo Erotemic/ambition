@@ -84,6 +84,7 @@ collections:
   - throwing_javelin
   - coconut
   - seam_gauge
+  - creator_case
   - evil_chain_gun
   - coconut_palm
   - gate_cradle
@@ -1243,6 +1244,10 @@ collections:
   - hill_salt_run_hatch
   - hill_salt_run_lantern
   - hill_salt_run_ladder
+  - hill_freight_crates
+  - hill_loading_stage
+  - hill_siding_notice
+  - hill_fingerpost
   - catacombs_west
   - catacombs_east
   - ridge_west
@@ -1361,6 +1366,7 @@ static_props:
   evil_chain_gun: evil_chain_gun
   coconut: coconut
   seam_gauge: seam_gauge
+  creator_case: creator_case
   pool_noodle: pool_noodle
   lasersword_with_guns: gunsword
   portal_gun_blue: portal_gun_blue

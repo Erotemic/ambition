@@ -70,7 +70,9 @@
         seen_flag: Some("intro_creator_fragment_seen"),
     ),
     // The raid's last raider, when the other two have fallen, grabs the case off the bench and
-    // runs through the barn door and yard gate. The camera stays on the
+    // runs through the barn door and yard gate with it in his hand (`actor.hold`: the case is
+    // his, not a world object, so it goes out of the world with him; the crate at the siding
+    // is where the story finds it again). The camera stays on the
     // workshop while the Creator points and speaks. His release at the end
     // restores his normal pose before his last words.
     (
@@ -80,6 +82,9 @@
             SetFlag(
                 id: "intro_case_taken",
                 on: true,
+            ),
+            Command(
+                line: "actor.hold npc_lab_raider creator_case",
             ),
             Command(
                 line: "actor.leave_through npc_lab_raider workshop_to_lane runs_where_sent",

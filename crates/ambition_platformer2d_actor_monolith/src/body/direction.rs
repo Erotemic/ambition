@@ -28,6 +28,10 @@
 //!   named row of its sheet from now on, looping it or holding its last frame
 //!   ([`Posed`], pinned by [`pin_poses`]), until `actor.release`. A sheet
 //!   without the row draws the body as if nothing were pinned.
+//! - `actor.hold <character> <held item>`: the body's empty hand takes a held
+//!   item of the registry (the raid's last raider and the Creator's case). It
+//!   is the body's own, not a world object: it goes where the body goes, and
+//!   out of the world with it. A hand that holds something else is refused.
 //!
 //! And the questions a sequence waits on:
 //!
@@ -121,6 +125,11 @@ const ROW: ParamSpec = ParamSpec {
     kind: ParamKind::Name,
     summary: "a named row of the body's sheet",
 };
+const HELD_ITEM: ParamSpec = ParamSpec {
+    name: "held_item",
+    kind: ParamKind::Name,
+    summary: "a held item id of the registry (`creator_case`, `coconut`, ...)",
+};
 const MODE: ParamSpec = ParamSpec {
     name: "mode",
     kind: ParamKind::Name,
@@ -201,6 +210,14 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
             params: &[CHARACTER, ROW, MODE],
         },
         pose,
+    );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "hold"),
+            summary: "put a held item in the empty hand of each body of a character in the asking room",
+            params: &[CHARACTER, HELD_ITEM],
+        },
+        hold,
     );
     app.publish_condition(
         ConditionDescriptor {
@@ -440,6 +457,34 @@ fn pose(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>)
     let since = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.get());
     for (body, _, _) in cast {
         world.entity_mut(body).insert(Posed { row: row.to_owned(), since, looping });
+    }
+    CommandOutcome::Done
+}
+
+fn hold(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+    use ambition_combat::held_items::HeldItem;
+    let (Some(character), Some(item)) = (args[0].as_name(), args[1].as_name()) else {
+        return CommandOutcome::refused("`actor.hold` takes a character and a held item");
+    };
+    let Some(spec) = ambition_characters::brain::held_item_by_id(item) else {
+        return CommandOutcome::refused(format!("`{item}` is not a held item of the registry"));
+    };
+    let cast = cast_in(world, character, room);
+    if cast.is_empty() {
+        return CommandOutcome::refused(format!("no body of `{character}` is live in the asking room"));
+    }
+    if let Some(busy) = cast
+        .iter()
+        .filter_map(|(body, ..)| world.get::<HeldItem>(*body))
+        .find(|held| held.id() != item)
+    {
+        return CommandOutcome::refused(format!("a body of `{character}` already holds `{}`", busy.id()));
+    }
+    for (body, _, _) in cast {
+        let held = HeldItem::new(spec.clone());
+        // The hand changes the body's repertoire: fold it for the new hand.
+        ambition_combat::hand::refold_in_world_with_held(world, body, Some(&held));
+        world.entity_mut(body).insert(held);
     }
     CommandOutcome::Done
 }

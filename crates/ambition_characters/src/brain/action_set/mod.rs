@@ -571,6 +571,18 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::ThrowOnUse,
             },
         );
+        // The Creator's case (level 1): what the raid came for. A carried
+        // object, thrown on use like any other; the raid's last raider runs
+        // off with it (`actor.hold`).
+        items.insert(
+            "creator_case",
+            HeldItemSpec {
+                id: "creator_case".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::ThrowOnUse,
+            },
+        );
         // A pool noodle: a long tube of foam, as an item of a platform
         // fighter is. It is quick and it reaches far; it does not hurt much
         // and it sends what it hits a long way. Its swing is the swing of

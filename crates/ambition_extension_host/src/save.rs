@@ -36,6 +36,23 @@ fn kept_by(admitted: &Admitted, road: SaveRoad) -> impl Iterator<Item = &SchemaK
         .map(|(key, _)| key)
 }
 
+/// Whether `road` keeps any schema this composition admitted: a road whose
+/// adapter has nothing to keep does no work.
+pub fn road_keeps_any(admitted: &Admitted, road: SaveRoad) -> bool {
+    kept_by(admitted, road).next().is_some()
+}
+
+/// Drop from `records` every record road `road` keeps: what a load replaces
+/// whole, and what a New Game starts from nothing.
+pub fn forget_kept_records(admitted: &Admitted, road: SaveRoad, records: &mut RecordSet) {
+    records.retain_schemas(|key| {
+        admitted
+            .schemas
+            .get(key)
+            .is_none_or(|s| SaveRoad::of(s.schema.attachment, s.schema.save) != Some(road))
+    });
+}
+
 /// The rows road `road` keeps from `records`, in key order. A record that is
 /// not stored is at its initial value, and has no row.
 pub fn saved_rows(admitted: &Admitted, road: SaveRoad, records: &RecordSet) -> Vec<SavedRow> {

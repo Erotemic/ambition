@@ -17,7 +17,10 @@
 //! box over it, and takes the cycle's edges out of the graph.
 //!
 //! `thinker` is a custom brain: a body whose placement authors its key fires
-//! from `actor_think`, through the control gate.
+//! from `actor_think`, through the control gate. It counts the ticks it
+//! thought twice: in a body record the durable world save keeps under the
+//! body's identity, so the count goes on when that body is built again, and
+//! in a transient one beside it, which starts again with each live body.
 
 use ambition_combat_port::{
     ActorFire, ActorFirePort, ActorThink, ActorThinkPort, DamageBox, DamageBoxPort, WieldedUsePort, Wielder,
@@ -288,6 +291,19 @@ fn walk(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     trail.store(inv)
 }
 
+record! {
+    /// Every tick this body thought, across each time it was built and each
+    /// save it was loaded from.
+    pub struct Thoughts = SchemaKey::new(PROVIDER, "thinker.thoughts", 1), kept durable;
+    1 ticks: u32,
+}
+
+record! {
+    /// The ticks this live body thought: it retires with the body.
+    pub struct Musings = SchemaKey::new(PROVIDER, "thinker.musings", 1);
+    1 ticks: u32,
+}
+
 /// The custom brain key `thinker` binds.
 pub const THINKER_BRAIN: &str = "fixture_thinker";
 /// The way `thinker` fires: straight up, which no shipped brain asks for, so
@@ -305,7 +321,7 @@ pub fn thinker() -> ModuleDescriptor {
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
-        schemas: Vec::new(),
+        schemas: vec![Thoughts::schema(), Musings::schema()],
         entries: vec![EntryDescriptor {
             key: "think".into(),
             phase: ACTOR_THINK,
@@ -314,7 +330,7 @@ pub fn thinker() -> ModuleDescriptor {
                 selector: THINKER_BRAIN.into(),
             },
             reads: Vec::new(),
-            writes: Vec::new(),
+            writes: vec![Thoughts::KEY, Musings::KEY],
             requests: vec![ActorFirePort::KEY],
             after: Vec::new(),
             limits: Limits { max_requests: 1 },
@@ -326,6 +342,12 @@ pub fn thinker() -> ModuleDescriptor {
 
 fn think(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let body: ActorThink = inv.trigger::<ActorThinkPort>()?.clone();
+    let mut thoughts = Thoughts::load(inv)?;
+    thoughts.ticks += 1;
+    thoughts.store(inv)?;
+    let mut musings = Musings::load(inv)?;
+    musings.ticks += 1;
+    musings.store(inv)?;
     if body.target.is_some() {
         inv.submit::<ActorFirePort>(ActorFire { direction: THINKER_FIRE })?;
     }

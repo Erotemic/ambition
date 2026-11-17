@@ -224,6 +224,14 @@ fn a_policy_without_a_host_road_is_refused() {
             "{attachment:?} {save:?} with the session durable road: {:?}",
             with_road.err()
         );
+        let both: std::collections::BTreeSet<SaveRoad> = [SaveRoad::SessionDurable, SaveRoad::BodyDurable].into();
+        let with_both = admit_with_roads(API_VERSION, &offers(), &both, &declared(attachment, save));
+        assert_eq!(
+            with_both.is_ok(),
+            save == SaveEligibility::Durable,
+            "{attachment:?} {save:?} with both durable roads: no road keeps a checkpoint record: {:?}",
+            with_both.err()
+        );
     }
 }
 
@@ -881,6 +889,7 @@ fn the_inspection_names_each_entry_its_code_and_the_records_by_field() {
     assert!(composition.contains("test::counter/a [native]"), "{composition}");
     assert!(composition.contains("test.emit"), "the request port is listed:\n{composition}");
     assert!(composition.contains("generation:\nmodule\ttest::counter"), "{composition}");
+    assert!(composition.contains(": per Body, Transient\n"), "each schema says what its records live as:\n{composition}");
     let records = crate::inspect::describe_records(app.world_mut());
     assert!(records.contains(&format!("{a}")), "{records}");
     assert!(records.contains("=U32(1)"), "the counter field by name and value:\n{records}");

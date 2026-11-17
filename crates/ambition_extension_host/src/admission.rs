@@ -23,6 +23,12 @@ use ambition_extension_sdk::{
 pub enum SaveRoad {
     /// Session-attached records in the durable world save.
     SessionDurable,
+    /// Body-attached records in the durable world save, kept under the body's
+    /// durable identity (an authored or provider-staged occurrence): they
+    /// outlive the live body, and a body built again with that identity (its
+    /// room entered again, a loaded save) takes them back. A body the
+    /// simulation minted has no durable identity; its records retire with it.
+    BodyDurable,
 }
 
 impl SaveRoad {
@@ -31,6 +37,7 @@ impl SaveRoad {
     pub fn of(attachment: Attachment, save: SaveEligibility) -> Option<Self> {
         match (attachment, save) {
             (Attachment::Session, SaveEligibility::Durable) => Some(Self::SessionDurable),
+            (Attachment::Body, SaveEligibility::Durable) => Some(Self::BodyDurable),
             _ => None,
         }
     }

@@ -37,6 +37,21 @@ pub fn describe_composition(world: &World) -> String {
         );
     }
 
+    // What each record lives as: where it is attached, and which save keeps
+    // it. A body record that the save keeps outlives the live body only for a
+    // body with a durable identity (`SaveRoad::BodyDurable`).
+    let _ = writeln!(out, "schemas ({}):", admitted.schemas.len());
+    for (key, schema) in &admitted.schemas {
+        let road = crate::SaveRoad::of(schema.schema.attachment, schema.schema.save)
+            .map(|road| format!(", kept by {road:?}"))
+            .unwrap_or_default();
+        let _ = writeln!(
+            out,
+            "  {key}: per {:?}, {:?}{road}",
+            schema.schema.attachment, schema.schema.save
+        );
+    }
+
     let _ = writeln!(out, "entries in serial order ({}):", admitted.entries.len());
     for entry in &admitted.entries {
         let d = &entry.descriptor;

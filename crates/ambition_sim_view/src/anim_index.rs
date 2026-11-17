@@ -82,6 +82,9 @@ pub struct ActorSpriteData {
     pub unmirrored: bevy::prelude::Has<ae::Unmirrored>,
     /// A named row content pinned this body to: its clip, ahead of any move's.
     pub pinned: Option<&'static ambition_sprite_sheet::character::PinnedRow>,
+    /// The foe the body has picked, if any: a body squaring up to one near it
+    /// stands and walks in its guard ([`engaged_clip`]).
+    pub target: Option<&'static ambition_combat::components::ActorTarget>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus
@@ -166,6 +169,9 @@ pub struct ClipRequest {
 pub enum ClipTime {
     Phase(f32),
     Seconds { elapsed: f32, looping: bool },
+    /// The sheet's own clock, round and round: a stance held for as long as
+    /// the body is in it (a guard), not a beat with an end.
+    Looping,
 }
 
 impl ClipRequest {
@@ -297,6 +303,39 @@ pub fn legs_go_on_under(anim: ambition_sprite_sheet::character::CharacterAnim) -
 /// as `Aim` itself; one that walks while it charges keeps walking.
 pub fn aim_over_legs(aiming: bool, anim: ambition_sprite_sheet::character::CharacterAnim) -> Option<ClipRequest> {
     (aiming && legs_go_on_under(anim)).then(|| ClipRequest::only(AIM_CLIP).over_legs(Some(anim)))
+}
+
+/// The rows a body stands and walks in while it squares up to a foe: guard
+/// up, weight low. Authored on the person rig; a sheet without them draws the
+/// body's own idle and walk.
+pub const FIGHT_IDLE_CLIP: &str = "fight_idle";
+pub const FIGHT_WALK_CLIP: &str = "fight_walk";
+
+/// How near a picked foe must be (px) for a body to square up to it. Farther
+/// off it is still on its way, and walks or runs as it would.
+pub const ENGAGED_RANGE: f32 = 220.0;
+
+/// The guard a body that stands or walks near a foe is drawn in. `None` for
+/// any other pose (a run, a jump, a swing), or with no foe in range: a body
+/// that only HAS a target across the room is not yet fighting it, and a body
+/// mid-move is drawn as its move.
+pub fn engaged_clip(
+    anim: ambition_sprite_sheet::character::CharacterAnim,
+    free: bool,
+    at: ae::Vec2,
+    target: Option<&ambition_combat::components::ActorTarget>,
+) -> Option<ClipRequest> {
+    use ambition_sprite_sheet::character::CharacterAnim::{Idle, Walk};
+    let near = target.is_some_and(|t| t.entity.is_some() && t.pos.distance(at) <= ENGAGED_RANGE);
+    if !(free && near) {
+        return None;
+    }
+    let row = match anim {
+        Idle => FIGHT_IDLE_CLIP,
+        Walk => FIGHT_WALK_CLIP,
+        _ => return None,
+    };
+    Some(ClipRequest { time: Some(ClipTime::Looping), ..ClipRequest::only(row) })
 }
 
 /// The sheet row a body holding a smash charge asks for. Authored on the
@@ -521,6 +560,7 @@ pub fn rebuild_actor_anim_index(
                             .with_gestures(a.anim),
                         )?)
                     })
+                    .or_else(|| engaged_clip(anim, free, a.kin.pos, a.target))
                     .map(|chain| match charge {
                         Some(_) => chain.ahead_of(SMASH_CHARGE_CLIP),
                         None => chain,

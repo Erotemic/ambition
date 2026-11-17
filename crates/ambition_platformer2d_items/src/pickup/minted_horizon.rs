@@ -7,6 +7,7 @@
 //! description only answers how to reconstruct it.
 
 use std::collections::BTreeMap;
+use bevy::ecs::change_detection::DetectChanges;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use bevy::prelude::{
@@ -138,6 +139,48 @@ pub fn capture_minted_item_baseline(
     let minted = live_minted_descriptions(&carried);
     if baseline.minted != minted {
         baseline.minted = minted;
+    }
+}
+
+/// Start each spawner's counter past every sequence a remembered mint of it
+/// holds: the mints the checkpoint or the loaded save describes, and the live
+/// ones.
+///
+/// A spawner's [`SimIdCounter`] is a component and no save family carries it,
+/// so a body built by a load (or built again in the session) counts from zero.
+/// A gun-sword the save rebuilt as `slot:0/0` was then followed by a second
+/// `slot:0/0` at the next throw: two live occurrences behind one identity, and
+/// a reference that named the first one now named either.
+///
+/// Raising, never lowering, so it is idempotent: it runs when a spawner's
+/// counter is new or the remembered mints changed, and running again changes
+/// nothing.
+pub fn start_counters_past_remembered_mints(
+    baselines: Query<bevy::prelude::Ref<MintedItemBaseline>>,
+    origins: Query<&SpawnOrigin>,
+    mut spawners: Query<(&SimId, bevy::prelude::Mut<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>)>,
+) {
+    let remembered_changed = baselines.iter().any(|baseline| baseline.is_changed());
+    if !remembered_changed && !spawners.iter().any(|(_, counter)| counter.is_added()) {
+        return;
+    }
+    let mut next: BTreeMap<&SimId, u64> = BTreeMap::new();
+    let dynamic = baselines
+        .iter()
+        .flat_map(|baseline| baseline.into_inner().minted.values().map(|description| &description.origin))
+        .chain(origins.iter());
+    for origin in dynamic {
+        if let SpawnOrigin::Dynamic { parent, sequence } = origin {
+            let after = next.entry(parent).or_default();
+            *after = (*after).max(sequence.saturating_add(1));
+        }
+    }
+    for (id, mut counter) in &mut spawners {
+        if let Some(&after) = next.get(id) {
+            if counter.0 < after {
+                counter.0 = after;
+            }
+        }
     }
 }
 
@@ -851,6 +894,12 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 capture_owned_items_baseline.run_if(ambition_platformer2d_core::a_message_waits::<CheckpointCommitted>),
             )
                 .in_set(CheckpointCapture),
+        )
+        // Before anything in the tick mints: a spawner built this tick, or a
+        // save adopted this tick, must not hand out a remembered sequence.
+        .add_systems(
+            sim,
+            start_counters_past_remembered_mints.before(super::ItemPickupSet::CoreHeldItems),
         )
         // The mints of a boss defeat a replay retracted, in the replay
         // chain's content slot, after the boss road retracts the defeat. A

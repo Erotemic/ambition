@@ -519,6 +519,17 @@ impl CharacterAnimator {
         }
     }
 
+    /// Loop the clip shown now on the sheet's clock, as [`Self::request_loop`]
+    /// would have: for a caller that asks through a chain each frame
+    /// ([`Self::request_actor_pose`]) and learns only after that the row is a
+    /// stance with no end. Nothing when no clip shows.
+    pub fn loop_clip(&mut self) {
+        if self.clip_slot.is_some() {
+            self.clip_loops = true;
+            self.clip_held = false;
+        }
+    }
+
     /// Draw authored row `slot` at `frame`, held there: an animator whose
     /// frame another clock owns (a boss drawn from its sim cursor). Nothing
     /// ticks it; the next call moves it. A frame past the row's end is its
@@ -592,6 +603,17 @@ impl CharacterAnimator {
             self.legs = Some(from.unwrap_or(LegsCursor { anim, frame: 0, elapsed: 0.0 }));
         }
         self.left = None;
+    }
+
+    /// The row the head turns as ([`Self::head_turn`]) and the fraction: the
+    /// look row's MIRROR row while the character shows its other side. That
+    /// row turns the head the other way, so a body drawn from that side
+    /// would otherwise look down while it means to look up. `None` with no
+    /// turn, or when the sheet has no row of that name.
+    pub fn head_turn_row(&self) -> Option<(usize, f32)> {
+        let (look_row, fraction) = self.head_turn.filter(|(_, fraction)| *fraction > 0.0)?;
+        let slot = self.spec.row_names().position(|name| name == look_row)?;
+        Some((self.mirror_of(slot), fraction))
     }
 
     /// The legs under the clip drawn now: their row (the mirror row while

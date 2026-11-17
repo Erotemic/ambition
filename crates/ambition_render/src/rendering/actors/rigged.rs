@@ -1551,8 +1551,10 @@ fn frame_draws<'a>(
         }
     }
     // A body that looks up while it walks: its head turns up on the walk.
-    if let Some((look_row, fraction)) = animator.head_turn.filter(|(_, fraction)| *fraction > 0.0) {
-        flipbook.head_turned_as(look_row, fraction, drawn);
+    if let Some((look_row, fraction)) = animator.head_turn_row() {
+        if let Some(look_row) = animator.spec.row_name(look_row) {
+            flipbook.head_turned_as(look_row, fraction, drawn);
+        }
     }
     // A hurt face over the pose it has.
     if let Some((face_row, index)) = animator.expression.as_ref() {

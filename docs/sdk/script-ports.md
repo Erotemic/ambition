@@ -204,6 +204,14 @@ Port `ambition.item.release@1`, request: `this.requests.push(request("<alias>", 
 | `thrown` | bool | required | `true` to throw it (an attack: what it hits, it hurts), `false` to drop it. (`throw` is a word Rhai reserves.) |
 | `velocity` | [x, y] | `[0.0, 0.0]` | The item's velocity as it leaves (world units per second, +Y down). |
 
+## `whereabouts`
+
+Port `ambition.world.whereabouts@1`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `of` | table of text to text | Identity → `here` (live, this room), `away` (live, another room), `carried` (in a body's hands), `dormant` (built again with its room), `ended` (remembered gone: eaten, opened, killed) or `gone` (nothing builds it again). |
+
 ## `hold_status`
 
 Port `ambition.body.hold_status@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

@@ -143,8 +143,7 @@ pub fn capture_minted_item_baseline(
 }
 
 /// Start each spawner's counter past every sequence a remembered mint of it
-/// holds: the mints the checkpoint or the loaded save describes, and the live
-/// ones.
+/// holds: the mints the checkpoint or the loaded save describes.
 ///
 /// A spawner's [`SimIdCounter`] is a component and no save family carries it,
 /// so a body built by a load (or built again in the session) counts from zero.
@@ -155,9 +154,17 @@ pub fn capture_minted_item_baseline(
 /// Raising, never lowering, so it is idempotent: it runs when a spawner's
 /// counter is new or the remembered mints changed, and running again changes
 /// nothing.
+///
+/// ⛔ Only the REMEMBERED mints, never the live ones. This runs in the
+/// rewinding schedule, and a restore can hold for a moment a descendant from a
+/// later frame; raising past it made the resimulation's next mint a different
+/// id (a GGRS sync-test checksum mismatch in the coconut swallows). The
+/// descriptions are rollback state captured only at a commit or a load, so in a
+/// restored world they never stand ahead of the counter restored with them: the
+/// raise does nothing except after a load, the one place a counter starts
+/// behind them.
 pub fn start_counters_past_remembered_mints(
     baselines: Query<bevy::prelude::Ref<MintedItemBaseline>>,
-    origins: Query<&SpawnOrigin>,
     mut spawners: Query<(&SimId, bevy::prelude::Mut<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>)>,
 ) {
     let remembered_changed = baselines.iter().any(|baseline| baseline.is_changed());
@@ -167,8 +174,7 @@ pub fn start_counters_past_remembered_mints(
     let mut next: BTreeMap<&SimId, u64> = BTreeMap::new();
     let dynamic = baselines
         .iter()
-        .flat_map(|baseline| baseline.into_inner().minted.values().map(|description| &description.origin))
-        .chain(origins.iter());
+        .flat_map(|baseline| baseline.into_inner().minted.values().map(|description| &description.origin));
     for origin in dynamic {
         if let SpawnOrigin::Dynamic { parent, sequence } = origin {
             let after = next.entry(parent).or_default();

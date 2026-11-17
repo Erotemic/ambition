@@ -35,6 +35,7 @@ ambition_time = { path = "../ambition_time" }
 # The wielded-use extension ports and their adapters (fast-iteration I7).
 ambition_combat_port = { path = "../ambition_combat_port" }
 ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_persistence = { path = "../ambition_persistence" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 # ⛔ NEVER ambition_platformer2d_actor_monolith: that edge is what the carve removed.
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"] }

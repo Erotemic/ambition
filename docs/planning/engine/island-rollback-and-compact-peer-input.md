@@ -1026,10 +1026,20 @@ order, not an identity), `ControlFrame` (the primary seat's mirror),
 `RoomTransitionContentEpoch` (content identity a restore does not bump), the
 scene capture tool, and a system registered with
 `run_if(not(resource_exists::<RoomReplay>))` counts as room-gated. Census: 60
-unclassified over 22 types. Next by weight: `AmbitionGameSave` (13 writers),
-`PendingLifecycleCommit`, `SlotInteractionState`, `QuestRegistry`, and
-`PendingPlayerHitEvents` (a cross-frame queue the first replayed tick drains
-for every room's victims).
+unclassified over 22 types.
+
+**Hits on players and seat gestures (2026-11-17).** `PendingPlayerHitEvents`
+crosses one tick, and the first tick of a replay drained it whole: the other
+rooms' victims were disabled, so their hits were lost. A replay now keeps the
+hits whose victim it cannot see for the live tick they were staged for, and
+`retract_room_pending_player_hits` drops the rewound room's (they are the
+discarded timeline's; the replay stages its own). The host's saved clock
+gains `SlotInteractionState` (interact buffers and double taps are timed on
+the clock); after the replay `rewind_room` puts back the live gestures of the
+seats outside the room. Census: 52 unclassified over 20 types. Open:
+`PossessionState` holds entities, so it cannot ride with the clock without
+the snapshot's entity remap; `AmbitionGameSave` (13 writers),
+`PendingLifecycleCommit`, `QuestRegistry`.
 
 ## Order, exclusions and integration
 

@@ -1337,6 +1337,44 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
     }
 }
 
+/// The room retractor: the hits staged for `room`'s victims leave the queue.
+/// The queue holds one tick's hits, staged after the tick the room was saved
+/// at, so every one of that room's is from the timeline the rewind discards.
+/// A victim with no room stamp is in the room only when it is the sole live
+/// room.
+pub fn retract_room_pending_player_hits(
+    world: &mut bevy::prelude::World,
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    _saved_at: u64,
+) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let sole = {
+        let mut roots = world.query_filtered::<&LiveRoomInstance, bevy::prelude::With<RoomInstanceRoot>>();
+        let live: Vec<LiveRoomInstance> = roots.iter(world).copied().collect();
+        live == [room]
+    };
+    let Some(pending) = world.get_resource::<ambition_combat::events::PendingPlayerHitEvents>() else {
+        return;
+    };
+    let in_room: Vec<bool> = pending
+        .0
+        .iter()
+        .map(|staged| match staged.event.target {
+            HitTarget::Body(victim) => match world.get::<InRoomInstance>(victim) {
+                Some(stamp) => stamp.0 == room,
+                None => sole,
+            },
+            _ => false,
+        })
+        .collect();
+    if !in_room.contains(&true) {
+        return;
+    }
+    let mut pending = world.resource_mut::<ambition_combat::events::PendingPlayerHitEvents>();
+    let mut flags = in_room.into_iter();
+    pending.0.retain(|_| !flags.next().unwrap_or(false));
+}
+
 /// The set `apply_player_hit_events` runs in.
 ///
 /// four GAME call sites order against this function by name — one in
@@ -1358,7 +1396,7 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
 pub struct PlayerHitResolutionSet;
 
 pub fn apply_player_hit_events(
-    (mut class_b, mut debris_writer, mut wallet_shield_spent, body_sources, heavy_attackers, rooms): (
+    (mut class_b, mut debris_writer, mut wallet_shield_spent, body_sources, heavy_attackers, rooms, replay): (
         Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
         MessageWriter<DebrisBurstMessage>,
         MessageWriter<WalletShieldSpent>,
@@ -1370,6 +1408,8 @@ pub fn apply_player_hit_events(
         Query<(), bevy::prelude::With<ambition_boss_encounter::BossConfig>>,
         // The live room of each damaged body.
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+        // A room replay resolves only its own room's victims.
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
@@ -1455,10 +1495,17 @@ pub fn apply_player_hit_events(
     let base_feel = *feel_tuning;
     // Lookup does not set processing order; the body query does.
     let mut resolved = std::collections::HashMap::<Entity, Vec<FeatureHitEvent>>::new();
-    for staged in pending_hits.0.drain(..) {
-        let event = staged.event;
-        if let HitTarget::Body(target) = event.target {
-            resolved.entry(target).or_default().push(event);
+    // During a room replay the other rooms' victims are disabled, so this
+    // tick cannot resolve their hits: they wait for the live tick after the
+    // replay, the one they were staged for.
+    let staged: Vec<_> = pending_hits.0.drain(..).collect();
+    for staged in staged {
+        if let HitTarget::Body(target) = staged.event.target {
+            if replay.is_some() && !player_q.contains(target) {
+                pending_hits.0.push(staged);
+                continue;
+            }
+            resolved.entry(target).or_default().push(staged.event);
         }
     }
 
@@ -1608,6 +1655,13 @@ pub fn install_staged_hit_lifecycle_guard(
     app: &mut bevy::prelude::App,
     schedule: impl bevy::ecs::schedule::ScheduleLabel,
 ) {
+    // A rewound room drops the hits staged for its victims: they are the
+    // speculative timeline's, and the replay stages its own.
+    ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+        app,
+        "resource.pending_player_hit_events",
+        retract_room_pending_player_hits,
+    );
     use ambition_platformer2d_shared_tangle::schedule::{
         GameplaySimulationRoot, Platformer2dSimulationPhase,
     };

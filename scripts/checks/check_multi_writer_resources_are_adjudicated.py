@@ -476,6 +476,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/rooms/systems.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
+        "crates/ambition_hosted_world/src/room_rollback.rs",
     ),
     "ActiveConversation": (
         "crates/ambition_conversation/src/opening.rs",
@@ -2833,7 +2834,12 @@ ADJUDICATED: dict[str, str] = {
         "`buffered_interact` would for a press, from nothing the host raised, "
         "no shipped app registers it, and the clearers above treat its press "
         "like any other, so the one-armer argument holds for every shipped "
-        "composition."
+        "composition.\n"
+        "    ⭐ 2026-11-17: the room rollback host (`hosted_world/src/room_rollback.rs`) "
+        "saves the table with the shared clock and sets it back when it rewinds a "
+        "room, then puts back the live rows of the seats outside that room after "
+        "the replay. It replays no gesture of its own: the seats' writers above run "
+        "the replayed ticks."
     ),
     "ActiveGameplaySession": (
         "PRODUCER AND TEARDOWN, NOT TWO ACTIVATION AUTHORITIES. "

@@ -28,7 +28,7 @@ use bevy::ecs::message::Message;
 use bevy::prelude::*;
 
 use ambition_combat::impact_hitstop::ImpactHitstop;
-use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotInteractionState};
 use ambition_platformer2d_core::{ConfirmedFrameBoundary, ControlFrame};
 use ambition_platformer2d_runtime::rollback::room_snapshot::{RoomSnapshot, RoomSnapshotRows};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
@@ -60,14 +60,26 @@ pub struct RoomRollbackStats {
 
 /// The shared clock at the start of a tick: the timeline, the frame's time,
 /// the day, the scale, the session's elapsed seconds, the impact freeze, and
-/// the scale the clock is easing toward. A slowdown is a target the clock
-/// holds until another request: a request the replay takes back must take
-/// its target back with it, or the restored scale eases toward it again.
+/// the scale the clock is easing toward, and the seats' gestures. A slowdown
+/// is a target the clock holds until another request: a request the replay
+/// takes back must take its target back with it, or the restored scale eases
+/// toward it again. A gesture (an interact buffer, a double tap) is timed on
+/// the clock too; `rewind_room` keeps the live gestures of the seats outside
+/// the room, which the replay does not run.
 /// The freeze is an expiry against the timeline that stops the shared clock
 /// while one room is live: a connect the replay takes back must take its
 /// freeze back with it.
 #[derive(Clone, Copy, Debug)]
-struct Clock(SimTick, WorldTime, DayClock, ClockState, GameplayElapsed, ImpactHitstop, RequestedClockScale);
+struct Clock(
+    SimTick,
+    WorldTime,
+    DayClock,
+    ClockState,
+    GameplayElapsed,
+    ImpactHitstop,
+    RequestedClockScale,
+    SlotInteractionState,
+);
 
 fn clock(world: &World) -> Option<Clock> {
     Some(Clock(
@@ -78,6 +90,7 @@ fn clock(world: &World) -> Option<Clock> {
         *ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<GameplayElapsed>(world)?,
         world.get_resource::<ImpactHitstop>().copied().unwrap_or_default(),
         world.get_resource::<RequestedClockScale>().copied().unwrap_or_default(),
+        world.get_resource::<SlotInteractionState>().copied().unwrap_or_default(),
     ))
 }
 
@@ -89,6 +102,9 @@ fn set_clock(world: &mut World, clock: Clock) {
     world.insert_resource(clock.5);
     if let Some(mut target) = world.get_resource_mut::<RequestedClockScale>() {
         *target = clock.6;
+    }
+    if let Some(mut gestures) = world.get_resource_mut::<SlotInteractionState>() {
+        *gestures = clock.7;
     }
     if let Some(mut elapsed) =
         ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<GameplayElapsed>(world)
@@ -353,6 +369,7 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     rows.restore(world, &mut snapshot, &entities);
     world.insert_resource(rows);
     ambition_platformer2d_shared_tangle::lifecycle::begin_room_replay(world, room);
+    let live_gestures = world.get_resource::<SlotInteractionState>().copied();
     set_clock(world, at);
     ambition_platformer2d_shared_tangle::lifecycle::retract_room_writes(world, room, at.0 .0);
     let others: Vec<LiveRoomInstance> = world
@@ -404,6 +421,27 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     }
     if let Some(slots) = slots {
         world.insert_resource(slots);
+    }
+    // The seats outside the room did not run the replayed ticks: their
+    // gestures are the live ones.
+    if let Some(live) = live_gestures {
+        let inside: Vec<PlayerSlot> = world
+            .query::<(&DrivingParticipant, &InRoomInstance)>()
+            .iter(world)
+            .filter(|(_, at)| at.0 == room)
+            .map(|(driver, _)| driver.0)
+            .collect();
+        if let Some(mut gestures) = world.get_resource_mut::<SlotInteractionState>() {
+            for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
+                let seat = PlayerSlot(index as u8);
+                if inside.contains(&seat) {
+                    continue;
+                }
+                if let Some(row) = gestures.get_mut(seat) {
+                    *row = live.get(seat);
+                }
+            }
+        }
     }
     for entity in &hidden {
         if let Ok(mut entity) = world.get_entity_mut(*entity) {

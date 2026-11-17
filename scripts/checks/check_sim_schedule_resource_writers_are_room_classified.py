@@ -21,14 +21,18 @@ adjudicated.py` scans) is one of:
                     retractor`) takes back what this write did: the type is one
                     of the retractor's own logs (`*InRooms`, `*SinceCheckpoint`),
                     or a store it restores that this writer also logs to, or a
-                    store a tail logger diffs whole each tick (`TAIL_LOGGED`)
+                    store a tail logger diffs whole each tick (`TAIL_LOGGED`),
+                    or a one-tick queue whose retractor drops the rewound
+                    room's rows (`ONE_TICK_QUEUES`)
     host-rewound    the room rollback host (`ambition_hosted_world`'s
                     `room_rollback.rs`) saves and sets back its type around a
                     replay: the shared clock in `struct Clock(..)`, which a
                     rewind sets to the saved tick and the replay runs forward
                     again, and the seat inputs `rewind_room` copies out
                     before the replay and puts back after it
-    derived         its type is rebuilt from live state each run, and the scan
+    derived         the system overwrites its own section of a store from
+                    live state (`MIRRORS`), or
+                    its type is rebuilt from live state each run, and the scan
                     CHECKS that: no binding of the type accumulates unless the
                     same system resets it or the resource-memory guard names the
                     reset-before-contribute ordering
@@ -37,7 +41,10 @@ adjudicated.py` scans) is one of:
     world-owned     its type is host state a rewind does not change, by a
                     ruling that quotes the type's own doc (`WORLD_OWNED`), or
                     the system applies an act from outside the simulation
-                    that a replay does not read again (`OUTSIDE_ACTS`)
+                    that a replay does not read again (`OUTSIDE_ACTS`), or
+                    it follows a world fact a replay does not change
+                    (`WORLD_FACT_WRITERS`), or it runs once at the
+                    session's start (`SESSION_START`)
     unclassified    none of the above
 
 The unclassified count is a ratchet: it may only fall, and the ceiling must be
@@ -69,6 +76,18 @@ TAIL_LOGGED: dict[str, str] = {
         "`log_conversation_changes_in_rooms` diffs it into `ConversationsInRooms` "
         "in `FeatureViewSync`; `retract_room_conversations` opens or closes it "
         "back (`ambition_conversation/src/rooms.rs`, read 2026-11-17)"
+    ),
+}
+
+#: A queue that holds one tick's rows, each naming its room: the retractor drops
+#: a rewound room's rows outright, since every one was written after the tick
+#: the room was saved at, and the replay writes them again.
+ONE_TICK_QUEUES: dict[str, str] = {
+    "PendingPlayerHitEvents": (
+        "staged at the end of one tick, drained by the next; "
+        "`retract_room_pending_player_hits` drops the rows whose victim is in the "
+        "rewound room, and `apply_player_hit_events` keeps the other rooms' rows "
+        "through a replay (`ambition_damage/src/lib.rs`, read 2026-11-17)"
     ),
 }
 
@@ -194,6 +213,53 @@ WORLD_OWNED: dict[str, str] = {
     ),
 }
 
+#: Systems that overwrite their own section of a shared store from live state
+#: each run, so the section is a projection of its source and follows whatever
+#: the source's own class does under a rewind. Keyed by SYSTEM: the store's
+#: other writers are not mirrors.
+MIRRORS: dict[str, str] = {
+    "persist_inventory_to_save": (
+        "\"Mirror the live inventory + wallet into the save whenever they differ\": "
+        "the bag and the primary wallet (`ambition_platformer2d_items/src/persist.rs`)"
+    ),
+    "persist_minted_item_horizon_to_save": (
+        "rebuilds the save's minted rows from the live mints and the occurrence "
+        "ledger when either changed (`pickup/minted_horizon.rs`)"
+    ),
+    "persist_occurrence_horizon_to_save": (
+        "rebuilds the save's occurrence rows from `AuthoredOccurrences` and the "
+        "live custody (`session/src/durable_horizon.rs`)"
+    ),
+    "persist_module_records_to_save": (
+        "\"Mirror the session's durable module records into the save when they "
+        "differ from the saved rows\" (`runtime/src/module_save_road.rs`)"
+    ),
+}
+
+#: Systems whose write follows a world fact a room replay does not change.
+WORLD_FACT_WRITERS: dict[str, str] = {
+    "track_room_visits": (
+        "sets a room's visited flag while the room is live, and only on the edge; "
+        "a room replay does not change which rooms are live (it hides the others "
+        "and they were visited), and the flag is never cleared but by a load "
+        "(`ambition_menu/src/map/systems.rs`, read 2026-11-17)"
+    ),
+}
+
+#: Systems that run once at a session's start and then never again in it,
+#: each behind its own flag: the durable restore (`SaveRestored`) or a
+#: registry's `initialized`. The host saves a guest room only once the session
+#: is live, so no room rewind reaches back across them.
+SESSION_START: dict[str, str] = {
+    "populate_quest_registry": "returns at once while `registry.initialized` (`ambition_content/src/quest.rs`)",
+    "populate_boss_encounter_registry": "returns at once while `registry.specs_loaded` (`boss_encounter/src/systems.rs`)",
+    "complete_durable_restore": "returns at once while `restored.0`; it is the one place that sets it (`durable_horizon.rs`)",
+    "restore_inventory_from_save": "\"Apply the saved inventory + wallet to the live state once\" (`items/src/persist.rs`)",
+    "restore_lives_from_save": "returns at once while `restored.0` (`actor_monolith/src/body/life.rs`)",
+    "restore_checkpoint_on_session_start": "\"Runs once per session: `SessionStartupResume` remembers which generation it has resolved\" (`session/src/checkpoint.rs`)",
+    "activate_the_prepared_match": "the match's activation, once per session; a whole-world rewind before it re-runs it from the borrowed plan (`session/src/match_activation.rs`)",
+}
+
 #: Systems that apply an act from outside the simulation: a live message
 #: read through `ReplayMessageReader`, whose live cursor a room replay does not
 #: advance, so a replay neither reads it again nor should take it back.
@@ -206,7 +272,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 60
+UNCLASSIFIED_CEILING = 40
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200
@@ -327,6 +393,7 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
                 elif short in retracted and (
                     _is_log(short)
                     or short in TAIL_LOGGED
+                    or short in ONE_TICK_QUEUES
                     or any(_is_log(log) and re.search(rf"\b{log}\b", params + body) for log in retracted)
                 ):
                     kind = "retracted"
@@ -340,6 +407,10 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
                     kind = "world-owned"
                 elif rel in TOOL_SOURCES:
                     kind = "instrument"
+                elif name in MIRRORS:
+                    kind = "derived"
+                elif name in WORLD_FACT_WRITERS or name in SESSION_START:
+                    kind = "world-owned"
                 else:
                     kind = "unclassified"
                 found.append((name, rel, short, kind))
@@ -378,12 +449,15 @@ def main() -> int:
     for ty, name, rel in derived_that_accumulate():
         print(f"⛔ `{ty}` is ruled derived, but `{name}` ({rel}) accumulates it without a reset")
         failed = True
-    stale = sorted((set(DERIVED) | set(INSTRUMENT) | set(TAIL_LOGGED) | set(WORLD_OWNED)) - {ty for _n, _f, ty, _k in found})
+    stale = sorted((set(DERIVED) | set(INSTRUMENT) | set(TAIL_LOGGED) | set(ONE_TICK_QUEUES) | set(WORLD_OWNED)) - {ty for _n, _f, ty, _k in found})
     for ty in stale:
         print(f"⛔ a ruling for `{ty}`, which no sim-schedule system writes any more: delete it")
         failed = True
     for name in sorted(set(OUTSIDE_ACTS) - {n for n, _r, _t, k in found if k == "world-owned"}):
         print(f"⛔ an outside-act ruling for `{name}`, which no longer reads its act live: delete it")
+        failed = True
+    for name in sorted((set(MIRRORS) | set(WORLD_FACT_WRITERS) | set(SESSION_START)) - {n for n, _r, _t, _k in found}):
+        print(f"⛔ a system ruling for `{name}`, which writes no resource in the sim schedule any more: delete it")
         failed = True
     for rel in sorted(set(TOOL_SOURCES) - {rel for _n, rel, _t, _k in found}):
         print(f"⛔ a tool ruling for `{rel}`, which holds no sim-schedule writer any more: delete it")

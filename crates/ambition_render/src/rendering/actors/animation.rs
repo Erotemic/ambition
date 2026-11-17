@@ -82,7 +82,11 @@ pub(crate) fn apply_character_frame(
         conversation_held,
         barking,
     );
-    match clip.and_then(|request| request.time) {
+    let time = clip.and_then(|request| {
+        let row = animator.spec.row_name(animator.authored_slot())?;
+        request.time_for_row(row)
+    });
+    match time {
         Some(ambition_sim_view::ClipTime::Seconds { elapsed, looping }) => animator.slave_clip_to_seconds(elapsed, looping),
         Some(ambition_sim_view::ClipTime::Phase(phase)) => animator.slave_clip_to(Some(phase)),
         Some(ambition_sim_view::ClipTime::Looping) => {

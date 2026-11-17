@@ -112,6 +112,7 @@ impl StopClock {
             clip: (if self.from_run { RUN_STOP_CLIP } else { STOP_CLIP }).to_string(),
             fallbacks: if self.from_run { vec![STOP_CLIP.to_string()] } else { Vec::new() },
             time: Some(crate::ClipTime::Phase(self.secs / STOP_SECS)),
+            row_clock: None,
             legs: None,
         })
     }
@@ -254,6 +255,7 @@ impl TurnClock {
             clip: TURNAROUND_CLIP.to_string(),
             fallbacks: Vec::new(),
             time: Some(crate::ClipTime::Phase(self.secs / TURN_SECS)),
+            row_clock: None,
             legs: None,
         })
     }
@@ -1007,6 +1009,7 @@ pub fn rebuild_body_pose_views(
                         clip: clip.to_string(),
                         fallbacks: Vec::new(),
                         time: Some(crate::ClipTime::Phase(phase)),
+                        row_clock: None,
                         legs: None,
                     };
                     if let Some(turn) = turn.clip(anim, free) {

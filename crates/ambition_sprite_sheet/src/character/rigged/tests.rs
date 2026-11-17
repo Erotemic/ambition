@@ -43,10 +43,10 @@ fn a_flipbook_that_names_what_it_does_not_have_is_refused() {
         RiggedSpriteAsset::from_published_ron(&bad_page),
         Err(RiggedSpriteError::MissingPage { part: 1, page: 3 })
     ));
-    let future = FIXTURE.replace("schema_version: 1", "schema_version: 4");
+    let future = FIXTURE.replace("schema_version: 1", "schema_version: 5");
     assert!(matches!(
         RiggedSpriteAsset::from_published_ron(&future),
-        Err(RiggedSpriteError::Schema { found: 4 })
+        Err(RiggedSpriteError::Schema { found: 5 })
     ));
 }
 

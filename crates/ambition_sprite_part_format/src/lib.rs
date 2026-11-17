@@ -2,7 +2,7 @@
 
 pub mod parts;
 
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 pub const SCHEMA_SOURCE: &str = include_str!("parts.rs");
 
@@ -20,6 +20,7 @@ pub fn compile_metadata(logical: &str, source: &[u8]) -> Result<Option<(String, 
     if !(1..=SCHEMA_VERSION).contains(&table.schema_version) {
         return Err(format!("{logical}: unsupported part schema {}", table.schema_version));
     }
+    table.validate_landmarks().map_err(|error| format!("{logical}: {error}"))?;
     let bytes = bincode::serialize(&table).map_err(|error| format!("{logical}: {error}"))?;
     Ok(Some((path, bytes)))
 }

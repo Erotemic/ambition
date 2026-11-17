@@ -7,15 +7,18 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abi`](src/abi.rs) | The loaded-module ABI, `ambition-ext-1`: the bytes a host and a guest exchange, and the guest half that runs an entry from them. |
+| [`contract`](src/contract.rs) | Compare module declarations across code backends. |
 | [`digest`](src/digest.rs) | A small deterministic 64-bit digest (FNV-1a). |
 | [`invoke`](src/invoke.rs) | The invocation an entry receives. |
 | [`module`](src/module.rs) | Module and entry descriptors. |
 | [`port`](src/port.rs) | Ports: the typed doors between a module and a domain. |
 | [`schema`](src/schema.rs) | State schemas, logical values and records. |
+| [`script`](src/script.rs) | What a script sees: one neutral value for an invocation, and the conversions that make it. |
+| [`structure`](src/structure.rs) | One structural description of a port's value (runtime authoring audit P2): the declaration that gives the value's wire encoding, its script form and a machine-readable [`Shape`]. |
 | [`typed`](src/typed.rs) | Typed records: a Rust struct for a state schema, with no handwritten codec. |
 | [`wire`](src/wire.rs) | The portable wire encoding: little-endian, length-prefixed, no type tags. |
 
-_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

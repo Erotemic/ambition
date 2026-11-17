@@ -56,6 +56,10 @@ pub struct Published {
     #[serde(default)]
     pub tracks: Vec<String>,
     pub clips: BTreeMap<String, PublishedClip>,
+    /// Named points per clip and frame, in full-resolution pixels from the
+    /// feet. These points do not depend on the texture quality.
+    #[serde(default)]
+    pub landmarks: BTreeMap<String, Vec<BTreeMap<String, (f32, f32)>>>,
     /// Absent in a flipbook that realizes every row from parts.
     #[serde(default)]
     pub baked_clips: Vec<String>,
@@ -107,4 +111,24 @@ fn full_resolution() -> f32 {
 
 fn opaque() -> f32 {
     1.0
+}
+
+impl Published {
+    /// Check that every named point has one finite position in its clip frame.
+    pub fn validate_landmarks(&self) -> Result<(), String> {
+        for (row, frames) in &self.landmarks {
+            let clip = self.clips.get(row).ok_or_else(|| format!("landmarks name an absent clip `{row}`"))?;
+            if frames.len() != clip.frames.len() {
+                return Err(format!("`{row}` has {} landmark frames for {} clip frames", frames.len(), clip.frames.len()));
+            }
+            for (frame, points) in frames.iter().enumerate() {
+                for (name, (x, y)) in points {
+                    if !x.is_finite() || !y.is_finite() {
+                        return Err(format!("`{row}` frame {frame} landmark `{name}` is not finite"));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }

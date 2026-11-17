@@ -285,10 +285,9 @@ struct AskedHeld {
 
 /// Where `ray`, asked for by `owner` (with kinematics `body`), starts and how
 /// wide it is. A ray from a part its art draws leaves the whole part, at the
-/// middle of its front edge ([`ambition_combat_port::PartSpot`]); one whose
-/// art does not draw the part starts at the part's `otherwise` offset, at
-/// the ray's own width. `None`: a body ray of a body with no kinematics, or a
-/// part whose place does not map.
+/// named landmark ([`ambition_combat_port::PartSpot`]). Its part box gives
+/// the width, or the request gives it when no box is published. A missing
+/// point or a point that cannot map refuses the ray.
 fn ray_start(
     ray: &HeldRay,
     owner: Entity,
@@ -304,19 +303,21 @@ fn ray_start(
             let part = match spot.part {
                 ArtPart::Visor => ambition_characters::actor::PartBox::Visor,
             };
-            let rows: Vec<&str> = spot.rows.iter().map(String::as_str).collect();
-            match landmarks.part_box_in_row(owner, part, &rows, spot.elapsed, spot.inset_px) {
-                Some(drawn) => {
-                    let front = bevy::math::Vec2::new(drawn.max.x, drawn.center().y);
-                    match landmarks.place_rig_point(owner, front, kin) {
-                        Ok(at) => Some((at, drawn.height())),
-                        Err(fault) => {
-                            trace!(?owner, ?fault, "ray part did not map");
-                            None
-                        }
-                    }
+            let requested: Vec<&str> = spot.rows.iter().map(String::as_str).collect();
+            let rows = landmarks.rows_for_stance(owner, &requested);
+            let rows: Vec<&str> = rows.iter().map(String::as_str).collect();
+            let landmark = ambition_characters::actor::Landmark::ALL.into_iter()
+                .find(|landmark| landmark.attachment() == spot.landmark)?;
+            let point = landmarks.in_rig_space(owner, landmark,
+                crate::body_landmarks::LandmarkPose::Row { chain: &rows, elapsed_s: spot.elapsed, looping: spot.looping })?;
+            let width = landmarks.part_box_in_row(owner, part, &rows, spot.elapsed, spot.looping, spot.inset_px)
+                .map_or(ray.width, |bounds| bounds.height());
+            match landmarks.place_rig_point(owner, point, kin) {
+                Ok(at) => Some((at, width)),
+                Err(fault) => {
+                    trace!(?owner, ?fault, "ray landmark did not map");
+                    None
                 }
-                None => Some((kin.pos + ae::Vec2::from(spot.otherwise), ray.width)),
             }
         }
     }
@@ -386,7 +387,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     admitted: Res<AdmittedExtensions>,
     mut holders: Query<(Entity, &mut HeldDamageBoxes)>,
-    mut hitboxes: Query<(&mut crate::strike::Hitbox, Option<&mut crate::strike::RayStrike>)>,
+    mut hitboxes: Query<(&mut crate::strike::Hitbox, &mut crate::strike::HitboxLifetime, Option<&mut crate::strike::RayStrike>)>,
     factions: Query<(
         &ActorFaction,
         Option<&ambition_characters::control::DrivingParticipant>,
@@ -487,7 +488,9 @@ fn lower_held_damage_boxes<P: LowersIn>(
                 .flat_map(|h| h.0.iter())
                 .find(|r| *r.entry == *s.entry && r.slot == s.slot && r.generation == s.generation)
                 .map(|r| r.entity);
-            if let Some((mut hitbox, ray)) = entity.and_then(|e| hitboxes.get_mut(e).ok()) {
+            if let Some((mut hitbox, mut lifetime, ray)) = entity.and_then(|e| hitboxes.get_mut(e).ok()) {
+                // Renew the lease without replacing the strike's hit memory.
+                lifetime.remaining_s = s.lifetime_s;
                 hitbox.anchor = crate::strike::HitboxAnchor::World { center: s.center };
                 hitbox.launch_dir = s.launch_dir.map(port_launch_direction);
                 if let (Some(mut held_ray), Some(cast)) = (ray, &s.ray) {

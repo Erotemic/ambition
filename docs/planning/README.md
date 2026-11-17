@@ -155,6 +155,7 @@ links to.
 
 ### Engine: fast iteration and extensions
 
+- [`engine/first-class-procedural-game-authoring.md`](engine/first-class-procedural-game-authoring.md) — completion contract for Rhai, WASM Rust, and linked Rust game modules.
 - [`engine/extension-model.md`](engine/extension-model.md) — the model and its
   tiers.
 - [`engine/extension-state-and-execution.md`](engine/extension-state-and-execution.md)

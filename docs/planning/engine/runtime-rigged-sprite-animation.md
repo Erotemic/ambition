@@ -172,6 +172,27 @@ important rig capability, not only a texture or animation saving: hands touch
 things, weapons attach consistently, shots leave believable places, riders
 mount at authored anchors, and petting and contact align.
 
+**Eye point (2026-11-16).** `Landmark::Eye` is an authored emission point.
+Schema 4 part tables can publish `landmarks` as a map from clip name to one
+map of named points per frame. Points are full-resolution pixels from the
+feet; quality conversion keeps them unchanged. The robot publishes its eye
+from the visor and head pose. `BodyLandmarks` reads the point on the selected
+row's clock. Held rays use this point for their origin and the visor box for
+width. A missing point does not use a guessed body offset.
+
+Capture the standing and crouched firing poses through the production renderer:
+
+```bash
+cargo build -p ambition_app_tools --bin capture_scene
+./target/debug/capture_scene central_hub_complex player target/eye-review.png 960x540 \
+  --warmup 60 --frames 2 --stride 30 --gear eye_laser@30 \
+  --player-holds projectile@40 --player-holds down+projectile@70 \
+  --tick-per-frame --camera-zoom tight --art-snapshot
+```
+
+`--gear` uses the catalog row's grants, not only its display id. A content pin
+clocks its selected row in either stance. Its fallback keeps the base clock.
+
 **Vocabulary (target).** Hands (near/far), muzzle/projectile origin, feet,
 head, held-item sockets, weapon grips, rider/mount anchors, petting/contact
 points. The rig attachments (`HandNear`, `HandFar`, `Head`, `FootNear`,

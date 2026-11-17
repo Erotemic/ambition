@@ -474,6 +474,14 @@ pub fn row_loops(name: &str) -> bool {
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActorAnimOverride(pub CharacterAnim);
 
+/// The suffix of an authored row for a compact stance.
+pub const CROUCH_VARIANT_SUFFIX: &str = "_crouch";
+
+/// The authored row for a compact stance.
+pub fn stance_row(row: &str, crouched: bool) -> String {
+    if crouched { format!("{row}{CROUCH_VARIANT_SUFFIX}") } else { row.to_owned() }
+}
+
 /// A body drawn as a NAMED sheet row, pinned by content: the rows no picker can
 /// name — a scholar's tumble, a gnu's buck, a fist driven into the floor.
 ///

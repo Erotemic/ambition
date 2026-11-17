@@ -455,6 +455,81 @@ pub fn module_for_file<'a>(
 
 #[cfg(test)]
 mod tests {
+    use ambition_extension_sdk::*;
+
+    struct Tick;
+    impl Port for Tick {
+        const KEY: PortKey = PortKey::new("test.tick", 1);
+        const ROLE: PortRole = PortRole::Trigger;
+        type Value = u32;
+        fn encode(value: &u32, out: &mut Vec<u8>) { wire::put_u32(out, *value); }
+        fn decode(r: &mut wire::WireReader<'_>) -> Result<u32, wire::WireError> { r.u32() }
+    }
+    ambition_extension_sdk::script_port!(Tick);
+
+    const CLOCK: &str = r#"
+        fn declare() {
+            #{ provider: "test", key: "clock",
+               schemas: [#{ key: "count", attachment: "body", fields: [
+                   #{tag: 1, name: "ticks", kind: "u32"}
+               ]}],
+               entries: [#{ key: "tick", phase: "actor_think",
+                   trigger: #{ port: "tick", selector: "clock" },
+                   writes: ["count"], limit: 1
+               }]
+            }
+        }
+        fn tick() { this.state.count.ticks += 1; }
+    "#;
+
+    fn native_clock() -> ModuleDescriptor {
+        ModuleDescriptor {
+            key: ModuleKey::new("test", "clock"), api: API_VERSION,
+            code: CodeIdentity::StaticNative { crate_name: "clock".into(), version: "1".into() },
+            schemas: vec![StateSchema {
+                key: SchemaKey::new("test", "count", 1), attachment: Attachment::Body,
+                save: SaveEligibility::Transient, fields: vec![FieldDecl::new(1, "ticks", FieldKind::U32)],
+            }],
+            entries: vec![EntryDescriptor {
+                key: "tick".into(), phase: phases::ACTOR_THINK,
+                trigger: TriggerBinding { port: Tick::KEY, selector: "clock".into() },
+                reads: vec![], writes: vec![SchemaKey::new("test", "count", 1)], requests: vec![], after: vec![],
+                limits: Limits { max_requests: 1 }, on_idle: IdlePolicy::Invoke,
+                run: EntryCode::Native(|inv| {
+                    let record = inv.state(&SchemaKey::new("test", "count", 1))?;
+                    let count = record.get(FieldRef(0)).unwrap().as_u32().unwrap();
+                    record.set(FieldRef(0), Value::U32(count + 1)).unwrap();
+                    Ok(())
+                }),
+            }],
+        }
+    }
+
+    fn declared_clock(text: &str) -> ModuleDescriptor {
+        let mut ports = script::ScriptPorts::default();
+        ports.add::<Tick>("tick");
+        super::RhaiModules::load_declared("clock.rhai", text, ports, super::DEFAULT_MAX_OPERATIONS)
+            .unwrap().1.remove(0)
+    }
+
+    #[test]
+    fn an_independent_rhai_declaration_matches_rust_and_reports_state_drift() {
+        let native = native_clock();
+        let script = declared_clock(CLOCK);
+        assert_ne!(native.code, script.code);
+        assert_eq!(native.semantic_bytes(), script.semantic_bytes());
+        assert!(native.semantic_differences(&script).is_empty());
+        for (from, to, field) in [
+            ("\"body\"", "\"session\"", ".attachment"),
+            ("\"u32\"", "\"i32\"", ".kind"),
+            ("limit: 1", "limit: 2", ".limits"),
+        ] {
+            let candidate = declared_clock(&CLOCK.replace(from, to));
+            let differences = native.semantic_differences(&candidate);
+            assert!(differences.iter().any(|d| d.path.ends_with(field)), "{differences:?}");
+        }
+    }
+
     #[test]
     fn invalid_source_reports_its_position_before_native_lookup() {
         let error = super::RhaiModules::load_file(

@@ -32,6 +32,8 @@ pub const HAND_NEAR: &str = "hand_near";
 pub const HAND_FAR: &str = "hand_far";
 /// The centre of the head.
 pub const HEAD: &str = "head";
+/// The point from which an eye effect leaves the face.
+pub const EYE: &str = "eye";
 /// The tip of the leg in front.
 pub const FOOT_NEAR: &str = "foot_near";
 /// The tip of the leg behind.
@@ -251,18 +253,19 @@ pub struct RigClip {
     pub frames: Vec<Vec<JointPose>>,
 }
 
+/// Select a clip frame on an explicit clock. A loop wraps; a one-shot holds.
+pub fn clip_frame_at_time(elapsed_s: f32, frame_duration_s: f32, count: usize, looping: bool) -> usize {
+    let count = count.max(1);
+    let index = (elapsed_s.max(0.0) / frame_duration_s).floor();
+    let index = if index.is_finite() { index as usize } else { 0 };
+    if looping { index % count } else { index.min(count - 1) }
+}
+
 impl RigClip {
     /// The frame a body shows `elapsed_s` seconds into this clip on its own
     /// clock. A looping clip wraps; a one-shot holds its last frame.
     pub fn frame_at_time(&self, elapsed_s: f32) -> usize {
-        let count = self.frames.len().max(1);
-        let index = (elapsed_s.max(0.0) / self.frame_duration_s).floor();
-        let index = if index.is_finite() { index as usize } else { 0 };
-        if self.looping {
-            index % count
-        } else {
-            index.min(count - 1)
-        }
+        clip_frame_at_time(elapsed_s, self.frame_duration_s, self.frames.len(), self.looping)
     }
 
     /// The frame a MOVE shows at normalized progress `phase` in `[0, 1]`. The

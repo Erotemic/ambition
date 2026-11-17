@@ -38,10 +38,9 @@ use crate::hurtbox_resolution::{BodyPoseClock, Gait};
 pub enum LandmarkPose<'a> {
     /// The pose the body's clocks select this tick.
     ThisTick,
-    /// The first clip of `chain` the source has, at normalized progress in
-    /// `[0, 1]`: the pose of a gesture a script plays or will play, which the
-    /// body's clocks do not hold. The chain is the row chain the gesture is
-    /// drawn from, so the answer is of the row on screen.
+    /// A named row on its own clock, in simulation seconds.
+    Row { chain: &'a [&'a str], elapsed_s: f32, looping: bool },
+    /// The first clip of `chain` at normalized progress in `[0, 1]`.
     Clip { chain: &'a [&'a str], phase: f32 },
 }
 
@@ -66,6 +65,13 @@ pub fn rig_landmark(
 ) -> Option<Vec2> {
     match pose {
         LandmarkPose::ThisTick => resolved?.attachment(rig, landmark.attachment()),
+        LandmarkPose::Row { chain, elapsed_s, looping } => {
+            let attachment = &rig.attachments()[rig.attachment_index(landmark.attachment())?];
+            let (name, clip) = rig.first_clip(chain.iter().copied())?;
+            let mut joints = Vec::new();
+            rig.solve(name, ambition_characters::actor::body_rig::clip_frame_at_time(elapsed_s, clip.frame_duration_s, clip.frames.len(), looping), &mut joints)
+                .then(|| joints[usize::from(attachment.joint)].transform_point2(attachment.offset))
+        }
         LandmarkPose::Clip { chain, phase } => {
             let attachment = &rig.attachments()[rig.attachment_index(landmark.attachment())?];
             let (name, clip) = rig.first_clip(chain.iter().copied())?;
@@ -92,6 +98,10 @@ pub fn package_landmark(
         LandmarkPose::ThisTick => {
             let (clip, frame) = select_pose_frame(table, clocks.active_move, clocks.pose, clocks.gait)?;
             table.point(landmark, clip, frame)
+        }
+        LandmarkPose::Row { chain, elapsed_s, looping } => {
+            let (name, clip) = table.first_clip(chain.iter().copied())?;
+            table.point(landmark, name, ambition_characters::actor::body_rig::clip_frame_at_time(elapsed_s, clip.frame_duration_s, clip.frames.len(), looping))
         }
         LandmarkPose::Clip { chain, phase } => {
             let (name, _) = table.first_clip(chain.iter().copied())?;
@@ -162,6 +172,13 @@ impl BodyLandmarks<'_, '_> {
         package_landmark(landmark, pose, &table, world_per_pixel, clocks)
     }
 
+    /// Select the authored stance variant of a requested row.
+    pub fn rows_for_stance(&self, body: Entity, rows: &[&str]) -> Vec<String> {
+        let crouched = self.bodies.get(body).ok().and_then(|(_, _, _, _, _, clock, _)| clock)
+            .is_some_and(|clock| clock.pose == crate::hurtbox_resolution::POSE_CROUCH);
+        rows.iter().map(|row| ambition_sprite_sheet::character::stance_row(row, crouched)).collect()
+    }
+
     /// The hand the character of `body` states it makes a gesture with: the
     /// near hand when it states none, or wears no character.
     pub fn stated_gesture_hand(&self, body: Entity) -> ambition_characters::actor::GestureHand {
@@ -227,6 +244,7 @@ impl BodyLandmarks<'_, '_> {
         part: ambition_characters::actor::PartBox,
         rows: &[&str],
         elapsed_s: f32,
+        looping: bool,
         inset_px: f32,
     ) -> Option<bevy::math::Rect> {
         let (worn, posed, render_size, ..) = self.bodies.get(body).ok()?;
@@ -234,7 +252,7 @@ impl BodyLandmarks<'_, '_> {
         let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(&self.sprite_content, sheet)?;
         let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
         let (name, clip) = table.first_clip(rows.iter().copied())?;
-        let pixels = table.part_box(part, name, clip.frame_at_time(elapsed_s))?.inflate(-inset_px);
+        let pixels = table.part_box(part, name, ambition_characters::actor::body_rig::clip_frame_at_time(elapsed_s, clip.frame_duration_s, clip.frames.len(), looping))?.inflate(-inset_px);
         (!pixels.is_empty())
             .then(|| bevy::math::Rect::from_corners(pixels.min * world_per_pixel, pixels.max * world_per_pixel))
     }

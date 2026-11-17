@@ -236,3 +236,14 @@ fn a_rig_and_a_package_keep_one_time_for_a_looping_and_a_one_shot_clip() {
         assert_eq!(of_table, of_rig, "the package table against the rig, pose `{pose}`");
     }
 }
+
+
+#[test]
+fn a_module_row_uses_its_own_loop_clock_for_its_landmarks() {
+    let table = table();
+    let sample = |looping| package_landmark(Landmark::HandNear,
+        LandmarkPose::Row { chain: &["pet"], elapsed_s: 0.5, looping },
+        &table, 1.0, PoseClocks::default()).unwrap().x;
+    assert_eq!(sample(true), 21.0);
+    assert_eq!(sample(false), 23.0);
+}

@@ -1715,17 +1715,18 @@ machine without the generated fonts falls back to Bevy's font, which has no
 
 **Next action:** the touch overlay waits on
 [Q178](awaiting-maintainer-decision.md#q178--on-a-small-screen-does-the-touch-overlay-give-way-to-a-menu);
-the next screen is the in-session pause cube. Measured 2026-11-17
-(`capture_scene --route ambition_gameplay OUT 640x360 --press
-"wait:60,Escape,wait:30" --include-ui`): the cube fits, but its page is laid
-in face-relative units (`Rl`/`Rh`, `game/ambition_menu_kaleidoscope/src/page.rs`),
-so at 640x360 the whole face shrinks with the screen: row labels are about
-8 px tall and the description line about 5 px, unreadable on a phone. The
-fix is a short-viewport density: the System face shows fewer, taller rows
-(4 instead of `SYSTEM_VISIBLE_ROWS` 6, `game/ambition_app/src/menu/model.rs`)
-with a larger label and description when the menu viewport is under 480 px
-high, so `SYSTEM_VISIBLE_ROWS` becomes a value the model carries (it has 61
-readers outside `model.rs`). The inventory comes after it.
+the in-session pause cube is partly done (2026-11-17). Its page is laid in
+face-relative units (`Rl`/`Rh`, `game/ambition_menu_kaleidoscope/src/page.rs`),
+so the whole face shrinks with the screen: at 640x360 the six System rows
+read at about 8 px. `InventoryLayout` now carries the System row count with
+the item columns, from the menu region: under 480 px high the face shows 4
+taller rows and a 1.35x description, and the wheel, drag and window helpers
+take the count from the same region. Witness: `capture_scene --route
+ambition_gameplay OUT 640x360 --press "wait:60,Escape,wait:30" --include-ui`
+(labels about 11 px; 1280x720 unchanged at six rows). What still limits it
+is the face itself, 79% of the screen height (`MenuCubeGeometry::TARGET_FACE_FILL`):
+the next step is a short screen's camera filling the height with the active
+face. The inventory comes after it.
 
 ### CONTENT-AS-DATA — content still written as Rust
 

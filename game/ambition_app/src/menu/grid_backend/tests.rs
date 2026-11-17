@@ -1,6 +1,6 @@
 use crate::menu::dispatch::menu_action_activated;
 use super::*;
-use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
+use crate::menu::model::{build_inventory_pages, system_rows, SystemRow, SYSTEM_VISIBLE_ROWS};
 use ambition_platformer2d::characters::brain::ActionSet;
 use ambition_platformer2d::items::{Item, ITEM_GRID_COLS};
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
@@ -1035,7 +1035,7 @@ fn grid_mouse_wheel_scrolls_window_not_selection() {
         total > SYSTEM_VISIBLE_ROWS,
         "fixture must overflow: {total}"
     );
-    let max = system_max_window_start(total);
+    let max = system_max_window_start(total, SYSTEM_VISIBLE_ROWS);
 
     let cursor_before =
         crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus();
@@ -1112,7 +1112,7 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
 fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
     let mut app = scroll_grid_app();
     let total = grid_scroll_total_rows(&mut app);
-    let max = system_max_window_start(total);
+    let max = system_max_window_start(total, SYSTEM_VISIBLE_ROWS);
     assert!(max > 0, "fixture must be scrollable");
 
     let cursor_before =

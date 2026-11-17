@@ -29,6 +29,7 @@ fn system_row_count(
 /// steps; the tap it began as is cancelled by the pointer observers.
 pub(crate) fn kaleidoscope_scroll_wheel(
     backend: Res<InventoryUiBackend>,
+    regions: Query<&crate::menu::regions::MenuRegion>,
     mut menus: Query<(
         Entity,
         &ambition_platformer2d::inventory_ui::InventoryUiState,
@@ -66,10 +67,11 @@ pub(crate) fn kaleidoscope_scroll_wheel(
         }
         let model = snapshot.model(&settings, menu, quality_confirm.pending());
         let total = system_row_count(&pages, &system_nav, &model, quality_confirm.pending());
-        if total <= SYSTEM_VISIBLE_ROWS {
+        let visible = crate::menu::model::InventoryLayout::for_region(regions.get(menu).ok()).system_rows;
+        if total <= visible {
             continue; // nothing to scroll
         }
-        let max = system_max_window_start(total) as i32;
+        let max = system_max_window_start(total, visible) as i32;
         // Seed from the effective start so the first wheel notch moves relative to what
         // is currently shown (cursor-derived window) rather than jumping to 0.
         let rows = system_rows_with_quality_prompt(
@@ -78,7 +80,7 @@ pub(crate) fn kaleidoscope_scroll_wheel(
             quality_confirm.pending(),
         );
         let current =
-            system_effective_window_start(&rows, cursor.focus, scroll.system_window_start) as i32;
+            system_effective_window_start(&rows, cursor.focus, scroll.system_window_start, visible) as i32;
         let next = (current + steps).clamp(0, max) as usize;
         scroll.system_window_start = Some(next);
     }
@@ -88,6 +90,7 @@ pub(crate) fn kaleidoscope_scroll_wheel(
 /// host System-menu window. Selection is unchanged; only the visible rows move.
 pub(crate) fn kaleidoscope_apply_scroll_drag(
     backend: Res<InventoryUiBackend>,
+    regions: Query<&crate::menu::regions::MenuRegion>,
     mut menus: Query<(
         &ambition_platformer2d::inventory_ui::InventoryUiState,
         &ActiveMenuPages<MenuPage, MenuPageAction>,
@@ -113,7 +116,8 @@ pub(crate) fn kaleidoscope_apply_scroll_drag(
         }
         let model = snapshot.model(&settings, drag.menu, quality_confirm.pending());
         let total = system_row_count(pages, system_nav, &model, quality_confirm.pending());
-        if let Some(start) = scroll_fraction_to_window_start(total, drag.fraction.clamp(0.0, 1.0)) {
+        let visible = crate::menu::model::InventoryLayout::for_region(regions.get(drag.menu).ok()).system_rows;
+        if let Some(start) = scroll_fraction_to_window_start(total, drag.fraction.clamp(0.0, 1.0), visible) {
             scroll.system_window_start = Some(start);
         }
     }

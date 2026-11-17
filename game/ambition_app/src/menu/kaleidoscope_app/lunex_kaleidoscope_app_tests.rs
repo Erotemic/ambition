@@ -2,7 +2,7 @@
 //! systems/observers as the app wires them.
 use super::*;
 use crate::menu::dispatch::menu_action_activated;
-use crate::menu::model::{build_inventory_pages, system_rows};
+use crate::menu::model::{build_inventory_pages, system_rows, SYSTEM_VISIBLE_ROWS};
 use crate::menu::test_support::{
     click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
 };
@@ -1728,7 +1728,7 @@ fn a_finger_drag_scrolls_the_window_not_the_selection() {
 fn scrollbar_drag_fraction_sets_window_start_proportionally() {
     let mut app = scroll_app();
     let total = scroll_total_rows(&app);
-    let max = system_max_window_start(total);
+    let max = system_max_window_start(total, SYSTEM_VISIBLE_ROWS);
     assert!(max > 0, "fixture must be scrollable");
 
     let cursor_before =

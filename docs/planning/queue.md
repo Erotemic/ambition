@@ -1682,8 +1682,19 @@ each pixel-laid screen. Ruling: Q165 (2026-10-19), screen by screen.
 shows 3 of 6 roster columns and no START; the dialogue box covers half the
 screen; the touch stick covers each menu's left side.
 
-**Next action:** one screen at a time, state what it does when small (scroll,
-fewer lines, a floor for text and touch targets), with a `capture_scene`
+**Done 2026-11-17, the Smash select screen:** its layout was already a
+function of the viewport (six columns paged with arrows, START and the four
+player cards), but it read only a `Window`, so a windowless capture laid it
+out at 1280x720 and cropped it: the 2026-10-09 measurement above was that
+crop. It now falls back to the `HeadlessDisplaySurface` a capture declares,
+as the host's own layout does; `capture_scene --route smash_select` at
+640x360 shows the whole screen. What still covers it at 640x360 is the touch
+overlay: the stick's fixed footprint (about 210 px of a 360 px height) hides
+P1's card and the page arrow, and the action buttons sit over START.
+
+**Next action:** the touch overlay on small menus: scale its footprint with
+the viewport, or have each menu reserve the published `ControlFootprints`;
+then the dialogue box, one screen at a time, each with a `capture_scene`
 witness at 640x360 and 1280x720.
 
 ### CONTENT-AS-DATA — content still written as Rust

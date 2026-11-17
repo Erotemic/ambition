@@ -434,12 +434,20 @@ fn portrait_art(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteCont
     Some((handle, rect))
 }
 
-/// The viewport this screen is laid out for, or `None` where there is no window.
-fn viewport(windows: &Query<&Window>) -> Option<Vec2> {
+/// The surface the host gameplay presentation resolves against when there is
+/// no window (a capture, an offscreen render).
+type HeadlessSurface<'w> = Option<Res<'w, ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface>>;
+
+/// The viewport this screen is laid out for: the window, else the surface a
+/// windowless composition declared (as the host's own layout resolves), else
+/// `None`. Without the second, a 640x360 capture laid the screen out for
+/// [`layout::HEADLESS_VIEWPORT`] and cropped it.
+fn viewport(windows: &Query<&Window>, headless: &HeadlessSurface<'_>) -> Option<Vec2> {
     windows
         .iter()
         .next()
         .map(|window| Vec2::new(window.width(), window.height()))
+        .or_else(|| headless.as_ref().map(|surface| Vec2::new(surface.0.x, surface.0.y)))
 }
 
 /// Does backing out of this lobby lead anywhere?
@@ -486,11 +494,12 @@ pub struct SelectPage(pub usize);
 
 pub fn current_layout(
     windows: &Query<&Window>,
+    headless: &HeadlessSurface<'_>,
     fighters: &SmashRoster,
     page: &SelectPage,
 ) -> SelectLayout {
     SelectLayout::paged(
-        viewport(windows).unwrap_or(layout::HEADLESS_VIEWPORT),
+        viewport(windows, headless).unwrap_or(layout::HEADLESS_VIEWPORT),
         fighters.cell_count(),
         page.0,
     )
@@ -959,6 +968,7 @@ pub fn despawn_select_screen(
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SelectScreenInputs<'w, 's> {
     windows: Query<'w, 's, &'static Window>,
+    headless: HeadlessSurface<'w>,
     mouse: Option<Res<'w, ButtonInput<MouseButton>>>,
     touches: Option<Res<'w, Touches>>,
     seat_frames: Option<Res<'w, ambition_platformer2d::input::SeatMenuFrames>>,
@@ -1007,7 +1017,7 @@ pub(crate) fn drive_the_cursor(
     inputs: SelectScreenInputs,
     mut local: Local<SelectDriverLocal>,
 ) {
-    let layout = current_layout(&inputs.windows, &fighters, &page);
+    let layout = current_layout(&inputs.windows, &inputs.headless, &fighters, &page);
     let exit = exit_leads_somewhere(inputs.host.as_deref());
     // The layout says where things are; the screen says what is reachable
     // (as `token_rect` does for an absent slot's token).
@@ -1538,10 +1548,11 @@ pub fn place_the_screen(
     fighters: Res<SmashRoster>,
     page: Res<SelectPage>,
     windows: Query<&Window>,
+    headless: HeadlessSurface,
     mut nodes: Query<(&Anchored, &mut Node)>,
     mut page_counts: Query<&mut Text, With<PageCountLabel>>,
 ) {
-    let layout = current_layout(&windows, &fighters, &page);
+    let layout = current_layout(&windows, &headless, &fighters, &page);
     for (anchor, mut node) in &mut nodes {
         let rect = match *anchor {
             Anchored::Title => Some(layout.title()),
@@ -1797,12 +1808,13 @@ pub fn sync_select_tokens_and_cursors(
     fighters: Res<SmashRoster>,
     page: Res<SelectPage>,
     windows: Query<&Window>,
+    headless: HeadlessSurface,
     offer: Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
     devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     mut tokens: Query<(&SlotToken, &mut Node, &mut Visibility), Without<CursorNode>>,
     mut cursor_nodes: Query<(&CursorNode, &mut Node, &mut Visibility), Without<SlotToken>>,
 ) {
-    let layout = current_layout(&windows, &fighters, &page);
+    let layout = current_layout(&windows, &headless, &fighters, &page);
     let offered_seats = offer
         .as_deref()
         .map(|offer| offer.seats() as usize)

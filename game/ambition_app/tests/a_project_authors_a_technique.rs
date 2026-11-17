@@ -1,4 +1,4 @@
-//! A project declares a technique, its equipment binding, and its emitter.
+//! A project declares a character technique, its patrol, and its emitter.
 //! The host supplies the body, input, identity, requests, and rollback.
 
 #![cfg(feature = "rl_sim")]
@@ -12,7 +12,6 @@ use ambition_platformer2d::extension::sdk::{FieldRef, SchemaKey, Value};
 use ambition_platformer2d::extension::{
     AdmittedExtensions, BodyRecords, ExtensionFaults, ExtensionGeneration,
 };
-use ambition_platformer2d::items::{Item, ItemEquipRequested};
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::prelude::{Entity, Messages};
 use std::path::{Path, PathBuf};
@@ -35,22 +34,20 @@ fn options(rollback: bool) -> Platformer2dSimHarnessOptions {
     }
 }
 
-fn equip(sim: &mut Platformer2dSimHarness) {
+fn ready(sim: &mut Platformer2dSimHarness) {
     assert!(
         ambition_platformer2d::world::rooms::sole_live_room_definition(sim.world()).is_some(),
         "the project session did not start: {:?}",
         sim.world().resource::<ambition_platformer2d::game_shell::ShellFailureLog>().reasons(),
     );
-    ambition_platformer2d::platformer::host_intents::write_host_intent(
-        sim.world_mut(),
-        ItemEquipRequested {
-            participant: ambition_platformer2d::characters::control::PlayerSlot(0),
-            item: Item::EyeLaser,
-        },
-    );
     for _ in 0..5 {
         sim.step(AgentAction::default());
     }
+    let world = sim.world_mut();
+    let body = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+    assert!(world.get::<ambition_platformer2d::characters::action_scheme::ActorTechniques>(body)
+        .is_some_and(|techniques| techniques.all().iter().any(|action| action.id.as_str() == "pulse_forge")),
+        "the character declares its technique without an inventory binding");
 }
 
 fn charge(sim: &mut Platformer2dSimHarness, ticks: usize) {
@@ -140,7 +137,7 @@ fn a_project_declares_and_runs_a_charged_technique_through_rollback() {
             .iter()
             .any(|e| e.path == "pulse_forge::emitter/pulse")
     );
-    equip(&mut sim);
+    ready(&mut sim);
     charge(&mut sim, 40);
     let seconds = charged_seconds(&mut sim);
     assert!(
@@ -199,7 +196,7 @@ impl ScratchProject {
         std::fs::write(dir.join("modules/pulse_forge.rhai"), script).unwrap();
         let content = example().join("content").canonicalize().unwrap();
         std::fs::write(dir.join("project.ron"), format!(
-            "(schema: \"ambition.project.v1\", name: \"pulse test\", content: Some({:?}), worlds: Some(\"worlds\"), modules: [\"modules\"], starting_items: Some([(\"eyelaser\", 1)]))",
+            "(schema: \"ambition.project.v1\", name: \"pulse test\", content: Some({:?}), worlds: Some(\"worlds\"), modules: [\"modules\"], starting_items: Some([]))",
             content.to_str().unwrap(),
         )).unwrap();
         Self(dir)
@@ -307,7 +304,7 @@ fn a_project_technique_fault_keeps_its_charge_and_spawns_nothing() {
     assert!(throwing.contains("throw"));
     let project = ScratchProject::new("fault", &throwing);
     let mut sim = project.sim(true);
-    equip(&mut sim);
+    ready(&mut sim);
     charge(&mut sim, 40);
     let before = charged_seconds(&mut sim);
     assert!(before > 0.0);
@@ -344,7 +341,7 @@ fn a_project_technique_keeps_last_good_code_then_reloads_and_leaves() {
     let original = source();
     let project = ScratchProject::new("reload", &original);
     let mut sim = project.sim(false);
-    equip(&mut sim);
+    ready(&mut sim);
     let generation = sim.world().resource::<ExtensionGeneration>().clone();
     project.edit("fn declare() { syntax error");
     for _ in 0..50 {
@@ -422,7 +419,7 @@ fn a_failed_file_keeps_the_whole_script_set_until_a_repaired_set_loads() {
     let original = source();
     let project = ScratchProject::new("atomic_set", &original);
     let mut sim = project.sim(false);
-    equip(&mut sim);
+    ready(&mut sim);
     let generation = sim.world().resource::<ExtensionGeneration>().clone();
     project.edit(&original.replace("const BOLT_SPEED = 240.0;", "const BOLT_SPEED = 360.0;"));
     let second = project.0.join("modules/second_forge.rhai");

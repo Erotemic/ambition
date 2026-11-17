@@ -4,5 +4,5 @@
     content: Some("content"),
     worlds: Some("worlds"),
     modules: ["modules"],
-    starting_items: Some([("eyelaser", 1), ("lantern", 1)]),
+    starting_items: Some([]),
 )

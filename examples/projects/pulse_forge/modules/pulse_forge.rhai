@@ -1,4 +1,4 @@
-// The equipment row binds pulse_forge to the Projectile slot.
+// The character declares pulse_forge on the Projectile slot.
 // The body and each emitter keep separate records in the rollback state.
 const CHARGE_PER_PULSE_S = 0.2;
 const MAX_CHARGE_S = 1.0;

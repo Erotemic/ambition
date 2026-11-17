@@ -4,14 +4,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use ambition_app::app::project::Project;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_combat_port::{EndModuleEntityPort, SpawnModuleEntityPort, SpendManaPort};
+use ambition_combat_port::{EndModuleEntityPort, SpawnModuleEntityPort, SpendManaPort, SteerPort};
 use ambition_extension_host::ExtensionOutbox;
 use ambition_platformer2d::abilities::module_entity::ModuleEntity;
-use ambition_platformer2d::characters::control::PlayerSlot;
 use ambition_platformer2d::extension::{AdmittedExtensions, BodyRecords, ExtensionFaults, ExtensionSet, ModuleImplementation};
 use ambition_platformer2d::extension::sdk::{phases, ModuleKey, Phase};
 use ambition_platformer2d::extension::sdk::script::{ScriptPort, ScriptValue, record_to_script};
-use ambition_platformer2d::items::{Item, ItemEquipRequested};
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::sim::{SimScheduleExt, SimTick};
@@ -52,6 +50,8 @@ fn observe(world: &mut World, phase: Phase, settled: bool) {
     let tick = world.resource::<SimTick>().get();
     let row = if phase == phases::TECHNIQUE_EXECUTION {
         json!({"spawn": submitted::<SpawnModuleEntityPort>(world, &phase), "cost": submitted::<SpendManaPort>(world, &phase)})
+    } else if phase == phases::ACTOR_THINK {
+        json!({"steer": submitted::<SteerPort>(world, &phase)})
     } else {
         json!({"projectile": submitted::<ProjectileSpawnPort>(world, &phase), "end": submitted::<EndModuleEntityPort>(world, &phase)})
     };
@@ -65,7 +65,7 @@ fn add_observers(sim: &mut Platformer2dSimHarness) {
     let app = sim.app_mut();
     app.init_resource::<Requests>();
     let schedule = app.sim_schedule();
-    for phase in [phases::TECHNIQUE_EXECUTION, phases::MODULE_ENTITY_TICK] {
+    for phase in [phases::ACTOR_THINK, phases::TECHNIQUE_EXECUTION, phases::MODULE_ENTITY_TICK] {
         let before = phase.clone();
         let after = phase.clone();
         app.add_systems(schedule, (
@@ -94,13 +94,17 @@ fn facts(sim: &mut Platformer2dSimHarness) -> Value {
         &ambition_platformer2d::engine_core::BodyKinematics)>()
         .iter(world).map(|(id, _, body)| json!({"id": id.as_str(), "position": body.pos, "velocity": body.vel})).collect();
     projectiles.sort_by_key(Value::to_string);
+    let mut actors = BTreeMap::new();
+    for (id, body) in world.query::<(&SimId, &ambition_platformer2d::engine_core::BodyKinematics)>().iter(world) {
+        actors.insert(id.as_str().to_owned(), json!({"position": body.pos, "velocity": body.vel}));
+    }
     let mut mana = BTreeMap::new();
     for (id, bank) in world.query::<(&SimId, &ambition_platformer2d::actor::ActorResources)>().iter(world) {
         if let Some(level) = bank.level_of(&ambition_platformer2d::abilities::mana::MANA) {
             mana.insert(id.as_str(), level.current);
         }
     }
-    json!({"records": records, "entities": entities, "projectiles": projectiles, "mana": mana})
+    json!({"records": records, "entities": entities, "projectiles": projectiles, "actors": actors, "mana": mana})
 }
 
 fn run(implementation: ModuleImplementation, rollback: bool, altered_source: Option<&Path>) -> Value {
@@ -121,11 +125,15 @@ fn run(implementation: ModuleImplementation, rollback: bool, altered_source: Opt
     if rollback { options = options.with_sync_test_rollback_settings(4, 10); }
     let mut sim = pulse_forge_host::sim(&project, options).unwrap();
     add_observers(&mut sim);
-    ambition_platformer2d::platformer::host_intents::write_host_intent(sim.world_mut(), ItemEquipRequested {
-        participant: PlayerSlot(0), item: Item::EyeLaser,
-    });
-    for _ in 0..5 { sim.step(AgentAction::default()); }
+    // The rollback session can run its first tick during startup. Begin both
+    // workloads at the same simulation tick, after the bodies have settled.
+    while sim.world().resource::<SimTick>().get() < 8 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(sim.world().resource::<SimTick>().get(), 8);
     let player = sim.world_mut().query_filtered::<Entity, PrimaryPlayerOnly>().single(sim.world()).unwrap();
+    assert!(sim.world().get::<ambition_platformer2d::characters::action_scheme::ActorTechniques>(player)
+        .unwrap().all().iter().any(|action| action.id.as_str() == "pulse_forge"));
     sim.world_mut().remove_resource::<ambition_platformer2d::abilities::mana::ManaRegen>();
     sim.world_mut().get_mut::<ambition_platformer2d::actor::ActorResources>(player).unwrap()
         .level_of_mut(&ambition_platformer2d::abilities::mana::MANA).unwrap().current = 72.0;
@@ -149,6 +157,15 @@ fn run(implementation: ModuleImplementation, rollback: bool, altered_source: Opt
     assert_eq!(count("spawn", false), 2, "both releases submit a spawn");
     assert_eq!(count("spawn", true), 1, "the mana owner refuses the second release");
     assert_eq!(count("projectile", false), 20, "five accepted pulses emit four ordered requests each");
+    assert!(count("steer", true) >= 280, "the patrol sends accepted steering requests");
+    assert!(frames.iter().any(|frame| frame["records"].as_object().unwrap().iter()
+        .any(|(key, record)| key.contains("sentinel.patrol") && record["turns"].as_u64().is_some_and(|turns| turns > 0))),
+        "the patrol changes direction after observing several ticks");
+    let first_steer = requests.values().filter_map(|row| row.get("steer").and_then(Value::as_array))
+        .flatten().next().expect("a tagged patrol body is present");
+    let sentinel = first_steer["value"]["body"].as_str().unwrap();
+    assert!(frames.iter().any(|frame| frame["actors"][sentinel]["position"][0] != initial["actors"][sentinel]["position"][0]),
+        "steering moves the patrol body across the room");
     assert!(frames.iter().any(|frame| !frame["entities"].as_array().unwrap().is_empty()));
     assert!(frames.iter().any(|frame| !frame["projectiles"].as_array().unwrap().is_empty()));
     assert!(frames.last().unwrap()["entities"].as_array().unwrap().is_empty());

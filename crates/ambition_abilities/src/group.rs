@@ -64,7 +64,7 @@ type MemberQuery<'a> = (
 pub fn queue_group_thinks(
     admitted: Res<AdmittedExtensions>,
     time: Res<ambition_time::WorldTime>,
-    catalog: Option<Res<CharacterCatalog>>,
+    catalog: Res<CharacterCatalog>,
     mut invocations: ResMut<ExtensionInvocations>,
     bodies: Query<MemberQuery>,
     items: Query<(Entity, &GroundItem, &ae::BodyKinematics, &ItemCustody, &SimId, Has<SettledItem>)>,
@@ -77,9 +77,6 @@ pub fn queue_group_thinks(
     if time.sim_dt() <= 0.0 {
         return;
     }
-    let Some(catalog) = catalog else {
-        return;
-    };
     let mut tags: Vec<String> = admitted
         .0
         .entries

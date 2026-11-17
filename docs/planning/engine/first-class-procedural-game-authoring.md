@@ -195,7 +195,8 @@ Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
 | A3 | SDK comparison tests: 3 passed. Active replacement inspection: 1 passed. Independent Rhai/Rust declaration: 1 passed. The inspection tool matched all 30 linked content modules with a fresh WASM build. Pulse Forge refused changed field type, attachment, and missing request port with status 1 and field paths. | Native build identity; the promoted game mechanic and its full contract checks. |
 | A4 | Pulse Forge's emitter runs as Rhai, WASM, and linked Rust. Both Rust paths use `portable/src/lib.rs`. Explicit selection keeps the same world, catalogs, and module key. Its second Rhai module remains admitted in every mode. The debug host and stock runtime were executed with no compiler on PATH. | Release-host build belongs to A8. |
 | A5 | Two promotion tests pass. Six backend/rollback cases compare 280 input frames each. They compare initial and populated state, ordered requests, body and occurrence identities, cost admission, entity lifetime, projectile motion, and mana. A second release is refused for insufficient mana. Changed Rhai bolt speed produces a structured diff. | Keep this fixture when the authored actor and catalogs change. |
-| A1, A2, A6-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Install the authored sentinel body, remove the fixed inventory binding, and execute the remaining gates. |
+| A1, A6 | Pulse Forge owns its two character rows, starting-character rule, LDtk world, technique binding, and a stateful Rhai group patrol. The stock debug runtime loads it without a compiler. The parity fixture proves emitter effects, patrol steering, horizontal motion, and turn state. The guide lists the domain interfaces. | Self-contained delivery belongs to A8. |
+| A2, A7-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Execute paired content/code reload and save acceptance, build and package the release host, measure the three backends, and finish the guide. |
 
 Commands for this slice:
 
@@ -279,8 +280,49 @@ Complete traces are under `target/pulse-forge-parity`. The negative fixture's
 diff is `target/pulse-forge-parity-negative/diff.json`. The guide states the
 fixture's tick origin and exact float comparisons. These results do not
 establish parity for other algorithms, profiles, or platforms. The next step
-is the authored actor and an innate technique binding, through the character
-catalog and the shared action scheme.
+was the authored actor and an innate technique binding, through the character
+catalog and the shared action scheme. The next receipt records that work.
+
+Independent cast slice, Linux x86_64, debug host, 2026-11-16:
+
+The example uses its own character catalog and an innate Projectile technique.
+It has no Eye Laser item binding. The room places a tagged sentinel. Its Rhai
+group rule reads room observations, keeps patrol state, and sends steering to
+the common control owner. The fixture compares horizontal motion and two turns
+alongside the emitter and mana refusal in all six backend/replay cases.
+Character grants and retraction use the shared body path (`fb341a507`). An
+explicit empty boss or cutscene catalog is valid (`e4593e3a4`). The rollback
+schema is 477 because character technique declarations now change at runtime.
+
+Focused checks passed: 20 action-scheme tests, 22 projection tests, 12 boss
+schema tests, 7 cutscene schema tests, 112 Sanic tests, 74 Smash tests, 5 project
+tests, 4 rollback-schema checks, 21 rollback coverage checks, and 2 group tests.
+The app check and 53 absence contracts passed. Six diagnostic Smash probes and
+two rollback probes were ignored. The workspace policy check had 33 passes and
+2 failures, with eight findings outside this slice: five dependency allowlist
+entries and three direct body writes. The group's required catalog resolves
+its two earlier findings. Logs use `target/procedural-innate-*`.
+
+```bash
+cargo test -p ambition_cutscene -p ambition_boss_encounter --features ambition_cutscene/content_pack,ambition_boss_encounter/content_pack --lib content_schema
+cargo test -p pulse_forge_host --test promotion -- --test-threads=1
+PATH=/nonexistent ./target/debug/extension_inspect --project examples/projects/pulse_forge --ticks 280
+PATH=/nonexistent ./target/debug/ambition_game_bin --project examples/projects/pulse_forge/project-rhai.ron --headless-ticks 60
+PATH=/nonexistent ./target/debug/ambition_game_bin --project examples/projects/pulse_forge/project-wasm.ron --headless-ticks 60
+PATH=/nonexistent ./target/debug/pulse_forge_host --project examples/projects/pulse_forge/project-linked.ron --headless-ticks 60
+```
+
+The inspection run reports two patrol turns. All three prebuilt runs succeed.
+The stock executable's SHA-256 stays
+`7cb0474e9af45d3a570eb6e061190b75665f2ff1ff3a1b9683cd0a3f4570129e`
+across the source and WASM runs. The linked host SHA-256 is
+`68b971c66a433f856464fa95bd75eec0a4e7134a81df970cd6eaeab93c00d985`.
+The WASM remains
+`2465155e4fa0d304a740e34e0d30eee6d539f8cc94dadcfff97743f378986a66`.
+The project still reads installed shared catalogs, tuning, and assets through
+repository paths. A8 must remove those delivery paths. Native build identity
+is still an A3 gap. The next acceptance case pairs a content edit with a script
+edit and exercises a durable body record through save/load.
 
 ## Owner documents and source locations
 

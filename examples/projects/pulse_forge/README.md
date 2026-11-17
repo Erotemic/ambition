@@ -1,9 +1,10 @@
 # Pulse Forge
 
 The default project runs a charge-and-release technique from Rhai source.
-Its equipment row binds `pulse_forge` to the Projectile slot. Its Rhai
+Its character row binds `pulse_forge` to the Projectile slot. Its Rhai
 declaration defines the inputs, state schemas, requests, and limits.
-Its LDtk world has one drill room, a raised platform, and an infinite sandbag.
+Its LDtk world has one drill room, a raised platform, and a patrol body.
+The project owns both character rows and its starting-character rule.
 
 Build the host and inspection tool once, from the repository root:
 
@@ -43,8 +44,8 @@ A headless load check also works with no compiler on `PATH`:
 PATH=/nonexistent ./target/debug/ambition_game_bin --project examples/projects/pulse_forge --headless-ticks 30
 ```
 
-Open the inventory and equip **Pulse Forge**. It occupies the Eye Laser
-catalog slot. Hold Projectile for at least 0.2 seconds, then release it.
+The forge keeper has **Pulse Forge** from its character declaration.
+Hold Projectile for at least 0.2 seconds, then release it.
 An emitter stays at the release position and fires four bolts per pulse.
 A longer charge gives more pulses, up to five. The emitter ends after its
 last pulse.
@@ -75,8 +76,10 @@ PATH=/nonexistent ./target/debug/pulse_forge_host --project examples/projects/pu
 ```
 
 `modules/sentinel.rhai` remains a Rhai module beside the emitter in all three
-modes. It declares a stateful custom brain. Its authored body placement is
-not installed in this drill yet.
+modes. It observes the room's bodies tagged `pulse_forge.sentinels`. Its
+patrol record keeps an origin, elapsed time, direction, and turn count. It
+requests steering through the normal body control owner, and turns at a
+distance or time limit. The LDtk room places this body as `forge_sentinel`.
 
 Run the promotion fixture:
 
@@ -89,12 +92,14 @@ GGRS rollback. The first release creates an emitter. A second release has
 insufficient mana and is refused by the same domain owner in all modes.
 The fixture compares initial and populated records, ordered requests with
 body and occurrence identities, cost admission, entity creation and retirement,
-projectile motion, and mana. Traces go to `target/pulse-forge-parity`.
+projectile motion, patrol steering and motion, turn state, and mana. Traces
+go to `target/pulse-forge-parity`.
 The negative case changes only Rhai's bolt speed. Its structured differences
 go to `target/pulse-forge-parity-negative/diff.json`.
 
-The clock starts at the first fixture input tick. This removes the different
-setup tick used to start a fresh rollback session. Field values are compared
+Each run settles at the same simulation tick before the input sequence.
+The trace clock starts at the first fixture input tick after rebasing the
+rollback session. Field values are compared
 exactly in this fixture: charge and cooldown use `f32` addition, subtraction,
 and a cap; bolt directions are cardinal and their speed is constant. The
 70-tick hold reaches the cap before either release. No float tolerance can
@@ -147,13 +152,13 @@ Wait for the reload between these two commands. Removing the module leaves
 existing emitters to their world-owned lifetime. Adding it starts its records
 from their declared initial values.
 
-`content/items.ron` owns the equipment binding and its display text. The
-content manifest reads the host's other content files and asset library by
-relative path. The example thus needs this repository's content library.
-Its world and mechanic are project files. It does not supply a separate
-game distribution. The fixed inventory catalog still requires the existing
-`eyelaser` slot id. The new technique, module, entity kind, and state keys
-are declared in project files.
+`content/characters.ron` owns the characters, technique binding, and patrol
+tag. `content/rules.ron` selects the forge keeper as the starting character.
+The pack has explicit empty boss and cutscene catalogs. The content manifest
+still reads shared tuning, item catalogs, and an asset library from this
+repository. This example is not yet a separate game distribution. Its world,
+characters, technique, module, entity kind, and state keys are project files.
+The technique has no inventory item binding.
 
 Scripts use the host's [described ports](../../../docs/sdk/script-ports.md).
 Script imports are disabled. Project loading uses the native filesystem;
@@ -172,3 +177,29 @@ cargo test -p ambition_combat_port --lib
 cargo test -p ambition_app --test app_it -- a_project_authors_a_technique
 cargo test -p pulse_forge_host --test promotion -- --test-threads=1
 ```
+
+The project uses these domain interfaces. Both languages use the same
+SDK description; Rhai uses the installed names in the first column.
+
+| Interface | Domain owner | Rust SDK access |
+| --- | --- | --- |
+| `technique_use` | `ambition_abilities::extension` | `TechniqueUsePort` trigger |
+| `module_entity_tick` | `ambition_abilities::module_entity` | `ModuleEntityTickPort` trigger |
+| `spawn_module_entity` / `end_module_entity` | `ambition_abilities::module_entity` | `SpawnModuleEntityPort` / `EndModuleEntityPort` requests |
+| `spend_mana` | `ambition_abilities::extension` | `SpendManaPort` request; settlement accepts or refuses the release |
+| `projectile` | `ambition_projectile_combat` | `ProjectileSpawnPort` request |
+| `group_think` | `ambition_abilities::group` | `GroupThinkPort` trigger; ordered room members and items |
+| `steer` | `ambition_abilities::group` | `SteerPort` request; control authority checks room membership and drive ownership |
+
+The Rust types are exported by `ambition_combat_port` and
+`ambition_projectile_spec`. Their `ScriptPort` descriptions generate the
+[Rhai reference](../../../docs/sdk/script-ports.md). Scripts read trigger
+values through `this.trigger`, records through `this.state`, and send
+requests through `this.requests`. Portable Rust uses the typed invocation
+and output methods in `portable/src/lib.rs`. Neither path writes raw ECS
+state. The host owns physics, damage, resources, identity, and rollback.
+
+The LDtk owner creates the placed actor from `NpcSpawn`. The character
+catalog owner resolves its body grants and techniques. World and character
+loading use the same paths as the host's other authored content. The project
+supplies no Rust actor constructor or brain descriptor.

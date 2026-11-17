@@ -7,5 +7,5 @@
     implementations: [
         (provider: "pulse_forge", module: "emitter", implementation: Linked),
     ],
-    starting_items: Some([("eyelaser", 1), ("lantern", 1)]),
+    starting_items: Some([]),
 )

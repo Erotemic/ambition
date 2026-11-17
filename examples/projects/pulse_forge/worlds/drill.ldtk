@@ -8405,9 +8405,9 @@
 							"defUid": 2006,
 							"px": [544,288],
 							"fieldInstances": [
-								{ "__identifier": "character_id", "__type": "String", "__value": "sandbag_infinite", "__tile": null, "defUid": 3012, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "forge_sentinel", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["sandbag_infinite"]
+									"params": ["forge_sentinel"]
 								}] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "", "__tile": null, "defUid": 3014, "realEditorValues": [] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [] }

@@ -993,6 +993,14 @@ room's turns back. Witness: `a_rewound_room_puts_back_its_own_gravity_turns`.
 The census reads only `ResMut` parameters, so a write through
 `commands.queue` is still invisible to it.
 
+**Death fees rewind with their room (2026-11-17).** A room replay restores a
+body's wallet, but `DeathFees` was one global ledger: a speculative death the
+replay does not repeat left its fee or parcel behind, so the coins were both
+in the wallet and on the floor. Each change to a participant's fee or parcel
+now logs what it replaced in `DeathFeesInRooms` (schema 479), and
+`retract_room_death_fees` puts a rewound room's changes back. Witness:
+`a_rewound_room_puts_back_its_own_death_fees`. Census: 91 unclassified.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

@@ -46,6 +46,12 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
         "owed fees and lying parcels, Debug-text FNV",
         crate::death_fee::DeathFees::probe,
     );
+    registrar.rollback_resource_clone_checksum::<crate::death_fee::DeathFeesInRooms>(
+        ENGINE,
+        "death.fees_in_rooms",
+        "the fee and parcel changes rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
+        crate::death_fee::DeathFeesInRooms::probe,
+    );
     // ⭐ NO `body_clusters` ALIAS ANY MORE, and its absence is the measurement:
     // this function no longer names a single one of the floor's types.
 

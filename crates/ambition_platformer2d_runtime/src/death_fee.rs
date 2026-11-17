@@ -23,7 +23,7 @@ use ambition_combat::death_rules::{ActorDiedMessage, DeathFee, OutOfPlay};
 use ambition_platformer2d_core::Vec2;
 use ambition_platformer2d_items::pickups::{Collected, PickupFeature};
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, LiveRoomInstance, RoomInstanceRoot, SessionSpawnScope,
+    ActiveSessionScope, LiveRoomInstance, LiveRooms, RoomInstanceRoot, RoomWrite, SessionSpawnScope,
 };
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
@@ -78,6 +78,77 @@ impl DeathFees {
     }
 }
 
+/// One participant's fee and parcel as they stood before a room changed them.
+type ParticipantFees = (Option<OwedFee>, Option<DeathParcel>);
+
+/// The changes rooms made to [`DeathFees`] within the rewind horizon, each
+/// with the participant's fee and parcel as they were before it (ISL-2d). A
+/// room replay restores the body's wallet, so a fee or parcel a speculative
+/// death left behind would otherwise outlive the death the replay does not
+/// repeat, and the coins would be both in the wallet and on the floor.
+/// Rollback state with a real value: a write changes it on a tick.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct DeathFeesInRooms {
+    writes: Vec<(RoomWrite, PlayerSlot, ParticipantFees)>,
+}
+
+impl DeathFeesInRooms {
+    /// The checksum projection, as [`DeathFees::probe`].
+    pub fn probe(&self) -> u64 {
+        let text = format!("{:?}", self);
+        text.bytes().fold(0xcbf2_9ce4_8422_2325u64, |hash, byte| {
+            (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
+        })
+    }
+
+    /// Note what `participant` has in `ledger` before `written` changes it.
+    fn before(&mut self, ledger: &DeathFees, written: Option<RoomWrite>, participant: PlayerSlot) {
+        let Some(at) = written else { return };
+        self.writes.retain(|(write, ..)| !write.beyond_the_horizon(at.tick));
+        self.writes.push((at, participant, ledger.of(participant)));
+    }
+}
+
+impl DeathFees {
+    fn of(&self, participant: PlayerSlot) -> ParticipantFees {
+        (
+            self.owed.iter().find(|owed| owed.participant == participant).cloned(),
+            self.parcels.iter().find(|parcel| parcel.participant == participant).cloned(),
+        )
+    }
+
+    /// Put `participant`'s fee and parcel back as `fees` says.
+    fn restore(&mut self, participant: PlayerSlot, (owed, parcel): ParticipantFees) {
+        self.owed.retain(|owed| owed.participant != participant);
+        self.owed.extend(owed);
+        self.owed.sort_by_key(|owed| owed.participant);
+        self.parcels.retain(|parcel| parcel.participant != participant);
+        self.parcels.extend(parcel);
+        self.parcels.sort_by_key(|parcel| parcel.participant);
+    }
+}
+
+/// The room retractor: `room` rewinds to `saved_at`, so each participant's
+/// fee and parcel go back to what they were before that room's later writes.
+pub fn retract_room_death_fees(world: &mut World, room: LiveRoomInstance, saved_at: u64) {
+    let Some(mut log) = world.get_resource_mut::<DeathFeesInRooms>() else { return };
+    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+        return;
+    }
+    let (taken, kept): (Vec<_>, Vec<_>) =
+        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
+    log.writes = kept;
+    let Some(mut ledger) = world.get_resource_mut::<DeathFees>() else { return };
+    for (_, participant, before) in taken.into_iter().rev() {
+        ledger.restore(participant, before);
+    }
+}
+
+/// The write stamp of a change made from `body`'s live room on this tick.
+fn written_from(rooms: &LiveRooms, tick: Option<&ambition_time::SimTick>, body: Entity) -> Option<RoomWrite> {
+    rooms.of(body).zip(tick).map(|(room, tick)| RoomWrite { room, tick: tick.0 })
+}
+
 fn parcel_feature_id(serial: u32) -> String {
     format!("{PARCEL_ID_PREFIX}{serial}")
 }
@@ -95,6 +166,9 @@ pub fn owe_death_fees(
     specs: LiveRoomSpecs,
     players: Query<(&DrivingParticipant, Option<&PlayerSafetyState>), (With<PlayerEntity>, With<BodyWallet>)>,
     mut ledger: ResMut<DeathFees>,
+    mut log: ResMut<DeathFeesInRooms>,
+    rooms: LiveRooms,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     for death in deaths.read() {
         let (Ok((driver, safety)), Some(fee), Some(room)) =
@@ -103,6 +177,7 @@ pub fn owe_death_fees(
             continue;
         };
         let participant = driver.0;
+        log.before(&ledger, written_from(&rooms, tick.as_deref(), death.victim), participant);
         ledger.owed.retain(|owed| owed.participant != participant);
         ledger.owed.push(OwedFee {
             participant,
@@ -111,28 +186,41 @@ pub fn owe_death_fees(
             coins: fee.coins,
             art: fee.parcel_art.clone(),
         });
+        ledger.owed.sort_by_key(|owed| owed.participant);
     }
 }
 
 /// Take each owed fee once its body is back in play. The coins taken become
 /// the participant's parcel, in place of any parcel it had.
 pub fn take_death_fees(
-    mut players: Query<(&DrivingParticipant, &mut BodyWallet, Has<OutOfPlay>), With<PlayerEntity>>,
+    mut players: Query<(Entity, &DrivingParticipant, &mut BodyWallet, Has<OutOfPlay>), With<PlayerEntity>>,
     mut ledger: ResMut<DeathFees>,
+    mut log: ResMut<DeathFeesInRooms>,
+    rooms: LiveRooms,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     if ledger.owed.is_empty() {
         return;
     }
     let owed = std::mem::take(&mut ledger.owed);
     for fee in owed {
-        let body = players.iter_mut().find(|(driver, ..)| driver.0 == fee.participant);
-        let Some((_, mut wallet, out_of_play)) = body else {
+        let body = players.iter_mut().find(|(_, driver, ..)| driver.0 == fee.participant);
+        let Some((entity, _, mut wallet, out_of_play)) = body else {
             // Its participant left the session: nobody owes it.
             continue;
         };
         if out_of_play {
             ledger.owed.push(fee);
             continue;
+        }
+        // What this participant had before this take, with the fee still
+        // owed: a rewind of the body's room puts the fee back to be taken
+        // again from the wallet the same rewind restores.
+        let mut before = ledger.of(fee.participant);
+        before.0 = Some(fee.clone());
+        if let Some(at) = written_from(&rooms, tick.as_deref(), entity) {
+            log.writes.retain(|(write, ..)| !write.beyond_the_horizon(at.tick));
+            log.writes.push((at, fee.participant, before));
         }
         let paid = wallet.charge(fee.coins);
         ledger.parcels.retain(|parcel| parcel.participant != fee.participant);
@@ -147,6 +235,7 @@ pub fn take_death_fees(
                 serial,
                 art: fee.art,
             });
+            ledger.parcels.sort_by_key(|parcel| parcel.participant);
         }
     }
 }
@@ -161,13 +250,17 @@ pub fn place_death_parcels(
     roots: Query<(&LiveRoomInstance, &LiveRoomDefinition), With<RoomInstanceRoot>>,
     specs: LiveRoomSpecs,
     active_session: Option<Res<ActiveSessionScope>>,
+    mut log: ResMut<DeathFeesInRooms>,
+    rooms: LiveRooms,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let mut present = Vec::new();
     for (entity, id, collected) in &pickups {
         let Some(serial) = parcel_serial(id) else { continue };
         let owed = ledger.parcels.iter().any(|parcel| parcel.serial == serial);
         if collected {
-            if owed {
+            if let Some(participant) = ledger.parcels.iter().find(|parcel| parcel.serial == serial).map(|parcel| parcel.participant) {
+                log.before(&ledger, written_from(&rooms, tick.as_deref(), entity), participant);
                 ledger.parcels.retain(|parcel| parcel.serial != serial);
             }
         } else if owed {
@@ -198,5 +291,39 @@ pub fn place_death_parcels(
             parcel.coins,
             parcel.art.as_deref(),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fee(participant: u8, coins: i32) -> OwedFee {
+        OwedFee { participant: PlayerSlot(participant), room: "hall".into(), pos: Vec2::ZERO, coins, art: None }
+    }
+
+    /// A rewound room puts back the fee changes it made after the tick it was
+    /// saved at, and only its own: the other room's participant keeps its
+    /// parcel. Without the log a speculative death's parcel outlives the
+    /// rewind that restores the wallet it was taken from.
+    #[test]
+    fn a_rewound_room_puts_back_its_own_death_fees() {
+        let first = LiveRoomInstance::ACTIVATION.next();
+        let second = first.next();
+        let mut ledger = DeathFees::default();
+        let mut log = DeathFeesInRooms::default();
+        // Alice (seat 0) in the first room dies at tick 12; Bob (seat 1) in
+        // the second room has a parcel from tick 12 too.
+        log.before(&ledger, Some(RoomWrite { room: first, tick: 12 }), PlayerSlot(0));
+        ledger.owed.push(fee(0, 10));
+        log.before(&ledger, Some(RoomWrite { room: second, tick: 12 }), PlayerSlot(1));
+        ledger.parcels.push(DeathParcel { participant: PlayerSlot(1), room: "yard".into(), pos: Vec2::ZERO, coins: 5, serial: 0, art: None });
+        let mut world = World::new();
+        world.insert_resource(ledger);
+        world.insert_resource(log);
+        retract_room_death_fees(&mut world, first, 10);
+        let ledger = world.resource::<DeathFees>();
+        assert!(ledger.owed.is_empty(), "the rewound room's fee is taken back: {ledger:?}");
+        assert_eq!(ledger.parcels.len(), 1, "the other room's parcel stays: {ledger:?}");
     }
 }

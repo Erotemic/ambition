@@ -158,7 +158,7 @@ WORLD_OWNED: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 94
+UNCLASSIFIED_CEILING = 91
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200

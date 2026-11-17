@@ -23,9 +23,13 @@ that can proceed without a ruling goes in [`queue.md`](queue.md).
 This is the blocking set, not the important set. A question can matter and
 block nothing.
 
-**The blocking set is empty (rechecked 2026-11-06).** The last blocking
-question, `Q157`, was ruled on 2026-10-19. Neither `Q168` nor `Q170`
-blocked the execution queue.
+**The blocking set holds one question (2026-11-17).** It blocks one small-screen
+row, not architecture work. The previous one, `Q157`, was ruled on
+2026-10-19.
+
+| Question | Blocks |
+|---|---|
+| [`Q178`](#q178--on-a-small-screen-does-the-touch-overlay-give-way-to-a-menu) | SMALL-VIEWPORT-UI: the touch overlay on small menus (the dialogue box and other screens go on) |
 
 `scripts/checks/check_blocking_set_names_every_gate.py` reads the queue's
 `**Blocked by:**` fields and fails if a gate has no row in a table here. Each
@@ -219,3 +223,35 @@ row, which is the fuse.
 
 **Owner:** `character_catalog.ron` (`npc_exploding_mite`, its action set).
 (b) is content only: `melee: Some(Detonate(fuse_s: 0.15, reach_px: 40.0))`.
+
+## Q178 — On a small screen, does the touch overlay give way to a menu?
+
+**Context (2026-11-17, SMALL-VIEWPORT-UI).** The Smash select screen now
+lays itself out at 640x360: six columns paged with arrows, START and the four
+player cards (`capture_scene --route smash_select ... 640x360`). The touch
+overlay still covers it. The movement stick never shrinks (its footprint is
+210 px square at `TOUCH_SCALE` 0.7, which is 58% of a 360 px height). It stays
+visible in Menu and Dialogue contexts on purpose, because it steers menu
+cursors (`sync_touch_stick_visibility_from_context`). The action cluster shows
+Confirm and Back as "Choose" buttons. At 640x360 the stick hides P1's card
+and the page arrow, and the cluster sits over START and P4. If the menu kept
+clear of both bottom corners, about 260 px would be left for four player
+cards.
+
+**Options:**
+
+* **(a) A screen whose every control is tappable hides the stick and the
+  action cluster** and keeps the menu row. Touch players tap cards, tokens
+  and START directly (the select screen already takes taps). Menus that are
+  not tappable keep the stick. This needs a declaration from the screen
+  ("taken by direct touch").
+* **(b) The overlay shrinks with the viewport**, the stick included, down to
+  a touch-target floor. Every screen keeps both controls, and they are
+  smaller on a phone.
+* **(c) Each menu keeps clear of the published `ControlFootprints`**, and
+  re-lays itself out in what is left. At 640x360 the select screen's player
+  cards would no longer fit in one row.
+
+**Owner:** `ambition_touch_input` (visibility and placement) and each menu's
+layout. Engineering follows the ruling, screen by screen (queue row
+SMALL-VIEWPORT-UI).

@@ -1692,9 +1692,11 @@ as the host's own layout does; `capture_scene --route smash_select` at
 overlay: the stick's fixed footprint (about 210 px of a 360 px height) hides
 P1's card and the page arrow, and the action buttons sit over START.
 
-**Next action:** the touch overlay on small menus: scale its footprint with
-the viewport, or have each menu reserve the published `ControlFootprints`;
-then the dialogue box, one screen at a time, each with a `capture_scene`
+**Blocked by:** Q178 for the touch overlay on small menus.
+
+**Next action:** the touch overlay waits on
+[Q178](awaiting-maintainer-decision.md#q178--on-a-small-screen-does-the-touch-overlay-give-way-to-a-menu);
+the dialogue box is next, one screen at a time, each with a `capture_scene`
 witness at 640x360 and 1280x720.
 
 ### CONTENT-AS-DATA — content still written as Rust

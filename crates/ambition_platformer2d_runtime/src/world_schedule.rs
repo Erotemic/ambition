@@ -114,7 +114,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 body::apply_actor_stimuli.run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::ActorStimulus>),
                 // After the flip that announces a provocation, and after the
                 // release that announces its end, so both land this tick.
-                ambition_persistence::npc_provocation::record_npc_provocations
+                crate::effect_bus::apply_npc_provocations
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_persistence::npc_provocation::NpcProvocationChanged>)
                     .after(ambition_platformer2d_actor_monolith::body::apply_release_provocations),
                 crate::effect_bus::apply_gameplay_sfx_effects

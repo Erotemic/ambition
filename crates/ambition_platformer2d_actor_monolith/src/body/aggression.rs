@@ -171,6 +171,7 @@ pub fn apply_actor_stimuli(
             provocations.write(ambition_persistence::npc_provocation::NpcProvocationChanged {
                 id: identity.id.clone(),
                 provoked: true,
+                room: rooms.of(entity).map(|room| room.ordinal()),
             });
         }
         crate::body::actors::provoke_actor_in_place(

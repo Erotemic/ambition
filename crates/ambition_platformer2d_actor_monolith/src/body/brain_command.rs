@@ -452,6 +452,7 @@ pub fn apply_release_provocations(
             provocations.write(ambition_persistence::npc_provocation::NpcProvocationChanged {
                 id: identity.id.clone(),
                 provoked: false,
+                room: live_room_of(stamp, root).map(|room| room.ordinal()),
             });
         }
         // Disposition authority: pacify.

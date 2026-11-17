@@ -91,6 +91,20 @@ ONE_TICK_QUEUES: dict[str, str] = {
     ),
 }
 
+#: Reducers of queued events whose producers stamp each event with a cause a
+#: room's retractor takes back: the reducer writes the store, the cause names
+#: the room. The reducer names no log, so the scan cannot see it.
+CAUSE_RETRACTED: dict[str, str] = {
+    "apply_quest_advance_events": (
+        "applies `QuestRegistry::pending_events`; a caused event's advance is kept "
+        "in `caused_advances`, and `retract_room_quest_causes` / "
+        "`retract_room_flag_writes` put back the steps a rewound room's causes moved, "
+        "in the registry and the save (`runtime/src/effect_bus.rs`, read 2026-11-17). "
+        "An uncaused event comes from a producer the census classifies at its own "
+        "write site"
+    ),
+}
+
 #: A type rebuilt from live state on each run of its writers. The reading names
 #: the writer; the scan checks it does not accumulate.
 DERIVED: dict[str, str] = {
@@ -312,7 +326,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 22
+UNCLASSIFIED_CEILING = 18
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200
@@ -440,6 +454,8 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
                     or short in ONE_TICK_QUEUES
                     or any(_is_log(log) and re.search(rf"\b{log}\b", params + body) for log in retracted)
                 ):
+                    kind = "retracted"
+                elif name in CAUSE_RETRACTED and short in retracted:
                     kind = "retracted"
                 elif short in host_rewound:
                     kind = "host-rewound"

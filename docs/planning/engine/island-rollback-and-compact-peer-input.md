@@ -1109,6 +1109,17 @@ the shrine crate writes `CheckpointCommitted`, so its readers
 ticks only. Census: 22 unclassified over 6 types. Still open: `run_gate_network`'s
 save writes and `PendingLifecycleCommit`'s crossings.
 
+**Provocations rewind with their room (2026-11-17).** An NPC's durable
+provocation (`npc_<id>_hostile`) was written with no room, so a provocation a
+replay took back left the NPC hostile in the save. `NpcProvocationChanged`
+carries the NPC's live room, and the runtime applies it through the same
+logged write as `apply_flag_effects` (`apply_npc_provocations`); the
+persistence reducer stays for compositions without room rewinds. Probed: a
+room-stamped provocation is taken back by its room's rewind, an unstamped one
+is not. `apply_quest_advance_events` is retracted through its events' causes;
+the census now names such reducers (`CAUSE_RETRACTED`). Census: 18
+unclassified over 6 types.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

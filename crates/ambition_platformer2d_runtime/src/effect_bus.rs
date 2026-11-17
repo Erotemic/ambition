@@ -23,23 +23,53 @@ pub fn apply_flag_effects(
 ) {
     let now = tick.map_or(0, |tick| tick.0);
     for effect in effects.read() {
-        let mut cause = None;
-        if let Some(log) = log.as_deref_mut().filter(|log| log.keeps(&effect.id, effect.written.is_some())) {
-            let write = ambition_combat::events::FlagWrite {
-                id: effect.id.clone(),
-                on: effect.on,
-                replaced: save.data().flag(&effect.id),
-                written: effect.written,
-                applied_at: now,
-            };
-            cause = write.quest_cause();
-            for old in log.record(write) {
-                if let Some(old) = old.quest_cause() {
-                    quests.forget_cause(&old);
-                }
+        write_logged_flag(&mut save, &mut quests, log.as_deref_mut(), effect.id.clone(), effect.on, effect.written, now);
+    }
+}
+
+/// Write one flag, logged in [`ambition_combat::events::FlagWritesInRooms`]
+/// with what it replaced when the log keeps it, and its quest advance caused
+/// by the write.
+fn write_logged_flag(
+    save: &mut ambition_persistence::save::AmbitionGameSave,
+    quests: &mut ambition_persistence::quest::QuestRegistry,
+    log: Option<&mut ambition_combat::events::FlagWritesInRooms>,
+    id: String,
+    on: bool,
+    written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+    now: u64,
+) {
+    let mut cause = None;
+    if let Some(log) = log.filter(|log| log.keeps(&id, written.is_some())) {
+        let write = ambition_combat::events::FlagWrite { id: id.clone(), on, replaced: save.data().flag(&id), written, applied_at: now };
+        cause = write.quest_cause();
+        for old in log.record(write) {
+            if let Some(old) = old.quest_cause() {
+                quests.forget_cause(&old);
             }
         }
-        ambition_persistence::quest::write_flag_caused_by(&mut save, &mut quests, effect.id.clone(), effect.on, cause);
+    }
+    ambition_persistence::quest::write_flag_caused_by(save, quests, id, on, cause);
+}
+
+/// Record each NPC provocation as the NPC's persisted-hostile flag, written
+/// in the NPC's room like any flag a room's act sets, so a rewind of that
+/// room takes it back (ISL-2d).
+pub fn apply_npc_provocations(
+    mut changes: ReplayMessageReader<ambition_persistence::npc_provocation::NpcProvocationChanged>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
+    mut log: Option<ResMut<ambition_combat::events::FlagWritesInRooms>>,
+    tick: Option<Res<ambition_time::SimTick>>,
+) {
+    let now = tick.map_or(0, |tick| tick.0);
+    for change in changes.read() {
+        let written = change.room.map(|room| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite {
+            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(room),
+            tick: now,
+        });
+        let id = ambition_persistence::save_data::npc_hostile_flag(&change.id);
+        write_logged_flag(&mut save, &mut quests, log.as_deref_mut(), id, change.provoked, written, now);
     }
 }
 

@@ -312,7 +312,8 @@ fn every_fighter_this_composition_can_build_reaches_the_grid() {
     let offered: Vec<&str> = grid.ids().collect();
 
     let mut missing: Vec<&str> = Vec::new();
-    for id in smash_roster().iter().map(String::as_str) {
+    let roster = smash_roster();
+    for id in roster.iter().map(String::as_str) {
         // Not buildable in this composition — correctly dropped, and the row
         // beside this one already says why a hole is worse than an absence.
         if registry.get(id).is_none() {

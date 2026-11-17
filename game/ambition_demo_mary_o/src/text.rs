@@ -38,8 +38,13 @@ pub fn mary_o_text_schema() -> SchemaRegistration {
 }
 
 /// The lines, as the demo's pack states them.
-pub fn mary_o_text() -> &'static ShownText {
-    lowered_shown_text(crate::pack::PACK.prepared(), MARY_O_TEXT_SCHEMA)
+pub fn mary_o_text() -> ambition_platformer2d::content::PackRow<ShownText> {
+    crate::pack::PACK.prepared().row(mary_o_text_in)
+}
+
+/// [`mary_o_text`] in `pack`.
+fn mary_o_text_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
+    lowered_shown_text(pack, MARY_O_TEXT_SCHEMA)
         .expect("the demo's pack states its lines (`data/mary_o_text.ron`)")
 }
 

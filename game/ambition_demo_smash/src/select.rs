@@ -24,16 +24,16 @@ pub const MAX_SELECT_SOURCES: usize = MAX_SMASH_SEATS + 1;
 /// The fighter ids the select grid asks for, in grid order: `roster` in the
 /// pack's `data/smash_rules.ron`. [`SmashRoster::assemble`] drops the ids the
 /// composition does not have, in order.
-pub fn smash_roster() -> &'static [String] {
-    &crate::rules::smash_rules().roster
+pub fn smash_roster() -> ambition_platformer2d::content::PackRow<[String]> {
+    crate::smash_pack::PACK.prepared().row(|pack| crate::rules::smash_rules_in(pack).roster.as_slice())
 }
 
 /// The demo's copies of characters other packs own: `stand_ins` in
 /// `data/smash_rules.ron`. Public so `ambition_app`'s guard ("did every
 /// buildable fighter reach the grid") can tell a fighter dropped by a bug
 /// from one that stood down.
-pub fn stand_ins() -> &'static [crate::rules::StandIn] {
-    &crate::rules::smash_rules().stand_ins
+pub fn stand_ins() -> ambition_platformer2d::content::PackRow<[crate::rules::StandIn]> {
+    crate::smash_pack::PACK.prepared().row(|pack| crate::rules::smash_rules_in(pack).stand_ins.as_slice())
 }
 
 /// The characters a slot can choose between, in this composition.

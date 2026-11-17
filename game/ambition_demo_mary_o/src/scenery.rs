@@ -103,7 +103,7 @@ pub fn structure_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> Pr
 pub fn register_mary_o_construction_props(app: &mut App) {
     use ambition_platformer2d::sprite_sheet::prop_sheets::PropSheetsAppExt;
     app.register_prop_sheet_rows(
-        ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(crate::pack::PACK.prepared())
+        ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(&crate::pack::PACK.prepared())
             .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
     );
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&crate::pack::PACK));
@@ -111,7 +111,7 @@ pub fn register_mary_o_construction_props(app: &mut App) {
     {
         use ambition_platformer2d::render::rendering::moving_platforms::PlatformLooksAppExt;
         app.register_platform_look_rows(
-            ambition_platformer2d::sprite_sheet::prop_sheets::lowered_platform_looks(crate::pack::PACK.prepared())
+            ambition_platformer2d::sprite_sheet::prop_sheets::lowered_platform_looks(&crate::pack::PACK.prepared())
                 .expect("the demo's pack states its platform looks (`data/platform_looks.ron`)"),
         );
         app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::platform_looks(&crate::pack::PACK));

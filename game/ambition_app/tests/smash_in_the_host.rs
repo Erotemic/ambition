@@ -1961,7 +1961,7 @@ fn george_carries_the_knockback_weight_his_own_facet_authors() {
     // The facet as its owning capability reads it from the demo's pack.
     let authored_weight = |id: &str| {
         ambition_platformer2d::characters::smash_fighter::content_schema::facet(
-            ambition_demo_smash::smash_pack::PACK.prepared(),
+            &ambition_demo_smash::smash_pack::PACK.prepared(),
             id,
         )
         .and_then(|facet| facet.knockback_weight)

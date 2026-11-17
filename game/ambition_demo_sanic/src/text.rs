@@ -37,8 +37,13 @@ pub fn sanic_text_schema() -> SchemaRegistration {
 }
 
 /// The lines, as the demo's pack states them.
-pub fn sanic_text() -> &'static ShownText {
-    lowered_shown_text(crate::pack::PACK.prepared(), SANIC_TEXT_SCHEMA)
+pub fn sanic_text() -> ambition_platformer2d::content::PackRow<ShownText> {
+    crate::pack::PACK.prepared().row(sanic_text_in)
+}
+
+/// [`sanic_text`] in `pack`.
+fn sanic_text_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
+    lowered_shown_text(pack, SANIC_TEXT_SCHEMA)
         .expect("the demo's pack states its lines (`data/sanic_text.ron`)")
 }
 

@@ -28,23 +28,24 @@ pub struct SanicSessionWorld {
 
 /// Which act a session enters at. Set once, before the app is built, by a
 /// binary's `--act` flag; unset means Act 1.
-static START_ROOM: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+static START_ROOM: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
 /// Enter the session at act `act` (1, 2, or 3) instead of Act 1: for playing or
 /// photographing a later act without finishing the ones before it. Call before
 /// building the app; the first call wins.
 pub fn start_at_act(act: u32) -> Result<(), String> {
-    let acts = &crate::rules::sanic_rules().acts;
+    let rules = crate::rules::sanic_rules();
+    let acts = &rules.acts;
     let room = act
         .checked_sub(1)
         .and_then(|index| acts.get(index as usize))
         .ok_or_else(|| format!("Sanic has acts 1 to {}, not {act}", acts.len()))?;
-    let _ = START_ROOM.set(room.room.as_str());
+    let _ = START_ROOM.set(room.room.clone());
     Ok(())
 }
 
 pub fn sanic_session_world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> SanicSessionWorld {
-    let start = START_ROOM.get().copied().unwrap_or(SPEEDWAY_ROOM_ID);
+    let start = START_ROOM.get().map_or(SPEEDWAY_ROOM_ID, String::as_str);
     let rooms = vec![sanic_speedway(sprite_content), sanic_highway(sprite_content), sanic_darkness(sprite_content)];
     let geometry = ae::RoomGeometry(
         rooms
@@ -66,7 +67,7 @@ pub fn sanic_session_world(sprite_content: &ambition_platformer2d::sprite_sheet:
 /// Read the starting room's theme before sprite preparation and activation.
 pub fn sanic_starting_room_metadata() -> ambition_platformer2d::world::rooms::RoomMetadata {
     use ambition_platformer2d::ldtk_map::LdtkProject;
-    let start = START_ROOM.get().copied().unwrap_or(SPEEDWAY_ROOM_ID);
+    let start = START_ROOM.get().map_or(SPEEDWAY_ROOM_ID, String::as_str);
     for world in [&crate::SPEEDWAY_WORLD, &crate::HIGHWAY_WORLD, &crate::DARKNESS_WORLD] {
         let project = LdtkProject::from_json_str(&crate::world_text(world))
             .expect("the Sanic world must parse");
@@ -229,7 +230,7 @@ fn publish_sanic_ring_readout(
     match title {
         Some((name, number)) => readouts.set(
             TITLE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(title_card(name, number)),
+            ambition_platformer2d::presentation::HudReadout::bare(title_card(&name, number)),
         ),
         None => readouts.clear_slot(TITLE_HUD_SLOT),
     }

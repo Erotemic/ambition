@@ -180,7 +180,7 @@ pub fn title_look_schema() -> ambition_platformer2d::content::SchemaRegistration
 
 /// The look the host's pack states.
 pub fn title_look() -> TitleLook {
-    *ambition_platformer2d::content::lowered_rules::<TitleLook>(super::host_pack::HOST_PACK.prepared(), TITLE_LOOK_SCHEMA)
+    *ambition_platformer2d::content::lowered_rules::<TitleLook>(&super::host_pack::HOST_PACK.prepared(), TITLE_LOOK_SCHEMA)
         .expect("the host's pack states the title look (`data/title_look.ron`)")
 }
 

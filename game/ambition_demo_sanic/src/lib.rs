@@ -406,7 +406,7 @@ pub fn install_sanic_content(app: &mut App) {
     {
         use ambition_platformer2d::sprite_sheet::prop_sheets::PropSheetsAppExt;
         app.register_prop_sheet_rows(
-            ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(pack::PACK.prepared(),
+            ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(&pack::PACK.prepared(),
             )
                 .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
         );
@@ -1306,10 +1306,10 @@ pub fn act_clock_text(seconds: f32) -> String {
 
 /// The name of an act and its number, by its room (`acts` in the pack's
 /// `sanic_rules.ron`). `None` for a room that is not an act.
-pub fn act_title(room_id: &str) -> Option<(&'static str, u8)> {
-    let acts = &crate::rules::sanic_rules().acts;
-    let index = acts.iter().position(|act| act.room == room_id)?;
-    Some((acts[index].title.as_str(), index as u8 + 1))
+pub fn act_title(room_id: &str) -> Option<(String, u8)> {
+    let rules = crate::rules::sanic_rules();
+    let index = rules.acts.iter().position(|act| act.room == room_id)?;
+    Some((rules.acts[index].title.clone(), index as u8 + 1))
 }
 
 /// After the goal, the course drives him, not the player.

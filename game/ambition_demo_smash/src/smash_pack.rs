@@ -25,7 +25,7 @@ pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
 /// What "CPU level N" means in Smash's rooms, as its pack states it
 /// (`data/fighter_brain_ladder.ron`).
 pub fn fighter_ladder() -> ambition_platformer2d::characters::brain::fighter::FighterBrainLadder {
-    ambition_platformer2d::combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(PACK.prepared())
+    ambition_platformer2d::combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(&PACK.prepared())
         .cloned()
         .expect("Smash's pack states its CPU ladder (`data/fighter_brain_ladder.ron`)")
 }
@@ -34,6 +34,6 @@ pub fn fighter_ladder() -> ambition_platformer2d::characters::brain::fighter::Fi
 /// (`assets/data/match_rules.ron`): stocks, clocks, the percent pool, the
 /// fighter body, the ability floor and ceiling, fighter contact.
 pub fn match_rules() -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
-    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(PACK.prepared())
+    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(&PACK.prepared())
         .expect("Smash's pack states the rules of its matches (`data/match_rules.ron`)")
 }

@@ -38,7 +38,7 @@ pub const VERSUS_ROOM_ID: &str = "versus_arena";
 /// blast line produces `ResetCause::LeftTheWorld`, which the versus rules
 /// score as a fighter death.
 fn versus_arena() -> RoomSpec {
-    versus_arena_of(super::versus_fighters::PACK.prepared())
+    versus_arena_of(&super::versus_fighters::PACK.prepared())
 }
 
 /// The arena as `pack` states it.
@@ -81,7 +81,7 @@ pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
 
 /// The same, in a stated seating lifecycle.
 pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> MatchParticipantRoster {
-    versus_roster_seating(super::versus_rules::versus_seats(), local_players, seating)
+    versus_roster_seating(&super::versus_rules::versus_seats(), local_players, seating)
 }
 
 /// The roster that `seats` (the pack's `versus_seats.ron`) gives.
@@ -494,7 +494,7 @@ pub fn versus_combat_rules() -> ambition_platformer2d::combat::rules::CombatRule
 /// clock, no stocks and the verb ceiling. An edit to the file is played at the
 /// next start, with no Rust build.
 pub fn versus_match_rules() -> ambition_platformer2d::versus_match::match_rules::AuthoredMatchRules {
-    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(super::versus_fighters::PACK.prepared())
+    *ambition_platformer2d::versus_match::match_rules::lowered_match_rules(&super::versus_fighters::PACK.prepared())
         .expect("the versus pack states the rules of its matches (`data/match_rules.ron`)")
 }
 
@@ -503,14 +503,15 @@ pub fn versus_match_rules() -> ambition_platformer2d::versus_match::match_rules:
 /// heavy-hit line. An edit to the file is played at the next start, with no
 /// Rust build.
 pub fn versus_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRules {
-    ambition_platformer2d::combat::room_rules::lowered_room_rules(super::versus_fighters::PACK.prepared())
+    ambition_platformer2d::combat::room_rules::lowered_room_rules(&super::versus_fighters::PACK.prepared())
         .expect("the versus pack states the rules of its room (`data/room_rules.ron`)").clone()
 }
 
 /// Register the versus experience: a launcher entry, a route, and the stage.
 pub fn compose_versus_experience(app: &mut App) {
     // The duelists are the stage's content pack: their rows and move tables.
-    let default_character = super::versus_rules::versus_seats().fighter(0);
+    let seats = super::versus_rules::versus_seats();
+    let default_character = seats.fighter(0);
     super::versus_fighters::register_versus_cast(app, default_character);
     // no archetype fragment. A CPU seat's `brain_profile` resolves against
     // this experience's published `autonomous_profiles` (see the note where

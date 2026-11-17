@@ -45,8 +45,8 @@ impl BallDashTuning {
 }
 
 /// The spin dash tuning the demo plays: its pack's `spin_dash` row.
-pub fn spin_dash_tuning() -> &'static BallDashTuning {
-    &crate::rules::sanic_rules().spin_dash
+pub fn spin_dash_tuning() -> ambition_platformer2d::content::PackRow<BallDashTuning> {
+    crate::pack::PACK.prepared().row(|pack| &crate::rules::sanic_rules_in(pack).spin_dash)
 }
 
 /// Per-body charge state. Attached to whichever body is being driven; a possessed
@@ -302,7 +302,7 @@ pub fn tick_ball_dash(
             input.crouch_released,
             input.rev_pressed,
             time.sim_dt(),
-            tuning,
+            &tuning,
         ) {
             BallDashStep::Idle => {}
             BallDashStep::Charging(charge) => {

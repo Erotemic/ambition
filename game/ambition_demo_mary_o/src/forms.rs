@@ -247,8 +247,13 @@ pub fn mary_o_forms_schema() -> SchemaRegistration {
 }
 
 /// Her power ladder, as the demo's pack states it (`data/mary_o_forms.ron`).
-pub fn mary_o_forms() -> &'static MaryOForms {
-    lowered_rules::<MaryOForms>(crate::pack::PACK.prepared(), MARY_O_FORMS_SCHEMA)
+pub fn mary_o_forms() -> ambition_platformer2d::content::PackRow<MaryOForms> {
+    crate::pack::PACK.prepared().row(mary_o_forms_in)
+}
+
+/// [`mary_o_forms`] in `pack`.
+fn mary_o_forms_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &MaryOForms {
+    lowered_rules::<MaryOForms>(pack, MARY_O_FORMS_SCHEMA)
         .expect("the demo's pack states her power ladder (`data/mary_o_forms.ron`)")
 }
 
@@ -355,7 +360,7 @@ mod tests {
         };
 
         let file = forms_of(&authored);
-        assert_eq!(&file, mary_o_forms(), "the demo plays the file");
+        assert_eq!(&file, &*mary_o_forms(), "the demo plays the file");
         assert_eq!(spark(&file).damage, 4);
 
         let damage = "damage: 4,";

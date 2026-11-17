@@ -354,9 +354,8 @@ fn the_roster_carries_every_decided_slot_on_its_own_side() {
 #[test]
 fn every_own_fighter_is_declared_by_this_demo() {
     for id in OWN_FIGHTERS {
-        let catalog = ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(
-            crate::smash_pack::PACK.prepared(),
-        )
+        let pack = crate::smash_pack::PACK.prepared();
+        let catalog = ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(&pack)
         .expect("the smash pack states its cast");
         assert!(
             catalog.characters.contains_key(*id),

@@ -150,7 +150,7 @@ mod tests {
         };
 
         // The shipped pack's room is the file's.
-        let shipped = crate::app::versus::versus_arena_of(crate::app::versus_fighters::PACK.prepared());
+        let shipped = crate::app::versus::versus_arena_of(&crate::app::versus_fighters::PACK.prepared());
         assert_eq!(blocks(&shipped.world), blocks(&room_of(&authored).world), "the stage's room is not the file's");
         // An edited ledge is the room the stage builds from that pack.
         let left = r#"(name: "arena_platform_left", kind: Solid, at: (96.0, 304.0), size: (128.0, 20.0)),"#;

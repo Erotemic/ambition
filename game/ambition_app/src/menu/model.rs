@@ -189,7 +189,7 @@ pub(crate) fn line(key: &str) -> String {
 }
 
 /// The host's lines, for a line with holes.
-fn host() -> &'static ambition_platformer2d::content::ShownText {
+fn host() -> ambition_platformer2d::content::PackRow<ambition_platformer2d::content::ShownText> {
     crate::app::host_pack::host_text()
 }
 
@@ -296,7 +296,7 @@ pub fn menu_look_schema() -> ambition_platformer2d::content::SchemaRegistration 
 
 /// The pause menu's colours the host's pack states.
 pub fn menu_look() -> MenuLook {
-    *ambition_platformer2d::content::lowered_rules::<MenuLook>(crate::app::host_pack::HOST_PACK.prepared(), MENU_LOOK_SCHEMA)
+    *ambition_platformer2d::content::lowered_rules::<MenuLook>(&crate::app::host_pack::HOST_PACK.prepared(), MENU_LOOK_SCHEMA)
         .expect("the host's pack states the menu's colours (`data/menu_look.ron`)")
 }
 

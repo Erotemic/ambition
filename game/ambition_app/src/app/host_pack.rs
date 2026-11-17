@@ -104,9 +104,11 @@ pub fn host_text_schema() -> SchemaRegistration {
 }
 
 /// The host's lines, as its pack states them.
-pub fn host_text() -> &'static ShownText {
-    lowered_shown_text(HOST_PACK.prepared(), HOST_TEXT_SCHEMA)
-        .expect("the host's pack states its lines (`data/host_text.ron`)")
+pub fn host_text() -> ambition_platformer2d::content::PackRow<ShownText> {
+    HOST_PACK.prepared().row(|pack| {
+        lowered_shown_text(pack, HOST_TEXT_SCHEMA)
+            .expect("the host's pack states its lines (`data/host_text.ron`)")
+    })
 }
 
 #[cfg(test)]

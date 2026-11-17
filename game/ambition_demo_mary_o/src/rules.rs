@@ -477,8 +477,13 @@ pub fn mary_o_rules_schema() -> SchemaRegistration {
 }
 
 /// The demo's tuning, as its pack states it (`assets/data/mary_o_rules.ron`).
-pub fn mary_o_rules() -> &'static MaryORules {
-    lowered_rules::<MaryORules>(crate::pack::PACK.prepared(), MARY_O_RULES_SCHEMA)
+pub fn mary_o_rules() -> ambition_platformer2d::content::PackRow<MaryORules> {
+    crate::pack::PACK.prepared().row(mary_o_rules_in)
+}
+
+/// [`mary_o_rules`] in `pack`.
+pub(crate) fn mary_o_rules_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &MaryORules {
+    lowered_rules::<MaryORules>(pack, MARY_O_RULES_SCHEMA)
         .expect("the demo's pack states its tuning (`data/mary_o_rules.ron`)")
 }
 
@@ -514,7 +519,7 @@ mod tests {
         };
 
         let file = rules_of(&authored);
-        assert_eq!(&file, mary_o_rules(), "the demo plays the file");
+        assert_eq!(&file, &*mary_o_rules(), "the demo plays the file");
         // The plant rises over the file's travel ticks: half out halfway up,
         // all the way out at the end of the rise.
         let travel = file.snake_plant.travel_ticks;

@@ -1127,7 +1127,7 @@ pub fn mary_o_character_catalog(
 ) -> ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog {
     use ambition_platformer2d::characters::actor::character_catalog::{lowered_catalog, CharacterCatalog};
     CharacterCatalog::from_data(
-        lowered_catalog(pack::PACK.prepared())
+        lowered_catalog(&pack::PACK.prepared())
             .expect("the Mary-O pack states her cast")
             .clone(),
     )

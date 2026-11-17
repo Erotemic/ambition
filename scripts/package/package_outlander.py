@@ -48,12 +48,13 @@ def build(target_dir: Path) -> Path:
 def opened_assets(command: list[str], cwd: Path, env: dict[str, str]) -> tuple[int, list[str], str]:
     """Run `command` under strace: (exit code, every file opened under an
     `assets/` directory, the program's output)."""
-    if shutil.which("strace") is None:
+    tracer = shutil.which("strace")
+    if tracer is None:
         fail(2, "strace is not on PATH; it is how the artifact proves it stands alone")
     with tempfile.TemporaryDirectory() as scratch:
         log = Path(scratch) / "strace.log"
         result = subprocess.run(
-            ["strace", "-f", "-e", "trace=openat,open", "-o", str(log), *command],
+            [tracer, "-f", "-e", "trace=openat,open", "-o", str(log), *command],
             cwd=cwd,
             env=env,
             capture_output=True,

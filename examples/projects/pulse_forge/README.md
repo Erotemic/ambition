@@ -6,6 +6,9 @@ declaration defines the inputs, state schemas, requests, and limits.
 Its LDtk world has one drill room, a raised platform, and a patrol body.
 The project owns both character rows and its starting-character rule.
 
+For the full workflow in an independent directory, use the
+[standalone guide](STANDALONE.md). The commands below use the SDK checkout.
+
 Build the host and inspection tool once, from the repository root:
 
 ```bash
@@ -86,6 +89,46 @@ The semantic declaration comparison excludes code identity. Browser and Android
 hosts report `build=unavailable` until their loaders supply the compiled
 artifact's identity. They must not identify native code by the browser process
 or Android launcher. This digest is not an artifact signature.
+
+A standalone desktop package uses the player host profile. This embeds the
+installed content and maps. The external project's scripts and content still
+use the normal paired reload path.
+
+```bash
+cargo build -p ambition_app_tools --bin project_export
+CARGO_INCREMENTAL=0 cargo build --release -p pulse_forge_host --no-default-features --features desktop_player
+python3 scripts/package/package_project.py --project examples/projects/pulse_forge/project-linked.ron --host target/release/pulse_forge_host --out /tmp/pulse-forge-desktop --ticks 30 --presentation-frames 600
+cd /
+/tmp/pulse-forge-desktop/run.sh --headless-ticks 30
+```
+
+Run `run.sh` without a probe flag for a desktop window. The package has its own
+manifest, content sources, worlds, module files, library catalogs, and selected
+runtime assets. It has no symlinks into the checkout. The exporter keeps module
+file stems, declaration order, content IDs, and canonical definitions. It uses
+the library owner's selected file set. It requires explicit `content` and
+`worlds` directories in the project manifest.
+
+The packaging command calls no Cargo process. It verifies byte hashes and
+runs from `/` with no compiler on `PATH`. It checks the reported project and
+selected module runners, and rejects game-input reads outside the artifact.
+`--presentation-frames` uses the host's existing no-window presentation mode.
+It loads assets and activates the game; it does not draw an image. `strace`
+must be on the packaging machine's `PATH`. The runtime does not need it.
+
+From the SDK checkout, repeat verification after moving the package:
+
+```bash
+python3 scripts/package/package_project.py --out /tmp/pulse-forge-desktop --verify-only --ticks 30 --presentation-frames 600
+```
+
+`CONTRACT.json` records the packaged bytes. `VERIFIED.json` records the runs,
+opened inputs, host digest, and module generation. A source edit can run and
+reload without a rebuild, but it changes those packaged bytes; export a new
+package to obtain a new byte contract. The current package carries the full
+selected shared library. The measured Linux package is about 5.8 GB. It does
+not yet reduce assets to the files this drill room uses. Installed library
+publication and Yarn source reload keep their existing separate limits.
 
 `modules/sentinel.rhai` remains a Rhai module beside the emitter in all three
 modes. It observes the room's bodies tagged `pulse_forge.sentinels`. Its

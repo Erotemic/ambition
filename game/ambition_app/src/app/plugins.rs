@@ -133,7 +133,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_app_local_sim_systems(app);
 
     // A script and the content it uses reload as one candidate.
-    #[cfg(not(any(target_arch = "wasm32", feature = "static_content")))]
+    #[cfg(not(target_arch = "wasm32"))]
     app.add_plugins(super::source_pairing::SourcePairingPlugin);
 
     // All construction/snapshot registries are now installed. Publish the

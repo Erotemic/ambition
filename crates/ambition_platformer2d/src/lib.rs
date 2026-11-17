@@ -384,7 +384,8 @@ pub mod content {
                 .unwrap_or_else(|error| panic!("Content libraries for `{}`: {error}", self.prepared().id.0));
         }
 
-        fn import_libraries(&self, world: &mut bevy::prelude::World) {
+        /// Import this pack's defaults. Keep each existing host selection.
+        pub fn import_libraries(&self, world: &mut bevy::prelude::World) {
             let pack = self.prepared();
             libraries::import(world, &pack.root, &pack.libraries, self.libraries)
                 .unwrap_or_else(|error| panic!("Content library imports for `{}`: {error}", pack.id.0));

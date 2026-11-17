@@ -12,6 +12,7 @@ description = "ECS-native, content-free pure-logic core (geometry / movement / c
 crate-type = ["rlib"]
 
 [dependencies]
+ambition_hit_spec = { path = "../ambition_hit_spec" }
 # Minimal foundation deps only. The ECS surface is just the `Component` derive
 # and `QueryData` derive (no Bundle / Commands / systems), so depend on
 # `bevy_ecs` directly rather than the full `bevy` umbrella to keep this crate's

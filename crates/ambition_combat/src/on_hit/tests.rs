@@ -246,6 +246,7 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
         .world_mut()
         .spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner,
                 source: HitSide::Player,

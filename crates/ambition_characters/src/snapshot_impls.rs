@@ -52,6 +52,7 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     struck_recently: f32,
     hitstop_timer: f32,
     asdi_owed: bool,
+    hitlag_sdi_scale: state,
     landing_lag_timer: f32,
     damage_invuln_timer: f32,
     hitstun_timer: f32,

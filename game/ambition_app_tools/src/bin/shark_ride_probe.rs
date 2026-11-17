@@ -120,6 +120,7 @@ fn main() {
         }
         world.spawn((
             ambition_platformer2d::combat::strike::Hitbox {
+                properties: Default::default(),
                 owner: rival,
                 // The hostile side: a `Player`-sourced strike on a
                 // Player-faction body is friendly fire and is refused.

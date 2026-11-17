@@ -116,6 +116,8 @@ fn rain(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     lanes.store(inv)?;
     for x in drops {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             origin: Vec2::new(x, spawn_y),
             // Down at once, so the apple keeps its lane before gravity acts.
             dir: Vec2::new(0.0, 1.0),

@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v483",
+    "version": "ggrs-rollback-schema-v484",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -246,6 +246,12 @@
     "ambition_platformer2d_core::AbilitySet",
     "ambition_platformer2d_core::BodyEffects",
     "ambition_platformer2d_core::MotionModel",
+    "ambition_platformer2d_core::Option<f32>",
+    "ambition_platformer2d_core::ambition_hit_spec::ArmorInteraction",
+    "ambition_platformer2d_core::ambition_hit_spec::ClashPolicy",
+    "ambition_platformer2d_core::ambition_hit_spec::HitGuard",
+    "ambition_platformer2d_core::ambition_hit_spec::HitProperties",
+    "ambition_platformer2d_core::ambition_hit_spec::TechPolicy",
     "ambition_platformer2d_core::body_clusters::ActorSurfaceState",
     "ambition_platformer2d_core::body_clusters::BodyAbilities",
     "ambition_platformer2d_core::body_clusters::BodyActionBuffer",

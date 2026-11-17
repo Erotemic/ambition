@@ -365,3 +365,15 @@ mod threat_timing_tests {
         }
     }
 }
+
+#[test]
+fn the_airborne_grab_press_selects_a_hit_instead_of_a_capture() {
+    let set = crate::authored_movesets::shipped("projectile_polygon");
+    let ground = set.move_for_flat_verb("grab", true, false).unwrap();
+    let air = set.move_for_flat_verb("grab", false, false).unwrap();
+    assert!(ground.frame_data().captures);
+    assert!(!air.frame_data().captures);
+    assert_ne!(air.id, ground.id);
+    assert!(air.windows.iter().flat_map(|window| &window.volumes).any(|volume| volume.damage > 0));
+    assert!(air.windows.iter().flat_map(|window| &window.volumes).all(|volume| volume.on_hit.is_none()));
+}

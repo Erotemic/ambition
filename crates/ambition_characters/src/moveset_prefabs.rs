@@ -304,6 +304,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
     // mirrors it by facing and rotates it into the gravity frame at spawn.
     let half_x = (p.reach_px * 0.5).max(8.0);
     let volume = HitVolume {
+        properties: Default::default(),
         // An ordinary swing: it hurts. A gust is authored, never inherited.
         // CM8: the authored contact sound rides the volume to the victim-side
         // reaction (a sword vs a claw); unauthored swings fall back to the
@@ -633,6 +634,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
     let duration = charge + active + recover;
     let half_x = (p.reach_px * 0.5).max(8.0);
     let volume = HitVolume {
+        properties: Default::default(),
         // An ordinary swing: it hurts.
         // CM8: authored contact sound for the charged strike (see simple_melee).
         hit_sfx: p.hit_sfx.clone(),

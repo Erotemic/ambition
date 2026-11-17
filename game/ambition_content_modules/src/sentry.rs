@@ -87,6 +87,8 @@ fn deploy(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 /// One bolt of the turret, as the game fires it, from `origin` along `dir`.
 pub fn authored_bolt(origin: Vec2, dir: Vec2) -> ProjectileSpawn {
     ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin,
         dir,
         speed: BOLT_SPEED,

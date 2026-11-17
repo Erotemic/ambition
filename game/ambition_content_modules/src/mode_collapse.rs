@@ -78,6 +78,8 @@ fn converge(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             continue;
         }
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             origin,
             dir,
             speed: RING_SPEED,

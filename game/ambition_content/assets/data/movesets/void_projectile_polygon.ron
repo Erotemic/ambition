@@ -36,9 +36,10 @@
                         "void_projectile_polygon_smash_down": [3, 2],
                         "void_projectile_polygon_air_neutral": [1],
                         "void_projectile_polygon_air_forward": [2],
+                        "void_projectile_polygon_tether_air": [1],
                         "void_projectile_polygon_air_back": [2],
                         "void_projectile_polygon_air_up": [2],
-                        "void_projectile_polygon_air_down": [2],
+                        "void_projectile_polygon_air_down": [2, 2],
                         "void_projectile_polygon_recoil_lift": [2],
                         "void_projectile_polygon_downward_vector": [2],
                         // The shot: its cannon's tap, which a full charge triples.

@@ -60,6 +60,7 @@ pub fn apply_body_hit_reaction(
     // what the freeze is deliberately NOT allowed to depend on any more — see
     // `ae::hit_response::hitlag_duration`.
     damage: i32,
+    properties: ambition_hit_spec::HitProperties,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
     stance: VictimStance,
@@ -192,9 +193,11 @@ pub fn apply_body_hit_reaction(
     // rather than by a second rule taught to the freeze about wind. There is
     // one fact here, not two, and `is_a_connect` never had to learn about it.
     if !gust {
-        combat.hitstop_timer = combat
-            .hitstop_timer
-            .max(ae::hit_response::hitlag_duration(damage, &response));
+        let hitlag = ae::hit_response::hitlag_duration(damage, &response) * properties.hitlag_scale;
+        if hitlag > 0.0 && hitlag >= combat.hitstop_timer {
+            combat.hitlag_sdi_scale = Some(properties.sdi_scale);
+        }
+        combat.hitstop_timer = combat.hitstop_timer.max(hitlag);
         // The flash lasts at least the freeze: a smash's white pop holds for
         // its whole 16-frame beat and a jab's for its tick, instead of one
         // flat length over both.
@@ -225,7 +228,7 @@ pub fn apply_body_hit_reaction(
     // `armored: true` exactly; a `Damage` threshold absorbs a small hit and lets
     // a big one through, which is the whole of S0.5's damage half. The percent
     // is already paid either way — armor is about AUTHORITY, not damage.
-    let Some(knockback) = knockback.filter(|_| !combat.armor.absorbs(damage)) else {
+    let Some(knockback) = knockback.filter(|_| properties.armor == ambition_hit_spec::ArmorInteraction::Bypass || !combat.armor.absorbs(damage)) else {
         #[cfg(feature = "causal")]
         return BodyReaction {
             velocity: *vel,
@@ -341,7 +344,7 @@ pub fn apply_body_hit_reaction(
     // …with the KIND it is, because the gateway that drains this decides the
     // floor game from it: a gust must neither pin a prone body nor start a
     // tumble, and speed alone cannot tell it from a hit.
-    flight.stage_launch(launch, knockback.is_windbox());
+    flight.stage_launch(launch, knockback.is_windbox(), properties.tech);
     // ⭐⭐ A GUST MOVES YOU AND LEAVES YOU IN CONTROL. The launch above is
     // computed exactly as a strike's is — a windbox authors its strength and
     // direction the ordinary way — and the ONE difference is here: no hitstun,
@@ -551,7 +554,7 @@ mod super_armor_tests {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&hard_knockback()),
-            damage,
+            damage, Default::default(),
             ae::Vec2::ZERO,
             VictimStance::default(),
             // No budget and no ledge: this fixture is about the launch and
@@ -586,7 +589,7 @@ mod super_armor_tests {
                 ae::Vec2::new(0.0, 1.0),
                 false,
                 Some(&hard_knockback()),
-                10,
+                10, Default::default(),
                 ae::Vec2::ZERO,
                 VictimStance::default(),
                 None,
@@ -728,7 +731,7 @@ mod super_armor_tests {
             Some(&gust),
             // A gust deals no damage — the authored zero the damage floor was
             // taught to preserve.
-            0,
+            0, Default::default(),
             ae::Vec2::ZERO,
             VictimStance::default(),
             None,
@@ -777,7 +780,7 @@ mod super_armor_tests {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&gust),
-            0,
+            0, Default::default(),
             ae::Vec2::ZERO,
             VictimStance::default(),
             None,
@@ -843,7 +846,7 @@ mod super_armor_tests {
                 // authors zero, but asking with zero would make the hitlag
                 // assertion pass for the wrong reason — the arm has to prove the
                 // KIND refuses the beat, not that the number was small.
-                9,
+                9, Default::default(),
                 ae::Vec2::ZERO,
                 VictimStance::default(),
                 Some(&mut dodge),
@@ -931,7 +934,7 @@ mod super_armor_tests {
                 ae::Vec2::new(0.0, 1.0),
                 false,
                 Some(&gust()),
-                0,
+                0, Default::default(),
                 ae::Vec2::ZERO,
                 VictimStance::default(),
                 None,
@@ -1012,7 +1015,7 @@ mod super_armor_tests {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&hard_knockback()),
-            12,
+            12, Default::default(),
             ae::Vec2::ZERO,
             VictimStance::default(),
             Some(&mut dodge),
@@ -1096,7 +1099,7 @@ mod super_armor_tests {
                 ae::Vec2::new(0.0, 1.0),
                 false,
                 knockback.as_ref(),
-                12,
+                12, Default::default(),
                 ae::Vec2::ZERO,
                 VictimStance::default(),
                 Some(&mut dodge),
@@ -1160,7 +1163,7 @@ mod super_armor_tests {
                 ae::Vec2::new(0.0, 1.0),
                 false,
                 Some(&hard_knockback()),
-                12,
+                12, Default::default(),
                 ae::Vec2::ZERO,
                 VictimStance {
                     pose_held,
@@ -1191,4 +1194,32 @@ mod super_armor_tests {
         assert!(held_combat.hitstun_timer > 0.0, "the held body is still hit");
         assert_eq!(held_flight.carried_run, free_flight.carried_run);
     }
+    #[test]
+    fn contact_properties_control_freeze_armor_and_the_staged_launch() {
+        use ambition_hit_spec::{ArmorInteraction, HitProperties, TechPolicy};
+        let apply = |properties: HitProperties, has_launch: bool| {
+            let mut vel = ae::Vec2::ZERO;
+            let mut flight = ae::BodyFlightState::default();
+            let mut combat = BodyCombat { armor: ArmorPolicy::Super, ..Default::default() };
+            apply_body_hit_reaction(&mut vel, &mut flight, &mut combat,
+                ae::Vec2::ZERO, 1.0, ae::Vec2::Y, false,
+                has_launch.then_some(&hard_knockback()), 12, properties,
+                ae::Vec2::ZERO, VictimStance::default(), None, None, None, feel());
+            (vel, flight, combat)
+        };
+        let ordinary = apply(HitProperties::default(), true);
+        assert_eq!(ordinary.0, ae::Vec2::ZERO);
+        assert!(ordinary.2.hitstop_timer > 0.0);
+        let bypass = apply(HitProperties { armor: ArmorInteraction::Bypass, tech: TechPolicy::Deny,
+            hitlag_scale: 0.5, sdi_scale: 0.0, ..Default::default() }, true);
+        assert!(bypass.0.length() > 0.0);
+        assert_eq!(bypass.1.pending_launch_state().tech, TechPolicy::Deny);
+        assert!((bypass.2.hitstop_timer - ordinary.2.hitstop_timer * 0.5).abs() < 1e-6);
+        assert_eq!(bypass.2.hitlag_sdi_scale, Some(0.0));
+        let chip = apply(HitProperties { hitlag_scale: 0.5, ..Default::default() }, false);
+        assert!((chip.2.hitstop_timer - ordinary.2.hitstop_timer * 0.5).abs() < 1e-6);
+        let no_freeze = apply(HitProperties { hitlag_scale: 0.0, ..Default::default() }, true);
+        assert_eq!(no_freeze.2.hitstop_timer, 0.0);
+    }
+
 }

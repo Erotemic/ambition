@@ -6,6 +6,7 @@ edition = "2021"
 # `bevy_math` directly rather than through `ambition_geometry`, on that
 # crate's own advice: anything that needs only the maths types should skip it.
 [dependencies]
+ambition_hit_spec = { path = "../ambition_hit_spec" }
 bevy_math = { version = "0.19.1", features = ["serialize"] }
 # The projectile domain owns the pure value of its extension request port
 # (`ProjectileSpawnPort`). The SDK has no dependencies, so a module that

@@ -48,6 +48,12 @@ fn fire_once(
         requests.write(ProjectileSpawnRequest::open(
             entity,
             ProjectileSpawn {
+                properties: ambition_hit_spec::HitProperties {
+                    hitlag_scale: 0.5, sdi_scale: 0.0, tech: ambition_hit_spec::TechPolicy::Deny,
+                    targets: ambition_hit_spec::HitTargets { grounded: true, airborne: false, prone: false },
+                    ..Default::default()
+                },
+                guard: ambition_hit_spec::HitGuard::Blockable { extra_shield_damage: 4 },
                 origin: module_entity.pos,
                 dir: ae::Vec2::X,
                 speed: 430.0,
@@ -200,6 +206,11 @@ fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
         "the bolt lands its authored {BOLT_DAMAGE} damage, got {:?}",
         hits.iter().map(|e| e.damage).collect::<Vec<_>>(),
     );
+    assert!(hits.iter().all(|hit| hit.properties.hitlag_scale == 0.5
+        && hit.properties.sdi_scale == 0.0
+        && hit.properties.tech == ambition_hit_spec::TechPolicy::Deny
+        && !hit.properties.targets.airborne));
+    assert!(hits.iter().all(|hit| hit.knockback.unwrap().guard == ambition_hit_spec::HitGuard::Blockable { extra_shield_damage: 4 }));
     // ⚠ THE VERDICT UNDER TEST IS `can_hit`, and it is complete here: a
     // `HitEvent` naming this victim with this damage is exactly what the
     // faction routing decides. `apply_feature_hit_events` — which turns that

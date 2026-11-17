@@ -211,6 +211,7 @@ fn hitbox_knockback_units_remain_distinct() {
 #[test]
 fn follow_owner_hitbox_aabb_tracks_owner_position() {
     let hitbox = Hitbox {
+        properties: Default::default(),
         strike_sfx: None,
         owner: dummy_entity(),
         source: HitSide::Enemy,
@@ -240,6 +241,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
 #[test]
 fn world_anchor_hitbox_ignores_owner_position() {
     let hitbox = Hitbox {
+        properties: Default::default(),
         strike_sfx: None,
         owner: dummy_entity(),
         source: HitSide::Boss,
@@ -287,6 +289,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
         .world_mut()
         .spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner: dummy_entity(),
                 source: HitSide::Enemy,
@@ -325,6 +328,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
         .world_mut()
         .spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner: dummy_entity(),
                 source: HitSide::Enemy,
@@ -525,6 +529,7 @@ fn a_detached_strike_resolves_bodies_before_publishing_its_feature_remainder() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Player,
@@ -596,6 +601,7 @@ fn a_world_anchored_box_outlives_its_owner_but_a_following_one_does_not() {
         let owner = app.world_mut().spawn_empty().id();
         app.world_mut().spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner,
                 source: HitSide::Player,
@@ -678,6 +684,7 @@ fn a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither() {
         let _bystander = hazard_victim(&mut app, ActorFaction::Enemy, at);
         app.world_mut().spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner,
                 source,
@@ -758,6 +765,7 @@ fn a_world_blast_uses_its_position_unless_a_direction_is_authored() {
         let right = hazard_victim(&mut app, ActorFaction::Enemy, blast + ae::Vec2::new(24.0, 0.0));
         app.world_mut().spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner,
                 source: HitSide::Environment,
@@ -833,6 +841,7 @@ fn a_following_box_throws_away_from_the_owner_not_from_its_own_volume() {
     let victim = hazard_victim(&mut app, ActorFaction::Enemy, between);
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             // ⛔ THE OWNER'S OWN SIDE. `HitSide::Enemy` here would make the
@@ -899,6 +908,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Enemy,
@@ -1060,6 +1070,7 @@ fn enemy_hitbox_over_player_app_dealing(
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Enemy,
@@ -1194,6 +1205,7 @@ fn a_detached_strike_hits_each_body_only_once() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Player,
@@ -1270,6 +1282,7 @@ fn player_melee_never_targets_its_owner() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Player,
@@ -1354,6 +1367,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Player,
@@ -1449,6 +1463,7 @@ fn landed_launch(
     ));
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Player,
@@ -1649,6 +1664,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
         ))
         .id();
     let hitbox = Hitbox {
+        properties: Default::default(),
         strike_sfx: None,
         owner,
         source: HitSide::Player,
@@ -1744,6 +1760,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         ))
         .id();
     let hitbox = Hitbox {
+        properties: Default::default(),
         strike_sfx: None,
         owner,
         source: HitSide::Player,
@@ -1853,6 +1870,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Player,
@@ -1926,6 +1944,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: Some(sword),
             owner,
             source: HitSide::Enemy,
@@ -2268,6 +2287,7 @@ mod strike_rank {
         let mut volume = |center: ae::Vec2, half: ae::Vec2, damage: i32, volume_rank: u16, wind: bool| {
             app.world_mut().spawn((
                 Hitbox {
+                    properties: Default::default(),
                     strike_sfx: None,
                     owner,
                     source: HitSide::Enemy,
@@ -2654,6 +2674,7 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Player,
@@ -3061,7 +3082,7 @@ fn the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth() {
     // The BRAIN's road: the catalog envelope a fighter's option layer scores.
     let brain = |growth: Option<f32>, ruleset_growth: f32, growth_scale: f32| {
         LaunchEnvelope::default()
-            .with_volume(PULSE_BASE, growth)
+            .with_volume(PULSE_BASE, growth, Default::default())
             .at(LaunchConditions {
                 victim_damage: AT_PERCENT,
                 victim_weight: 1.0,
@@ -3124,7 +3145,7 @@ fn the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth() {
     // declines rage — so a `None` volume read as set is wrong twice.
     let grows = |ruleset_growth: f32| {
         LaunchEnvelope::default()
-            .with_volume(PULSE_BASE, None)
+            .with_volume(PULSE_BASE, None, Default::default())
             .grows_under(LaunchConditions {
                 ruleset_growth,
                 ..LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY
@@ -3186,6 +3207,7 @@ fn publish_fixture_materials(
 fn strike(app: &mut App, owner: Entity, anchor: HitboxAnchor, half_extent: ae::Vec2) {
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Player,
@@ -3370,6 +3392,7 @@ fn a_ray_down_into_a_portal_hurts_under_its_partner() {
         let ray = crate::strike::RayStrike { dir: ae::Vec2::new(0.0, 1.0), length: 120.0, width: 20.0, look: "force".into() };
         app.world_mut().spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner,
                 source: HitSide::Boss,
@@ -3422,6 +3445,7 @@ fn profile_strike_resolution_with_guards() {
             let center = ae::Vec2::new(x + 30.0 + v as f32 * 20.0, 100.0);
             app.world_mut().spawn((
                 Hitbox {
+                    properties: Default::default(),
                     strike_sfx: None,
                     owner,
                     source: HitSide::Enemy,
@@ -3868,4 +3892,46 @@ fn a_guard_rebounds_a_portal_strike_in_the_chart_where_they_meet() {
             assert_eq!(app.world().get::<GuardState>(defender).unwrap().deflects, 1, "one strike is deflected once");
         }
     }
+}
+
+#[test]
+fn same_frame_volumes_keep_separate_posture_policies() {
+    use ambition_hit_spec::{HitProperties, HitTargets};
+    for (grounded, prone, expected) in [(true, false, 4), (false, false, 8), (true, true, 12)] {
+        let mut relations = FactionRelations::default();
+        relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        let (mut app, victim) = arena_hitbox_app(relations, ActorFaction::Boss);
+        app.world_mut().entity_mut(victim).insert(ae::BodyGroundState { on_ground: grounded, ..Default::default() });
+        app.world_mut().get_mut::<ae::BodyMotionFacts>(victim).unwrap().knocked_down = prone;
+        let world = app.world_mut();
+        let (entity, template) = world.query::<(Entity, &Hitbox)>().single(world).map(|(e,h)| (e,h.clone())).unwrap();
+        world.entity_mut(entity).despawn();
+        for (rank, (damage, targets)) in [
+            (4, HitTargets { grounded: true, airborne: false, prone: false }),
+            (8, HitTargets { grounded: false, airborne: true, prone: false }),
+            (12, HitTargets { grounded: false, airborne: false, prone: true }),
+        ].into_iter().enumerate() {
+            world.spawn((Hitbox {damage, properties: HitProperties {targets, ..Default::default()}, ..template.clone()}, HitboxHits::default(), crate::moveset::StrikeRank { window: 0, volume: rank as u16 }));
+        }
+        app.update();
+        let hits = app.world().resource::<CapturedHits>().body_hits();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].damage, expected);
+    }
+}
+
+#[test]
+fn a_refused_posture_does_not_spend_the_strike_contact() {
+    use ambition_hit_spec::HitTargets;
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let (mut app, victim) = arena_hitbox_app(relations, ActorFaction::Boss);
+    app.world_mut().entity_mut(victim).insert(ae::BodyGroundState::default());
+    let world = app.world_mut();
+    world.query::<&mut Hitbox>().single_mut(world).unwrap().properties.targets = HitTargets { grounded: true, airborne: false, prone: false };
+    app.update();
+    assert!(app.world().resource::<CapturedHits>().body_hits().is_empty());
+    app.world_mut().get_mut::<ae::BodyGroundState>(victim).unwrap().on_ground = true;
+    app.update();
+    assert_eq!(app.world().resource::<CapturedHits>().body_hits().len(), 1);
 }

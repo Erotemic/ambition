@@ -1348,6 +1348,8 @@ fn fire_shots(
             None => ProjectileSpawnRequest::open(
                 owner,
                 ProjectileSpawn {
+                    properties: Default::default(),
+                    guard: Default::default(),
                     origin,
                     dir,
                     speed: 300.0,

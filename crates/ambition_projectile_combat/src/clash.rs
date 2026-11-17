@@ -56,6 +56,7 @@ fn arbitrate_attack_clashes(
         ),
         With<ambition_projectiles::LiveProjectile>,
     >,
+    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     owner_pos: Query<&ae::BodyKinematics>,
     factions: Query<(&ambition_characters::actor::ActorFaction, Option<&ambition_characters::control::DrivingParticipant>)>,
     teams: Query<&ambition_combat::targeting::MatchTeam>,
@@ -88,11 +89,14 @@ fn arbitrate_attack_clashes(
             .get(volume.owner)
             .map(|playback| playback.started_grounded)
             .unwrap_or(true);
+        if hitbox.properties.clash == ambition_hit_spec::ClashPolicy::Transcendent { continue; }
         contenders.push((tuning.room_of(volume.owner), ClashContender {
             order: ClashOrder::Melee(sim_id.map(|id| id.as_str()).unwrap_or("")),
             attack: ClashAttack::Move(volume.owner),
             owner: volume.owner,
-            volume: match hitbox.world_volume(Some(kin)) { Ok(volume) => volume, Err(_) => continue },
+            pieces: match ambition_combat::hitbox::strike_reach(geometry.as_deref(), hitbox, Some(kin), tuning.room_of(volume.owner)) {
+                Ok(pieces) => pieces, Err(_) => continue,
+            },
             family: if grounded {
                 ClashFamily::GroundedMelee
             } else {
@@ -110,19 +114,31 @@ fn arbitrate_attack_clashes(
     }
 
     for (entity, kin, game, seq, owner, allegiance) in shots.iter() {
+        if game.properties.clash == ambition_hit_spec::ClashPolicy::Transcendent { continue; }
         // ⛔ THE SIDE IS THE ONE STAMPED AT LAUNCH. A shot outlives its firer, so
         // chasing the owner's components answers about a body that may already
         // have been taken out of play — the same reason `step_projectiles` reads
         // `AttackAllegiance` rather than the owner.
         let Some(side) = allegiance else { continue; };
-        contenders.push((tuning.room_of(entity), ClashContender {
+        let room = tuning.room_of(entity);
+        let Ok(domain) = kin.canonical_box() else { continue; };
+        let Ok(to_world) = kin.material_map() else { continue; };
+        let material = ae::frame::thread::MaterialPrimitive { domain: &domain, to_world };
+        let pieces = match geometry.as_deref() {
+            Some(geometry) => geometry.short_of_refusal(geometry.body_pieces(material, entity, room), material, Some(entity), room),
+            None => ae::frame::thread::VolumePiece::from_material(material).map(|piece| vec![piece]).map_err(|fault| ae::frame::thread::Refusal {
+                path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(fault),
+            }),
+        };
+        let Ok(pieces) = pieces else { continue; };
+        contenders.push((room, ClashContender {
             order: ClashOrder::Shot(seq.0),
             attack: ClashAttack::Shot(entity),
             // An ownerless environmental volley still fights; it just has no
             // body to pair against, and `Entity::PLACEHOLDER` cannot equal a
             // real owner, so it never suppresses a pair by accident.
             owner: owner.map(|o| o.0).unwrap_or(Entity::PLACEHOLDER),
-            volume: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size() * 0.5)),
+            pieces,
             family: ClashFamily::Shot,
             damage: game.damage,
             allegiance: ambition_combat::targeting::Combatant {
@@ -280,6 +296,7 @@ mod tests {
         for (owner, id) in [(a, "vol_a"), (b, "vol_b"), (c, "vol_c")] {
             app.world_mut().spawn((
                 ambition_combat::strike::Hitbox {
+                    properties: Default::default(),
                     strike_sfx: None,
                     owner,
                     source: ambition_combat::strike::HitSide::Enemy,
@@ -369,6 +386,7 @@ mod tests {
             for (owner, id) in [(a, "vol_a"), (b, "vol_b")] {
                 app.world_mut().spawn((
                     ambition_combat::strike::Hitbox {
+                        properties: Default::default(),
                         strike_sfx: None,
                         owner,
                         source: ambition_combat::strike::HitSide::Enemy,
@@ -429,6 +447,8 @@ mod tests {
     ) -> Entity {
         let projectile =
             ambition_projectiles::build_in_flight_projectile(ambition_projectiles::ProjectileSpawn {
+                properties: Default::default(),
+                guard: Default::default(),
                 origin: pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 speed: 200.0,
@@ -486,6 +506,7 @@ mod tests {
     fn a_strike_volume(app: &mut App, owner: Entity, id: &str, damage: i32) {
         app.world_mut().spawn((
             ambition_combat::strike::Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner,
                 source: ambition_combat::strike::HitSide::Enemy,
@@ -829,6 +850,7 @@ mod tests {
             end_s: 0.30,
             tag: ambition_entity_catalog::WindowTag::Active,
             volumes: vec![ambition_entity_catalog::HitVolume {
+                properties: Default::default(),
                 shape: ambition_entity_catalog::VolumeShape::Rect {
                     // Reaching FORWARD, and wide enough that two fighters 30px apart
                     // meet in the middle.

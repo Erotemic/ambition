@@ -1487,10 +1487,8 @@ mod tests {
         assert_eq!(forward.2, None, "a captor became a captive");
     }
 
-    /// AN AIRBORNE VICTIM IS NOT CAPTURED BY A STANDING GRAB (v1).
-    ///
-    /// Aerial grabs are a named future technique. A standing grab that happened
-    /// to catch a jumping body would be a bad aerial grab nobody designed.
+    /// Standing grabs require both bodies on the ground.
+    /// A tether attack in the air uses a hit volume.
     #[test]
     fn an_airborne_victim_is_out_of_reach_of_a_standing_grab() {
         let mut app = capture_app();
@@ -3412,7 +3410,7 @@ pub fn apply_capture_throws(
             Some(&knockback),
             // The throw's own damage, which is the term the freeze is computed
             // from — the same value applied to the meter above.
-            damage,
+            damage, Default::default(),
             //  no DI on a throw's release frame: the captive had no control to
             // hold. Smash DI on throws is a real mechanic and it belongs with
             // the escape work, where a captive's restricted input channel exists.

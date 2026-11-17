@@ -220,7 +220,7 @@ impl PreparedThrow {
         if let Some(ground) = ground.filter(|_| self.leaves_ground) { ground.on_ground = false; }
         match flight {
             Some(flight) => {
-                flight.stage_launch(self.launch, true);
+                flight.stage_launch(self.launch, true, Default::default());
                 flight.carried_run = self.run;
                 flight.carried_hold = flight.carried_hold.max(hold);
             }

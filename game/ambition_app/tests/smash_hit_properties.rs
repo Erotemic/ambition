@@ -8,28 +8,33 @@ use ambition_platformer2d::{
 use bevy::prelude::*;
 
 fn two_georges() -> (App, [Entity; 2]) {
-    let roster = ambition_demo_smash::smash_roster([
-        ambition_demo_smash::SMASH_GEORGE_BOOUL,
-        ambition_demo_smash::SMASH_GEORGE_BOOUL,
-    ]);
+    two_fighters([ambition_demo_smash::SMASH_GEORGE_BOOUL; 2])
+}
+
+fn two_fighters(characters: [&str; 2]) -> (App, [Entity; 2]) {
+    let roster = ambition_demo_smash::smash_roster(characters);
     let mut app = crate::common::smash::live_round(roster);
     let bodies = [0, 1].map(|seat| crate::common::smash::seat(&mut app, seat));
     for body in bodies {
         app.world_mut().entity_mut(body).insert(Brain::stand_still());
     }
     for _ in 0..60 { app.update(); }
-    let y = app.world().get::<ae::BodyKinematics>(bodies[0]).unwrap().pos.y;
     let center = {
         let world = app.world_mut();
         world.query::<&ae::RoomGeometry>().single(world).unwrap().0.size.x * 0.5
     };
     for (n, body) in bodies.into_iter().enumerate() {
         let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
-        kin.pos = ae::Vec2::new(center + if n == 0 { -30.0 } else { 30.0 }, y);
+        kin.pos.x = center + if n == 0 { -20.0 } else { 20.0 };
         kin.vel = ae::Vec2::ZERO;
         kin.facing = if n == 0 { 1.0 } else { -1.0 };
     }
-    for _ in 0..3 { app.update(); }
+    for _ in 0..120 {
+        app.update();
+        if bodies.iter().all(|body| app.world().get::<ae::BodyGroundState>(*body).is_some_and(|ground| ground.on_ground)) { break; }
+    }
+    assert!(bodies.iter().all(|body| app.world().get::<ae::BodyGroundState>(*body).unwrap().on_ground));
+    for body in bodies { app.world_mut().get_mut::<ambition_platformer2d::characters::actor::BodyCombat>(body).unwrap().damage_invuln_timer = 0.0; }
     (app, bodies)
 }
 
@@ -54,4 +59,84 @@ fn the_shipped_rules_clash_two_authored_ground_jabs_before_damage() {
     let after = bodies.map(|body| app.world().get::<BodyHealth>(body).unwrap().damage_taken());
     assert_eq!(before, after, "the attacks clash before either damages a body");
     assert!(bodies.iter().all(|body| app.world().get::<MovePlayback>(*body).is_none()), "both moves end through their normal interruption path");
+}
+
+#[test]
+fn a_transcendent_volume_reaches_a_body_without_clashing() {
+    use ambition_hit_spec::ClashPolicy;
+    let (mut app, bodies) = two_georges();
+    for (n, body) in bodies.into_iter().enumerate() {
+        let moves = app.world().get::<ActorMoveset>(body).unwrap();
+        let mut jab = moves.0.moves.iter().find(|spec| spec.id == "jab").unwrap().clone();
+        if n == 0 {
+            for volume in jab.windows.iter_mut().flat_map(|window| &mut window.volumes) {
+                volume.properties.clash = ClashPolicy::Transcendent;
+            }
+        }
+        app.world_mut().entity_mut(body).insert(MovePlayback::new(std::sync::Arc::new(jab), if n == 0 { 1.0 } else { -1.0 }));
+    }
+    let mut cursor = bevy::ecs::message::MessageCursor::<AttacksClanked>::default();
+    let mut clanked = false;
+    for _ in 0..90 {
+        app.update();
+        clanked |= cursor.read(app.world().resource::<Messages<AttacksClanked>>()).next().is_some();
+    }
+    assert!(!clanked);
+    assert!(bodies.iter().any(|body| app.world().get::<BodyHealth>(*body).unwrap().damage_taken() > 0));
+}
+
+#[test]
+fn the_shipped_down_air_chooses_its_floor_pop_or_air_spike_at_contact() {
+    use ambition_platformer2d::combat::{HitEvent, HitTarget};
+    for airborne in [false, true] {
+        let (mut app, [attacker, victim]) = two_fighters(["projectile_polygon", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+        let target = app.world().get::<ae::BodyKinematics>(victim).unwrap().pos
+            - if airborne { ae::Vec2::new(0.0, 220.0) } else { ae::Vec2::ZERO };
+        for (body, pos) in [(victim, target), (attacker, target - ae::Vec2::new(0.0, 50.0))] {
+            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+            kin.pos = pos;
+            kin.vel = ae::Vec2::ZERO;
+        }
+        let spec = app.world().get::<ActorMoveset>(attacker).unwrap().0.moves.iter()
+            .find(|spec| spec.id == "polygon_projectile_air_down").unwrap().clone();
+        app.world_mut().entity_mut(attacker).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0).started_in_stance(false));
+        let mut cursor = bevy::ecs::message::MessageCursor::<HitEvent>::default();
+        let mut landed = None;
+        for _ in 0..90 {
+            app.update();
+            if let Some(hit) = cursor.read(app.world().resource::<Messages<HitEvent>>())
+                .find(|hit| hit.attacker == Some(attacker) && hit.target == HitTarget::Body(victim)) {
+                landed = Some(hit.clone());
+                break;
+            }
+        }
+        let hit = landed.expect("the authored down-air must reach the staged victim");
+        assert_eq!(hit.properties.targets.airborne, airborne);
+        assert_eq!(hit.properties.targets.grounded, !airborne);
+        assert_eq!(hit.knockback.unwrap().launch_dir.unwrap().world().y.is_sign_positive(), airborne);
+    }
+}
+
+#[test]
+fn an_airborne_grab_press_plays_the_authored_tether_hit_without_capture() {
+    use bevy::ecs::system::RunSystemOnce;
+    use ambition_platformer2d::characters::control::ActorControl;
+    let (mut app, [attacker, victim]) = two_fighters(["projectile_polygon", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    {
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(attacker).unwrap();
+        kin.pos.y -= 20.0;
+    }
+    app.world_mut().get_mut::<ae::BodyGroundState>(attacker).unwrap().on_ground = false;
+    app.world_mut().get_mut::<ActorControl>(attacker).unwrap().0.grab_pressed = true;
+    app.world_mut().run_system_once(ambition_platformer2d::combat::moveset::trigger_moveset_moves).unwrap();
+    let playing = app.world().get::<MovePlayback>(attacker).expect("the airborne press starts a move");
+    assert_eq!(playing.spec.id, "polygon_projectile_tether_air");
+    assert!(!playing.spec.frame_data().captures);
+    let mut captured = false;
+    for _ in 0..90 {
+        app.update();
+        captured |= app.world().get::<ambition_platformer2d::combat::capture::CapturedBy>(victim).is_some();
+    }
+    assert!(!captured);
+    assert!(app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > 0);
 }

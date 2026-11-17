@@ -257,6 +257,7 @@ dependencies = [
  "ambition_binding",
  "ambition_content_pack",
  "ambition_entity_catalog",
+ "ambition_hit_spec",
  "ambition_platformer2d_core",
  "bevy",
  "ron 0.11.0",
@@ -273,6 +274,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_extension_host",
  "ambition_extension_sdk",
+ "ambition_hit_spec",
  "ambition_interaction",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
@@ -439,6 +441,7 @@ dependencies = [
 name = "ambition_entity_catalog"
 version = "0.1.0"
 dependencies = [
+ "ambition_hit_spec",
  "ambition_resource_spec",
  "ron 0.11.0",
  "serde",
@@ -518,6 +521,13 @@ dependencies = [
  "ambition_platformer2d_world",
  "ambition_time",
  "bevy",
+]
+
+[[package]]
+name = "ambition_hit_spec"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -843,6 +853,7 @@ name = "ambition_platformer2d_core"
 version = "0.1.0"
 dependencies = [
  "ambition_geometry",
+ "ambition_hit_spec",
  "ambition_resource_spec",
  "bevy_ecs",
  "bevy_math",
@@ -1125,6 +1136,7 @@ name = "ambition_platformer2d_shared_tangle"
 version = "0.1.0"
 dependencies = [
  "ambition_binding",
+ "ambition_hit_spec",
  "ambition_platformer2d_core",
  "ambition_projectile_spec",
  "ambition_registry_core",
@@ -1214,6 +1226,7 @@ dependencies = [
  "ambition_combat",
  "ambition_damage",
  "ambition_gameplay_trace",
+ "ambition_hit_spec",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
@@ -1229,6 +1242,7 @@ name = "ambition_projectile_spec"
 version = "0.1.0"
 dependencies = [
  "ambition_extension_sdk",
+ "ambition_hit_spec",
  "bevy_math",
 ]
 
@@ -1240,6 +1254,7 @@ dependencies = [
  "ambition_extension_host",
  "ambition_extension_sdk",
  "ambition_gameplay_trace",
+ "ambition_hit_spec",
  "ambition_input",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",

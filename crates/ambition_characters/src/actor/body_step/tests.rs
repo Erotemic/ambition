@@ -429,3 +429,26 @@ fn the_automatic_shift_is_paid_once_when_the_freeze_lifts() {
         unaffected.kinematics.pos.y
     );
 }
+
+#[test]
+fn a_restored_contact_scale_controls_both_sdi_displacements() {
+    let run = |scale| {
+        let mut body = body_travelling();
+        let combat = BodyCombat { hitstop_timer: 0.08, hitlag_sdi_scale: Some(scale), ..Default::default() };
+        let bytes = ae::snapshot::encode_state(&combat);
+        let mut combat: BodyCombat = ae::snapshot::decode_state(&bytes).unwrap();
+        let mut tuning = ae::MovementTuning::default();
+        tuning.sdi_step = 3.0;
+        tuning.asdi_step = 6.0;
+        let input = ae::InputState { axes: ae::LocalAxes::new(0.0, -1.0), ..Default::default() };
+        let manual = stepped(&mut body, &mut combat, tuning.clone(), input.clone());
+        combat.hitstop_timer = 0.0;
+        let automatic = stepped(&mut body, &mut combat, tuning, input);
+        (manual, automatic)
+    };
+    let ordinary = run(1.0);
+    let disabled = run(0.0);
+    assert_eq!(ordinary.0, ae::Vec2::new(0.0, -3.0));
+    assert_eq!(disabled.0, ae::Vec2::ZERO);
+    assert!((ordinary.1.y - disabled.1.y + 6.0).abs() < 1e-4);
+}

@@ -281,6 +281,7 @@ pub fn apply_contact_harm(
                 -1.0
             };
             hit_events.write(HitEvent {
+                properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),
                 strike_sfx: None,

@@ -13,6 +13,8 @@ use ambition_platformer2d_core::Vec2;
 /// branches on a named kind.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProjectileSpec {
+    pub properties: ambition_hit_spec::HitProperties,
+    pub guard: ambition_hit_spec::HitGuard,
     /// Initial center position.
     pub origin: Vec2,
     /// Unit-length direction vector. (1, 0) fires right.
@@ -67,6 +69,8 @@ mod tests {
     #[test]
     fn initial_velocity_scales_direction_by_speed() {
         let s = ProjectileSpec {
+            properties: Default::default(),
+            guard: Default::default(),
             origin: Vec2::ZERO,
             direction: Vec2::new(1.0, 0.0),
             damage: 1,

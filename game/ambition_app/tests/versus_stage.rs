@@ -723,6 +723,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
         .into();
     app.world_mut()
         .write_message(ambition_platformer2d::combat::events::HitEvent {
+            properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
             strike_sfx: None,
@@ -1685,6 +1686,8 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
             ambition_platformer2d::projectiles::InFlightProjectile {
                 body: ambition_platformer2d::projectiles::ProjectileBody::from_spec(
                     ambition_platformer2d::projectiles::ProjectileSpec {
+                        properties: Default::default(),
+                        guard: Default::default(),
                         origin: ambition_platformer2d::engine_core::Vec2::new(400.0, 300.0),
                         direction: ambition_platformer2d::engine_core::Vec2::new(1.0, 0.0),
                         damage: 1,
@@ -2481,6 +2484,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
         .into();
     app.world_mut()
         .write_message(ambition_platformer2d::combat::events::HitEvent {
+            properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
             strike_sfx: None,

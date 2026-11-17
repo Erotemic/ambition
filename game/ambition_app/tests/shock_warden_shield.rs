@@ -254,7 +254,7 @@ fn his_guard_uses_physical_material_for_shape_and_front_coverage() {
         let hp = sim.world().get::<BodyHealth>(defender).unwrap().current();
         let local_offset = sim.world().get::<ae::BodyKinematics>(attacker).unwrap().material_map().unwrap()
             .inverse().unwrap().point(centre).unwrap();
-        let hit = sim.world_mut().spawn((Hitbox { owner: attacker, source: HitSide::Player,
+        let hit = sim.world_mut().spawn((Hitbox { properties: Default::default(), owner: attacker, source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner { local_offset }, half_extent: Vec2::splat(0.01),
             shape: None, facing: 1.0, damage: 1,
             knockback: HitboxKnockback::LaunchSpeed { base: 0.0, growth: None }, launch_dir: None,

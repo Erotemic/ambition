@@ -89,6 +89,7 @@ pub fn strike_it_with_the_moon(
             continue;
         }
         hits.write(ambition_combat::HitEvent {
+            properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
             // Its published footprint: the box it has in its room's gravity.

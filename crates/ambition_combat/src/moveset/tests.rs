@@ -4030,6 +4030,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
         ..Default::default()
     });
     let volume = |reach: f32| HitVolume {
+        properties: Default::default(),
         shape: ambition_entity_catalog::VolumeShape::Rect {
             offset: (reach, 0.0),
             half_extents: (8.0, 20.0),
@@ -4618,19 +4619,8 @@ fn a_melee_weapon_in_hand_answers_with_its_own_swing() {
     );
 }
 
-/// THE PROBE. AN AIRBORNE BODY REACHES NO CAPTURE MOVE, HOLDING OR NOT.
-///
-/// `SmashCaptureRepertoire::bound` gates its whole vocabulary grounded-only and
-/// says why: an aerial grab is a named FUTURE technique, and "a grab that
-/// answered an airborne press would be one of them by accident." The selector
-/// asked for capture verbs through the ungated exact-verb lookup, so it started
-/// them anyway — the free body's grab, and then every pummel and throw a captor
-/// carried into the air.
-///
-/// The invariant outlives the fix: what a press may start is the intersection of
-/// what the fighter AUTHORS and what their STANCE permits. It is asserted in
-/// both capture contexts because they are different branches of the selector,
-/// and fixing one lookup would not have proven the other reads it.
+/// Capture verbs require a grounded body before and during a hold.
+/// An air variant can select a hit move outside the capture repertoire.
 #[test]
 fn an_airborne_body_reaches_no_grounded_only_capture_move() {
     let press = |grab: bool| {
@@ -5014,6 +5004,7 @@ fn charging_smash() -> MoveSpec {
                 end_s: 0.16,
                 tag: WindowTag::Active,
                 volumes: vec![HitVolume {
+                    properties: Default::default(),
                     hit_sfx: None,
                     shape: ambition_entity_catalog::VolumeShape::Rect {
                         offset: (24.0, 0.0),
@@ -6160,6 +6151,7 @@ fn two_spot_move(id: &str, volumes: Vec<HitVolume>) -> MoveSpec {
 
 fn spot(offset: (f32, f32), damage: i32) -> HitVolume {
     HitVolume {
+        properties: Default::default(),
         hit_sfx: None,
         shape: ambition_entity_catalog::VolumeShape::Rect {
             offset,
@@ -6309,6 +6301,7 @@ fn volumes_that_do_not_both_reach_the_body_both_still_land() {
 /// A narrow spot, so a body can be inside one and outside its sibling.
 fn narrow_spot(offset: (f32, f32), damage: i32) -> HitVolume {
     HitVolume {
+        properties: Default::default(),
         hit_sfx: None,
         shape: ambition_entity_catalog::VolumeShape::Rect {
             offset,

@@ -37,6 +37,7 @@ pub fn apply_authored_detonations(
             continue;
         }
         hits.write(HitEvent {
+            properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
             strike_sfx: None,

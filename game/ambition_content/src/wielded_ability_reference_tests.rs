@@ -299,6 +299,8 @@ pub mod volley {
                     // (materialization stamps `ProjectileOwner` from this).
                     entity,
                     ProjectileSpawn {
+                        properties: Default::default(),
+                        guard: Default::default(),
                         origin,
                         dir,
                         speed: VOLLEY_SPEED,
@@ -430,6 +432,8 @@ pub mod meteor {
                     // it (materialization stamps `ProjectileOwner` from this).
                     entity,
                     ProjectileSpawn {
+                        properties: Default::default(),
+                        guard: Default::default(),
                         origin,
                         // Toward local down; gravity accelerates it the same way.
                         dir: gravity_dir,
@@ -765,6 +769,8 @@ pub mod sentry {
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {
+                    properties: Default::default(),
+                    guard: Default::default(),
                     origin: sentry.pos,
                     dir,
                     speed: SENTRY_BOLT_SPEED,

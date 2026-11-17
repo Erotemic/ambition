@@ -94,7 +94,7 @@ pub fn recoil_attackers_on_connects(
         let run = if victim.x >= kin.pos.x { -speed } else { speed };
         match flight {
             Some(mut flight) => {
-                flight.stage_launch(ambition_platformer2d_core::Vec2::new(run, kin.vel.y), true);
+                flight.stage_launch(ambition_platformer2d_core::Vec2::new(run, kin.vel.y), true, Default::default());
                 flight.carried_run = run;
                 flight.carried_hold = flight.carried_hold.max(hit.hitlag_seconds + RECOIL_HOLD_S);
             }

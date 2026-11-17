@@ -173,22 +173,7 @@ pub struct HitKnockback {
     pub guard: HitGuard,
 }
 
-/// How a pulse meets a raised guard. The runtime twin of the authored
-/// `VolumeGuard`, lowered where the strike becomes a pulse.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HitGuard {
-    /// A raised guard blocks it, and the block spends the guard by the hit's
-    /// damage plus `extra_shield_damage`.
-    Blockable { extra_shield_damage: u16 },
-    /// No guard blocks it.
-    Unblockable,
-}
-
-impl Default for HitGuard {
-    fn default() -> Self {
-        Self::Blockable { extra_shield_damage: 0 }
-    }
-}
+pub use ambition_hit_spec::HitGuard;
 
 /// A pulse's KIND: what the victim is owed for having been touched by it.
 ///

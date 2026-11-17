@@ -612,6 +612,7 @@ fn lower_riding_hitboxes(
         let side = crate::hit_side_from_actor_faction(crate::targeting::effective_faction(*authored, driver));
         commands.spawn((
             crate::strike::Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner: s.scope,
                 source: side,
@@ -705,7 +706,10 @@ fn lower_body_holds(
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
     rigs: Query<&crate::body_rig::BodyRig>,
-    victims: Query<crate::hitbox::StrikeVictim, Without<ambition_characters::control::ControlHolds>>,
+    mut target_state: ParamSet<(
+        Query<crate::hitbox::StrikeVictim, Without<ambition_characters::control::ControlHolds>>,
+        Query<&mut ae::BodyGroundState>,
+    )>,
     captives: Query<(Entity, &crate::capture::CapturedBy)>,
     combat: Query<&ambition_characters::actor::BodyCombat>,
     identities: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -716,7 +720,7 @@ fn lower_body_holds(
         &mut ae::BodyDodgeState,
         &ae::MotionModel,
     )>,
-    mut grounds: Query<&mut ae::BodyGroundState>,
+
     mut holds: Query<&mut ambition_characters::control::ControlHolds>,
     mut carries: MessageWriter<crate::capture::CaptureCarryRequested>,
     mut pummels: MessageWriter<crate::capture::CapturePummelRequested>,
@@ -767,7 +771,7 @@ fn lower_body_holds(
                     .collect();
                 let mut candidates: Vec<(f32, &ambition_platformer2d_shared_tangle::sim_id::SimId, Entity)> =
                     Vec::new();
-                for victim in &victims {
+                for victim in &target_state.p0() {
                     if victim.entity == captor || already.contains(&victim.entity) || tuning.room_of(victim.entity) != room {
                         continue;
                     }
@@ -860,7 +864,7 @@ fn lower_body_holds(
                     crate::capture::systems::release_capture(
                         &mut commands,
                         victim,
-                        grounds.get_mut(victim).ok().as_deref_mut(),
+                        target_state.p1().get_mut(victim).ok().as_deref_mut(),
                         holds.get_mut(victim).ok().as_deref_mut(),
                     );
                 }

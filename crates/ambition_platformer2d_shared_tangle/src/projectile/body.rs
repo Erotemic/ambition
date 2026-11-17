@@ -28,6 +28,8 @@ pub struct InFlightProjectile {
 #[derive(Clone, Copy, Debug, PartialEq, bevy::prelude::Component)]
 #[require(CarriedAcceleration)]
 pub struct ProjectileGameplay {
+    pub properties: ambition_hit_spec::HitProperties,
+    pub guard: ambition_hit_spec::HitGuard,
     pub age: f32,
     pub max_lifetime: f32,
     pub gravity: f32,
@@ -128,6 +130,8 @@ impl ProjectileGameplay {
     /// Build the gameplay half from `spec`.
     fn from_spec(spec: ProjectileSpec) -> Self {
         Self {
+            properties: spec.properties,
+            guard: spec.guard,
             age: 0.0,
             max_lifetime: spec.max_lifetime,
             gravity: spec.gravity,
@@ -272,6 +276,8 @@ mod tests {
             },
             acceleration: CarriedAcceleration::default(),
             game: ProjectileGameplay {
+                properties: Default::default(),
+                guard: Default::default(),
                 age: 0.0,
                 max_lifetime: 1.0,
                 gravity: 0.0,

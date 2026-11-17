@@ -37,7 +37,7 @@ python3 scripts/measure/measure_minimum_profile_closure.py --minimum
   any planning page that disagrees. It also fails if `ambition_render` re-enters
   the facade's mandatory graph.
 
-The capability-footprint sentinel (`fixtures/minimal_game`) links 73 other
+The capability-footprint sentinel (`fixtures/minimal_game`) links 74 other
 workspace packages besides the facade — the `ambition_closure` of
 `scripts/baselines/capability-footprint-baseline.json`, a different subject
 from the facade closure. Re-quote this sentence in the commit that changes the
@@ -47,6 +47,11 @@ The November 10 measurement includes the new geometry observation service
 from `21bab8c44` and the NPC planning contract from `dc206fea9`. The consumer
 links the planning contract instead of the HTN backend. The contract remains
 an unrequested NPC dependency. The baseline counts that cost explicitly.
+
+S0.3 adds `ambition_hit_spec` as a shared value contract. It adds one package
+to this closure. It has no ECS, SDK, or simulation dependency. Shared guard
+values replace the authored and runtime guard twins. The new contact policy
+serves moves, projectile ports, and body reactions.
 
 ## Four independently testable contracts
 

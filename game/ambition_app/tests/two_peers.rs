@@ -825,6 +825,7 @@ fn bob_strikes_during_room_preparation(
         **id == target.0) else { return };
     if room != target_room { return; }
     hits.write(HitEvent {
+        properties: Default::default(),
         contact: None,
         pieces: Vec::new(), volume: ambition_platformer2d::engine_core::Aabb::new(body.pos, body.size() * 0.5).into(),
         damage: 1, source: HitSource::Projectile, attacker: Some(attacker), room: Some(room.0),

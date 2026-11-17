@@ -72,7 +72,7 @@ pub fn step_body(
             ae::hit_response::smash_di_shift(
                 ctx.input.axes.vec(),
                 ctx.frame.down(),
-                axis_tuning.sdi_step,
+                axis_tuning.sdi_step * combat.hitlag_sdi_scale.unwrap_or(1.0),
             ),
         );
         // Bank the automatic displacement while the freeze runs; it is spent
@@ -94,7 +94,7 @@ pub fn step_body(
             ae::hit_response::smash_di_shift(
                 ctx.input.axes.vec(),
                 ctx.frame.down(),
-                axis_tuning.asdi_step,
+                axis_tuning.asdi_step * combat.hitlag_sdi_scale.take().unwrap_or(1.0),
             ),
         );
     }

@@ -2893,7 +2893,7 @@ fn a_gnu_ton_fist_hits_once_after_three_cuts_and_replays_its_scaled_launch() {
         let victim = { let world = sim.world_mut(); world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap() };
         let half = sim.world().get::<ae::BodyKinematics>(owner).unwrap().canonical_size * 0.5;
         let hitbox = sim.world_mut().spawn((
-            Hitbox { owner, source: HitSide::Boss,
+            Hitbox { properties: Default::default(), owner, source: HitSide::Boss,
                 anchor: HitboxAnchor::FollowOwner { local_offset: Vec2::ZERO }, half_extent: half,
                 shape: None, facing: 1.0, damage: 7,
                 knockback: HitboxKnockback::LaunchSpeed { base: 200.0, growth: Some(0.0) },
@@ -2959,7 +2959,7 @@ fn both_gnu_ton_fists_damage_separate_bodies_through_their_paths_in_one_tick() {
         for (index, (owner, ..)) in fists.iter().enumerate() {
             let half = sim.world().get::<ae::BodyKinematics>(*owner).unwrap().canonical_size * 0.5;
             hitboxes.push(sim.world_mut().spawn((
-                Hitbox { owner: *owner, source: HitSide::Boss,
+                Hitbox { properties: Default::default(), owner: *owner, source: HitSide::Boss,
                     anchor: HitboxAnchor::FollowOwner { local_offset: Vec2::ZERO }, half_extent: half,
                     shape: None, facing: 1.0, damage: if index == 0 { 7 } else { 11 },
                     knockback: HitboxKnockback::LaunchSpeed { base: 200.0, growth: Some(0.0) },

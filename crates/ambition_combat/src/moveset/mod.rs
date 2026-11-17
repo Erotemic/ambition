@@ -1870,6 +1870,7 @@ pub fn advance_move_playback(
                             // the final one does not.
                             reaction: volume.reaction,
                             guard: volume.guard,
+                            properties: volume.properties,
                             frame_down: ae::Vec2::Y,
                         };
                         // §7.2: the slash VFX rides the SAME resolved volume the

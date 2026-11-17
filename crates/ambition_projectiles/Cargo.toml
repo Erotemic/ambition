@@ -16,6 +16,7 @@ portal = ["dep:ambition_portal2d"]
 content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
+ambition_hit_spec = { path = "../ambition_hit_spec" }
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 # The projectile domain owns the adapter of its extension request port
 # (`extension.rs`): submitted spawns enter the one spawn-request seam.

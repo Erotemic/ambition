@@ -40,6 +40,8 @@ pub fn origin_local(aim_local: Vec2, body_size: Vec2) -> Vec2 {
 /// bolt rather than copied numbers.
 pub fn authored_bolt(origin: Vec2, dir: Vec2) -> ProjectileSpawn {
     ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin,
         dir,
         speed: SPEED,

@@ -236,7 +236,7 @@ fn launch(app: &mut App, body: Entity, centre_x: f32, faces_centre: bool, toward
     app.world_mut()
         .get_mut::<ae::BodyFlightState>(body)
         .unwrap()
-        .stage_launch(ae::Vec2::new(toward * to_centre, -up), false);
+        .stage_launch(ae::Vec2::new(toward * to_centre, -up), false, Default::default());
 }
 
 /// The launch, the landing and the getup, for one body. Every throw is toward

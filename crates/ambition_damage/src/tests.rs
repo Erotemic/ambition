@@ -1084,7 +1084,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     // stay out of its rollback-registered FIFO.
     let other_body = app.world_mut().spawn_empty().id();
     let volume: ae::CombatVolume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into();
-    app.world_mut().write_message(FeatureHitEvent {
+    app.world_mut().write_message(FeatureHitEvent { properties: Default::default(),
         contact: None,
         pieces: Vec::new(),
         strike_sfx: None,
@@ -1099,7 +1099,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         ignored_targets: Vec::new(),
             attacker_move_instance: None,
     });
-    app.world_mut().write_message(FeatureHitEvent {
+    app.world_mut().write_message(FeatureHitEvent { properties: Default::default(),
         contact: None,
         pieces: Vec::new(),
         strike_sfx: None,
@@ -1114,7 +1114,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         ignored_targets: Vec::new(),
             attacker_move_instance: None,
     });
-    app.world_mut().write_message(FeatureHitEvent {
+    app.world_mut().write_message(FeatureHitEvent { properties: Default::default(),
         contact: None,
         pieces: Vec::new(),
         strike_sfx: None,
@@ -1152,7 +1152,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
 #[test]
 fn a_lifecycle_boundary_voids_staged_player_hits() {
     fn staged_hit() -> FeatureHitEvent {
-        FeatureHitEvent {
+        FeatureHitEvent { properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
             strike_sfx: None,
@@ -1616,7 +1616,7 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         false,
         Some(&knockback),
         // The damage the hit dealt — what the contact freeze is computed from.
-        HIT_DAMAGE,
+        HIT_DAMAGE, Default::default(),
         ae::Vec2::ZERO,
         Default::default(),
         // No budget and no ledge: this fixture measures the launch.
@@ -1681,7 +1681,7 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
                 follow,
                 guard: Default::default(),
             }),
-            HIT_DAMAGE,
+            HIT_DAMAGE, Default::default(),
             ae::Vec2::ZERO,
             Default::default(),
             None,
@@ -1764,7 +1764,7 @@ fn a_hit_with_no_knockback_publishes_no_launch_and_keeps_the_ride() {
         DOWN,
         false,
         None,
-        HIT_DAMAGE,
+        HIT_DAMAGE, Default::default(),
         ae::Vec2::ZERO,
         Default::default(),
         None,
@@ -2068,7 +2068,7 @@ fn meteor_reaction(
         ae::Vec2::new(0.0, 1.0),
         false,
         Some(&knockback),
-        HIT_DAMAGE,
+        HIT_DAMAGE, Default::default(),
         ae::Vec2::ZERO,
         VictimStance {
             grounded,
@@ -2118,7 +2118,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&knockback),
-            HIT_DAMAGE,
+            HIT_DAMAGE, Default::default(),
             ae::Vec2::ZERO,
             VictimStance {
                 grounded: true,

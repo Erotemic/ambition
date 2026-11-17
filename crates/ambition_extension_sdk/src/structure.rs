@@ -323,13 +323,17 @@ pub fn record_fields<'a>(v: &'a ScriptValue, declared: &[&str]) -> Result<&'a [(
 /// }
 /// ```
 ///
+/// Use `Value as Codec` with a local codec for a value owned by another crate.
 /// Every field of the struct must be listed: the read builds the struct from
 /// exactly these fields, so a field the list lacks or a misspelt one does
 /// not compile.
 #[macro_export]
 macro_rules! port_record {
-    ($ty:ident { $( $(#[doc = $doc:literal])* $field:ident : $fty:ty $(as $codec:ty)? $(= $default:expr)? ),* $(,)? }) => {
-        impl $crate::structure::Field<$ty> for $ty {
+    ($ty:ident { $($fields:tt)* }) => {
+        $crate::port_record!($ty as $ty { $($fields)* });
+    };
+    ($ty:ident as $record_codec:ty { $( $(#[doc = $doc:literal])* $field:ident : $fty:ty $(as $codec:ty)? $(= $default:expr)? ),* $(,)? }) => {
+        impl $crate::structure::Field<$ty> for $record_codec {
             fn shape() -> $crate::structure::Shape {
                 $crate::structure::Shape::Record(vec![$(
                     $crate::structure::FieldShape {

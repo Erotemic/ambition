@@ -82,6 +82,8 @@ fn fire(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     };
     for i in 0..BOX_COUNT.max(1) {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             origin: origin + dir * BOX_SPACING.max(1.0) * f32::from(i),
             dir,
             speed: SHOT_SPEED.max(1.0),

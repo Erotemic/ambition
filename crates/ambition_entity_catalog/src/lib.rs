@@ -1031,34 +1031,7 @@ pub enum VolumeReaction {
     Windbox(WindboxVolume),
 }
 
-/// How a hit volume meets a raised guard (S0.3).
-///
-/// One sum type, so a volume cannot be unblockable and also cost a guard
-/// more. The genre's two exceptions to an ordinary blocked hit: a strike a
-/// guard cannot stop, and a strike that breaks a guard faster than its
-/// damage. Both are resolved where a guard meets the hit, never by
-/// inflating damage or by a fighter's id.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum VolumeGuard {
-    /// A raised guard blocks it, and the block spends the guard by the hit's
-    /// damage plus `extra_shield_damage`.
-    Blockable { extra_shield_damage: u16 },
-    /// No guard blocks or parries it. Invulnerability and evasion still do.
-    Unblockable,
-}
-
-impl Default for VolumeGuard {
-    fn default() -> Self {
-        Self::Blockable { extra_shield_damage: 0 }
-    }
-}
-
-impl VolumeGuard {
-    /// The ordinary hit, which data does not write.
-    pub fn is_ordinary(&self) -> bool {
-        *self == Self::default()
-    }
-}
+pub use ambition_hit_spec::HitGuard as VolumeGuard;
 
 /// One hit volume carried by an [`WindowTag::Active`] window, with its hit
 /// payload. Volumes live on their window — where the timeline says they are —
@@ -1066,6 +1039,8 @@ impl VolumeGuard {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HitVolume {
+    #[serde(default, skip_serializing_if = "ambition_hit_spec::HitProperties::is_ordinary")]
+    pub properties: ambition_hit_spec::HitProperties,
     pub shape: VolumeShape,
     /// Damage dealt on contact.
     pub damage: i32,
@@ -2548,6 +2523,7 @@ impl MoveSpec {
                     shape: _,
                     damage: _,
                     knockback: _,
+                    properties: _,
                     knockback_growth: _,
                     launch_dir: _,
                     reaction: _,
@@ -3053,7 +3029,7 @@ impl MoveSpec {
         let launch = active_volumes()
             .filter(|v| hittable(v))
             .fold(LaunchEnvelope::default(), |envelope, v| {
-                envelope.with_volume(v.knockback, v.knockback_growth)
+                envelope.with_volume(v.knockback, v.knockback_growth, v.properties.weight)
             });
         // Lift: the against-gravity speed this move commands of its owner.
         //
@@ -3249,91 +3225,30 @@ pub const CHARGE_POSE_FRACTION: f32 = 0.50;
 /// volume, for a move whose windup is so short that the fraction lands on it.
 const CHARGE_POSE_EPSILON_S: f32 = 1.0 / 240.0;
 
-/// What a move launches for, as a function of the victim's accumulated damage.
-///
-/// The launch law is a line ([`launch::launch_speed`]), so one number cannot
-/// hold it. This holds the two `(base, growth)` pairs it is evaluated at. A
-/// base-only summary ranks a high-base/low-growth move above a
-/// low-base/high-growth one at every damage, which is wrong past the crossover
-/// (the Pugnacious Polygon's forward smash `(162, 3.25)` and up smash
-/// `(158, 5.83)` cross at about 2 damage).
-///
-/// `growth_scale`, the victim's weight and rage multiply the percent term, not
-/// `base`, so they move the crossover. They are arguments: [`Self::at`] takes
-/// a [`launch::LaunchConditions`], which the fighter brain fills from the
-/// stage's view.
-///
-/// `knockback_growth: None` is not a set launch. `Some(0.0)` is fixed
-/// knockback; `None` means "the ruleset decides". The `Option` is kept here,
-/// and [`launch::launch_speed`] resolves it once the conditions are known.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// The launch lines carried by the move's damage volumes.
+/// Each line keeps its own weight policy. The planner uses the contact law.
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct LaunchEnvelope {
-    /// The volume with the largest base: the line that wins against a fresh
-    /// opponent. Its growth is `None` when that volume authors none, which
-    /// means the ruleset's fallback, not a set launch.
-    pub flat: (f32, Option<f32>),
-    /// The `(base, growth)` of the volume with the steepest authored growth:
-    /// the line that wins once the opponent is worn.
-    ///
-    /// A `None` volume cannot claim this line: its growth is
-    /// `base * ruleset_growth`, and no ruleset is in scope at fold time. This
-    /// loses a smaller `None` volume that would out-grow an authored one in
-    /// the same move. No shipped move mixes the two; each `None` volume is
-    /// its move's only volume, so [`Self::flat`] carries it.
-    pub steep: (f32, f32),
+    lines: Vec<(f32, Option<f32>, ambition_hit_spec::LaunchWeight)>,
 }
 
 impl LaunchEnvelope {
-    /// Fold one Active volume's authored launch in.
-    ///
-    /// Keeps two lines, not all of them. The true envelope of `n` volumes is
-    /// the upper hull of `n` lines. The flattest and steepest reproduce it
-    /// exactly for one or two volumes and under-report a third volume that
-    /// wins only in a middle band. Under-reporting is the safe direction for a
-    /// kill question, and it needs no allocation in a per-frame scorer.
-    pub fn with_volume(self, base: f32, growth: Option<f32>) -> Self {
-        Self {
-            flat: if base > self.flat.0 {
-                (base, growth)
-            } else {
-                self.flat
-            },
-            // Only an authored growth competes for the steep line (see the
-            // field). A `None` stays on the flat line.
-            steep: match growth {
-                Some(g) if g > self.steep.1 => (base, g),
-                _ => self.steep,
-            },
-        }
+    pub fn with_volume(mut self, base: f32, growth: Option<f32>, weight: ambition_hit_spec::LaunchWeight) -> Self {
+        self.lines.push((base, growth, weight));
+        self
     }
 
-    /// The launch speed this move produces under `conditions`: the upper hull
-    /// of its two lines, each evaluated by [`launch::launch_speed`]. It takes
-    /// the full conditions because they move the crossover between lines (see
-    /// the [`launch`] module doc).
-    pub fn at(self, conditions: launch::LaunchConditions) -> f32 {
-        launch::launch_speed(self.flat.0, self.flat.1, conditions)
-            .max(launch::launch_speed(
-                self.steep.0,
-                Some(self.steep.1),
-                conditions,
-            ))
+    pub fn at(&self, conditions: launch::LaunchConditions) -> f32 {
+        self.lines.iter().map(|&(base, growth, weight)| {
+            launch::launch_speed(base, growth, launch::LaunchConditions {
+                victim_weight: weight.resolve(conditions.victim_weight), ..conditions
+            })
+        }).fold(0.0, f32::max)
     }
 
-    /// Does this move's launch get better as the opponent takes damage?
-    ///
-    /// A set launch answers `false`: a windbox goes the same distance at 0%
-    /// and at 200%, and [`launch::launch_speed`] declines rage for it.
-    ///
-    /// It takes the conditions because the answer depends on them. A volume
-    /// with `knockback_growth: None` is a set launch without a declared
-    /// ruleset, and scales with percent on a stage that declares a fallback
-    /// growth.
-    pub fn grows_under(self, conditions: launch::LaunchConditions) -> bool {
-        let resolved = |base: f32, growth: Option<f32>| {
-            growth.unwrap_or_else(|| base * conditions.ruleset_growth.max(0.0))
-        };
-        resolved(self.flat.0, self.flat.1) > 0.0 || self.steep.1 > 0.0
+    pub fn grows_under(&self, conditions: launch::LaunchConditions) -> bool {
+        self.lines.iter().any(|&(base, growth, _)|
+            growth.unwrap_or_else(|| base * conditions.ruleset_growth.max(0.0)) > 0.0)
     }
 }
 
@@ -4018,12 +3933,20 @@ impl MovesetContract {
     ///
     /// Only when the variant is bound, as for the dash attack: a contract
     /// without `{base}_dash` resolves its press to `base`.
+    /// In the air, `{base}_air` takes precedence when its gates permit it.
     pub fn move_for_flat_verb(
         &self,
         base: &str,
         grounded: bool,
         running: bool,
     ) -> Option<&MoveSpec> {
+        if !grounded {
+            if let Some(mv) = with_composed_verb(base, "_air", |verb| self.move_for_verb(verb))
+                .filter(|mv| mv.gates.permits(false))
+            {
+                return Some(mv);
+            }
+        }
         if grounded && running {
             if let Some(mv) = with_composed_verb(base, DASH_SUFFIX, |verb| self.move_for_verb(verb))
                 .filter(|mv| mv.gates.permits(grounded))
@@ -4167,6 +4090,7 @@ pub struct EntityCatalogDoc {
 /// (not just the first) so an author fixes a file in one pass.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CatalogError {
+    InvalidHitProperties { entity: String, mv: String, window: usize },
     DuplicateEntityId {
         id: String,
     },
@@ -4273,6 +4197,7 @@ pub enum CatalogError {
 impl std::fmt::Display for CatalogError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            CatalogError::InvalidHitProperties { entity, mv, window } => write!(f, "{entity}/{mv}: window[{window}] has invalid hit properties"),
             CatalogError::DuplicateEntityId { id } => write!(f, "duplicate entity id `{id}`"),
             CatalogError::DuplicateMoveId { entity, id } => {
                 write!(f, "{entity}: duplicate move id `{id}`")
@@ -4478,6 +4403,9 @@ impl EntityCatalogDoc {
                     }
 
                     for v in &w.volumes {
+                        if !v.properties.is_valid() {
+                            errors.push(CatalogError::InvalidHitProperties { entity: entity.id.clone(), mv: mv.id.clone(), window: index });
+                        }
                         let degenerate = match v.shape {
                             VolumeShape::Rect { half_extents, .. } => {
                                 half_extents.0 <= 0.0 || half_extents.1 <= 0.0

@@ -1160,18 +1160,12 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         "id": "projectile-spec-is-a-floor",
         "crate": "ambition_projectile_spec",
         "forbidden": "*",
-        # The one edge, named: the spawn value is the projectile domain's
-        # extension request port value (`ProjectileSpawnPort`), and the port
-        # trait lives in the SDK — which is itself a floor (below).
-        "allowed": ["ambition_extension_sdk"],
+        # The spawn port uses shared value contracts.
+        "allowed": ["ambition_extension_sdk", "ambition_hit_spec"],
         "reason": (
-            "Content-free spawn data. It exists so a consumer can take the "
-            "vocabulary without taking a 16,927-line platformer crate, and that "
-            "is worth exactly nothing if it grows a workspace dependency of its "
-            "own — the closure it was carved to shrink would grow straight back. "
-            "⚠ this is the SECOND crate to carry `forbidden: \"*\"`, which is "
-            "the rule an `allowed` entry has to satisfy: a named allowance is "
-            "only safe if the crate it names is itself a floor."
+            "Projectile spawn intent uses shared hit values and the portable "
+            "extension SDK. Both are value contracts with no simulation or ECS. "
+            "The projectile domain and engine composition stay above this seam."
         ),
     },
     {
@@ -1201,22 +1195,13 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         "id": "engine-core-is-the-floor",
         "crate": "ambition_platformer2d_core",
         "forbidden": "*",
-        # the edges, named. Core sits on the geometry kernel and on the
-        # resource vocabulary, and on nothing else; BOTH carry `forbidden: "*"`,
-        # so the chain still bottoms out with no outward edge. The second edge
-        # exists because content data (`ambition_entity_catalog`'s move prices)
-        # and the body floor (core's resource bank) must share one resource
-        # identity and may not depend on each other. Widening this list for
-        # anything that is not itself a leaf is how "the floor" becomes
-        # "roughly the floor".
-        "allowed": ["ambition_geometry", "ambition_resource_spec"],
+        # Shared value contracts contain no simulation or composition code.
+        "allowed": ["ambition_geometry", "ambition_resource_spec", "ambition_hit_spec"],
         "reason": (
-            "The movement and body vocabulary every other crate is written in "
-            "terms of. It depends on NO workspace crate except the geometry "
-            "kernel it was carved from, and that is what makes it the layer "
-            "everything else can agree on rather than one more participant in "
-            "a cycle. A second edge out of here makes the whole graph a "
-            "suggestion."
+            "The body floor uses geometry and shared resource and hit values. "
+            "Hit values also serve pure content and projectile ports. The hit values have "
+            "no workspace dependencies. "
+            "No simulation domain or composition root belongs below core."
         ),
     },
     {

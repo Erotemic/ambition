@@ -148,7 +148,7 @@ pub struct ClashContender<'a> {
     pub owner: Entity,
     /// Already placed in world space by the caller, because only the caller
     /// knows where its family's boxes live.
-    pub volume: ae::CombatVolume,
+    pub pieces: Vec<ae::frame::thread::VolumePiece>,
     pub family: ClashFamily,
     pub damage: i32,
     /// This attack's side, frozen at the moment it came out.
@@ -227,7 +227,7 @@ pub fn resolve_clashes(
             if !sides_are_opposed(a, b, rules) {
                 continue;
             }
-            if !a.volume.intersects(&b.volume) {
+            if !a.pieces.iter().any(|a| b.pieces.iter().any(|b| a.meets(b))) {
                 continue;
             }
             let Some(verdict) = clank_verdict(a.damage, b.damage, window) else {

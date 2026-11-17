@@ -119,6 +119,8 @@ fn alice_fires(sim: &mut Platformer2dSimHarness, frame: i32) {
     world.write_message(ProjectileSpawnRequest::open(
         alice,
         ambition_platformer2d::projectiles::ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             origin: at + bevy::math::Vec2::new(24.0, 0.0),
             dir: bevy::math::Vec2::new(1.0, 0.0),
             speed: 240.0,

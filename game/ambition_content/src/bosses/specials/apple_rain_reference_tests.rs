@@ -141,6 +141,8 @@ pub fn spawn_apple_rain_from_special_messages(
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {
+                    properties: Default::default(),
+                    guard: Default::default(),
                     origin: ae::Vec2::new(spawn_x, spawn_y),
                     // Downward initial velocity so the apple commits to
                     // its lane immediately instead of hanging at zero

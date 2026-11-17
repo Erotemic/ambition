@@ -590,6 +590,8 @@ fn shoot_returning(
     return_s: Option<f32>,
 ) -> Result<(), Fault> {
     inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin,
         dir,
         speed,

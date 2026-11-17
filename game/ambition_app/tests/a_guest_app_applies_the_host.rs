@@ -276,6 +276,8 @@ fn alice_fires_often(sim: &mut Platformer2dSimHarness, frame: i32) {
     world.write_message(ProjectileSpawnRequest::open(
         alice,
         ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             // Low, at a crawler's height: a body's collision is fitted to its
             // art, and a puppy slug is about 14 units tall.
             origin: at + bevy::math::Vec2::new(24.0, 16.0),

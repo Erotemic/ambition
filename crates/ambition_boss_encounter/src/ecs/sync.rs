@@ -144,6 +144,7 @@ mod boss_combat_rebuild_contract {
             ledge_trump_lock_timer: _,
             hitstop_timer: _,
             asdi_owed: _,
+            hitlag_sdi_scale: _,
             landing_lag_timer: _,
             // A sleep a move applied. Reaction history like the locks above it,
             // and the boss sync has no opinion about it either.

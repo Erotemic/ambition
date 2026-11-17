@@ -166,6 +166,8 @@ mod tests {
         ProjectileSpawnRequest::open(
             owner,
             ambition_projectile_spec::ProjectileSpawn {
+                properties: Default::default(),
+                guard: Default::default(),
                 origin: ae::Vec2::ZERO,
                 dir: ae::Vec2::new(1.0, 0.0),
                 speed: 100.0,

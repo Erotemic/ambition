@@ -41,9 +41,9 @@ The log says `AMBITION_EXTENSION_MODULES: … provides [...]` at start and
   module that cannot load at startup stops the run.
 - A reload that changes a state schema's **fields** carries every live record
   over by field tag (`StateSchema::migrate`): a renamed or moved field keeps its
-  value, a field whose kind changed starts from its initial value. A reload that
-  changes a schema's **attachment** (body or session) or **save policy** is
-  refused; restart for that.
+  value, and a new field starts from its initial value. A different kind on an
+  existing tag is refused, as is a change of **attachment** (body or session)
+  or **save policy**. Keep the kind or declare new state under a new schema key.
 - A reloaded file replaces **every module it gave**, as one set: a module the
   new build no longer exports leaves. Files changed before one publication are
   one reload. A schema no module declares any more takes its records with it.

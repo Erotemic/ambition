@@ -203,3 +203,35 @@ The LDtk owner creates the placed actor from `NpcSpawn`. The character
 catalog owner resolves its body grants and techniques. World and character
 loading use the same paths as the host's other authored content. The project
 supplies no Rust actor constructor or brain descriptor.
+
+An optional recipe keeps a counter on an authored body. Copy it into the
+watched directory:
+
+```bash
+cp examples/projects/pulse_forge/recipes/progress.rhai examples/projects/pulse_forge/modules/progress.rhai
+```
+
+Add this field to the `forge_sentinel` row in `content/characters.ron`:
+
+```ron
+techniques: [(id: ("pulse_forge"), slot: Projectile, gate: Technique("pulse_forge"))],
+```
+
+`idle: "invoke"` calls the counter while the body owns the technique, even
+when it does not press the control. The counter uses a durable body record.
+That save road keeps records for authored and provider-staged bodies under
+their stable identity. It does not keep records for bodies with no durable
+provenance, such as the current home avatar. Transient emitter and patrol
+records stay out of the save. A different kind on an existing field tag, or a
+change of attachment or save policy, is refused under a live schema. The last
+good code and records remain usable.
+
+```bash
+cargo test -p pulse_forge_host --test project_state -- --test-threads=1
+```
+
+This fixture also changes a script and its character tuning together. Invalid
+content holds both changes. Repairing that content publishes both. Each
+recorded invocation sees matching catalog, body, and script values. The old
+backend is released after publication. The trace, saved RON, and save/load
+observations go to `target/procedural-project-state`.

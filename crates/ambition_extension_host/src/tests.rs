@@ -1151,10 +1151,8 @@ fn a_new_session_starts_from_the_initial_record() {
     assert_eq!(session_count(&app, second), Some(Value::U32(1)));
 }
 
-/// ⭐ A RELOAD THAT CHANGES A RECORD'S FIELDS KEEPS THE GAME RUNNING: the live
-/// records are carried to the new shape by field tag. The kept field keeps its
-/// value (also under a new name), a new field starts at its initial value,
-/// and a field whose kind changed starts again.
+/// Compatible field edits preserve values by tag. A changed kind refuses the
+/// candidate and preserves the running code and populated record.
 #[test]
 fn a_reload_that_reshapes_a_record_migrates_the_live_records_by_tag() {
     let mut app = loaded_app(true, true);
@@ -1189,14 +1187,17 @@ fn a_reload_that_reshapes_a_record_migrates_the_live_records_by_tag() {
     let counts: Vec<u32> = app.world().resource::<Lowered>().0.iter().map(|l| l.2 .1).collect();
     assert_eq!(counts, [1, 2, 3], "the new code counts on from the migrated record");
 
-    // The count's kind changes: it starts again.
+    // A different kind on the count's tag must not reset the live counter.
     let mut retyped = module(vec![entry("a", vec![])]);
     retyped.schemas[0].fields = vec![FieldDecl::new(1, "count", FieldKind::F32)];
     retyped.entries[0].run = EntryCode::Native(|_| Ok(()));
     let (backend, published) = loaded(vec![retyped]);
-    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
-    assert!(reload::publish_staged_replacement(app.world_mut()));
-    assert_eq!(count(&app).values(), &[Value::F32(0.0)]);
+    let error = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap_err();
+    assert!(error.contains("field tag 1") && error.contains("changed kind"), "{error}");
+    assert!(!reload::publish_staged_replacement(app.world_mut()));
+    assert_eq!(count(&app).values(), &[Value::Bool(false), Value::U32(3), Value::F32(1.5)]);
+    step(&mut app);
+    assert_eq!(count(&app).get(FieldRef(1)).unwrap(), &Value::U32(4));
 }
 
 #[test]

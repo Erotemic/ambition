@@ -627,15 +627,13 @@ fn candidate_character_catalog(
     Ok(Some(ambition_characters::prepared::CandidateCatalog { registry, assembled, retired }))
 }
 
-/// Stage every buildable character again, defined from the candidate catalog
-/// and the candidate pack: the definitions are a function of both
-/// (`character_catalog::buildable_definitions`), the moves included.
-fn stage_cast_from_catalog(
+/// Stage this pack's buildable cast from its own catalog and facets.
+fn stage_cast_from_pack(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
-    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> Result<(), String> {
-
+    // The assembled catalog includes other providers. This pack owns only its cast.
+    let catalog = crate::character_catalog::catalog_of(pack);
     let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
     // One vocabulary for the whole cast: it is a function of the sheets, not
@@ -643,7 +641,7 @@ fn stage_cast_from_catalog(
     let bindings = ambition_platformer2d_assets::materialization::definition::with_engine_vocabularies(&sprite_content,
         ambition_characters::prepared::CharacterBindings::default(),
     );
-    for definition in crate::character_catalog::buildable_definitions(&sprite_content, catalog, pack, rigs_admitted)
+    for definition in crate::character_catalog::buildable_definitions(&sprite_content, &catalog, pack, rigs_admitted)
     {
         ambition_characters::prepared::stage_character_revision_in(world, definition, &bindings)
             .map_err(|e| e.to_string())?;
@@ -657,14 +655,13 @@ fn stage_cast_from_catalog(
 #[cfg(not(feature = "static_content"))]
 fn restate_the_cast_from_the_sheets(world: &mut bevy::ecs::world::World) {
     use ambition_characters::prepared::{activate_staged_revision, RevisionOutcome};
-    let (Some(pack), Some(live), Some(support)) = (
+    let (Some(pack), Some(support)) = (
         world.get_resource::<crate::pack::SelectedContentPack>().map(|selected| selected.0.clone()),
-        world.get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>().cloned(),
         world.get_resource::<ambition_combat::technique::InstalledTechniques>().map(|installed| installed.0.clone()),
     ) else {
         return;
     };
-    if let Err(reason) = stage_cast_from_catalog(world, &pack, &live) {
+    if let Err(reason) = stage_cast_from_pack(world, &pack) {
         world.remove_resource::<ambition_characters::prepared::StagedCastRevision>();
         bevy::prelude::error!("the sheets changed and the cast keeps its definitions: {reason}");
         return;
@@ -1745,26 +1742,18 @@ pub fn request_reload(
             return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));
         }
     };
-    if let Some(catalog) = &character_catalog {
-        if let Err(reason) = stage_cast_from_catalog(world, &pack, &catalog.assembled.catalog) {
+    if character_catalog.is_some() {
+        if let Err(reason) = stage_cast_from_pack(world, &pack) {
             discard_staged_reload(world);
             return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));
         }
     }
-    // A fighter facet folds into its character's definition
-    // (`pack_facets::fold_character_facets`), so a facet edit re-stages the cast
-    // from the LIVE catalog and the candidate pack, the road a catalog edit
-    // takes with the candidate catalog. A catalog edit in the same candidate has
-    // already staged every character with the candidate's facets folded in.
+    // A fighter facet folds into its character's definition. A facet edit
+    // stages this provider's cast from the candidate pack. A catalog edit in
+    // the same candidate has already done that work.
     let facets_change = character_catalog.is_none() && fighter_facets_changed(world, &pack);
     if facets_change {
-        let live = world
-            .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
-            .cloned();
-        let staged = match live {
-            Some(live) => stage_cast_from_catalog(world, &pack, &live),
-            None => Err("this App has no character catalog to fold the facets into".to_string()),
-        };
+        let staged = stage_cast_from_pack(world, &pack);
         if let Err(reason) = staged {
             discard_staged_reload(world);
             return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));

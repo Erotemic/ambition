@@ -968,14 +968,19 @@ registered room-write retractor takes the write back: the retractor's own log,
 a store this writer also logs to, or a store diffed whole at the tick's tail),
 derived (a ruled type the scan checks is rebuilt each run, not accumulated),
 instrument (a census, trace, capture tool or presentation-only state), or
+world-owned (host state a rewind does not change, by the type's own doc), or
 unclassified. Measured: 228 bindings; 11 room-gated, 14 room-stamped, 22
-retracted, 40 derived, 20 instrument and 121 unclassified. The ceiling is 121
-and may only fall. **Open:** the unclassified types, each to be gated, stamped,
-logged or ruled world-owned. The largest are `AmbitionGameSave` (writers other
-than the boss-defeat retraction), `QuestRegistry`, `PendingLifecycleCommit`,
-`GameplayBanner` and `SlotInteractionState`; the clocks (`SimTick`,
-`WorldTime`, `ClockState`) and the seat input frames want a ruling on whether a
-room rewind replays them.
+retracted, 59 derived, 26 instrument, 2 world-owned and 94 unclassified over
+37 types. The ceiling is 94 and may only fall. **Open:** those 37 types are
+real state, not projections, so each needs a code change that the room-replay
+acceptance tests (`a_guests_room_rewinds_on_the_host`) must witness: a
+`RoomReplay::allows` gate, a room-stamped log, or a world-owned writer gated
+`not(resource_exists::<RoomReplay>)` as the cutscene runtime is. The largest
+are `AmbitionGameSave` (writers other than the boss-defeat retraction),
+`QuestRegistry`, `PendingLifecycleCommit` and `SlotInteractionState`; the
+clocks (`SimTick`, `ClockState`, `DayClock`) and the seat input frames
+(`SlotControls`, `SeatRawFrames`) want a ruling on whether a room replay runs
+them.
 
 ## Order, exclusions and integration
 

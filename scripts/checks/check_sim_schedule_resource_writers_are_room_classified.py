@@ -26,6 +26,8 @@ adjudicated.py` scans) is one of:
                     reset-before-contribute ordering
     instrument      its type is an observation, trace, dev/demo tool or
                     presentation-only state that no gameplay system reads
+    world-owned     its type is host state a rewind does not change, by a
+                    ruling that quotes the type's own doc (`WORLD_OWNED`)
     unclassified    none of the above
 
 The unclassified count is a ratchet: it may only fall, and the ceiling must be
@@ -90,6 +92,29 @@ DERIVED: dict[str, str] = {
     "PortalCarves": "`publish_portal_carves` publishes this tick's portal openings (read 2026-11-17)",
     "PerceptionProjectiles": "`collect_perception_projectiles` gathers this tick's projectiles (read 2026-11-17)",
     "BodyContactSnapshot": "`snapshot_body_contact` snapshots this tick's contacts (read 2026-11-17)",
+    # Each reading quotes the type's own doc (read 2026-11-17).
+    "NavigationAdvice": "\"This tick's advice, by body. Written again each tick\" (`advise_navigation` clears it)",
+    "RoomNavigation": "\"a derived cache, never rollback state\": each surface graph is built whole on first use",
+    "PerceptionPeers": "\"Per-frame snapshot of EVERY live body's peer data\" (`collect_perception_peers` truncates it)",
+    "ActorDecisionFacts": "the observation phase's per-frame hand-off (`observe_actor_decision_inputs` clears it)",
+    "ActorSteering": "\"Per-frame steering context\", computed once by `observe_actor_decision_inputs`",
+    "ActorDecisionFrames": "\"Frame-local output of the autonomous DECIDE phase\" (`tick_actor_brains` clears it)",
+    "EncounterSwitchIndex": "\"Rebuilt each frame from `SwitchFeature` and the save's switch map\"",
+    "AuthoredSwitchCommands": "\"derived, not rollback state\": the active room's prepared switch verbs",
+    "AuthoredRoomCommands": "\"Derived from the room set and the catalog, so it is not rollback state\"",
+    "ClearedEncounters": "one row per cleared occurrence, cleared and republished by `publish_cleared_encounters`",
+    "RelativisticOpticalView2d": "\"rollback-derived simulation state\": one image per observer, cleared each publish",
+    "PortalHostDepthsByRoom": "each portal's measured host depth by live room, cleared and remeasured by `sync_portal_host_depths`",
+    "LdtkRuntimeSpineIndex": "\"Rebuilt every frame from plugin-spawned LDtk entities\"",
+    "ClassBRemapLog": "\"The frame-scoped ledger of Class-B remaps. Cleared at the head of every sim frame\"",
+    "GravityField": "resolved each tick from the base gravity and the zones by `resolve_active_gravity`",
+    "ControlledSubject": "the entity primary local control drives, resolved each tick by `resolve_controlled_subject`",
+    "WorldTime": "\"Per-simulation-step dt snapshot\", refreshed from the clock each step",
+    "MapMenuState": (
+        "synced from the save by `sync_map_from_save`; read by the menu, the "
+        "feedback layer and the headless observation (read 2026-11-17)"
+    ),
+    "SimDt": "\"Mirror of the host's sim clock\", written each frame by `mirror_sim_dt_into_runtime`",
 }
 
 #: A type no gameplay system reads: an observation census, a trace, or a tool
@@ -112,11 +137,28 @@ INSTRUMENT: dict[str, str] = {
     # visuals, so a room rewind that replays a write repeats an effect at worst.
     "ShrineActivationPulse": "presentation only (the resource-memory guard's `tick_shrine_activation_pulse` reading)",
     "CutRopeBossArenaState": "presentation only (the resource-memory guard's `detect_cut_rope_rope_cut` reading)",
+    "GameplayBanner": (
+        "presentation only: read by the app's feedback layer and by its own "
+        "ticker's run condition (`the_banner_is_up`); no simulation decision reads "
+        "it (read 2026-11-17)"
+    ),
+}
+
+#: Host state that a rewind, whole or of one room, does not change.
+WORLD_OWNED: dict[str, str] = {
+    "SimulationReplayState": (
+        "\"Host-owned marker for a historical replay pass\": the rollback host "
+        "raises and clears it around a replay (`ambition_sim_schedule`, read 2026-11-17)"
+    ),
+    "PeerVerdicts": (
+        "\"Host state, and never rewound: a confirmed input does not change\" "
+        "(`ambition_platformer2d_rollback_ggrs/src/peer_input.rs`, read 2026-11-17)"
+    ),
 }
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 121
+UNCLASSIFIED_CEILING = 94
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200
@@ -206,6 +248,8 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
                     kind = "derived"
                 elif short in INSTRUMENT:
                     kind = "instrument"
+                elif short in WORLD_OWNED:
+                    kind = "world-owned"
                 else:
                     kind = "unclassified"
                 found.append((name, rel, short, kind))
@@ -233,7 +277,7 @@ def main() -> int:
     unclassified = [row for row in found if row[3] == "unclassified"]
     print(
         f"{len(found)} `ResMut` binding(s) in the rewinding schedule: "
-        + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("room-gated", "room-stamped", "retracted", "derived", "instrument", "unclassified"))
+        + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("room-gated", "room-stamped", "retracted", "derived", "instrument", "world-owned", "unclassified"))
     )
     types = sorted({ty for _n, _f, ty, _k in unclassified})
     print(f"unclassified types ({len(types)}): {', '.join(types)}")
@@ -244,7 +288,7 @@ def main() -> int:
     for ty, name, rel in derived_that_accumulate():
         print(f"⛔ `{ty}` is ruled derived, but `{name}` ({rel}) accumulates it without a reset")
         failed = True
-    stale = sorted((set(DERIVED) | set(INSTRUMENT) | set(TAIL_LOGGED)) - {ty for _n, _f, ty, _k in found})
+    stale = sorted((set(DERIVED) | set(INSTRUMENT) | set(TAIL_LOGGED) | set(WORLD_OWNED)) - {ty for _n, _f, ty, _k in found})
     for ty in stale:
         print(f"⛔ a ruling for `{ty}`, which no sim-schedule system writes any more: delete it")
         failed = True

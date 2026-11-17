@@ -57,10 +57,15 @@ starts as a talking NPC and becomes a melee boss only if the player chooses
 - **Encounter:** dormant NPC → Yarn dialogue (a Challenge branch and peaceful
   exits) → combat → win or loss. The dialogue→provoke bridge flips the brain and
   disposition and arms the hostile volumes.
-- **Placement:** the design name "Noether Chamber" is the LDtk level
-  `symmetry_room`. The PCA is an `NpcSpawn` there (`character_id` and
-  `dialogue_id` `perfect_cellular_automaton`, `brain_override: stand_still`). It <!-- cite-ok: a dialogue and character id in the content data, not a Rust item -->
-  is also placed in `hall_of_characters`.
+- **Placement:** his own ring, the Perfect Cell-ular Arena (LDtk level
+  `perfect_cellular_arena` in the sandbox world, Jon 2026-11-17). It is a
+  marble ring one jump high over grass, with the green Sahara's buttes
+  behind it, and its door is on the basement ledge beside the duel arena
+  (spec `tools/ambition_ldtk_tools/specs/perfect_cellular_arena_area.ron`).
+  The PCA is an `NpcSpawn` in the middle of the ring (`character_id` and
+  `dialogue_id` `perfect_cellular_automaton`, `brain_override: stand_still`). <!-- cite-ok: a dialogue and character id in the content data, not a Rust item -->
+  He used to stand in `symmetry_room`, inside Emmy Ethereal's turning
+  kernel. He is also placed in `hall_of_characters`.
 
 Remaining PCA work is encounter and narrative polish, not kit.
 

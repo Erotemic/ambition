@@ -1,0 +1,92 @@
+// perfect_cellular_arena — where the Perfect Cell-ular Automaton waits for a
+// challenger (Jon, 2026-11-17: "perfect cellular arena stage as a better
+// placement for PCA").
+//
+// He announced a tournament and built a ring for it: a square of white stone
+// raised over open grassland, with the sky all around. Before this room he
+// stood still in the symmetry room, in the middle of Emmy Ethereal's turning
+// kernel, which was not his place and gave him no floor to fight on.
+//
+// The ring is a marble Solid one jump high (48), wide enough for his dive and
+// perch game. Ground lies on both sides of it, so a knock-off lands on grass
+// and walks back up. The room has no ceiling because he flies.
+//
+// Layout (1600x720), ground top at y=656, ring top at y=608, from x 288 to 1312.
+// The door from the basement is on the left, on the ground.
+(
+    id: "perfect_cellular_arena",
+    level_id: "perfect_cellular_arena",
+    world_x: 49600,
+    world_y: 1200,
+    px_wid: 1600,
+    px_hei: 720,
+    fill_collision: "empty",
+    bg_color: "#7fa8d8",
+    // White stone among sandstone buttes and grass under a blue sky. The
+    // room's own theme gives the ring and the ground the classical marble
+    // skin (the Games are Olympic); the green Sahara is drawn behind it.
+    // Since it was created the room is LDtk-owned; this spec records how.
+    biome: "history_classical",
+    parallax_theme: "history_classical",
+    backdrop: "history_green_sahara",
+    connect_to: [
+        (
+            target_room: "central_hub_basement",
+            px: [288, 304],
+            size: [48, 96],
+            id: "perfect_cellular_arena_basement_door",
+            name: "to the Perfect Cell-ular Arena",
+            target_zone: "perfect_cellular_arena_entry",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        // --- Room shell ---
+        ( type: "Solid", px: [0, 656], size: [1600, 64], fields: ( name: "grass" ) ),
+        ( type: "Solid", px: [0, 0], size: [16, 656], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1584, 0], size: [16, 656], fields: ( name: "right_wall" ) ),
+        ( type: "PlayerStart", px: [104, 610], size: [28, 46], fields: ( name: "perfect_cellular_arena_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [40, 560],
+            size: [48, 96],
+            fields: (
+                id: "perfect_cellular_arena_entry",
+                name: "to central hub",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "perfect_cellular_arena_basement_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1600, 720],
+            fields: ( id: "perfect_cellular_arena_camera", name: "perfect_cellular_arena_camera", mode: "Default" ),
+        ),
+
+        // --- The ring ---
+        ( type: "Solid", px: [288, 608], size: [1024, 48], fields: ( name: "ring" ) ),
+
+        // --- The host, in the middle of his ring ---
+        (
+            type: "NpcSpawn",
+            px: [784, 560],
+            size: [32, 48],
+            fields: (
+                character_id: "perfect_cellular_automaton",
+                prompt: "Challenge the Perfect Cell-ular Automaton",
+                dialogue_id: "perfect_cellular_automaton",
+                brain_override: "stand_still",
+            ),
+        ),
+
+        // --- Signs ---
+        ( type: "DebugLabel", px: [560, 120], size: [480, 24],
+          fields: ( name: "perfect_cellular_arena_title", text: "THE PERFECT CELL-ULAR GAMES", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [520, 152], size: [560, 24],
+          fields: ( name: "perfect_cellular_arena_rules", text: "Eight neighbours. One rule. One ring. Challengers welcome.", category: "Custom" ) ),
+    ],
+)

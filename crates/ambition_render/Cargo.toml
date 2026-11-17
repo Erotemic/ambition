@@ -41,7 +41,7 @@ image = { version = "0.25", default-features = false, features = ["png"], option
 # not a dependency. `default-features = false` because Cargo unions features
 # and Bevy already asks for the ones the renderer needs.
 wgpu = { version = "29", default-features = false }
-ambition_sim_view = { path = "../ambition_sim_view" }
+ambition_sim_view = { path = "../ambition_sim_view", features = ["dialogue"] }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

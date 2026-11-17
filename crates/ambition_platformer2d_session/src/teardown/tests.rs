@@ -46,6 +46,7 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
     app.init_resource::<ambition_cutscene::ActiveCutscene>();
     app.init_resource::<ambition_cutscene::CutsceneTriggerQueue>();
+    #[cfg(feature = "dialogue")]
     app.init_resource::<ambition_conversation::ActiveConversation>();
     app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
     // The match-identity mirrors. See the `SessionScopedResources` field doc:

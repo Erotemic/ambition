@@ -8,6 +8,10 @@ description = "Session lifecycle, checkpoint restoration, and room-crossing poli
 
 [features]
 default = []
+# The conversation domain: the dialogue visit count kept in the save, and the
+# conversation a retired session leaves behind. A composition without
+# dialogue links neither crate.
+dialogue = ["dep:ambition_conversation"]
 portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
 
 [dependencies]
@@ -25,7 +29,7 @@ ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }
-ambition_conversation = { path = "../ambition_conversation" }
+ambition_conversation = { path = "../ambition_conversation", optional = true }
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_held_items = { path = "../ambition_held_items" }

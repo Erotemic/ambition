@@ -232,10 +232,18 @@ pub fn retire_rewards_for_rearmed_encounters(
         &ambition_encounter::Encounter,
         &ambition_encounter::EncounterWaves,
     )>,
+    // The looted flag is cleared by the switch's room: logged there, a
+    // rewind of that room puts it back (ISL-2d).
+    (mut log, mut quests, tick): (
+        Option<bevy::prelude::ResMut<ambition_combat::events::FlagWritesInRooms>>,
+        Option<bevy::prelude::ResMut<ambition_persistence::quest::QuestRegistry>>,
+        Option<bevy::prelude::Res<ambition_time::SimTick>>,
+    ),
 ) {
     if switches.0.is_empty() {
         return;
     }
+    let now = tick.map_or(0, |tick| tick.0);
     for activation in &switches.0 {
         if !matches!(
             activation.action,
@@ -259,6 +267,16 @@ pub fn retire_rewards_for_rearmed_encounters(
         };
         // The chest of the occurrence in the switch's own live room.
         let room = ambition_encounter::occurrence::message_room(rooms.live(), activation.room);
+        if let Some(log) = log.as_deref_mut() {
+            let flag = ambition_encounter::encounter_reward_looted_flag(target_id);
+            let written = room.map(|room| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: now });
+            let (_, forgotten) = log.log_write(&flag, false, save.data().flag(&flag), written, now);
+            if let Some(quests) = quests.as_deref_mut() {
+                for old in forgotten {
+                    quests.forget_cause(&old);
+                }
+            }
+        }
         clear_encounter_reward_ecs(
             &mut commands,
             save.data_mut(),

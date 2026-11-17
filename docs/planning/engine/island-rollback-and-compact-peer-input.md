@@ -1120,6 +1120,17 @@ is not. `apply_quest_advance_events` is retracted through its events' causes;
 the census now names such reducers (`CAUSE_RETRACTED`). Census: 18
 unclassified over 6 types.
 
+**Two more room flags logged, and the payout follows its quest (2026-11-17).**
+`celebrate_symmetry_attunement` set its flag directly and
+`retire_rewards_for_rearmed_encounters` cleared a looted flag directly, so a
+replay that took back the clear or the switch press left the save changed.
+Both now log the write in the act's room through
+`FlagWritesInRooms::log_write` (the celebration through the runtime's
+`write_logged_flag`, in the same tick: a flag request written in Progression
+would be read in the next tick's GameplayEffects, and a replay's last tick
+drops it). `grant_quest_completion_rewards` follows the registry both ways and
+counts as a mirror. Census: 14 unclassified over 5 types.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

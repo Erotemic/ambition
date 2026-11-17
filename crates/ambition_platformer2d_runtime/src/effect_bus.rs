@@ -29,8 +29,9 @@ pub fn apply_flag_effects(
 
 /// Write one flag, logged in [`ambition_combat::events::FlagWritesInRooms`]
 /// with what it replaced when the log keeps it, and its quest advance caused
-/// by the write.
-fn write_logged_flag(
+/// by the write: a flag a room's act sets, which a rewind of that room takes
+/// back (ISL-2d).
+pub fn write_logged_flag(
     save: &mut ambition_persistence::save::AmbitionGameSave,
     quests: &mut ambition_persistence::quest::QuestRegistry,
     log: Option<&mut ambition_combat::events::FlagWritesInRooms>,
@@ -40,13 +41,11 @@ fn write_logged_flag(
     now: u64,
 ) {
     let mut cause = None;
-    if let Some(log) = log.filter(|log| log.keeps(&id, written.is_some())) {
-        let write = ambition_combat::events::FlagWrite { id: id.clone(), on, replaced: save.data().flag(&id), written, applied_at: now };
-        cause = write.quest_cause();
-        for old in log.record(write) {
-            if let Some(old) = old.quest_cause() {
-                quests.forget_cause(&old);
-            }
+    if let Some(log) = log {
+        let forgotten;
+        (cause, forgotten) = log.log_write(&id, on, save.data().flag(&id), written, now);
+        for old in forgotten {
+            quests.forget_cause(&old);
         }
     }
     ambition_persistence::quest::write_flag_caused_by(save, quests, id, on, cause);

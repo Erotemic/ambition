@@ -92,8 +92,14 @@ pub fn celebrate_symmetry_attunement(
     >,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     tuning: Res<crate::tuning::AmbitionTuning>,
+    // The flag is the room's act: logged in its room, a rewind of the room
+    // takes it back (ISL-2d).
+    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
+    mut log: Option<ResMut<ambition_combat::events::FlagWritesInRooms>>,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let attunement = &tuning.0.symmetry_attunement;
+    let now = tick.map_or(0, |tick| tick.0);
     for msg in events.read() {
         if msg.encounter == SYMMETRY_ATTUNEMENT_ID && matches!(msg.event, EncounterEvent::Completed)
         {
@@ -104,7 +110,16 @@ pub fn celebrate_symmetry_attunement(
                     attunement.banner_seconds,
                 ),
             );
-            save.data_mut().set_flag(SYMMETRY_ATTUNEMENT_FLAG, true);
+            let written = msg.room.map(|room| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: now });
+            ambition_platformer2d::runtime::effect_bus::write_logged_flag(
+                &mut save,
+                &mut quests,
+                log.as_deref_mut(),
+                SYMMETRY_ATTUNEMENT_FLAG.to_string(),
+                true,
+                written,
+                now,
+            );
         }
     }
 }

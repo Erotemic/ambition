@@ -203,6 +203,26 @@ impl FlagWritesInRooms {
         written || self.writes.iter().any(|write| write.id == id && write.written.is_some())
     }
 
+    /// Log a write of `id` to `on` over `replaced`, when the log keeps it.
+    /// Returns the write's quest cause, and the causes of the writes no
+    /// rewind can reach any longer, which the caller's quest registry forgets.
+    pub fn log_write(
+        &mut self,
+        id: &str,
+        on: bool,
+        replaced: bool,
+        written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+        now: u64,
+    ) -> (Option<String>, Vec<String>) {
+        if !self.keeps(id, written.is_some()) {
+            return (None, Vec::new());
+        }
+        let write = FlagWrite { id: id.to_string(), on, replaced, written, applied_at: now };
+        let cause = write.quest_cause();
+        let forgotten = self.record(write).into_iter().filter_map(|old| old.quest_cause()).collect();
+        (cause, forgotten)
+    }
+
     /// Add `write`, and drop the writes no rewind can reach any longer;
     /// those are returned, so their quest causes can be forgotten.
     pub fn record(&mut self, write: FlagWrite) -> Vec<FlagWrite> {

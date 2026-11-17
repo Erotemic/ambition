@@ -429,6 +429,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/quest.rs",
         "game/ambition_content/src/quest.rs",
         "crates/ambition_platformer2d_session/src/fact_horizon.rs",
+        "crates/ambition_platformer2d_items/src/encounter_rewards.rs",
+        "game/ambition_content/src/encounters.rs",
     ),
     "SeatRawFrames": (
         "crates/ambition_hosted_world/src/lib.rs",
@@ -501,6 +503,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "BagUsesInRooms": (
         "crates/ambition_platformer2d_items/src/narrative.rs",
         "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
+    ),
+    "FlagWritesInRooms": (
+        "crates/ambition_platformer2d_items/src/encounter_rewards.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
+        "game/ambition_content/src/encounters.rs",
     ),
     "EncounterClearsInRooms": (
         "crates/ambition_encounter_features/src/room_writes.rs",
@@ -1890,7 +1897,13 @@ ADJUDICATED: dict[str, str] = {
     ),
     "QuestRegistry": (
         "CORRECT — AN APPEND-ONLY QUEUE WITH SIX PRODUCERS AND ONE DRAIN, AND "
-        "THE SPLIT IS THE COMPILER'S RULE SINCE 2026-09-18. Nine files, ten "
+        "THE SPLIT IS THE COMPILER'S RULE SINCE 2026-09-18. (2026-11-17: two "
+        "more files reach it through room-logged flag writes — "
+        "`game/ambition_content/src/encounters.rs::celebrate_symmetry_attunement` "
+        "queues the flag's `FlagSet` through `write_flag_caused_by`, and "
+        "`ambition_platformer2d_items/src/encounter_rewards.rs` only calls "
+        "`forget_cause` for the writes `FlagWritesInRooms::log_write` drops.) "
+        "Nine files, ten "
         "sites, and `--shared-targets` separates them cleanly rather than by "
         "argument: FIVE files reach only `push_event` "
         "(`ambition_boss_encounter/src/systems.rs::update_boss_encounters`, "
@@ -2064,6 +2077,16 @@ ADJUDICATED: dict[str, str] = {
         "about a live entry. Rollback state with a value checksum "
         "(`resource.quest_causes_in_rooms`)."
         " ⭐ 2026-11-11 (ISL-1b): `interact.rs` only `record`s a talk's cause, dated in the talker's room; `retract_room` is still only the retractor's."
+    ),
+    "FlagWritesInRooms": (
+        "CORRECT — THREE RECORDERS THROUGH ONE METHOD, ONE RETRACTOR (ISL-2d, "
+        "2026-11-17). Every write goes through `FlagWritesInRooms::log_write`: "
+        "`effect_bus::write_logged_flag` (flag requests and NPC provocations), "
+        "`celebrate_symmetry_attunement` through that same helper, and "
+        "`retire_rewards_for_rearmed_encounters`, which logs the looted flag a "
+        "switch clears. Each stamps the room and tick of the act; "
+        "`retract_room_flag_writes` takes out a rewound room's writes after the "
+        "saved tick. The type is rollback state with a value checksum."
     ),
     "BagUsesInRooms": (
         "CORRECT — ONE RECORDER AND ITS RETRACTOR (ISL-2d, 2026-11-10). The list "

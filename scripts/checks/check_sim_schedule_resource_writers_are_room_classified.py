@@ -256,6 +256,12 @@ WORLD_OWNED: dict[str, str] = {
 #: the source's own class does under a rewind. Keyed by SYSTEM: the store's
 #: other writers are not mirrors.
 MIRRORS: dict[str, str] = {
+    "grant_quest_completion_rewards": (
+        "each quest's payout follows the registry both ways: granted once when it "
+        "completes, taken back with its flag when it no longer is; the registry "
+        "rewinds through its causes (`CAUSE_RETRACTED`), so the payout follows "
+        "(`game/ambition_content/src/quest.rs`, read 2026-11-17)"
+    ),
     "persist_inventory_to_save": (
         "\"Mirror the live inventory + wallet into the save whenever they differ\": "
         "the bag and the primary wallet (`ambition_platformer2d_items/src/persist.rs`)"
@@ -326,7 +332,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 18
+UNCLASSIFIED_CEILING = 14
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200

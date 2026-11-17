@@ -1248,6 +1248,7 @@ collections:
   - hill_loading_stage
   - hill_siding_notice
   - hill_fingerpost
+  - hill_woods_fallen_trunk
   - catacombs_west
   - catacombs_east
   - ridge_west

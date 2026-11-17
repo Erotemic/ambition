@@ -939,6 +939,8 @@
     "hill_loading_stage": (),
     "hill_siding_notice": (),
     "hill_fingerpost": (),
+    // The woods: the tree down across the path.
+    "hill_woods_fallen_trunk": (),
     // The catacombs under the moor (Evil).
     "catacombs_west": (),
     "catacombs_east": (),

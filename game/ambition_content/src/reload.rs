@@ -2282,6 +2282,20 @@ pub fn answer_the_publication_gate(
     }
 }
 
+/// Behaviour code staged with the content it uses, published at this content
+/// generation's commit or discarded with it (P5 step 1 of the runtime
+/// authoring plan: a script and its content are one candidate).
+///
+/// The host that composes both watchers inserts it when it stages modules for
+/// a requested reload; the two functions are its module owner's
+/// (`ambition_platformer2d::extension::{publish_paired_modules,
+/// discard_paired_modules}`), so this crate names no module type.
+#[derive(bevy::prelude::Resource, Clone, Copy)]
+pub struct PairedModuleCandidate {
+    pub publish: fn(&mut bevy::ecs::world::World) -> bool,
+    pub discard: fn(&mut bevy::ecs::world::World) -> bool,
+}
+
 /// The one registered evaluator, reused for every transaction's hold id.
 ///
 /// `ShellActivationGates` maps a hold id to an evaluator. Every
@@ -2559,6 +2573,12 @@ pub fn commit_content_generation(
                     publish_participant_families(world, &generation.pack);
                     // The pack lands at the same boundary, unconditionally.
                     crate::pack::install_selection(world, generation.pack);
+                    // And the code staged with it, so the script and the
+                    // content it uses activate together.
+                    if let Some(paired) = world.remove_resource::<PairedModuleCandidate>() {
+                        let published = (paired.publish)(world);
+                        bevy::log::info!("the modules staged with the content were published: {published}");
+                    }
                     // Rebase the timeline in the same step. Publishing across
                     // a speculating timeline desyncs the sync-test canary
                     // (`Q118`); stopping the baseline makes the next session
@@ -2665,6 +2685,13 @@ fn discard_staged_reload(world: &mut bevy::ecs::world::World) {
     // Discard the pending pack as well. If only the cast revision is dropped,
     // the next identical save compares equal and requests nothing.
     let had_pending = take_pending_generation(world).is_some();
+    // The code staged with this content goes with it: the pair activates
+    // together or not at all.
+    if let Some(paired) = world.remove_resource::<PairedModuleCandidate>() {
+        if (paired.discard)(world) {
+            bevy::log::warn!("the modules staged with a reload that did not activate were discarded; the running code stays");
+        }
+    }
     if world
         .remove_resource::<ambition_characters::prepared::StagedCastRevision>()
         .is_some()

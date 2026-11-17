@@ -419,6 +419,12 @@ pub struct AmbitionGameSaveData {
     /// [`PersistedModuleRecord`].
     #[serde(default)]
     pub(crate) module_records: Vec<PersistedModuleRecord>,
+    /// The body records of extension modules whose schemas the durable save
+    /// keeps, under each body's durable identity, in (body, key) order. They
+    /// outlive the live body: a body built again with that identity takes
+    /// them back. See [`PersistedBodyModuleRecord`].
+    #[serde(default)]
+    pub(crate) body_module_records: Vec<PersistedBodyModuleRecord>,
     /// Each authored NPC life as its body last lived it, so a body built after
     /// a load catches up from what it had done. See [`PersistedLife`].
     #[serde(default)]
@@ -483,15 +489,27 @@ pub struct PersistedModuleRecord {
     pub record: Vec<u8>,
 }
 
+/// One extension module record of a body, kept by the durable save under
+/// the body's durable identity (`body`: the `SimId` of an authored or
+/// provider-staged occurrence, which the save already names occurrences
+/// by). The other fields are a [`PersistedModuleRecord`]'s.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PersistedBodyModuleRecord {
+    pub body: String,
+    pub key: String,
+    pub schema: Vec<u8>,
+    pub record: Vec<u8>,
+}
+
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
 /// v5 adds `module_records`. v6 adds `lives`. v7 adds `day_clock`. v8 adds
-/// `bookings`. v9 adds checkpoint material.
+/// `bookings`. v9 adds checkpoint material. v10 adds `body_module_records`.
 ///
 /// The bump is on an additive change. With `#[serde(default)]`, a v4 file loads
 /// with an empty list, which is the correct reading. The bump makes a v5 file
 /// `FromTheFuture` to a v4 build, so that build does not overwrite it and drop
 /// the records it cannot read.
-pub const CURRENT_SAVE_VERSION: u32 = 9;
+pub const CURRENT_SAVE_VERSION: u32 = 10;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -554,6 +572,7 @@ impl AmbitionGameSaveData {
             custody: Vec::new(),
             minted_items: Arc::default(),
             module_records: Vec::new(),
+            body_module_records: Vec::new(),
             lives: Vec::new(),
             day_clock: None,
             bookings: Vec::new(),
@@ -742,6 +761,17 @@ impl AmbitionGameSaveData {
         self.module_records = module_records;
     }
 
+    /// The extension module body records the durable save keeps, in
+    /// (body, key) order.
+    pub fn body_module_records(&self) -> &[PersistedBodyModuleRecord] {
+        &self.body_module_records
+    }
+
+    /// Replace the extension module body records.
+    pub fn set_body_module_records(&mut self, body_module_records: Vec<PersistedBodyModuleRecord>) {
+        self.body_module_records = body_module_records;
+    }
+
     /// The NPC lives the save keeps, in character order.
     pub fn lives(&self) -> &[PersistedLife] {
         &self.lives
@@ -794,6 +824,7 @@ impl AmbitionGameSaveData {
             custody,
             minted_items,
             module_records,
+            body_module_records,
             lives,
             day_clock,
             bookings,
@@ -814,6 +845,7 @@ impl AmbitionGameSaveData {
             custody: o_custody,
             minted_items: o_minted_items,
             module_records: o_module_records,
+            body_module_records: o_body_module_records,
             lives: o_lives,
             day_clock: o_day_clock,
             bookings: o_bookings,
@@ -838,6 +870,7 @@ impl AmbitionGameSaveData {
         check("custody", custody == o_custody);
         check("minted_items", minted_items == o_minted_items);
         check("module_records", module_records == o_module_records);
+        check("body_module_records", body_module_records == o_body_module_records);
         check("lives", lives == o_lives);
         check("day_clock", day_clock == o_day_clock);
         check("bookings", bookings == o_bookings);
@@ -958,6 +991,10 @@ impl AmbitionGameSaveData {
                 7 => {}
                 // v8 has no checkpoint material. The identity default is its state.
                 8 => {}
+                // v9 → v10: additive; no body module records is correct for a
+                // v9 file (each body's kept records start from their initial
+                // values).
+                9 => {}
                 // A version bump without a migration step is an incompatibility,
                 // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
@@ -988,6 +1025,7 @@ impl AmbitionGameSaveData {
             custody,
             minted_items,
             module_records,
+            body_module_records,
             lives,
             day_clock,
             bookings,
@@ -1006,6 +1044,7 @@ impl AmbitionGameSaveData {
         custody.clear();
         *minted_items = Arc::default();
         module_records.clear();
+        body_module_records.clear();
         lives.clear();
         *day_clock = None;
         bookings.clear();
@@ -1054,6 +1093,14 @@ mod tests {
             }),
             (vec!["module_records"], |d| {
                 d.set_module_records(vec![PersistedModuleRecord {
+                    key: "test::k@1".into(),
+                    schema: vec![1],
+                    record: vec![2],
+                }])
+            }),
+            (vec!["body_module_records"], |d| {
+                d.set_body_module_records(vec![PersistedBodyModuleRecord {
+                    body: "placement:p".into(),
                     key: "test::k@1".into(),
                     schema: vec![1],
                     record: vec![2],
@@ -1140,6 +1187,7 @@ mod tests {
             "custody",
             "minted_items",
             "module_records",
+            "body_module_records",
             "lives",
             "day_clock",
             "bookings",
@@ -1527,6 +1575,7 @@ mod tests {
             custody,
             minted_items,
             module_records,
+            body_module_records,
             lives,
             day_clock,
             bookings,
@@ -1545,6 +1594,7 @@ mod tests {
                 && custody.is_empty()
                 && minted_items.is_empty()
                 && module_records.is_empty()
+                && body_module_records.is_empty()
                 && lives.is_empty()
                 && day_clock.is_none()
                 && bookings.is_empty(),

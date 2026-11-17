@@ -841,7 +841,8 @@ pub struct NormalSpineCtx {
     /// set denies it.
     pub can_variable_jump: bool,
     /// The TIMED gravity multiplier this body is under, or `1.0` for none —
-    /// [`crate::movement::AxisManeuverState::gravity_modifier`].
+    /// [`crate::movement::MotionModel::gravity_modifier`], which resolves the body's live
+    /// [`crate::effects::NumericAttribute::Gravity`] effects.
     ///
     /// ⭐ RESOLVED BY THE CALLER, exactly as `water` and `crouching` are, and
     /// for the same reason: this function takes neither the clusters nor the

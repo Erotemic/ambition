@@ -153,3 +153,204 @@ fn a_custom_brain_module_replays_the_same_under_rollback() {
         rolled.fires
     );
 }
+
+/// `ambition_extension_fixture_modules::Thoughts` (kept durable) and
+/// `Musings` (transient), both body records of the thinker.
+const THOUGHTS: ambition_platformer2d::extension::sdk::SchemaKey =
+    ambition_platformer2d::extension::sdk::SchemaKey::new("fixture", "thinker.thoughts", 1);
+const MUSINGS: ambition_platformer2d::extension::sdk::SchemaKey =
+    ambition_platformer2d::extension::sdk::SchemaKey::new("fixture", "thinker.musings", 1);
+
+fn thinker_entity(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
+    let world = sim.world_mut();
+    world
+        .query::<(Entity, &FeatureId)>()
+        .iter(world)
+        .find(|(_, id)| id.as_str() == THINKER_ID)
+        .map(|(entity, _)| entity)
+}
+
+/// (thoughts, musings) on the live thinker.
+fn counts(sim: &mut Platformer2dSimHarness) -> (Option<u32>, Option<u32>) {
+    use ambition_platformer2d::extension::sdk::{FieldRef, Value};
+    let thinker = thinker_entity(sim).expect("a live thinker");
+    let records = sim.world().get::<ambition_platformer2d::extension::BodyRecords>(thinker);
+    let read = |key| {
+        records.and_then(|r| r.get(key)).map(|record| match record.get(FieldRef(0)) {
+            Ok(Value::U32(ticks)) => *ticks,
+            other => panic!("{key} holds {other:?}"),
+        })
+    };
+    (read(&THOUGHTS), read(&MUSINGS))
+}
+
+fn spawn_thinker(sim: &mut Platformer2dSimHarness) {
+    let player = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
+        q.single(world).expect("primary player").pos
+    };
+    sim.spawn_enemy_character_at(
+        THINKER_ID,
+        "Thinker",
+        (player.x + 120.0, player.y),
+        (14.0, 23.0),
+        CharacterBrain::Custom(THINKER_BRAIN.to_string()),
+        "perfect_cellular_automaton",
+    );
+}
+
+/// A second thinker, with no durable identity: the control.
+const DRIFTER_ID: &str = "custom_brain_drifter";
+
+/// Stamp the thinker as a provider-staged occupant of its room, in the
+/// command flush that builds it, as the room planner stamps what it stages.
+/// The harness builds it on the out-of-plan road, which gives a body no plan
+/// identity (`apply_spawn_actor_requests`); the drifter keeps that.
+fn stamp_the_thinker_as_staged(
+    added: On<Add, FeatureId>,
+    ids: Query<&FeatureId>,
+    mut commands: Commands,
+) {
+    if ids.get(added.entity).is_ok_and(|id| id.as_str() == THINKER_ID) {
+        commands.entity(added.entity).insert(ambition_platformer2d::platformer::construction::SpawnOrigin::ProviderStaged {
+            provider: "sim-harness".into(),
+            room: "sandbox".into(),
+            instance: THINKER_ID.into(),
+        });
+    }
+}
+
+/// The thinker built again under the identity it had: what a room entered
+/// again does with its staged occupant.
+fn build_thinker_again(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::actor::{ActorFaction, SpawnActorKind, SpawnActorRequest};
+    let player = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
+        q.single(world).expect("primary player").pos
+    };
+    sim.world_mut().write_message(SpawnActorRequest {
+        id: THINKER_ID.into(),
+        name: "Thinker".into(),
+        pos: Vec2::new(player.x + 120.0, player.y),
+        half_size: Vec2::new(14.0, 23.0),
+        faction: ActorFaction::Enemy,
+        grudge_against: None,
+        kind: SpawnActorKind::Enemy {
+            brain: CharacterBrain::Custom(THINKER_BRAIN.to_string()),
+            character: ambition_platformer2d::character::CharacterId::from("perfect_cellular_automaton"),
+        },
+    });
+}
+
+/// ⭐ RUNTIME-AUTHORING P5 STEP 2: a body record whose schema the durable
+/// world save keeps outlives the live body. The thinker's `thoughts` count
+/// goes on when the body is built again under its identity (its room entered
+/// again) and when a session loads the save, through the file; `musings`
+/// beside it, transient, starts again each time. A New Game takes the kept
+/// record away with the rest of the world.
+#[test]
+fn a_kept_body_record_outlives_its_body_and_comes_back_with_the_save() {
+    use ambition_platformer2d::persistence::save::{load_save, write_save};
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
+        .expect("the fixture crate builds for wasm32-unknown-unknown");
+    let options = || {
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_extension_module_files(vec![wasm.clone()])
+    };
+    let save_of = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::session::AmbitionGameSave>()
+            .data()
+            .clone()
+    };
+
+    let mut sim = Platformer2dSimHarness::new_with_options(options()).expect("the sandbox builds");
+    sim.app_mut().add_observer(stamp_the_thinker_as_staged);
+    spawn_thinker(&mut sim);
+    let player = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
+        q.single(world).expect("primary player").pos
+    };
+    sim.spawn_enemy_character_at(
+        DRIFTER_ID,
+        "Drifter",
+        (player.x - 120.0, player.y),
+        (14.0, 23.0),
+        CharacterBrain::Custom(THINKER_BRAIN.to_string()),
+        "perfect_cellular_automaton",
+    );
+    sim.step_n(AgentAction::default(), 30);
+    let (thoughts, musings) = counts(&mut sim);
+    let first = thoughts.expect("the premise: the thinker thought");
+    assert!(first > 0 && musings == Some(first), "the premise: both counts agree on a fresh body: {thoughts:?} {musings:?}");
+    let thinker = thinker_entity(&mut sim).unwrap();
+    let identity = sim
+        .world()
+        .get::<ambition_platformer2d::platformer::sim_id::SimId>(thinker)
+        .expect("the thinker has an identity")
+        .as_str()
+        .to_owned();
+    let rows: Vec<(String, String)> = save_of(&sim)
+        .body_module_records()
+        .iter()
+        .map(|row| (row.body.clone(), row.key.clone()))
+        .collect();
+    assert_eq!(
+        rows,
+        [(identity.clone(), "fixture::thinker.thoughts@1".to_owned())],
+        "the save keeps the durable record, under the staged body's identity, and not the transient one; \
+         the drifter, which has no durable identity, keeps nothing"
+    );
+
+    // The body leaves the world, and the save keeps its row.
+    sim.world_mut().entity_mut(thinker).despawn();
+    sim.step_n(AgentAction::default(), 5);
+    assert!(thinker_entity(&mut sim).is_none(), "the premise: the thinker is gone");
+    assert_eq!(save_of(&sim).body_module_records().len(), 1, "a body that is not live keeps its row");
+    let gone_at = first + 1;
+
+    build_thinker_again(&mut sim);
+    sim.step_n(AgentAction::default(), 3);
+    let (thoughts, musings) = counts(&mut sim);
+    assert!(
+        thoughts.is_some_and(|t| t > gone_at) && musings.is_some_and(|m| m < first),
+        "built again: the kept count goes on from {gone_at}, the transient one starts again: {thoughts:?} {musings:?}"
+    );
+    sim.step_n(AgentAction::default(), 10);
+    let (before_save, _) = counts(&mut sim);
+    let before_save = before_save.unwrap();
+
+    let save = save_of(&sim);
+    let dir = root.join(format!("target/extension-modules/durable_body_record_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("sandbox_save.ron");
+    write_save(&file, &save).expect("the save is written");
+    let loaded = load_save(&file);
+    assert_eq!(loaded.data, save, "the file holds the save the game kept");
+
+    let mut sim = Platformer2dSimHarness::new_with_options(options().with_save(loaded.data))
+        .expect("the sandbox builds from the save");
+    sim.app_mut().add_observer(stamp_the_thinker_as_staged);
+    spawn_thinker(&mut sim);
+    sim.step_n(AgentAction::default(), 5);
+    let (thoughts, musings) = counts(&mut sim);
+    assert!(
+        thoughts.is_some_and(|t| t > before_save) && musings.is_some_and(|m| m <= 6),
+        "after the load the kept count goes on from {before_save}, the transient one starts again: {thoughts:?} {musings:?}"
+    );
+
+    sim.world_mut()
+        .write_message(ambition_platformer2d::session::reset::NewGameRequested);
+    sim.step_n(AgentAction::default(), 240);
+    let (thoughts, musings) = counts(&mut sim);
+    assert!(
+        thoughts.is_some() && thoughts == musings,
+        "a New Game starts the kept record from nothing, as the transient one starts: {thoughts:?} {musings:?}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

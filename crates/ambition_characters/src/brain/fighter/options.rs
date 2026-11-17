@@ -1717,7 +1717,7 @@ fn falls_toward(me: &crate::perception::SelfView, foe: &PerceivedActor) -> f32 {
 /// already lived.
 ///
 /// THE ARC ENDS AT THE FLOOR. A foe coming down onto a grounded body falls
-/// under gravity ([`falls_toward`]) and stops where the two stand on one
+/// under gravity (`falls_toward`) and stops where the two stand on one
 /// floor (their half-heights apart). Without the stop, rung 1's 0.5 s
 /// staleness (½·g·t² = 180 px) led a falling foe through the floor and out of
 /// every region.

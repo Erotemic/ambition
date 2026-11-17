@@ -363,6 +363,8 @@ fn load_developer_modules(app: &mut App) {
         listed,
         files: watched,
         attempted: None,
+        before_staging: None,
+        pair_refused: false,
         frames_until_poll: 0,
     });
     app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
@@ -569,6 +571,12 @@ struct WatchedModuleFiles {
     files: Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>,
     frames_until_poll: u32,
     attempted: Option<Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>>,
+    /// The admitted set before the last staging, put back when a candidate
+    /// staged with content is discarded, so its files count as changed again.
+    before_staging: Option<Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>>,
+    /// A candidate staged with content was discarded: the next change to
+    /// either side asks for both again ([`module_pair_was_refused`]).
+    pair_refused: bool,
 }
 
 /// Frames between two looks at the files: a stat per file is cheap, and a
@@ -589,8 +597,148 @@ fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
+/// What changed among the module files since the admitted set.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub struct ModuleFileChanges {
+    pub changed: Vec<std::path::PathBuf>,
+    pub removed: Vec<std::path::PathBuf>,
+    /// The file set this look saw, admitted when the changes are staged.
+    current: Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>,
+}
+
+/// Present when the content owner looks at the module files together with its
+/// own sources (`ambition_content::content_watch`), so a script and the
+/// content it uses are one candidate. The module poller then stays out: two
+/// pollers on two clocks would see one save in different frames.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+#[derive(Resource)]
+pub struct ModuleFilesLookedWithContent;
+
+/// Look at the module files now: a file added to the list or to a listed
+/// directory is new, one gone from them leaves, each against the last
+/// admitted set. `None` when nothing changed, the composition watches no
+/// files, or this set was already tried and refused (`retry` asks again
+/// anyway, for a refused pair whose other half changed).
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub fn look_at_module_files(world: &mut World, retry: bool) -> Option<ModuleFileChanges> {
+    world.get_resource::<WatchedModuleFiles>()?;
+    let listed = match world.get_resource::<ExtensionModuleFiles>() {
+        Some(files) => files.0.clone(),
+        None => world.resource::<WatchedModuleFiles>().listed.clone(),
+    };
+    let current: Vec<_> = discover_module_files(&listed)
+        .into_iter()
+        .map(|path| {
+            let seen = modified(&path);
+            (path, seen)
+        })
+        .collect();
+    let mut watched = world.resource_mut::<WatchedModuleFiles>();
+    if current == watched.files || (!retry && watched.attempted.as_ref() == Some(&current)) {
+        return None;
+    }
+    let changed: Vec<_> = current.iter().filter(|row| !watched.files.contains(row)).map(|(path, _)| path.clone()).collect();
+    let removed: Vec<_> = watched
+        .files
+        .iter()
+        .filter(|(path, _)| !current.iter().any(|(present, _)| present == path))
+        .map(|(path, _)| path.clone())
+        .collect();
+    watched.attempted = Some(current.clone());
+    Some(ModuleFileChanges { changed, removed, current })
+}
+
+/// Load the changed files and stage them, with the removed ones, as ONE
+/// candidate (`stage_module_changes`). `Ok` names what was staged; nothing is
+/// published until [`propose_staged_modules`] or [`publish_paired_modules`].
+///
+/// One observed file set is one candidate: a file that does not load refuses
+/// it, every running module stays, and the set is not tried again until a
+/// file changes.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub fn stage_module_file_changes(world: &mut World, changes: ModuleFileChanges) -> Result<Vec<String>, String> {
+    let linked = ambition_extension_host::linked_modules(world);
+    let mut loaded = Vec::new();
+    for path in &changes.changed {
+        match load_module_file(path, &linked) {
+            Ok((backend, modules)) => loaded.push(ambition_extension_host::reload::LoadedArtifact {
+                artifact: std::sync::Arc::from(path.display().to_string()),
+                backend,
+                modules,
+            }),
+            Err(reason) => return Err(format!("{} does not load: {reason}", path.display())),
+        }
+    }
+    if loaded.is_empty() && changes.removed.is_empty() {
+        return Err("no changed file loads".to_string());
+    }
+    let mut names: Vec<String> = loaded.iter().map(|a| a.artifact.to_string()).collect();
+    let removed: Vec<std::sync::Arc<str>> =
+        changes.removed.iter().map(|path| std::sync::Arc::from(path.display().to_string())).collect();
+    names.extend(removed.iter().map(|name| format!("{name} (removed)")));
+    ambition_extension_host::reload::stage_module_changes(world, loaded, removed)?;
+    let mut watched = world.resource_mut::<WatchedModuleFiles>();
+    let before = std::mem::replace(&mut watched.files, changes.current);
+    watched.before_staging = Some(before);
+    watched.attempted = None;
+    Ok(names)
+}
+
+/// A candidate staged with content was discarded since the last successful
+/// pair: the next change to either side asks for both again.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub fn module_pair_was_refused(world: &World) -> bool {
+    world.get_resource::<WatchedModuleFiles>().is_some_and(|watched| watched.pair_refused)
+}
+
+/// The pair was asked for again and staged: the refusal is answered.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub fn forget_module_pair_refusal(world: &mut World) {
+    if let Some(mut watched) = world.get_resource_mut::<WatchedModuleFiles>() {
+        watched.pair_refused = false;
+    }
+}
+
+/// Ask the timeline's owner to admit the staged modules on their own.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub fn propose_staged_modules(world: &mut World) {
+    world
+        .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
+        .propose(module_code_domain());
+}
+
+/// Publish the staged modules at the commit of the content generation they
+/// were staged with: the boundary that publishes the pack publishes the code.
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub fn publish_paired_modules(world: &mut World) -> bool {
+    let published = ambition_extension_host::reload::publish_staged_replacement(world);
+    if published {
+        remint_session_content(world);
+    }
+    published
+}
+
+/// Drop the staged modules of a content generation that will not activate.
+/// Their files count as changed again, refused as tried: the next change to
+/// either side asks for the pair again ([`module_pair_was_refused`]).
+#[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
+pub fn discard_paired_modules(world: &mut World) -> bool {
+    let discarded = ambition_extension_host::reload::discard_staged_replacement(world);
+    if let Some(mut watched) = world.get_resource_mut::<WatchedModuleFiles>() {
+        if let Some(before) = watched.before_staging.take() {
+            let tried = std::mem::replace(&mut watched.files, before);
+            watched.attempted = Some(tried);
+        }
+        watched.pair_refused = true;
+    }
+    discarded
+}
+
 #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 fn propose_module_reload(world: &mut World) {
+    if world.contains_resource::<ModuleFilesLookedWithContent>() {
+        return;
+    }
     {
         let mut watched = world.resource_mut::<WatchedModuleFiles>();
         if watched.frames_until_poll > 0 {
@@ -599,65 +747,17 @@ fn propose_module_reload(world: &mut World) {
         }
         watched.frames_until_poll = POLL_FRAMES;
     }
-    // The files as they are now: a file added to the list or to a listed
-    // directory is new, one gone from them leaves.
-    let listed = match world.get_resource::<ExtensionModuleFiles>() {
-        Some(files) => files.0.clone(),
-        None => world.resource::<WatchedModuleFiles>().listed.clone(),
-    };
-    let current: Vec<_> = discover_module_files(&listed).into_iter()
-        .map(|path| { let seen = modified(&path); (path, seen) }).collect();
-    let (changed, removed) = {
-        let mut watched = world.resource_mut::<WatchedModuleFiles>();
-        if current == watched.files || watched.attempted.as_ref() == Some(&current) { return; }
-        let changed: Vec<_> = current.iter().filter(|row| !watched.files.contains(row))
-            .map(|(path, _)| path.clone()).collect();
-        let removed: Vec<_> = watched.files.iter()
-            .filter(|(path, _)| !current.iter().any(|(present, _)| present == path))
-            .map(|(path, _)| path.clone()).collect();
-        watched.attempted = Some(current.clone());
-        (changed, removed)
-    };
-    // One observed file set is one candidate. A failed compile keeps every
-    // running module and keeps the previous file set for the next attempt.
-    let linked = ambition_extension_host::linked_modules(world);
-    let mut loaded = Vec::new();
-    for path in &changed {
-        let result = load_module_file(path, &linked);
-        match result {
-            Ok((backend, modules)) => {
-                loaded.push(ambition_extension_host::reload::LoadedArtifact {
-                    artifact: std::sync::Arc::from(path.display().to_string()),
-                    backend,
-                    modules,
-                })
-            }
-            Err(reason) => {
-                error!("{EXTENSION_MODULES_VAR}: {} does not load; the complete running module set stays: {reason}", path.display());
-                return;
-            }
-        }
-    }
-    if loaded.is_empty() && removed.is_empty() {
+    let Some(changes) = look_at_module_files(world, false) else {
         return;
-    }
-    let mut names: Vec<String> = loaded.iter().map(|a| a.artifact.to_string()).collect();
-    let removed: Vec<std::sync::Arc<str>> =
-        removed.iter().map(|path| std::sync::Arc::from(path.display().to_string())).collect();
-    names.extend(removed.iter().map(|name| format!("{name} (removed)")));
-    match ambition_extension_host::reload::stage_module_changes(world, loaded, removed) {
-        Ok(()) => {
-            let mut watched = world.resource_mut::<WatchedModuleFiles>();
-            watched.files = current;
-            watched.attempted = None;
+    };
+    match stage_module_file_changes(world, changes) {
+        Ok(names) => {
             info!("{EXTENSION_MODULES_VAR}: {names:?} changed; reload proposed");
-            world
-                .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
-                .propose(module_code_domain());
+            propose_staged_modules(world);
         }
         Err(reason) => error!(
-            "{EXTENSION_MODULES_VAR}: {names:?} changed and are NOT loaded; the running \
-             code stays: {reason}"
+            "{EXTENSION_MODULES_VAR}: changed modules are NOT loaded; the complete running module \
+             set stays: {reason}"
         ),
     }
 }

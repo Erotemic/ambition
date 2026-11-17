@@ -261,7 +261,7 @@ impl PerceptionPeers {
 }
 
 /// Collect the peer snapshot from every live body — player, actor, AND boss all
-/// carry [`BodyKinematics`], so ONE query spans them (guardrail #1: no per-type
+/// carry [`BodyKinematics`](ambition_platformer2d_core::BodyKinematics), so ONE query spans them (guardrail #1: no per-type
 /// path). §A7: this POPULATES the peers channel `build_world_view` reads, so
 /// `WorldView`'s `nearest_hostile` / `hostiles` / `incoming_threats` are live — and
 /// non-boss brains now TARGET through it (they perceive their foe, not the omniscient

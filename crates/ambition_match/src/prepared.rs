@@ -158,7 +158,7 @@ pub struct PreparedSeat {
     /// becomes a body.
     pub effective_movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
     /// The look this seat is drawn in, when it wears one (see
-    /// [`MatchParticipant::skin`]): a registered row that is a look of
+    /// [`crate::MatchParticipant::skin`]): a registered row that is a look of
     /// [`Self::character_id`]. Art only.
     pub skin: Option<ambition_entity_catalog::CharacterId>,
 }

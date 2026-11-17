@@ -50,7 +50,7 @@ pub struct WearRequested {
 /// nothing. A body that already wears the character is left as it is.
 ///
 /// The body is untouchable while it plays the `transform` row of its new
-/// look ([`arrival_beat`]).
+/// look (`arrival_beat`).
 pub fn apply_wear_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     mut requests: ReplayMessageReader<WearRequested>,

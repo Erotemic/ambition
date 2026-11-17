@@ -952,6 +952,17 @@ bounds use saturating arithmetic. Seat retirement clears prediction and input
 history. Allocation consults the session roster and retries waiting clients.
 The reconnect witness uses a fresh sequence after a held movement input.
 
+**Open: no guard enforces the room-owner rule (filed 2026-11-16).** Room-local
+simulation is being adopted faster than global gameplay resources are being
+partitioned (Jon, 2026-11-16). The [room replay contract](../../systems/room-replay.md)
+says a room-owned resource's writer asks `RoomReplay::allows(owner)` (47 call
+sites today). Nothing finds a sim-schedule writer of a global `Resource` that
+does neither that nor a shared-store retraction, so the next one is found by a
+cross-room desync, as these fixes were. Next action: a census over the
+rewinding schedule's `ResMut` writers, classified as room-gated, retracted
+store, world-owned by ruling, or unclassified, with the unclassified count
+ratcheted to zero.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

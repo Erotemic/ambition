@@ -561,8 +561,12 @@ PRODUCER_BY_INSPECTION: dict[str, tuple[tuple[str, ...], str]] = {
 _MSG_WRITER = re.compile(
     r"(?:mut\s+)?[a-z_]\w*\s*:\s*(?:[\w:]*::)?MessageWriter\s*<\s*(?:'[a-z_]+\s*,\s*)?([\w:]+)"
 )
+#: ⛔ `ReplayMessageReader<M>` IS A READER (`ambition_platformer2d_core::replay_messages`,
+#: 2026-11-16): it keeps a room replay's cursor apart from the live one, and it
+#: does nothing for a GGRS rewind. Unseen, `AmbientGravityRequest`'s live crossing
+#: read as repaired the day its reader took that type.
 _MSG_READER = re.compile(
-    r"(?:mut\s+)?[a-z_]\w*\s*:\s*(?:[\w:]*::)?MessageReader\s*<\s*(?:'[a-z_]+\s*,\s*)?([\w:]+)"
+    r"(?:mut\s+)?[a-z_]\w*\s*:\s*(?:[\w:]*::)?(?:Replay)?MessageReader\s*<\s*(?:'[a-z_]+\s*,\s*)?([\w:]+)"
 )
 
 #: ⛔⛤ **`NarrativeInputWriter<M>` IS A WRITER SPELLING THIS CENSUS DOES NOT

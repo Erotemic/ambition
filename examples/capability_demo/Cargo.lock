@@ -1254,7 +1254,6 @@ dependencies = [
  "ambition_extension_host",
  "ambition_extension_sdk",
  "ambition_gameplay_trace",
- "ambition_hit_spec",
  "ambition_input",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",

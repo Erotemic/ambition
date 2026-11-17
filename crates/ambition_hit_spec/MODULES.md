@@ -1,6 +1,19 @@
-# Hit policy
+# `ambition_hit_spec` — module map
 
-`src/lib.rs` owns the shared contact values. Content, projectile ports, and body
-reactions use these values. This crate has no ECS or simulation dependency.
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
-See `../../docs/systems/hit-properties.md` for the runtime rules.
+**ambition_hit_spec** — Contact policy shared by authored moves, projectiles, and body reactions.
+
+| Module | Its ONE concern (from the module's own `//!` header) |
+|---|---|
+
+_0 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+
+<!-- END generated module map -->
+
+## Notes
+
+_Hand-written notes live here and survive regeneration: the crate's authoritative state, its seams, and anything the module headers cannot say._
+
+The shared contact values have no ECS or SDK dependency. See
+[hit properties](../../docs/systems/hit-properties.md) for the runtime rules.

@@ -107,7 +107,7 @@
     "ambition_world_items",
     "ambition_world_returns"
   ],
-  "closure_size": 74,
+  "closure_size": 75,
   "never_asked_for": [
     "ambition_abilities",
     "ambition_audio",

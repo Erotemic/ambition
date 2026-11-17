@@ -38,66 +38,22 @@ carries closed campaigns. Unselected or customer-gated plans live in
    light stops at the room's solid ground), TN3 (the Lantern, found in
    the salt run) and TN1 (the navigation graph plans over painted ground)
    are done (2026-11-16): the plan is complete.
-0b. **Runtime authoring: a scripting language (Jon, 2026-11-14: "I think its
-   time for a scripting language"; after the audit's obvious fixes, scripting
-   is the feature priority).** The
+0b. **Script-first Ambition gameplay.** Follow the
+   [capability program](engine/script-first-ambition-gameplay.md) for new
+   flagship gameplay. The first slice adds the Boss of the Game's scripted
+   encore jets and the Lightning inventory skill (`31443e23b`). The
+   [capability census](engine/script-first-capability-census.md) records the
+   existing contracts and the next useful gaps. Keep working native game
+   mechanics. Do not use migration counts or port counts as acceptance.
+   The [authoring recipe](../recipes/scripted-stage-attacks.md) describes the
+   built-host edit loop and domain authority.
+   **Retained receipt:** [first-class procedural game authoring](engine/first-class-procedural-game-authoring.md)
+   proves A1–A10 on desktop Linux (`9c1ccf62d`): authored mechanics,
+   three-backend parity, saved-state refusal, release delivery, and measured
+   promotion. Keep its fixtures. The older
    [runtime authoring audit](engine/runtime-authoring-audit-2026-11-14/README.md)
-   is the plan; its P1 fixes B01 (the app's build label no longer rebuilds
-   the app for unrelated edits or a `git add`), B02 (`run_game.sh --reuse`)
-   and B03 (the module watcher follows its package) are done 2026-11-14.
-   The Luau-vs-Rhai bake-off is measured (2026-11-14,
-   [result](engine/scripting-language-bakeoff.md)): provisional choice Rhai
-   (it builds for the browser target, matches the native sentry byte for
-   byte with exact float comparisons, and cannot keep hidden state); Luau has
-   the better analyzer and VM but does not build for `wasm32-unknown-unknown`.
-   The Rhai backend landed 2026-11-14 (`crates/ambition_extension_rhai`,
-   P3's backend half): `AMBITION_EXTENSION_MODULES` takes `.rhai` files, each
-   the code of the linked module its stem names, hot-reloaded on the
-   mechanical-edit road with a new content generation; the shipped
-   `game/ambition_content_modules/rhai/sentry.rhai` runs the turret, and
-   `a_script_module_runs_without_a_build` edits it in a running sync-test
-   game and witnesses that a faulting invocation commits nothing.
-   The sentry's port descriptions (P2) landed 2026-11-14: one declaration
-   per value (`ambition_extension_sdk::structure`) gives the wire codec, the
-   script conversion and the [generated reference](../sdk/script-ports.md),
-   and `request(..)` errors name the script's line.
-   P3's project entry landed 2026-11-16: `--project` runs a `project.ron`
-   (scripts, a content pack root, an entry room) on the built host
-   (`examples/projects/sentry_drill`, no Rust).
-   The authored technique slice (`5dfb7d683`, 2026-11-16) adds
-   [Pulse Forge](../../examples/projects/pulse_forge/README.md): equipment
-   binds a new scripted technique that creates and ticks its own entity kind.
-   The module declares its schemas and entries in Rhai. The
-   `a_project_authors_a_technique` tests cover rollback, atomic faults, and
-   live edit/removal/addition. The inspector also accepts Rhai candidates.
-   The project world slice (`6f8d4d9c7`, 2026-11-16) lets a project's
-   `worlds` directory supply the selected pack's LDtk files. Pulse Forge
-   now has its own drill room. One App-local manifest feeds loading,
-   validation, drawing, and reload; the app test covers rejection and repair.
-   Script reload now stages all changed files and removals from one poll
-   together (`32061bec9`). A compile failure keeps the full module set;
-   repair retries the held edits. Pack and script revisions still publish
-   separately (P5).
-   **Next action:** the rest of P3's project entry (the
-   [plan's progress note](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p3-run-source-scripts-and-a-project-on-the-prebuilt-host):
-   body grants and behaviour attachments as a project's data when a
-   customer needs them; module discovery from the manifest, the tools'
-   `--project`, the rollback and fault witnesses through a project,
-   modules a script declares (`fn declare()`) and the starting bag as data
-   (`starting_items`) landed 2026-11-16); describing the
-   other ports as scripts need them (a module entity's own requests,
-   `end_module_entity`, `pull_bodies` and `launch_toucher`, and a brain's
-   `actor_think`, `fire` and `velocity` with Mary-O's laden swallow as a
-   Rhai script, landed 2026-11-16). P4's coconut swallows are under way
-   ([design](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p4-prove-rich-composition-with-existing-game-requirements)):
-   the room-coordinated `group_think` and `steer`, and the custody
-   requests `take` and `release`, reference fields in a room's record,
-   and the swallows themselves as a shipped script (`swallows.rhai`, the
-   native producer removed) landed 2026-11-16; P4's controller/attachment
-   split and its two parallel customers remain.
-   Story sequences (SS1, SS2, landed) are the first content customer of
-   the authored command catalog a script will call.
-   **Completed acceptance slice (2026-11-17):** [first-class procedural game authoring](engine/first-class-procedural-game-authoring.md) proves A1–A10 on desktop Linux: authored mechanics, three-backend parity, saved-state refusal, independent release delivery, and measured promotion (`9c1ccf62d`). Keep the promotion and project-state fixtures. The broader P4 work above remains open.
+   records prior P1–P5 work; its proposed migrations need a separately
+   selected product benefit before execution.
 
 1. **Network architecture (maintainer priority, updated 2026-11-10):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. **Direction set 2026-11-10:** the metroidvania moves to a hybrid model, with rollback kept inside a room boundary while it is easy to maintain and its room-level cost measured, and hosted authority for the world around the rooms: [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) is selected and runs beside the experiment.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;

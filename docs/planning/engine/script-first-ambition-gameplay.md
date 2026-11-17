@@ -65,6 +65,26 @@ If an intended feature requires a fundamental new service, report it as such rat
 
 No fixed count of Rhai modules, ports, or demonstration mechanics is required. The flagship feature and its evidence are the deliverables, not the size of the scripting surface.
 
+## First-slice receipt (2026-11-17)
+
+- The new flagship feature is the Boss of the Game's encore stage jets
+  (`31443e23b`). The script owns the warning, alternating pairs, and pulse
+  limit. Existing native boss moves remain in place. Lightning is a second
+  new inventory skill in the same change.
+- The missing Rhai surfaces were descriptions of the existing boss-special
+  trigger and authored effect request (`ec483e1ac`). Native and portable Rust
+  use the same contracts. No new game-specific engine verb was added.
+- The [coverage census](script-first-capability-census.md) records the
+  read-only cross-game audit and the next useful capability gap.
+- The assembled `the_boss_stage_has_scripted_pyro` and
+  `lightning_is_authored_in_rhai` witnesses cover real collision/damage,
+  rollback state, cancellation/refusal, and live source edits. The
+  [recipe](../../recipes/scripted-stage-attacks.md) describes the prebuilt
+  host loop. The [measurement](../../../dev/benchmark-candidates/scripted-stage-entry-cost.md)
+  records the scenario and cost: keep this bounded stage sequence in Rhai.
+- The longer-term usability goal remains open. Do not infer a migration
+  mandate or complete engine API coverage from this first slice.
+
 ## Existing owners and references
 
 - [Extension model](extension-model.md) defines the three tiers, authority and backend independence.

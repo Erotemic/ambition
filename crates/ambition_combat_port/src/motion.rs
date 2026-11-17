@@ -302,25 +302,32 @@ pub struct Effect {
     pub angle: f32,
 }
 
+ambition_extension_sdk::port_record! {
+    Effect {
+        /// World point, or unit for the invocation's body.
+        at: Place = Place::Body,
+        /// Authored effect id.
+        fx: String,
+        /// Presentation scale.
+        scale: f32 = 1.0,
+        /// Clockwise rotation in radians.
+        angle: f32 = 0.0,
+    }
+}
+
+ambition_extension_sdk::script_port!(EffectPort);
+
 impl Port for EffectPort {
     const KEY: PortKey = PortKey::new("ambition.feedback.effect", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = Effect;
 
     fn encode(v: &Effect, out: &mut Vec<u8>) {
-        v.at.put(out);
-        wire::put_str(out, &v.fx);
-        wire::put_f32(out, v.scale);
-        wire::put_f32(out, v.angle);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Effect, WireError> {
-        Ok(Effect {
-            at: Place::read(r)?,
-            fx: r.str()?.to_owned(),
-            scale: r.f32()?,
-            angle: r.f32()?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 

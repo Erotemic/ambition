@@ -288,7 +288,7 @@ fn one_variant_of_a_slot_is_in_effect() {
     assert!(fresh.contains(Item::Fireball), "the body's own projectile is in effect");
     assert!(!fresh.contains(Item::EyeLaser));
     assert!(fresh.contains(Item::SwordStance) && fresh.contains(Item::Dash) && fresh.contains(Item::PrecisionBlink));
-    assert!(!fresh.contains(Item::Lightning), "a placeholder is never in effect");
+    assert!(!fresh.contains(Item::Lightning), "lightning must be equipped");
 
     let mut worn = WornEquipment::default();
     worn.equip(catalog.wears(Item::EyeLaser).unwrap().clone());
@@ -318,10 +318,10 @@ fn the_starter_bag_unlocks_every_real_item() {
             assert_eq!(catalog.is_real(item), catalog.wears(item).is_some(), "{item:?}");
         }
     }
-    for item in [Item::EyeLaser, Item::PortalGun, Item::GunSword, Item::Grapple] {
+    for item in [Item::EyeLaser, Item::Lightning, Item::PortalGun, Item::GunSword, Item::Grapple] {
         assert!(owned.has(item), "{item:?} is unlocked");
     }
-    for placeholder in [Item::Lightning, Item::AxeStance, Item::WhipStance, Item::DashTwo, Item::ContextualBlink] {
+    for placeholder in [Item::AxeStance, Item::WhipStance, Item::DashTwo, Item::ContextualBlink] {
         assert!(!owned.has(placeholder), "{placeholder:?} is a placeholder");
     }
     for quest_item in [Item::FieldSurvey] {

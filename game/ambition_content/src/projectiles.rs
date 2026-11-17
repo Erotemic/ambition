@@ -18,6 +18,16 @@ pub(crate) struct AmbitionProjectileLooks(pub(crate) Vec<String>);
 
 /// Register every look the selected pack states into the App-local catalog.
 pub(super) fn register(app: &mut App) {
+    ambition_platformer2d::extension::add_shipped_script(
+        app,
+        "game/ambition_content/rhai/lightning.rhai",
+        include_str!("../rhai/lightning.rhai"),
+    );
+    ambition_platformer2d::extension::add_shipped_script(
+        app,
+        "game/ambition_content/rhai/boss_stage_pyro.rhai",
+        include_str!("../rhai/boss_stage_pyro.rhai"),
+    );
     let pack = crate::pack::select(app.world_mut());
     let looks = ambition_projectiles::content_schema::lowered_projectile_looks(&pack).cloned().unwrap_or_default();
     for (id, art) in &looks {

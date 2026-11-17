@@ -54,10 +54,18 @@
     ),
     (
         display_name: "Lightning",
-        description: "A projectile of lightning. Not yet found.",
+        description: "Fire three lightning bolts in a narrow fan. Hold to repeat. Each volley costs 9 mana.",
         category: Ability,
         held_item_id: None,
         dialog_id: "lightning",
+        wears: Some((
+            id: "lightning",
+            exclusive_slot: Some("projectile"),
+            grants: [Technique((
+                id: ("lightning"), slot: Projectile,
+                display_name: Some("Lightning"), gate: Technique("lightning"),
+            ))],
+        )),
     ),
     (
         display_name: "Sword Stance",

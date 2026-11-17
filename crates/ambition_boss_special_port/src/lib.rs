@@ -48,31 +48,11 @@ impl Port for BossSpecialCast {
     type Value = BossCaster;
 
     fn encode(v: &BossCaster, out: &mut Vec<u8>) {
-        wire::put_bool(out, v.pressed);
-        wire::put_bool(out, v.telegraphing);
-        wire::put_bool(out, v.alive);
-        wire::put_vec2(out, v.position);
-        wire::put_f32(out, v.facing);
-        wire::put_vec2(out, v.projectile_offset);
-        wire::put_vec2(out, v.body_center);
-        wire::put_vec2(out, v.body_half_size);
-        wire::put_opt(out, v.target, wire::put_vec2);
-        wire::put_opt(out, v.room_size, wire::put_vec2);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossCaster, WireError> {
-        Ok(BossCaster {
-            pressed: r.bool()?,
-            telegraphing: r.bool()?,
-            alive: r.bool()?,
-            position: r.vec2()?,
-            facing: r.f32()?,
-            projectile_offset: r.vec2()?,
-            body_center: r.vec2()?,
-            body_half_size: r.vec2()?,
-            target: r.opt(WireReader::vec2)?,
-            room_size: r.opt(WireReader::vec2)?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -104,6 +84,33 @@ pub struct BossCaster {
     /// `0..room_size` in world units.
     pub room_size: Option<[f32; 2]>,
 }
+
+ambition_extension_sdk::port_record! {
+    BossCaster {
+        /// The pattern requests this move now.
+        pressed: bool,
+        /// The pattern warns of this move now.
+        telegraphing: bool,
+        /// The boss has health left.
+        alive: bool,
+        /// Body centre in world units, +Y down.
+        position: [f32; 2],
+        /// The body's facing sign.
+        facing: f32,
+        /// Authored projectile offset, before facing applies.
+        projectile_offset: [f32; 2],
+        /// Combat box centre in world units.
+        body_center: [f32; 2],
+        /// Combat box half size.
+        body_half_size: [f32; 2],
+        /// Tracked target position, or unit when absent.
+        target: Option<[f32; 2]>,
+        /// The scope's live room size, or unit when absent.
+        room_size: Option<[f32; 2]>,
+    }
+}
+
+ambition_extension_sdk::script_port!(BossSpecialCast);
 
 /// The boss domain's summon request port.
 ///

@@ -140,3 +140,51 @@ fn the_eye_laser_takes_the_projectile_slot_and_the_fireball_takes_it_back() {
     assert!(back.shots >= 1, "the fireball took the slot back");
     assert!(back.rays.is_empty(), "and the laser is gone");
 }
+
+
+#[test]
+fn a_crouched_laser_keeps_its_lit_visor_and_leaves_the_posed_eye() {
+    use ambition_platformer2d::characters::actor::Landmark;
+    use ambition_platformer2d::combat::body_landmarks::{BodyLandmarks, LandmarkPose};
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use bevy::ecs::system::SystemState;
+    use bevy::math::Vec2;
+
+    fn origin(sim: &mut Platformer2dSimHarness, body: Entity, row: &str) -> Vec2 {
+        let available = mana(sim, body);
+        let kin = *sim.world().get::<BodyKinematics>(body).unwrap();
+        let pin = sim.world().get::<PinnedRow>(body).unwrap().clone();
+        let (elapsed, looping) = (pin.elapsed, pin.looping);
+        let world = sim.world_mut();
+        let mut state = SystemState::<BodyLandmarks>::new(world);
+        let eye = state.get(world).unwrap().in_world(body, Landmark::Eye,
+            LandmarkPose::Row { chain: &[row], elapsed_s: elapsed, looping }, &kin).unwrap().expect("an authored eye");
+        let mut query = world.query::<(&Hitbox, &RayStrike)>();
+        let (hitbox, _) = query.iter(world).find(|(hitbox, _)| hitbox.owner == body).unwrap_or_else(|| panic!("no laser in {row}; mana={available}, pin={pin:?}, clock={:?}", world.get::<ambition_platformer2d::combat::hurtbox_resolution::BodyPoseClock>(body)));
+        let at = hitbox.anchor_world(Vec2::ZERO, Some(&kin)).unwrap();
+        assert!(at.distance(eye) < 0.001, "the beam leaves the posed eye: {at:?}, {eye:?}");
+        at
+    }
+
+    let mut sim = fixed_60hz_sim();
+    sim.step_n(base(), 120);
+    let body = primary(&mut sim);
+    equip(&mut sim, Item::EyeLaser);
+    sim.step_n(base(), 240);
+    sim.step(ambition_app::AgentAction { projectile: true, projectile_held: true, ..base() });
+    sim.step_n(ambition_app::AgentAction { projectile_held: true, ..base() }, 8);
+    let standing = origin(&mut sim, body, "eye_laser");
+    sim.step_n(ambition_app::AgentAction { move_y: 1.0, projectile_held: true, ..base() }, 20);
+    let crouched = origin(&mut sim, body, "eye_laser_crouch");
+    assert!(crouched.y > standing.y, "the eye goes down with the crouched head: {standing:?}, {crouched:?}");
+    let pose = sim.world().get::<ambition_platformer2d::sim_view::BodyPoseView>(body).unwrap();
+    assert_eq!(pose.clip.as_ref().unwrap().clip, "eye_laser_crouch");
+    let content = sim.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
+    let art = ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAsset::baked(content, "player_robot_v3").unwrap();
+    let row = art.clip("eye_laser_crouch").expect("the crouched firing row is published");
+    assert!(art.frame("eye_laser_crouch", 0).unwrap().iter().any(|draw| draw.track.is_some_and(|track| art.tracks[usize::from(track)] == "visor_fill")),
+        "the squashed head still draws its lit visor");
+    assert!(row.frame_count() > 0);
+    sim.step_n(ambition_app::AgentAction { projectile_held: true, ..base() }, 8);
+    origin(&mut sim, body, "eye_laser");
+}

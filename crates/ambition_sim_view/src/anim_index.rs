@@ -166,15 +166,11 @@ pub enum ClipTime {
     Seconds { elapsed: f32, looping: bool },
 }
 
-/// The suffix of a row's crouched variant: `eye_laser` is drawn as
-/// `eye_laser_crouch` by a crouched body.
-pub const CROUCH_VARIANT_SUFFIX: &str = "_crouch";
-
 impl ClipRequest {
     /// Put a content pin ahead of the body's request and retain its clock.
     ///
     /// A `crouched` body is drawn crouched: each pinned row gives way to its
-    /// crouched variant ([`CROUCH_VARIANT_SUFFIX`]), and a sheet with none
+    /// crouched variant ([`ambition_sprite_sheet::character::stance_row`]), and a sheet with none
     /// draws the body's own request (its crouch). A pinned standing row would
     /// be drawn feet-first on the crouched box, at full height. The variants
     /// run on the sheet's clock: the pin's clock would also run the body's own
@@ -186,7 +182,7 @@ impl ClipRequest {
     ) -> Option<Self> {
         let Some(pin) = pin.filter(|pin| pin.is_pinned()) else { return base; };
         if crouched {
-            let variants: Vec<String> = pin.rows.iter().map(|row| format!("{row}{CROUCH_VARIANT_SUFFIX}")).collect();
+            let variants: Vec<String> = pin.rows.iter().map(|row| ambition_sprite_sheet::character::stance_row(row, true)).collect();
             return match base {
                 Some(base) => Some(variants.iter().rev().fold(base, |chain, row| chain.ahead_of(row))),
                 None => Self::from_chain(&variants.iter().map(String::as_str).collect::<Vec<_>>()),

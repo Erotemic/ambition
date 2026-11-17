@@ -394,6 +394,7 @@ fn tween_overhang(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RiggedSpriteError {
     Parse(String),
+    Landmarks(String),
     Schema { found: u32 },
     MissingPage { part: usize, page: u16 },
     MissingPart { clip: String, frame: usize, part: u16 },
@@ -427,6 +428,7 @@ pub enum ClipRealization {
 impl std::fmt::Display for RiggedSpriteError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Landmarks(error) => write!(f, "invalid landmarks: {error}"),
             Self::Parse(error) => write!(f, "does not parse: {error}"),
             Self::Schema { found } => write!(
                 f,
@@ -491,6 +493,7 @@ impl RiggedSpriteAsset {
                 found: published.schema_version,
             });
         }
+        published.validate_landmarks().map_err(RiggedSpriteError::Landmarks)?;
         let parts = published
             .parts
             .iter()

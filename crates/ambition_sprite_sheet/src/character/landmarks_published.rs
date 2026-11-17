@@ -24,13 +24,17 @@ use serde::{Deserialize, Serialize};
 ///
 /// ⚠ Nearer the viewer is not the hand that reaches: see
 /// `ambition_characters::actor::GestureHand`.
-pub const LANDMARK_TRACKS: [&[&str]; 5] = [
+pub const LANDMARK_TRACKS: [&[&str]; 6] = [
     &["near_hand", "front_hand", "right_hand"],
     &["far_hand", "back_hand", "left_hand"],
     &["head"],
     &["near_foot", "front_foot"],
     &["far_foot", "back_foot"],
+    &[],
 ];
+
+/// The authored point names, in semantic slot order.
+pub const LANDMARK_NAMES: [&str; 6] = ["hand_near", "hand_far", "head", "foot_near", "foot_far", "eye"];
 
 /// The landmark points of one frame, by slot, in sheet pixels from the feet.
 pub type BakedLandmarkFrame = [Option<(f32, f32)>; LANDMARK_TRACKS.len()];

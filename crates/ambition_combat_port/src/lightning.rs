@@ -17,7 +17,7 @@ use crate::ray::Spot;
 ///   `key`: the same key asked again renews the bolt and moves its ends, so
 ///   a channel asked every tick is one bolt. `glow` recolours the halo. An
 ///   unknown look is refused and logged. A [`crate::ray::Spot::Part`] end
-///   is drawn at its `otherwise` offset: the bolt does not read the art.
+///   is refused: a feedback bolt needs a world or body endpoint.
 /// * **Owner** — `ambition_boss_encounter::extension` in `boss_conduct`
 ///   (`VfxMessage::Lightning`), in the live room of the body; the key is
 ///   scoped to that body.
@@ -46,7 +46,7 @@ pub(crate) fn rgba(r: &mut WireReader<'_>) -> Result<[f32; 4], WireError> {
 }
 
 impl Port for LightningPort {
-    const KEY: PortKey = PortKey::new("ambition.feedback.lightning", 2);
+    const KEY: PortKey = PortKey::new("ambition.feedback.lightning", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = Lightning;
 

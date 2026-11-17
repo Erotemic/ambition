@@ -374,7 +374,7 @@ mod tests {
                 assert_eq!(clip.frame_duration_s, drawn.frame_duration_s, "{target}/{name}");
                 for (index, frame) in clip.frames.iter().enumerate() {
                     let draws = flipbook.frame(name, index).expect("a frame of the clip");
-                    for landmark in Landmark::ALL {
+                    for landmark in Landmark::ALL.into_iter().filter(|landmark| !landmark_tracks(*landmark).is_empty()) {
                         let expected = draws
                             .iter()
                             .find(|draw| {

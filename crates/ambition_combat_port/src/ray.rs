@@ -20,7 +20,7 @@ pub enum Spot {
     World([f32; 2]),
     /// An offset from the body the invocation ran for: it follows the body.
     Body([f32; 2]),
-    /// The front of a part the body's art draws: see [`PartSpot`].
+    /// A named point on a part the body's art draws: see [`PartSpot`].
     Part(PartSpot),
 }
 
@@ -31,8 +31,8 @@ pub enum ArtPart {
     Visor,
 }
 
-/// The front of a part the body's art draws in a row: the middle of the
-/// part's edge the way the body faces. The row is named by the request, as a
+/// A named point on a part the body's art draws in a row. The part's box
+/// gives the ray width. The row is named by the request, as a
 /// `DrawnRow` names it, so the spot is a function of the module's own state
 /// and not of what was drawn last.
 #[derive(Clone, Debug, PartialEq)]
@@ -42,12 +42,13 @@ pub struct PartSpot {
     pub rows: Vec<String>,
     /// Seconds into that row.
     pub elapsed: f32,
+    /// The row runs as a loop on this clock.
+    pub looping: bool,
     /// How far in from the bounds of the drawn part its edge is, in sheet
     /// pixels: the transparent margin around the part.
     pub inset_px: f32,
-    /// The offset from the body when its art does not draw the part in that
-    /// frame of that row (or has none of the rows).
-    pub otherwise: [f32; 2],
+    /// The named origin on this part. A missing point refuses the ray.
+    pub landmark: String,
 }
 
 impl Spot {
@@ -71,8 +72,9 @@ impl Spot {
                     wire::put_str(out, row);
                 }
                 wire::put_f32(out, spot.elapsed);
+                wire::put_bool(out, spot.looping);
                 wire::put_f32(out, spot.inset_px);
-                wire::put_vec2(out, spot.otherwise);
+                wire::put_str(out, &spot.landmark);
             }
         }
     }
@@ -91,18 +93,18 @@ impl Spot {
                 for _ in 0..count {
                     rows.push(r.str()?.to_owned());
                 }
-                Ok(Spot::Part(PartSpot { part, rows, elapsed: r.f32()?, inset_px: r.f32()?, otherwise: r.vec2()? }))
+                Ok(Spot::Part(PartSpot { part, rows, elapsed: r.f32()?, looping: r.bool()?, inset_px: r.f32()?, landmark: r.str()?.to_owned() }))
             }
             tag => Err(WireError::BadTag(tag)),
         }
     }
 
-    /// The world point, for a body at `body`. A part's front is where the
-    /// art draws it, which only the host knows: here it is its `otherwise`.
-    pub fn at(&self, body: [f32; 2]) -> [f32; 2] {
+    /// A world point without a landmark query. A part needs the host's pose.
+    pub fn at(&self, body: [f32; 2]) -> Option<[f32; 2]> {
         match self {
-            Spot::World(at) => *at,
-            Spot::Body([x, y]) | Spot::Part(PartSpot { otherwise: [x, y], .. }) => [body[0] + x, body[1] + y],
+            Spot::World(at) => Some(*at),
+            Spot::Body([x, y]) => Some([body[0] + x, body[1] + y]),
+            Spot::Part(_) => None,
         }
     }
 }
@@ -151,7 +153,7 @@ pub struct HeldRay {
 }
 
 impl Port for HeldRayPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 3);
+    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 4);
     const ROLE: PortRole = PortRole::Request;
     type Value = HeldRay;
 
@@ -199,8 +201,9 @@ mod tests {
                 part: ArtPart::Visor,
                 rows: vec!["eye_laser".into(), "shoot".into()],
                 elapsed: 0.25,
+                looping: true,
                 inset_px: 3.0,
-                otherwise: [3.0, -27.0],
+                landmark: "eye".into(),
             }),
             toward: [0.6, -0.8],
             reach: 460.0,
@@ -220,7 +223,7 @@ mod tests {
 
     #[test]
     fn a_spot_is_a_world_point_or_rides_its_body() {
-        assert_eq!(Spot::World([5.0, 6.0]).at([100.0, 100.0]), [5.0, 6.0]);
-        assert_eq!(Spot::Body([5.0, 6.0]).at([100.0, 100.0]), [105.0, 106.0]);
+        assert_eq!(Spot::World([5.0, 6.0]).at([100.0, 100.0]), Some([5.0, 6.0]));
+        assert_eq!(Spot::Body([5.0, 6.0]).at([100.0, 100.0]), Some([105.0, 106.0]));
     }
 }

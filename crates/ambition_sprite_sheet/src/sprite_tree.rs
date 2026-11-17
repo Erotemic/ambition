@@ -25,6 +25,7 @@ pub fn sheet_key(root: &str, path: &Path) -> String {
 /// way mirrors the row's points about its feet.
 pub fn landmarks_of(published: &super::published::Published) -> Option<super::landmarks_published::BakedLandmarks> {
     use super::landmarks_published as lp;
+    published.validate_landmarks().ok()?;
     let track_name = |track: Option<u16>| track.and_then(|track| published.tracks.get(usize::from(track)));
     // The four corners of a draw's quad, from the feet: the part turned
     // (radians, clockwise with +y down) and scaled about its pivot, its pivot
@@ -47,11 +48,20 @@ pub fn landmarks_of(published: &super::published::Published) -> Option<super::la
         if name.contains('~') {
             continue;
         }
-        let frames: Vec<lp::BakedLandmarkFrame> = clip
+        let mut frames: Vec<lp::BakedLandmarkFrame> = clip
             .frames
             .iter()
             .map(|frame| lp::landmark_frame(frame.iter().filter_map(|draw| track_name(draw.track).map(|name| (name.as_str(), draw.at)))))
             .collect();
+        if let Some(points) = published.landmarks.get(name) {
+            for (frame, points) in frames.iter_mut().zip(points) {
+                for (point, at) in points {
+                    if let Some(slot) = lp::LANDMARK_NAMES.iter().position(|name| *name == point) {
+                        frame[slot] = Some(*at);
+                    }
+                }
+            }
+        }
         any |= frames.iter().flatten().any(Option::is_some);
         let framed: Vec<lp::BakedBoxFrame> = clip
             .frames
@@ -77,4 +87,23 @@ pub fn landmarks_of(published: &super::published::Published) -> Option<super::la
         clips,
         boxes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn named_points_keep_their_authored_pose_without_a_draw_track() {
+        let text = r#"(
+            schema_version: 4, target: "eyes", pages: [], frame_size: (32, 32), feet_pixel: (16.0, 32.0), parts: [],
+            clips: { "crouch": (frame_duration_s: 0.1, frames: [[], []]) },
+            landmarks: { "crouch": [{ "eye": (8.0, -12.0) }, { "eye": (9.0, -13.0) }] },
+        )"#;
+        let published = ambition_sprite_part_format::read_ron(text).unwrap();
+        let projected = super::landmarks_of(&published).unwrap();
+        let eye = super::super::landmarks_published::LANDMARK_NAMES.iter().position(|name| *name == "eye").unwrap();
+        assert_eq!(projected.clips["crouch"].frames[0][eye], Some((8.0, -12.0)));
+        assert_eq!(projected.clips["crouch"].frames[1][eye], Some((9.0, -13.0)));
+        let bad = ambition_sprite_part_format::read_ron(&text.replace("[], []", "[]")).unwrap();
+        assert!(super::landmarks_of(&bad).is_none(), "a missing frame cannot shift a point onto another pose");
+    }
 }

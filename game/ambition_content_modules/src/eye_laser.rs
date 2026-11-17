@@ -39,11 +39,6 @@ const KNOCKBACK: f32 = 0.3;
 pub const REHIT_S: f32 = 0.2;
 /// The ray is asked for again each tick it burns; this only outlives one tick.
 const RAY_LIFETIME_S: f32 = 0.1;
-/// Where the ray starts on a body whose art draws no visor: the front of the
-/// robot's visor at its middle, body-local, as a part of the body's size
-/// from its middle, ahead (along its facing) and up. Measured from the
-/// robot's `eye_laser` row (sprite renderer `eefd4b0`).
-pub const VISOR: [f32; 2] = [0.52, -0.159];
 /// The transparent margin around the robot's drawn visor fill, in sheet
 /// pixels (measured on its published part: 3 on three sides, 4 below).
 const VISOR_INSET_PX: f32 = 3.0;
@@ -143,7 +138,6 @@ pub fn burn_tick_of(s: &mut Burn, used: &TechniqueUse, dt: f32) -> BurnTick {
         out.ignited = true;
     }
     let side = if user.facing < 0.0 { -1.0 } else { 1.0 };
-    let visor = user.to_world([side * VISOR[0] * user.size[0], VISOR[1] * user.size[1]]);
     out.cost = Some(cost);
     out.ray = Some(HeldRay {
         slot: RAY_SLOT,
@@ -152,8 +146,9 @@ pub fn burn_tick_of(s: &mut Burn, used: &TechniqueUse, dt: f32) -> BurnTick {
             part: ArtPart::Visor,
             rows: ROWS.iter().map(|name| (*name).to_owned()).collect(),
             elapsed: s.burnt,
+            looping: true,
             inset_px: VISOR_INSET_PX,
-            otherwise: visor,
+            landmark: "eye".into(),
         }),
         toward: user.to_world([side, 0.0]),
         reach: REACH,
@@ -229,11 +224,11 @@ mod tests {
         assert!(first.ignited);
         let ray = first.ray.expect("a press burns");
         assert_eq!(ray.toward, [-1.0, 0.0], "straight along the facing, not the aim");
-        let Spot::Part(PartSpot { part: ArtPart::Visor, ref rows, otherwise: [x, y], .. }) = ray.from else {
+        let Spot::Part(PartSpot { part: ArtPart::Visor, ref rows, ref landmark, .. }) = ray.from else {
             panic!("the ray leaves the visor")
         };
         assert_eq!(rows[0], "eye_laser", "the visor of the row the body is drawn in");
-        assert!(x < 0.0 && y < 0.0, "without a drawn visor, ahead and up: {x} {y}");
+        assert_eq!(landmark, "eye", "the art owns the emission point");
         assert!(ray.width > 8.0, "the ray is as wide as the visor: {}", ray.width);
         assert_eq!(first.cost, Some(MANA_PER_S * DT));
         assert_eq!(first.row.expect("a row").names[0], "eye_laser");

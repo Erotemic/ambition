@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 
 use bevy::math::{Rect, Vec2};
 
-use super::body_rig::{FOOT_FAR, FOOT_NEAR, HAND_FAR, HAND_NEAR, HEAD};
+use super::body_rig::{FOOT_FAR, FOOT_NEAR, HAND_FAR, HAND_NEAR, HEAD, EYE};
 
 /// A named point on a body. The names are the rig attachment names, so a
 /// rigged body and a table answer the same question.
@@ -37,16 +37,19 @@ pub enum Landmark {
     FootNear,
     /// The foot behind the body.
     FootFar,
+    /// The eye effect origin on the face.
+    Eye,
 }
 
 impl Landmark {
     /// Every landmark, in slot order.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::HandNear,
         Self::HandFar,
         Self::Head,
         Self::FootNear,
         Self::FootFar,
+        Self::Eye,
     ];
 
     /// The rig attachment that answers this landmark on a rigged body.
@@ -57,6 +60,7 @@ impl Landmark {
             Self::Head => HEAD,
             Self::FootNear => FOOT_NEAR,
             Self::FootFar => FOOT_FAR,
+            Self::Eye => EYE,
         }
     }
 
@@ -144,14 +148,7 @@ impl LandmarkClip {
     /// clock. A looping clip wraps; a one-shot holds its last frame: the rule
     /// of [`super::body_rig::RigClip::frame_at_time`].
     pub fn frame_at_time(&self, elapsed_s: f32) -> usize {
-        let count = self.frames.len().max(1);
-        let index = (elapsed_s.max(0.0) / self.frame_duration_s).floor();
-        let index = if index.is_finite() { index as usize } else { 0 };
-        if self.looping {
-            index % count
-        } else {
-            index.min(count - 1)
-        }
+        super::body_rig::clip_frame_at_time(elapsed_s, self.frame_duration_s, self.frames.len(), self.looping)
     }
 
     /// The frame shown at normalized progress `phase` in `[0, 1]`: the rule a

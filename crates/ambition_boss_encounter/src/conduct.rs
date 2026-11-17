@@ -929,15 +929,18 @@ pub fn lower_lightning(
         }
         let owner = submitted.scope;
         let end = |end: Spot| match end {
-            Spot::World(at) => LightningEnd::World(ae::Vec2::from(at)),
-            Spot::Body(offset) | Spot::Part(ambition_combat_port::PartSpot { otherwise: offset, .. }) => {
-                LightningEnd::Body { owner, offset: ae::Vec2::from(offset) }
-            }
+            Spot::World(at) => Some(LightningEnd::World(ae::Vec2::from(at))),
+            Spot::Body(offset) => Some(LightningEnd::Body { owner, offset: ae::Vec2::from(offset) }),
+            Spot::Part(_) => None,
+        };
+        let (Some(from), Some(to)) = (end(bolt.from), end(bolt.to)) else {
+            warn!("extension lightning needs world or body endpoints");
+            continue;
         };
         vfx.for_room(rooms.of(owner)).write(ambition_vfx::vfx::VfxMessage::Lightning {
             key: LightningKey::scoped(Some(owner), &bolt.key),
-            from: end(bolt.from),
-            to: end(bolt.to),
+            from,
+            to,
             look,
             hold: bolt.hold_s,
         });

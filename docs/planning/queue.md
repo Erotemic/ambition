@@ -96,6 +96,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    split and its two parallel customers remain.
    Story sequences (SS1, SS2, landed) are the first content customer of
    the authored command catalog a script will call.
+   **Completion goal:** [first-class procedural game authoring](engine/first-class-procedural-game-authoring.md), including promotion from Rhai to portable Rust and a linked release build.
+
 1. **Network architecture (maintainer priority, updated 2026-11-10):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. **Direction set 2026-11-10:** the metroidvania moves to a hybrid model, with rollback kept inside a room boundary while it is easy to maintain and its room-level cost measured, and hosted authority for the world around the rooms: [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) is selected and runs beside the experiment.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
    then LOCAL-PLAY-MODES presentation (LOADOUT-AUTHORITY and the menu leave

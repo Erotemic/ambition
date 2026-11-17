@@ -57,10 +57,10 @@ count toward it.
 
 | Order | packet | status | open work / closure contract |
 |---|---|---|---|
-| `S0.1` | Clash and projectile priority | ◐ engineering done | `ambition_combat::clank::resolve_clashes` and `ambition_projectile_combat::clash_arbitration` arbitrate shots and swings deterministically before damage, using `SimId::strike_volume` and `ProjectileSeq`, not entity order. **Open:** shipped rulesets still declare `clank_damage_window: 0.0`, so clashes never occur in a normal room. Try `9.0` in playable Smash, require a real authored clash in a match-path test, and obtain feel approval before shipping the ground-game retune. A beaten projectile is spent, not despawned. |
+| `S0.1` | Clash and projectile priority | ✔ enabled 2026-11-17 | Smash declares a damage window of 9.0. Shared arbitration resolves shots and ground swings before damage, with stable strike and shot identities; aerial swing pairs retain their pass-through rule. A match-path test clashes two authored George jabs without body damage and checks both interruptions. Rebound is the shared body reaction; defeated shots expire through their owner. Human feel can refine the authored window. |
 | `S0.2` | Grab-contact arbitration | ✔ | Shared combat scheduling resolves hit-before-grab and mutual grab parries: `release_interrupted_captures`, `CapturesAcquired` in `Settle`, `GrabsParried` and recoil. Knocked bodies neither acquire nor receive captures; mutual grabs rebound, while ordinary nonmutual grabs still hold. Production-path and mirror-order witnesses exist. An authored grab-beats-hit exception has no customer and is **not** an open task. Human feel remains unreviewed. |
 | `S0.3` | Hit-volume target and interaction semantics | ◐ | `HitVolume` has `VolumeGuard::{Blockable{extra_shield_damage},Unblockable}` and resolved guard/parry policy; the fingerprint and planner derive from it. **Open, independent subfeatures:** victim posture eligibility (grounded/airborne/prone); clankability/transcendence; per-hit hitlag and SDI multipliers; no-tech override; weight-independent/set-weight reaction; armor bypass. Multiple same-frame volumes retain separate policies. Default ordinary hits must behave identically and at least one shipped move must exercise each introduced rule. Projectiles do not yet author the volume guard policy. |
-| `S0.4` | Airborne capture semantics | ▢ needs a customer or ruling | No aerial grab is authored: every capture goes through `author_standing_grab`. The grounded rule is stated twice (the constructor name and two `on_ground` checks in `capture/systems.rs`). Put posture on the constructor (a sibling of `author_standing_grab`) or a wire type it builds, never as a field every `CaptureAttemptParams` literal must state. Existing standing grabs keep grounded defaults. |
+| `S0.4` | Airborne capture semantics | Closed by product ruling, 2026-11-17 | No airborne grabs. Standing grabs retain grounded capture rules. A tether may select a distinct aerial hit move through the ordinary moveset; that move damages or launches and creates no capture relationship. |
 | `S0.5` | Threshold armor | ✔ for selected damage-threshold semantics | Damage threshold shipped: `ArmorPolicy::{None, Super, Damage{breaks_at}}`, authored as `WindowTag::ArmorUnder{damage}`. Plain `WindowTag::Armor` still lowers to `Super`. `>=` breaks; nothing accumulates; overlapping windows take the stronger. **Deferred extension, not an open gate or current maintainer question:** knockback-threshold armor lacks an authored customer and a chosen typed quantity. `HitKnockbackMagnitude` is `FeelScale` or `LaunchSpeed`; a bare `f32` threshold would be incorrect, and launch velocity is computed below the armor gate. Preserve this candidate in [tracks](../tracks.md#deferred-smash-semantics) and revisit only for a concrete move. See the `ArmorPolicy` doc. |
 | `S0.6` | Localized hurtbox defense | ✔ | `HurtboxVolume::defense` and `HurtDefense::{Vulnerable,Intangible}` flow through `ResolvedHurtboxes::world_volumes` and all `strike_reaches_victim` callers; a vulnerable region still registers even when another region is intangible. Production resolver and publisher tests exist. No shipped move presently authors an intangible hurt region; that is a **customer/content decision**, not missing defense infrastructure. |
 | `S0.7` | Character-specific movement traits | ◐ | Smash admits a fighter's authored `WallMobility` wall-jump/cling rather than granting or flattening it globally; adopted and spawned seats agree. **Open:** per-fighter crawl trait. The match-wide `crouch_speed_frac: 0.0` stops every crouch; a crawler must travel while a noncrawler crouches in place, with no fighter-ID branches. Test spawn and respawn. |
@@ -78,17 +78,17 @@ Use **one packet per change** and update its `S0.*` table row. Every new
 mechanic needs production-path and rollback evidence plus an authored Smash
 customer where required; an isolated kernel test does not close it.
 
-1. **S0.1:** implementation exists, but real matches disable clanking. Try
-   `clank_damage_window: 9.0`, measure and play-test before authorizing a
-   gameplay-wide retune. While human tuning is pending, take S0.3.
+1. **S0.1 is enabled:** use match reports and play feedback to refine the
+   authored damage window. The engine default remains off for other games.
 2. **S0.3:** posture eligibility first (grounded/airborne/prone), including
    two differently eligible volumes in one move. Keep guard/shield-damage
    closed. Implement the other listed hit properties in separate slices
    with distinct real customers, not a universal flag dump.
 3. **S0.7:** add one fighter-authored crawl and prove a noncrawler stops on
    crouch; cover both new spawn and stock respawn.
-4. **S0.4:** airborne grabs need an authored customer; do not invent a
-   placeholder client. **S0.5 damage-threshold armor is complete**; its
+4. **S0.4 is closed:** airborne grabs are out of scope. Aerial tether moves
+   use ordinary hit volumes, separate from standing captures.
+   **S0.5 damage-threshold armor is complete**; its
    knockback-threshold extension is deferred in [tracks](../tracks.md#deferred-smash-semantics),
    not a blocker for this gate. Implement S0.8 reactions and S0.9
    target/effects one coherent customer at a time.
@@ -298,9 +298,9 @@ a simultaneous new grab may latch before the trump resolves.
 |---|---:|---:|---:|---|
 | Grab-release beat/pose | ▢ | S/M | E1 | Publish a released/escaped fact if presentation needs it. |
 | Grounded command grab | ✔ | S/M | E1 | `lunge_grab` (stand-in `special_forward`). Zero starts in one complete shipped-ladder match. |
-| Aerial command grab | ▢ | M | E1 | `S0.4`. |
+| Aerial command grab | Not planned | — | — | S0.4 ruling: no airborne captures. |
 | Hit-grab | ▢ | M | E1 | A second consumer of `OnHitEffectMessage` (beside `apply_pogo_bounce`) plus an optional target on the capture attempt, because acquisition searches a box and can catch a different body. A connected hit is shield-blocked, unlike the overlap grab; choose that out loud. |
-| Tether grab | ▢ | M | E1 | Capture half is authoring (a long reach box). The line is a fourth customer of the `flyline.rs` visual shape. Raise the reach ceiling (`no_authored_grab_reaches_further_than_the_stage_allows`, 96px) in the same commit. |
+| Tether grab | ◐ | M | E1 | Projectile Polygon has a standing tether capture. Its aerial version is a distinct ordinary hit move, with no capture relationship (S0.4 ruling, 2026-11-17). |
 | Grab-vs-grab cancellation | ✔ | S/M | E1 | `S0.2`: a mutual grab parries. |
 | Hitbox-vs-grab arbitration | ✔ | M | E1 | `S0.2`: an ordinary hit beats a same-tick grab. |
 | Cargo carry / moving throws | ▢ | C | E2 | Captor locomotion while `CapturedBy` stays authoritative; not repeated teleports. |

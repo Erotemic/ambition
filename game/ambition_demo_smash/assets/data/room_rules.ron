@@ -129,12 +129,8 @@
         // Teams decide who may hit whom. Global friendly fire would also make
         // teammates hittable.
         friendly_fire: false,
-        // Clanking is off: a tuning decision, the mechanism is tested. At 9
-        // damage (the genre's threshold) CPUs traded so often that nobody was
-        // launched (`every_live_fighter_stays_inside_the_frame`) and
-        // `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` failed,
-        // even ground-only. Try 9.0 first after a play session.
-        clank_damage_window: 0.0,
+        // Ground swings and projectiles contest close damage values.
+        clank_damage_window: 9.0,
         // A clank pushes both fighters back: less than a launch, but out of
         // each other's next swing.
         clank_rebound_speed: 190.0,

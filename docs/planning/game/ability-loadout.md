@@ -207,24 +207,13 @@ tests (bounce, one-way landing, strike rules).
    (`eye_laser::SFX_IGNITE`) until a publishing machine republishes the SFX
    bank (`scripts/regen/sfx.sh`). Switching the id first would leave the laser
    silent on every machine with the old bank.
-6. **A crouched laser row** (`eye_laser_crouch`). A crouched body draws a
-   pinned row's `_crouch` variant, or its own crouch when the sheet has none
-   (`ClipRequest::with_pin`), so a crouched robot lasers in its plain crouch
-   today. Author the variant in `player_robot_v3_crouch.py` (the crouch
-   squashes the head, which `_place_visor_glow` refuses), and place the beam
-   from it.
-
-Done (2026-11-11): robot v3 is published with its `eye_laser` row (a braced
-pose with the whole visor lit red), and the laser leaves the visor the art
-draws. The robot's flipbook publishes its lit fill as the `visor` part box
-(`PartBox::Visor`, track `visor_fill`), and the laser asks for a ray from that
-part in the row it pins (`Spot::Part`, `ambition.combat.held_ray` v3). The
-host starts the ray at the middle of the box's front edge, as thick as the box
-is tall, 3 sheet pixels in from its bounds (the part's transparent margin).
-On the robot (probed box, less the inset) it starts about 1 px ahead of and
-1 px below the old authored point and is about 15 thick against the authored
-14 (0.29 of 48). `VISOR` and `VISOR_HEIGHT`
-remain as the stated fallback for a body whose art draws no visor.
+Done (2026-11-16, `c6c886449`, renderer `72bf2dc`): the robot publishes
+`eye_laser_crouch` with its lit visor on the squashed head. The ray starts at
+`Landmark::Eye` in the selected firing row and uses the visor box for width.
+The point comes from the art package; there is no fixed body-offset origin.
+A held strike renews its lifetime and keeps its hit memory. Guard:
+`a_crouched_laser_keeps_its_lit_visor_and_leaves_the_posed_eye` (real app,
+standing, crouching, and standing again).
 
 Done (2026-11-09): held past an empty bar, the laser lit again on every tick
 the refill could pay, about 28 zaps a second, and its row flickered. It now

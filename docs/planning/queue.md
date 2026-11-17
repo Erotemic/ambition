@@ -302,8 +302,11 @@ upgrade fact.
 **Owner:** equipment preparation, body control slots, content modules and
 character landmarks. Design: [ability loadout, open work](game/ability-loadout.md#open).
 
-**Done 2026-11-11:** the published `eye_laser` row draws, and the laser leaves
-the visor its art draws ([loadout](game/ability-loadout.md#open)).
+**Done 2026-11-16 (`c6c886449`, renderer `72bf2dc`):** the laser keeps its
+lit visor while crouched and starts at the authored `Eye` landmark in its
+firing row. Its lease renews without clearing hit memory. The app regression
+covers firing, crouching, and standing again. See the
+[loadout receipt](game/ability-loadout.md#open).
 
 **Done 2026-11-14:** the one authoritative upgrade fact: an ability's level
 is the bag's count, its rows per level are `items.ron`'s `levels`, and the

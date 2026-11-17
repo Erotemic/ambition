@@ -279,7 +279,7 @@ pub fn interact_ecs_actors_and_switches(
                 _ => None,
             });
             let listener_id =
-                ambition_conversation::character_id_of(interactable).unwrap_or(&identity.id);
+                interactable.character_id().unwrap_or(&identity.id);
 
             // THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S. Whether this pair
             // has anything to say — a self-conversation needs an authored `__self`

@@ -168,17 +168,6 @@ pub fn npc_talk_dialogue_id(authored: Option<&str>) -> &str {
     }
 }
 
-/// The catalog character this interactable IS, if it is a character at all.
-///
-/// A Hall pedestal, a hub NPC, a possessed body — each authors a `character_id`.
-/// A switch, a chest, a nameless prop does not.
-pub fn character_id_of(interactable: &ambition_interaction::Interactable) -> Option<&str> {
-    match &interactable.kind {
-        ambition_interaction::InteractionKind::Npc { character_id, .. } => character_id.as_deref(),
-        _ => None,
-    }
-}
-
 /// The id that answers "who is this body?" for dialogue purposes.
 ///
 /// CHARACTER identity wins over PLACEMENT identity. A character id names a
@@ -193,7 +182,7 @@ fn dialogue_identity(
     interaction: Option<&ActorInteraction>,
     identity: Option<&ActorIdentity>,
 ) -> Option<String> {
-    if let Some(character_id) = interaction.and_then(|i| character_id_of(&i.interactable)) {
+    if let Some(character_id) = interaction.and_then(|i| i.interactable.character_id()) {
         return Some(character_id.to_string());
     }
     identity.map(|identity| identity.id.clone())

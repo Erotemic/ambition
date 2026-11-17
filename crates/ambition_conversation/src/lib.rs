@@ -48,7 +48,7 @@ pub use ledger::{
     release_narrative_inputs, NarrativeInputLedger, NarrativeInputPlugin, NarrativeInputWriter,
 };
 pub use music::NarrativeMusicRequest;
-pub use opening::{character_id_of, npc_talk_dialogue_id, DialogueDispatch};
+pub use opening::{npc_talk_dialogue_id, DialogueDispatch};
 pub use plugin::ConversationPlugin;
 pub use rooms::{log_conversation_changes_in_rooms, retract_room_conversations, ConversationsInRooms};
 pub use membership::{join_descriptor, leave_descriptor};

@@ -21,7 +21,7 @@ fn body(entity: Entity, at: Vec2, hurt: bool) -> CombatBodyGeometryView {
     CombatBodyGeometryView {
         body: entity,
         collision,
-        hurt_pieces: None,
+        hurt_pieces: None, hurt_refusal: None,
         hurtboxes: if hurt {
             vec![CombatVolume::aabb(Aabb::new(at, Vec2::new(8.0, 18.0)))]
         } else {
@@ -77,7 +77,7 @@ fn a_seated_scenario_serializes_roles_identities_and_both_geometries() {
         ],
         strikes: vec![CombatStrikeGeometryView {
             volume: CombatVolume::aabb(Aabb::new(Vec2::new(120.0, 100.0), Vec2::new(12.0, 6.0))),
-            pieces: None,
+            pieces: None, geometry_refusal: None,
             strike,
             owner: subject,
             damage: 7,

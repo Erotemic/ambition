@@ -14,6 +14,8 @@ pub mod camera_snapshot;
 mod camera_scenarios;
 mod combat_geometry_view;
 pub mod combat_geometry_observer;
+mod body_geometry_observer;
+pub mod geometry_inspection;
 pub mod interaction_reach_observer;
 mod control_prompt;
 mod defense_view;
@@ -130,6 +132,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<CombatGeometryView>();
         // What F1 and headless inspection read of it (GOBS-1).
         combat_geometry_observer::install(app);
+        body_geometry_observer::install(app);
         interaction_reach_observer::install(app);
         // The frontend half of the prompt: while a startup/launcher context
         // owns the participant's actions, the owning surface's cue labels the

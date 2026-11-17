@@ -178,6 +178,9 @@ struct SceneCaptureConfig {
     /// Keep the developer overlays in the shot (`--dev-overlays`). By default a
     /// verification screenshot shows the product.
     dev_overlays: bool,
+    /// Observers to draw, by name or namespace.
+    geometry_overlay: Option<String>,
+    geometry_subject: Option<String>,
     /// Draw the navigation graph in the shot (`--nav-overlay`).
     nav_overlay: bool,
     /// The active route declares the player highlight glow
@@ -478,6 +481,8 @@ OPTIONS:
     --dev-overlays      stop silencing the developer chrome
     --nav-overlay       draw the surface graph a navigating body is advised from
                         (surfaces green, hops yellow, drops orange)
+    --geometry-overlay A,B,prefix.  draw the same observations as inspect_geometry (all for every provider)
+    --geometry-subject view|room|SIM_ID  select the geometry query context
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
     --player-glow       the body the player drives wears the highlight glow
                         (`ActorGlow::player_highlight`), whatever the game says
@@ -1689,6 +1694,8 @@ impl SceneCaptureConfig {
         let mut warmup_frames = 12u32;
         let mut include_ui = false;
         let mut dev_overlays = false;
+        let mut geometry_overlay = None;
+        let mut geometry_subject = None;
         let mut combat_overlay = false;
         let mut nav_overlay = false;
         let mut player_glow = false;
@@ -1747,6 +1754,13 @@ impl SceneCaptureConfig {
                 // the gizmos need `DeveloperRuntimeState.debug` and the gizmo
                 // toggles, which the chrome settings do not touch.
                 // `force_combat_overlay` runs after the silencer.
+                "--geometry-overlay" | "--geometry-subject" => {
+                    let option = args[i].clone();
+                    let value = args.get(i + 1).ok_or_else(|| format!("{option} needs a value"))?.clone();
+                    if option == "--geometry-overlay" { geometry_overlay = Some(value); }
+                    else { geometry_subject = Some(value); }
+                    2
+                }
                 "--nav-overlay" => {
                     nav_overlay = true;
                     1
@@ -2289,6 +2303,12 @@ impl SceneCaptureConfig {
         if camera_roll.is_some() && route.is_some() {
             return Err("--camera-roll requires a room with a fixed X,Y focus".to_string());
         }
+        if geometry_subject.is_some() && geometry_overlay.is_none() {
+            return Err("--geometry-subject requires --geometry-overlay".into());
+        }
+        if geometry_overlay.is_some() && combat_overlay {
+            return Err("select --geometry-overlay or --combat-overlay".into());
+        }
         if let Some(route) = route.clone() {
             // Classify positionals instead of counting them, so an unexpected
             // argument is named before any work happens.
@@ -2355,6 +2375,8 @@ impl SceneCaptureConfig {
                 guards: Vec::new(),
                 body_warp: None,
                 dev_overlays,
+                geometry_overlay,
+                geometry_subject,
                 combat_overlay,
                 nav_overlay,
                 player_glow,
@@ -2412,6 +2434,8 @@ impl SceneCaptureConfig {
             fit_room,
             character,
             dev_overlays,
+            geometry_overlay,
+            geometry_subject,
             combat_overlay,
             nav_overlay,
             player_glow,
@@ -2647,17 +2671,29 @@ fn force_combat_overlay(
     mut dev_state: Option<ResMut<ambition_platformer2d::dev_tools::DeveloperRuntimeState>>,
     mut developer: Option<ResMut<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>>,
 ) {
-    if !config.combat_overlay {
+    if !config.combat_overlay && config.geometry_overlay.is_none() {
         return;
     }
     // Set all three gates the gizmo pass reads, so a swing is not shown
     // without its volume.
     if let (Some(dev_state), Some(developer)) = (dev_state.as_mut(), developer.as_mut()) {
-        ambition_platformer2d::dev_tools::force_combat_overlay(
-            dev_state,
-            developer,
-            Default::default(),
-        );
+        if let Some(selection) = &config.geometry_overlay {
+            use ambition_platformer2d::dev_tools::dev_tools::DebugViewMode;
+            developer.apply_debug_view_mode(DebugViewMode::Gameplay, false);
+            dev_state.debug = true;
+            developer.gizmos_enabled = true;
+            developer.show_observed_geometry = true;
+            developer.observed_geometry_subject = match config.geometry_subject.as_deref() {
+                None | Some("view") => ambition_platformer2d::dev_tools::dev_tools::GeometrySubjectSelection::View,
+                Some("room") => ambition_platformer2d::dev_tools::dev_tools::GeometrySubjectSelection::Room,
+                Some(id) => ambition_platformer2d::dev_tools::dev_tools::GeometrySubjectSelection::Body(id.into()),
+            };
+            let selected: Vec<String> = selection.split(',').map(str::trim).filter(|name| !name.is_empty() && *name != "all").map(str::to_owned).collect();
+            developer.observed_geometry_only = (selected.len() == 1 && !selected[0].ends_with('.')).then(|| selected[0].clone());
+            developer.observed_geometry_preset = selected;
+        } else {
+            ambition_platformer2d::dev_tools::force_combat_overlay(dev_state, developer, Default::default());
+        }
     }
 }
 

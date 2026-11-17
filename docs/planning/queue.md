@@ -115,7 +115,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
 4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
-5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) makes the effective geometry behind collisions, attacks, interactions, portals and navigation visible and machine-readable; it is a concrete inspection customer, not a broad spatial rearchitecture. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
+5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
    remain selected at their stated boundaries (TOOL-DISCOVERY and EDITOR-SHELL
    are complete: [tooling layout](engine/tooling-layout-and-editor-consolidation.md),
    T0-T5; retired from this queue 2026-11-11). Portal, rendering,
@@ -465,15 +465,20 @@ this VM lacks four, so release composition refuses here before and after.
 all media. Missing required files have a useful diagnostic. Android, Steam
 Deck and static web release packages still pass their final asset contracts.
 
-### GEOMETRY-OBSERVABILITY — render the effective geometry behind gameplay
+<a id="geometry-observability--render-the-effective-geometry-behind-gameplay"></a>
 
-**Failure:** F1 currently draws a useful but hand-assembled set of world, body, combat, portal and feature gizmos. Some outlines represent base authored blocks or coarse AABBs rather than the resolved, subject-specific geometry that simulation actually tests; interaction reach and rejection conditions lack comprehensive visibility. New geometry domains do not automatically become discoverable debug layers.
+### GEOMETRY-OBSERVABILITY — render the effective geometry behind gameplay — ✅ DONE 2026-11-17
 
-**Owner:** [geometry observability and F1](engine/geometry-observability-and-f1.md), under the [inspection/workbench program](engine/inspection-diagnostics-and-workbench.md).
+**Done:** `ce8fbaf68` connects the real F1 host to shared geometry reports,
+adds native parts and exact portal cuts, and records room/subject/tick context.
+F1 supports view, room and body selection; headless JSON uses the same queries.
+[Contract and commands](../systems/developer-tools.md).
 
-**Next action:** GOBS-0 is done (2026-11-10, [census and lab](engine/geometry-observability-and-f1.md#gobs-0-result-2026-11-10-census-and-the-first-lab)): F1's blocks layer draws 8 of the 18 solids a body meets in `basement_breakables`, and the lab found a broken platform's lingering pogo orb (fixed). GOBS-1's first slice landed 2026-11-10 (the `ambition_geometry_observation` registry, collision and combat providers, F1's Observed Geometry layer reading the same `observe_all` as headless; and the headless `inspect_geometry` binary with provider selection; and F1's per-provider selection, a Developer-page row that cycles all → each installed observer; and labels on the selected observer's pieces: GOBS-1 is done); GOBS-2 render effective per-body collision and contact decisions (first slice 2026-11-11: the `body.sweep` observer draws each body's swept box, its path and the ground, head and wall contacts the kernel reported, in F1 and headless); GOBS-3 cover combat, interaction, triggers, navigation and portal pieces (interaction done 2026-11-11: `interaction.reach` shows the reach, each candidate, the one the press is for and the rule's reason for every refusal; navigation done 2026-11-11: `navigation.graph` shows the advised graphs' surfaces, hops and drops and each body's route and goal; room regions done 2026-11-11: `world.regions` shows each loading, camera, gravity and encounter region and lock wall where it is authored; portal pieces done 2026-11-14: `portal.apertures` shows each opening, inactive when its partner is not in its room, and `combat.volumes` lists a cut body or strike by the pieces combat tests: GOBS-3 is done); GOBS-4 provide practical F1 selection/presets and interpolation comparison (presets landed 2026-11-14: each debug view preset draws its observers by namespace, and the Developer page's View Mode row now applies the preset it names; a legend, the HUD line naming what hides the overlay, and the Tick vs Drawn row landed the same day: GOBS-4 is done); GOBS-5 close coverage and cost regressions (landed 2026-11-14: the shipped catalog must hold every domain's observer, an uncoloured role is named in the legend, and `inspect_geometry --cost` reports per-provider pieces, time and size: all observers cost 97 to 429 us per room on the debug build); GOBS-6 every kind of world geometry (landed 2026-11-16, [record](engine/geometry-observability-and-f1.md#gobs-6--every-kind-of-world-geometry-and-one-place-to-register-it): the collision observers list the room's lines as polylines (slopes, a mount's back and slope: Full Stack's guitar, GNU-ton's gnu), its water and its climbable regions through one exhaustive `world_pieces`, so a new kind of world geometry does not compile until it is observed; the registration rule is in [developer tools](../systems/developer-tools.md#making-new-geometry-visible)). Preserve the already working F1 and combat-view paths.
-
-**Acceptance:** a single representative two-room lab exposes actual collision/hit/hurt/interaction/portal/navigation geometry with source identity, state and why-not reasons; a new provider becomes discoverable in F1 and headless inspection without modifying a central game-specific draw switch; overlays are room- and view-correct, off by default, and do no per-frame diagnostic work when disabled. Tests distinguish absent, filtered, intangible and unsupported geometry. Do not confuse an authored block outline with a subject's effective collision world.
+**Guard:** `app_it::observed_geometry` checks the visible F1 schedule, equal
+headless output, two live rooms, two subjects in one room, and a missed swing
+followed by a real hit. Owner tests check exact portal caps and refusal states.
+Keep debug collection off during normal play. Do not replace effective geometry
+with an unlabelled authored or coarse outline.
 
 ### ENEMY-NOTICE — complete first-sight beats on the existing brain paths
 

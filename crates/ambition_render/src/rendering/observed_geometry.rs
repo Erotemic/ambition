@@ -3,7 +3,7 @@
 //!
 //! It draws whatever the installed geometry observers report for each shown
 //! room ([`ambition_geometry_observation::observe_all`], the same call
-//! headless inspection makes), with the player in that room as the subject.
+//! headless inspection makes), with each view's selected subject.
 //! A new observer is drawn with no edit here. Nothing is asked for unless
 //! the debug overlay, gizmos and `show_observed_geometry` are all on.
 //!
@@ -14,9 +14,9 @@
 //! inactive. With every observer drawn the labels would bury the room.
 
 use ambition_dev_tools::DeveloperRuntimeState;
-use ambition_dev_tools::dev_tools::DeveloperTools;
+use ambition_dev_tools::dev_tools::{DeveloperTools, GeometrySubjectSelection};
 use ambition_geometry_observation::{
-    GeometryObservation, ObservationQuery, ObservedLayer, ObservedShape, ObservedState, ObserverAnswer, observe_all,
+    GeometryObservation, ObservationQuery, ObservedLayer, ObservedShape, ObservedState, ObserverAnswer,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
@@ -26,68 +26,112 @@ use bevy::prelude::*;
 
 use super::debug_viz::{w2, with_alpha};
 
-/// What the observers reported this frame, per shown room.
+/// Install collection and drawing without the generic F1 input or body layers.
+pub struct ObservedGeometryPlugin;
+
+#[derive(Component, Default)]
+struct ObservedGeometryDrawing;
+
+impl Plugin for ObservedGeometryPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ObservedGeometryFrame>();
+        app.add_systems(Update, (
+            collect_observed_geometry
+                .after(ambition_sim_view::PresentedPoseSet)
+                .after(ambition_sim_view::camera_snapshot::CameraObservationSet),
+            draw_observed_geometry.run_if(bevy::ecs::schedule::common_conditions::resource_exists::<Assets<bevy::gizmos::GizmoAsset>>),
+        ).chain());
+    }
+}
+
+fn draw_observed_geometry(
+    mut drawings: super::retained_drawings::RetainedDrawings<ObservedGeometryDrawing>,
+    frame: Res<ObservedGeometryFrame>,
+    worlds: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    state: Res<DeveloperRuntimeState>,
+    tools: Res<DeveloperTools>,
+) {
+    if state.debug_enabled() && tools.gizmos_enabled && tools.show_observed_geometry {
+        for shown in &frame.views {
+            let (Some(world), Ok(report)) = (worlds.in_room(shown.room), &shown.report) else { continue };
+            drawings.draw(super::retained_drawings::DrawingScope::View(shown.view), |gizmos| {
+                draw_observed_layers(gizmos, &world.0, &report.layers);
+            });
+        }
+    }
+    drawings.finish();
+}
+
+/// One view's mechanical geometry and its query context.
+#[derive(Debug)]
+pub struct ObservedViewGeometry {
+    pub view: Entity,
+    pub room: LiveRoomInstance,
+    pub report: Result<ambition_geometry_observation::GeometryReport, String>,
+}
+
+/// On-demand reports for the local views. No report survives a disabled frame.
 #[derive(Resource, Default, Debug)]
 pub struct ObservedGeometryFrame {
-    pub rooms: Vec<(LiveRoomInstance, Vec<ObservedLayer>)>,
+    pub views: Vec<ObservedViewGeometry>,
 }
 
 impl ObservedGeometryFrame {
-    pub fn in_room(&self, room: LiveRoomInstance) -> &[ObservedLayer] {
-        self.rooms.iter().find(|(shown, _)| *shown == room).map_or(&[], |(_, layers)| &layers[..])
+    pub fn in_view(&self, view: Entity) -> Option<&ObservedViewGeometry> {
+        self.views.iter().find(|shown| shown.view == view)
     }
 }
 
-/// Ask every observer about each shown room, when the layer is on.
+/// Collect each view with its own subject. An explicit selection must be in
+/// the shown room; a foreign or stale selection produces a refusal.
 pub fn collect_observed_geometry(world: &mut World) {
     let on = world.get_resource::<DeveloperRuntimeState>().is_some_and(DeveloperRuntimeState::debug_enabled)
-        && world
-            .get_resource::<DeveloperTools>()
+        && world.get_resource::<DeveloperTools>()
             .is_some_and(|tools| tools.gizmos_enabled && tools.show_observed_geometry);
     if !on {
         if let Some(mut frame) = world.get_resource_mut::<ObservedGeometryFrame>() {
-            frame.rooms.clear();
+            frame.views.clear();
         }
         return;
     }
-    let shown: std::collections::BTreeSet<LiveRoomInstance> = world
-        .query_filtered::<&ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot, With<ambition_sim_view::LocalView>>()
-        .iter(world)
-        .filter_map(|view| view.frame().map(|frame| frame.room))
-        .collect();
-    let roots: Vec<(Entity, LiveRoomInstance)> = world
-        .query_filtered::<(Entity, &LiveRoomInstance), With<RoomInstanceRoot>>()
-        .iter(world)
-        .map(|(root, room)| (root, *room))
-        .filter(|(_, room)| shown.contains(room))
-        .collect();
-    let players: Vec<(Entity, LiveRoomInstance)> = world
-        .query_filtered::<(Entity, &InRoomInstance), With<PrimaryPlayer>>()
-        .iter(world)
-        .map(|(body, room)| (body, room.0))
-        .collect();
-    // The installed observers' names, for the menu's cycle; written only when
-    // they changed, so the tools are not marked changed every frame.
-    let installed: Vec<String> = world
-        .get_resource::<ambition_geometry_observation::GeometryObservers>()
-        .map(|observers| observers.catalog().map(|info| info.name.to_string()).collect())
-        .unwrap_or_default();
-    let (tools, stale) = {
-        let tools = world.resource::<DeveloperTools>();
-        (tools.clone(), tools.observed_geometry_providers != installed)
-    };
-    if stale {
-        world.resource_mut::<DeveloperTools>().observed_geometry_providers = installed;
+    let shown: Vec<_> = world.query_filtered::<(
+        Entity, &ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot,
+        Option<&ambition_sim_view::ResolvedViewSubject>,
+    ), With<ambition_sim_view::LocalView>>()
+        .iter(world).filter_map(|(view, camera, subject)| {
+            camera.frame().map(|frame| (view, frame.room, subject.and_then(|subject| subject.0)))
+        }).collect();
+    let roots: Vec<_> = world.query_filtered::<(Entity, &LiveRoomInstance), With<RoomInstanceRoot>>()
+        .iter(world).map(|(root, room)| (root, *room)).collect();
+    let subjects = ambition_sim_view::geometry_inspection::geometry_subjects(world);
+    let installed: Vec<String> = world.get_resource::<ambition_geometry_observation::GeometryObservers>()
+        .map(|observers| observers.catalog().map(|info| info.name.to_string()).collect()).unwrap_or_default();
+    let tools = world.resource::<DeveloperTools>().clone();
+    {
+        let mut live_tools = world.resource_mut::<DeveloperTools>();
+        live_tools.observed_geometry_providers = installed;
+        live_tools.observed_geometry_subjects = subjects.iter().map(|(id, _)| id.clone()).collect();
     }
-    let mut rooms = Vec::new();
-    for (root, room) in roots {
-        let subject = players.iter().find(|(_, at)| *at == room).map(|(body, _)| *body);
-        rooms.push((
-            room,
-            observe_all(world, ObservationQuery { room: Some(root), subject }, |provider| tools.draws_observer(provider)),
-        ));
+    let default_subject = world.get_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
+        .and_then(|subject| subject.0)
+        .or_else(|| world.query_filtered::<Entity, With<PrimaryPlayer>>().single(world).ok());
+    let mut views = Vec::new();
+    for (view, room, framed_subject) in shown {
+        let root = roots.iter().find(|(_, at)| *at == room).map(|(root, _)| *root);
+        let subject = match &tools.observed_geometry_subject {
+            GeometrySubjectSelection::Body(id) => subjects.iter().find(|(name, _)| name == id).map(|(_, entity)| *entity),
+            GeometrySubjectSelection::Room => None,
+            GeometrySubjectSelection::View => framed_subject.or(default_subject).filter(|entity| world.get::<InRoomInstance>(*entity).map(|at| at.0) == Some(room)),
+        };
+        let report = if matches!(tools.observed_geometry_subject, GeometrySubjectSelection::Body(_)) && subject.is_none() {
+            Err("the selected subject is no longer live".into())
+        } else {
+            ambition_sim_view::geometry_inspection::inspect_geometry(world,
+                ObservationQuery { room: root, subject }, |provider| tools.draws_observer(provider))
+        };
+        views.push(ObservedViewGeometry { view, room, report });
     }
-    world.get_resource_or_insert_with(ObservedGeometryFrame::default).rooms = rooms;
+    world.get_resource_or_insert_with(ObservedGeometryFrame::default).views = views;
 }
 
 fn role_color(observation: &GeometryObservation) -> Color {
@@ -113,12 +157,12 @@ fn known_role_color(role: &str) -> Option<Color> {
         "hit" => Color::srgba(1.0, 0.2, 0.2, 0.95),
         // A body as the kernel swept it: its box, its path, and the edges it
         // reported touching.
-        "body_box" => Color::srgba(0.75, 0.55, 1.0, 0.9),
+        "body_material" | "projectile" | "body_box" => Color::srgba(0.75, 0.55, 1.0, 0.9),
         "sweep" => Color::srgba(0.75, 0.55, 1.0, 0.6),
         "contact_ground" | "contact_head" | "contact_wall" => Color::srgba(0.2, 1.0, 0.2, 1.0),
         // What an interact press reaches.
         "interact_touch" | "interact_talk" | "interact_front" => Color::srgba(1.0, 0.75, 0.3, 0.8),
-        "talk" | "switch" | "chest" => Color::srgba(1.0, 0.95, 0.6, 0.9),
+        "talk" | "switch" | "chest" | "door" => Color::srgba(1.0, 0.95, 0.6, 0.9),
         // Navigation, in the overlay's colours.
         "nav_surface" => Color::srgba(0.2, 1.0, 0.2, 0.9),
         "nav_hop" => Color::srgba(1.0, 1.0, 0.2, 0.9),
@@ -137,6 +181,37 @@ fn known_role_color(role: &str) -> Option<Color> {
     })
 }
 
+/// A display outline only. The report keeps circles and cuts analytic.
+fn display_outline(shape: &ObservedShape) -> Vec<[f32; 2]> {
+    match shape {
+        ObservedShape::Aabb { min, max } => vec![*min, [max[0], min[1]], *max, [min[0], max[1]]],
+        ObservedShape::Segment { a, b } => vec![*a, *b],
+        ObservedShape::Polyline { points } | ObservedShape::Polygon { points } => points.clone(),
+        ObservedShape::Circle { center, radius } => (0..128).map(|n| {
+            let angle = n as f32 * std::f32::consts::TAU / 128.0;
+            [center[0] + radius * angle.cos(), center[1] + radius * angle.sin()]
+        }).collect(),
+        ObservedShape::Clipped { primitive, planes, transform, .. } => {
+            let mut points: Vec<[f64; 2]> = display_outline(primitive).into_iter().map(|p| p.map(f64::from)).collect();
+            for plane in planes {
+                let mut kept = Vec::new();
+                for (i, a) in points.iter().enumerate() {
+                    let b = points[(i + 1) % points.len()];
+                    let side = |p: [f64; 2]| plane.inward[0] * p[0] + plane.inward[1] * p[1] - plane.offset;
+                    let (sa, sb) = (side(*a), side(b));
+                    if sa >= 0.0 { kept.push(*a); }
+                    if (sa >= 0.0) != (sb >= 0.0) {
+                        let t = sa / (sa - sb);
+                        kept.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+                    }
+                }
+                points = kept;
+            }
+            points.into_iter().map(|p| transform.map(|row| (row[0] * p[0] + row[1] * p[1] + row[2]) as f32)).collect()
+        }
+    }
+}
+
 fn outline(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>, world: &ae::World, shape: &ObservedShape, color: Color, cross: bool) {
     let p = |xy: &[f32; 2]| w2(world, ae::Vec2::new(xy[0], xy[1]));
     match shape {
@@ -144,10 +219,6 @@ fn outline(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>, world: &ae::Worl
             let corners = [[min[0], min[1]], [max[0], min[1]], [max[0], max[1]], [min[0], max[1]]];
             for i in 0..4 {
                 gizmos.line_2d(p(&corners[i]), p(&corners[(i + 1) % 4]), color);
-            }
-            if cross {
-                gizmos.line_2d(p(&corners[0]), p(&corners[2]), color);
-                gizmos.line_2d(p(&corners[1]), p(&corners[3]), color);
             }
         }
         ObservedShape::Segment { a, b } => {
@@ -165,10 +236,30 @@ fn outline(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>, world: &ae::Worl
                 gizmos.circle_2d(p(point), 2.5, color);
             }
         }
+        ObservedShape::Clipped { .. } => {
+            let points = display_outline(shape);
+            for (i, point) in points.iter().enumerate() {
+                gizmos.line_2d(p(point), p(&points[(i + 1) % points.len()]), color);
+            }
+        }
         ObservedShape::Polygon { points } => {
             for (i, point) in points.iter().enumerate() {
                 gizmos.line_2d(p(point), p(&points[(i + 1) % points.len()]), color);
             }
+        }
+    }
+    if cross {
+        let points = display_outline(shape);
+        if let Some(first) = points.first() {
+            let (mut min, mut max) = (*first, *first);
+            for point in &points {
+                for axis in 0..2 {
+                    min[axis] = min[axis].min(point[axis]);
+                    max[axis] = max[axis].max(point[axis]);
+                }
+            }
+            gizmos.line_2d(p(&min), p(&max), color);
+            gizmos.line_2d(p(&[min[0], max[1]]), p(&[max[0], min[1]]), color);
         }
     }
 }
@@ -212,6 +303,11 @@ pub fn observation_labels(layers: &[ObservedLayer]) -> Vec<ObservedLabel> {
                 ObservedShape::Aabb { min, .. } => ae::Vec2::new(min[0] + INSET, min[1] + INSET),
                 ObservedShape::Segment { a, b } => ae::Vec2::new((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5),
                 ObservedShape::Circle { center, .. } => ae::Vec2::new(center[0], center[1]),
+                ObservedShape::Clipped { .. } => {
+                    let points = display_outline(&observation.shape);
+                    let Some(first) = points.first() else { continue };
+                    ae::Vec2::new(first[0], first[1])
+                }
                 ObservedShape::Polyline { points } | ObservedShape::Polygon { points } => {
                     let Some(first) = points.first() else { continue };
                     ae::Vec2::new(first[0], first[1])
@@ -237,9 +333,23 @@ pub fn observation_legend(layers: &[ObservedLayer]) -> Vec<(String, Color)> {
     let mut pieces = 0;
     let mut inactive = 0;
     let mut roles: Vec<(String, Color)> = Vec::new();
+    let mut diagnostics = Vec::new();
     for layer in layers {
-        let ObserverAnswer::Observed { geometry } = &layer.answer else {
-            continue;
+        let geometry = match &layer.answer {
+            ObserverAnswer::Observed { geometry } => {
+                if geometry.is_empty() {
+                    diagnostics.push((format!("{}: no geometry at this tick", layer.provider), Color::WHITE));
+                }
+                geometry
+            }
+            ObserverAnswer::NeedsSubject => {
+                diagnostics.push((format!("{}: select a subject", layer.provider), Color::srgb(1.0, 0.7, 0.3)));
+                continue;
+            }
+            ObserverAnswer::Unavailable { reason } => {
+                diagnostics.push((format!("{} unavailable: {reason}", layer.provider), Color::srgb(1.0, 0.3, 0.3)));
+                continue;
+            }
         };
         for observation in geometry {
             pieces += 1;
@@ -258,11 +368,12 @@ pub fn observation_legend(layers: &[ObservedLayer]) -> Vec<(String, Color)> {
             }
         }
     }
-    if pieces == 0 {
-        return Vec::new();
+    if layers.is_empty() {
+        return vec![("no geometry observers selected".into(), Color::WHITE)];
     }
     let mut lines = vec![(format!("observed: {pieces} pieces, {inactive} inactive (faint, crossed)"), Color::WHITE)];
     lines.extend(roles);
+    lines.extend(diagnostics);
     lines
 }
 
@@ -304,7 +415,7 @@ mod tests {
             ]
         );
         assert_eq!(legend[2].1, role_color(&layers_piece(&layers, 2)), "a role is written in the colour it is drawn in");
-        assert!(observation_legend(&[]).is_empty());
+        assert!(observation_legend(&[])[0].0.contains("no geometry observers"));
     }
 
     fn layers_piece(layers: &[ObservedLayer], n: usize) -> GeometryObservation {
@@ -348,4 +459,30 @@ mod tests {
             ]
         );
     }
+    #[test]
+    fn the_legend_distinguishes_empty_missing_subject_and_unavailable() {
+        let layers = vec![
+            ObservedLayer { provider: "empty", answer: ObserverAnswer::Observed { geometry: vec![] } },
+            ObservedLayer { provider: "subject", answer: ObserverAnswer::NeedsSubject },
+            ObservedLayer { provider: "absent", answer: ObserverAnswer::Unavailable { reason: "no authority".into() } },
+        ];
+        let lines: Vec<_> = observation_legend(&layers).into_iter().map(|(line, _)| line).collect();
+        assert!(lines.iter().any(|line| line == "empty: no geometry at this tick"));
+        assert!(lines.iter().any(|line| line == "subject: select a subject"));
+        assert!(lines.iter().any(|line| line == "absent unavailable: no authority"));
+    }
+
+    #[test]
+    fn a_clipped_circle_draws_its_arc_instead_of_its_bounding_box() {
+        let shape = ObservedShape::Clipped {
+            primitive: Box::new(ObservedShape::Circle { center: [0.0, 0.0], radius: 20.0 }),
+            planes: vec![ambition_geometry_observation::ObservedPlane { inward: [0.0, 1.0], offset: 0.0 }],
+            transform: [[-0.5, 0.0, 500.0], [0.0, 0.5, -200.0]], path: vec![0],
+        };
+        let points = display_outline(&shape);
+        assert!(points.len() > 32);
+        assert!(points.iter().all(|p| p[1] >= -200.0 && (p[0] - 500.0).hypot(p[1] + 200.0) < 10.001));
+        assert!(points.iter().any(|p| p[1] > -190.01));
+    }
+
 }

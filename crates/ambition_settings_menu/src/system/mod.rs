@@ -43,6 +43,7 @@ pub enum DevToggleId {
     // Which observer the layer draws: every one, or one (a cycle over the
     // installed observers, GOBS-1).
     ObservedGeometryProvider,
+    ObservedGeometrySubject,
     // Each body's box at its tick pose and at its drawn pose (GOBS-4).
     PresentedComparison,
     // Camera.
@@ -80,7 +81,7 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `DeveloperRuntimeState` / `WorldSourceHotReload` (not `DeveloperTools`). Physical
     /// keyboard chords are owned by the central developer-hotkey registry.
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 28] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into
         // Developer — the menu-frontend toggle is the one developers flip most.
         Self::MenuBackend,
@@ -100,6 +101,7 @@ impl DevToggleId {
         Self::Navigation,
         Self::ObservedGeometry,
         Self::ObservedGeometryProvider,
+        Self::ObservedGeometrySubject,
         Self::PresentedComparison,
         Self::OverviewCamera,
         Self::DebugViewMode,
@@ -130,6 +132,7 @@ impl DevToggleId {
             Self::Navigation => "Navigation Graph",
             Self::ObservedGeometry => "Observed Geometry",
             Self::ObservedGeometryProvider => "Geometry Observer",
+            Self::ObservedGeometrySubject => "Geometry Subject",
             Self::PresentedComparison => "Tick vs Drawn",
             Self::OverviewCamera => "Overview Camera",
             Self::DebugViewMode => "View Mode",
@@ -166,6 +169,7 @@ impl DevToggleId {
             Self::ObservedGeometryProvider => {
                 "Draw every geometry observer, or one: step through those installed (with the layer on)."
             }
+            Self::ObservedGeometrySubject => "Select a live body, or use the subject of each view.",
             Self::PresentedComparison => {
                 "Draw each body's box where the simulation tick put it (magenta) and where it is drawn (white)."
             }
@@ -208,6 +212,7 @@ impl DevToggleId {
                 // Gravity cycles the ambient direction (down/left/up/right).
                 | Self::Gravity
                 // The observers the geometry layer draws: all, or one.
+                | Self::ObservedGeometrySubject
                 | Self::ObservedGeometryProvider
         )
     }

@@ -159,6 +159,8 @@ pub enum DebugViewMode {
     Triggers,
     /// Combat-feel view: actor/projectile/player combat volumes.
     Combat,
+    /// The surfaces and links used by navigation.
+    Navigation,
     /// Everything we can draw without opening the full inspector.
     All,
     /// Hand-edited toggle state.
@@ -167,12 +169,13 @@ pub enum DebugViewMode {
 }
 
 impl DebugViewMode {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Gameplay,
         Self::Authoring,
         Self::Collision,
         Self::Triggers,
         Self::Combat,
+        Self::Navigation,
         Self::All,
         Self::Custom,
     ];
@@ -184,6 +187,7 @@ impl DebugViewMode {
             Self::Collision => "collision",
             Self::Triggers => "triggers",
             Self::Combat => "combat",
+            Self::Navigation => "navigation",
             Self::All => "all",
             Self::Custom => "custom",
         }
@@ -201,7 +205,7 @@ impl DebugViewMode {
 
     pub const fn recommended_art_mode(self) -> DebugArtMode {
         match self {
-            Self::Gameplay | Self::Authoring | Self::Triggers | Self::Combat | Self::All => {
+            Self::Gameplay | Self::Authoring | Self::Triggers | Self::Combat | Self::Navigation | Self::All => {
                 DebugArtMode::Normal
             }
             Self::Collision => DebugArtMode::Hidden,

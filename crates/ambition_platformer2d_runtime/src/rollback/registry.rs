@@ -295,7 +295,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // (`resource.gravity_turns_in_rooms`).
 // 478 -> 479: the death fee changes rooms made, which a room rewind puts back
 // (`death.fees_in_rooms`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 479;
+// 479 -> 480: the portal phase changes rooms made, which a room rewind puts
+// back (`resource.gate_portal_phases_in_rooms`).
+// 480 -> 481: the portal frame history changes rooms made, which a room
+// rewind puts back (`resource.portal_frames_in_rooms`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 481;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

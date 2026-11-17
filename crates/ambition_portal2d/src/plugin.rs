@@ -161,6 +161,14 @@ impl Plugin for PortalSimulationPlugin {
         // Teleports run after actor and ground-item integration so this frame's
         // integrated body positions are what cross the portal.
         app.init_resource::<crate::PortalFrameHistory>();
+        // A rewound room puts back the history entries it changed after the
+        // tick it was saved at (ISL-2d).
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<crate::PortalFramesInRooms>(app);
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.portal_frames_in_rooms",
+            crate::retract_room_portal_frames,
+        );
         // A composition with no session lifecycle has no activation. The
         // reader then reads an empty channel.
         app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>();

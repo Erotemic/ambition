@@ -34,12 +34,22 @@ use ambition_time::WorldTime;
 /// the portal opens on a different frame for each peer, and
 /// `detect_room_transition_system` below turns that into a room transition one
 /// peer takes and the other refuses.
+///
+/// A portal belongs to the live room whose spec has its zone. During a room
+/// replay only that room's portals tick (`RoomReplay::allows`): the other
+/// rooms already ran these ticks. Each change is logged in
+/// `GatePortalPhasesInRooms`, so a rewind of the room puts its phases back
+/// before the replay runs them again.
 pub fn tick_portal_phases_system(
     world_time: Res<WorldTime>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     portals: Res<GatePortalRegistry>,
     network: Res<ambition_platformer2d_world::rooms::GateNetworkState>,
     mut phases: ResMut<GatePortalPhases>,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
+    tick: Option<Res<ambition_time::SimTick>>,
+    mut log: Option<ResMut<ambition_platformer2d_world::rooms::GatePortalPhasesInRooms>>,
 ) {
     // Scaled dt — pause / hitstop / bullet-time naturally freezes
     // or slows the portal boot/shutdown sequence so the ring spin
@@ -52,7 +62,18 @@ pub fn tick_portal_phases_system(
     // each portal's tick reads only its own switch and writes only its own
     // phase, so no portal can observe another's update. Nothing here folds an
     // order-dependent accumulator.
+    let live_specs = rooms.as_ref().map(|rooms| rooms.live_specs()).unwrap_or_default();
+    let owner_of = |zone_id: &str| {
+        live_specs
+            .iter()
+            .find(|(_, spec)| spec.loading_zones.iter().any(|zone| zone.id == zone_id))
+            .map(|(live, _)| *live)
+    };
     for (zone_id, config) in portals.iter() {
+        let owner = owner_of(zone_id);
+        if replay.as_ref().is_some_and(|replay| !replay.allows(owner)) {
+            continue;
+        }
         let commanded_on = match &config.command {
             ambition_platformer2d_world::rooms::GatePortalCommand::Switch(switch) => {
                 save.data().switch(switch)
@@ -61,7 +82,15 @@ pub fn tick_portal_phases_system(
                 network.holds_open(zone_id)
             }
         };
-        tick_gate_portal_phase(phases.phase_mut(zone_id), commanded_on, dt);
+        let before = phases.phases.get(zone_id).copied();
+        let phase = phases.phase_mut(zone_id);
+        tick_gate_portal_phase(phase, commanded_on, dt);
+        if before == Some(*phase) {
+            continue;
+        }
+        if let (Some(log), Some(room), Some(tick)) = (log.as_deref_mut(), owner, tick.as_deref()) {
+            log.record(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }, zone_id, before);
+        }
     }
 }
 

@@ -42,7 +42,8 @@ pub mod view;
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{
     evict_straddlers_on_portal_change,
-    forget_portal_frames_on_activation, portals_or_their_frames, PortalFrameHistory,
+    forget_portal_frames_on_activation, portals_or_their_frames, retract_room_portal_frames, PortalFrameHistory,
+    PortalFramesInRooms,
 };
 pub use generator::{
     portal_generators_active_toggle_system, portal_toggle_system, OwnedPortalPair, PortalGenerator,

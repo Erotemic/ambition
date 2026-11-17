@@ -20,7 +20,8 @@ mod room_pace;
 pub use room_pace::{RoomFreeze, RoomHolds, RoomPace, rooms_keep_their_own_clocks};
 mod room_writes;
 pub use room_writes::{
-    ROOM_REWIND_HORIZON_TICKS, RoomWrite, RoomWriteRetractors, register_room_write_retractor, retract_room_writes,
+    ROOM_REWIND_HORIZON_TICKS, RoomWrite, RoomWriteRetractors, register_room_write_log, register_room_write_retractor,
+    retract_room_writes,
 };
 mod round;
 mod session;

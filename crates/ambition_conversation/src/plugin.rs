@@ -38,7 +38,7 @@ impl Plugin for ConversationPlugin {
         // rewinds puts back the conversation it had (ISL-1b). Logged at the
         // tail of the tick, after every writer, and not only where dialogue
         // is a capability: a room crossing closes a conversation too.
-        app.init_resource::<super::rooms::ConversationsInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<super::rooms::ConversationsInRooms>(app);
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "resource.conversations_in_rooms",

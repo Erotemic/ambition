@@ -1001,6 +1001,36 @@ now logs what it replaced in `DeathFeesInRooms` (schema 479), and
 `retract_room_death_fees` puts a rewound room's changes back. Witness:
 `a_rewound_room_puts_back_its_own_death_fees`. Census: 91 unclassified.
 
+**The host's clock, the gate portals, and each session's logs (2026-11-17).**
+The census now reads the room host itself: the types in `room_rollback.rs`'s
+saved `Clock` and the seat inputs `rewind_room` copies out and puts back are
+"host-rewound". `RequestedClockScale` joined the saved clock: a slowdown is a
+target the clock holds, so a rewind that took back the request kept the
+target. Gate portal phases were one integral for every room: a room replay
+ticked the other rooms' portals again and did not set its own back. The tick
+now runs only the replayed room's portals (`RoomReplay::allows`, the room
+whose spec holds the zone) and logs each change in `GatePortalPhasesInRooms`
+(schema 480) for `retract_room_gate_portal_phases`. A room's reset of its
+gravity is logged like a switch's turn. And no `*InRooms` log was emptied
+when a session began, while the room numbering and `SimTick` start again:
+`register_room_write_log` installs each log and empties it at
+`SessionScopeSet::Activate`. The portal straddle eviction's
+`PortalFrameHistory` was replaced whole each tick: a replay dropped the other
+rooms' frames, and its first tick compared the room's restored portals with
+the frames the rewind left, so a portal moved in between read as one that
+closed under its bodies. During a replay it now compares and replaces only
+that room's frames, and logs each change in `PortalFramesInRooms` (schema
+481) for `retract_room_portal_frames`. Rulings: the developer's gravity cycle
+(an outside act a replay does not read again), `ProjectileSeqCounter` (an
+order, not an identity), `ControlFrame` (the primary seat's mirror),
+`RoomTransitionContentEpoch` (content identity a restore does not bump), the
+scene capture tool, and a system registered with
+`run_if(not(resource_exists::<RoomReplay>))` counts as room-gated. Census: 60
+unclassified over 22 types. Next by weight: `AmbitionGameSave` (13 writers),
+`PendingLifecycleCommit`, `SlotInteractionState`, `QuestRegistry`, and
+`PendingPlayerHitEvents` (a cross-frame queue the first replayed tick drains
+for every room's victims).
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

@@ -45,6 +45,10 @@ where
         OWNER,
         "resource.portal_frame_history",
     );
+    registrar.rollback_resource_clone::<crate::PortalFramesInRooms>(
+        OWNER,
+        "resource.portal_frames_in_rooms",
+    );
     registrar.rollback_component_clone::<crate::PortalTransit>(OWNER, "portal.transit");
     // Whether a body is on the back of a pair decides whether the pair may
     // take it, so a rewind restores it with the body.

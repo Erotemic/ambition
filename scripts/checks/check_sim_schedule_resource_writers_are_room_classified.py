@@ -13,13 +13,21 @@ This is the census the island-rollback plan asked for. Each `ResMut<T>` binding 
 a sim-schedule system (the population `check_sim_schedule_resource_memory_is_
 adjudicated.py` scans) is one of:
 
-    room-gated      the system asks `.allows(` of `RoomReplay`
+    room-gated      the system asks `.allows(` of `RoomReplay`, or its
+                    registration runs it only outside a replay
+                    (`.run_if(not(resource_exists::<RoomReplay>))`)
     room-stamped    the system writes with a `RoomWrite` (or `from_room`) stamp
     retracted       a registered room-write retractor (`register_room_write_
                     retractor`) takes back what this write did: the type is one
                     of the retractor's own logs (`*InRooms`, `*SinceCheckpoint`),
                     or a store it restores that this writer also logs to, or a
                     store a tail logger diffs whole each tick (`TAIL_LOGGED`)
+    host-rewound    the room rollback host (`ambition_hosted_world`'s
+                    `room_rollback.rs`) saves and sets back its type around a
+                    replay: the shared clock in `struct Clock(..)`, which a
+                    rewind sets to the saved tick and the replay runs forward
+                    again, and the seat inputs `rewind_room` copies out
+                    before the replay and puts back after it
     derived         its type is rebuilt from live state each run, and the scan
                     CHECKS that: no binding of the type accumulates unless the
                     same system resets it or the resource-memory guard names the
@@ -27,7 +35,9 @@ adjudicated.py` scans) is one of:
     instrument      its type is an observation, trace, dev/demo tool or
                     presentation-only state that no gameplay system reads
     world-owned     its type is host state a rewind does not change, by a
-                    ruling that quotes the type's own doc (`WORLD_OWNED`)
+                    ruling that quotes the type's own doc (`WORLD_OWNED`), or
+                    the system applies an act from outside the simulation
+                    that a replay does not read again (`OUTSIDE_ACTS`)
     unclassified    none of the above
 
 The unclassified count is a ratchet: it may only fall, and the ceiling must be
@@ -115,6 +125,11 @@ DERIVED: dict[str, str] = {
         "feedback layer and the headless observation (read 2026-11-17)"
     ),
     "SimDt": "\"Mirror of the host's sim clock\", written each frame by `mirror_sim_dt_into_runtime`",
+    "ControlFrame": (
+        "the primary seat's mirror: both writers overwrite it whole from "
+        "`SlotControls` (`mirror_primary_slot_to_control_frame`; `publish_ggrs_input`, "
+        "\"Read the mirror from the table\"), which the room host sets back around a replay"
+    ),
 }
 
 #: A type no gameplay system reads: an observation census, a trace, or a tool
@@ -144,6 +159,15 @@ INSTRUMENT: dict[str, str] = {
     ),
 }
 
+#: A capture tool's own binary: its systems drive a scene for a screenshot and
+#: run in no shipped composition, whatever gameplay type they write.
+TOOL_SOURCES: dict[str, str] = {
+    "game/ambition_app_tools/src/bin/capture_scene.rs": (
+        "the scene capture tool (`[[bin]] capture_scene` of `ambition_app_tools`): "
+        "it dials gates, turns switches and stands the player for a shot"
+    ),
+}
+
 #: Host state that a rewind, whole or of one room, does not change.
 WORLD_OWNED: dict[str, str] = {
     "SimulationReplayState": (
@@ -154,11 +178,35 @@ WORLD_OWNED: dict[str, str] = {
         "\"Host state, and never rewound: a confirmed input does not change\" "
         "(`ambition_platformer2d_rollback_ggrs/src/peer_input.rs`, read 2026-11-17)"
     ),
+    "RoomTransitionContentEpoch": (
+        "\"Monotonic identity for the App-local inputs that define room "
+        "construction\": it compares the room set by value, so \"a restore "
+        "reproduces them exactly and bumps nothing\" (`room_transition/loading.rs`, "
+        "read 2026-11-17)"
+    ),
+    "ProjectileSeqCounter": (
+        "an order, not an identity: \"a global counter is a perfectly good *total "
+        "order*, which is all this uses it for. The identity itself comes from the "
+        "owner's own `SimIdCounter`\" (`mint_spawned_sim_ids`), a component the "
+        "room's snapshot restores. A replay fires its shots again with fresh, higher "
+        "ids in the same order, and the host compares no checksum with a guest "
+        "(read 2026-11-17)"
+    ),
+}
+
+#: Systems that apply an act from outside the simulation: a live message
+#: read through `ReplayMessageReader`, whose live cursor a room replay does not
+#: advance, so a replay neither reads it again nor should take it back.
+OUTSIDE_ACTS: dict[str, str] = {
+    "apply_ambient_gravity_requests": (
+        "the developer's gravity cycle (`AmbientGravityRequest` from the `\\` hotkey "
+        "and the developer menu), read through `ReplayMessageReader` (read 2026-11-17)"
+    ),
 }
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 91
+UNCLASSIFIED_CEILING = 60
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200
@@ -207,6 +255,42 @@ def retracted_types(repo: Path = REPO) -> frozenset[str]:
     return frozenset(found)
 
 
+#: Where the room rollback host names the shared clock it saves with each tick.
+HOST_CLOCK = "crates/ambition_hosted_world/src/room_rollback.rs"
+
+
+@functools.cache
+def host_rewound_types(repo: Path = REPO) -> frozenset[str]:
+    """The types the room rollback host saves and sets back around a replay."""
+    path = repo / HOST_CLOCK
+    if not path.exists():
+        return frozenset()
+    text = path.read_text(encoding="utf8")
+    found: set[str] = set()
+    match = re.search(r"struct\s+Clock\s*\(([^;]*)\)\s*;", text)
+    if match:
+        found |= {part.strip().rsplit("::", 1)[-1] for part in match.group(1).split(",") if part.strip()}
+    # The seat inputs `rewind_room` copies out before the replay drives the
+    # seats with their records, and puts back after it.
+    body = re.search(r"fn\s+rewind_room\b.*?\n}\n", text, re.S)
+    if body:
+        found |= set(re.findall(r"get_resource::<(?:[\w:]+::)?(\w+)>\(\)\.copied\(\)", body.group(0)))
+    return frozenset(found)
+
+
+_REPLAY_GATED = re.compile(
+    r"\b(\w+)\s*\.run_if\(\s*(?:[\w:]+::)?not\(\s*(?:[\w:]+::)?resource_exists::<\s*(?:[\w:]+::)?RoomReplay\s*>"
+)
+
+
+@functools.cache
+def replay_gated_systems(repo: Path = REPO) -> frozenset[str]:
+    """Systems registered to run only outside a room replay."""
+    return frozenset(
+        match.group(1) for _src, text in sim._production_sources(repo) for match in _REPLAY_GATED.finditer(text)
+    )
+
+
 def _is_log(ty: str) -> bool:
     """A retractor's own log, as opposed to a store it restores."""
     return ty.endswith(("InRooms", "SinceCheckpoint"))
@@ -218,6 +302,8 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
     population = memory.memory.sim_schedule_systems(repo)
     found: list[tuple[str, str, str, str]] = []
     retracted = retracted_types(repo)
+    host_rewound = host_rewound_types(repo)
+    replay_gated = replay_gated_systems(repo)
     for src, text in sim._production_sources(repo):
         for match in sim._PUB_FN.finditer(text):
             name = match.group(1)
@@ -234,7 +320,7 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
             rel = str(src.relative_to(repo))
             for _bind, ty in binds:
                 short = ty.rsplit("::", 1)[-1]
-                if ".allows(" in body or "RoomReplay" in params:
+                if ".allows(" in body or "RoomReplay" in params or name in replay_gated:
                     kind = "room-gated"
                 elif "RoomWrite" in body or "from_room" in body:
                     kind = "room-stamped"
@@ -244,12 +330,16 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
                     or any(_is_log(log) and re.search(rf"\b{log}\b", params + body) for log in retracted)
                 ):
                     kind = "retracted"
+                elif short in host_rewound:
+                    kind = "host-rewound"
                 elif short in DERIVED:
                     kind = "derived"
                 elif short in INSTRUMENT:
                     kind = "instrument"
-                elif short in WORLD_OWNED:
+                elif short in WORLD_OWNED or (name in OUTSIDE_ACTS and "ReplayMessageReader" in params):
                     kind = "world-owned"
+                elif rel in TOOL_SOURCES:
+                    kind = "instrument"
                 else:
                     kind = "unclassified"
                 found.append((name, rel, short, kind))
@@ -277,7 +367,7 @@ def main() -> int:
     unclassified = [row for row in found if row[3] == "unclassified"]
     print(
         f"{len(found)} `ResMut` binding(s) in the rewinding schedule: "
-        + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("room-gated", "room-stamped", "retracted", "derived", "instrument", "world-owned", "unclassified"))
+        + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("room-gated", "room-stamped", "retracted", "host-rewound", "derived", "instrument", "world-owned", "unclassified"))
     )
     types = sorted({ty for _n, _f, ty, _k in unclassified})
     print(f"unclassified types ({len(types)}): {', '.join(types)}")
@@ -291,6 +381,12 @@ def main() -> int:
     stale = sorted((set(DERIVED) | set(INSTRUMENT) | set(TAIL_LOGGED) | set(WORLD_OWNED)) - {ty for _n, _f, ty, _k in found})
     for ty in stale:
         print(f"⛔ a ruling for `{ty}`, which no sim-schedule system writes any more: delete it")
+        failed = True
+    for name in sorted(set(OUTSIDE_ACTS) - {n for n, _r, _t, k in found if k == "world-owned"}):
+        print(f"⛔ an outside-act ruling for `{name}`, which no longer reads its act live: delete it")
+        failed = True
+    for rel in sorted(set(TOOL_SOURCES) - {rel for _n, rel, _t, _k in found}):
+        print(f"⛔ a tool ruling for `{rel}`, which holds no sim-schedule writer any more: delete it")
         failed = True
     if len(unclassified) > UNCLASSIFIED_CEILING:
         print(

@@ -249,6 +249,16 @@ impl Plugin for SimCoreResourcesPlugin {
         // was built with. On a shell host the adoption of each session gives
         // it the bag of its experience (`StartingBag::begin_the_session`).
         ambition_platformer2d_items::starting_bag::install_starting_bag(app);
+        // A rewound room puts back the portal phases it changed after the
+        // tick it was saved at (ISL-2d).
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<
+            ambition_platformer2d_world::rooms::GatePortalPhasesInRooms,
+        >(app);
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.gate_portal_phases_in_rooms",
+            ambition_platformer2d_world::rooms::retract_room_gate_portal_phases,
+        );
 
         // The engine's closed actor construction recipes. `init_resource` above
         // does not clobber a pre-inserted fixture/host registry, and registration

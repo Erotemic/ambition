@@ -431,6 +431,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/fact_horizon.rs",
     ),
     "SeatRawFrames": (
+        "crates/ambition_hosted_world/src/lib.rs",
         "crates/ambition_platformer2d/src/scripted_input.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
         "crates/ambition_platformer2d_runtime/src/input.rs",
@@ -457,6 +458,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app_tools/src/bin/moveset_render.rs",
     ),
     "SlotControls": (
+        "crates/ambition_hosted_world/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
         "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
@@ -701,6 +703,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash_app/src/tools/select_walkthrough.rs",
     ),
     "SlotControlLatches": (
+        "crates/ambition_hosted_world/src/lib.rs",
         "crates/ambition_hosted_world/src/room_rollback.rs",
         "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
@@ -738,6 +741,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "RequestedClockScale": (
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_time/src/time_control/mod.rs",
+        "crates/ambition_hosted_world/src/room_rollback.rs",
     ),
     "WorldTime": (
         "crates/ambition_platformer2d_session/src/teardown.rs",
@@ -746,6 +750,19 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "GatePortalPhases": (
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_session/src/rooms/systems.rs",
+        "crates/ambition_platformer2d_world/src/rooms/gate_portal.rs",
+    ),
+    "GuestInputs": (
+        "crates/ambition_hosted_world/src/lib.rs",
+        "crates/ambition_hosted_world/src/room_rollback.rs",
+    ),
+    "GatePortalPhasesInRooms": (
+        "crates/ambition_platformer2d_world/src/rooms/gate_portal.rs",
+        "crates/ambition_platformer2d_session/src/rooms/systems.rs",
+    ),
+    "GravityTurnsInRooms": (
+        "crates/ambition_platformer2d_shared_tangle/src/gravity.rs",
+        "crates/ambition_platformer2d_runtime/src/gravity/lifecycle.rs",
     ),
     "GateNetworkState": (
         "crates/ambition_platformer2d_session/src/rooms/gate_network.rs",
@@ -1721,7 +1738,8 @@ ADJUDICATED: dict[str, str] = {
         "what its devices gave on the replayed tick: `latches.reset(seat)`, "
         "then the recorded frame through `drive_slot_frame`. Around the replay "
         "it puts back the table as it stood, so the frame being run keeps its "
-        "own presses. It is a replay of the accumulator, not a third drain."
+        "own presses. It is a replay of the accumulator, not a third drain.\n"
+        "    ⭐ 2026-11-17: the hosted world's `retire_departed_guests` (`hosted_world/src/lib.rs`) writes this table when a guest client leaves or changes seats: the old seat goes back to neutral, beside its `GuestInputs` record and the participant's leave request, so a departed guest's last frame does not drive the seat on. It runs on the host only, outside a room replay, and writes only the seat it retires."
     ),
     "BaseGravity": (
         "CORRECT, AND THE SIXTH WRITER IS GONE — Q137 RULED AND THE DEAD PLATE "
@@ -1866,7 +1884,8 @@ ADJUDICATED: dict[str, str] = {
         "committers and before the control frame is mirrored: a capture's "
         "stand-in for a device. It is not a client of `shape_seat_frame` (it "
         "writes `SlotControls` only), so the helper's ceiling is not breached, "
-        "and no shipped composition installs it."
+        "and no shipped composition installs it.\n"
+        "    ⭐ 2026-11-17: the hosted world's `retire_departed_guests` (`hosted_world/src/lib.rs`) writes this table when a guest client leaves or changes seats: the old seat goes back to neutral, beside its `GuestInputs` record and the participant's leave request, so a departed guest's last frame does not drive the seat on. It runs on the host only, outside a room replay, and writes only the seat it retires."
     ),
     "QuestRegistry": (
         "CORRECT — AN APPEND-ONLY QUEUE WITH SIX PRODUCERS AND ONE DRAIN, AND "
@@ -2532,7 +2551,39 @@ ADJUDICATED: dict[str, str] = {
         "tick 0, and the portal of a fresh host was `Opening` until tick 40. "
         "POISON-VERIFIED: with the reset removed, "
         "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
-        "fails on this row on 40 frames, ticks 0 to 39."
+        "fails on this row on 40 frames, ticks 0 to 39. The third file is the "
+        "room retractor (`retract_room_gate_portal_phases`, `gate_portal.rs`, "
+        "ISL-2d, 2026-11-17): at a room's rewind it puts back the phases that "
+        "room's portals changed after the saved tick, from "
+        "`GatePortalPhasesInRooms`, before the replay ticks them again."
+    ),
+    "GuestInputs": (
+        "CORRECT — ONE HOST'S BOOKKEEPING, IN ONE CRATE (read 2026-11-17). The "
+        "room rollback host's record of each guest seat's arrived and used "
+        "inputs and each guest room's saves. `hosted_world/src/lib.rs` records "
+        "an arrived input (`record`), starts a seat's ownership and forgets a "
+        "departed seat (`retire_departed_guests`); `room_rollback.rs` takes a "
+        "save out to rewind a room and raises `replaying` around the replay. "
+        "Host state that no peer sees and no rollback restores; every writer "
+        "is the host's own input or rewind step, never a simulation system."
+    ),
+    "GatePortalPhasesInRooms": (
+        "CORRECT — ONE RECORDER AND ITS RETRACTOR (ISL-2d, 2026-11-17). The list "
+        "is private (`world/rooms/gate_portal.rs`): `record` is called only by "
+        "`tick_portal_phases_system` (`session/rooms/systems.rs`) when a "
+        "portal's phase changes, with its room, the tick and the phase it "
+        "replaced; the retractor beside it drains a rewound room's records. "
+        "`register_room_write_log` empties it at session activation. Rollback "
+        "state with a value checksum (`resource.gate_portal_phases_in_rooms`)."
+    ),
+    "GravityTurnsInRooms": (
+        "CORRECT — ONE RECORDER AND ITS RETRACTOR (ISL-2d, 2026-11-17). The list "
+        "is private (`shared_tangle/src/gravity.rs`): `BaseGravity::turn_from` "
+        "records each turn a room makes (a switch, and a room's reset on its "
+        "replay admission, `gravity/lifecycle.rs`), with the entry it replaced; "
+        "`retract_room_gravity_turns` drains a rewound room's records. "
+        "`register_room_write_log` empties it at session activation. Rollback "
+        "state with a value checksum (`resource.gravity_turns_in_rooms`)."
     ),
     "GateNetworkState": (
         "CORRECT — ONE OWNER, ONE FIELD HANDED TO THE CROSSING, AND THE SESSION "
@@ -2609,7 +2660,11 @@ ADJUDICATED: dict[str, str] = {
         "the suspended frame). The other file is `SESSION_SCOPE_RESET`: "
         "`SessionScopedResources::reset` sets it to the neutral pace at the "
         "session edge, so two hosts with different histories agree on it. "
-        "POISON-VERIFIED 2026-10-04 by the arm the `ClockState` verdict names."
+        "POISON-VERIFIED 2026-10-04 by the arm the `ClockState` verdict names. "
+        "The third file is the room host (`hosted_world/src/room_rollback.rs`, "
+        "2026-11-17): it saves the target with the rest of the shared clock and "
+        "sets it back when it rewinds a room, so a request the replay takes "
+        "back takes its target back with it."
     ),
     "LastPersistedSave": (
         "CORRECT — TWO WRITERS AT TWO MOMENTS OF ONE FILE STATE. The autosave and "
@@ -3783,7 +3838,8 @@ ADJUDICATED: dict[str, str] = {
         "which is why this row rests on the shipped-app measurement rather "
         "than on that test. Measured by YardratAmbition, 2026-09-18; row "
         "flagged by CalculexAmbition, who spotted that it reaches a file this "
-        "session holds and was re-merged the same day."
+        "session holds and was re-merged the same day.\n"
+        "    ⭐ 2026-11-17: the hosted world's `retire_departed_guests` (`hosted_world/src/lib.rs`) writes this table when a guest client leaves or changes seats: the old seat goes back to neutral, beside its `GuestInputs` record and the participant's leave request, so a departed guest's last frame does not drive the seat on. It runs on the host only, outside a room replay, and writes only the seat it retires."
     ),
     "MainScheduleOrder": (
         "TWO PLUGINS EDIT A LIST AT BUILD TIME, AND EACH EDIT PRESERVES THE "

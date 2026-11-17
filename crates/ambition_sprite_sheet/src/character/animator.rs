@@ -594,6 +594,17 @@ impl CharacterAnimator {
         self.left = None;
     }
 
+    /// The row the head turns as ([`Self::head_turn`]) and the fraction: the
+    /// look row's MIRROR row while the character shows its other side. That
+    /// row turns the head the other way, so a body drawn from that side
+    /// would otherwise look down while it means to look up. `None` with no
+    /// turn, or when the sheet has no row of that name.
+    pub fn head_turn_row(&self) -> Option<(usize, f32)> {
+        let (look_row, fraction) = self.head_turn.filter(|(_, fraction)| *fraction > 0.0)?;
+        let slot = self.spec.row_names().position(|name| name == look_row)?;
+        Some((self.mirror_of(slot), fraction))
+    }
+
     /// The legs under the clip drawn now: their row (the mirror row while
     /// the character shows its other side), the frame, and how far it has
     /// run toward the next (`0..1`). `None`: the clip's row is the whole body.

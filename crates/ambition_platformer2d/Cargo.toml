@@ -255,7 +255,7 @@ ambition_resource_spec = { path = "../ambition_resource_spec" }
 # (`cargo tree -e normal --no-default-features -i ambition_render`) that did so.
 # The `ambition_render` feature below forwards it back for the compositions that
 # draw.
-ambition_platformer2d_host = { path = "../ambition_platformer2d_host", default-features = false }
+ambition_platformer2d_host = { path = "../ambition_platformer2d_host", default-features = false, features = ["dialogue"] }
 ambition_input = { path = "../ambition_input" }
 ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
 ambition_items = { path = "../ambition_items" }

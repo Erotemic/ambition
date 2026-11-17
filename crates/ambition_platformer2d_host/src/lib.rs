@@ -67,7 +67,6 @@ impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
         use ambition_input::{MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith};
         use ambition_platformer2d_runtime::input::{commit_seat_raw_frames, declare_gameplay_input_context, declare_in_session_input_contexts, populate_menu_control_frame_from_actions, populate_seat_control_frames, populate_seat_menu_frames, spawn_primary_input_participant, sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions};
-        use ambition_dialog::dialog_pointer_input;
         use ambition_input::{MenuFrameConsume, MenuFramePopulate, MenuNavConsume};
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -313,7 +312,8 @@ impl Plugin for HostInputBindingsPlugin {
                     // windowed game under such a profile panicked on its first
                     // frame (`ResMut<DialogState>` does not exist). And only
                     // while a dialogue is open: it reads its rows then.
-                    dialog_pointer_input.run_if(
+                    #[cfg(feature = "dialogue")]
+                    ambition_dialog::dialog_pointer_input.run_if(
                         |dialogue: Option<bevy::prelude::Res<ambition_dialog::DialogState>>| {
                             dialogue.is_some_and(|dialogue| dialogue.active())
                         },

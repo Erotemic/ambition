@@ -1192,7 +1192,7 @@ pub struct MatchBody {
     /// Recovery on the far side of it (seconds), so it is a read rather than a
     /// panic button.
     pub air_dodge_endlag: f32,
-    /// See [`MovementTuning::directional_air_dodge_time`]: the aimed dodge's
+    /// See [`MovementTuning::directional_air_dodge_time`](crate::movement::MovementTuning::directional_air_dodge_time): the aimed dodge's
     /// own window, endlag and landing lag. `0.0` falls back to the neutral
     /// dodge's numbers (the landing lag: to none).
     #[serde(default)]
@@ -1249,7 +1249,7 @@ pub struct MatchBody {
     /// `dodge_roll_endlag` is the roll's. A MATCH rule for the same reason.
     #[serde(default)]
     pub spot_dodge_endlag: f32,
-    /// See [`MovementTuning::launch_decay`]. How a launch slows is the
+    /// See [`MovementTuning::launch_decay`](crate::movement::MovementTuning::launch_decay). How a launch slows is the
     /// MODE's, like the tumble it starts: one fighter's knockback must not
     /// carry further because its air friction is low.
     #[serde(default)]
@@ -1289,18 +1289,18 @@ pub struct MatchBody {
     /// ([`MovementTuning::initial_dash_speed`]) is the fighter's, because how
     /// hard a first step bursts is the fighter's gait.
     pub initial_dash_time: f32,
-    /// See [`MovementTuning::dash_deflection`]: the stick push that dashes
+    /// See [`MovementTuning::dash_deflection`](crate::movement::MovementTuning::dash_deflection): the stick push that dashes
     /// rather than walks. A mode's, because walk-versus-dash is the genre's
     /// neutral game and not a fighter's gait.
     pub dash_deflection: f32,
-    /// See [`MovementTuning::coyote_time`]. A mode's: a platform fighter
+    /// See [`MovementTuning::coyote_time`](crate::movement::MovementTuning::coyote_time). A mode's: a platform fighter
     /// gives no grace off a ledge (the ledge grab is its grace); an
     /// exploration game keeps the engine's.
     pub coyote_time: f32,
     /// See [`MovementTuning::turnaround_time`] — what reversing out of a
     /// committed run costs. `0.0` = facing flips instantly.
     pub turnaround_time: f32,
-    /// See [`MovementTuning::holds_facing_in_air`]. A mode's: a platform
+    /// See [`MovementTuning::holds_facing_in_air`](crate::movement::MovementTuning::holds_facing_in_air). A mode's: a platform
     /// fighter aims its aerials by the facing it jumped with.
     #[serde(default)]
     pub holds_facing_in_air: bool,

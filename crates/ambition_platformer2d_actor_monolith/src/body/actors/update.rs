@@ -16,7 +16,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 /// Per-frame steering context handed from observation to the movement phase:
 /// each actor's nearest same-kind neighbor in its own live room, keyed by the
 /// body (two instances of one room share actor ids). Computed
-/// once by [`observe_actor_decision_inputs`] and read by `integrate_sim_bodies`
+/// once by `observe_actor_decision_inputs` and read by `integrate_sim_bodies`
 /// for surface-walker anti-clump
 /// steering, so the movement phase doesn't recompute it. Rebuilt every frame.
 #[derive(bevy::ecs::resource::Resource, Default)]
@@ -209,7 +209,7 @@ fn with_causal_sink<T>(_causal: &mut CausalLend<'_>, body: impl FnOnce() -> T) -
 /// DECIDE — tick autonomous actor brains from the already-observed world facts.
 ///
 /// This phase mutates only decision-owned state (`Brain`, `PerceptionMemory`) and
-/// produces frame-local [`ActorDecisionFrames`]. It does not write
+/// produces frame-local `ActorDecisionFrames`. It does not write
 /// [`ambition_characters::control::ActorControl`]; the following PUBLISH phase
 /// owns that mutation. Body reaction clocks, disposition maintenance, cross-body
 /// observation, movement, and read-model projection are separate scheduled phases.
@@ -2547,7 +2547,7 @@ fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f3
 }
 
 /// Ambient NPC chatter: a peaceful NPC carrying an idle-bark pool
-/// ([`crate::body::npcs::npc_ambient_bark_line`]) mutters a line every
+/// (`crate::body::npcs::npc_ambient_bark_line`) mutters a line every
 /// ~6–10s, so it feels alive between conversations. Skips hostile NPCs and any
 /// still showing a hit-flash bubble (so it never talks over a hit bark). The
 /// stochastic parrot is the first user; any NPC gains barks by adding a pool.

@@ -63,7 +63,7 @@ const RECOIL_HOLD_S: f32 = 0.12;
 /// with, by its room's [`HitFeelRules::attacker_recoil`]: its run, handed to
 /// the motion gateway as a knockback's is (a body's own drift would overwrite
 /// a speed written into its kinematics) and held for the freeze and
-/// [`RECOIL_HOLD_S`].
+/// `RECOIL_HOLD_S`.
 ///
 /// ⛔ NOT ON THE GROUND. A grounded body's run law sets its speed toward its
 /// stick every tick and brakes to a stop without one, so a pushed speed is

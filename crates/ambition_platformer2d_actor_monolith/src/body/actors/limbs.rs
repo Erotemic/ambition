@@ -148,7 +148,7 @@ fn station_frame(
 /// projection) + its profile's `limb_routing`, turn the ACTIVE strike's
 /// [`LimbRoute`] into per-limb `velocity_target` arcs (+ a `melee_pressed` edge at
 /// Active onset), and write them onto the mount's [`LimbIntents`].
-/// [`fan_out_limb_intents`] then copies each slot's frame onto its limb body.
+/// [`fan_out_limb_intents`](ambition_characters::actor::fan_out_limb_intents) then copies each slot's frame onto its limb body.
 ///
 /// This is the Q18 split wrinkle: the fused-host spec assumes the attack state
 /// and the limbs share one entity; here the state lives on the RIDER and the

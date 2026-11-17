@@ -135,11 +135,11 @@ pub struct LifeLedger {
     /// The hours offscreen catch-ups have booked each thing for, by (room
     /// definition id, thing, day * 24 + hour): a body that comes back on a
     /// later tick, or into a room built again, books against what the bodies
-    /// before it booked ([`plan_an_hour_away`]). By the room's definition,
+    /// before it booked (`plan_an_hour_away`). By the room's definition,
     /// not its live instance, which a rebuild changes. Hours older than the
     /// longest catch-up are forgotten. In the save (v8,
     /// `PersistedBooking`). A live body's hold books here too, for the time
-    /// held ([`book_the_hold`]).
+    /// held (`book_the_hold`).
     pub bookings: BTreeMap<(String, String, i64), f32>,
     /// Each booking a body made from a live room within the rewind horizon:
     /// the room and tick, the key, the hours added (SIMULATION-ISLANDS
@@ -198,7 +198,7 @@ pub struct Life {
     /// The thing this body has held since when (seconds of the clock since
     /// day 0), not yet booked: the time is booked when the hold ends, and at
     /// each turn of the hour, so a body catching up an hour away finds it
-    /// taken for as long as this one held it ([`book_the_hold`]).
+    /// taken for as long as this one held it (`book_the_hold`).
     pub held: Option<(String, f64)>,
 }
 
@@ -711,7 +711,7 @@ fn begin_day(life: &mut Life, spec: Option<&LifeSpec>) {
 
 /// A body built again catches up the hours it was away: each whole hour it
 /// missed is planned and its steps' effects applied (no walking; a thing one
-/// holds is booked for that hour, [`plan_an_hour_away`]); the current hour is planned and
+/// holds is booked for that hour, `plan_an_hour_away`); the current hour is planned and
 /// its leading walks done at once; and the body is to be put at the last
 /// place the schedule sent it.
 #[allow(clippy::too_many_arguments)]

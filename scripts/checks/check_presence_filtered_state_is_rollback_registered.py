@@ -120,6 +120,18 @@ WAIVERS = {
         "REMOVES it from a settled item; `tick_bomb_fuses` reads it after the "
         "physics step. No read sees a value from before a rewind"
     ),
+    # Cutscene poses (SS1, 2026-11-16).
+    "PinnedRow": (
+        "a body's pinned sheet row, derived from rollback state each tick. Its one "
+        "filter site is `pin_poses` (`actor_monolith/src/body/direction.rs`, sim, "
+        "chained after `pin_rest_rows` in `world_schedule.rs`), which derives the "
+        "pose pin from `Posed` (rollback-registered, `rollback_registration.rs`): "
+        "it inserts a pin for a posed body that has none, re-pins a posed body, "
+        "and clears its own pin from a body no longer posed. A pin a rewound "
+        "future inserted is corrected on the next sim tick, before the "
+        "presentation indexes read it; construction gives every built body one "
+        "(`construction/src/lib.rs`)"
+    ),
     "TerminalUi": "participant gate UI; initialize_terminal_surfaces reads presence in Update, outside rollback",
     "DialBackButton": "gate panel Interaction, read by drive_gate_terminal in Update",
     "RoomLookOverlay": "room-look Visibility, read by spread_room_states in Update",

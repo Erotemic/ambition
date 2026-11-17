@@ -75,7 +75,7 @@ impl BrainCommand {
 ///    that [`apply_brain_commands`] (ordered after) applies through the one
 ///    brain-selection seam.
 ///
-/// This keeps the two authorities distinct (a bare [`BrainCommand::RestoreDefault`]
+/// This keeps the two authorities distinct (a bare [`BrainCommandKind::RestoreDefault`]
 /// never touches disposition), while giving "you are free" one deterministic,
 /// rollback-safe command. Cleared on snapshot restore like every command channel.
 #[derive(Message, Clone, Debug, PartialEq, Eq)]

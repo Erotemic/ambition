@@ -251,7 +251,7 @@ pub fn apply_pet_requests(
             );
             continue;
         };
-        let Some(petting) = ambition_conversation::character_id_of(&interaction.interactable)
+        let Some(petting) = interaction.interactable.character_id()
             .and_then(|character| catalog.get(character))
             .and_then(|row| row.petting.as_ref())
         else {
@@ -419,7 +419,7 @@ pub fn advance_pet_beats(
                 }
                 let Some((center, petting)) = pettable.get(petted).ok()
                     .and_then(|(aabb, interaction)| {
-                        ambition_conversation::character_id_of(&interaction.interactable)
+                        interaction.interactable.character_id()
                             .and_then(|character| catalog.get(character))
                             .and_then(|row| row.petting.as_ref())
                             .map(|petting| (*aabb, petting))

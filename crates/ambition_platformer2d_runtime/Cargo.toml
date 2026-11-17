@@ -19,7 +19,7 @@ ambition_match = { path = "../ambition_match" }
 ambition_projectile_combat = { path = "../ambition_projectile_combat" }
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physics_debris" }
-ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
+ambition_platformer2d_session = { path = "../ambition_platformer2d_session", features = ["dialogue"] }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 # Optional LDtk runtime support. The `ldtk_runtime` feature is required for
 # `LdtkRuntimeIndex` / `LdtkRuntimeSpinePlugin`; movement-only games leave this
@@ -31,6 +31,7 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "headless",
+    "dialogue",
 ] }
 # The gameplay trace recorder, installed with the engine (`TraceSchedulePlugin`).
 ambition_platformer2d_trace = { path = "../ambition_platformer2d_trace" }
@@ -68,7 +69,7 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # Optional for the same reason the LDtk edge above is: a portal is a
 # capability a game HAS. The monolith and the host already declare it this way.
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
-ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
+ambition_sim_view = { path = "../ambition_sim_view", features = ["input", "dialogue"] }
 # The combat-phase chain's effect seam (`EffectRequest`/`apply_effects`) —
 # sim-side effect vocabulary, not presentation.
 ambition_vfx = { path = "../ambition_vfx" }

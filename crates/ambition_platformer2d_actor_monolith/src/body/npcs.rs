@@ -174,6 +174,7 @@ mod tests {
 /// speaker's identity and authored dialogue. A missing authored bark is
 /// valid and produces no speech. Conversation continuity decides when
 /// to request a bark; character runtime decides what it says.
+#[cfg(feature = "dialogue")]
 pub fn speak_conversation_cut_barks(
     mut requests: bevy::prelude::MessageReader<ambition_conversation::ConversationCutBark>,
     speakers: bevy::prelude::Query<(

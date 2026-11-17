@@ -178,6 +178,7 @@ pub struct SessionScopedResources<'w> {
     /// ⭐ **SO IT IS MADE IMPOSSIBLE RATHER THAN TIMED.** One line of membership
     /// here costs nothing and removes the interval; establishing exactly how long
     /// the interval is would cost a poison test and leave the interval there.
+    #[cfg(feature = "dialogue")]
     active_conversation: Option<ResMut<'w, ambition_conversation::ActiveConversation>>,
     /// The cutscene's partial skip hold. Simulation state since the skip
     /// reads the seat's `ControlFrame::cancel_held` inside the timeline; reset
@@ -412,6 +413,7 @@ fn reset(resources: SessionScopedResources) {
         mut base_gravity,
         mut active_cutscene,
         mut cutscene_triggers,
+        #[cfg(feature = "dialogue")]
         mut active_conversation,
         mut cutscene_skip_hold,
         mut settled,
@@ -460,6 +462,7 @@ fn reset(resources: SessionScopedResources) {
     if let Some(cutscene_triggers) = cutscene_triggers.as_deref_mut() {
         *cutscene_triggers = ambition_cutscene::CutsceneTriggerQueue::default();
     }
+    #[cfg(feature = "dialogue")]
     if let Some(active_conversation) = active_conversation.as_deref_mut() {
         *active_conversation = ambition_conversation::ActiveConversation::default();
     }

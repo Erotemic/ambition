@@ -17,6 +17,7 @@ pub mod combat_geometry_observer;
 pub mod interaction_reach_observer;
 mod control_prompt;
 mod defense_view;
+#[cfg(feature = "dialogue")]
 mod dialog_view;
 mod facts;
 pub mod local_view;
@@ -48,6 +49,7 @@ pub use ambition_entity_catalog::action_scheme::{ActionId, ControlSlot, VisualId
 pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use camera_snapshot::{local_view_facts, CameraViewState, PresentedViewState};
 pub use defense_view::{defense_cue_causes, DefenseCueCauses};
+#[cfg(feature = "dialogue")]
 pub use dialog_view::{rebuild_dialog_view, DialogView};
 
 /// Dialogue facts are ready for this frame's presenters.
@@ -114,10 +116,13 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<GuardBreaksView>();
         app.init_resource::<BossFrameIndex>();
         app.init_resource::<NameplateIndex>();
-        app.init_resource::<DialogView>();
-        app.add_systems(bevy::prelude::Update,
-            rebuild_dialog_view.in_set(DialogViewSync)
-                .after(ambition_dialog::DialogFrameSet::Narrative));
+        #[cfg(feature = "dialogue")]
+        {
+            app.init_resource::<DialogView>();
+            app.add_systems(bevy::prelude::Update,
+                rebuild_dialog_view.in_set(DialogViewSync)
+                    .after(ambition_dialog::DialogFrameSet::Narrative));
+        }
         app.init_resource::<ControlPrompt>();
         app.init_resource::<PassageViews>();
         app.init_resource::<CombatGeometryView>();

@@ -71,6 +71,7 @@ where
     // before the conversation must not keep a record the resimulation has
     // not made. It is the one record of the step: no second decision is
     // made while it is present.
+    #[cfg(feature = "dialogue")]
     registrar.rollback_component_clone_probed::<crate::body::TalkSpacing>(
         OWNER,
         "actor.talk_spacing",

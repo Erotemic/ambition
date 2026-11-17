@@ -97,7 +97,7 @@ ambition_projectiles = { path = "../../crates/ambition_projectiles", features = 
 ambition_render = { path = "../../crates/ambition_render" }
 # Identity read-model for the content-owned actor overlay presentation
 # (the puppy-slug deep-dream pass reads dream participation from it).
-ambition_sim_view = { path = "../../crates/ambition_sim_view" }
+ambition_sim_view = { path = "../../crates/ambition_sim_view", features = ["dialogue"] }
 ambition_ui_nav = { path = "../../crates/ambition_ui_nav" }
 ambition_combat = { path = "../../crates/ambition_combat", features = ["content_pack"] }
 ambition_encounter = { path = "../../crates/ambition_encounter" }

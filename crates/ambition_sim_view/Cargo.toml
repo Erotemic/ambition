@@ -19,6 +19,9 @@ input = ["ambition_input/input"]
 # view reads arrive through the monolith. The `dep:` was a second edge to the
 # same crate with no user, and the feature keeps its meaning without it.
 portal = ["ambition_platformer2d_actor_monolith/portal"]
+# The dialogue read model (`DialogView`): what a dialogue box shows, from the
+# conversation and the dialogue runner. A game without dialogue links neither.
+dialogue = ["dep:ambition_dialog", "dep:ambition_conversation"]
 
 [dependencies]
 ambition_platformer2d_interaction = { path = "../ambition_platformer2d_interaction" }
@@ -40,9 +43,9 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_shrine = { path = "../ambition_shrine" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
-ambition_dialog = { path = "../ambition_dialog" }
+ambition_dialog = { path = "../ambition_dialog", optional = true }
 ambition_cutscene = { path = "../ambition_cutscene" }
-ambition_conversation = { path = "../ambition_conversation" }
+ambition_conversation = { path = "../ambition_conversation", optional = true }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_characters = { path = "../ambition_characters" }

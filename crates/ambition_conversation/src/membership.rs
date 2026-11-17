@@ -49,7 +49,7 @@ pub fn leave_descriptor() -> CommandDescriptor {
 /// placement's character first (an NPC), else the character it wears.
 fn character_of<'a>(form: Option<&'a CharacterForm>, interaction: Option<&'a ActorInteraction>) -> Option<&'a str> {
     interaction
-        .and_then(|interaction| super::opening::character_id_of(&interaction.interactable))
+        .and_then(|interaction| interaction.interactable.character_id())
         .or_else(|| form.map(CharacterForm::id))
 }
 

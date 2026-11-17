@@ -24,7 +24,7 @@ default = ["desktop_dev"]
 
 # Full desktop sandbox. This is the regular `cargo run` experience: visible
 # gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
-desktop_dev = ["visible", "desktop_platform", "dev_tools"]
+desktop_dev = ["visible", "desktop_platform", "dev_tools", "dialogue"]
 
 # Portal gun mechanic (the flagship player ability). Optional so non-portal
 # builds can compile out portal mechanics, portal rendering, and portal LDtk
@@ -223,7 +223,11 @@ android_dev = ["android", "dev_tools"]
 # `ambition_platformer2d_audio` (D33, 2026-10-23).
 # UI selection does not add a production dependency on `ambition_dialog`;
 # consumers that use dialogue enable it directly.
-ui = ["ambition_conversation/ui"]
+ui = ["ambition_conversation?/ui"]
+# Conversations with bodies: the interaction's talk branch, a talker's
+# spacing, a talked-to life's pause and the cut bark. Without it Interact
+# serves switches and no body is a speaker (P6, the dialogue cut).
+dialogue = ["dep:ambition_conversation"]
 # The Avian debris adapter is `ambition_platformer2d_physics_debris` (2026-10-23);
 # `world::physics` re-exports it.
 
@@ -313,7 +317,7 @@ ambition_combat = { path = "../ambition_combat" }
 ambition_damage = { path = "../ambition_damage" }
 # Conversation continuity — the `ActiveConversation` authority, the hold, the break rule + its cast
 # port, the narrative-input ledger, and the dialogue- opening seam.
-ambition_conversation = { path = "../ambition_conversation" }
+ambition_conversation = { path = "../ambition_conversation", optional = true }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_interaction = { path = "../ambition_interaction" }

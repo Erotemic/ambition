@@ -409,18 +409,17 @@ pub fn install_durable_save_horizon(app: &mut App) {
             .chain()
             .after(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Project),
     );
+    app.add_systems(sim, persist_occurrence_horizon_to_save.in_set(DurableHorizonSet::SessionMirror));
+    #[cfg(feature = "dialogue")]
     app.add_systems(
         sim,
-        (
-            persist_occurrence_horizon_to_save,
-            count_the_dialogue_visit_when_a_conversation_opens
-                // It counts the tick a conversation opens: none is live, nothing to count.
-                .run_if(|conversation: Option<Res<ambition_conversation::ActiveConversation>>| {
-                    conversation.is_some_and(|conversation| conversation.is_live())
-                })
-                .after(ambition_platformer2d_actor_monolith::body::interact_ecs_actors_and_switches),
-        )
-            .chain()
+        count_the_dialogue_visit_when_a_conversation_opens
+            // It counts the tick a conversation opens: none is live, nothing to count.
+            .run_if(|conversation: Option<Res<ambition_conversation::ActiveConversation>>| {
+                conversation.is_some_and(|conversation| conversation.is_live())
+            })
+            .after(ambition_platformer2d_actor_monolith::body::interact_ecs_actors_and_switches)
+            .after(persist_occurrence_horizon_to_save)
             .in_set(DurableHorizonSet::SessionMirror),
     );
     // ⭐ THE SAVE IS APPLIED BY THE SIMULATION (BODY-BORN-ON-THE-TIMELINE,
@@ -501,6 +500,7 @@ pub fn install_durable_save_horizon(app: &mut App) {
 /// clock `ConversationInstanceId::opened_at` documents rather than a case to
 /// support: a composition that cannot tell two visits apart has no visit edge.
 /// Every shipped composition has the clock.
+#[cfg(feature = "dialogue")]
 pub fn count_the_dialogue_visit_when_a_conversation_opens(
     // `Option` because a composition may install the save without the
     // conversation domain, or the clock without either.

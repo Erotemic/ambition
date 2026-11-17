@@ -30,6 +30,19 @@ pub struct Interactable {
 }
 
 impl Interactable {
+    /// The catalog character this interactable IS, if it is a character at all.
+    ///
+    /// A Hall pedestal, a hub NPC, a possessed body: each authors a
+    /// `character_id`. A switch, a chest, a nameless prop does not. Petting and
+    /// talking both ask it, so it is the interactable's own fact, not
+    /// dialogue's.
+    pub fn character_id(&self) -> Option<&str> {
+        match &self.kind {
+            InteractionKind::Npc { character_id, .. } => character_id.as_deref(),
+            _ => None,
+        }
+    }
+
     pub fn new(
         id: impl Into<String>,
         prompt: impl Into<String>,

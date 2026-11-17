@@ -519,7 +519,7 @@ pub fn live_lives(
     cycle: Option<Res<ambition_time::DayCycle>>,
     specs: LiveRoomSpecs,
     rooms: LiveRooms,
-    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    #[cfg(feature = "dialogue")] conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     characters: Query<(Entity, &CharacterForm)>,
     mut bodies: Query<(Entity, &mut Life, &CharacterForm, &ae::BodyKinematics, Option<&Visit>)>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
@@ -572,6 +572,7 @@ pub fn live_lives(
         }
         // A conversation holds the body (`interrupt_talked_to_lives` stopped
         // its plan): it waits.
+        #[cfg(feature = "dialogue")]
         if conversation.as_ref().is_some_and(|conversation| conversation.holds(body)) {
             continue;
         }
@@ -653,6 +654,7 @@ pub fn live_lives(
 /// Outside the gameplay gate: a conversation puts the game in dialogue, which
 /// stops gated systems, so a gated reader would never see the conversation
 /// open. `ActiveConversation` is the rollback authority it reads.
+#[cfg(feature = "dialogue")]
 pub fn interrupt_talked_to_lives(
     mut commands: Commands,
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,

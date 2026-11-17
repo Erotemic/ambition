@@ -7,7 +7,8 @@ authors.workspace = true
 description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/runtime/sim_view/leafwing. Must NOT dep ambition_content — that one IS boundary-tested (engine.host-names-no-content). Avoiding a DIRECT ambition_platformer2d_actor_monolith dep is a goal, not a ratchet: no guard has ever enforced it, and actors already arrives transitively via ambition_platformer2d_runtime, so do not cite it as settled — see docs/planning/engine/actor-monolith-decomposition.md. The shared per-frame SIM wiring lives in `ambition_platformer2d_runtime` (headless/RL runs it too)."
 
 [dependencies]
-ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
+# Only the dialogue rows' pointer input names it (`dialogue`).
+ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional = true }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
@@ -65,7 +66,9 @@ frame_pacing = ["render", "dep:bevy_framepace"]
 # because this edge was not optional. A composition that wants no renderer says
 # so by not naming this feature; one that draws forwards it, as the facade's
 # `visible` and `all_capabilities` do.
-default = ["render"]
+default = ["render", "dialogue"]
+# The pointer on an open dialogue's rows (P6, the dialogue cut).
+dialogue = ["dep:ambition_dialog"]
 # The presentation wiring only a DRAWING host needs: the camera follow/shake
 # cluster, the projectile visual passes, and the fx pipeline. `ambition_menu` and
 # `ambition_sprite_sheet` ride here because nothing outside this feature's own

@@ -270,9 +270,18 @@ fn a_saved_row_comes_back_and_a_row_of_an_older_shape_migrates() {
     let stored = loaded.get_stored(&COUNTER).expect("the row was adopted");
     assert_eq!(stored.shape, new.schemas[&COUNTER].shape);
     assert_eq!(stored.record.values(), &[Value::U32(0), Value::U32(7)], "(best, count)");
+    let saved: Vec<_> = rows.iter().cloned().map(|row| (SaveRoad::SessionDurable, row)).collect();
+    assert!(save::validate_saved_rows(&new, &saved).is_ok());
+    let retyped = durable(vec![FieldDecl::new(1, "count", FieldKind::F32)]);
+    let reason = save::validate_saved_rows(&retyped, &saved).unwrap_err();
+    assert!(reason.contains("field tag 1"), "{reason}");
+    let mut rejected = RecordSet::default();
+    assert!(!save::adopt_saved_rows(&retyped, SaveRoad::SessionDurable, &mut rejected, &rows).is_empty());
+    assert!(rejected.records().is_empty(), "an incompatible row must not become a default record");
 
     // A composition without the module keeps its row in the save.
     let other = admit_with_roads(API_VERSION, &offers(), &roads, &[]).unwrap();
+    assert!(save::validate_saved_rows(&other, &saved).is_ok());
     assert_eq!(save::merged_rows(&other, SaveRoad::SessionDurable, &rows, Vec::new()), rows);
     // And one with the module writes its live rows over the saved ones.
     assert_eq!(save::merged_rows(&old, SaveRoad::SessionDurable, &rows, Vec::new()), Vec::new());
@@ -712,7 +721,7 @@ fn a_project_selects_one_implementation_and_keeps_it_when_its_file_leaves() {
             )].into());
             assert_eq!(ExtensionGeneration::with_selections(&moved, &selections), generation,
                 "the same code in another directory keeps its generation identity");
-            let refusal = reload::stage_module_changes(app.world_mut(), vec![], vec!["clock.rhai".into()]).unwrap_err();
+            let refusal = reload::stage_module_changes(app.world_mut(), vec![], vec!["clock.rhai".into()], &[]).unwrap_err();
             assert!(refusal.contains("selected Artifact(\"clock.rhai\") provides 0 implementations"), "{refusal}");
             assert!(!reload::publish_staged_replacement(app.world_mut()));
             assert_eq!(*app.world().resource::<ExtensionGeneration>(), generation);
@@ -822,7 +831,7 @@ fn a_reloaded_module_takes_over_at_publication_and_keeps_its_records() {
     let mut rebuilt = module(vec![entry("a", vec![])]);
     rebuilt.entries[0].run = EntryCode::Native(count_by_ten);
     let (backend, published) = loaded(vec![rebuilt]);
-    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published, &[]).unwrap();
     // Staged is not published: the old code still runs.
     step(&mut app);
     assert!(reload::publish_staged_replacement(app.world_mut()));
@@ -846,13 +855,13 @@ fn a_reload_that_moves_live_state_to_another_store_or_is_refused_leaves_the_runn
     let mut moved = module(vec![entry("a", vec![])]);
     moved.schemas[0].attachment = Attachment::Session;
     let (backend, published) = loaded(vec![moved]);
-    let err = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap_err();
+    let err = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published, &[]).unwrap_err();
     assert!(err.contains("attachment"), "{err}");
 
     let mut broken = module(vec![entry("a", vec![])]);
     broken.entries[0].requests.push(PortKey::new("test.nowhere", 1));
     let (backend, published) = loaded(vec![broken]);
-    let err = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap_err();
+    let err = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published, &[]).unwrap_err();
     assert!(err.contains("refused"), "{err}");
 
     assert!(!app.world().resource::<reload::StagedModuleReplacement>().is_staged());
@@ -1179,7 +1188,7 @@ fn a_reload_that_reshapes_a_record_migrates_the_live_records_by_tag() {
         inv.submit::<Emit>((poke, count, height))
     });
     let (backend, published) = loaded(vec![reshaped]);
-    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published, &[]).unwrap();
     assert!(reload::publish_staged_replacement(app.world_mut()));
     let migrated = count(&app);
     assert_eq!(migrated.values(), &[Value::Bool(false), Value::U32(2), Value::F32(1.5)]);
@@ -1192,7 +1201,7 @@ fn a_reload_that_reshapes_a_record_migrates_the_live_records_by_tag() {
     retyped.schemas[0].fields = vec![FieldDecl::new(1, "count", FieldKind::F32)];
     retyped.entries[0].run = EntryCode::Native(|_| Ok(()));
     let (backend, published) = loaded(vec![retyped]);
-    let error = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap_err();
+    let error = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published, &[]).unwrap_err();
     assert!(error.contains("field tag 1") && error.contains("changed kind"), "{error}");
     assert!(!reload::publish_staged_replacement(app.world_mut()));
     assert_eq!(count(&app).values(), &[Value::Bool(false), Value::U32(3), Value::F32(1.5)]);
@@ -1297,7 +1306,7 @@ fn a_module_a_rebuilt_file_no_longer_exports_leaves_with_it() {
     assert_eq!(declared_versions(&app).len(), 2, "the premise: the file exports two modules");
 
     let (backend, published) = loaded(vec![module(vec![entry("a", vec![])])]);
-    reload::stage_loaded_replacement(app.world_mut(), "f.wasm", backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "f.wasm", backend, published, &[]).unwrap();
     assert!(reload::publish_staged_replacement(app.world_mut()));
     let keys: Vec<String> = declared_versions(&app).into_iter().map(|(k, _)| k).collect();
     assert_eq!(keys.len(), 1, "only the counter is left: {keys:?}");
@@ -1320,7 +1329,7 @@ fn a_reloaded_file_keeps_its_place_in_the_declaration_order() {
     assert_eq!(before.0.lines().count(), 2, "the premise: two files, one module each: {}", before.0);
 
     let (backend, published) = loaded(vec![module(vec![entry("a", vec![])])]);
-    reload::stage_loaded_replacement(app.world_mut(), "counter.wasm", backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "counter.wasm", backend, published, &[]).unwrap();
     assert!(reload::publish_staged_replacement(app.world_mut()));
     assert_eq!(*app.world().resource::<ExtensionGeneration>(), before);
 }
@@ -1352,11 +1361,12 @@ fn two_files_changed_before_one_publication_both_take_over() {
                     reload::LoadedArtifact { artifact: "counter.wasm".into(), backend: counter_backend, modules: counter },
                     reload::LoadedArtifact { artifact: "extra.wasm".into(), backend: extra_backend, modules: extra_v1 },
                 ],
+                &[],
             )
             .unwrap();
         } else {
-            reload::stage_loaded_replacement(app.world_mut(), "counter.wasm", counter_backend, counter).unwrap();
-            reload::stage_loaded_replacement(app.world_mut(), "extra.wasm", extra_backend, extra_v1).unwrap();
+            reload::stage_loaded_replacement(app.world_mut(), "counter.wasm", counter_backend, counter, &[]).unwrap();
+            reload::stage_loaded_replacement(app.world_mut(), "extra.wasm", extra_backend, extra_v1, &[]).unwrap();
         }
         assert!(reload::publish_staged_replacement(app.world_mut()));
         step(&mut app);
@@ -1398,7 +1408,7 @@ fn a_departed_schemas_records_go_and_do_not_come_back() {
     assert!(app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).is_some(), "the premise");
 
     let (backend, published) = loaded(vec![stateless()]);
-    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published, &[]).unwrap();
     assert!(reload::publish_staged_replacement(app.world_mut()));
     assert!(app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).is_none(), "gone from the body");
     assert!(app.world().get::<SessionRecords>(session).unwrap().get(&COUNTER).is_none(), "gone from the session");
@@ -1416,7 +1426,7 @@ fn a_departed_schemas_records_go_and_do_not_come_back() {
         Ok(())
     });
     let (backend, published) = loaded(vec![back]);
-    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published, &[]).unwrap();
     assert!(reload::publish_staged_replacement(app.world_mut()));
     step(&mut app);
     assert_eq!(

@@ -223,8 +223,13 @@ That save road keeps records for authored and provider-staged bodies under
 their stable identity. It does not keep records for bodies with no durable
 provenance, such as the current home avatar. Transient emitter and patrol
 records stay out of the save. A different kind on an existing field tag, or a
-change of attachment or save policy, is refused under a live schema. The last
-good code and records remain usable.
+change of attachment or save policy, is refused against live and saved schemas.
+The last good code and records remain usable. An unloaded module's saved rows
+stay in the save. Adding that module again must honor those rows. A fresh
+headless start with an incompatible saved schema refuses session activation
+and reports the schema key and changed field or policy. It does not rewrite the
+save file. Use a new schema key for new state; this is not an arbitrary state
+migration API.
 
 ```bash
 cargo test -p pulse_forge_host --test project_state -- --test-threads=1
@@ -233,5 +238,6 @@ cargo test -p pulse_forge_host --test project_state -- --test-threads=1
 This fixture also changes a script and its character tuning together. Invalid
 content holds both changes. Repairing that content publishes both. Each
 recorded invocation sees matching catalog, body, and script values. The old
-backend is released after publication. The trace, saved RON, and save/load
-observations go to `target/procedural-project-state`.
+backend is released after publication. This test keeps the durable counter
+active during publication. The trace, saved RON, save/load observations, and
+saved-schema refusals go to `target/procedural-project-state`.

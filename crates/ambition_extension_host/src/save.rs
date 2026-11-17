@@ -27,6 +27,53 @@ pub struct SavedRow {
     pub record: Vec<u8>,
 }
 
+pub(crate) fn schema_migration_refusal(to: &StateSchema, from: &StateSchema) -> Option<String> {
+    if to.attachment != from.attachment || to.save != from.save {
+        return Some(format!(
+            "schema {} changed its attachment or save policy from {:?}/{:?} to {:?}/{:?}; \
+             keep the stored contract, or declare new state under a new schema key",
+            to.key, from.attachment, from.save, to.attachment, to.save,
+        ));
+    }
+    for old in &from.fields {
+        if let Some(new) = to.fields.iter().find(|field| field.tag == old.tag) {
+            if old.kind != new.kind {
+                return Some(format!(
+                    "schema {} field tag {} ({}) changed kind from {:?} to {:?}; \
+                     keep the kind, or declare new state under a new schema key",
+                    to.key, old.tag, new.name, old.kind, new.kind,
+                ));
+            }
+        }
+    }
+    None
+}
+
+/// Check known saved schemas before code or a session becomes authoritative.
+/// Do not decode unknown schema keys. An unloaded module can return later.
+pub fn validate_saved_rows(admitted: &Admitted, rows: &[(SaveRoad, SavedRow)]) -> Result<(), String> {
+    if rows.is_empty() { return Ok(()); }
+    let known: std::collections::BTreeMap<_, _> = admitted.schemas.iter()
+        .map(|(key, schema)| (key.to_string(), schema)).collect();
+    for (road, row) in rows {
+        let Some(current) = known.get(&row.key) else { continue; };
+        let mut reader = WireReader::new(&row.schema);
+        let written = StateSchema::read(&mut reader)
+            .map_err(|error| format!("saved record {}: its schema does not decode: {error:?}", row.key))?;
+        reader.finish().map_err(|error| format!("saved record {}: {error:?}", row.key))?;
+        if row.key != written.key.to_string() {
+            return Err(format!("saved record {}: its schema names {}", row.key, written.key));
+        }
+        if SaveRoad::of(written.attachment, written.save) != Some(*road) {
+            return Err(format!("saved record {}: its stored policy does not belong to {road:?}", row.key));
+        }
+        if let Some(reason) = schema_migration_refusal(&current.schema, &written) {
+            return Err(format!("saved record {}: {reason}", row.key));
+        }
+    }
+    Ok(())
+}
+
 /// The admitted schemas that road `road` keeps.
 fn kept_by(admitted: &Admitted, road: SaveRoad) -> impl Iterator<Item = &SchemaKey> {
     admitted
@@ -130,6 +177,10 @@ pub fn adopt_saved_rows(admitted: &Admitted, road: SaveRoad, records: &mut Recor
         let Some(admitted_schema) = admitted.schemas.get(&written.key) else {
             continue;
         };
+        if let Some(reason) = schema_migration_refusal(&admitted_schema.schema, &written) {
+            problems.push(format!("saved record {}: {reason}", row.key));
+            continue;
+        }
         if SaveRoad::of(admitted_schema.schema.attachment, admitted_schema.schema.save) != Some(road) {
             continue;
         }

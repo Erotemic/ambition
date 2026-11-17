@@ -60,6 +60,9 @@ const BODY_ROAD: SaveRoad = SaveRoad::BodyDurable;
 /// after the extension host and the durable save horizon are in the App.
 pub fn install_module_save_road(app: &mut App) {
     let sim = app.sim_schedule();
+    // Headless hosts can admit modules on the first simulation tick.
+    app.add_systems(sim, validate_loaded_module_records
+        .after(ExtensionSet::Admit).in_set(DurableRestoreSet::Validate));
     app.offer_extension_save_road(ROAD)
         // Its writes are its own family (`module_records`), so its order
         // against the other domains' mirrors does not change the save.
@@ -89,6 +92,45 @@ pub fn install_module_save_road(app: &mut App) {
             ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
             start_body_records_fresh,
         );
+}
+
+/// The module rows carried by this save, with their storage roads.
+pub fn rows_of_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Vec<(SaveRoad, SavedRow)> {
+    save.module_records().iter().map(|row| (ROAD, to_saved(row)))
+        .chain(save.body_module_records().iter().map(|row| (BODY_ROAD, SavedRow {
+            key: row.key.clone(), schema: row.schema.clone(), record: row.record.clone(),
+        }))).collect()
+}
+
+/// The active save's module rows for a code-replacement admission.
+pub fn current_saved_rows(world: &bevy::prelude::World) -> Vec<(SaveRoad, SavedRow)> {
+    world.get_resource::<AmbitionGameSave>().map_or_else(Vec::new, |save| rows_of_save(save.data()))
+}
+
+/// Validate a candidate's own saved state against the code it would run.
+pub fn validate_saved_module_records(world: &bevy::prelude::World, save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Result<(), String> {
+    let admitted = world.get_resource::<ambition_extension_host::reload::StagedModuleReplacement>()
+        .and_then(|staged| staged.admitted())
+        .or_else(|| world.get_resource::<AdmittedExtensions>().map(|admitted| admitted.0.as_ref()));
+    if let Some(admitted) = admitted {
+        ambition_extension_host::save::validate_saved_rows(admitted, &rows_of_save(save))?;
+    }
+    Ok(())
+}
+
+fn validate_loaded_module_records(
+    restored: Res<SaveRestored>,
+    admitted: Res<AdmittedExtensions>,
+    save: Res<AmbitionGameSave>,
+    mut checked: Local<Option<(u64, u32)>>,
+) {
+    if restored.0 { *checked = None; return; }
+    let inputs = (admitted.0.digest, save.last_changed().get());
+    if *checked == Some(inputs) { return; }
+    if let Err(reason) = ambition_extension_host::save::validate_saved_rows(&admitted.0, &rows_of_save(save.data())) {
+        panic!("saved module state is refused before restore: {reason}");
+    }
+    *checked = Some(inputs);
 }
 
 fn to_saved(row: &PersistedModuleRecord) -> SavedRow {

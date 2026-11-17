@@ -197,7 +197,7 @@ Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
 | A5 | Two promotion tests pass. Six backend/rollback cases compare 280 input frames each. They compare initial and populated state, ordered requests, body and occurrence identities, cost admission, entity lifetime, projectile motion, and mana. A second release is refused for insufficient mana. Changed Rhai bolt speed produces a structured diff. | Keep this fixture when the authored actor and catalogs change. |
 | A1, A6 | Pulse Forge owns its two character rows, starting-character rule, LDtk world, technique binding, and a stateful Rhai group patrol. The stock debug runtime loads it without a compiler. The parity fixture proves emitter effects, patrol steering, horizontal motion, and turn state. The guide lists the domain interfaces. | Self-contained delivery belongs to A8. |
 | A2 | Project tests execute source edits, additions, removals, invocation faults, and failed whole-set reloads. The project publication trace records a repaired content/script pair reaching the running body together. | Keep the author guide and installed-port diagnostics current. |
-| A7 | Two project-state tests pass: paired publication, old-backend retirement, durable body save/load, and refusal of changed attachment or field kind under live records. The populated replay fixture remains green. | Check incompatible saved schemas at a fresh session admission; do not infer that from live-replacement refusal. |
+| A7 | Project-state tests cover paired publication with a durable counter, old-backend retirement, body save/load, and refusal of changed attachment or field kind against live and saved records. Fresh starts refuse session activation with incompatible saves. The populated replay fixture remains green. | Keep these checks with changes to state or publication. |
 | A8-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Build and package the release host, measure the three backends, and finish the guide. |
 
 Commands for this slice:
@@ -354,9 +354,38 @@ app check passed. Artifacts are `target/procedural-project-state/paired-trace.js
 `save.ron`, and `save-observation.json`. Logs use `target/procedural-project-*`.
 The guide states the durable identity requirement: the current home avatar has
 no durable construction provenance and does not use this body save road. This
-slice does not prove rejection of an incompatible saved schema at a fresh
-session admission. That check remains part of A7. Native build identity,
-release packaging, backend measurements, and platform loader checks remain.
+slice did not prove rejection of an incompatible saved schema at a fresh
+session admission. The next slice adds that check.
+
+Saved-schema admission, Linux x86_64, debug host, 2026-11-17:
+
+One compatibility check now covers live replacements and saved rows. It
+refuses changed attachment, save policy, or kind on an existing field tag.
+It permits compatible additions, removals, renames, and field reordering.
+Code replacement checks the active save before staging. Candidate session
+admission checks its own frozen save before activation. Fresh headless starts
+refuse activation with a useful diagnostic. A direct restore also checks saved
+schemas before it applies state. The save file stays intact. Unknown module rows stay opaque.
+
+The project fixture saves and loads an authored body's counter. It rejects
+incompatible fresh starts and an incompatible module added after its live
+schema has left. The paired content/script test also keeps this counter
+active. Publication succeeds while the record changes each tick.
+
+```bash
+cargo test -p ambition_extension_host --lib
+cargo test -p pulse_forge_host --test project_state -- --test-threads=1
+cargo test -p pulse_forge_host --test promotion -- --test-threads=1
+cargo test -p ambition_platformer2d_provider --lib the_candidate_gate_refuses_rather_than_retiring_a_playing_session
+cargo test -p ambition_app --test app_it -- a_durable_session_record_comes_back_with_its_save
+cargo check -p ambition_app
+cargo check -p ambition_app_tools --bin extension_inspect
+```
+
+Logs use `target/procedural-save-final-*`. The saved-schema diagnostic artifact
+is `target/procedural-project-state/save-admission-refusals.json`. Native build
+identity, release packaging, backend measurements, and platform loader checks
+remain.
 
 ## Owner documents and source locations
 

@@ -333,8 +333,13 @@ impl Plugin for AmbitionBossContentPlugin {
             sim,
             crate::AMBITION_RULES,
             (
+                // Off room replays: it advances the heavy-object cycle, a world
+                // value, and a reset is admitted only on a live tick
+                // (`admit_room_replay` is off replays and admits in this tick's
+                // PlayerInput phase).
                 reset_cut_rope_boss_arena_on_room_reset
                     .run_if(ambition_combat::events::a_replay_is_admitted)
+                    .run_if(not(resource_exists::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>))
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
                 emit_cut_rope_room_replay_after_the_conversation_ends
                     .run_if(cut_rope::a_cut_rope_replay_is_chosen_or_pending)

@@ -1082,6 +1082,16 @@ or active, the versus stage while its route is played. Versus netplay rewinds
 the whole world instead, so nothing is lost. Census: 29 unclassified over 10
 types.
 
+**Two more off replays (2026-11-17).** `trigger_cutscenes_in_volumes` is
+registered off replays as its two siblings are: it asks on every tick a body
+stands inside, so the first live tick after a replay asks again (it loses only
+a body that crossed a whole volume inside the replayed frames).
+`reset_cut_rope_boss_arena_on_room_reset` advances the heavy-object cycle, a
+world value a dialogue line branches on; a reset is admitted only on a live
+tick, and the system is now registered off replays so that does not rest on
+the schedule's order. The census reads a replay gate after other chained
+conditions. Census: 27 unclassified over 8 types.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

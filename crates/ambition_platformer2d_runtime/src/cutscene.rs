@@ -717,7 +717,12 @@ impl Plugin for CutsceneSchedulePlugin {
                 auto_trigger_room_cutscenes.run_if(bevy::ecs::schedule::common_conditions::not(
                     bevy::ecs::schedule::common_conditions::resource_exists::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>,
                 )),
-                trigger_cutscenes_in_volumes,
+                // Off replays as its siblings are: it asks on every tick a body
+                // stands inside, so the first live tick after a replay asks
+                // again, and a replay does not queue a second request.
+                trigger_cutscenes_in_volumes.run_if(bevy::ecs::schedule::common_conditions::not(
+                    bevy::ecs::schedule::common_conditions::resource_exists::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>,
+                )),
                 trigger_cutscenes_on_conditions.run_if(a_cutscene_starts_on_a_condition).run_if(
                     bevy::ecs::schedule::common_conditions::not(
                         bevy::ecs::schedule::common_conditions::resource_exists::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>,

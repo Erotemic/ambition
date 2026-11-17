@@ -301,7 +301,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 29
+UNCLASSIFIED_CEILING = 27
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200
@@ -373,8 +373,12 @@ def host_rewound_types(repo: Path = REPO) -> frozenset[str]:
     return frozenset(found)
 
 
+#: The gate may follow other chained conditions and sets on the system
+#: (`.run_if(a_replay_is_admitted).run_if(not(..RoomReplay..))`); their
+#: arguments nest at most two parentheses deep.
+_CHAINED_CALL = r"\s*\.(?:run_if|in_set|after|before)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)"
 _REPLAY_GATED = re.compile(
-    r"\b(\w+)\s*\.run_if\(\s*(?:[\w:]+::)?not\(\s*(?:[\w:]+::)?resource_exists::<\s*(?:[\w:]+::)?RoomReplay\s*,?\s*>"
+    rf"\b(\w+)(?:{_CHAINED_CALL})*\s*\.run_if\(\s*(?:[\w:]+::)?not\(\s*(?:[\w:]+::)?resource_exists::<\s*(?:[\w:]+::)?RoomReplay\s*,?\s*>"
 )
 
 

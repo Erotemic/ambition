@@ -1,0 +1,705 @@
+{
+  "invocation": {
+    "commit": "e399a5e2a72c27ffb81bb1ea49596b802da6f3ce",
+    "diff": " crates/ambition_extension_host/src/exec.rs  | 47 ++++++++++++++++++++++++++---\n crates/ambition_extension_host/src/lib.rs   |  2 +-\n dev/ambition_dev_measurements               |  0\n docs/recipes/writing-a-procedural-module.md |  6 ++--\n examples/projects/pulse_forge/README.md     |  2 ++\n examples/projects/pulse_forge/STANDALONE.md |  3 ++\n scripts/package/package_outlander.py        |  9 ++++--\n scripts/package/package_project.py          | 13 +++++---\n tools/ambition_music_renderer               |  0\n tools/ambition_sfx_renderer                 |  0\n 10 files changed, 65 insertions(+), 17 deletions(-)\n",
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "cpu": "\t: 11th Gen Intel(R) Core(TM) i9-11900K @ 3.50GHz",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2\n",
+    "command": [
+      "cargo",
+      "test",
+      "--release",
+      "-p",
+      "pulse_forge_host",
+      "--no-default-features",
+      "--features",
+      "desktop_player",
+      "--test",
+      "profile",
+      "--no-run",
+      "--message-format",
+      "json",
+      "--jobs",
+      "3"
+    ],
+    "build_seconds": 613.0336958309636,
+    "CARGO_INCREMENTAL": "0",
+    "host_sha256": "45322ed80e7f1491b5d879e35a7912e0ab98b753737f08321ad99ca2106cf8f6",
+    "input_sha256": {
+      "examples/projects/pulse_forge/modules/pulse_forge.rhai": "71a2180cd0eff83877a7677f056eb51839a7078395fb82cf8b279ae2af1e81de",
+      "examples/projects/pulse_forge/modules/sentinel.rhai": "4f429633f04e6739566967afd5670edea36ace8a290a3b3d82425569a2780a17",
+      "examples/projects/pulse_forge/build/pulse_forge.wasm": "7cdfa44fedf283fbf8304c510d8baa8d8fc212ae8d845c3f8494cecf5e844856",
+      "examples/projects/pulse_forge/portable/src/lib.rs": "497b8a68efd3136f9365fe62dbbc6a9e3cde3fa70fab04adba1bd5226e4e1b33"
+    },
+    "samples": [
+      {
+        "backend": "rhai",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 34431.78,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 6269.344,
+            "total_us": 40701.123999999996
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 15836.563000000002,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 2737.036,
+            "total_us": 18573.599
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 121037.889,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 17051.966,
+            "total_us": 138089.855
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 901980,
+          "rss_kib": 699148
+        },
+        "memory_before": {
+          "peak_rss_kib": 901980,
+          "rss_kib": 778188
+        },
+        "profile_counters": true,
+        "startup_ms": 3198.599159,
+        "step_mean_us": 614.3031382142847,
+        "step_median_us": 583.691,
+        "step_total_us": 1720048.786999997,
+        "ticks": 2800
+      },
+      {
+        "backend": "rhai",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 910468,
+          "rss_kib": 700296
+        },
+        "memory_before": {
+          "peak_rss_kib": 910468,
+          "rss_kib": 779392
+        },
+        "profile_counters": false,
+        "startup_ms": 3123.062409,
+        "step_mean_us": 648.937838571428,
+        "step_median_us": 602.441,
+        "step_total_us": 1817025.9479999982,
+        "ticks": 2800
+      },
+      {
+        "backend": "wasm",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 140478.74099999998,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 7608.722,
+            "total_us": 148087.463
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 67612.8,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 3508.764,
+            "total_us": 71121.564
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 143264.211,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 18285.553,
+            "total_us": 161549.76400000002
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 913248,
+          "rss_kib": 703124
+        },
+        "memory_before": {
+          "peak_rss_kib": 913248,
+          "rss_kib": 779504
+        },
+        "profile_counters": true,
+        "startup_ms": 3094.772146,
+        "step_mean_us": 755.6148560714278,
+        "step_median_us": 731.4449999999999,
+        "step_total_us": 2115721.5969999977,
+        "ticks": 2800
+      },
+      {
+        "backend": "wasm",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 911740,
+          "rss_kib": 705040
+        },
+        "memory_before": {
+          "peak_rss_kib": 911740,
+          "rss_kib": 717468
+        },
+        "profile_counters": false,
+        "startup_ms": 3092.3276720000003,
+        "step_mean_us": 743.4030228571436,
+        "step_median_us": 720.581,
+        "step_total_us": 2081528.464000002,
+        "ticks": 2800
+      },
+      {
+        "backend": "linked",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 784.102,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 3568.147,
+            "total_us": 4352.249
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 554.329,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 1564.7250000000001,
+            "total_us": 2119.054
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 133888.7,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 17871.474,
+            "total_us": 151760.174
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 914192,
+          "rss_kib": 700704
+        },
+        "memory_before": {
+          "peak_rss_kib": 914192,
+          "rss_kib": 778932
+        },
+        "profile_counters": true,
+        "startup_ms": 3133.829489,
+        "step_mean_us": 623.975009285714,
+        "step_median_us": 573.302,
+        "step_total_us": 1747130.0259999991,
+        "ticks": 2800
+      },
+      {
+        "backend": "linked",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 914192,
+          "rss_kib": 699748
+        },
+        "memory_before": {
+          "peak_rss_kib": 914192,
+          "rss_kib": 778404
+        },
+        "profile_counters": false,
+        "startup_ms": 3140.2252649999996,
+        "step_mean_us": 688.5403496428556,
+        "step_median_us": 624.403,
+        "step_total_us": 1927912.9789999956,
+        "ticks": 2800
+      },
+      {
+        "backend": "wasm",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 138954.17500000002,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 7650.609,
+            "total_us": 146604.78399999999
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 68749.401,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 3585.387,
+            "total_us": 72334.788
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 141668.38400000002,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 18152.593,
+            "total_us": 159820.977
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 916856,
+          "rss_kib": 707648
+        },
+        "memory_before": {
+          "peak_rss_kib": 916856,
+          "rss_kib": 783588
+        },
+        "profile_counters": true,
+        "startup_ms": 3130.644251,
+        "step_mean_us": 748.9501014285709,
+        "step_median_us": 722.989,
+        "step_total_us": 2097060.2839999984,
+        "ticks": 2800
+      },
+      {
+        "backend": "wasm",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 914156,
+          "rss_kib": 705740
+        },
+        "memory_before": {
+          "peak_rss_kib": 914156,
+          "rss_kib": 781636
+        },
+        "profile_counters": false,
+        "startup_ms": 3109.808269,
+        "step_mean_us": 728.5398525000011,
+        "step_median_us": 710.0169999999999,
+        "step_total_us": 2039911.5870000029,
+        "ticks": 2800
+      },
+      {
+        "backend": "linked",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 829.736,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 3437.2780000000002,
+            "total_us": 4267.014
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 554.282,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 1535.552,
+            "total_us": 2089.834
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 131365.98799999998,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 17502.818,
+            "total_us": 148868.80599999998
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 907416,
+          "rss_kib": 701240
+        },
+        "memory_before": {
+          "peak_rss_kib": 907416,
+          "rss_kib": 780216
+        },
+        "profile_counters": true,
+        "startup_ms": 3125.263145,
+        "step_mean_us": 602.3877692857152,
+        "step_median_us": 565.0409999999999,
+        "step_total_us": 1686685.7540000025,
+        "ticks": 2800
+      },
+      {
+        "backend": "linked",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 917248,
+          "rss_kib": 699784
+        },
+        "memory_before": {
+          "peak_rss_kib": 917248,
+          "rss_kib": 702572
+        },
+        "profile_counters": false,
+        "startup_ms": 3089.136064,
+        "step_mean_us": 629.4729957142862,
+        "step_median_us": 565.78,
+        "step_total_us": 1762524.3880000014,
+        "ticks": 2800
+      },
+      {
+        "backend": "rhai",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 36367.622,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 6532.612,
+            "total_us": 42900.234000000004
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 17845.702,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 3141.121,
+            "total_us": 20986.823
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 130417.532,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 18002.171000000002,
+            "total_us": 148419.70299999998
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 928104,
+          "rss_kib": 703392
+        },
+        "memory_before": {
+          "peak_rss_kib": 928104,
+          "rss_kib": 721492
+        },
+        "profile_counters": true,
+        "startup_ms": 3094.475976,
+        "step_mean_us": 649.6345146428567,
+        "step_median_us": 590.984,
+        "step_total_us": 1818976.640999999,
+        "ticks": 2800
+      },
+      {
+        "backend": "rhai",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 906124,
+          "rss_kib": 698604
+        },
+        "memory_before": {
+          "peak_rss_kib": 906124,
+          "rss_kib": 777828
+        },
+        "profile_counters": false,
+        "startup_ms": 3109.3875519999997,
+        "step_mean_us": 660.5582214285737,
+        "step_median_us": 595.1809999999999,
+        "step_total_us": 1849563.0200000063,
+        "ticks": 2800
+      },
+      {
+        "backend": "linked",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 819.596,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 3608.862,
+            "total_us": 4428.458
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 572.1170000000001,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 1660.04,
+            "total_us": 2232.1569999999997
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 131628.038,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 17292.251,
+            "total_us": 148920.28900000002
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 917008,
+          "rss_kib": 704356
+        },
+        "memory_before": {
+          "peak_rss_kib": 917008,
+          "rss_kib": 783652
+        },
+        "profile_counters": true,
+        "startup_ms": 3158.633277,
+        "step_mean_us": 601.2376514285706,
+        "step_median_us": 568.8009999999999,
+        "step_total_us": 1683465.4239999978,
+        "ticks": 2800
+      },
+      {
+        "backend": "linked",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 915112,
+          "rss_kib": 700444
+        },
+        "memory_before": {
+          "peak_rss_kib": 915112,
+          "rss_kib": 779676
+        },
+        "profile_counters": false,
+        "startup_ms": 3146.219956,
+        "step_mean_us": 604.1215657142855,
+        "step_median_us": 565.7099999999999,
+        "step_total_us": 1691540.3839999994,
+        "ticks": 2800
+      },
+      {
+        "backend": "rhai",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 36334.42,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 6419.786999999999,
+            "total_us": 42754.207
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 16980.695,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 2906.599,
+            "total_us": 19887.293999999998
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 126520.622,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 17488.263,
+            "total_us": 144008.885
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 905716,
+          "rss_kib": 697008
+        },
+        "memory_before": {
+          "peak_rss_kib": 905716,
+          "rss_kib": 698576
+        },
+        "profile_counters": true,
+        "startup_ms": 3087.857092,
+        "step_mean_us": 625.452577857145,
+        "step_median_us": 595.643,
+        "step_total_us": 1751267.218000006,
+        "ticks": 2800
+      },
+      {
+        "backend": "rhai",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 909092,
+          "rss_kib": 696796
+        },
+        "memory_before": {
+          "peak_rss_kib": 909092,
+          "rss_kib": 713252
+        },
+        "profile_counters": false,
+        "startup_ms": 3117.329525,
+        "step_mean_us": 613.2040353571423,
+        "step_median_us": 583.952,
+        "step_total_us": 1716971.2989999985,
+        "ticks": 2800
+      },
+      {
+        "backend": "wasm",
+        "cycles": 10,
+        "entries": {
+          "pulse_forge::emitter/charge": {
+            "backend_us": 138658.337,
+            "calls": 1420,
+            "faults": 0,
+            "host_us": 7573.090999999999,
+            "total_us": 146231.42799999999
+          },
+          "pulse_forge::emitter/pulse": {
+            "backend_us": 67117.576,
+            "calls": 660,
+            "faults": 0,
+            "host_us": 3433.9449999999997,
+            "total_us": 70551.52100000001
+          },
+          "pulse_forge::sentinel/think": {
+            "backend_us": 142377.574,
+            "calls": 2800,
+            "faults": 0,
+            "host_us": 17767.953,
+            "total_us": 160145.527
+          }
+        },
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 917456,
+          "rss_kib": 708844
+        },
+        "memory_before": {
+          "peak_rss_kib": 917456,
+          "rss_kib": 785116
+        },
+        "profile_counters": true,
+        "startup_ms": 3082.585165,
+        "step_mean_us": 736.355867857142,
+        "step_median_us": 715.8820000000001,
+        "step_total_us": 2061796.4299999976,
+        "ticks": 2800
+      },
+      {
+        "backend": "wasm",
+        "cycles": 10,
+        "entries": {},
+        "first_projectile_ms": null,
+        "memory_after": {
+          "peak_rss_kib": 913580,
+          "rss_kib": 702856
+        },
+        "memory_before": {
+          "peak_rss_kib": 913580,
+          "rss_kib": 754416
+        },
+        "profile_counters": false,
+        "startup_ms": 3096.602543,
+        "step_mean_us": 740.8277017857152,
+        "step_median_us": 718.6719999999999,
+        "step_total_us": 2074317.5650000027,
+        "ticks": 2800
+      }
+    ]
+  },
+  "edits": {
+    "controls": {
+      "module_noop_s": 0.23810291796689853,
+      "release_host_noop_s": 1.0749332460109144,
+      "probe_noop_s": 0.9010478059644811
+    },
+    "samples": [
+      {
+        "backend": "rhai",
+        "build_s": 0.0,
+        "probe_build_s": 0.0,
+        "edit_to_observed_s": 3.1311888220370747,
+        "code_sha256": "4abfb1b9009416c6045673d39015973ecde691e941aaf65a2df47fdb51f6a3c7"
+      },
+      {
+        "backend": "wasm",
+        "build_s": 0.47043216199381277,
+        "probe_build_s": 0.0,
+        "edit_to_observed_s": 3.6755838489625603,
+        "code_sha256": "1853ef7cae22ae2fca18971401b10a4f774e26e719d9db7a0b25f5386d847363"
+      },
+      {
+        "backend": "linked",
+        "build_s": 3.734234370989725,
+        "probe_build_s": 3.1265673249727115,
+        "edit_to_observed_s": 10.028587682987563,
+        "code_sha256": "1a0595def6d4a98882f030e4b0273548e01384409db1907d2961bf889641a527"
+      },
+      {
+        "backend": "rhai",
+        "build_s": 0.0,
+        "probe_build_s": 0.0,
+        "edit_to_observed_s": 3.148868679010775,
+        "code_sha256": "4abfb1b9009416c6045673d39015973ecde691e941aaf65a2df47fdb51f6a3c7"
+      },
+      {
+        "backend": "wasm",
+        "build_s": 0.4251671639503911,
+        "probe_build_s": 0.0,
+        "edit_to_observed_s": 3.6066226099501364,
+        "code_sha256": "1853ef7cae22ae2fca18971401b10a4f774e26e719d9db7a0b25f5386d847363"
+      },
+      {
+        "backend": "linked",
+        "build_s": 3.784565933048725,
+        "probe_build_s": 3.0561817020061426,
+        "edit_to_observed_s": 10.003533170034643,
+        "code_sha256": "1a0595def6d4a98882f030e4b0273548e01384409db1907d2961bf889641a527"
+      },
+      {
+        "backend": "rhai",
+        "build_s": 0.0,
+        "probe_build_s": 0.0,
+        "edit_to_observed_s": 3.172640064964071,
+        "code_sha256": "4abfb1b9009416c6045673d39015973ecde691e941aaf65a2df47fdb51f6a3c7"
+      },
+      {
+        "backend": "wasm",
+        "build_s": 0.42058280197670683,
+        "probe_build_s": 0.0,
+        "edit_to_observed_s": 3.6024148499709554,
+        "code_sha256": "1853ef7cae22ae2fca18971401b10a4f774e26e719d9db7a0b25f5386d847363"
+      },
+      {
+        "backend": "linked",
+        "build_s": 3.8177545919897966,
+        "probe_build_s": 3.0994689680519514,
+        "edit_to_observed_s": 10.06103342800634,
+        "code_sha256": "1a0595def6d4a98882f030e4b0273548e01384409db1907d2961bf889641a527"
+      }
+    ],
+    "mode": "restart; observed projectile velocity; native total includes separate probe build",
+    "commands": {
+      "module": [
+        "/home/joncrall/code/ambition/scripts/regen/build_extension_modules.sh",
+        "pulse_forge_modules"
+      ],
+      "host": [
+        "cargo",
+        "build",
+        "--release",
+        "-p",
+        "pulse_forge_host",
+        "--no-default-features",
+        "--features",
+        "desktop_player",
+        "--bin",
+        "pulse_forge_host",
+        "--jobs",
+        "3"
+      ],
+      "probe": [
+        "cargo",
+        "test",
+        "--release",
+        "-p",
+        "pulse_forge_host",
+        "--no-default-features",
+        "--features",
+        "desktop_player",
+        "--test",
+        "profile",
+        "--no-run",
+        "--message-format",
+        "json",
+        "--jobs",
+        "3"
+      ]
+    }
+  }
+}

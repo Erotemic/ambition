@@ -44,7 +44,7 @@ pub use exec::{
     run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink,
     InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick, InTechniqueExecution,
     InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn, PendingInvocation, ScopePace,
-    Submitted, Supplier,
+    Submitted, Supplier, ExtensionProfile, EntryProfile,
 };
 pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
 

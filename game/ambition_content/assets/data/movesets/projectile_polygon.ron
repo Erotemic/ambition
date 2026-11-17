@@ -141,6 +141,7 @@
                         "capture_throw_forward": "polygon_projectile_throw_forward",
                         "capture_throw_up": "polygon_projectile_throw_up",
                         "grab": "polygon_projectile_grab",
+                        "grab_air": "polygon_projectile_tether_air",
                         "grab_dash": "polygon_projectile_grab_dash",
                         "smash_down": "polygon_projectile_smash_down",
                         "smash_forward": "polygon_projectile_smash_forward",
@@ -494,6 +495,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
+                                            properties: (armor: Bypass),
                                             shape: Rect(
                                                 offset: (30.0, -3.0),
                                                 half_extents: (24.0, 20.0),
@@ -831,6 +833,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
+                                            properties: (clash: Transcendent, weight: Fixed(1.0)),
                                             shape: Rect(
                                                 offset: (28.0, -3.0),
                                                 half_extents: (22.0, 18.0),
@@ -838,6 +841,82 @@
                                             damage: 9,
                                             knockback: 108.0,
                                             knockback_growth: Some(2.05),
+                                            launch_dir: Some((1.0, -0.32)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.16,
+                                    end_s: 0.32999998,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [],
+                            gates: (
+                                grounded: Some(false),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "polygon_projectile_tether_air",
+                            display_name: Some("Aerial tether lash"),
+                            clip: (
+                                clip: "air_forward",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.32999998,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.08,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.08,
+                                    end_s: 0.16,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            properties: (clash: Transcendent, weight: Fixed(1.0)),
+                                            shape: Rect(
+                                                offset: (58.0, -3.0),
+                                                half_extents: (48.0, 9.0),
+                                            ),
+                                            damage: 6,
+                                            knockback: 95.0,
+                                            knockback_growth: Some(1.4),
                                             launch_dir: Some((1.0, -0.32)),
                                             reaction: None,
                                             on_hit: None,
@@ -981,6 +1060,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
+                                            properties: (hitlag_scale: 0.75, sdi_scale: 0.5),
                                             shape: Rect(
                                                 offset: (2.0, -27.0),
                                                 half_extents: (21.0, 23.0),
@@ -1056,6 +1136,7 @@
                                     tag: Active,
                                     volumes: [
                                         (
+                                            properties: (targets: (grounded: false, airborne: true, prone: false), tech: Deny),
                                             shape: Rect(
                                                 offset: (2.0, 25.0),
                                                 half_extents: (21.0, 21.0),
@@ -1064,6 +1145,21 @@
                                             knockback: 126.0,
                                             knockback_growth: Some(2.35),
                                             launch_dir: Some((0.0, 1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                        (
+                                            properties: (targets: (grounded: true, airborne: false, prone: true)),
+                                            shape: Rect(
+                                                offset: (2.0, 25.0),
+                                                half_extents: (21.0, 21.0),
+                                            ),
+                                            damage: 8,
+                                            knockback: 126.0,
+                                            knockback_growth: Some(2.35),
+                                            launch_dir: Some((0.3, -1.0)),
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),

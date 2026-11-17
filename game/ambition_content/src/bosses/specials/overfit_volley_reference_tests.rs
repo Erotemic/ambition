@@ -149,6 +149,8 @@ pub fn spawn_overfit_volley_from_special_messages(
                     projectiles.write(ProjectileSpawnRequest::open(
                         entity,
                         ProjectileSpawn {
+                            properties: Default::default(),
+                            guard: Default::default(),
                             origin,
                             dir,
                             speed: shot_speed,

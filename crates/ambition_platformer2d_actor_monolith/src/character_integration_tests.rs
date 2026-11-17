@@ -77,6 +77,7 @@ fn strike(id: &str, damage: i32) -> MoveSpec {
             end_s: 0.2,
             tag: WindowTag::Active,
             volumes: vec![HitVolume {
+                properties: Default::default(),
                 // An ordinary hit, not a gust.
                 shape: VolumeShape::Rect {
                     offset: (24.0, 0.0),

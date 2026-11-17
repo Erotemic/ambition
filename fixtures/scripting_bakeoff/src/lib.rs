@@ -145,6 +145,8 @@ fn submit(inv: &mut Invocation<'_>, request: &J) -> Result<(), String> {
     match port {
         "projectile" => inv
             .submit::<ProjectileSpawnPort>(ProjectileSpawn {
+                properties: Default::default(),
+                guard: Default::default(),
                 origin: Vec2::from(vec2(field("origin")?, "origin")?),
                 dir: Vec2::from(vec2(field("dir")?, "dir")?),
                 speed: number(field("speed")?, "speed")? as f32,

@@ -49,6 +49,8 @@ fn a_projectile_retains_its_pose_when_a_recipients_partition_is_refused() {
         ae::CenteredAabb::new(center,Vec2::splat(10.0)),DamageableVolumes::body_box(Vec2::splat(10.0)),
         MaterialBudget(ae::frame::thread::PieceBudget {max_pieces:0,..ae::frame::thread::PieceBudget::SINGLE_HOP}))).id();
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin: center - Vec2::X * 20.0, dir: Vec2::X, speed: 1200.0,
         damage: 1, max_lifetime: 3.0, half_extent: Vec2::splat(2.0), gravity: 0.0,
         visual_id: "recipient_refusal_gauge".into(), bounces: 0, bounce_on_world_contact: false,
@@ -173,6 +175,8 @@ fn a_projectile_refuses_a_portal_cut_before_motion_and_resumes_when_admitted() {
     };
     let (enter, exit) = crate::common::first_floor_authored_portal_pair(&mut sim);
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin: enter.pos + enter.normal * 80.0, dir: -enter.normal, speed: 1200.0,
         damage: 1, max_lifetime: 3.0, half_extent: Vec2::splat(5.0), gravity: 0.0,
         visual_id: "seam_gauge".into(), bounces: 0, bounce_on_world_contact: false,
@@ -278,6 +282,8 @@ fn a_projectile_spends_remaining_time_once_after_a_scaled_root_crossing() {
         if reverse {pair.reverse();}
         let (entry,exit)=(&pair[0],&pair[1]);
         sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             origin:entry.pos+entry.normal*6.0,dir:-entry.normal,speed:1200.0,
             damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
             visual_id:"remaining_time_gauge".into(),bounces:0,bounce_on_world_contact:false,
@@ -339,6 +345,8 @@ fn a_projectile_continues_through_the_authored_chain_with_one_tick_clock() {
             (entry,exit,owner)
         };
         sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             origin:entry.pos+entry.normal*6.0,dir:-entry.normal,speed:1440.0,
             damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
             visual_id:"chain_time_gauge".into(),bounces:0,bounce_on_world_contact:false,
@@ -416,6 +424,8 @@ fn a_returning_projectile_keeps_one_contact_budget_across_root_legs() {
         recipients.push(target);
     }
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin:entry.pos+entry.normal*6.0,dir:-entry.normal,speed:1200.0,
         damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
         visual_id:"return_contact_budget".into(),bounces:0,bounce_on_world_contact:false,
@@ -498,6 +508,8 @@ fn scaled_tip_contact(reverse:bool,response:TipResponse) {
             absorb_window_timer:if absorb {0.2} else {0.0},..Default::default()});
     }
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin:entry.pos+entry.normal*if after_transit {6.0} else {10.0},dir:-entry.normal,speed:if after_transit {1200.0} else {600.0},
         damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
         visual_id:"scaled_tip_gauge".into(),bounces:0,bounce_on_world_contact:false,
@@ -663,6 +675,8 @@ fn the_authored_moving_exit_hits_its_target_before_the_shots_root_transfers() {
     }
     assert!(ready, "the authored host must sweep toward the target");
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin: entry.pos + entry.normal * 6.0,
         dir: -entry.normal,
         speed: 1200.0,
@@ -740,6 +754,8 @@ fn far_side_contact(motion:ContactMotion) {
         }));
     }
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin: enter.pos + enter.normal * if matches!(motion,ContactMotion::Endpoint) {45.0} else {40.0},
         dir: -enter.normal,
         speed: 600.0,

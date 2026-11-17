@@ -25,9 +25,10 @@
     "⚠ HONEST COST: this carve makes the sentinel's closure BIGGER by one crate, not smaller. What it bought is elsewhere — `ambition_vfx` now builds with `ambition_platformer2d_core` absent from its closure entirely (measured with `cargo tree --edges normal`), the first crate for which that is true after four earlier carves that only removed a DECLARED edge. A consumer that links the whole facade pays one more compilation unit; a consumer that wants only the effect vocabulary now stops at four general-named crates.",
     "2026-08-09 — baseline moved by the `ambition_character_sprites` carve (D33). ADDED ['ambition_character_sprites']; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — the code is the animation pickers, the sheet-authored body geometry and the manifest attack hitbox, all of which the sentinel already compiled inside `ambition_platformer2d_actor_monolith`. What changed is that they answer upward now: the actor crate does NOT depend on this crate, so an edit to a sprite derivation no longer rebuilds 112k lines of unrelated actor code. A carve that had left the registration behind would have put it BELOW the actor crate instead and bought none of that — see the D33 row.",
     "2026-08-17 — baseline moved by the `ambition_conversation` carve (D33 step 2). ADDED ['ambition_conversation'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the conversation-continuity authority, ledger, hold and break rule that had been compiling inside `ambition_platformer2d_actor_monolith` since it was written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for` rather than the wanted half, and that is the honest entry: a movement-only game asked for neither dialogue nor conversation, and `ambition_dialog` and `ambition_ui_nav` were already counted unwanted for exactly this reason. ⛔ so the count reads 16 where it read 15, and the carve did NOT cause that — it NAMED it. The number that would mean something is a consumer linking code it did not already link, and this is not that. Shedding it needs the capability to become optional at the monolith's edge, which is the §4 obligation, not this move.",
-    "2026-08-17 — baseline moved by the `ambition_boss_encounter` carve (D33). ADDED ['ambition_boss_encounter'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the boss data model, catalog, phase tick, encounter entity and reward chests that had been compiling inside `ambition_platformer2d_actor_monolith` since they were written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for`, which is the honest half: a movement-only game asked for no bosses, and `ambition_encounter` was already counted unwanted for exactly that reason. ⛔ so the count reads 17 where it read 16, and the carve did NOT cause that — it NAMED it. What it bought is elsewhere: 7,635 lines left the largest compilation unit in the workspace, and the boss domain now answers upward, so a boss edit no longer rebuilds 114k lines of unrelated actor code. Shedding it from the closure needs the capability to become optional at the monolith's edge — the §4 obligation, not this move."
+    "2026-08-17 — baseline moved by the `ambition_boss_encounter` carve (D33). ADDED ['ambition_boss_encounter'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the boss data model, catalog, phase tick, encounter entity and reward chests that had been compiling inside `ambition_platformer2d_actor_monolith` since they were written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for`, which is the honest half: a movement-only game asked for no bosses, and `ambition_encounter` was already counted unwanted for exactly that reason. ⛔ so the count reads 17 where it read 16, and the carve did NOT cause that — it NAMED it. What it bought is elsewhere: 7,635 lines left the largest compilation unit in the workspace, and the boss domain now answers upward, so a boss edit no longer rebuilds 114k lines of unrelated actor code. Shedding it from the closure needs the capability to become optional at the monolith's edge — the §4 obligation, not this move.",
+    "2026-11-17: S0.3 adds ambition_hit_spec. Shared hit values replace the guard twins and carry new contact policy. This is one new value crate, with serde only. It adds no simulation domain or ECS dependency."
   ],
-  "measured_on": "2026-11-10",
+  "measured_on": "2026-11-17",
   "sentinel": "fixtures/minimal_game (declares `ambition_platformer2d` and nothing else)",
   "ambition_closure": [
     "ambition_abilities",
@@ -58,6 +59,7 @@
     "ambition_geometry",
     "ambition_geometry_observation",
     "ambition_held_items",
+    "ambition_hit_spec",
     "ambition_input",
     "ambition_interaction",
     "ambition_items",
@@ -105,7 +107,7 @@
     "ambition_world_items",
     "ambition_world_returns"
   ],
-  "closure_size": 74,
+  "closure_size": 75,
   "never_asked_for": [
     "ambition_abilities",
     "ambition_audio",

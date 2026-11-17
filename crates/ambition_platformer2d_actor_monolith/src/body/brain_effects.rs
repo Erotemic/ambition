@@ -238,6 +238,7 @@ pub fn spawn_projectiles_from_brain_actions(
         // Flight is the ACTION's to author; the shared envelope is the fallback
         // for every ranged verb that doesn't care.
         let flight = spec.flight.unwrap_or(ProjectileFlight {
+            properties: Default::default(), guard: Default::default(),
             gravity: 0.0,
             bounces: 0,
             bounce_on_world_contact: false,
@@ -352,7 +353,7 @@ pub fn spawn_projectiles_from_brain_actions(
             }
             _ => spawn_origin,
         };
-        let spawn = ProjectileSpawn {
+        let spawn = ProjectileSpawn { properties: flight.properties, guard: flight.guard,
             origin: spawn_origin,
             dir: world_dir,
             speed: spec.speed(),
@@ -473,9 +474,9 @@ pub fn spawn_projectiles_from_brain_actions(
         if let Some(mut body_flight) = body_flight {
             let waiting = body_flight.pending_launch_state();
             if waiting.is_empty() {
-                body_flight.stage_launch(kick, true);
+                body_flight.stage_launch(kick, true, Default::default());
             } else {
-                body_flight.stage_launch(waiting.velocity + kick, waiting.flinchless);
+                body_flight.stage_launch(waiting.velocity + kick, waiting.flinchless, Default::default());
             }
         }
 

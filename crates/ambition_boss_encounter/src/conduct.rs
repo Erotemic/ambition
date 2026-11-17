@@ -491,6 +491,7 @@ pub fn strike_with_limbs(
         let hitbox = commands
             .spawn((
                 Hitbox {
+                    properties: Default::default(),
                     strike_sfx: None,
                     owner: limb,
                     source: ambition_combat::strike::HitSide::Boss,
@@ -603,7 +604,7 @@ pub fn launch_mounts(
             );
             continue;
         };
-        flight.stage_launch(ae::Vec2::from(launch.velocity), launch.flinchless);
+        flight.stage_launch(ae::Vec2::from(launch.velocity), launch.flinchless, Default::default());
     }
 }
 
@@ -681,7 +682,7 @@ pub fn launch_foes(
             );
             continue;
         };
-        flight.stage_launch(ae::Vec2::from(launch.velocity), launch.flinchless);
+        flight.stage_launch(ae::Vec2::from(launch.velocity), launch.flinchless, Default::default());
     }
 }
 

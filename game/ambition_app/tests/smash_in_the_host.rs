@@ -4494,6 +4494,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
                 .into();
             app.world_mut()
                 .write_message(ambition_platformer2d::combat::events::HitEvent {
+                    properties: Default::default(),
                     contact: None,
                     pieces: Vec::new(),
                     strike_sfx: None,
@@ -6196,6 +6197,7 @@ mod launched {
             .world_mut()
             .spawn((
                 ambition_platformer2d::combat::strike::Hitbox {
+                    properties: Default::default(),
                     // An ordinary hit, not a gust.
                     owner: attacker,
                     source: ambition_platformer2d::combat::strike::HitSide::Enemy,
@@ -7028,6 +7030,7 @@ mod ring_out {
             .world_mut()
             .spawn((
                 ambition_platformer2d::combat::strike::Hitbox {
+                    properties: Default::default(),
                     owner: attacker,
                     source: ambition_platformer2d::combat::strike::HitSide::Enemy,
                     anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {

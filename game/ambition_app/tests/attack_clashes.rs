@@ -68,6 +68,8 @@ fn a_pair_at_the_victim(window: f32) -> (i32, usize, usize) {
         sim.world_mut().write_message(ProjectileSpawnRequest::open(
             owner,
             ProjectileSpawn {
+                properties: Default::default(),
+                guard: Default::default(),
                 origin: at,
                 dir: Vec2::new(1.0, 0.0),
                 speed: 0.0,

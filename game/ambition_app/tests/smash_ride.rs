@@ -621,6 +621,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
         // the question that matters.
         world.spawn((
             ambition_platformer2d::combat::strike::Hitbox {
+                properties: Default::default(),
                 // The seat that is not the rider: an opponent's swing.
                 owner: seat0,
                 source: ambition_platformer2d::vfx::HitSide::Player,
@@ -845,6 +846,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
             .pos;
         world.spawn((
             ambition_platformer2d::combat::strike::Hitbox {
+                properties: Default::default(),
                 owner: rival,
                 source: ambition_platformer2d::vfx::HitSide::Enemy,
                 anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
@@ -917,6 +919,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
             .pos;
         world.spawn((
             ambition_platformer2d::combat::strike::Hitbox {
+                properties: Default::default(),
                 owner: rival,
                 // ⛔ THE HOSTILE SIDE. A `Player`-sourced strike against a
                 // Player-faction rider reads as friendly fire and is refused;
@@ -2487,6 +2490,7 @@ fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i
             .pos;
         world.spawn((
             ambition_platformer2d::combat::strike::Hitbox {
+                properties: Default::default(),
                 owner: rival,
                 source: ambition_platformer2d::vfx::HitSide::Enemy,
                 anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World { center: pos },

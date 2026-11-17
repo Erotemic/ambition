@@ -175,6 +175,8 @@ pub fn build_in_flight_projectile(
         request.dir / request.dir.length()
     };
     let spec = ProjectileSpec {
+        properties: request.properties,
+        guard: request.guard,
         origin: request.origin,
         direction: dir,
         damage: request.damage.max(1),
@@ -209,6 +211,8 @@ mod tests {
 
     fn spawn(speed: f32, damage: i32) -> ambition_projectile_spec::ProjectileSpawn {
         ambition_projectile_spec::ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             origin: ae::Vec2::ZERO,
             dir: ae::Vec2::new(1.0, 0.0),
             speed,

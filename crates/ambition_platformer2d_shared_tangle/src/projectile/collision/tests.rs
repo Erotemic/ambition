@@ -51,6 +51,8 @@ fn world_with_block(kind: ae::BlockKind, center: ae::Vec2, half: ae::Vec2) -> ae
 
 fn straight_projectile(pos: ae::Vec2) -> crate::projectile::ProjectileBody {
     let spec = crate::projectile::ProjectileSpec {
+        properties: Default::default(),
+        guard: Default::default(),
         origin: pos,
         direction: ae::Vec2::new(1.0, 0.0),
         damage: 1,

@@ -722,6 +722,7 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
         let bounds = event.volume.bounds();
         put_vec2(&mut bytes, bounds.min);
         put_vec2(&mut bytes, bounds.max);
+        event.properties.encode(&mut bytes);
         put_i32(&mut bytes, event.damage);
         event.source.encode(&mut bytes);
         put_bool(&mut bytes, event.attacker.is_some());
@@ -853,6 +854,7 @@ mod pending_hit_checksum_tests {
             attacker_id: attacker.map(SimId::placement),
             victim_id: victim.map(SimId::placement),
             event: HitEvent {
+                properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),
                 volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)).into(),

@@ -394,6 +394,8 @@ pub struct StrikeVictim {
     /// [`strike_reaches_victim`] for why absent and empty mean opposite things.
     pub volumes: Option<&'static super::components::DamageableVolumes>,
     pub kinematics: Option<&'static ae::BodyKinematics>,
+    pub ground: Option<&'static ae::BodyGroundState>,
+    pub posture: Option<&'static ae::movement::BodyMotionFacts>,
     pub motion: Option<&'static ae::SweepSample>,
     pub health: Option<&'static ambition_characters::actor::BodyHealth>,
     /// The world's hands are off this body — see [`crate::death_rules::OutOfPlay`].
@@ -465,6 +467,13 @@ pub fn victim_identity_key(sim_id: Option<&str>) -> (u8, &str) {
 }
 
 impl StrikeVictimItem<'_, '_> {
+    pub fn hit_posture(&self) -> ambition_hit_spec::VictimPosture {
+        use ambition_hit_spec::VictimPosture;
+        if self.posture.is_some_and(|facts| facts.knocked_down) { VictimPosture::Prone }
+        else if self.ground.is_none_or(|ground| ground.on_ground) { VictimPosture::Grounded }
+        else { VictimPosture::Airborne }
+    }
+
     /// Allegiance as this body actually fights: a possessed victim carrying
     /// `DrivingParticipant` is a Player-effective body, without its authored
     /// faction being mutated.
@@ -691,6 +700,7 @@ struct RankedStrike<'a> {
     pieces: Vec<ae::frame::thread::VolumePiece>,
     source: ae::Vec2,
     meets_guard: bool,
+    targets: ambition_hit_spec::HitTargets,
     exclusions: Option<&'a crate::strike::HitboxExclusions>,
 }
 
@@ -950,6 +960,7 @@ pub fn apply_hitbox_damage(
                 pieces: place(entity, hitbox).1.ok()?,
                 source: spatial_source_of(hitbox, owner_pos),
                 meets_guard: hitbox.meets_guard(),
+                targets: hitbox.properties.targets,
                 exclusions,
             })
         })
@@ -1065,7 +1076,7 @@ pub fn apply_hitbox_damage(
                 // here means NO event and NO impact VFX are produced at the
                 // corpse, so a dead thing neither interacts nor presents. (The
                 // consume-time `resolve_body_hit` alive check stays as defense.)
-                if victim.is_corpse() {
+                if victim.is_corpse() || !hitbox.properties.targets.permits(victim.hit_posture()) {
                     continue;
                 }
                 let victim_room = rooms.of(victim.entity);
@@ -1195,7 +1206,8 @@ pub fn apply_hitbox_damage(
                 if let Some(me) = ranked.iter().find(|ranked| ranked.entity == hitbox_entity) {
                     let outranked = ranked.iter().try_fold(false, |outranked, sibling| {
                         if outranked { return Ok(true); }
-                        if sibling.owner != hitbox.owner || sibling.rank >= me.rank
+                        if !sibling.targets.permits(victim.hit_posture())
+                            || sibling.owner != hitbox.owner || sibling.rank >= me.rank
                             || sibling.exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity)) {
                             return Ok(false);
                         }
@@ -1324,7 +1336,7 @@ pub fn apply_hitbox_damage(
                 let magnitude = resolved_hitbox_knockback_magnitude(
                     hitbox.knockback,
                     victim_damage_taken,
-                    victim_weight,
+                    hitbox.properties.weight.resolve(victim_weight),
                     ruleset_growth,
                     growth_scale,
                     rules.growth_base,
@@ -1397,6 +1409,7 @@ pub fn apply_hitbox_damage(
                     follow,
                 });
                 out.hit_events.write(HitEvent {
+                    properties: hitbox.properties,
                     contact: None,
                     pieces: Vec::new(),
                     strike_sfx: hitbox.strike_sfx,
@@ -1455,6 +1468,7 @@ pub fn apply_hitbox_damage(
             if !fixed || !feature_pulse.emitted {
                 if fixed { feature_pulse.emitted = true; }
                 out.hit_events.write(HitEvent {
+                    properties: hitbox.properties,
                     contact: None,
                     pieces: feature_pieces(),
                     strike_sfx: hitbox.strike_sfx,

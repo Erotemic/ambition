@@ -705,6 +705,8 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         facing: -1.0,
     };
     let game = |dmg: i32| ambition_projectiles::ProjectileGameplay {
+        properties: Default::default(),
+        guard: Default::default(),
         age: 0.0,
         max_lifetime: 2.0,
         gravity: 0.0,

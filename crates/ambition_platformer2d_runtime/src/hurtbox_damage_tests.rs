@@ -111,6 +111,7 @@ fn spawn_strike(app: &mut App, strike_x: f32, half_width: f32) {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            properties: Default::default(),
             // An ordinary hit, not a gust.
             strike_sfx: None,
             owner,

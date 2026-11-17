@@ -474,6 +474,8 @@ fn fly(
 ) -> Result<(), Fault> {
     let speed = velocity.length();
     inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+        properties: Default::default(),
+        guard: Default::default(),
         origin,
         dir: if speed > 1e-3 { velocity / speed } else { Vec2::NEG_Y },
         speed: speed.max(0.01),

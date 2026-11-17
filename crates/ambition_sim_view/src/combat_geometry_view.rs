@@ -400,6 +400,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
             ))
             .id();
         app.world_mut().spawn(Hitbox {
+            properties: Default::default(),
             // Not a windbox: these fixtures are about the geometry VIEW.
             owner,
             source: HitSide::Player,
@@ -447,6 +448,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         app.world_mut().despawn(owner);
         let center = ae::Vec2::new(310.0, 170.0);
         app.world_mut().spawn(Hitbox {
+            properties: Default::default(),
             // Not a windbox: these fixtures are about the geometry VIEW.
             owner,
             source: HitSide::Boss,
@@ -559,6 +561,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         let victim = app.world_mut().spawn_empty().id();
         app.world_mut().spawn((
             Hitbox {
+                properties: Default::default(),
                 // Not a windbox: this fixture is about the geometry VIEW.
                 owner,
                 source: HitSide::Player,
@@ -602,6 +605,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
             ))
             .id();
         app.world_mut().spawn(Hitbox {
+            properties: Default::default(),
             // Not a windbox: this fixture is about the geometry VIEW.
             owner,
             source: HitSide::Player,

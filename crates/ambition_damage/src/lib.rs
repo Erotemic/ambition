@@ -1099,7 +1099,7 @@ pub(crate) fn apply_player_knockback(
         gravity_dir,
         boss_hit,
         knockback,
-        damage.damage,
+        damage.damage, damage.properties,
         di_input_local,
         VictimStance {
             grounded: clusters.ground.on_ground,

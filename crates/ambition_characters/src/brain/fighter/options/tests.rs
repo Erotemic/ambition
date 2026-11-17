@@ -76,7 +76,7 @@ fn candidate_with_launch(id: &str, startup_s: f32, reach: f32, launch: f32) -> A
     c.frames.max_knockback = launch;
     // A flat finisher: all base, no percent term. `candidate_with_growth` is the
     // arm that separates the two halves of the launch law.
-    c.frames.launch = ambition_entity_catalog::LaunchEnvelope::default().with_volume(launch, None);
+    c.frames.launch = ambition_entity_catalog::LaunchEnvelope::default().with_volume(launch, None, Default::default());
     c
 }
 
@@ -95,7 +95,7 @@ fn candidate_with_growth(
     let mut c = candidate(id, startup_s, reach);
     c.frames.max_knockback = base;
     c.frames.launch =
-        ambition_entity_catalog::LaunchEnvelope::default().with_volume(base, Some(growth));
+        ambition_entity_catalog::LaunchEnvelope::default().with_volume(base, Some(growth), Default::default());
     c
 }
 

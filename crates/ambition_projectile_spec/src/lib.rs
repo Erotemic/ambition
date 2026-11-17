@@ -8,6 +8,7 @@
 //! primitive and its snapshot codecs. This crate owns only authored spawn intent.
 
 use bevy_math::Vec2;
+mod hit_properties;
 
 /// A request to spawn one in-flight projectile: origin, direction, speed,
 /// damage, lifetime, size, gravity, and presentation id. Ownership is carried by
@@ -18,6 +19,8 @@ use bevy_math::Vec2;
 /// platform is or which side fired it.
 #[derive(Clone, Debug)]
 pub struct ProjectileSpawn {
+    pub properties: ambition_hit_spec::HitProperties,
+    pub guard: ambition_hit_spec::HitGuard,
     pub origin: Vec2,
     pub dir: Vec2,
     pub speed: f32,
@@ -69,7 +72,7 @@ pub struct ProjectileSpawnPort;
 
 impl ambition_extension_sdk::Port for ProjectileSpawnPort {
     const KEY: ambition_extension_sdk::PortKey =
-        ambition_extension_sdk::PortKey::new("ambition.projectiles.spawn", 1);
+        ambition_extension_sdk::PortKey::new("ambition.projectiles.spawn", 2);
     const ROLE: ambition_extension_sdk::PortRole = ambition_extension_sdk::PortRole::Request;
     type Value = ProjectileSpawn;
 
@@ -80,7 +83,9 @@ impl ambition_extension_sdk::Port for ProjectileSpawnPort {
     fn decode(
         r: &mut ambition_extension_sdk::wire::WireReader<'_>,
     ) -> Result<ProjectileSpawn, ambition_extension_sdk::wire::WireError> {
-        ambition_extension_sdk::structure::read(r)
+        let spawn: ProjectileSpawn = ambition_extension_sdk::structure::read(r)?;
+        if !spawn.properties.is_valid() { return Err(ambition_extension_sdk::wire::WireError::BadTag(255)); }
+        Ok(spawn)
     }
 }
 
@@ -107,6 +112,10 @@ impl ambition_extension_sdk::structure::Field<Vec2> for Vec2Codec {
 
 ambition_extension_sdk::port_record! {
     ProjectileSpawn {
+        /// Contact policy.
+        properties: ambition_hit_spec::HitProperties as hit_properties::HitPropertiesCodec = ambition_hit_spec::HitProperties::default(),
+        /// Shield damage bonus, or unit for an unblockable shot.
+        guard: ambition_hit_spec::HitGuard as hit_properties::HitGuardCodec = ambition_hit_spec::HitGuard::default(),
         /// Where the shot starts (world units, +Y down).
         origin: Vec2 as Vec2Codec,
         /// Its direction; the domain normalizes it.
@@ -136,3 +145,40 @@ ambition_extension_sdk::port_record! {
 }
 
 ambition_extension_sdk::script_port!(ProjectileSpawnPort);
+
+#[cfg(test)]
+mod hit_policy_tests {
+    use super::*;
+    use ambition_extension_sdk::{Port, structure::Field};
+    use ambition_hit_spec::*;
+
+    #[test]
+    fn script_and_wire_keep_projectile_contact_policy() {
+        let shot = ProjectileSpawn {
+            origin: Vec2::ZERO, dir: Vec2::X, speed: 300.0, damage: 7,
+            max_lifetime: 2.0, half_extent: Vec2::splat(5.0), gravity: 0.0,
+            visual_id: String::new(), bounces: 0, bounce_on_world_contact: false,
+            boomerang_return_s: None, splash_half_extent: 0.0,
+            guard: HitGuard::Unblockable,
+            properties: HitProperties {
+                clash: ClashPolicy::Transcendent, hitlag_scale: 0.5, sdi_scale: 0.0,
+                tech: TechPolicy::Deny, weight: LaunchWeight::Fixed(1.0),
+                armor: ArmorInteraction::Bypass,
+                targets: HitTargets { grounded: false, airborne: true, prone: false },
+            },
+        };
+        let script = ProjectileSpawn::to_script(&shot);
+        let scripted = ProjectileSpawn::from_script(&script).unwrap();
+        let mut bytes = Vec::new();
+        ProjectileSpawnPort::encode(&scripted, &mut bytes);
+        let mut reader = ambition_extension_sdk::wire::WireReader::new(&bytes);
+        let decoded = ProjectileSpawnPort::decode(&mut reader).unwrap();
+        assert_eq!(decoded.properties, shot.properties);
+        assert_eq!(decoded.guard, shot.guard);
+        let mut invalid = shot;
+        invalid.properties.hitlag_scale = -1.0;
+        bytes.clear();
+        ProjectileSpawnPort::encode(&invalid, &mut bytes);
+        assert!(ProjectileSpawnPort::decode(&mut ambition_extension_sdk::wire::WireReader::new(&bytes)).is_err());
+    }
+}

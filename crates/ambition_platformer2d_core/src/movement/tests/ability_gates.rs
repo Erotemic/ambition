@@ -1306,7 +1306,7 @@ fn a_flinchless_push_neither_pins_a_prone_body_nor_starts_a_tumble() {
         let before = scratch.axis().jab_locks;
         scratch
             .flight
-            .stage_launch(crate::Vec2::new(120.0, -40.0), flinchless);
+            .stage_launch(crate::Vec2::new(120.0, -40.0), flinchless, Default::default());
         super::update_player_with_tuning_scratch(
             &world,
             &mut scratch,
@@ -1332,7 +1332,7 @@ fn a_flinchless_push_neither_pins_a_prone_body_nor_starts_a_tumble() {
         let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(400.0, 300.0));
         scratch
             .flight
-            .stage_launch(crate::Vec2::new(0.0, -900.0), flinchless);
+            .stage_launch(crate::Vec2::new(0.0, -900.0), flinchless, Default::default());
         super::update_player_with_tuning_scratch(
             &world,
             &mut scratch,
@@ -1939,4 +1939,23 @@ fn stale_forgiveness_starts_only_once_the_evade_is_over() {
         "forgiveness never ran on an IDLE body, so staling is now permanent"
     );
     let _ = before;
+}
+
+#[test]
+fn no_tech_is_scoped_to_the_launch_and_clears_a_buffered_tech() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.tumble_speed = 100.0;
+    tuning.untechable_launch_speed = 5000.0;
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(400.0, 300.0));
+    for tech in [ambition_hit_spec::TechPolicy::Deny, ambition_hit_spec::TechPolicy::Normal] {
+        let no_tech = tech == ambition_hit_spec::TechPolicy::Deny;
+        scratch.axis_mut().tech_press_timer = 0.2;
+        scratch.flight.stage_launch(crate::Vec2::new(0.0, -900.0), false, tech);
+        super::update_player_with_tuning_scratch(&world, &mut scratch,
+            InputState::default(), 1.0 / 60.0, tuning);
+        assert!(scratch.axis().tumble_until_landing);
+        assert_eq!(scratch.axis().tumble_untechable, no_tech);
+        if no_tech { assert_eq!(scratch.axis().tech_press_timer, 0.0); }
+    }
 }

@@ -1179,6 +1179,8 @@
                 speed: 540.0,
                 damage: 4,
                 flight: Some((
+                    properties: (hitlag_scale: 1.25),
+                    guard: Blockable(extra_shield_damage: 4),
                     gravity: 0.0,
                     bounces: 0,
                     bounce_on_world_contact: false,

@@ -619,6 +619,8 @@ pub struct BodyFlightState {
     /// `false`, which is what an ordinary knockback means, and is why the many
     /// fixtures that set the vector by hand still say what they meant.
     pub pending_launch_flinchless: bool,
+    /// Tech permission travels with the pending launch.
+    pub pending_launch_tech: ambition_hit_spec::TechPolicy,
 }
 
 /// A launch waiting at the gateway, and what KIND of thing it is.
@@ -628,6 +630,7 @@ pub struct PendingLaunch {
     /// A push, not a hit: it moves the body and leaves it in control, so it
     /// neither pins a prone body nor starts a tumble.
     pub flinchless: bool,
+    pub tech: ambition_hit_spec::TechPolicy,
 }
 
 impl PendingLaunch {
@@ -647,13 +650,14 @@ impl BodyFlightState {
         Self { fly_enabled: abilities.fly && !abilities.fly_toggle, ..Self::default() }
     }
 
-    /// Hand a launch to the gateway, with the kind it is.
+    /// Hand a launch to the gateway with its reaction and tech policy.
     ///
     /// ⭐ ONE CALL FOR THE PAIR, so a writer cannot set the velocity and forget
     /// the kind — which is the whole hazard of a flag beside a vector.
-    pub fn stage_launch(&mut self, velocity: crate::Vec2, flinchless: bool) {
+    pub fn stage_launch(&mut self, velocity: crate::Vec2, flinchless: bool, tech: ambition_hit_spec::TechPolicy) {
         self.pending_launch = velocity;
         self.pending_launch_flinchless = flinchless;
+        self.pending_launch_tech = tech;
     }
 
     /// READ the waiting launch without spending it.
@@ -667,14 +671,16 @@ impl BodyFlightState {
         PendingLaunch {
             velocity: self.pending_launch,
             flinchless: self.pending_launch_flinchless,
+            tech: self.pending_launch_tech,
         }
     }
 
-    /// Take the waiting launch, clearing both halves together.
+    /// Take the waiting launch and clear its policy with it.
     pub fn take_launch(&mut self) -> PendingLaunch {
         PendingLaunch {
             velocity: std::mem::replace(&mut self.pending_launch, crate::Vec2::ZERO),
             flinchless: std::mem::replace(&mut self.pending_launch_flinchless, false),
+            tech: std::mem::take(&mut self.pending_launch_tech),
         }
     }
 }

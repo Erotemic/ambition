@@ -141,6 +141,7 @@ pub fn apply_hazard_contacts(
             let side = resolved_frame.basis().side;
             let knockback_dir = (pos - hazard.pos).dot(side).signum();
             hit_events.write(HitEvent {
+                properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),
                 strike_sfx: Some(hazard_sfx_id(&hazard.name)),
@@ -187,6 +188,7 @@ pub fn apply_hazard_contacts(
             // CM8: same hazard strike sound, carried to the victim-side reaction;
             // the actor's knockback + feedback position derive from the event.
             hit_events.write(HitEvent {
+                properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),
                 strike_sfx: Some(hazard_sfx_id(&hazard.name)),

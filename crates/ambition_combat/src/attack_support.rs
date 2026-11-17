@@ -465,6 +465,7 @@ mod tests {
             .id();
         app.world_mut().spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx: None,
                 owner: striker,
                 source: ambition_vfx::HitSide::Player,

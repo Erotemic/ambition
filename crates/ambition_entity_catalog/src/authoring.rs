@@ -658,6 +658,7 @@ pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
             end_s: start + pulse.active_s,
             tag: WindowTag::Active,
             volumes: vec![HitVolume {
+                properties: Default::default(),
                 shape: VolumeShape::Rect {
                     offset: pulse.offset,
                     half_extents: pulse.half_extents,
@@ -840,6 +841,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
                 end_s: active_end,
                 tag: WindowTag::Active,
                 volumes: vec![HitVolume {
+                    properties: Default::default(),
                     shape: VolumeShape::Rect {
                         offset,
                         half_extents,
@@ -1580,6 +1582,7 @@ pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
     // Appended: first-authored wins, so the hit must stay ahead of the push.
     // See [`Wake`].
     window.volumes.push(HitVolume {
+        properties: Default::default(),
         shape: VolumeShape::Rect {
             offset: wake.offset,
             half_extents: wake.half_extents,
@@ -1678,6 +1681,7 @@ pub fn tipper(mut m: MoveSpec, tip: Tip) -> MoveSpec {
     window.volumes.insert(
         0,
         HitVolume {
+            properties: Default::default(),
             shape: VolumeShape::Rect {
                 offset: tip.offset,
                 half_extents: tip.half_extents,

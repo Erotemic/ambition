@@ -843,6 +843,7 @@ impl From<&ae::frame::material_cast::SampledPieceHit> for HitContact {
 /// Canonical world-space hit message. `target` states the victim-resolution mode.
 #[derive(Message, Clone, Debug)]
 pub struct HitEvent {
+    pub properties: ambition_hit_spec::HitProperties,
     /// An accepted contact for the named recipient. Area queries have none.
     pub contact: Option<HitContact>,
     /// World-space volume the hit covers. For broadcast / orb-match

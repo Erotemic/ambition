@@ -37,6 +37,7 @@ pub enum HitboxKnockback {
 #[derive(Component, Clone, Debug)]
 #[require(FixedStrikeFeaturePulse, crate::events::HitSource)]
 pub struct Hitbox {
+    pub properties: ambition_hit_spec::HitProperties,
     /// Entity that spawned the hitbox (skip self-hits; look up the follow
     /// anchor's world position each tick).
     pub owner: Entity,
@@ -166,12 +167,7 @@ impl Hitbox {
 
     /// The pulse's guard policy, lowered from the volume's.
     pub fn hit_guard(&self) -> ae::hit_response::HitGuard {
-        match self.guard {
-            ambition_entity_catalog::VolumeGuard::Blockable { extra_shield_damage } => {
-                ae::hit_response::HitGuard::Blockable { extra_shield_damage }
-            }
-            ambition_entity_catalog::VolumeGuard::Unblockable => ae::hit_response::HitGuard::Unblockable,
-        }
+        self.guard
     }
 }
 
@@ -359,6 +355,7 @@ pub(crate) fn spawn_damage_box(
 ) -> Entity {
     let mut e = commands.spawn((
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             // A `DamageBox` effect is a hit by construction — the name is the
             // contract. A gust is authored on a move's volume, never here.
@@ -436,6 +433,7 @@ pub fn spawn_body_strike(
     commands
         .spawn((
             Hitbox {
+                properties: Default::default(),
                 strike_sfx,
                 owner,
                 source: HitSide::Player,
@@ -506,6 +504,7 @@ mod hitbox_shape_tests {
         // A disc FollowOwner hitbox resolves to a Circle centered at owner+offset,
         // not the half_extent box.
         let hb = Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner: Entity::PLACEHOLDER,
             source: HitSide::Player,
@@ -536,6 +535,7 @@ mod hitbox_shape_tests {
     #[test]
     fn unshaped_hitbox_falls_back_to_the_half_extent_box() {
         let hb = Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner: Entity::PLACEHOLDER,
             source: HitSide::Enemy,
@@ -568,6 +568,7 @@ mod material_tests {
 
     fn strike() -> Hitbox {
         Hitbox {
+            properties: Default::default(),
             owner: Entity::PLACEHOLDER, source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(12.0, -8.0) },
             half_extent: ae::Vec2::new(3.0, 5.0), shape: None,

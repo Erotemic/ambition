@@ -273,6 +273,8 @@ pub struct BodyCombat {
     /// multihit several displacements out of a single freeze, which is a
     /// different mechanic and not this one.
     pub asdi_owed: bool,
+    /// The SDI scale of the contact that owns the remaining freeze.
+    pub hitlag_sdi_scale: Option<f32>,
     /// Landing lag: the authored recovery an aerial move owes for touching
     /// down before it finished.
     ///
@@ -543,6 +545,9 @@ impl BodyCombat {
         self.sleep_timer = (self.sleep_timer - proper_dt).max(0.0);
         self.slow_timer = (self.slow_timer - proper_dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - unscaled_dt).max(0.0);
+        if self.hitstop_timer == 0.0 && !self.asdi_owed {
+            self.hitlag_sdi_scale = None;
+        }
         self.landing_lag_timer = (self.landing_lag_timer - proper_dt).max(0.0);
     }
 
@@ -556,6 +561,7 @@ impl BodyCombat {
         self.struck_recently = 0.0;
         self.hitstop_timer = 0.0;
         self.asdi_owed = false;
+        self.hitlag_sdi_scale = None;
         self.damage_invuln_timer = 0.0;
         self.hitstun_timer = 0.0;
         self.recoil_lock_timer = 0.0;
@@ -770,6 +776,7 @@ mod hard_lock_tests {
             // the body step on the far side of it. Decaying it would spend the
             // displacement on whichever system happened to run first.
             asdi_owed: _,
+            hitlag_sdi_scale: _,
 
             // Not a timer: where the last hit landed, read only while the
             // hitstun it came with runs.
@@ -810,6 +817,7 @@ mod hard_lock_tests {
             // Cleared by `reset()`: a body put back to spawn owes nothing from
             // a freeze that is no longer happening.
             asdi_owed: _,
+            hitlag_sdi_scale: _,
 
             // NOT cleared: read only while a hitstun runs, and reset clears
             // the hitstun.

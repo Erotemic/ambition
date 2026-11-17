@@ -90,7 +90,7 @@ fn armed_snapshot() -> BrainSnapshot {
                 max_damage: 8,
                 max_knockback: 40.0,
                 launch: ambition_entity_catalog::LaunchEnvelope::default()
-                    .with_volume(40.0, Some(1.0)),
+                    .with_volume(40.0, Some(1.0), Default::default()),
                 start_impulse: (0.0, 0.0),
                 roots_steering: false,
                 lift_speed: 0.0,

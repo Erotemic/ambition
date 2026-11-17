@@ -128,6 +128,8 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
             // than about allegiance.
             bevy::prelude::Entity::PLACEHOLDER,
             ambition_platformer2d::projectiles::ProjectileSpawn {
+                properties: Default::default(),
+                guard: Default::default(),
                 origin,
                 dir: ambition_platformer2d::engine_core::Vec2::new(1.0, 0.0),
                 speed: 900.0,

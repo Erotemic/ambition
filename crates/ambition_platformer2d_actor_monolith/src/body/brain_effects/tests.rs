@@ -638,7 +638,7 @@ fn recoil_adds_to_a_waiting_launch_instead_of_erasing_it() {
     app.world_mut()
         .get_mut::<ae::BodyFlightState>(actor)
         .expect("gateway")
-        .stage_launch(hit, false);
+        .stage_launch(hit, false, Default::default());
 
     let spec = RangedActionSpec::rock(300.0, 1);
     // The recoil the SPEC carries, read the same way the system reads it, so a

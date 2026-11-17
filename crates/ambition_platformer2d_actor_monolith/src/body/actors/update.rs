@@ -1176,6 +1176,7 @@ fn integrate_actor_body(
             em.health.current().max(1),
         );
         hit_events.write(HitEvent {
+            properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
             strike_sfx: None,
@@ -1210,6 +1211,7 @@ fn integrate_actor_body(
     // past the margin.
     if em.health.alive() && move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
         hit_events.write(HitEvent {
+            properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
             strike_sfx: None,
@@ -2696,6 +2698,7 @@ mod body_combat_rebuild_contract {
             ledge_trump_lock_timer: _,
             hitstop_timer: _,
             asdi_owed: _,
+            hitlag_sdi_scale: _,
             landing_lag_timer: _,
             // A sleep a move applied — reaction history like the locks above it,
             // owned by the body and never rewritten from the cluster.

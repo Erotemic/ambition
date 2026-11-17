@@ -475,7 +475,7 @@ pub(crate) fn apply_actor_hit(
                 gravity_dir,
                 boss_hit,
                 k.as_ref(),
-                event.damage,
+                event.damage, event.properties,
                 di_input_local,
                 ambition_combat::hit_reaction::VictimStance {
                     grounded: em.ground.on_ground,
@@ -636,6 +636,8 @@ pub(crate) fn apply_actor_hit(
                     for k in 0..burst.count {
                         let dir = if k % 2 == 0 { 1.0 } else { -1.0 };
                         let spawn = ambition_projectiles::ProjectileSpawn {
+                            properties: Default::default(),
+                            guard: Default::default(),
                             origin: ae::Vec2::new(em.kin.pos.x, feet - burst.half_extent[1] - 2.0),
                             dir: ae::Vec2::new(dir, 0.0),
                             speed: burst.speed * burst.slowing.powi((k / 2) as i32),

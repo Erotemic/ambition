@@ -541,6 +541,7 @@ fn accept_external_launch(
         return false;
     }
     let flinchless = launch.flinchless;
+    let no_tech = launch.tech == ambition_hit_spec::TechPolicy::Deny;
     let launch = launch.velocity;
     match model {
         // Assigning again is deliberate rather than redundant: it makes the launch channel the
@@ -599,6 +600,8 @@ fn accept_external_launch(
                 // direction on purpose: a shove that does not throw you leaves
                 // you planted, and a body whose authored `tumble_speed` is `0.0`
                 // — every body in Ambition today — is byte-identical to before.
+                axis.state.tumble_untechable |= no_tech;
+                if no_tech { axis.state.tech_press_timer = 0.0; }
                 clusters.ground.on_ground = false;
                 return true;
             }

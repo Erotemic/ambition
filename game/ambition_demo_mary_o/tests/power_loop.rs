@@ -568,6 +568,8 @@ fn the_authored_spark_arcs_bounces_and_expires() {
     let flight = shot.flight.expect("and authors its flight");
 
     let spec = ProjectileSpec {
+        properties: Default::default(),
+        guard: Default::default(),
         origin: ae::Vec2::ZERO,
         direction: ae::Vec2::new(1.0, 0.0),
         damage: shot.damage(),
@@ -755,6 +757,8 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
     let flight = shot.flight.expect("and authors its flight");
 
     let mut body = ProjectileBody::from_spec(ProjectileSpec {
+        properties: Default::default(),
+        guard: Default::default(),
         origin: ae::Vec2::new(370.0, 300.0),
         direction: ae::Vec2::new(1.0, 0.0),
         damage: shot.damage(),

@@ -1181,7 +1181,7 @@ pub fn step_projectiles(
                             victim.entity,
                         )
                     });
-                if !can_hit || victim.is_corpse() {
+                if !can_hit || victim.is_corpse() || !game.properties.targets.permits(victim.hit_posture()) {
                     continue;
                 }
                     if let Some(hit) = victim.contact_along(&source_cells, collision.body_geometry(), shot_room)?
@@ -1195,7 +1195,7 @@ pub fn step_projectiles(
                                 .map_err(numeric)?;
                             let (damage_taken,weight)=victim.knockback_growth_inputs();
                             ambition_combat::hitbox::projectile_launch_magnitude(launch.base,launch.growth,
-                                damage_taken,weight,&tuning.in_room(shot_room).unwrap_or_default())
+                                damage_taken,game.properties.weight.resolve(weight),&tuning.in_room(shot_room).unwrap_or_default())
                                 .in_chart(into_victim).map_err(numeric)?
                         } else { HitKnockbackMagnitude::FeelScale(0.85) };
                         ordered.push((hit, victim, magnitude));
@@ -1299,7 +1299,7 @@ pub fn step_projectiles(
             let interception=(|| -> Result<Option<super::intercept::PreparedInterception>,ae::frame::thread::Refusal> {
                 let Some((contact,victim,_))=selected_body.as_ref() else {return Ok(None);};
                 let Ok(guard)=guards.get(victim.entity) else {return Ok(None);};
-                if !guard.parrying() {return Ok(None);}
+                if !guard.parrying() || game.guard == ambition_hit_spec::HitGuard::Unblockable {return Ok(None);}
                 let absorbs=guard.absorbs_projectiles();
                 let request=if absorbs {super::intercept::ProjectileInterception::Consume}
                     else {super::intercept::ProjectileInterception::Reflect {speed_scale:PROJECTILE_REFLECT_SPEED_SCALE}};
@@ -1407,6 +1407,7 @@ pub fn step_projectiles(
                 let knock_dir = if knock_dir == 0.0 { 1.0 } else { knock_dir };
                 let impact_pos = contact.hit.point;
                 feature_damage.write(HitEvent {
+                    properties: game.properties,
                     contact: Some(ambition_combat::events::HitContact::from(&contact.hit)),
                     pieces: Vec::new(),
                     strike_sfx: None,
@@ -1432,7 +1433,7 @@ pub fn step_projectiles(
                         impact_pos,
                         launch_dir: None,
                         follow: None,
-                        guard: Default::default(),
+                        guard: game.guard,
                     }),
                     ignored_targets: Vec::new(),
                     attacker_move_instance: fired_by_move,
@@ -1485,6 +1486,7 @@ pub fn step_projectiles(
                 }
             } else if let Some(contact) = feature_contact.as_ref() {
                 let direct = HitEvent {
+                    properties: game.properties,
                     contact: Some(ambition_combat::events::HitContact::from(&contact.contact.hit)),
                     pieces: Vec::new(),
                     strike_sfx: None,

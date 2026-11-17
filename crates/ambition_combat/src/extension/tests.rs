@@ -607,6 +607,7 @@ fn a_riding_request_keeps_world_geometry_then_follows_body_material() {
             };
             let (offset, half_extent, shape) = canonical_riding_shape(&body, &request).unwrap();
             let strike = crate::strike::Hitbox {
+                properties: Default::default(),
                 owner: Entity::PLACEHOLDER, source: crate::strike::HitSide::Boss,
                 anchor: crate::strike::HitboxAnchor::FollowOwner { local_offset: offset },
                 half_extent, shape, facing: 1.0, damage: 1,

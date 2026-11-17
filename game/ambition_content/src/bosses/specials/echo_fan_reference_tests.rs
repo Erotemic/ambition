@@ -104,6 +104,8 @@ pub fn spawn_echo_fan_from_special_messages(
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {
+                    properties: Default::default(),
+                    guard: Default::default(),
                     origin,
                     dir,
                     speed: ECHO_FAN_SPEED,

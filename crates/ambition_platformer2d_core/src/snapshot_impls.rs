@@ -196,6 +196,7 @@ snapshot_pod!(crate::body_clusters::BodyFlightState {
     // a launch that the new timeline never imparted.
     pending_launch: vec2,
     pending_launch_flinchless: bool,
+    pending_launch_tech: state,
 });
 
 snapshot_pod!(crate::body_clusters::BodyBlinkState { cooldown: f32 });
@@ -454,4 +455,67 @@ impl SnapshotState for crate::body_clusters::BodyKinematics {
             material: crate::frame::BodyMaterial::decode(r)?,
         })
     }
+}
+
+impl SnapshotState for Option<f32> {
+    fn encode(&self, out: &mut Vec<u8>) {
+        crate::snapshot::put_bool(out, self.is_some());
+        if let Some(value) = self { crate::snapshot::put_f32(out, *value); }
+    }
+    fn decode(r: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
+        Some(if r.bool()? { Some(r.f32()?) } else { None })
+    }
+}
+impl crate::snapshot::PasteEncode for Option<f32> {
+    fn put(self, out: &mut Vec<u8>) { crate::snapshot::SnapshotState::encode(&self, out); }
+}
+
+snapshot_unit_enum!(ambition_hit_spec::ClashPolicy { Normal = 0, Transcendent = 1 });
+snapshot_unit_enum!(ambition_hit_spec::TechPolicy { Normal = 0, Deny = 1 });
+snapshot_unit_enum!(ambition_hit_spec::ArmorInteraction { Respect = 0, Bypass = 1 });
+
+impl SnapshotState for ambition_hit_spec::HitProperties {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use crate::snapshot::{put_bool, put_f32};
+        put_bool(out, self.targets.grounded);
+        put_bool(out, self.targets.airborne);
+        put_bool(out, self.targets.prone);
+        self.clash.encode(out);
+        put_f32(out, self.hitlag_scale);
+        put_f32(out, self.sdi_scale);
+        self.tech.encode(out);
+        match self.weight {
+            ambition_hit_spec::LaunchWeight::Victim => put_bool(out, false),
+            ambition_hit_spec::LaunchWeight::Fixed(w) => { put_bool(out, true); put_f32(out, w); }
+        }
+        self.armor.encode(out);
+    }
+    fn decode(r: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
+        let properties = Self {
+            targets: ambition_hit_spec::HitTargets { grounded: r.bool()?, airborne: r.bool()?, prone: r.bool()? },
+            clash: ambition_hit_spec::ClashPolicy::decode(r)?,
+            hitlag_scale: r.f32()?, sdi_scale: r.f32()?,
+            tech: ambition_hit_spec::TechPolicy::decode(r)?,
+            weight: if r.bool()? { ambition_hit_spec::LaunchWeight::Fixed(r.f32()?) } else { ambition_hit_spec::LaunchWeight::Victim },
+            armor: ambition_hit_spec::ArmorInteraction::decode(r)?,
+        };
+        properties.is_valid().then_some(properties)
+    }
+}
+
+impl SnapshotState for ambition_hit_spec::HitGuard {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use crate::snapshot::{put_bool, put_u32};
+        match self {
+            Self::Unblockable => put_bool(out, false),
+            Self::Blockable { extra_shield_damage } => { put_bool(out, true); put_u32(out, u32::from(*extra_shield_damage)); }
+        }
+    }
+    fn decode(r: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
+        Some(if r.bool()? { Self::Blockable { extra_shield_damage: r.u32()?.try_into().ok()? } } else { Self::Unblockable })
+    }
+}
+
+impl crate::snapshot::PasteEncode for ambition_hit_spec::TechPolicy {
+    fn put(self, out: &mut Vec<u8>) { crate::snapshot::SnapshotState::encode(&self, out); }
 }

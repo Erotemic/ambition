@@ -18,6 +18,8 @@ use ambition_platformer2d_core::BodyKinematics;
 /// bounce, no arc) so the test isolates the portal velocity rotation.
 fn straight_projectile() -> ProjectileGameplay {
     ProjectileGameplay {
+        properties: Default::default(),
+        guard: Default::default(),
         age: 0.0,
         max_lifetime: 100.0,
         gravity: 0.0,

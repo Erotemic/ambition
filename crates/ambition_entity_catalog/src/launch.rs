@@ -349,8 +349,8 @@ mod tests {
     #[allow(clippy::approx_constant)]
     fn george() -> (crate::LaunchEnvelope, crate::LaunchEnvelope) {
         (
-            crate::LaunchEnvelope::default().with_volume(185.0, Some(3.45)),
-            crate::LaunchEnvelope::default().with_volume(178.0, Some(6.28)),
+            crate::LaunchEnvelope::default().with_volume(185.0, Some(3.45), Default::default()),
+            crate::LaunchEnvelope::default().with_volume(178.0, Some(6.28), Default::default()),
         )
     }
 
@@ -413,7 +413,7 @@ mod tests {
     /// `Some(0.0)`.
     #[test]
     fn a_set_launch_is_the_same_under_every_condition() {
-        let set = crate::LaunchEnvelope::default().with_volume(120.0, Some(0.0));
+        let set = crate::LaunchEnvelope::default().with_volume(120.0, Some(0.0), Default::default());
         assert_eq!(
             set.at(LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY),
             120.0
@@ -435,11 +435,30 @@ mod tests {
     /// would be a knockback buff.
     #[test]
     fn no_ruleset_factor_can_move_a_launch_at_zero_percent() {
-        let jab = crate::LaunchEnvelope::default().with_volume(40.0, Some(0.8));
+        let jab = crate::LaunchEnvelope::default().with_volume(40.0, Some(0.8), Default::default());
         assert_eq!(jab.at(the_smash_stage(0)), 40.0);
         assert_eq!(
             jab.at(LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY),
             40.0
         );
+    }
+}
+
+#[cfg(test)]
+mod hit_weight_tests {
+    use super::*;
+    use ambition_hit_spec::LaunchWeight;
+
+    #[test]
+    fn each_launch_line_keeps_its_own_weight_policy() {
+        let reference = LaunchConditions { victim_damage: 100, victim_weight: 1.0, ..LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY };
+        let heavy = LaunchConditions { victim_weight: 3.0, ..reference };
+        let fixed = crate::LaunchEnvelope::default().with_volume(100.0, Some(2.0), LaunchWeight::Fixed(1.0));
+        let ordinary = crate::LaunchEnvelope::default().with_volume(100.0, Some(2.0), LaunchWeight::Victim);
+        assert_eq!(fixed.at(reference), fixed.at(heavy));
+        assert!(ordinary.at(reference) > ordinary.at(heavy));
+        let mixed = fixed.with_volume(150.0, Some(3.0), LaunchWeight::Victim);
+        assert_eq!(mixed.at(heavy), launch_speed(100.0, Some(2.0), reference)
+            .max(launch_speed(150.0, Some(3.0), heavy)));
     }
 }

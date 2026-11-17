@@ -52,6 +52,8 @@ fn drop(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let down = Vec2::from(w.frame_down);
     for origin in origins(Vec2::from(w.position), Vec2::from(w.aim_local), w.facing, down) {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            properties: Default::default(),
+            guard: Default::default(),
             origin,
             dir: down,
             speed: SPEED,

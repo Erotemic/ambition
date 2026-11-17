@@ -158,6 +158,8 @@ impl ProjectileKind {
     /// `damage_multiplier` is the firer's outgoing-damage scaling.
     pub fn spec(self, origin: Vec2, direction: Vec2, damage_multiplier: f32) -> ProjectileSpec {
         ProjectileSpec {
+            properties: Default::default(),
+            guard: Default::default(),
             origin,
             direction: direction.normalize_or(Vec2::new(1.0, 0.0)),
             damage: ((self.damage() as f32) * damage_multiplier)

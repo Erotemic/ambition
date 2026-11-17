@@ -63,6 +63,7 @@ fn stage_a_hit_from_inside_the_frame(
     };
     pending.0.push(StagedPlayerHit {
         event: HitEvent {
+            properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
             strike_sfx: None,

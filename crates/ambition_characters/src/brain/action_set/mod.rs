@@ -696,6 +696,10 @@ pub enum MeleeActionSpec {
 /// ability or a firer.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct ProjectileFlight {
+    #[serde(default)]
+    pub properties: ambition_hit_spec::HitProperties,
+    #[serde(default)]
+    pub guard: ambition_hit_spec::HitGuard,
     /// Downward acceleration along gravity, px/s². `0` flies straight.
     pub gravity: f32,
     /// How many times the shot may bounce off a valid support face before it
@@ -735,6 +739,8 @@ impl ProjectileFlight {
     /// A straight, non-bouncing shot — the historical default every ranged pool
     /// hardcoded before flight was authorable.
     pub const STRAIGHT: Self = Self {
+        properties: ambition_hit_spec::HitProperties::ORDINARY,
+        guard: ambition_hit_spec::HitGuard::Blockable { extra_shield_damage: 0 },
         gravity: 0.0,
         bounces: 0,
         bounce_on_world_contact: false,

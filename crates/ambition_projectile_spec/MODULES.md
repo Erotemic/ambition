@@ -6,8 +6,9 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`hit_properties`](src/hit_properties.rs) | Portable codecs for the shared hit values. |
 
-_0 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_1 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

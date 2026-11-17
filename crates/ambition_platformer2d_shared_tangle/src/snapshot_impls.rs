@@ -167,6 +167,8 @@ snapshot_unit_enum!(crate::projectile::WorldHitPolicy {
 
 impl SnapshotState for crate::projectile::ProjectileGameplay {
     fn encode(&self, out: &mut Vec<u8>) {
+        self.properties.encode(out);
+        self.guard.encode(out);
         put_f32(out, self.age);
         put_f32(out, self.max_lifetime);
         put_f32(out, self.gravity);
@@ -187,6 +189,8 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self {
+            properties: ambition_hit_spec::HitProperties::decode(r)?,
+            guard: ambition_hit_spec::HitGuard::decode(r)?,
             age: r.f32()?,
             max_lifetime: r.f32()?,
             gravity: r.f32()?,

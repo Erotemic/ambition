@@ -1495,7 +1495,7 @@ fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
         let mut model = MotionModel::axis_swept(params);
         {
             let mut clusters = scratch.as_mut();
-            clusters.flight.stage_launch(launch, false);
+            clusters.flight.stage_launch(launch, false, Default::default());
             step_motion(
                 &mut model,
                 &mut clusters,
@@ -1726,7 +1726,7 @@ fn a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not() {
             let mut clusters = scratch.as_mut();
             clusters.ground.on_ground = on_ground;
             if let Some((velocity, flinchless)) = launch {
-                clusters.flight.stage_launch(velocity, flinchless);
+                clusters.flight.stage_launch(velocity, flinchless, Default::default());
             }
             step_motion(
                 &mut model,

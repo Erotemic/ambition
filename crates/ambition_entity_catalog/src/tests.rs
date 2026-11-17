@@ -201,6 +201,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
             tag: WindowTag::Active,
             volumes: vec![
                 HitVolume {
+                    properties: Default::default(),
                     // Not a windbox: these fixtures are about authored geometry.
                     hit_sfx: None,
                     shape: VolumeShape::Rect {
@@ -217,6 +218,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                     guard: Default::default(),
                 },
                 HitVolume {
+                    properties: Default::default(),
                     // Not a windbox: these fixtures are about authored geometry.
                     hit_sfx: None,
                     shape: VolumeShape::Circle {
@@ -281,6 +283,7 @@ fn frame_data_says_a_move_with_an_unblockable_strike_ignores_the_guard() {
             end_s: 0.2,
             tag: WindowTag::Active,
             volumes: vec![HitVolume {
+                properties: Default::default(),
                 hit_sfx: None,
                 shape: VolumeShape::Rect { offset: (28.0, 0.0), half_extents: (16.0, 12.0) },
                 damage: 4,
@@ -312,6 +315,7 @@ fn frame_data_startup_is_the_first_live_hit_not_a_counters_stance() {
         end_s: 0.297,
         tag: WindowTag::Active,
         volumes: vec![HitVolume {
+            properties: Default::default(),
             hit_sfx: None,
             shape: VolumeShape::Rect { offset: (0.0, 20.0), half_extents: (44.0, 12.0) },
             damage: 8,
@@ -1215,6 +1219,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
                 end_s: 0.18,
                 tag: WindowTag::Active,
                 volumes: vec![HitVolume {
+                    properties: Default::default(),
                     // Not a windbox: these fixtures are about authored geometry.
                     shape: VolumeShape::Rect {
                         offset: (20.0, 0.0),
@@ -1852,6 +1857,7 @@ fn a_windbox_that_authors_damage_is_rejected_and_a_zero_damage_one_is_not() {
             end_s: 0.3,
             tag: WindowTag::Active,
             volumes: vec![HitVolume {
+                properties: Default::default(),
                 hit_sfx: None,
                 shape: VolumeShape::Circle {
                     offset: (0.0, 0.0),
@@ -1921,6 +1927,7 @@ mod effect_sites {
 
     fn volume(on_hit: Option<EffectRef>) -> HitVolume {
         HitVolume {
+            properties: Default::default(),
             shape: VolumeShape::Circle {
                 offset: (0.0, 0.0),
                 radius: 8.0,

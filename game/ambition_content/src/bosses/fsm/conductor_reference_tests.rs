@@ -297,6 +297,7 @@ fn play(sfx: &mut BodySfxWriter, body: Entity, id: &'static str, pos: Vec2) {
 fn riding_hitbox(owner: Entity, offset: Vec2, half: Vec2, shape: Option<ae::VolumeShape>, damage: i32, knockback: HitboxKnockback, launch_dir: Option<Vec2>, life: f32) -> impl Bundle {
     (
         Hitbox {
+            properties: Default::default(),
             strike_sfx: None,
             owner,
             source: HitSide::Boss,
@@ -553,6 +554,8 @@ pub fn conduct_fsm(
                             projectiles.write(ProjectileSpawnRequest::open(
                                 god,
                                 ProjectileSpawn {
+                                    properties: Default::default(),
+                                    guard: Default::default(),
                                     origin,
                                     dir,
                                     speed,

@@ -45,9 +45,10 @@ def build(target_dir: Path) -> Path:
     return binary
 
 
-def opened_assets(command: list[str], cwd: Path, env: dict[str, str]) -> tuple[int, list[str], str]:
+def opened_assets(command: list[str], cwd: Path, env: dict[str, str], *,
+                  input_roots: tuple[Path, ...] = ()) -> tuple[int, list[str], str]:
     """Run `command` under strace: (exit code, every file opened under an
-    `assets/` directory, the program's output)."""
+    `assets/` directory or selected input root, the program's output)."""
     tracer = shutil.which("strace")
     if tracer is None:
         fail(2, "strace is not on PATH; it is how the artifact proves it stands alone")
@@ -68,7 +69,9 @@ def opened_assets(command: list[str], cwd: Path, env: dict[str, str]) -> tuple[i
             if match:
                 path = Path(match[1])
                 path = path if path.is_absolute() else cwd / path
-                if path.is_file() and ("assets" in path.parts or path.is_relative_to(REPO)):
+                path = path.resolve()
+                if path.is_file() and ("assets" in path.parts or path.is_relative_to(REPO)
+                                       or any(path.is_relative_to(root) for root in input_roots)):
                     opened.add(str(path))
     return result.returncode, sorted(opened), result.stdout + result.stderr
 

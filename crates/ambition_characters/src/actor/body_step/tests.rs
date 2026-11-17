@@ -452,3 +452,15 @@ fn a_restored_contact_scale_controls_both_sdi_displacements() {
     assert_eq!(disabled.0, ae::Vec2::ZERO);
     assert!((ordinary.1.y - disabled.1.y + 6.0).abs() < 1e-4);
 }
+
+#[test]
+fn an_unstepped_short_freeze_does_not_change_a_later_deflection() {
+    let mut body = body_travelling();
+    let mut combat = BodyCombat { hitstop_timer: DT * 0.5, hitlag_sdi_scale: Some(0.0), ..Default::default() };
+    combat.decay_reaction_timers(DT, DT);
+    combat.hitstop_timer = DT * 4.0;
+    let mut tuning = ae::MovementTuning::default();
+    tuning.sdi_step = 3.0;
+    let input = ae::InputState { axes: ae::LocalAxes::new(0.0, -1.0), ..Default::default() };
+    assert_eq!(stepped(&mut body, &mut combat, tuning, input), ae::Vec2::new(0.0, -3.0));
+}

@@ -545,6 +545,9 @@ impl BodyCombat {
         self.sleep_timer = (self.sleep_timer - proper_dt).max(0.0);
         self.slow_timer = (self.slow_timer - proper_dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - unscaled_dt).max(0.0);
+        if self.hitstop_timer == 0.0 && !self.asdi_owed {
+            self.hitlag_sdi_scale = None;
+        }
         self.landing_lag_timer = (self.landing_lag_timer - proper_dt).max(0.0);
     }
 

@@ -1031,7 +1031,10 @@ pub enum VolumeReaction {
     Windbox(WindboxVolume),
 }
 
-pub use ambition_hit_spec::HitGuard as VolumeGuard;
+pub use ambition_hit_spec::{
+    ArmorInteraction, ClashPolicy, HitGuard as VolumeGuard, HitProperties, HitTargets, LaunchWeight,
+    TechPolicy, VictimPosture,
+};
 
 /// One hit volume carried by an [`WindowTag::Active`] window, with its hit
 /// payload. Volumes live on their window — where the timeline says they are —
@@ -1039,8 +1042,8 @@ pub use ambition_hit_spec::HitGuard as VolumeGuard;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HitVolume {
-    #[serde(default, skip_serializing_if = "ambition_hit_spec::HitProperties::is_ordinary")]
-    pub properties: ambition_hit_spec::HitProperties,
+    #[serde(default, skip_serializing_if = "HitProperties::is_ordinary")]
+    pub properties: HitProperties,
     pub shape: VolumeShape,
     /// Damage dealt on contact.
     pub damage: i32,

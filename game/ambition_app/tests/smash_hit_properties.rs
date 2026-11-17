@@ -63,7 +63,7 @@ fn the_shipped_rules_clash_two_authored_ground_jabs_before_damage() {
 
 #[test]
 fn a_transcendent_volume_reaches_a_body_without_clashing() {
-    use ambition_hit_spec::ClashPolicy;
+    use ambition_platformer2d::entity_catalog::ClashPolicy;
     let (mut app, bodies) = two_georges();
     for (n, body) in bodies.into_iter().enumerate() {
         let moves = app.world().get::<ActorMoveset>(body).unwrap();

@@ -194,7 +194,6 @@ dependencies = [
  "ambition_demo_pocket",
  "ambition_demo_sanic",
  "ambition_demo_smash",
- "ambition_hit_spec",
  "ambition_hosted_world",
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",

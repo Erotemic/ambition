@@ -6,6 +6,9 @@ declaration defines the inputs, state schemas, requests, and limits.
 Its LDtk world has one drill room, a raised platform, and a patrol body.
 The project owns both character rows and its starting-character rule.
 
+For the full workflow in an independent directory, use the
+[standalone guide](STANDALONE.md). The commands below use the SDK checkout.
+
 Build the host and inspection tool once, from the repository root:
 
 ```bash
@@ -93,7 +96,7 @@ use the normal paired reload path.
 
 ```bash
 cargo build -p ambition_app_tools --bin project_export
-cargo build --release -p pulse_forge_host --no-default-features --features desktop_player
+CARGO_INCREMENTAL=0 cargo build --release -p pulse_forge_host --no-default-features --features desktop_player
 python3 scripts/package/package_project.py --project examples/projects/pulse_forge/project-linked.ron --host target/release/pulse_forge_host --out /tmp/pulse-forge-desktop --ticks 30 --presentation-frames 600
 cd /
 /tmp/pulse-forge-desktop/run.sh --headless-ticks 30

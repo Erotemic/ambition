@@ -198,7 +198,8 @@ Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
 | A1, A6 | Pulse Forge owns its two character rows, starting-character rule, LDtk world, technique binding, and a stateful Rhai group patrol. The stock debug runtime loads it without a compiler. The parity fixture proves emitter effects, patrol steering, horizontal motion, and turn state. The guide lists the domain interfaces. | Self-contained delivery belongs to A8. |
 | A2 | Project tests execute source edits, additions, removals, invocation faults, and failed whole-set reloads. The project publication trace records a repaired content/script pair reaching the running body together. | Keep the author guide and installed-port diagnostics current. |
 | A7 | Project-state tests cover paired publication with a durable counter, old-backend retirement, body save/load, and refusal of changed attachment or field kind against live and saved records. Fresh starts refuse session activation with incompatible saves. The populated replay fixture remains green. | Keep these checks with changes to state or publication. |
-| A8-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Build and package the release host, measure the three backends, and finish the guide. |
+| A8 | An independent source directory runs Rhai, builds only its WASM module, selects it on the unchanged stock engine, builds its linked release host, and packages its runtime files. Both package probes read game inputs only inside the artifact. | Desktop Linux is proved. Browser and Android loaders remain unavailable in this workflow. |
+| A9-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Measure the three backends and finish the guide. |
 
 Commands for this slice:
 
@@ -429,6 +430,48 @@ pass. Logs use `target/procedural-native-*`; artifact observations are in
 `target/procedural-native-builds/observations.json`. Browser and Android host
 loaders still need native artifact identity. The SDK cross-target checks do
 not prove either loader. Release delivery and backend measurements remain.
+
+Desktop delivery, Linux x86_64, release without incremental compilation,
+2026-11-17:
+
+Commit `31949354d` exports declared project, content, world, module, and library
+inputs through their existing owners. It verifies the exported catalog against
+the original. The package tool uses the existing byte contract and file-open
+probe. Embedded installed content can still reload an external project's
+paired content and scripts. Default shell libraries no longer override the
+project's selected library.
+
+The [standalone guide](../../../examples/projects/pulse_forge/STANDALONE.md)
+contains the five executed steps. `/tmp/pulse-forge-authoring` has its own
+Cargo workspace, module source, host source, and runtime files. The SDK source
+is an explicit Rust build input. The workspace copies the SDK's dependency
+patches. Runtime loading needs no SDK source.
+
+The stock engine ran Rhai and WASM with `PATH=/nonexistent`. Its SHA-256 stayed
+`2af71b81af56bcf0d7dd7c59a0c1ac0726b8a99837baa3a694a41cac37e8b358`.
+A forced WASM build compiled only the module and public value dependencies.
+The module SHA-256 is
+`7cdfa44fedf283fbf8304c510d8baa8d8fc212ae8d845c3f8494cecf5e844856`.
+The independently built native host matches semantic declaration
+`46370e7146c047f6`. It keeps the Rhai patrol active.
+
+`/tmp/pulse-forge-release` contains 28,365 payload files. Its host SHA-256 is
+`2db3637166c3a019b0da754ed2b4a1de161b02beec027c808a1c441ed5e113dd`.
+Both the temporary package and final package pass byte and identity checks.
+From `/`, with no compiler on PATH, 30 simulation ticks read 9,568 game inputs;
+600 no-window frames read 10,361. All are inside the artifact. The presentation
+probe loads assets but draws no pixels. The package includes the whole selected
+shared library, about 5.7 GB with its host and metadata; asset minimization is
+not implemented. Browser and Android project loaders and native artifact
+identity are not proved by this desktop result.
+
+Focused checks pass: two release project-state tests, two release promotion
+tests, the app check, 53 absence contracts, documentation links, shell syntax,
+and Python compilation. The prior policy lane has 33 passes and two failures
+with the same eight findings outside this slice. Logs and Cargo artifact lists
+use `target/procedural-standalone-*` and `target/procedural-package-final-*`.
+Release builds use `CARGO_INCREMENTAL=0`; an earlier incremental build is not
+performance evidence.
 
 ## Owner documents and source locations
 

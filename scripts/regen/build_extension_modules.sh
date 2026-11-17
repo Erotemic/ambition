@@ -19,15 +19,33 @@
 # the game keeps the last good build.
 #
 #   scripts/regen/build_extension_modules.sh --watch
+#
+# An independent project can name its Cargo workspace with --manifest-path.
+# The output still uses this SDK checkout's checked target storage.
 set -euo pipefail
+watch=0
+package=""
+module_manifest=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --watch) watch=1; shift ;;
+        --manifest-path)
+            if [ "$#" -lt 2 ]; then echo "--manifest-path needs a Cargo.toml path" >&2; exit 1; fi
+            module_manifest="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve())' "$2")"
+            shift 2 ;;
+        --help|-h)
+            echo "Usage: $0 [--watch] [--manifest-path Cargo.toml] [package]"
+            exit 0 ;;
+        --*) echo "unknown option: $1 (use --help)" >&2; exit 1 ;;
+        *)
+            if [ -n "$package" ]; then echo "select one module package" >&2; exit 1; fi
+            package="$1"; shift ;;
+    esac
+done
+package="${package:-ambition_content_modules}"
 cd "$(dirname "$0")/../.."
 scripts/setup/target_bindmount.sh --check >/dev/null
-watch=0
-if [ "${1:-}" = "--watch" ]; then
-    watch=1
-    shift
-fi
-package="${1:-ambition_content_modules}"
+module_manifest="${module_manifest:-$PWD/Cargo.toml}"
 if ! [ -d "$(rustc --print sysroot)/lib/rustlib/wasm32-unknown-unknown/lib" ]; then
     echo "the rust target wasm32-unknown-unknown is not installed:" >&2
     echo "    rustup target add wasm32-unknown-unknown" >&2
@@ -36,7 +54,7 @@ fi
 out="target/extension-modules/wasm32-unknown-unknown/release/${package}.wasm"
 build() {
     local start=$(date +%s.%N)
-    if cargo rustc --quiet -p "$package" --target wasm32-unknown-unknown --release \
+    if CARGO_INCREMENTAL=0 cargo rustc --quiet --manifest-path "$module_manifest" -p "$package" --target wasm32-unknown-unknown --release \
         --crate-type cdylib --target-dir target/extension-modules; then
         printf 'built %s (%s bytes) in %s s\n' "$out" "$(wc -c < "$out")" \
             "$(awk "BEGIN { printf \"%.2f\", $(date +%s.%N) - $start }")"
@@ -53,7 +71,7 @@ fi
 # package in its resolved graph for the wasm target, from Cargo itself. A fixed
 # list named the Ambition module tree only, so `--watch` of Mary-O's or
 # Smash's modules never saw their edits (runtime authoring audit, B03).
-mapfile -t sources < <(cargo metadata --format-version 1 --filter-platform wasm32-unknown-unknown 2>/dev/null \
+mapfile -t sources < <(cargo metadata --manifest-path "$module_manifest" --format-version 1 --filter-platform wasm32-unknown-unknown 2>/dev/null \
     | python3 -c '
 import json, os, sys
 meta = json.load(sys.stdin)

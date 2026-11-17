@@ -364,16 +364,19 @@ pub fn declare_in_session_input_contexts(
     // `Option` because a composition without the conversation feature still has
     // cutscenes, and a missing authority means no conversation rather than an
     // error.
-    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    #[cfg(feature = "dialogue")] conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     mut participants: Query<(&InputParticipant, &mut ParticipantContexts)>,
     // A room's cutscene holds the participants whose bodies are in its room
     // (ISL-1b): the seat's body, and its live room.
     drivers: Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
+    #[cfg(feature = "dialogue")]
     let owner = conversation
         .as_deref()
         .and_then(ambition_conversation::ActiveConversation::input_owner);
+    #[cfg(not(feature = "dialogue"))]
+    let owner: Option<ambition_input::InputOwner> = None;
     for (participant, mut contexts) in &mut participants {
         let in_dialogue = owner.is_some_and(|owner| owner.accepts(participant.id));
         let in_cutscene = cutscene.is_playing() && {
@@ -932,7 +935,7 @@ pub fn populate_seat_menu_frames(
 #[cfg(test)]
 mod focus_gate_tests {
     use super::{
-        declare_gameplay_input_context, declare_in_session_input_contexts,
+        declare_gameplay_input_context,
         input_suppressed_by_unfocus, spawn_primary_input_participant,
     };
     use ambition_input::{
@@ -1660,6 +1663,8 @@ mod focus_gate_tests {
         );
     }
 
+    // Its first claimant is a conversation.
+    #[cfg(feature = "dialogue")]
     #[test]
     fn an_in_session_surface_claims_input_and_can_claim_it_for_one_seat() {
         use ambition_characters::control::{PlayerSlot, SlotControls};
@@ -1707,7 +1712,7 @@ mod focus_gate_tests {
         app.add_systems(
             Update,
             (
-                declare_in_session_input_contexts,
+                super::declare_in_session_input_contexts,
                 resolve_active_input_context,
                 super::populate_seat_control_frames,
                 // the COMMIT, because the producer no longer publishes.

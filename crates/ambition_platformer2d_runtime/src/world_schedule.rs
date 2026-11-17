@@ -44,6 +44,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // Before the pet: a pet asked for in the conversation puts its
                 // own walk on the initiator after this has moved its step,
                 // so the pet's walk is the one that stays.
+                #[cfg(feature = "dialogue")]
                 body::space_the_talkers.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 body::apply_pet_requests
                     .run_if(ambition_platformer2d_core::a_message_waits::<body::PetRequested>)
@@ -184,6 +185,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // consumes it (`speak_conversation_cut_barks`). A consumer registers what
         // it reads (registration is idempotent), or a composition that leaves
         // dialogue out fails the reader's parameter validation on tick one.
+        #[cfg(feature = "dialogue")]
         app.add_message::<ambition_conversation::ConversationCutBark>();
         // the ledger payloads that are NOT conversation's. The ledger is
         // the record of what the narrative — which runs outside the simulation —
@@ -205,6 +207,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // `ambition_platformer2d_items::narrative`. Conversation provides the ledger MECHANISM
         // and registers only `ConversationEnded`, the payload it both defines
         // and consumes.
+        #[cfg(feature = "dialogue")]
         app.add_plugins((
             // Authored flag writes now ride `RunAuthoredCommand`'s ledger, installed once by
             // the conversation plugin. the CHANNEL is untouched — chests, pickups and
@@ -219,6 +222,21 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             // `<<checkpoint>>`: a dialogue banks what it gave (Q164).
             ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
+        ));
+        // Without conversations the channels stay: a script, a menu or a
+        // body writes them too, and their readers validate on tick one.
+        #[cfg(not(feature = "dialogue"))]
+        {
+            app.add_message::<ambition_platformer2d_actor_monolith::body::ChallengeRequested>();
+            app.add_message::<ambition_platformer2d_actor_monolith::body::BrainCommand>();
+            app.add_message::<ambition_platformer2d_actor_monolith::body::ReleaseProvocation>();
+            app.add_message::<ambition_platformer2d_actor_monolith::body::PetRequested>();
+            app.add_message::<ambition_platformer2d_actor_monolith::body::WearRequested>();
+            app.add_message::<ambition_items::ItemGrantRequested>();
+            app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>();
+            app.add_message::<ambition_items::shop::ShopTransactionRequested>();
+        }
+        app.add_plugins((
             // A menu uses a consumable through the host-intent ledger.
             ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_items::ItemUseRequested>::default(),
             // A menu equips an ability, a weapon or the portal gun, and stows
@@ -274,6 +292,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // The cast half of the conversation break. It sits in a set the
         // conversation ordering vocabulary declares and this domain fills —
         // the temporal twin of the `ConversationCutBark` message port.
+        #[cfg(feature = "dialogue")]
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::body::speak_conversation_cut_barks

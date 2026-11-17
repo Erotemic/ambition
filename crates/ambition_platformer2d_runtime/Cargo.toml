@@ -19,7 +19,7 @@ ambition_match = { path = "../ambition_match" }
 ambition_projectile_combat = { path = "../ambition_projectile_combat" }
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physics_debris" }
-ambition_platformer2d_session = { path = "../ambition_platformer2d_session", features = ["dialogue"] }
+ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 # Optional LDtk runtime support. The `ldtk_runtime` feature is required for
 # `LdtkRuntimeIndex` / `LdtkRuntimeSpinePlugin`; movement-only games leave this
@@ -31,7 +31,6 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "headless",
-    "dialogue",
 ] }
 # The gameplay trace recorder, installed with the engine (`TraceSchedulePlugin`).
 ambition_platformer2d_trace = { path = "../ambition_platformer2d_trace" }
@@ -47,12 +46,12 @@ ambition_registry_core = { path = "../ambition_registry_core" }
 # Conversation continuity, named directly since it left the actor monolith
 # . The domain now owns its rollback declaration; this host composes
 # that offer and `room_transition/commit.rs` reads whether a conversation is live.
-ambition_conversation = { path = "../ambition_conversation" }
+ambition_conversation = { path = "../ambition_conversation", optional = true }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 # The audio catalog registry a reload transaction carries (`PendingGenerationInputs::audio`).
 ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
-ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
+ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional = true }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
@@ -69,7 +68,7 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # Optional for the same reason the LDtk edge above is: a portal is a
 # capability a game HAS. The monolith and the host already declare it this way.
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
-ambition_sim_view = { path = "../ambition_sim_view", features = ["input", "dialogue"] }
+ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 # The combat-phase chain's effect seam (`EffectRequest`/`apply_effects`) —
 # sim-side effect vocabulary, not presentation.
 ambition_vfx = { path = "../ambition_vfx" }
@@ -136,6 +135,20 @@ ambition_platformer2d_world = { path = "../ambition_platformer2d_world", feature
 bevy = { version = "0.19.1", default-features = false, features = ["debug"] }
 
 [features]
+# The engine's own default is the whole engine; a composition that has no
+# conversations takes it with `default-features = false` (P6, the dialogue cut).
+default = ["dialogue"]
+# Conversations: the dialogue state and conversation plugins, their rollback
+# rows, the narrative-input ledgers, the talk spacing and cut bark, the
+# dialogue input context and a crossing's close. Without it the ledgers'
+# channels are still registered, for their other writers.
+dialogue = [
+    "dep:ambition_conversation",
+    "dep:ambition_dialog",
+    "ambition_platformer2d_session/dialogue",
+    "ambition_sim_view/dialogue",
+    "ambition_platformer2d_actor_monolith/dialogue",
+]
 physics_debris = ["ambition_platformer2d_physics_debris/physics_debris"]
 # Structured causal facts. Optional and default-OFF for the same §2e reason the
 # character capability's is: a game that never opens an inspector must not link

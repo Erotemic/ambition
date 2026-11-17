@@ -52,9 +52,13 @@ impl CapabilityComposition for Capability {
             Capability::Cutscenes => {
                 group.disable::<crate::cutscene::CutsceneSchedulePlugin>()
             }
+            #[cfg(feature = "dialogue")]
             Capability::Dialogue => group
                 .disable::<ambition_dialog::DialogSimStatePlugin>()
                 .disable::<ambition_conversation::ConversationPlugin>(),
+            // Without the `dialogue` cargo feature the group has neither.
+            #[cfg(not(feature = "dialogue"))]
+            Capability::Dialogue => group,
             Capability::BossEncounters => group
                 .disable::<ambition_boss_encounter::BossEncounterSimulationPlugin>()
                 .disable::<ambition_boss_encounter::conditions::BossConditionsPlugin>(),
@@ -98,11 +102,14 @@ impl CapabilityComposition for Capability {
                 app.is_plugin_added::<crate::cutscene::CutsceneSchedulePlugin>()
                     || world.contains_resource::<ambition_cutscene::ActiveCutscene>()
             }
+            #[cfg(feature = "dialogue")]
             Capability::Dialogue => {
                 app.is_plugin_added::<ambition_dialog::DialogSimStatePlugin>()
                     || app.is_plugin_added::<ambition_conversation::ConversationPlugin>()
                     || world.contains_resource::<ambition_dialog::DialogState>()
             }
+            #[cfg(not(feature = "dialogue"))]
+            Capability::Dialogue => false,
             Capability::BossEncounters => {
                 app.is_plugin_added::<ambition_boss_encounter::BossEncounterSimulationPlugin>()
                     || app.is_plugin_added::<ambition_boss_encounter::conditions::BossConditionsPlugin>()

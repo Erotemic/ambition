@@ -575,7 +575,9 @@ pub struct RoomTransitionFinalize<'w, 's> {
     dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
     // `Option`: the dialogue capability is removable (`Capability::Dialogue`), and a
     // transition in a composition without it has no text box or conversation to close.
+    #[cfg(feature = "dialogue")]
     dialogue: Option<ResMut<'w, ambition_dialog::DialogState>>,
+    #[cfg(feature = "dialogue")]
     conversation: Option<ResMut<'w, ambition_conversation::ActiveConversation>>,
     carryover: RoomTransitionCombatReset<'w, 's>,
     bodies: TransitBodies<'w, 's>,
@@ -669,12 +671,18 @@ impl RoomTransitionFinalize<'_, '_> {
         // does not close the conversation of the player already in it. One
         // that names no body has nobody in the world to keep it, and ends with
         // any crossing.
+        #[cfg(feature = "dialogue")]
+        self.close_the_conversation_a_crossing_ends(&staged.members);
+    }
+
+    #[cfg(feature = "dialogue")]
+    fn close_the_conversation_a_crossing_ends(&mut self, members: &[StagedRoomMember]) {
         let ended = match self.conversation.as_deref_mut() {
             None => true,
             Some(conversation) => match conversation.live() {
                 None => true,
                 Some(live) if live.bodies().next().is_none() => true,
-                Some(_) => staged.members.iter().any(|member| {
+                Some(_) => members.iter().any(|member| {
                     conversation.leave(member.subject) == ambition_conversation::Leaving::Closed
                 }),
             },

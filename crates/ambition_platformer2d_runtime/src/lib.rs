@@ -23,13 +23,13 @@ pub mod world_overlay;
 mod fall_rescue;
 mod world_schedule;
 pub use world_schedule::{WorldPrepSchedulePlugin, GameplayEffectsSchedulePlugin, FeatureCollectionSchedulePlugin, FeatureInteractionSchedulePlugin, register_damage_facing_volume_publication};
-#[cfg(test)]
+#[cfg(all(test, feature = "dialogue"))]
 mod world_integration_tests;
 #[cfg(test)]
 mod hurtbox_damage_tests;
 #[cfg(test)]
 mod view_schedule_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "dialogue"))]
 mod feature_interaction_order_tests;
 pub mod content_identity;
 /// The cutscene player: triggers, playback and its save effects (the
@@ -446,9 +446,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Domain-owned sim resources + dev live-edit sets (decision #9:
             // the dev/dialog/encounter/menu domains install their own local
             // state; the assembly below only ORDERS their public sets).
-            .add(ambition_dev_tools::DevToolsSimPlugin)
-            .add(ambition_dialog::DialogSimStatePlugin)
-            .add(ambition_encounter::EncounterRegistryPlugin);
+            .add(ambition_dev_tools::DevToolsSimPlugin);
+        #[cfg(feature = "dialogue")]
+        let builder = builder.add(ambition_dialog::DialogSimStatePlugin);
+        let builder = builder.add(ambition_encounter::EncounterRegistryPlugin);
         // ⛔ THE MAP IS A CAPABILITY, so the chain breaks here rather than
         // naming it unconditionally. `ProgressionSet::Map` is `shared_tangle`'s
         // and stays configured either way, so a composition without the map
@@ -505,13 +506,15 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_world_items::WorldItemSimulationPlugin)
             // Feature (room-entity) collection + interaction schedules.
             .add(crate::FeatureCollectionSchedulePlugin)
-            .add(crate::FeatureInteractionSchedulePlugin)
-            // CONVERSATION IS A MEMBER OF THIS GROUP, not something the interaction
-            // schedule installs from inside its own `build`: a plugin added from
-            // another plugin's `build` is invisible to `PluginGroupBuilder::disable`,
-            // so a composition could drop `DialogSimStatePlugin` and still carry the
-            // conversation UI bridge that requires its `DialogState`.
-            .add(ambition_conversation::ConversationPlugin)
+            .add(crate::FeatureInteractionSchedulePlugin);
+        // CONVERSATION IS A MEMBER OF THIS GROUP, not something the interaction
+        // schedule installs from inside its own `build`: a plugin added from
+        // another plugin's `build` is invisible to `PluginGroupBuilder::disable`,
+        // so a composition could drop `DialogSimStatePlugin` and still carry the
+        // conversation UI bridge that requires its `DialogState`.
+        #[cfg(feature = "dialogue")]
+        let builder = builder.add(ambition_conversation::ConversationPlugin);
+        let builder = builder
             .add(ambition_encounter_features::EncounterSimulationSchedulePlugin)
             // Every writer of `gate_solids`, in one place: the encounter-phase
             // seal walls and the authored-condition ones. Their adjacency is the

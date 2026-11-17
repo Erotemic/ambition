@@ -76,6 +76,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_platformer2d_core::register_rollback_state(registrar);
     ambition_time::register_rollback_state(registrar);
     ambition_boss_encounter::register_rollback_state(registrar);
+    #[cfg(feature = "dialogue")]
     ambition_conversation::register_rollback_state(registrar);
     ambition_sprite_sheet::register_rollback_state(registrar);
     ambition_platformer2d_shared_tangle::register_rollback_state(registrar);

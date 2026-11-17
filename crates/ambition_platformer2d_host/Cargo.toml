@@ -28,7 +28,7 @@ ambition_characters = { path = "../ambition_characters", optional = true }
 # does not own the menu IR — and the menu crate must not know an asset path, so
 # the composition root is the only place the two can meet.
 ambition_menu = { path = "../ambition_menu", features = ["bevy_ui_menu"], optional = true }
-ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime", default-features = false }
 ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_persistence = { path = "../ambition_persistence" }
 # Sprite metadata for the projectile visual passes this crate registers:
@@ -68,7 +68,7 @@ frame_pacing = ["render", "dep:bevy_framepace"]
 # `visible` and `all_capabilities` do.
 default = ["render", "dialogue"]
 # The pointer on an open dialogue's rows (P6, the dialogue cut).
-dialogue = ["dep:ambition_dialog"]
+dialogue = ["dep:ambition_dialog", "ambition_platformer2d_runtime/dialogue"]
 # The presentation wiring only a DRAWING host needs: the camera follow/shake
 # cluster, the projectile visual passes, and the fx pipeline. `ambition_menu` and
 # `ambition_sprite_sheet` ride here because nothing outside this feature's own

@@ -1845,6 +1845,15 @@ Shepherd: Forty-one. Forty-two. Don't move, you'll put me off.
     Shepherd: Mine. She minds the hut. She'd mind the gate if they let her near it.
 ===
 
+title: hall_npc_fell_sheep
+---
+Sheep: *munch, munch*
+-> Count it.
+    Sheep: *it moves before you finish, so you start again*
+-> Say hello.
+    Sheep: Baa.
+===
+
 title: hall_npc_village_nagisa
 ---
 Nagisa the Gatekeeper: *tok, tok* The geta go once round the ring.

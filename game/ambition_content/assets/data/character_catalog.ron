@@ -226,6 +226,18 @@
             notice_radius: 320.0,
             greet_within: 260.0,
         ),
+        // A grazing animal: ambles a little way, crops the grass a long while,
+        // and looks up at a player who comes near. It does not follow anyone.
+        "grazing_roam": Roam(
+            speed: 18.0,
+            trot_speed: 30.0,
+            rest_min_s: 5.0,
+            rest_max_s: 14.0,
+            company: 0.0,
+            stay_within: 0.0,
+            playful: 0.0,
+            notice_radius: 90.0,
+        ),
         // A townsperson going about the town: walks to places in its room,
         // rests at each, and pays the player no mind.
         "townsfolk_roam": Roam(
@@ -10187,6 +10199,32 @@
                 hall: ["I count sheep in the morning and gates at night. The sheep come out the same.", "From the top you can see the whole valley, and the gate, and nothing past the gate."],
             ),
             hall_dialogue_id: Some("hall_npc_valley_shepherd"),
+        ),
+        // The shepherd's flock on the fell: the fell prop's sheep drawn to move
+        // (`targets/characters/fell_sheep.py`). They graze a long while and amble
+        // slowly to another place they can walk to; they cannot jump, so a wall
+        // or a crag stops them.
+        "npc_fell_sheep": (
+            display_name: "Sheep",
+            manifest: "sprites/fell_sheep_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // A fell ewe stands about 65 cm at the head.
+            standing_height: Some(34.0),
+            composition: None,
+            default_brain: "grazing_roam",
+            default_action_set: "peaceful",
+            locomotion: Some((run_speed: 60.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
+            abilities: Some([Walk]),
+            max_health: Some(3),
+            tags: ["animal", "sheep", "quadruped", "valley_village", "peaceful"],
+            fallback_dialogue: ["Baa.", "The sheep looks at you and goes on chewing."],
+            barks: (
+                on_hit: ["Baa!", "*it skips away, bleating*"],
+                idle: ["Baa.", "*munch, munch*"],
+                hall: ["Baa.", "The sheep looks at you and goes on chewing."],
+            ),
+            hall_dialogue_id: Some("hall_npc_fell_sheep"),
         ),
 
         // ===== Residents of the gate network's districts (2026-10-24): ordinary

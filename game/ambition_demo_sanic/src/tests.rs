@@ -210,7 +210,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
     let catalog = {
         use ambition_platformer2d::characters::actor::character_catalog::{CharacterCatalog, lowered_catalog};
         CharacterCatalog::from_data(
-            lowered_catalog(crate::pack::PACK.prepared()).expect("the Sanic pack states its cast").clone(),
+            lowered_catalog(&crate::pack::PACK.prepared()).expect("the Sanic pack states its cast").clone(),
         )
     };
     let names: Vec<&str> = room.enemy_spawns.iter().map(|spawn| spawn.name.as_str()).collect();
@@ -1273,7 +1273,7 @@ fn the_super_row_authors_a_real_movement_boost() {
     // momentum strictly dominates the base row's.
     use ambition_platformer2d::characters::actor::character_catalog::{CharacterCatalog, lowered_catalog};
     let catalog = CharacterCatalog::from_data(
-        lowered_catalog(crate::pack::PACK.prepared())
+        lowered_catalog(&crate::pack::PACK.prepared())
             .expect("the Sanic pack states its cast")
             .clone(),
     );
@@ -2672,7 +2672,7 @@ fn the_act_clock_counts_hundredths_and_each_act_has_a_title() {
     assert_eq!(act_title("somewhere_else"), None);
     // Each card shows the name the rules' `acts` give its room.
     for (index, act) in crate::rules::sanic_rules().acts.iter().enumerate() {
-        assert_eq!(act_title(&act.room), Some((act.title.as_str(), index as u8 + 1)), "the card of `{}` is not the rules'", act.room);
+        assert_eq!(act_title(&act.room), Some((act.title.clone(), index as u8 + 1)), "the card of `{}` is not the rules'", act.room);
     }
 }
 

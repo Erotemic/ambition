@@ -84,7 +84,7 @@ pub fn cover_look_schema() -> ambition_platformer2d::content::SchemaRegistration
 
 /// The cover's colours the host's pack states.
 pub fn cover_look() -> CoverLook {
-    *ambition_platformer2d::content::lowered_rules::<CoverLook>(super::host_pack::HOST_PACK.prepared(), COVER_LOOK_SCHEMA)
+    *ambition_platformer2d::content::lowered_rules::<CoverLook>(&super::host_pack::HOST_PACK.prepared(), COVER_LOOK_SCHEMA)
         .expect("the host's pack states the cover's colours (`data/cover_look.ron`)")
 }
 
@@ -418,7 +418,7 @@ fn drive_direct_startup_loading(sprite_content: bevy::prelude::Res<ambition_plat
         match build_startup_manifest(&sprite_content, &mut assets) {
             Ok(manifest) => state.manifest = Some(manifest),
             Err(message) => {
-                update_startup_ui(&mut ui, text, 0, 1, text.line("loading.preparation_failed"), &message);
+                update_startup_ui(&mut ui, &text, 0, 1, text.line("loading.preparation_failed"), &message);
                 return;
             }
         }
@@ -462,7 +462,7 @@ fn drive_direct_startup_loading(sprite_content: bevy::prelude::Res<ambition_plat
     };
     update_startup_ui(
         &mut ui,
-        text,
+        &text,
         summary.settled,
         summary.total.max(1),
         headline,

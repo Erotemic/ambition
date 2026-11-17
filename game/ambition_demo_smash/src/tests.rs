@@ -1060,7 +1060,7 @@ fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
 fn shipped_catalog() -> ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog {
     use ambition_platformer2d::characters::actor::character_catalog::{lowered_catalog, CharacterCatalog};
     CharacterCatalog::from_data(
-        lowered_catalog(crate::smash_pack::PACK.prepared())
+        lowered_catalog(&crate::smash_pack::PACK.prepared())
             .expect("the smash pack states its cast")
             .clone(),
     )

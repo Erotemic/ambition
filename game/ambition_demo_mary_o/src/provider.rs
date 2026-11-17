@@ -160,7 +160,8 @@ pub(crate) fn register_world_item_art(app: &mut App) {
 /// author. The projectile domain never learns what a spark is.
 fn register_projectile_looks(app: &mut App) {
     use ambition_platformer2d::projectiles::visual::ProjectileVisualAppExt;
-    let looks = ambition_platformer2d::projectiles::content_schema::lowered_projectile_looks(crate::pack::PACK.prepared())
+    let pack = crate::pack::PACK.prepared();
+    let looks = ambition_platformer2d::projectiles::content_schema::lowered_projectile_looks(&pack)
         .expect("the demo's pack states its projectile looks (`data/projectile_visuals.ron`)");
     for (id, art) in looks {
         app.register_projectile_visual(id.clone(), art.clone());
@@ -475,7 +476,8 @@ mod tests {
         let mut app = App::new();
         register_world_item_art(&mut app);
         let manifest = app.world().resource::<WorldItemArtManifest>();
-        let shipped = lowered_world_item_art(crate::pack::PACK.prepared()).expect("the pack states its pickup art");
+        let pack = crate::pack::PACK.prepared();
+        let shipped = lowered_world_item_art(&pack).expect("the pack states its pickup art");
         for id in [crate::powerups::STAR_WAND_SPRITE, crate::powerups::CINDER_BEACON_SPRITE, crate::star::QUASAR_SPRITE] {
             let row = shipped.get(id).unwrap_or_else(|| panic!("the pickup `{id}` her code spawns has no row"));
             let entry = manifest.effective().into_iter().find(|entry| entry.sprite_id == id).expect("registered");
@@ -616,9 +618,8 @@ mod tests {
             "the coin ding must name the id `collect_ecs_pickups` emits for a \
              Currency pickup — a private `mary_o.coin` id is gated to silence"
         );
-        let registry = ambition_platformer2d::audio::content_schema::lowered_sfx_registry(
-            crate::pack::PACK.prepared(),
-        )
+        let pack = crate::pack::PACK.prepared();
+        let registry = ambition_platformer2d::audio::content_schema::lowered_sfx_registry(&pack)
         .expect("her pack states her SFX");
         assert!(
             registry
@@ -639,7 +640,7 @@ mod tests {
     #[test]
     fn every_cue_her_code_names_is_declared_by_her_pack() {
         let pack = crate::pack::PACK.prepared();
-        let sfx = ambition_platformer2d::audio::content_schema::lowered_sfx_registry(pack)
+        let sfx = ambition_platformer2d::audio::content_schema::lowered_sfx_registry(&pack)
             .expect("her pack states her SFX");
         let authorized = sfx.authorized_cue_ids();
         let forms = crate::forms::mary_o_forms();
@@ -648,11 +649,11 @@ mod tests {
             .chain(forms.cues.iter().map(|cue| cue.cue.as_str()))
         {
             assert!(
-                authorized.contains(&ambition_platformer2d::sfx::SfxId::from_static(id)),
+                authorized.contains(&ambition_platformer2d::sfx::SfxId::new(id)),
                 "her code emits `{id}` and her pack does not declare it"
             );
         }
-        let music = ambition_platformer2d::audio::content_schema::lowered_music_registry(pack)
+        let music = ambition_platformer2d::audio::content_schema::lowered_music_registry(&pack)
             .expect("her pack states her music");
         for track in [
             MARY_O_MUSIC_TRACK,

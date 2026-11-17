@@ -128,8 +128,13 @@ pub fn smash_rules_schema() -> SchemaRegistration {
 }
 
 /// The rules, as the demo's pack states them (`assets/data/smash_rules.ron`).
-pub fn smash_rules() -> &'static SmashRules {
-    lowered_rules::<SmashRules>(crate::smash_pack::PACK.prepared(), SMASH_RULES_SCHEMA)
+pub fn smash_rules() -> ambition_platformer2d::content::PackRow<SmashRules> {
+    crate::smash_pack::PACK.prepared().row(smash_rules_in)
+}
+
+/// [`smash_rules`] in `pack`.
+pub(crate) fn smash_rules_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &SmashRules {
+    lowered_rules::<SmashRules>(pack, SMASH_RULES_SCHEMA)
         .expect("the demo's pack states its rules (`data/smash_rules.ron`)")
 }
 
@@ -169,7 +174,7 @@ mod tests {
         };
 
         let file = rules_of(&authored);
-        assert_eq!(&file, smash_rules(), "the demo plays the file");
+        assert_eq!(&file, &*smash_rules(), "the demo plays the file");
         // The Limit the seats hold and fill is the file's `limit`.
         assert_eq!(crate::limit::smash_limit(), file.limit, "the match plays a Limit that is not the file's");
         let cap = "cap: 60.0,";

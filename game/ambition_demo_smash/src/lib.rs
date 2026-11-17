@@ -282,7 +282,7 @@ pub const SMASH_NARROW_STAGE_ROOM_ID: &str = "smash_narrow_stage";
 
 /// The stage `id`, built from the pack's `data/smash_stages.ron`.
 fn smash_stage_room(id: &str) -> RoomSpec {
-    stage_room(crate::stages::smash_stages(), id)
+    stage_room(&crate::stages::smash_stages(), id)
 }
 
 /// The stage `id` as `stages` states it.
@@ -610,7 +610,7 @@ pub const SMASH_SELECT_TRACK: &str = "super_smash_siblings_character_select";
 ///
 /// An edit to the file is played at the next start, with no Rust build.
 pub fn smash_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRules {
-    ambition_platformer2d::combat::room_rules::lowered_room_rules(crate::smash_pack::PACK.prepared())
+    ambition_platformer2d::combat::room_rules::lowered_room_rules(&crate::smash_pack::PACK.prepared())
         .expect("Smash's pack states the rules of its rooms (`data/room_rules.ron`)").clone()
 }
 
@@ -2218,7 +2218,7 @@ impl SmashStageChoice {
     /// Consumers (the select button, `ladder_rig --stage`, the prepared match)
     /// resolve through this list, so a new row reaches all of them.
     pub fn all() -> Vec<Self> {
-        crate::stages::smash_stages().offered.iter().map(|room| Self { room: room.as_str() }).collect()
+        crate::stages::smash_stages().offered.iter().map(|room| Self { room: ambition_platformer2d::content::interned_id(room) }).collect()
     }
 
     /// The offered stage `room_id`, or `None` when the pack does not offer it.
@@ -2237,8 +2237,8 @@ impl SmashStageChoice {
     }
 
     /// What a stage button shows.
-    pub fn label(self) -> &'static str {
-        &crate::stages::smash_stages().stages[self.room].label
+    pub fn label(self) -> String {
+        crate::stages::smash_stages().stages[self.room].label.clone()
     }
 
     /// The next stage in the cycle, for a single button that walks them.

@@ -151,19 +151,21 @@ pub fn toggle_cosmic_form(sprite_content: bevy::prelude::Res<ambition_platformer
             // Her way out: the row plays on the form, and she wears the form
             // until it ends.
             let target = crate::powerups::ladder_character(equipment);
-            let Some(clips) = crate::forms::mary_o_forms().cosmic_clips(target) else { continue; };
+            let forms = crate::forms::mary_o_forms();
+            let Some(clips) = forms.cosmic_clips(target) else { continue; };
             let Some(policy) = cosmic_beat(&sprite_content, catalog.as_deref(), authored.as_deref(), &clips.leave, LEAVE_ANIM) else { continue; };
             commands.entity(body).try_insert(TransformBeatRequested(policy));
-            crate::forms::mary_o_forms().top_cue_down()
+            crate::forms::mary_o_forms().top_cue_down().map(ambition_platformer2d::content::interned_id)
         } else if crate::powerups::is_her_form(worn.id()) {
-            let Some(clips) = crate::forms::mary_o_forms().cosmic_clips(worn.id()) else { continue; };
+            let forms = crate::forms::mary_o_forms();
+            let Some(clips) = forms.cosmic_clips(worn.id()) else { continue; };
             let Some(policy) = cosmic_beat(&sprite_content, catalog.as_deref(), authored.as_deref(), &clips.enter, CharacterAnim::Transform) else { continue; };
             worn.0 = COSMIC_CHARACTER_ID.into();
             commands.entity(body).try_insert((
                 TransformBeatRequested(policy),
                 RecharacterizeBody,
             ));
-            crate::forms::mary_o_forms().top_cue_up()
+            crate::forms::mary_o_forms().top_cue_up().map(ambition_platformer2d::content::interned_id)
         } else {
             // A body that is not Mary-O has no such form.
             continue;
@@ -192,7 +194,8 @@ pub fn update_cosmic_return_clip(
 ) {
     for (worn, equipment, mut beat) in &mut bodies {
         if !is_cosmic(worn.id()) || !is_leaving(&beat) { continue; }
-        let Some(clips) = crate::forms::mary_o_forms().cosmic_clips(crate::powerups::ladder_character(equipment)) else { continue; };
+        let forms = crate::forms::mary_o_forms();
+        let Some(clips) = forms.cosmic_clips(crate::powerups::ladder_character(equipment)) else { continue; };
         if beat.policy.clip.as_deref() == Some(&clips.leave) { continue; }
         let Some(policy) = cosmic_beat(&content, catalog.as_deref(), authored.as_deref(), &clips.leave, LEAVE_ANIM) else { continue; };
         let hold = crate::rules::mary_o_rules().cosmic.leave_hold_seconds;

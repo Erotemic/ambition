@@ -189,9 +189,8 @@ mod tests {
             kit.attack && kit.move_horizontal && kit.jump,
             "the versus kit cannot fight, so the equalities compare empty sets"
         );
-        let catalog = ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(
-            PACK.prepared(),
-        )
+        let pack = PACK.prepared();
+        let catalog = ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(&pack)
         .expect("the versus pack states its cast");
         for (id, row) in &catalog.characters {
             let grants = row.abilities.as_deref().expect("a duelist states its verbs");
@@ -211,7 +210,7 @@ mod tests {
     fn a_duelist_speaks_in_its_own_voice() {
         use ambition_platformer2d::characters::actor::character_catalog::{lowered_catalog, BarkSituation, CharacterCatalog};
         let catalog = CharacterCatalog::from_data(
-            lowered_catalog(PACK.prepared()).expect("the versus pack states its cast").clone(),
+            lowered_catalog(&PACK.prepared()).expect("the versus pack states its cast").clone(),
         );
         for situation in [BarkSituation::Hall, BarkSituation::OnHit, BarkSituation::Provoked] {
             assert_eq!(

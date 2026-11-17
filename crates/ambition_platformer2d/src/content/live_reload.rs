@@ -112,7 +112,7 @@ impl EmbeddedPackReloadPlugin {
     pub fn prop_sheets(pack: &'static EmbeddedPack) -> Self {
         use crate::sprite_sheet::prop_sheets::{lowered_prop_sheets, PROP_SHEETS_SCHEMA};
         let rows = |pack: &PreparedContentPack| lowered_prop_sheets(pack).cloned().unwrap_or_default();
-        Self::owning_rows(pack, PROP_SHEETS_SCHEMA, rows(pack.prepared()).into_keys().collect(), move |world, owned, pack| {
+        Self::owning_rows(pack, PROP_SHEETS_SCHEMA, rows(&pack.prepared()).into_keys().collect(), move |world, owned, pack| {
             crate::game_assets::restate_prop_sheet_rows(world, owned, &rows(pack))
         })
     }
@@ -125,7 +125,7 @@ impl EmbeddedPackReloadPlugin {
         use crate::render::rendering::moving_platforms::PlatformLooks;
         use crate::sprite_sheet::prop_sheets::{lowered_platform_looks, PLATFORM_LOOKS_SCHEMA};
         let rows = |pack: &PreparedContentPack| lowered_platform_looks(pack).cloned().unwrap_or_default();
-        Self::owning_rows(pack, PLATFORM_LOOKS_SCHEMA, rows(pack.prepared()).into_keys().collect(), move |world, owned, pack| {
+        Self::owning_rows(pack, PLATFORM_LOOKS_SCHEMA, rows(&pack.prepared()).into_keys().collect(), move |world, owned, pack| {
             world
                 .get_resource_or_insert_with(PlatformLooks::default)
                 .restate(owned.iter().map(String::as_str), &rows(pack))
@@ -139,7 +139,7 @@ impl EmbeddedPackReloadPlugin {
         use crate::projectiles::content_schema::{lowered_projectile_looks, PROJECTILE_VISUALS_SCHEMA};
         use crate::projectiles::ProjectileVisualCatalog;
         let rows = |pack: &PreparedContentPack| lowered_projectile_looks(pack).cloned().unwrap_or_default();
-        Self::owning_rows(pack, PROJECTILE_VISUALS_SCHEMA, rows(pack.prepared()).into_keys().collect(), move |world, owned, pack| {
+        Self::owning_rows(pack, PROJECTILE_VISUALS_SCHEMA, rows(&pack.prepared()).into_keys().collect(), move |world, owned, pack| {
             world
                 .get_resource_or_insert_with(ProjectileVisualCatalog::default)
                 .restate(owned.iter().map(String::as_str), &rows(pack))
@@ -152,7 +152,7 @@ impl EmbeddedPackReloadPlugin {
         use crate::cutscene::content_schema::{lowered_cutscenes, CUTSCENE_LIBRARY_SCHEMA};
         use crate::cutscene::CutsceneLibrary;
         let scripts = |pack: &PreparedContentPack| lowered_cutscenes(pack).cloned().unwrap_or_default();
-        let owned = scripts(pack.prepared()).into_iter().map(|script| script.id).collect();
+        let owned = scripts(&pack.prepared()).into_iter().map(|script| script.id).collect();
         Self::owning_rows(pack, CUTSCENE_LIBRARY_SCHEMA, owned, move |world, owned, pack| {
             world
                 .get_resource_or_insert_with(CutsceneLibrary::default)
@@ -192,7 +192,7 @@ impl EmbeddedPackReloadPlugin {
     pub fn world_item_art(pack: &'static EmbeddedPack) -> Self {
         use crate::items::content_schema::world_item_art::WORLD_ITEM_ART_SCHEMA;
         use crate::platformer::world_item_art::WorldItemArtManifest;
-        let owned = super::world_item_art_entries(pack.prepared()).into_iter().map(|entry| entry.sprite_id).collect();
+        let owned = super::world_item_art_entries(&pack.prepared()).into_iter().map(|entry| entry.sprite_id).collect();
         Self::owning_rows(pack, WORLD_ITEM_ART_SCHEMA, owned, |world, owned, pack| {
             Ok(world
                 .get_resource_or_insert_with(WorldItemArtManifest::default)
@@ -216,7 +216,7 @@ impl EmbeddedPackReloadPlugin {
 
         let pack = reload.pack;
         // The rows this pack's cast builds, so a row it drops is retired.
-        let built: Vec<String> = ambition_characters::actor::character_catalog::lowered_catalog(pack.prepared())
+        let built: Vec<String> = ambition_characters::actor::character_catalog::lowered_catalog(&pack.prepared())
             .map(|catalog| catalog.characters.keys().cloned().collect())
             .unwrap_or_default();
         let built = std::sync::Mutex::new(built);
@@ -382,7 +382,7 @@ impl Plugin for EmbeddedPackReloadPlugin {
                 watch.restated.extend(self.restated.iter().cloned());
             }
             None => {
-                acknowledge("watching", pack, "");
+                acknowledge("watching", &pack, "");
                 watches.0.push(EmbeddedPackWatch::new(self.clone(), root.into()));
             }
         }
@@ -538,7 +538,7 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
         Err(failure) => {
             let why = format!("the pack `{}` does not compile; the running pack stays:\n{failure}", watch.root.display());
             error!("{why}");
-            acknowledge("refused", watch.pack.prepared(), &format!("prepare_ms={prepare_ms:.1}"));
+            acknowledge("refused", &watch.pack.prepared(), &format!("prepare_ms={prepare_ms:.1}"));
             watch.staged = None;
             watch.refused = Some(why);
             return;
@@ -551,7 +551,7 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
         watch.refused = None;
         return;
     }
-    let read_at_start: Vec<String> = changed_domains(running, &candidate)
+    let read_at_start: Vec<String> = changed_domains(&running, &candidate)
         .into_iter()
         .map(|schema| schema.0)
         .filter(|schema| !watch.takes_part(schema))
@@ -563,7 +563,7 @@ fn look_at(watch: &mut EmbeddedPackWatch) {
             running.id.0
         );
         warn!("{why}");
-        acknowledge("refused", running, &format!("prepare_ms={prepare_ms:.1}"));
+        acknowledge("refused", &running, &format!("prepare_ms={prepare_ms:.1}"));
         watch.staged = None;
         watch.refused = Some(why);
         return;
@@ -593,7 +593,7 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
         let Some(staged) = watch.staged.as_ref() else {
             continue;
         };
-        let changed = changed_domains(watch.pack.prepared(), staged);
+        let changed = changed_domains(&watch.pack.prepared(), staged);
         // Inside a session, only a change to schemas the game reads where it
         // uses them, and only where the timeline allows it. A restated schema
         // (the cast, the tables a start registered) waits for the session's
@@ -621,7 +621,7 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
         );
     }
     for (pack, restate) in to_restate {
-        restate(world, pack.prepared());
+        restate(world, &pack.prepared());
     }
     #[cfg(feature = "rollback")]
     if rebase {
@@ -631,7 +631,7 @@ fn publish_the_staged_pack_between_sessions(world: &mut World) {
     let _ = rebase;
     // After the restaters and the rebase: from here the generation is played.
     for pack in published {
-        acknowledge("published", pack.prepared(), "");
+        acknowledge("published", &pack.prepared(), "");
     }
 }
 
@@ -730,7 +730,7 @@ mod tests {
     fn an_edit_to_a_live_schema_reaches_a_live_session_only_where_the_timeline_allows() {
         let (pack, root) = pack_with_rules("next_session", "(heavy_hit_damage: Some(12))");
         let mut app = app_watching(pack, &["room_rules"]);
-        let before = heavy(pack.prepared());
+        let before = heavy(&pack.prepared());
         app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().begin();
 
         save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
@@ -738,20 +738,42 @@ mod tests {
         #[cfg(feature = "rollback")]
         {
             assert_eq!(watch_of(&app, pack).published, 1, "with no timeline, the live session takes the edit at once");
-            assert_eq!(heavy(pack.prepared()), heavy(&authority), "the pack reads the saved file");
+            assert_eq!(heavy(&pack.prepared()), heavy(&authority), "the pack reads the saved file");
         }
         #[cfg(not(feature = "rollback"))]
         {
             let watch = watch_of(&app, pack);
             assert_eq!(watch.published, 0, "nothing is published while a session is live");
-            assert_eq!(heavy(pack.prepared()), before, "the live session reads the generation it began with");
+            assert_eq!(heavy(&pack.prepared()), before, "the live session reads the generation it began with");
             assert!(watch.is_staged(), "the edit is admitted: {:?}", watch.refused);
             app.world_mut().resource_mut::<crate::actor::ActiveSessionScope>().clear();
             app.update();
             assert_eq!(watch_of(&app, pack).published, 1);
-            assert_eq!(heavy(pack.prepared()), heavy(&authority), "the pack reads the saved file");
+            assert_eq!(heavy(&pack.prepared()), heavy(&authority), "the pack reads the saved file");
         }
-        assert_ne!(heavy(pack.prepared()), before);
+        assert_ne!(heavy(&pack.prepared()), before);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// A published generation replaces the one before it for every later
+    /// read, and the replaced one lives exactly as long as its last reader:
+    /// a row read before the reload keeps reading the old file, and when it
+    /// is dropped nothing holds the old generation.
+    #[test]
+    fn a_replaced_generation_is_dropped_with_its_last_reader() {
+        let (pack, root) = pack_with_rules("generation_release", "(heavy_hit_damage: Some(12))");
+        let first = pack.prepared();
+        let before = heavy(&first);
+        let replaced = first.downgrade();
+        let reader = first.row(|pack| lowered_room_rules(pack).expect("the probe pack states room rules"));
+        std::fs::write(root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))").unwrap();
+        pack.publish(pack.compile().unwrap());
+
+        assert_ne!(heavy(&pack.prepared()), before, "a later read gets the new generation");
+        assert_eq!(*reader, before, "a reader of the old generation still reads it");
+        assert!(replaced.upgrade().is_some(), "the old generation is held by its reader");
+        drop(reader);
+        assert!(replaced.upgrade().is_none(), "the replaced generation outlived its last reader");
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -763,7 +785,7 @@ mod tests {
 
         let (pack, root) = pack_with_rules("preparing", "(heavy_hit_damage: Some(12))");
         let mut app = app_watching(pack, &["room_rules"]);
-        let before = heavy(pack.prepared());
+        let before = heavy(&pack.prepared());
         let mut router = ShellRouter::default();
         router.pending = Some(PendingShellRoute {
             reserved_activation: ShellActivationId(1),
@@ -778,12 +800,12 @@ mod tests {
 
         save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
         assert_eq!(watch_of(&app, pack).published, 0, "nothing is published while a route prepares");
-        assert_eq!(heavy(pack.prepared()), before);
+        assert_eq!(heavy(&pack.prepared()), before);
 
         app.world_mut().resource_mut::<ShellRouter>().pending = None;
         app.update();
         assert_eq!(watch_of(&app, pack).published, 1);
-        assert_ne!(heavy(pack.prepared()), before);
+        assert_ne!(heavy(&pack.prepared()), before);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -835,7 +857,7 @@ mod tests {
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(EmbeddedPackReloadPlugin::room_rules(pack, scope));
         let mut declared = DeclaredRules::<StrikeWeightRules>::default();
-        declared.declare(scope, heavy(pack.prepared()).strike_weight.expect("the probe states a heavy line"));
+        declared.declare(scope, heavy(&pack.prepared()).strike_weight.expect("the probe states a heavy line"));
         app.insert_resource(declared);
         let heavy_line = |app: &App| {
             app.world()
@@ -869,7 +891,7 @@ mod tests {
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(EmbeddedPackReloadPlugin::fighter_ladder(pack, scope));
         let mut declared = DeclaredRules::<FighterBrainLadder>::default();
-        declared.declare(scope, lowered_fighter_brain_ladder(pack.prepared()).cloned().expect("the probe states a ladder"));
+        declared.declare(scope, lowered_fighter_brain_ladder(&pack.prepared()).cloned().expect("the probe states a ladder"));
         app.insert_resource(declared);
         let first_rung = |app: &App| {
             app.world()
@@ -920,9 +942,9 @@ mod tests {
         );
         let mut app = App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        app.register_prop_sheet_rows(&rows_of(pack.prepared()));
+        app.register_prop_sheet_rows(&rows_of(&pack.prepared()));
         let (foreign, foreign_root) = pack_with("owned_rows_foreign", "data/prop_sheets.ron", "prop_sheets", r#"{ "foreign_prop": () }"#);
-        app.register_prop_sheet_rows(&rows_of(foreign.prepared()));
+        app.register_prop_sheet_rows(&rows_of(&foreign.prepared()));
         let _ = std::fs::remove_dir_all(foreign_root);
         app.add_plugins(EmbeddedPackReloadPlugin::prop_sheets(pack));
         let kinds = |app: &App| {
@@ -1245,7 +1267,7 @@ mod tests {
     fn an_edit_to_a_schema_read_at_start_is_refused() {
         let (pack, root) = pack_with_rules("read_at_start", "(heavy_hit_damage: Some(12))");
         let mut app = app_watching(pack, &[]);
-        let before = heavy(pack.prepared());
+        let before = heavy(&pack.prepared());
 
         save_and_look(&mut app, &root.join("data/room_rules.ron"), "(heavy_hit_damage: Some(30))");
         app.update();
@@ -1253,7 +1275,7 @@ mod tests {
         let why = watch.refused.as_deref().expect("the edit is refused");
         assert!(why.contains("room_rules") && why.contains("restart"), "{why}");
         assert_eq!(watch.published, 0);
-        assert_eq!(heavy(pack.prepared()), before);
+        assert_eq!(heavy(&pack.prepared()), before);
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -1264,7 +1286,7 @@ mod tests {
         let (pack, root) = pack_with_rules("refused", "(heavy_hit_damage: Some(12))");
         let mut app = app_watching(pack, &["room_rules"]);
         let file = root.join("data/room_rules.ron");
-        let before = heavy(pack.prepared());
+        let before = heavy(&pack.prepared());
 
         save_and_look(&mut app, &file, "(heavy_hit_damage: Some(0))");
         let why = watch_of(&app, pack).refused.clone().expect("a damage of 0 is refused");
@@ -1274,7 +1296,7 @@ mod tests {
         app.update();
         let watch = watch_of(&app, pack);
         assert!(!watch.is_staged() && watch.refused.is_none() && watch.published == 0);
-        assert_eq!(heavy(pack.prepared()), before);
+        assert_eq!(heavy(&pack.prepared()), before);
         let _ = std::fs::remove_dir_all(root);
     }
 }

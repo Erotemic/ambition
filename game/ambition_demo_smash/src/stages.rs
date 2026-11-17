@@ -157,8 +157,13 @@ pub fn smash_stages_schema() -> SchemaRegistration {
 }
 
 /// The stages, as the demo's pack states them (`assets/data/smash_stages.ron`).
-pub fn smash_stages() -> &'static SmashStages {
-    lowered_rules::<SmashStages>(crate::smash_pack::PACK.prepared(), SMASH_STAGES_SCHEMA)
+pub fn smash_stages() -> ambition_platformer2d::content::PackRow<SmashStages> {
+    crate::smash_pack::PACK.prepared().row(smash_stages_in)
+}
+
+/// [`smash_stages`] in `pack`.
+fn smash_stages_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &SmashStages {
+    lowered_rules::<SmashStages>(pack, SMASH_STAGES_SCHEMA)
         .expect("the demo's pack states its stages (`data/smash_stages.ron`)")
 }
 
@@ -198,7 +203,7 @@ mod tests {
         };
 
         let file = stages_of(&authored);
-        assert_eq!(&file, smash_stages(), "the demo plays the file");
+        assert_eq!(&file, &*smash_stages(), "the demo plays the file");
         let blocks = |room: ambition_platformer2d::world::rooms::RoomSpec| {
             room.world.blocks.iter().map(|block| (block.name.clone(), block.aabb.min, block.aabb.max)).collect::<Vec<_>>()
         };

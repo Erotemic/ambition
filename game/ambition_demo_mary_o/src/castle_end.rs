@@ -277,23 +277,35 @@ fn block_named(room: &RoomSpec, name: &str) -> Option<ae::Aabb> {
 }
 
 /// The pack's cutscenes (`data/cutscenes/*.ron`).
-pub fn cutscenes() -> &'static [CutsceneScript] {
-    ambition_platformer2d::cutscene::content_schema::lowered_cutscenes(crate::pack::PACK.prepared())
+pub fn cutscenes() -> ambition_platformer2d::content::PackRow<[CutsceneScript]> {
+    crate::pack::PACK.prepared().row(cutscenes_in)
+}
+
+fn cutscenes_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &[CutsceneScript] {
+    ambition_platformer2d::cutscene::content_schema::lowered_cutscenes(pack)
         .map(Vec::as_slice)
         .unwrap_or_default()
 }
 
 /// The script of the rescue, as the pack states it.
-pub fn rescue_script() -> &'static CutsceneScript {
-    cutscenes()
+pub fn rescue_script() -> ambition_platformer2d::content::PackRow<CutsceneScript> {
+    crate::pack::PACK.prepared().row(rescue_script_in)
+}
+
+fn rescue_script_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &CutsceneScript {
+    cutscenes_in(pack)
         .iter()
         .find(|script| script.id == RESCUE_CUTSCENE)
         .unwrap_or_else(|| panic!("the pack's cutscenes have no `{RESCUE_CUTSCENE}`"))
 }
 
 /// What he says: the banner of the rescue.
-pub fn rescue_line() -> &'static str {
-    rescue_script()
+pub fn rescue_line() -> ambition_platformer2d::content::PackRow<str> {
+    crate::pack::PACK.prepared().row(rescue_line_in)
+}
+
+fn rescue_line_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &str {
+    rescue_script_in(pack)
         .beats
         .iter()
         .find_map(|beat| match beat {
@@ -320,7 +332,7 @@ fn rescue_line_seconds() -> f32 {
 pub fn install(app: &mut App) {
     app.init_resource::<CutsceneLibrary>();
     let mut library = app.world_mut().resource_mut::<CutsceneLibrary>();
-    for script in cutscenes() {
+    for script in cutscenes().iter() {
         library.insert(script.clone());
     }
     drop(library);

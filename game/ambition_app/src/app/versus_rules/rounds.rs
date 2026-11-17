@@ -71,6 +71,6 @@ pub fn versus_rounds_schema() -> SchemaRegistration {
 /// The rules of the versus stage's rounds, as its pack states them
 /// (`assets/data/versus_rounds.ron`).
 pub fn versus_rounds() -> VersusRounds {
-    *lowered_rules::<VersusRounds>(super::super::versus_fighters::PACK.prepared(), VERSUS_ROUNDS_SCHEMA)
+    *lowered_rules::<VersusRounds>(&super::super::versus_fighters::PACK.prepared(), VERSUS_ROUNDS_SCHEMA)
         .expect("the versus pack states the rules of its rounds (`data/versus_rounds.ron`)")
 }

@@ -128,7 +128,7 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     let published = current(content(&app)).id();
     assert_eq!(app.world().resource::<SpriteSheetWatch>().published, 1, "the edit was not published");
     let authority = ambition_platformer2d::character_sprites::posed_body_world_per_pixel(content(&app),
-        &ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(pack.prepared()).unwrap(),
+        &ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(&pack.prepared()).unwrap(),
         "newcomer",
     );
     assert_eq!(authority, Some(4.0), "the premise: the published sheet makes the body 16 pixels tall");

@@ -410,8 +410,13 @@ pub fn feet_on_top(feet: f32, top: f32) -> bool {
 }
 
 /// The demo's tuning, as its pack states it (`assets/data/sanic_rules.ron`).
-pub fn sanic_rules() -> &'static SanicRules {
-    lowered_rules::<SanicRules>(crate::pack::PACK.prepared(), SANIC_RULES_SCHEMA)
+pub fn sanic_rules() -> ambition_platformer2d::content::PackRow<SanicRules> {
+    crate::pack::PACK.prepared().row(sanic_rules_in)
+}
+
+/// [`sanic_rules`] in `pack`.
+pub(crate) fn sanic_rules_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &SanicRules {
+    lowered_rules::<SanicRules>(pack, SANIC_RULES_SCHEMA)
         .expect("the demo's pack states its tuning (`data/sanic_rules.ron`)")
 }
 
@@ -461,7 +466,7 @@ mod tests {
         };
 
         let file = rules_of(&authored);
-        assert_eq!(&file, sanic_rules(), "the demo plays the file");
+        assert_eq!(&file, &*sanic_rules(), "the demo plays the file");
         // The acts are the file's: a renamed act is the title its card shows.
         let title = r#"title: "COVE HIGHWAY""#;
         assert_eq!(authored.matches(title).count(), 1, "the probe renames one act");

@@ -137,15 +137,108 @@ pub mod content {
         /// The schemas the game itself owns, which the pack compiles against
         /// with the engine's. See [`Self::with_schemas`].
         schemas: fn() -> Vec<SchemaRegistration>,
-        compiled: std::sync::OnceLock<PreparedContentPack>,
-        /// The generation a live reload published ([`live_reload`]), when
-        /// one did. It replaces `compiled` for every later read.
+        /// The generation every read gets: compiled on the first read, then
+        /// whichever generation a live reload published last ([`live_reload`]).
         ///
-        /// Each published generation is leaked on purpose: a reader holds a
-        /// `&'static` borrow of a lowered row (`smash_rules()`), so an old
-        /// generation must stay valid. Only a build that reads its pack off
-        /// disk publishes, and only once for each saved edit.
-        live: std::sync::RwLock<Option<&'static PreparedContentPack>>,
+        /// A reader holds its generation ([`PackGeneration`], [`PackRow`]),
+        /// so a replaced one lives exactly as long as its last reader.
+        current: std::sync::RwLock<Option<PackGeneration>>,
+    }
+
+    /// One compiled generation of a pack, held while it is read.
+    ///
+    /// A live reload publishes a new generation between two sessions; a
+    /// reader that still holds the old one keeps reading it, and the old one
+    /// is dropped when its last reader lets go.
+    #[derive(Clone, Debug)]
+    pub struct PackGeneration(std::sync::Arc<PreparedContentPack>);
+
+    impl PackGeneration {
+        fn new(pack: PreparedContentPack) -> Self {
+            Self(std::sync::Arc::new(pack))
+        }
+
+        /// The row `project` reads, holding this generation while it is read.
+        /// The row is found once, here.
+        pub fn row<T: ?Sized + 'static>(self, project: fn(&PreparedContentPack) -> &T) -> PackRow<T> {
+            let row = std::ptr::NonNull::from(project(&self.0));
+            PackRow { generation: self, row }
+        }
+
+        /// A handle that does not keep the generation alive: what a test of
+        /// release holds.
+        pub fn downgrade(&self) -> std::sync::Weak<PreparedContentPack> {
+            std::sync::Arc::downgrade(&self.0)
+        }
+    }
+
+    impl std::ops::Deref for PackGeneration {
+        type Target = PreparedContentPack;
+        fn deref(&self) -> &PreparedContentPack {
+            &self.0
+        }
+    }
+
+    /// A row of a pack (`smash_rules()`), holding the generation it was read
+    /// from. It reads as the row.
+    pub struct PackRow<T: ?Sized + 'static> {
+        generation: PackGeneration,
+        /// Into `generation`'s pack. Valid while `generation` is held: the
+        /// pack sits behind an `Arc` that nothing can borrow mutably
+        /// (`PackGeneration` never hands out its `Arc`), and it has no
+        /// interior mutability, so the row neither moves nor changes.
+        row: std::ptr::NonNull<T>,
+    }
+
+    // SAFETY: a `PackRow` is a shared borrow of `T` that owns what it
+    // borrows from; it is `Send`/`Sync` exactly when `&T` is.
+    unsafe impl<T: ?Sized + Sync + 'static> Send for PackRow<T> {}
+    unsafe impl<T: ?Sized + Sync + 'static> Sync for PackRow<T> {}
+
+    impl<T: ?Sized + 'static> PackRow<T> {
+        /// The generation this row was read from.
+        pub fn generation(&self) -> &PackGeneration {
+            &self.generation
+        }
+    }
+
+    impl<T: ?Sized + 'static> Clone for PackRow<T> {
+        fn clone(&self) -> Self {
+            Self { generation: self.generation.clone(), row: self.row }
+        }
+    }
+
+    impl<T: ?Sized + 'static> std::ops::Deref for PackRow<T> {
+        type Target = T;
+        fn deref(&self) -> &T {
+            // SAFETY: see `row`; `self.generation` keeps the pack alive for
+            // as long as the returned borrow of `self`.
+            unsafe { self.row.as_ref() }
+        }
+    }
+
+    /// One `'static` copy of an id a pack states (a room, a character, a
+    /// sound), for the `Copy` handles that name one (`SmashStageChoice`).
+    ///
+    /// It keeps one copy for each distinct id, not one for each generation:
+    /// a reload that states the same ids adds nothing. Text a player reads
+    /// is not an id; it is read from its [`PackRow`].
+    pub fn interned_id(id: &str) -> &'static str {
+        static IDS: std::sync::Mutex<std::collections::BTreeSet<&'static str>> =
+            std::sync::Mutex::new(std::collections::BTreeSet::new());
+        let mut ids = IDS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(kept) = ids.get(id) {
+            return kept;
+        }
+        let kept: &'static str = Box::leak(id.to_owned().into_boxed_str());
+        ids.insert(kept);
+        kept
+    }
+
+    impl<T: ?Sized + std::fmt::Debug + 'static> std::fmt::Debug for PackRow<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            (**self).fmt(f)
+        }
     }
 
     /// No schemas of the game's own.
@@ -259,8 +352,7 @@ pub mod content {
                 },
                 libraries: None,
                 schemas: no_schemas,
-                compiled: std::sync::OnceLock::new(),
-                live: std::sync::RwLock::new(None),
+                current: std::sync::RwLock::new(None),
             }
         }
 
@@ -275,8 +367,7 @@ pub mod content {
                 texts: PackTexts::Rooted { root, embedded },
                 libraries: None,
                 schemas: no_schemas,
-                compiled: std::sync::OnceLock::new(),
-                live: std::sync::RwLock::new(None),
+                current: std::sync::RwLock::new(None),
             }
         }
 
@@ -416,16 +507,18 @@ pub mod content {
         ///
         /// When the pack does not compile. Content a game ships and cannot
         /// load is a build fault, and the refusal says which file and why.
-        pub fn prepared(&self) -> &PreparedContentPack {
-            if let Some(live) = *self.live.read().unwrap_or_else(std::sync::PoisonError::into_inner) {
-                return live;
+        pub fn prepared(&self) -> PackGeneration {
+            if let Some(current) = &*self.current.read().unwrap_or_else(std::sync::PoisonError::into_inner) {
+                return current.clone();
             }
-            self.compiled.get_or_init(|| {
-                self.compile()
-                    .unwrap_or_else(|failure| {
-                    panic!("an embedded content pack does not compile:\n{failure}")
+            let mut current = self.current.write().unwrap_or_else(std::sync::PoisonError::into_inner);
+            current
+                .get_or_insert_with(|| {
+                    PackGeneration::new(self.compile().unwrap_or_else(|failure| {
+                        panic!("an embedded content pack does not compile:\n{failure}")
+                    }))
                 })
-            })
+                .clone()
         }
 
         /// The directory the pack is read from when the build reads it off
@@ -442,8 +535,8 @@ pub mod content {
         /// Make `generation` the pack every later [`Self::prepared`] reads.
         /// Only [`live_reload`] calls it, between two sessions.
         fn publish(&self, generation: PreparedContentPack) {
-            let leaked: &'static PreparedContentPack = Box::leak(Box::new(generation));
-            *self.live.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(leaked);
+            *self.current.write().unwrap_or_else(std::sync::PoisonError::into_inner) =
+                Some(PackGeneration::new(generation));
         }
 
         /// The move table this pack authors for `character`.
@@ -454,8 +547,8 @@ pub mod content {
         /// composition fault, not a default. The message names the characters
         /// the pack does author.
         pub fn moveset(&self, character: &str) -> crate::entity_catalog::MovesetContract {
-            let table =
-                ambition_characters::moveset_content_schema::lowered_movesets(self.prepared());
+            let pack = self.prepared();
+            let table = ambition_characters::moveset_content_schema::lowered_movesets(&pack);
             table
                 .and_then(|table| table.get(character))
                 .cloned()
@@ -486,8 +579,8 @@ pub mod content {
             let pack = self.prepared();
             crate::audio::catalog::AudioCatalogFragment::new(
                 provider,
-                crate::audio::content_schema::lowered_music_registry(pack).cloned(),
-                crate::audio::content_schema::lowered_sfx_registry(pack).cloned(),
+                crate::audio::content_schema::lowered_music_registry(&pack).cloned(),
+                crate::audio::content_schema::lowered_sfx_registry(&pack).cloned(),
             )
             .unwrap_or_else(|error| panic!("the embedded pack `{}`: {error}", pack.id.0))
         }
@@ -496,7 +589,7 @@ pub mod content {
         /// entries to register with `register_world_item_art`. A pack that
         /// states none gives none.
         pub fn world_item_art(&self) -> Vec<crate::platformer::world_item_art::WorldItemArtEntry> {
-            world_item_art_entries(self.prepared())
+            world_item_art_entries(&self.prepared())
         }
 
         /// The art-to-world scale at which [`Self::cast`] builds `character`'s
@@ -509,7 +602,7 @@ pub mod content {
         /// `posed_body`: a caller that asks has assumed one.
         pub fn posed_body_world_per_pixel(&self, sprite_content: &ambition_sprite_sheet::SpriteContent, character: &str) -> f32 {
             let pack = self.prepared();
-            let catalog = ambition_characters::actor::character_catalog::lowered_catalog(pack)
+            let catalog = ambition_characters::actor::character_catalog::lowered_catalog(&pack)
                 .unwrap_or_else(|| panic!("the embedded pack `{}` states no cast", pack.id.0));
             ambition_character_sprites::posed_body_world_per_pixel(&sprite_content, catalog, character)
                 .unwrap_or_else(|| {
@@ -545,7 +638,7 @@ pub mod content {
         pub fn display_name(&self, character: &str) -> String {
             use ambition_characters::actor::character_catalog::lowered_catalog;
             let pack = self.prepared();
-            let catalog = lowered_catalog(pack)
+            let catalog = lowered_catalog(&pack)
                 .unwrap_or_else(|| panic!("the embedded pack `{}` states no cast", pack.id.0));
             catalog
                 .characters
@@ -567,12 +660,12 @@ pub mod content {
             use ambition_characters::actor::character_catalog::lowered_catalog;
             let pack = self.prepared();
             assert!(
-                lowered_catalog(pack).is_some(),
+                lowered_catalog(&pack).is_some(),
                 "the embedded pack `{}` states no cast: declare a `character_catalog` \
                  source in its manifest",
                 pack.id.0
             );
-            let fragment = cast_fragment(pack, provider, default_character, None)
+            let fragment = cast_fragment(&pack, provider, default_character, None)
                 .unwrap_or_else(|error| panic!("the embedded pack `{}`: {error}", pack.id.0));
             PackCast {
                 pack: self,
@@ -691,7 +784,7 @@ pub mod content {
                 );
             }
             let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
-            let definitions = cast_definitions(&sprite_content, pack, catalog, &self.provider, &self.carried, rigs_admitted);
+            let definitions = cast_definitions(&sprite_content, &pack, catalog, &self.provider, &self.carried, rigs_admitted);
             app.register_character_catalog_fragment(self.fragment);
             for definition in definitions {
                 app.register_character(definition);
@@ -710,7 +803,7 @@ pub mod content {
             // restater stages the whole cast, so one is enough.
             if let Some(restater) = reload.restated.first() {
                 let (restate, embedded) = (restater.restate.clone(), self.pack);
-                sprite_reload::restate_with_the_sheets(app, format!("the cast of `{}`", pack.id.0), move |world| restate(world, embedded.prepared()),
+                sprite_reload::restate_with_the_sheets(app, format!("the cast of `{}`", pack.id.0), move |world| restate(world, &embedded.prepared()),
                 );
             }
             app.add_plugins(reload);
@@ -1939,7 +2032,7 @@ mod content_sdk_tests {
         let lowered = |pack: &crate::content::PreparedContentPack| {
             pack.lowered::<u8>(&SchemaId::new("probe_rounds")).copied()
         };
-        assert_eq!(lowered(OWNS.prepared()), Some(3), "the game's schema lowers its file");
+        assert_eq!(lowered(&OWNS.prepared()), Some(3), "the game's schema lowers its file");
         // A check binary gives the content CLI this list, so the CLI checks
         // the pack against the schemas the game compiles it with.
         let ids = |schemas: fn() -> Vec<SchemaRegistration>| {

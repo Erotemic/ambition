@@ -56,8 +56,13 @@ pub fn smash_text_schema() -> SchemaRegistration {
 }
 
 /// The lines, as the demo's pack states them.
-pub fn smash_text() -> &'static ShownText {
-    lowered_shown_text(crate::smash_pack::PACK.prepared(), SMASH_TEXT_SCHEMA)
+pub fn smash_text() -> ambition_platformer2d::content::PackRow<ShownText> {
+    crate::smash_pack::PACK.prepared().row(smash_text_in)
+}
+
+/// [`smash_text`] in `pack`.
+fn smash_text_in(pack: &ambition_platformer2d::content::PreparedContentPack) -> &ShownText {
+    lowered_shown_text(pack, SMASH_TEXT_SCHEMA)
         .expect("the demo's pack states its lines (`data/smash_text.ron`)")
 }
 

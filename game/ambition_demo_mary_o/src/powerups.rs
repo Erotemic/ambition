@@ -618,7 +618,7 @@ pub(crate) fn is_her_form(character_id: &str) -> bool {
 /// The character of the rung her equipment puts her on: the form she has
 /// when no other rule says what she wears.
 pub(crate) fn ladder_character(worn: Option<&WornEquipment>) -> &'static str {
-    &mary_o_forms().ladder[worn_form_rank(worn) as usize].character
+    ambition_platformer2d::content::interned_id(&mary_o_forms().ladder[worn_form_rank(worn) as usize].character)
 }
 
 /// The rung a worn-character id draws. An id off the ladder is the bottom rung.
@@ -1003,7 +1003,7 @@ pub(crate) fn clip_seconds(sprite_content: &ambition_platformer2d::sprite_sheet:
 
 /// The exact authored sound for a form transition (`cues` in her ladder).
 fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
-    mary_o_forms().cue(from, to)
+    mary_o_forms().cue(from, to).map(ambition_platformer2d::content::interned_id)
 }
 
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
@@ -1126,12 +1126,12 @@ mod tests {
 
     /// The catalog row of the rung of rank `rank` on her ladder.
     fn character(rank: usize) -> &'static str {
-        &mary_o_forms().ladder[rank].character
+        ambition_platformer2d::content::interned_id(&mary_o_forms().ladder[rank].character)
     }
 
     /// The sound of the change of form from rung `from` to rung `to`.
     fn cue(from: usize, to: usize) -> &'static str {
-        mary_o_forms().cue(character(from), character(to)).expect("her ladder states this cue")
+        ambition_platformer2d::content::interned_id(mary_o_forms().cue(character(from), character(to)).expect("her ladder states this cue"))
     }
 
     /// The spark: the ranged grant of the cinder beacon.

@@ -332,7 +332,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 14
+UNCLASSIFIED_CEILING = 17
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200
@@ -450,7 +450,10 @@ def rows(repo: Path = REPO) -> tuple[tuple[str, str, str, str], ...]:
             rel = str(src.relative_to(repo))
             for _bind, ty in binds:
                 short = ty.rsplit("::", 1)[-1]
-                if ".allows(" in body or "RoomReplay" in params or name in replay_gated:
+                # The whole word: `RoomReplayRequested` and `RoomReplayAdmitted` are
+                # messages of a room's own reset, not the replay's scope, and
+                # other types have an `allows` (`PortalRooms`, `BarkDraw`).
+                if re.search(r"\bRoomReplay\b", params) or name in replay_gated:
                     kind = "room-gated"
                 elif "RoomWrite" in body or "from_room" in body:
                     kind = "room-stamped"

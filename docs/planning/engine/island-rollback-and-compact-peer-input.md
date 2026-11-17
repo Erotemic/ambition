@@ -1131,6 +1131,17 @@ would be read in the next tick's GameplayEffects, and a replay's last tick
 drops it). `grant_quest_completion_rewards` follows the registry both ways and
 counts as a mirror. Census: 14 unclassified over 5 types.
 
+**The census misread three writers as room-gated (2026-11-17).** Its gate test
+was a substring: `RoomReplayRequested` and `RoomReplayAdmitted` (a room's own
+reset) read as the replay's scope, so `admit_room_replay`, `drive_departures`
+and `emit_cut_rope_room_replay_after_the_conversation_ends` counted as gated,
+and any `.allows(` (`PortalRooms`, `BarkDraw`) counted as `RoomReplay::allows`.
+The test is now the whole word. The honest count is 17 over 6 types, and the
+ceiling rose to it. What it shows: every lifecycle operation (a room reset, a
+crossing, a party return) can be admitted inside a replay. A death's
+consequence fires once and is spent on the body, so its request must not die
+with the replay's private message stream. That is the next slice.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

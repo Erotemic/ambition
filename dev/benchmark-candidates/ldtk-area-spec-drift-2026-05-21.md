@@ -58,3 +58,18 @@ b) Acknowledge the spec is no longer the source of truth for layout and use `--r
 - `tileset add-layer` errored when the layer def existed instead of backfilling missing per-level instances. After `area create --replace-existing` the new level was missing the Tiles layer instance and the `intro_levels_carry_painted_tileset_layers` regression failed. Fixed by making the existing-def branch call the same idempotent `add_empty_layer_instance_to_levels` backfill.
 
 General rule: **tools that emit per-level shapes (Tiles instances, lock-wall blocks, …) should be idempotent** so `--replace-existing` is recoverable without hand-edits.
+
+### Keep saved identity when a placement moves
+
+`area_authoring.carry_identities` matches an entity by type and position.
+A position change in the generator alone can produce a new `iid`. A death
+or other saved state under the old identity then no longer names that body.
+
+Move a persistent placement with `entity move` before applying the updated
+generator. The move keeps its `iid`; the rebuild then matches its new
+position. For a rebuild already made, apply those semantic moves to the old
+level and use `carry_identities` to transfer its identities to the result.
+Record the generated level after the transfer.
+
+Inspect the semantic diff for identity changes as well as geometry. A valid
+map can still lose the identity that its save records use.

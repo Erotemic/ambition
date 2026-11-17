@@ -12,6 +12,9 @@
 //!   `playful: 1.0` runs); it is switched through the one brain authority
 //!   ([`BrainCommand`](super::brain_command::BrainCommand)), so a rewind and
 //!   a later `actor.release` see the same selection.
+//! - `actor.form_up <character> <place> <spacing> <brain>`: walk to separate
+//!   points from the named place. Simulation identity sets the body order.
+//!   Positive spacing puts each next body to the right; negative goes left.
 //! - `actor.leave_through <character> <zone> <brain>`: the same walk to the
 //!   loading zone `<zone>`, and the body goes through it when it gets there
 //!   ([`leave_through_zones`]).
@@ -102,6 +105,11 @@ const BRAIN: ParamSpec = ParamSpec {
     kind: ParamKind::Name,
     summary: "the brain preset the body walks with (`keeps_to_its_tasks` walks)",
 };
+const SPACING: ParamSpec = ParamSpec {
+    name: "spacing",
+    kind: ParamKind::Number,
+    summary: "horizontal pixels between bodies, in simulation identity order; negative goes left",
+};
 
 const WAY: ParamSpec = ParamSpec {
     name: "way",
@@ -146,6 +154,14 @@ impl Posed {
 
 /// Publish the `actor` commands and conditions.
 pub(crate) fn publish_actor_vocabulary(app: &mut App) {
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "form_up"),
+            summary: "walk bodies to separate points from a named place, in simulation identity order",
+            params: &[CHARACTER, PLACE, SPACING, BRAIN],
+        },
+        form_up,
+    );
     app.publish_command(
         CommandDescriptor {
             id: CommandId::new("actor", "walk_to"),
@@ -284,6 +300,7 @@ fn send(
     room: Option<LiveRoomInstance>,
     verb: &str,
     leaving: bool,
+    spacing: f32,
 ) -> CommandOutcome {
     let (Some(character), Some(place), Some(brain)) = (args[0].as_name(), args[1].as_name(), args[2].as_name()) else {
         return CommandOutcome::refused(format!("`actor.{verb}` takes a character, a place and a brain preset"));
@@ -292,11 +309,15 @@ fn send(
     if cast.is_empty() {
         return CommandOutcome::refused(format!("no body of `{character}` is live in the asking room"));
     }
+    if !(spacing * (cast.len() - 1) as f32).is_finite() {
+        return CommandOutcome::refused("the formation span must be finite");
+    }
     let mut sent = 0;
-    for (body, sim_id, at) in cast {
-        let Some(point) = place_of(world, body, place, leaving) else {
+    for (index, (body, sim_id, at)) in cast.into_iter().enumerate() {
+        let Some(mut point) = place_of(world, body, place, leaving) else {
             continue;
         };
+        point.x += spacing * index as f32;
         let mut entity = world.entity_mut(body);
         // A body an encounter spawned carries no brain binding, and the one
         // brain authority switches only a bound body. Bind it to its own
@@ -326,11 +347,18 @@ fn send(
 }
 
 fn walk_to(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
-    send(world, args, room, "walk_to", false)
+    send(world, args, room, "walk_to", false, 0.0)
 }
 
 fn leave_through(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
-    send(world, args, room, "leave_through", true)
+    send(world, args, room, "leave_through", true, 0.0)
+}
+
+fn form_up(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+    let Some(spacing) = args[2].as_number().map(|value| value as f32).filter(|value| value.is_finite()) else {
+        return CommandOutcome::refused("actor.form_up needs finite spacing in pixels");
+    };
+    send(world, &[args[0].clone(), args[1].clone(), args[3].clone()], room, "form_up", false, spacing)
 }
 
 fn release(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {

@@ -47,9 +47,6 @@ fn the_raids_last_raider_runs_out_with_the_case() {
     assert!(refusals.is_empty(), "every shipped cutscene line prepares: {refusals:?}");
     let mut pad = Pad::new(&mut sim);
     through_the_raid(&mut pad, RaidStart::Door).unwrap_or_else(|why| panic!("the raid: {why}"));
-    // The Creator points at him while he runs (`actor.pose`), until the
-    // scene lets him go.
-    assert_eq!(creator_pose(pad.world_mut()), Some(("gesture".to_owned(), true)), "the Creator points while he runs");
     // The raid is won the tick he goes; the scene sees him gone on its next
     // tick, and the Creator's last words follow.
     for frame in 0..1200 {
@@ -58,7 +55,7 @@ fn the_raids_last_raider_runs_out_with_the_case() {
         }
         pad.step(Press { confirm: frame % 10 == 0, ..Press::default() });
     }
-    assert!(flag(sim.world(), "intro_case_run_seen"), "the escape played when two raiders had fallen");
+    assert!(flag(sim.world(), "intro_case_run_seen"), "the escape played when two raiders had fallen; live and fallen: {:?}", raiders(sim.world_mut()));
     assert_eq!(creator_pose(sim.world_mut()), None, "the scene let the Creator go");
     assert!(flag(sim.world(), "intro_case_taken"), "the yard gate's flag is set");
     let (live, fallen) = raiders(sim.world_mut());

@@ -5,36 +5,95 @@ title: creator_intro
 <<if condition("encounter.cleared", "intro_workshop_raid")>>
     Creator: Scout. Over here. Give me a minute, I have to sit down.
     -> ⟨go⟩
-<<elseif condition("world.flag_set", "intro_torque_gauge_found")>>
+<<elseif condition("world.flag_set", "intro_training_active")>>
+    Creator: Take your time. The low block first, then the sandbag. I'll stay here.
+    -> Remind me how to move.
+        Creator: Move left or right. Jump onto the block marked LOAD TEST. Hold Jump a little longer for more height.
+    -> Remind me how to strike.
+        Creator: Step off the block toward the sandbag. Face it and use your normal attack. Move close enough for the blade to reach.
+        Creator: A swing in the air won't count. Watch for the bag to move when you connect.
+    -> Let's stop the lesson.
+        <<command "world.set_flag" "intro_training_active" false>>
+        Creator: All right. You can ask to try again.
+    -> ⟨keep practising⟩
+<<elseif condition("world.flag_set", "intro_torque_gauge_found") and not condition("world.flag_set", "intro_joints_checked")>>
     <<jump creator_intro__gauge>>
+<<elseif condition("world.flag_set", "intro_questions_done")>>
+    <<if condition("world.flag_set", "intro_returning_to_bench")>>
+        <<if condition("actor.arrived", "npc_creator")>>
+            <<jump creator_intro__ready>>
+        <<else>>
+            Creator: I'll meet you at the bench. I need to put this down first.
+        <<endif>>
+    <<else>>
+        Creator: I'll be at the bench when you're ready to finish. Come over when you've had enough practice.
+        <<command "actor.walk_to" "npc_creator" "intro_bench_station" "keeps_to_its_tasks">>
+        <<command "world.set_flag" "intro_returning_to_bench" true>>
+    <<endif>>
+<<elseif condition("world.flag_set", "intro_training_complete")>>
+    Creator: How does the knee feel? No clicking? Good. Come over to the bench when you're ready for my questions.
+    <<command "actor.walk_to" "npc_creator" "intro_bench_station" "keeps_to_its_tasks">>
+    -> Ask your questions.
+        <<jump creator_intro__questions>>
+    -> Could we do the training run again?
+        <<jump creator_intro__training>>
+    -> ⟨take a look around⟩
 <<else>>
     Creator: Can you hear me all right? Good.
-    Creator: I need the torque gauge before we start. It's up on the loft. Use the crate.
+    Creator: We can go through yesterday's training run again, if you'd like. Just your legs and a few strikes on the sandbag.
+    -> Yes. Show me the basics.
+        <<jump creator_intro__training>>
+    -> I remember. Ask your questions.
+        <<jump creator_intro__questions>>
     -> Who are you?
-        Creator: I built you. This week I'm trying a new way of tuning you, so I'll be asking you a lot of questions.
+        Creator: I built you. This week I'm trying a new way of tuning you. I want to see what you remember after each change.
+        <<jump creator_intro__offer>>
     -> Where am I?
         Creator: My workshop. It's a barn outside {$village}. The cows had it before me.
-    -> Ask your questions first.
-        Creator: Fine. We'll do the joints after.
-        <<jump creator_intro__questions>>
-    -> ⟨go for the gauge⟩
+        <<jump creator_intro__offer>>
+    -> ⟨look around first⟩
 <<endif>>
+===
+
+title: creator_intro__offer
+---
+Creator: The practice run is there if you want it. No hurry.
+-> Show me the basics.
+    <<jump creator_intro__training>>
+-> Ask your questions first.
+    <<jump creator_intro__questions>>
+-> What's up on the loft?
+    Creator: My torque gauge. You can fetch it if you want to try a higher jump. The crate gets you up to the boards.
+-> ⟨look around⟩
 ===
 
 title: creator_intro__gauge
 ---
 <<present_speaker "npc_creator">>
 <<portrait_clip "talking">>
-Creator: That's the one. Hold it on your knee. ...Twelve. Other knee. ...Twelve. They match.
+Creator: That's the gauge. Hold it against your knee. ...Twelve. Other knee. ...Twelve. They match.
 <<command "world.set_flag" "intro_joints_checked" true>>
-Creator: Now the part I care about. The new tuning makes small changes often instead of big ones now and then. I want to know if you still answer like yourself afterwards.
-<<jump creator_intro__questions>>
+Creator: Good. That's one thing I can stop worrying about.
+<<jump creator_intro>>
+===
+
+title: creator_intro__training
+---
+<<present_speaker "npc_creator">>
+<<portrait_clip "talking">>
+<<command "world.set_flag" "intro_returning_to_bench" false>>
+<<command "actor.walk_to" "npc_creator" "intro_practice_station" "keeps_to_its_tasks">>
+Creator: I'll stand by the cart. Walk left to the low block marked LOAD TEST, then jump onto it.
+Creator: Use your movement controls to move, and Jump to leave the ground. Hold Jump a little longer for more height. You only need one jump here.
+Creator: Close this box and try it. You can come back to me for a reminder, or stop whenever you want.
+<<command "world.set_flag" "intro_training_active" true>>
 ===
 
 title: creator_intro__questions
 ---
 <<present_speaker "npc_creator">>
 <<portrait_clip "talking">>
+Creator: The new tuning makes small changes often instead of big ones now and then. I want to know if you still answer like yourself afterwards.
 Creator: First question. What's your name?
 -> Scout.
     Creator: Same as yesterday. Good.
@@ -53,30 +112,29 @@ Creator: Last one. Is there anything you want to ask me?
     Creator: To see if this tuning works. And because I wanted to hear what you'd ask.
 -> What's outside?
     Creator: {$village}. Fields, hills. The old gate up on the hill. They put steel on it last year.
-<<wait 1.5>>
-Creator: Hang on. Was that a cart? Nobody brings a cart up here.
-<<command "world.set_flag" "intro_raiders_coming" true>>
-<<wait 2>>
-Creator: The door's barred. It'll hold.
-<<command "world.set_flag" "intro_barn_door_broken" true>>
-// The bar breaks. The first raider within earshot breaks in on these lines
-// (the conversation's `__interrupted` node) as it walks up from the door.
-Creator: ...That was the bar.
-Creator: Scout. Stay by me.
-<<jump creator_intro__interrupted>>
+Creator: That's enough for the notebook. Take a look around. I'll be at the bench when you're ready to finish.
+<<command "world.set_flag" "intro_questions_done" true>>
+<<command "world.set_flag" "intro_returning_to_bench" true>>
+<<command "actor.walk_to" "npc_creator" "intro_bench_station" "keeps_to_its_tasks">>
+===
+
+title: creator_intro__ready
+---
+<<present_speaker "npc_creator">>
+Creator: Anything else before I put the tools away?
+-> Could we do the training run again?
+    <<jump creator_intro__training>>
+-> I'm ready to finish.
+    Creator: Good. Let me just write the time—
+    <<command "world.set_flag" "intro_raid_ready" true>>
+-> ⟨not yet⟩
 ===
 
 title: creator_intro__interrupted
 ---
-<<command "conversation.join" "npc_lab_raider">>
-<<present_speaker "npc_lab_raider">>
-Raider: In, in! Get the boxes!
-Raider with the Sheet: Hold on. It says a lab with a big sign. This is a barn.
-<<command "world.set_flag" "wrong_list_clue_1" true>>
-Raider: It's got a robot in it. That's a lab. Boxes!
 <<present_speaker "npc_creator">>
-Creator: Who sent you? Put that d—
--> ⟨fight⟩
+Creator: Scout, stay clear of the door.
+-> ⟨go⟩
 ===
 
 title: alice_lane

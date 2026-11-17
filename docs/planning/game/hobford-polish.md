@@ -34,12 +34,32 @@ applies are in the [level design guide](../../authoring/level-design-guide.md).
 
 ## Plan and state
 
+### Optional workshop lesson (2026-11-17)
+
+The Creator offers a movement and combat lesson before his questions. The
+player can decline, stop, ask for a reminder, or repeat it. The lesson has
+no time limit. It waits for a landing on the low block, then for a real
+strike on the sandbag. The Creator stays by the cart during practice.
+
+The progression is in `game/ambition_content/rhai/intro_training.rhai`.
+The engine's room story ports report the landing and hit facts and route
+requests through the existing command and cutscene owners. Yarn owns the
+offer and questions. The questions now end before the raid is requested.
+The Creator returns to the bench, and the raiders wait in the doorway
+until the final line is dismissed. `actor.form_up` spaces their marks so
+they do not arrive as one stack. The escape warning keeps the Creator
+in view. His final scene returns the camera to the bench.
+Idle NPC speech respects control holds, so it does not cover these lines.
+
+The fight still uses the current three raiders. Further combat tuning is
+a separate playtest pass.
+
 | # | Work | State |
 |---|---|---|
 | 1 | Player-facing "ring" to "gate" in Hobford's signs, zone names and dialogue | done: signs, zone names, room titles, `intro.yarn`, the gate network's names (the work order cutscene still says HOBFORD in capitals: cutscene text has no variables) |
-| 2 | The Creator's talk: the raid starts after the last answer has landed, not under the question; each beat finishes first | done: answer, a beat (`<<wait 1.5>>`), "Hang on. Was that a cart?", the raid called, "The door's barred. It'll hold.", the bar breaks, two short lines while the raiders walk in |
+| 2 | The Creator's talk: the raid starts after the last answer has landed, not under the question; each beat finishes first | done: the questions end before the ready choice; the Creator returns to the bench before the arrival scene; each line waits for confirmation |
 | 3 | The barrier lever works from both sides and the barrier stays up once lifted | done: the lever stands beside the boom on the road's side and sets `hobford_barrier_lifted`, which no pull clears; the only rooms past it (the gate, the freight track, the siding) are reached through it, so no body is ever on the far side of a shut boom |
-| 4 | The raid: the barn is the interior and its yard is outside; the goblins start beyond the yard, out of shot, and walk in through the open barn door while the camera holds Scout, the Creator and the door. The arena lock is the yard gate (the encounter's own wall), so no one leaves mid-fight; the Creator's last words wait for the fight (`after_encounter` on the trigger) | done: the raiders appear in the doorway about a second after the bar breaks and break in on arrival; the probe's frame log is in the commit message |
+| 4 | The raid: the barn is the interior and its yard is outside; the goblins start beyond the yard, out of shot, and walk in through the open barn door while the camera holds Scout, the Creator and the door. The arena lock is the yard gate (the encounter's own wall), so no one leaves mid-fight; the Creator's last words wait for the fight (`after_encounter` on the trigger) | done: the Creator opens the bar; the raiders use separate formation marks and wait until the final line is dismissed; the last words still wait for the raid to end |
 | 5 | Edges between Hobford's outdoor rooms; the barn and other interiors by doors; then a census of every world's doors with a queue row for the rest | done: level 1's outdoor joins are all edges (the four doors are gone); the census of the other worlds is below, and its candidates are the queue row [DOOR-EDGES](../queue.md#door-edges--outdoor-joins-that-are-still-doors) |
 | 6 | A Hobford background without the gate (`hobford_gateside`) for the gate clearing and the siding | done: `hobford_gateside` is the country drawn from the same seed without the ring, scaffold and cable poles; the two rooms name it in the new level field `backdrop` (the background's theme alone; the skin stays the country's) |
 | 7 | The land: hills instead of two rows of rooms joined by doors | done: one line of rooms west to east (below); the lane, the meadow and the clearing are hill rooms that climb between the hilltops' height and the valley's on filled `SurfaceChain` slopes, which the navigation graph walks (`NavLegKind::Slope`). The mountain: THE FELL (`intro_fell`, 2026-11-15), east of the siding, the line's east end. The drove road climbs 832 px from the siding's floor to a summit far above the gate's hill: slopes, the sheepfold terrace with its wall to hop and the shepherd, a scree ledge, two 64 px crags, the top with its cairn and a lookout camera zone. The census walks it with level 1's kit (slope, hop, slope, hop, hop, slope, hop). Dressed (2026-11-16): rocks and flowering gorse along the drove road and on the scree, sheep in the fold and on the top (`hill_fell_*` in `hill_village_props.py`, placed by `fell()`'s `DRESSING` table; a `_slope` piece's foot follows the road's rise, so none floats over it); the fold's wall is dry stone and the cairn a heap of stones, each a prop over its solid block (scenery draws in front of blocks). Seen in `capture_scene` captures of the fold, the road and the top |

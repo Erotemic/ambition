@@ -115,6 +115,43 @@ keeps the flock's members and goal by reference:
 `a_room_record_keeps_its_flock_by_reference` in
 `game/ambition_app/tests/the_primeval_trail.rs`.
 
+### Room story scripts
+
+The `story_tick` trigger selects a room by its definition id. Each live
+instance gets one invocation in `actor_think`, with its own room root as
+the scope. Body-attached records on that scope rewind with the room.
+
+The trigger reports the room's bodies, named LDtk labels, true save flags,
+and whether a conversation or cutscene holds the room. Positions use room
+pixels, with +Y down. Bodies are sorted by simulation identity. A recent
+strike comes from the shared hit resolver; a practice target can report a
+strike without losing health.
+
+A script can submit `story_command` with a `line` from the authored
+command catalog, or `play_cutscene` with a library `id`. Both requests keep
+the invocation's live room. The command catalog checks each line before
+dispatch. An unknown command or cutscene is refused and reported in the
+log. These ports do not give the script direct ECS access.
+
+`actor.form_up <character> <place> <spacing> <brain>` sends the bodies to
+separate points from a named place, in simulation identity order. Spacing
+uses horizontal pixels: positive goes right, negative goes left. It uses
+the same visits and movement as `actor.walk_to`. The workshop uses it to
+keep the arriving raiders apart.
+
+Ambition's optional workshop lesson is
+`game/ambition_content/rhai/intro_training.rhai`. Yarn offers the lesson;
+Rhai waits for the landing and strike; `data/cutscenes/intro.ron` supplies
+the feedback. The landing point is an LDtk label placed from the same
+generator values as the block. To edit the script on a built host:
+
+```bash
+AMBITION_EXTENSION_MODULES=game/ambition_content/rhai/intro_training.rhai ./run_game.sh --reuse
+```
+
+The normal module reload checks still apply. A build embeds the shipped
+script for targets that have no source tree.
+
 A **project** names its scripts (and optionally its own content pack, start
 room and starting bag, `starting_items: Some([("bomb", 3)])`) in a
 `project.ron`, so a run needs no variable:

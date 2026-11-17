@@ -21,6 +21,7 @@
 | [`extension_composition`](src/extension_composition.rs) | The extension host in the platformer composition (fast-iteration I4). |
 | [`external_effects`](src/external_effects.rs) | Defers presentation-only simulation effects until their producing frame is confirmed. |
 | [`fall_rescue`](src/fall_rescue.rs) | Create and retire rescue platforms under authored room policy. |
+| [`feature_interaction_order_tests`](src/feature_interaction_order_tests.rs) | The `FeatureInteraction` cross-domain order, asserted as the app composes it. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`input`](src/input.rs) | Device input, participant seating, context claims, and frame publication adapters. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
@@ -49,13 +50,15 @@
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
 | [`sim_identity`](src/sim_identity.rs) | Stable simulation identity maintenance and construction diagnostics. |
 | [`stocks_match`](src/stocks_match.rs) | Resolve match outcomes and sudden-death entry. |
+| [`story_script`](src/story_script.rs) | Room story scripts read simulation facts and request domain actions. |
 | [`verdict_census`](src/verdict_census.rs) | Diagnostic summary of the existing authored-verdict ring. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
+| [`world_integration_tests`](src/world_integration_tests.rs) | ECS-feature behavior tests. |
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_48 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_51 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -2546,15 +2546,8 @@ fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f3
     base_s + (h % span_ms.max(1)) as f32 / 1000.0
 }
 
-/// Ambient NPC chatter: a peaceful NPC carrying an idle-bark pool
-/// (`crate::body::npcs::npc_ambient_bark_line`) mutters a line every
-/// ~6–10s, so it feels alive between conversations. Skips hostile NPCs and any
-/// still showing a hit-flash bubble (so it never talks over a hit bark). The
-/// stochastic parrot is the first user; any NPC gains barks by adding a pool.
-///
-/// ⭐ EACH NPC BARKS FROM THE POOL OF ITS OWN LIVE ROOM (OW1 cut 7m). The room
-/// was the sole live room's spec, so while two rooms were live it was `None`,
-/// and the pedestals of a gallery room barked the `Idle` pool.
+/// Ambient speech from each NPC's own live room and authored pool.
+/// A control hold, hostility, a recent strike, or death suppresses idle speech.
 pub fn tick_npc_idle_barks(
     world_time: Res<WorldTime>,
     npcs: Query<
@@ -2568,7 +2561,7 @@ pub fn tick_npc_idle_barks(
             &ambition_characters::actor::BodyHealth,
             &ambition_combat::components::FeatureId,
         ),
-        With<FeatureSimEntity>,
+        (With<FeatureSimEntity>, Without<ambition_characters::control::ControlHolds>),
     >,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     // Optional so narrow fixtures without a room set still bark.

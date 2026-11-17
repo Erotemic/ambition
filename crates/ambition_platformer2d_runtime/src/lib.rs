@@ -43,6 +43,7 @@ pub mod durable_save_horizon;
 #[cfg(test)]
 mod executor_tests;
 pub mod extension_composition;
+pub mod story_script;
 /// Holding external effects (audio, VFX) at the host's confirmed-frame boundary
 /// so a rollback cannot duplicate one or leave a mispredicted one standing.
 pub mod external_effects;

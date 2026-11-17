@@ -23,14 +23,12 @@
 // long cutscene wall.
 
 [
-    // The Creator's last words (`intro_wake_room`), at the volume just past
-    // the barn door, once the raid is beaten (the trigger's
-    // `after_encounter`): he is at his bench, inside the door. He was hurt
-    // in the fight. If he fell in it already, these are the words he had
-    // left (Q173: he always dies here).
+    // The workshop's trigger waits for the raid to end. The camera returns
+    // to the bench before the Creator speaks. He falls after his last line.
     (
         id: "creator_final_fragment",
         beats: [
+            CameraPan(target: (1060.0, 280.0), seconds: 0.5),
             // The yard gate opens, if the raider with the case did not open it
             // on his way out (his two mates fell together).
             SetFlag(
@@ -72,12 +70,9 @@
         seen_flag: Some("intro_creator_fragment_seen"),
     ),
     // The raid's last raider, when the other two have fallen, grabs the case off the bench and
-    // runs: out of the barn door, across the yard, through the gate (which
-    // opens for him) and down the lane. The Creator's last words follow when
-    // the raid is won, which his going wins. The Creator turns to him and
-    // points; the camera goes ahead of him to the yard gate, holds there
-    // while he runs out, and comes back. The Creator is let go of at the end,
-    // so his last words find him as himself.
+    // runs through the barn door and yard gate. The camera stays on the
+    // workshop while the Creator points and speaks. His release at the end
+    // restores his normal pose before his last words.
     (
         id: "intro_raider_runs_with_the_case",
         starts_when: Some("actor.fallen_is npc_lab_raider 2"),
@@ -95,10 +90,6 @@
             Command(
                 line: "actor.pose npc_creator gesture hold",
             ),
-            CameraPan(
-                target: (1760.0, 300.0),
-                seconds: 0.8,
-            ),
             Dialogue(
                 speaker: "Creator",
                 speaker_character_id: "npc_creator",
@@ -108,41 +99,69 @@
                 condition: "actor.gone npc_lab_raider",
                 seconds_at_most: 6.0,
             ),
-            CameraRelease(
-                seconds: 0.8,
-            ),
             Command(
                 line: "actor.release npc_creator",
             ),
         ],
         seen_flag: Some("intro_case_run_seen"),
     ),
-    // The volume in front of the barn door (`intro_wake_room`), for a Scout
-    // who goes to the door without talking to the Creator: the raid is
-    // called here (the room starts it while `intro_raiders_coming` is set),
-    // and the bar breaks a beat later, as the goblins come up the yard. A
-    // raid called in his talk set the flag first, and this does not play.
+    // The door or a completed conversation starts this scene. The raiders
+    // wait at the doorway until the last line is dismissed.
     (
         id: "intro_raid_at_the_door",
         beats: [
-            SetFlag(
-                id: "intro_raiders_coming",
-                on: true,
-            ),
-            Dialogue(
-                speaker: "Creator",
-                speaker_character_id: "npc_creator",
-                text: "Scout, leave the door, it's barred for the test. ...Who's that out there?",
-            ),
-            Wait(
-                seconds: 1.0,
-            ),
-            SetFlag(
-                id: "intro_barn_door_broken",
-                on: true,
-            ),
+            SetFlag(id: "intro_training_active", on: false),
+            Command(line: "actor.walk_to npc_creator intro_bench_station keeps_to_its_tasks"),
+            WaitFor(condition: "actor.arrived npc_creator", seconds_at_most: 8.0),
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "Someone's at the door. Were you expecting anyone?"),
+            SetFlag(id: "intro_raiders_coming", on: true),
+            WaitFor(condition: "actor.count_is npc_lab_raider 3", seconds_at_most: 3.0),
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "Hold on. Let me lift the bar."),
+            SetFlag(id: "intro_barn_door_broken", on: true),
+            Wait(seconds: 0.2),
+            Command(line: "actor.form_up npc_lab_raider intro_raider_station 160 keeps_to_its_tasks"),
+            WaitFor(condition: "actor.arrived npc_lab_raider", seconds_at_most: 8.0),
+            Command(line: "actor.face npc_lab_raider npc_creator"),
+            Command(line: "actor.face npc_creator npc_lab_raider"),
+            Dialogue(speaker: "Raider", speaker_character_id: "npc_lab_raider",
+                text: "The case on the bench. Hand it over."),
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "Those are my notes. Who sent you?"),
+            Dialogue(speaker: "Raider", speaker_character_id: "npc_lab_raider",
+                text: "Sheet says a lab with a big sign. This the right place?"),
+            SetFlag(id: "wrong_list_clue_1", on: true),
+            Dialogue(speaker: "Raider", speaker_character_id: "npc_lab_raider",
+                text: "It's got the robot. Take the case."),
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "Scout. Stay behind me."),
+            Command(line: "actor.release npc_creator"),
+            Command(line: "actor.release npc_lab_raider"),
         ],
         seen_flag: Some("intro_raiders_coming"),
+    ),
+    (
+        id: "intro_training_combat",
+        beats: [
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "Good. Both feet on the block, and the knee held. Now step down to the sandbag on your left."),
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "Face the bag and use your normal attack. Get close enough for the blade to connect. A hit will move the bag."),
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "It won't hit back. Try as many times as you like."),
+        ],
+    ),
+    (
+        id: "intro_training_finished",
+        beats: [
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "That connected. See how it moved? That's your reach. Let the blade finish its swing before you strike again."),
+            Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
+                text: "That's the basic run. Keep practising if you want. Come and talk to me when you're ready, or if you'd like to do it again."),
+            SetFlag(id: "intro_training_complete", on: true),
+            SetFlag(id: "intro_training_active", on: false),
+        ],
     ),
     // The Drain Market's `entry_cutscene` (`drain_alley`): the robot comes up
     // the service stair onto the street. The fade comes up from black; the

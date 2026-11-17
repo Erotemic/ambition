@@ -764,13 +764,16 @@ pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<us
     if room != "intro_wake_room" {
         return Err(format!("the raid is in `intro_wake_room`, and the player is in `{room}`"));
     }
-    // The floor of the workshop, and the place beside the Creator, on the
-    // cart's side of him (`intro.ldtk`).
+    // The workshop floor is shared by the practice area and the bench.
     let floor = 352.0_f32;
     let mut frames = 0;
     match start {
         RaidStart::Talk => {
-            frames += walk_to(walker, ae::Vec2::new(1024.0, floor - 24.0))?;
+            let world = walker.world_mut();
+            let creator = world.query::<(&ambition_platformer2d::characters::actor::CharacterForm, &ae::BodyKinematics)>()
+                .iter(world).find(|(form, _)| form.id() == "npc_creator")
+                .map(|(_, kin)| kin.pos).ok_or("the workshop has no Creator")?;
+            frames += walk_to(walker, ae::Vec2::new(creator.x - 32.0, floor - 24.0))?;
             // Interact opens his conversation, and confirm takes each line and
             // each first choice until the talk and the raid's interruption
             // are over.
@@ -787,8 +790,8 @@ pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<us
             if !talked {
                 return Err("Interact beside the Creator did not open his conversation".into());
             }
-            // The first answer of his first talk sends Scout for the gauge, and
-            // the raid is not called: go to the barn door, which calls it.
+            // The first choice accepts practice. This raid route leaves
+            // practice through the door instead of completing the lesson.
             if !raiders_called(walker.world()) {
                 match walk_to(walker, ae::Vec2::new(1296.0, floor - 24.0)) {
                     Ok(walked) => frames += walked,

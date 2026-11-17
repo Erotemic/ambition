@@ -366,3 +366,4 @@ mod body_control_acceptance;
 mod repertoire_publication;
 mod smash_reaction_poses;
 mod level_one_withholds_the_large_kit;
+mod intro_training;

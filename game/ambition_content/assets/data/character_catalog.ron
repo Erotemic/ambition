@@ -1749,6 +1749,21 @@
         // a CHARACTER trait (`CharacterDeathTraits`), not a placement one, so
         // "the same sandbag, made invincible here" is not expressible — and
         // pretending it is would put a mortality policy on a spawn point.
+        "practice_sandbag": (
+            display_name: "Practice Bag",
+            manifest: "sprites/sandbag_spritesheet.ron",
+            sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_action_set: "peaceful",
+            practice_target: true,
+            death_traits: Some((never_dies: true)),
+            locomotion: Some((run_speed: 155.0, move_style: Walk)),
+            autonomous_profile: Some((template: StandStill, patrol_effort: 0.6774, chase_effort: 1.0)),
+            max_health: Some(6),
+            tags: ["training"],
+        ),
         "sandbag_infinite": (
             sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
             display_name: "Infinite Sandbag",

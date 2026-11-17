@@ -131,3 +131,112 @@ fn the_creators_conversation_reveals_and_advances_the_shown_text() {
         "the Creator's choices did not appear: {view:?}"
     );
 }
+
+fn talk_to_creator(app: &mut App) {
+    use crate::alices_reading_reaches_bob::{npc, put_body_at};
+    let creator = npc(app, "npc_creator");
+    let at = app
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(creator)
+        .unwrap()
+        .pos;
+    let player = crate::neighbor_prefetch_prepares_rooms::alice(app);
+    put_body_at(app, player, at);
+    wait(app, 10);
+    confirm(app);
+    wait(app, 120);
+}
+
+fn choose(app: &mut App, label: &str) {
+    let choices = &app.world().resource::<DialogView>().option_labels;
+    let index = choices
+        .iter()
+        .position(|text| text == label)
+        .unwrap_or_else(|| panic!("no {label:?} in {choices:?}"));
+    for _ in 0..index {
+        Buttonlike::press(&KeyCode::ArrowDown, app.world_mut());
+        app.update();
+        Buttonlike::release(&KeyCode::ArrowDown, app.world_mut());
+        app.update();
+    }
+    confirm(app);
+    wait(app, 120);
+}
+
+fn finish_conversation(app: &mut App) {
+    for _ in 0..30 {
+        if !app
+            .world()
+            .resource::<ambition_platformer2d::dialog::DialogState>()
+            .active()
+        {
+            return;
+        }
+        confirm(app);
+        wait(app, 120);
+    }
+    panic!("the conversation did not end");
+}
+
+#[test]
+fn the_creator_offers_optional_practice_before_the_raid() {
+    for accept in [true, false] {
+        let mut app = opening(60.0);
+        confirm(&mut app);
+        wait(&mut app, 10);
+        confirm(&mut app);
+        wait(&mut app, 30);
+        talk_to_creator(&mut app);
+        confirm(&mut app);
+        wait(&mut app, 120);
+        choose(
+            &mut app,
+            if accept {
+                "Yes. Show me the basics."
+            } else {
+                "I remember. Ask your questions."
+            },
+        );
+        finish_conversation(&mut app);
+        wait(&mut app, 240);
+        let save = app
+            .world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
+        assert_eq!(save.data().flag("intro_training_active"), accept);
+        assert!(
+            !save.data().flag("intro_raiders_coming"),
+            "neither branch starts a fight during the conversation"
+        );
+        if !accept {
+            assert!(save.data().flag("intro_questions_done"));
+            let creator = crate::alices_reading_reaches_bob::npc(&mut app, "npc_creator");
+            for _ in 0..1200 {
+                let visit = app
+                    .world()
+                    .get::<ambition_platformer2d::actors::body::visit::Visit>(creator);
+                if visit.is_some_and(|visit| {
+                    visit.outcome
+                        == ambition_platformer2d::actors::body::visit::VisitOutcome::Arrived
+                }) {
+                    break;
+                }
+                app.update();
+            }
+            talk_to_creator(&mut app);
+            choose(&mut app, "I'm ready to finish.");
+            finish_conversation(&mut app);
+            for _ in 0..600 {
+                app.update();
+                if app.world().resource::<ActiveCutscene>().script_id()
+                    == Some("intro_raid_at_the_door")
+                {
+                    break;
+                }
+            }
+            assert_eq!(
+                app.world().resource::<ActiveCutscene>().script_id(),
+                Some("intro_raid_at_the_door")
+            );
+        }
+    }
+}

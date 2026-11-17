@@ -3907,7 +3907,10 @@ fn fail_after_timeout(
     }
     // Whatever the readiness policies may legitimately still be waiting for,
     // plus the same slack the readback itself gets.
-    let budget = config.warmup_frames.max(1) + ROUTE_CAMERA_GRACE_FRAMES;
+    // Scripted input frames do not use the readback budget.
+    let budget = config.warmup_frames.max(1)
+        .saturating_add(runtime.press_frames)
+        .saturating_add(ROUTE_CAMERA_GRACE_FRAMES);
     if runtime.frames > budget || runtime.wait_frames > 600 {
         eprintln!(
             "capture_scene: timed out waiting for texture readback after {} frames \

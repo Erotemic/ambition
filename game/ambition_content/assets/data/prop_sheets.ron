@@ -943,6 +943,8 @@
     "hill_woods_fallen_trunk": (),
     // The surveyors' boards on stakes (the lane, the woods).
     "hill_stake_board": (),
+    // The siding's chest: the crate the raiders packed the notes in.
+    "hill_goblins_crate": (),
     // The workshop's slates, one per width of words.
     "workshop_slate_96": (),
     "workshop_slate_120": (),

@@ -149,6 +149,11 @@ that id (an LDtk iid changes each time a generator makes the room again).
 takes hits. The generator kit writes one with
 `district_kit.breakable_wall(id, x, y, w, h, look=..., hp=...)`.
 
+A `ChestSpawn` takes a `look` too: the prop sheet that draws it (a crate, a
+purse) over its box, opened or not, in place of the generic chest. A world
+whose `ChestSpawn` def has no `look` field drops the value on apply: add the
+field with `def upsert-entity` (the intro world's def has it).
+
 `gated_by` is a condition line. A bare value is a flag. A first token with a
 dot is a condition with its arguments: `world.switch_on <switch id>` (a lever
 that is on), `encounter.cleared <encounter id>`, `inventory.holds <item>`.

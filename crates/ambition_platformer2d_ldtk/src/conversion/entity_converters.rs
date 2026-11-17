@@ -819,6 +819,9 @@ pub(super) fn convert_chest_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
     chest.opened = field_bool(entity, "opened").unwrap_or(false);
+    chest.look = field_string(entity, "look")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
     let (id, name, aabb) = authored_triple(entity, name, min, size);
     let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
         id,

@@ -213,6 +213,11 @@ pub struct ChestSpec {
     /// The chest starts opened: its reward is already taken (Q105).
     #[serde(default)]
     pub opened: bool,
+    /// The prop sheet that draws this chest (a crate, a purse), as a
+    /// breakable's `look` does, opened or not. `None` draws the generic chest
+    /// sprites. Presentation only: the simulation does not read it.
+    #[serde(default)]
+    pub look: Option<String>,
 }
 
 impl ChestSpec {
@@ -220,6 +225,7 @@ impl ChestSpec {
         Self {
             reward,
             opened: false,
+            look: None,
         }
     }
 }

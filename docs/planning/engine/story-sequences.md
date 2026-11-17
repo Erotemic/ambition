@@ -1,9 +1,9 @@
 # Story sequences: authoring scripted scenes without a recompile
 
 **State:** SS1, SS2, SS4's first form and SS3's death record landed
-2026-11-14 (below, "What landed"); SS3's `present_when` is deferred to its
-first customer (below); SS5 landed the same day; SS6 is covered by SS1 and
-SS4 (below). Open: `present_when`, when a customer needs it. Asked by Jon on 2026-11-14 after playing level 1: "do we have
+2026-11-14 (below, "What landed"); SS3's `present_when` landed 2026-11-17
+with its first customer, the game show's goat and car (below); SS5 landed
+2026-11-14; SS6 is covered by SS1 and SS4 (below). Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
 story sequences, it likely will start to become more important."
@@ -82,14 +82,26 @@ language.
   cutscene's `Fall` was forgotten when the room was built again. A `Fall`
   now writes the same record under the body's own policy
   (`enemy_death_flag`). That makes `fallen_when` unnecessary for any death
-  that happens in play. **`present_when` is deferred until it has a
-  customer** (no level-1 villager leaves yet). Where it must go: a room's
-  plan is prepared without the world (`RoomFeatureConstructionPlan::prepare`),
-  and that function's own comment explains why an NPC must be dropped there
-  and not in its lowering (an NPC dropped late keeps an empty root and a
-  roster row). So it is a plan-time filter like the population cap,
-  answered from the durable save (a flag, or `not` a flag, the `gated_by`
-  grammar), so that plan and commit agree.
+  that happens in play. **`present_when` landed 2026-11-17** for its first
+  customer: the goat and the car behind Monty's doors in Hylbert's Hotel
+  (`math_hotel_door_1..3`), which were `LockWall` pictures and are actors
+  now. An `NpcSpawn` takes `present_when: "world.flag_set <flag>"` (or
+  `not ...`; anything else is refused by the converter). It is a plan-time
+  filter beside the population cap (`RoomFeatureConstructionPlan::prepare`),
+  so an absent NPC has no row, no root and no id, and it spends no cap. The
+  flags come from the durable save: `ActorConstructionContext::world_flags`,
+  stated by the door (`begin_room_transition_load_system`) and by a new
+  session's first room (the candidate's own save, `build_candidate`). The
+  plan keeps the answers it read, and the prefetch promotes a plan only
+  while the save still gives them (`matches_presence`): with no flag
+  changed the closet's prefetched plan is a hit; with the goat's flag set
+  in the ballroom it is a miss, and the door prepares a fresh one
+  (`capture_scene math_hotel_ballroom player --flag monty_open_1 --flag
+  monty_goat_1 --player-at 384,488@40 --interact-at 70`). **Limits:** the
+  answer is taken when the room is built, so a flag that changes while the
+  player stands in the room changes nothing until it is built again; and
+  the developer LDtk hot reload (`reload_ldtk_world_from_disk`) states no
+  flags, so it rebuilds such a room as a new game would.
 - **SS4. Event triggers.** A cutscene can start on a condition becoming true
   (`starts_when`), in a room or anywhere, without a volume.
 - **SS5. The camera.** Finish `CameraPan` and add `CameraHold`. **Landed

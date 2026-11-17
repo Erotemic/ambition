@@ -217,11 +217,15 @@ impl RoomConstructionPlanPrefetch {
         target: &RoomSpec,
         outlook: &RoomOccurrenceOutlook,
         minted: Option<&ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline>,
+        // The save's flags now: a plan whose `present_when` placements were
+        // answered otherwise is a miss, and the door prepares a fresh one.
+        world_flags: Option<&dyn Fn(&str) -> bool>,
     ) -> Option<Arc<RoomConstructionPlan>> {
         let plan = self.plans.get(identity, &target.id)?;
         if !plan.matches_room_spec(target)
             || plan.session_scope().id() != identity.session_scope()
             || !plan.matches_continuity(outlook, minted)
+            || !plan.matches_presence(world_flags)
         {
             return None;
         }

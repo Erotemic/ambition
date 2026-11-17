@@ -9,7 +9,7 @@ use ambition_boss_encounter::BossCatalog;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 mod continuity;
 mod capability_lanes;
@@ -104,6 +104,10 @@ pub struct RoomFeatureConstructionPlan {
     /// [`Self::occurrence_outlook`].
     outlook: ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
     continuity_dependencies: continuity::ContinuityDependencies,
+    /// The world flags this plan's `present_when` records were answered with,
+    /// and each answer: a prefetched plan is reused only while the save still
+    /// gives them ([`Self::matches_presence`]).
+    presence: BTreeMap<String, bool>,
 }
 
 /// What the world remembers about its occurrences, and the definitions a room
@@ -229,6 +233,11 @@ pub struct ActorConstructionContext<'a> {
     /// that say. `None` and `Some(uncapped)` both mean every authored actor is
     /// admitted.
     pub population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
+    /// Which world flags the durable save has set, for the `present_when` of
+    /// the room's placements. `None`: a composition with no save, where no
+    /// flag is set (a new game's answer). A road that builds a room the
+    /// session lives in states the save's ([`Self::with_world_flags`]).
+    pub world_flags: Option<&'a dyn Fn(&str) -> bool>,
 }
 
 impl<'a> ActorConstructionContext<'a> {
@@ -263,7 +272,16 @@ impl<'a> ActorConstructionContext<'a> {
             continuity: None,
             forced_brains: None,
             population_cap: None,
+            world_flags: None,
         }
+    }
+
+    /// Answer the room's `present_when` records from these world flags. See
+    /// [`Self::world_flags`].
+    #[must_use]
+    pub fn with_world_flags(mut self, flags: Option<&'a dyn Fn(&str) -> bool>) -> Self {
+        self.world_flags = flags;
+        self
     }
 
     /// Supply the complete generation context for an ordinary room build.
@@ -545,9 +563,23 @@ impl RoomFeatureConstructionPlan {
                 .copied()
                 .unwrap_or(ambition_characters::actor::AuthoredPopulationCap::UNCAPPED),
         );
+        // `present_when` is answered here for the same reason as the cap: a
+        // placement that is not in the room has no row, no root and no id, and
+        // it does not spend the cap. The answers are kept on the plan so a
+        // prefetched plan is not reused after a flag it read has changed.
+        let flag_set = |flag: &str| construction.world_flags.is_some_and(|flags| flags(flag));
+        let mut presence = BTreeMap::new();
         let admitted_records: Vec<_> = room
             .placements
             .iter()
+            .filter(|record| match &record.present_when {
+                None => true,
+                Some(condition) => {
+                    let set = flag_set(&condition.flag);
+                    presence.insert(condition.flag.clone(), set);
+                    set != condition.negated
+                }
+            })
             .filter(|record| {
                 !placement_counts_against_the_actor_cap(record) || admission.admit_actor()
             })
@@ -925,7 +957,16 @@ impl RoomFeatureConstructionPlan {
             binding_report,
             outlook,
             continuity_dependencies,
+            presence,
         })
+    }
+
+    /// Does the save still answer this plan's `present_when` flags as it did
+    /// when the plan was prepared?
+    pub fn matches_presence(&self, world_flags: Option<&dyn Fn(&str) -> bool>) -> bool {
+        self.presence
+            .iter()
+            .all(|(flag, set)| world_flags.is_some_and(|flags| flags(flag)) == *set)
     }
 
     pub fn matches_continuity(&self,
@@ -1128,6 +1169,7 @@ impl RoomFeatureConstructionPlan {
             binding_report: self.binding_report.clone(),
             outlook: self.outlook.clone(),
             continuity_dependencies: self.continuity_dependencies.clone(),
+            presence: self.presence.clone(),
         }
     }
 

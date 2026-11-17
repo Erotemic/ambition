@@ -11297,6 +11297,53 @@
             ),
             hall_dialogue_id: Some("hall_npc_math_monty"),
         ),
+        // What stands behind Monty's doors (`math_hotel_door_1..3`): the
+        // closets' prop pictures drawn to move
+        // (`targets/characters/math_show_prizes.py`). Each is placed with
+        // `present_when` the round's flag, so it is in its closet only when
+        // the host has opened that door on it.
+        "npc_math_goat": (
+            display_name: "Goat",
+            manifest: "sprites/math_show_goat_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // The prop was 80 high, horns and all.
+            standing_height: Some(80.0),
+            composition: None,
+            default_brain: "grazing_roam",
+            default_action_set: "peaceful",
+            locomotion: Some((run_speed: 70.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
+            abilities: Some([Walk]),
+            max_health: Some(3),
+            tags: ["animal", "goat", "quadruped", "math_town", "peaceful"],
+            fallback_dialogue: ["Mehh.", "The goat chews, unimpressed."],
+            barks: (
+                on_hit: ["MEHH!", "*the goat glares*"],
+                idle: ["Mehh.", "*chew, chew*"],
+                hall: ["Mehh.", "The goat chews, unimpressed. She has been behind a lot of doors."],
+            ),
+            hall_dialogue_id: Some("hall_npc_math_goat"),
+        ),
+        "npc_math_car": (
+            display_name: "The Car",
+            manifest: "sprites/math_show_car_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // The prop was 90 high to the top of the bow.
+            standing_height: Some(90.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            max_health: Some(10),
+            tags: ["vehicle", "car", "prize", "math_town", "peaceful"],
+            fallback_dialogue: ["The car gleams under the closet's one bulb."],
+            barks: (
+                on_hit: ["*clunk*", "*the bow trembles*"],
+                idle: ["*tick, tick: the engine cooling*"],
+                hall: ["A red convertible with a gold bow. Two contestants in three who switched have stood here."],
+            ),
+            hall_dialogue_id: Some("hall_npc_math_car"),
+        ),
         // ===== Castle Godwin's staff (the Evil dimension), made by chargen: the
         // kitchens under the gatehouse.
         "npc_castle_hargreave": (

@@ -494,7 +494,7 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
         "an open entry ends with a Back row"
     );
     // Scrolling to the end brings the Back row into the rendered window.
-    let end_start = system_max_window_start(all_rows.len());
+    let end_start = system_max_window_start(all_rows.len(), SYSTEM_VISIBLE_ROWS);
     let page_end = build_system_page(
         &settings,
         &RadioSnapshot::default(),
@@ -583,7 +583,7 @@ fn short_system_screens_show_every_row_without_an_indicator() {
     let rows: Vec<SystemRow> = (0..SYSTEM_VISIBLE_ROWS)
         .map(|i| SystemRow::Option(SystemOptionId::Radio(i)))
         .collect();
-    let (window, indicator) = system_visible_window(&rows, 0);
+    let (window, indicator) = system_visible_window(&rows, 0, SYSTEM_VISIBLE_ROWS);
     assert_eq!(window.len(), rows.len(), "all rows visible when they fit");
     assert!(indicator.is_none(), "no indicator for a short screen");
     // Absolute indices are identity for a non-windowed list.
@@ -602,14 +602,14 @@ fn long_system_screens_window_the_list_and_follow_the_cursor() {
         .collect();
 
     // Cursor at the top: window starts at 0, indicator reads "1/26".
-    let (window, indicator) = system_visible_window(&rows, 0);
+    let (window, indicator) = system_visible_window(&rows, 0, SYSTEM_VISIBLE_ROWS);
     assert_eq!(window.len(), SYSTEM_VISIBLE_ROWS, "list is windowed");
     assert_eq!(window.first().unwrap().0, 0);
     assert_eq!(indicator.as_deref(), Some("1/26"));
 
     // Cursor mid-list: the focused absolute row stays inside the rendered window.
     let focused = 13;
-    let (window, indicator) = system_visible_window(&rows, focused);
+    let (window, indicator) = system_visible_window(&rows, focused, SYSTEM_VISIBLE_ROWS);
     assert_eq!(window.len(), SYSTEM_VISIBLE_ROWS);
     assert!(
         window.iter().any(|(abs, _)| *abs == focused),
@@ -622,7 +622,7 @@ fn long_system_screens_window_the_list_and_follow_the_cursor() {
     );
 
     // Cursor at the bottom: the window clamps to the list end (no overflow).
-    let (window, _) = system_visible_window(&rows, total - 1);
+    let (window, _) = system_visible_window(&rows, total - 1, SYSTEM_VISIBLE_ROWS);
     assert_eq!(window.len(), SYSTEM_VISIBLE_ROWS);
     assert_eq!(window.last().unwrap().0, total - 1, "last row reachable");
 }
@@ -641,7 +641,7 @@ fn long_system_page_renders_only_a_window_of_clickable_rows() {
     let sys_model = SystemMenuModel::build(&settings, &radio, &DevSnapshot::default());
     let rows = system_rows(&sys_model, Some(SystemMenuEntryId::Radio));
     // Cursor-derived window (no override) keeps the focused station in view.
-    let window_start = system_window_start(&rows, focus);
+    let window_start = system_window_start(&rows, focus, SYSTEM_VISIBLE_ROWS);
     let page = build_system_page(
         &settings,
         &radio,
@@ -690,7 +690,7 @@ fn scrollbar_thumb_geometry_reflects_window_and_total() {
     // Fix 1: thumb size = visible/total; start = window fraction of travel.
     // 26-row list, 6 visible: size = 6/26 ≈ 0.2308.
     let total = 26usize;
-    let (start_top, size) = system_scrollbar_thumb(0, total);
+    let (start_top, size) = system_scrollbar_thumb(0, total, SYSTEM_VISIBLE_ROWS);
     assert!(
         (size - SYSTEM_VISIBLE_ROWS as f32 / total as f32).abs() < 1e-4,
         "thumb size = visible/total: {size}"
@@ -705,15 +705,15 @@ fn scrollbar_thumb_geometry_reflects_window_and_total() {
     );
 
     // Bottom window → thumb at the bottom (start == 1.0).
-    let max = system_max_window_start(total);
-    let (start_bottom, _) = system_scrollbar_thumb(max, total);
+    let max = system_max_window_start(total, SYSTEM_VISIBLE_ROWS);
+    let (start_bottom, _) = system_scrollbar_thumb(max, total, SYSTEM_VISIBLE_ROWS);
     assert!(
         (start_bottom - 1.0).abs() < 1e-4,
         "bottom window → thumb start 1.0: {start_bottom}"
     );
 
     // A mid window lands between.
-    let (start_mid, _) = system_scrollbar_thumb(max / 2, total);
+    let (start_mid, _) = system_scrollbar_thumb(max / 2, total, SYSTEM_VISIBLE_ROWS);
     assert!(
         start_mid > 0.0 && start_mid < 1.0,
         "mid window → thumb mid-track: {start_mid}"

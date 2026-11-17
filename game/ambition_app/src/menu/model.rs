@@ -93,13 +93,26 @@ pub const SYSTEM_DETAIL_BODY_LINES: u32 = 3;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InventoryLayout {
     pub(crate) cols: usize,
+    /// System rows shown at once: fewer, taller rows on a short screen, where
+    /// the face shrinks with the screen and six rows read at about 8 px.
+    pub(crate) system_rows: usize,
 }
 
 impl InventoryLayout {
     pub(crate) fn for_region(region: Option<&super::regions::MenuRegion>) -> Self {
         let portrait = region.and_then(|region| region.0)
             .is_some_and(|rect| rect.height() > rect.width());
-        Self { cols: if portrait { 3 } else { ITEM_GRID_COLS } }
+        let short = region.and_then(|region| region.0)
+            .is_some_and(|rect| rect.height() < SHORT_MENU_HEIGHT);
+        Self {
+            cols: if portrait { 3 } else { ITEM_GRID_COLS },
+            system_rows: if short { SYSTEM_VISIBLE_ROWS_SHORT } else { SYSTEM_VISIBLE_ROWS },
+        }
+    }
+
+    /// A short screen's System face: fewer rows, and a larger description.
+    fn short(self) -> bool {
+        self.system_rows < SYSTEM_VISIBLE_ROWS
     }
 
     pub(crate) fn rows(self) -> usize {
@@ -118,7 +131,7 @@ impl InventoryLayout {
 }
 
 impl Default for InventoryLayout {
-    fn default() -> Self { Self { cols: ITEM_GRID_COLS } }
+    fn default() -> Self { Self { cols: ITEM_GRID_COLS, system_rows: SYSTEM_VISIBLE_ROWS } }
 }
 
 impl MenuPage {
@@ -707,6 +720,7 @@ pub fn build_inventory_pages_with_quality_prompt(
             system_window_start,
             open_entry,
             pending_quality,
+            layout,
         ),
     ]
 }
@@ -1029,32 +1043,36 @@ const SYSTEM_DESC_WRAP_COLS: usize = 60;
 /// shows; over it, the window follows the cursor (same mechanic as the Bevy-UI pause menu's
 /// `RADIO_VISIBLE_ROWS`).
 pub const SYSTEM_VISIBLE_ROWS: usize = 6;
+/// The System rows a short menu shows (a phone in landscape).
+pub const SYSTEM_VISIBLE_ROWS_SHORT: usize = 4;
+/// A menu region lower than this (logical px) is a short screen.
+const SHORT_MENU_HEIGHT: f32 = 480.0;
 
 /// The largest valid scroll-window START for a list of `total` rows: the last
 /// position that still fills the visible window (so the bottom row is reachable
 /// without overscrolling past the end). `0` when the list fits.
-pub fn system_max_window_start(total: usize) -> usize {
-    total.saturating_sub(SYSTEM_VISIBLE_ROWS)
+pub fn system_max_window_start(total: usize, visible: usize) -> usize {
+    total.saturating_sub(visible)
 }
 
 /// Map a scrollbar's neutral `0..=1` drag fraction onto a System-window START row for a list of
 /// `total` rows. `None` when the list fits (no scrolling).
-pub fn scroll_fraction_to_window_start(total: usize, fraction: f32) -> Option<usize> {
-    if total <= SYSTEM_VISIBLE_ROWS {
+pub fn scroll_fraction_to_window_start(total: usize, fraction: f32, visible: usize) -> Option<usize> {
+    if total <= visible {
         return None;
     }
-    let max = system_max_window_start(total);
+    let max = system_max_window_start(total, visible);
     Some(((fraction.clamp(0.0, 1.0) * max as f32).round() as usize).min(max))
 }
 
 /// The cursor-derived scroll-window START (the window that keeps the focused row
 /// visible). The default when no explicit scroll override is in effect.
-pub fn system_window_start(rows: &[SystemRow], focus: MenuFocus) -> usize {
+pub fn system_window_start(rows: &[SystemRow], focus: MenuFocus, visible: usize) -> usize {
     let focused = system_focus_index(focus, rows.len());
-    if rows.len() <= SYSTEM_VISIBLE_ROWS {
+    if rows.len() <= visible {
         return 0;
     }
-    ambition_platformer2d::ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
+    ambition_platformer2d::ui_nav::visible_window_start(focused, rows.len(), visible)
 }
 
 /// The EFFECTIVE scroll-window START for the System face (Features C/D).
@@ -1070,13 +1088,14 @@ pub fn system_effective_window_start(
     rows: &[SystemRow],
     focus: MenuFocus,
     scroll_override: Option<usize>,
+    visible: usize,
 ) -> usize {
-    if rows.len() <= SYSTEM_VISIBLE_ROWS {
+    if rows.len() <= visible {
         return 0;
     }
     match scroll_override {
-        Some(start) => start.min(system_max_window_start(rows.len())),
-        None => system_window_start(rows, focus),
+        Some(start) => start.min(system_max_window_start(rows.len(), visible)),
+        None => system_window_start(rows, focus, visible),
     }
 }
 
@@ -1088,14 +1107,15 @@ pub fn system_effective_window_start(
 fn system_visible_window(
     rows: &[SystemRow],
     start: usize,
+    visible: usize,
 ) -> (Vec<(usize, SystemRow)>, Option<String>) {
     let total = rows.len();
-    if total <= SYSTEM_VISIBLE_ROWS {
+    if total <= visible {
         let slice = rows.iter().copied().enumerate().collect();
         return (slice, None);
     }
-    let start = start.min(system_max_window_start(total));
-    let end = (start + SYSTEM_VISIBLE_ROWS).min(total);
+    let start = start.min(system_max_window_start(total, visible));
+    let end = (start + visible).min(total);
     let slice = (start..end).map(|i| (i, rows[i])).collect();
     // 1-based "first-visible/total" indicator (e.g. "8/26") so the scroll position in
     // the full list is legible even though only a window renders.
@@ -1127,6 +1147,7 @@ pub fn build_system_page(
         window_start,
         open_entry,
         None,
+        InventoryLayout::default(),
     )
 }
 
@@ -1139,7 +1160,9 @@ pub fn build_system_page_with_quality_prompt(
     window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
+    layout: InventoryLayout,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
+    let visible = layout.system_rows;
     let mut model = MenuPageModel::new(
         MenuPage::System,
         line("menu.system.title"),
@@ -1151,7 +1174,7 @@ pub fn build_system_page_with_quality_prompt(
     // list — only the visible window of rows is rendered, the window is the
     // effective scroll position, and the title gains an "n/total" scroll indicator.
     // Short screens show every row with no indicator (unchanged).
-    let (window, indicator) = system_visible_window(&rows, window_start);
+    let (window, indicator) = system_visible_window(&rows, window_start, visible);
 
     let title = match open_entry {
         None => line("menu.system.title"),
@@ -1264,11 +1287,11 @@ pub fn build_system_page_with_quality_prompt(
     // top reflects the current scroll fraction + window size. The host applies the
     // emitted drag fraction to the scroll position (`KaleidoscopeScroll`).
     let total = rows.len();
-    if total > SYSTEM_VISIBLE_ROWS {
-        add_system_scrollbar(&mut model, window_start, total);
+    if total > visible {
+        add_system_scrollbar(&mut model, window_start, total, visible);
     }
 
-    add_system_detail_panel(&mut model);
+    add_system_detail_panel(&mut model, layout.short());
     add_edge_buttons(&mut model, MenuPage::System);
     model
 }
@@ -1292,8 +1315,9 @@ fn add_system_scrollbar(
     model: &mut MenuPageModel<MenuPage, MenuPageAction>,
     window_start: usize,
     total: usize,
+    visible: usize,
 ) {
-    let (thumb_start, thumb_size) = system_scrollbar_thumb(window_start, total);
+    let (thumb_start, thumb_size) = system_scrollbar_thumb(window_start, total, visible);
     model.scrollbar(SYSTEM_SCROLLBAR_RECT, thumb_start, thumb_size);
 }
 
@@ -1301,9 +1325,9 @@ fn add_system_scrollbar(
 /// `size` = visible rows / total rows (how much of the list is on screen); `start` =
 /// scroll position as a fraction of the remaining window travel (0 = top window, 1 =
 /// bottom window). Pure so it is headlessly unit-testable.
-pub fn system_scrollbar_thumb(window_start: usize, total: usize) -> (f32, f32) {
-    let size = (SYSTEM_VISIBLE_ROWS as f32 / total as f32).clamp(0.0, 1.0);
-    let max_start = system_max_window_start(total).max(1) as f32;
+pub fn system_scrollbar_thumb(window_start: usize, total: usize, visible: usize) -> (f32, f32) {
+    let size = (visible as f32 / total as f32).clamp(0.0, 1.0);
+    let max_start = system_max_window_start(total, visible).max(1) as f32;
     let start = (window_start as f32 / max_start).clamp(0.0, 1.0);
     (start, size)
 }
@@ -1320,7 +1344,9 @@ fn now_playing_line(radio: &RadioSnapshot) -> String {
 /// wrapped description. A wide, short panel along the bottom (the items page keeps its
 /// right-side panel; the System face moves it down so the option column can be centered +
 /// enlarged). The System face's BOTTOM detail panel.
-fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
+fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>, short: bool) {
+    // On a short screen the face is small, so its words are larger.
+    let scale = if short { 1.35 } else { 1.0 };
     model.panel(
         SYSTEM_DESC_RECT,
         colour(menu_look().panel),
@@ -1332,7 +1358,7 @@ fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) 
         SYSTEM_DETAIL_LABEL_SLOT,
         cx,
         SYSTEM_DESC_RECT.y + 4.0,
-        2.4,
+        2.4 * scale,
         MenuTextAlign::Center,
         colour(menu_look().heading),
     );
@@ -1340,8 +1366,8 @@ fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) 
         model.dynamic_text(
             SYSTEM_DETAIL_BODY_SLOT0 + line_idx,
             cx,
-            SYSTEM_DESC_RECT.y + 8.5 + line_idx as f32 * 3.0,
-            SYSTEM_ROW_FONT * 0.78,
+            SYSTEM_DESC_RECT.y + 8.5 + line_idx as f32 * 3.0 * scale,
+            SYSTEM_ROW_FONT * 0.78 * scale,
             MenuTextAlign::Center,
             colour(menu_look().body),
         );

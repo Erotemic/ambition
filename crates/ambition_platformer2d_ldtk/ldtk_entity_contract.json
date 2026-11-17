@@ -413,6 +413,16 @@
           "on_invalid": "open",
           "sample": "true",
           "note": "a body must face the NPC to use it (Q63): its facing, along the run axis of its own frame, points toward the centre. Absent is false."
+        },
+        {
+          "name": "present_when",
+          "presence": "optional",
+          "patterns": [
+            "^(not )?world\\.flag_set [^ ]+$"
+          ],
+          "on_invalid": "refused",
+          "sample": "world.flag_set monty_goat_1",
+          "note": "the NPC is in its room only while this is true, answered from the save when the room is prepared (a body is not added or taken away while the room stands). Absent is always."
         }
       ]
     },

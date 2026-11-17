@@ -50,13 +50,14 @@ pub(crate) fn republish_kaleidoscope_pages(
         // the hovered control and Bevy dropped the `Pointer<Click>`. Only a focus change that
         // SHIFTS the System scroll window changes the rendered rows, so only that needs a rebuild;
         // the drill-down state is also keyed so drilling in/out republishes the new rows.
+        let layout = crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok());
         let window_start = if pages.active == Some(MenuPage::System) {
             // The EFFECTIVE window start: an explicit drag/wheel override wins (Features
             // C/D), otherwise it follows the cursor. Keying the rebuild off this means a
             // wheel/drag scroll rebuilds the windowed rows, while a cursor-only move
             // inside the window still does not (preserving A's click fix). Rows come from
             // the shared per-frame cache.
-            system_effective_window_start(&cache.rows, cursor.focus, scroll.system_window_start)
+            system_effective_window_start(&cache.rows, cursor.focus, scroll.system_window_start, layout.system_rows)
         } else {
             0
         };
@@ -64,7 +65,7 @@ pub(crate) fn republish_kaleidoscope_pages(
             continue;
         };
         let key = RebuildKey {
-            layout: crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok()),
+            layout,
             system_revision: cache.model_builds,
             window_start,
             active: pages.active,

@@ -4299,7 +4299,7 @@ fn unrelated_occurrences_allow_both_prefetch_reuse_and_native_publication() {
     let mut cache = RoomConstructionPlanPrefetch::default();
     cache.publish(&identity, HUB, plan.clone());
     let outlook = sim.world().resource::<AuthoredOccurrences>().outlook_for(HUB);
-    assert!(cache.promote(&identity, plan.spec(), &outlook, None).is_some());
+    assert!(cache.promote(&identity, plan.spec(), &outlook, None, None).is_some());
     let staged = stage_room_transfer(sim.world_mut(), &plan, &intent).unwrap();
     assert!(ambition_platformer2d::runtime::room_transition::finalize_room_transition(sim.world_mut(), &staged));
     assert_ne!(sim.world().get::<InRoomInstance>(body).unwrap().0, source);

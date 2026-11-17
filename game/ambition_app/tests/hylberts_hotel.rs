@@ -234,6 +234,18 @@ fn standing_walls(app: &mut bevy::prelude::App) -> std::collections::BTreeSet<St
         .collect()
 }
 
+/// What stands behind a closet's curtain: the goat and the car are actors
+/// placed `present_when` the round's flag, so this names the ones built.
+fn the_prizes_here(app: &mut bevy::prelude::App) -> std::collections::BTreeSet<String> {
+    let world = app.world_mut();
+    world
+        .query::<&ambition_platformer2d::characters::actor::CharacterForm>()
+        .iter(world)
+        .map(|worn| worn.0.to_string())
+        .filter(|id| id == "npc_math_goat" || id == "npc_math_car")
+        .collect()
+}
+
 /// The one door of 1, 2 and 3 whose flag `pattern` (`{}` the door) is set.
 fn the_door_flagged(app: &bevy::prelude::App, pattern: &str) -> u8 {
     let doors: Vec<u8> = (1..=3).filter(|n| flag(app, &pattern.replace("{}", &n.to_string()))).collect();
@@ -373,9 +385,10 @@ fn a_winner_finds_the_car_and_takes_the_prize() {
     go(&mut app, BALLROOM, Some("math_hotel_lobby_ballroom"));
     go(&mut app, "math_hotel_door_1", Some("math_hotel_ballroom_door_1"));
     let walls = standing_walls(&mut app);
+    let prizes = the_prizes_here(&mut app);
     assert!(
-        walls.contains("math_hotel_door_1_curtain") && !walls.contains("math_hotel_door_1_goat") && !walls.contains("math_hotel_door_1_car"),
-        "before a show the closet is a shut curtain, with nothing behind it: {walls:?}"
+        walls.contains("math_hotel_door_1_curtain") && prizes.is_empty(),
+        "before a show the closet is a shut curtain, with nothing behind it: {walls:?}, {prizes:?}"
     );
     go(&mut app, BALLROOM, Some("math_hotel_door_1_door"));
 
@@ -405,17 +418,13 @@ fn a_winner_finds_the_car_and_takes_the_prize() {
 
     go(&mut app, &format!("math_hotel_door_{car}"), Some(&format!("math_hotel_ballroom_door_{car}")));
     let walls = standing_walls(&mut app);
+    let prizes = the_prizes_here(&mut app);
     assert!(
-        !walls.contains(&format!("math_hotel_door_{car}_curtain"))
-            && walls.contains(&format!("math_hotel_door_{car}_car"))
-            && !walls.contains(&format!("math_hotel_door_{car}_goat")),
-        "behind door {car} is the car: {walls:?}"
+        !walls.contains(&format!("math_hotel_door_{car}_curtain")) && prizes == ["npc_math_car".to_string()].into(),
+        "behind door {car} is the car: {walls:?}, {prizes:?}"
     );
     go(&mut app, BALLROOM, Some(&format!("math_hotel_door_{car}_door")));
     go(&mut app, &format!("math_hotel_door_{goat}"), Some(&format!("math_hotel_ballroom_door_{goat}")));
-    let walls = standing_walls(&mut app);
-    assert!(
-        walls.contains(&format!("math_hotel_door_{goat}_goat")) && !walls.contains(&format!("math_hotel_door_{goat}_car")),
-        "behind door {goat} is a goat: {walls:?}"
-    );
+    let prizes = the_prizes_here(&mut app);
+    assert!(prizes == ["npc_math_goat".to_string()].into(), "behind door {goat} is a goat: {prizes:?}");
 }

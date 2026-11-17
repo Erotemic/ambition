@@ -29,7 +29,6 @@ use crate::menu::kaleidoscope_app::{
 use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
     system_max_window_start, system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction,
-    SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
 #[cfg(test)]
@@ -632,17 +631,19 @@ pub(crate) fn grid_menu_republish_view(
         // (Features C/D), otherwise it follows the cursor — exactly the cube's rule via
         // the shared `system_effective_window_start`. Hovering moves the cursor but, with
         // an override set, does NOT shift the window, so hovering no longer scrolls.
+        let layout = crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok());
         let window_start = if active_page == MenuPage::System {
             crate::menu::model::system_effective_window_start(
                 &cache.rows,
                 cursor.focus(),
                 tab_state.system_window_start,
+                layout.system_rows,
             )
         } else {
             0
         };
         let key = ViewKey {
-            layout: crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok()),
+            layout,
             system_revision: cache.model_builds,
             tab: active_tab_index(&pages),
             open_entry: system_nav.open_entry,
@@ -778,6 +779,7 @@ fn grid_system_row_count(
 /// the cursor. Only a scrollable System list reacts; a short list ignores the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
+    regions: Query<&super::regions::MenuRegion>,
     mut menus: Query<(
         Entity,
         &ambition_platformer2d::inventory_ui::InventoryUiState,
@@ -810,10 +812,11 @@ pub(crate) fn grid_menu_scroll_wheel(
         let model = system.model(&settings, menu, quality_confirm.pending());
         let total =
             grid_system_row_count(active_page, &system_nav, &model, quality_confirm.pending());
-        if total <= SYSTEM_VISIBLE_ROWS {
+        let visible = crate::menu::model::InventoryLayout::for_region(regions.get(menu).ok()).system_rows;
+        if total <= visible {
             continue; // nothing to scroll
         }
-        let max = system_max_window_start(total) as i32;
+        let max = system_max_window_start(total, visible) as i32;
         // Seed from the effective start so the first notch moves relative to what is
         // currently shown (cursor-derived window) rather than jumping to 0.
         let rows = system_rows_with_quality_prompt(
@@ -825,6 +828,7 @@ pub(crate) fn grid_menu_scroll_wheel(
             &rows,
             cursor.focus(),
             tab_state.system_window_start,
+            visible,
         ) as i32;
         let next = (current + steps).clamp(0, max) as usize;
         tab_state.system_window_start = Some(next);
@@ -838,6 +842,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 /// the scrollable range to a window-start row. Selection-independent, like the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
+    regions: Query<&super::regions::MenuRegion>,
     mut menus: Query<(
         &ambition_platformer2d::inventory_ui::InventoryUiState,
         &ActiveMenuPages<MenuPage, MenuPageAction>,
@@ -869,7 +874,8 @@ pub(crate) fn grid_menu_apply_scroll_drag(
             &model,
             quality_confirm.pending(),
         );
-        if let Some(start) = scroll_fraction_to_window_start(total, drag.fraction.clamp(0.0, 1.0)) {
+        let visible = crate::menu::model::InventoryLayout::for_region(regions.get(drag.menu).ok()).system_rows;
+        if let Some(start) = scroll_fraction_to_window_start(total, drag.fraction.clamp(0.0, 1.0), visible) {
             tab_state.system_window_start = Some(start);
         }
     }

@@ -513,6 +513,10 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
         aabb,
     );
     record.name = name;
+    record.present_when = field_text(entity, "present_when")
+        .map(|text| ambition_platformer2d_world::placements::PresenceCondition::parse(&text))
+        .transpose()
+        .map_err(|error| format!("NpcSpawn `present_when`: {error}"))?;
     Ok(RoomEmission::placement(record))
 }
 

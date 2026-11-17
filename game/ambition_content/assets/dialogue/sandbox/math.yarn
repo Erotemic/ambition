@@ -520,3 +520,16 @@ Snakes on a Cartesian Plane: Ssss. We've come through the gate from Mary-O's lan
 -> Where do you go next?
     Snakes on a Cartesian Plane: Up the y-axis, for a bit. Then we'll see. It's always "then we'll see" on a plane. That's the whole appeal.
 ===
+
+// What stands behind an opened door (`math_hotel_door_1..3`).
+title: hotel_show_goat
+---
+The goat looks up from the closet carpet, chews twice, and looks at you as if you had picked her door on purpose.
+-> ⟨leave her⟩
+===
+
+title: hotel_show_car
+---
+The car. Red, a convertible, a gold bow on the bonnet. The keys are in it.
+-> ⟨leave it⟩
+===

@@ -352,6 +352,11 @@ impl RoomConstructionPlan {
         self.features.matches_continuity(outlook, minted)
     }
 
+    /// Check the world flags this destination's `present_when` records read.
+    pub fn matches_presence(&self, world_flags: Option<&dyn Fn(&str) -> bool>) -> bool {
+        self.features.matches_presence(world_flags)
+    }
+
     /// The occurrence outlook read during preparation, for inspection.
     /// Reuse checks the consumed dependencies with `matches_continuity`.
     pub fn occurrence_outlook(

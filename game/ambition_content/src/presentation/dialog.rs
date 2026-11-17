@@ -268,16 +268,18 @@ struct DialogLayoutProfile {
 impl DialogLayoutProfile {
     fn for_viewport(viewport: Vec2) -> Self {
         if viewport.y < 480.0 {
-            // Phone landscape / short embedded windows.
+            // Phone landscape / short embedded windows. The reading rect has
+            // already left out the HUD band and the touch controls, so the box
+            // starts at its top: at 640x360 every row of it is needed below.
             Self {
                 option_capacity: 1,
                 panel_max_width: 940.0,
-                panel_top_inset: 58.0,
+                panel_top_inset: 4.0,
                 panel_padding: 8.0,
-                panel_gap: 5.0,
-                portrait_width: 56.0,
-                portrait_height: 62.0,
-                speaker_font_size: 23.0,
+                panel_gap: 4.0,
+                portrait_width: 36.0,
+                portrait_height: 40.0,
+                speaker_font_size: 20.0,
                 body_font_size: 20.0,
                 choice_font_size: 19.0,
                 hint_font_size: 14.0,
@@ -559,7 +561,8 @@ fn sync_ambition_dialog_ui(
                         left: Val::Px(10.0),
                         right: Val::Px(10.0),
                         top: Val::Px(profile.panel_top_inset),
-                        bottom: Val::Px(10.0),
+                        // No deeper than the top: a short screen needs the rows.
+                        bottom: Val::Px(profile.panel_top_inset.min(10.0)),
                     },
                     // The root is a column so the main axis is vertical:
                     // `FlexStart` anchors the panel near the top, while the cross-axis
@@ -618,21 +621,37 @@ fn sync_ambition_dialog_ui(
                     look,
                 );
 
-                panel.spawn((
-                    Text::new(dialogue.body.clone()),
-                    dialog_font(profile.body_font_size, UiFontWeight::Regular),
-                    TextColor(rgb(look.body_ink)),
-                    TextLayout::new(Justify::Left, LineBreak::WordBoundary),
-                    Node {
-                        width: Val::Percent(100.0),
-                        min_width: Val::Px(0.0),
-                        min_height: Val::Px(48.0),
-                        flex_shrink: 0.0,
-                        ..default()
-                    },
-                    AmbitionDialogBody,
-                    Name::new("Dialogue Body"),
-                ));
+                // The text sits in a row of its own, as the hint does: a text
+                // node that is itself an item of the panel's column is measured
+                // at one line, and its later lines drew under the choices.
+                panel
+                    .spawn((
+                        Node {
+                            width: Val::Percent(100.0),
+                            min_width: Val::Px(0.0),
+                            min_height: Val::Px(48.0),
+                            flex_shrink: 0.0,
+                            ..default()
+                        },
+                        AmbitionDialogBody,
+                        Name::new("Dialogue Body"),
+                    ))
+                    .with_children(|body| {
+                        body.spawn((
+                            Text::new(dialogue.body.clone()),
+                            dialog_font(profile.body_font_size, UiFontWeight::Regular),
+                            TextColor(rgb(look.body_ink)),
+                            TextLayout::new(Justify::Left, LineBreak::WordBoundary),
+                            Node {
+                                width: Val::Percent(100.0),
+                                min_width: Val::Px(0.0),
+                                max_width: Val::Percent(100.0),
+                                flex_shrink: 0.0,
+                                ..default()
+                            },
+                            Name::new("Dialogue Body Text"),
+                        ));
+                    });
 
                 if !dialogue.option_labels.is_empty() {
                     spawn_choice_viewport(
@@ -1334,7 +1353,7 @@ mod tests {
         let landscape = DialogLayoutProfile::for_viewport(Vec2::new(844.0, 390.0));
         assert!(landscape.body_font_size >= 20.0);
         assert_eq!(landscape.option_capacity, 1);
-        assert_eq!(landscape.panel_top_inset, 58.0);
+        assert_eq!(landscape.panel_top_inset, 4.0);
     }
 
     #[test]

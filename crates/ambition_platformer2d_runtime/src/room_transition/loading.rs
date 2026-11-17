@@ -732,6 +732,9 @@ pub fn begin_room_transition_load_system(
         // harnesses" — so its presence distinguishes "this composition owes a
         // generation" from "this one intentionally has none".
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>>,
+        // The durable save: the room's `present_when` placements are answered
+        // from its flags.
+        Option<Res<ambition_persistence::save::AmbitionGameSave>>,
     ),
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
@@ -756,7 +759,10 @@ pub fn begin_room_transition_load_system(
         _population_cap,
         generation,
         _session_gate,
+        world_save,
     ) = character_authorities;
+    let save_flags = world_save.as_deref().map(|save| move |flag: &str| save.data().flag(flag));
+    let world_flags = save_flags.as_ref().map(|flags| flags as &dyn Fn(&str) -> bool);
     // ⛔ THE GENERATION'S VALUES WHEN THERE IS ONE. See `GenerationMechanics`.
     // ⛔⛤ **A DOOR REBUILDS A LIVE ROOM, SO A SHELL SESSION WITHOUT ITS
     // GENERATION REFUSES RATHER THAN FALLING BACK TO THE App.** See
@@ -1303,6 +1309,7 @@ pub fn begin_room_transition_load_system(
                 target_spec,
                 &occurrence_outlook,
                 selected_minted,
+                world_flags,
             )
         });
         active.prefetch_hit = prefetched_construction.is_some();
@@ -1381,7 +1388,8 @@ pub fn begin_room_transition_load_system(
                             minted: selected_minted,
                         }
                     }),
-                ),
+                )
+                .with_world_flags(world_flags),
             )
             .map(Arc::new),
         };

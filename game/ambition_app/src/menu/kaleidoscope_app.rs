@@ -35,7 +35,7 @@ use crate::menu::effects::MenuBodySource;
 #[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
-    system_effective_window_start, system_max_window_start, SYSTEM_VISIBLE_ROWS,
+    system_effective_window_start, system_max_window_start,
 };
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 use crate::menu::model::{items_detail_slot_text, system_detail_slot_text};

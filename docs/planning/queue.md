@@ -24,10 +24,11 @@ carries closed campaigns. Unselected or customer-gated plans live in
    landed 2026-11-14 with the raid's last raider running out through the
    lane with the case; SS3's first part (a death in a scene stays: the
    Creator lies where he fell on a later visit) landed the same day, and
-   its `present_when` waits for a customer; SS5 (cutscene camera pans that
+   its `present_when` landed 2026-11-17 (the game show's goat and car are
+   actors in their closets); SS5 (cutscene camera pans that
    hold until released) landed the same day, as did `actor.face`/`actor.pose`; SS6 (retreat) is
-   covered by SS1+SS4 (the raid's escape is one). Story sequences are done
-   but for `present_when`, which waits for a customer. Dark
+   covered by SS1+SS4 (the raid's escape is one). Story sequences are
+   done. Dark
    rooms and the first tunnel (under Hobford, the mill wheel to the hollow
    oak) are [dark rooms and tunnels](engine/dark-rooms-and-tunnels.md): the
    player's glow by quality tier, DR1 (room darkness: the catacombs and
@@ -1697,12 +1698,35 @@ as the host's own layout does; `capture_scene --route smash_select` at
 overlay: the stick's fixed footprint (about 210 px of a 360 px height) hides
 P1's card and the page arrow, and the action buttons sit over START.
 
+**Done 2026-11-17, the dialogue box:** at 640x360 its body drew four lines
+into a two-line box, under the choice window. A text node that is itself an
+item of the panel's column was measured at one line, and the 48 px floor hid
+that at 1280x720, where a greeting fits two lines. The body text now sits in a
+row of its own, as the hint does. The phone-landscape profile also stopped
+adding a 58 px inset to a reading rect that already leaves out the HUD band,
+and it uses a smaller portrait and gap. Witness: `capture_scene
+math_hotel_ballroom player OUT 640x360 --warmup 200 --player-beside
+npc_math_monty --interact-at 90 --include-ui` shows the whole box and its
+four body lines on screen; at 1280x720 the box is unchanged. (A capture on a
+machine without the generated fonts falls back to Bevy's font, which has no
+`·` or `–`.) What still covers the box is the touch action cluster: Q178.
+
 **Blocked by:** Q178 for the touch overlay on small menus.
 
 **Next action:** the touch overlay waits on
 [Q178](awaiting-maintainer-decision.md#q178--on-a-small-screen-does-the-touch-overlay-give-way-to-a-menu);
-the dialogue box is next, one screen at a time, each with a `capture_scene`
-witness at 640x360 and 1280x720.
+the in-session pause cube is partly done (2026-11-17). Its page is laid in
+face-relative units (`Rl`/`Rh`, `game/ambition_menu_kaleidoscope/src/page.rs`),
+so the whole face shrinks with the screen: at 640x360 the six System rows
+read at about 8 px. `InventoryLayout` now carries the System row count with
+the item columns, from the menu region: under 480 px high the face shows 4
+taller rows and a 1.35x description, and the wheel, drag and window helpers
+take the count from the same region. Witness: `capture_scene --route
+ambition_gameplay OUT 640x360 --press "wait:60,Escape,wait:30" --include-ui`
+(labels about 11 px; 1280x720 unchanged at six rows). What still limits it
+is the face itself, 79% of the screen height (`MenuCubeGeometry::TARGET_FACE_FILL`):
+the next step is a short screen's camera filling the height with the active
+face. The inventory comes after it.
 
 ### CONTENT-AS-DATA — content still written as Rust
 

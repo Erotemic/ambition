@@ -75,6 +75,7 @@ fn arbitrate_attack_clashes(
     )> = Vec::new();
 
     for (hitbox, volume, sim_id) in strikes.iter() {
+        if tuning.in_room(tuning.room_of(volume.owner)).unwrap_or_default().clank_damage_window <= 0.0 { continue; }
         let Ok(kin) = owner_pos.get(volume.owner) else {
             continue;
         };
@@ -121,6 +122,7 @@ fn arbitrate_attack_clashes(
         // `AttackAllegiance` rather than the owner.
         let Some(side) = allegiance else { continue; };
         let room = tuning.room_of(entity);
+        if tuning.in_room(room).unwrap_or_default().clank_damage_window <= 0.0 { continue; }
         let Ok(domain) = kin.canonical_box() else { continue; };
         let Ok(to_world) = kin.material_map() else { continue; };
         let material = ae::frame::thread::MaterialPrimitive { domain: &domain, to_world };

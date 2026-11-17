@@ -281,11 +281,15 @@ impl TerminalUi {
         self.point(if self.pointed.is_some() { from.stepped(step, count) } else { from });
     }
 
-    /// Move the list cursor by `step`, kept inside the list, and the window
-    /// as little as it must to show it.
+    /// Move the list cursor by `step`, with wrap at both ends. Move the
+    /// window only as far as needed to show the cursor.
     pub fn step_list(&mut self, step: i32, rows: usize) {
         self.focus = TerminalFocus::List;
-        self.list_cursor = (self.list_cursor as i32 + step).clamp(0, rows.saturating_sub(1) as i32) as usize;
+        let mut cursor = ambition_ui_nav::ListCursor::new(self.list_cursor, rows);
+        for _ in 0..step.unsigned_abs() {
+            cursor.apply_directional(step < 0, step > 0);
+        }
+        self.list_cursor = cursor.selected();
         self.list_window = ambition_ui_nav::scroll_into_view(self.list_window, self.list_cursor, rows, self.shown_rows());
     }
 
@@ -625,6 +629,23 @@ mod tests {
         ui.step_list(1, rows);
         assert_eq!(ui.list_cursor, LIST_ROWS + 1, "a hover does not take the cursor: the arrow moves it from where it was");
         assert_eq!(ui.list_window, 2, "and the window comes back to it, to its near edge");
+    }
+
+    #[test]
+    fn the_list_wraps_at_both_ends_and_keeps_the_cursor_visible() {
+        let rows = LIST_ROWS + 6;
+        let mut ui = TerminalUi::default();
+        ui.step_list(-1, rows);
+        assert_eq!((ui.list_cursor, ui.list_window), (rows - 1, rows - LIST_ROWS));
+        ui.step_list(1, rows);
+        assert_eq!((ui.list_cursor, ui.list_window), (0, 0));
+
+        for rows in [0, 1] {
+            ui.step_list(-1, rows);
+            assert_eq!((ui.list_cursor, ui.list_window), (0, 0));
+            ui.step_list(1, rows);
+            assert_eq!((ui.list_cursor, ui.list_window), (0, 0));
+        }
     }
 
     /// The terminal opens on its list; the dial is a row of it, and an empty

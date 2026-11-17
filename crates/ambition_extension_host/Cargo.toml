@@ -18,3 +18,4 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_sim_schedule = { path = "../ambition_sim_schedule" }
 ambition_time = { path = "../ambition_time" }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
+blake3 = "1"

@@ -133,7 +133,7 @@ mod tests {
         };
         ModuleDescriptor {
             key: ModuleKey::new("test", "clock"), api: API_VERSION,
-            code: CodeIdentity::StaticNative { crate_name: "clock".into(), version: "1".into() },
+            code: CodeIdentity::StaticNative { build: Some([1; 32]), crate_name: "clock".into(), version: "1".into() },
             schemas: vec![schema.clone()],
             entries: vec![EntryDescriptor {
                 key: "tick".into(), phase: phases::ACTOR_THINK,
@@ -150,6 +150,11 @@ mod tests {
     fn different_code_and_diagnostic_names_keep_the_contract() {
         let reference = module();
         let mut candidate = reference.clone();
+        if let CodeIdentity::StaticNative { build, .. } = &mut candidate.code {
+            *build = Some([123; 32]);
+        }
+        assert_ne!(reference.identity_digest(), candidate.identity_digest());
+        assert_eq!(reference.semantic_bytes(), candidate.semantic_bytes());
         candidate.code = CodeIdentity::Loaded { abi: "rhai".into(), digest: 123 };
         candidate.entries[0].run = EntryCode::Loaded { index: 9 };
         candidate.entries[0].reads.reverse();

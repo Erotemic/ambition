@@ -36,6 +36,7 @@ pub fn module() -> ModuleDescriptor {
         key: ModuleKey::new(crate::PROVIDER, "eye_beam"),
         api: API_VERSION,
         code: CodeIdentity::StaticNative {
+            build: None,
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },

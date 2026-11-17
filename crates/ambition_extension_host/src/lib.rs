@@ -21,6 +21,7 @@
 //! 4. `Plugin::finish` admits. A refusal stops the composition.
 
 mod admission;
+mod native_build;
 mod exec;
 pub mod inspect;
 pub mod reload;
@@ -147,8 +148,13 @@ impl ExtensionGeneration {
                 CodeIdentity::StaticNative {
                     crate_name,
                     version,
+                    build,
                 } => {
-                    format!("native {crate_name} {version}")
+                    let build = build.map_or_else(|| "unavailable".to_owned(), |digest| {
+                        let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+                        format!("blake3:{hex}")
+                    });
+                    format!("native {crate_name} {version} build={build}")
                 }
                 CodeIdentity::Loaded { abi, digest } => format!("loaded {abi} {digest:016x}"),
             };
@@ -664,7 +670,12 @@ impl ExtensionAppExt for App {
     /// A game plugin may run before or after the composition adds the host,
     /// so this needs no schedule. ⚠ An App that declares a module and never
     /// adds the host admits nothing; the module never runs.
-    fn add_declared_extension_module(&mut self, module: DeclaredModule) -> &mut Self {
+    fn add_declared_extension_module(&mut self, mut module: DeclaredModule) -> &mut Self {
+        if matches!(module.code, ModuleCode::Native) {
+            if let ambition_extension_sdk::CodeIdentity::StaticNative { build, .. } = &mut module.descriptor.code {
+                *build = native_build::running_build();
+            }
+        }
         assert!(
             !self.world().contains_resource::<AdmittedExtensions>(),
             "module {} declared after admission; declare it during Plugin::build",

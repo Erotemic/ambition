@@ -61,6 +61,7 @@ fn velocities_in(min: [f32; 2], max: [f32; 2]) -> [Vec2; 5] {
             key: ModuleKey::new("test", "held_force"),
             api: ambition_extension_sdk::API_VERSION,
             code: CodeIdentity::StaticNative {
+                build: None,
                 crate_name: "test".into(),
                 version: "0".into(),
             },

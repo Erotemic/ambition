@@ -35,7 +35,9 @@ pub enum CodeIdentity {
     /// Rust code linked into the host executable. Its identity is the host
     /// build. A change to it rebuilds the host, so this is NOT the no-relink
     /// procedural loop; it is the native semantic reference (I4).
-    StaticNative { crate_name: Name, version: Name },
+    /// `build` is absent in portable declarations. The host sets it from its
+    /// running executable. A target without a readable artifact reports `None`.
+    StaticNative { crate_name: Name, version: Name, build: Option<[u8; 32]> },
     /// A loaded executable: its ABI name and the digest of its exact bytes.
     /// A guest says `Loaded` with digest 0; the host that loads the bytes
     /// fills the digest in.
@@ -234,8 +236,10 @@ impl ModuleDescriptor {
             CodeIdentity::StaticNative {
                 crate_name,
                 version,
+                build,
             } => {
-                d.u8(1).str(crate_name).str(version);
+                d.u8(1).str(crate_name).str(version).u8(u8::from(build.is_some()));
+                if let Some(build) = build { d.bytes(build); }
             }
             CodeIdentity::Loaded { abi, digest } => {
                 d.u8(2).str(abi).u64(*digest);

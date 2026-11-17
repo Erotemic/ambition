@@ -77,6 +77,7 @@ fn seizes(down: ae::Vec2, facing: f32, victim_at: ae::Vec2) -> bool {
             key: ModuleKey::new("test", "seizer"),
             api: ambition_extension_sdk::API_VERSION,
             code: CodeIdentity::StaticNative {
+                build: None,
                 crate_name: "test".into(),
                 version: "0".into(),
             },
@@ -273,6 +274,7 @@ fn held_from_the_captor(captor: JawCaptor, hold_at: Option<&str>, hold_offset: [
             key: ModuleKey::new("test", "jaw_holder"),
             api: ambition_extension_sdk::API_VERSION,
             code: CodeIdentity::StaticNative {
+                build: None,
                 crate_name: "test".into(),
                 version: "0".into(),
             },

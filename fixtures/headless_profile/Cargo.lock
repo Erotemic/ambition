@@ -375,6 +375,7 @@ dependencies = [
  "ambition_sim_schedule",
  "ambition_time",
  "bevy",
+ "blake3",
 ]
 
 [[package]]

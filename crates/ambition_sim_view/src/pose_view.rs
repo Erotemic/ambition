@@ -1592,7 +1592,8 @@ mod pose_view_tests {
         app.update();
         let request = app.world().get::<BodyPoseView>(body).unwrap().clip.as_ref().unwrap();
         assert_eq!(request.clip, "transform_small");
-        assert_eq!(request.time, Some(crate::ClipTime::Seconds { elapsed: 0.7, looping: false }));
+        // The pin's clock is the pinned rows' own (`row_clock`), read for the row drawn.
+        assert_eq!(request.time_for_row("transform_small"), Some(crate::ClipTime::Seconds { elapsed: 0.7, looping: false }));
         app.world_mut().get_mut::<PinnedRow>(body).unwrap().clear();
         app.update();
         assert!(app.world().get::<BodyPoseView>(body).unwrap().clip.is_none());

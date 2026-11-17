@@ -519,6 +519,17 @@ impl CharacterAnimator {
         }
     }
 
+    /// Loop the clip shown now on the sheet's clock, as [`Self::request_loop`]
+    /// would have: for a caller that asks through a chain each frame
+    /// ([`Self::request_actor_pose`]) and learns only after that the row is a
+    /// stance with no end. Nothing when no clip shows.
+    pub fn loop_clip(&mut self) {
+        if self.clip_slot.is_some() {
+            self.clip_loops = true;
+            self.clip_held = false;
+        }
+    }
+
     /// Draw authored row `slot` at `frame`, held there: an animator whose
     /// frame another clock owns (a boss drawn from its sim cursor). Nothing
     /// ticks it; the next call moves it. A frame past the row's end is its

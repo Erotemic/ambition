@@ -85,6 +85,10 @@ pub(crate) fn apply_character_frame(
     match clip.and_then(|request| request.time) {
         Some(ambition_sim_view::ClipTime::Seconds { elapsed, looping }) => animator.slave_clip_to_seconds(elapsed, looping),
         Some(ambition_sim_view::ClipTime::Phase(phase)) => animator.slave_clip_to(Some(phase)),
+        Some(ambition_sim_view::ClipTime::Looping) => {
+            animator.slave_clip_to(None);
+            animator.loop_clip();
+        }
         None => animator.slave_clip_to(None),
     }
     // A move whose row is the upper body only: the legs keep their own pose.

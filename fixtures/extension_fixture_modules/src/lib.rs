@@ -55,6 +55,7 @@ pub fn session_tally() -> ModuleDescriptor {
         key: ModuleKey::new(PROVIDER, "session_tally"),
         api: API_VERSION,
         code: CodeIdentity::StaticNative {
+            build: None,
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
@@ -258,6 +259,7 @@ pub fn trail_loop() -> ModuleDescriptor {
         key: ModuleKey::new(PROVIDER, "trail_loop"),
         api: API_VERSION,
         code: CodeIdentity::StaticNative {
+            build: None,
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
@@ -318,6 +320,7 @@ pub fn thinker() -> ModuleDescriptor {
         key: ModuleKey::new(PROVIDER, "thinker"),
         api: API_VERSION,
         code: CodeIdentity::StaticNative {
+            build: None,
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },

@@ -123,7 +123,7 @@ fn app() -> App {
     app.add_extension_module(ModuleDescriptor {
         key: ModuleKey::new("test", "items"),
         api: ambition_extension_sdk::API_VERSION,
-        code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
+        code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
         schemas: vec![Owned::schema(), Seen::schema()],
         entries: vec![
             entry("place", TECHNIQUE_EXECUTION, FighterSpecialPort::KEY, PLACE, vec![], vec![], vec![SpawnModuleItemPort::KEY], place),

@@ -485,7 +485,7 @@ mod tests {
     fn native_clock() -> ModuleDescriptor {
         ModuleDescriptor {
             key: ModuleKey::new("test", "clock"), api: API_VERSION,
-            code: CodeIdentity::StaticNative { crate_name: "clock".into(), version: "1".into() },
+            code: CodeIdentity::StaticNative { build: None, crate_name: "clock".into(), version: "1".into() },
             schemas: vec![StateSchema {
                 key: SchemaKey::new("test", "count", 1), attachment: Attachment::Body,
                 save: SaveEligibility::Transient, fields: vec![FieldDecl::new(1, "ticks", FieldKind::U32)],

@@ -73,7 +73,19 @@ For the linked path, build the example host. This is an executable build:
 cargo build -p pulse_forge_host
 ./target/debug/pulse_forge_host --project examples/projects/pulse_forge/project-linked.ron
 PATH=/nonexistent ./target/debug/pulse_forge_host --project examples/projects/pulse_forge/project-linked.ron --headless-ticks 30
+./target/debug/pulse_forge_host --project examples/projects/pulse_forge/project-linked.ron --headless-ticks 0 --compare examples/projects/pulse_forge/build/pulse_forge.wasm
 ```
+
+`--compare` checks the selected linked declaration against the loaded file and
+returns status 1 on a mismatch. It does not prove gameplay parity. The Linux
+host reports `build=blake3:...` for linked code. This digest covers the running
+executable's exact bytes, including its target and build configuration. It is
+read once before simulation. Copying the executable keeps that identity;
+rebuilding native code changes it even when the crate version stays the same.
+The semantic declaration comparison excludes code identity. Browser and Android
+hosts report `build=unavailable` until their loaders supply the compiled
+artifact's identity. They must not identify native code by the browser process
+or Android launcher. This digest is not an artifact signature.
 
 `modules/sentinel.rhai` remains a Rhai module beside the emitter in all three
 modes. It observes the room's bodies tagged `pulse_forge.sentinels`. Its

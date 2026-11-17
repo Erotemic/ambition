@@ -35,6 +35,7 @@ pub fn module() -> ModuleDescriptor {
     ModuleDescriptor {
         key: ModuleKey::new(PROVIDER, "emitter"), api: API_VERSION,
         code: CodeIdentity::StaticNative {
+            build: None,
             crate_name: env!("CARGO_PKG_NAME").into(), version: env!("CARGO_PKG_VERSION").into(),
         },
         schemas: vec![Charge::schema(), Cadence::schema()],

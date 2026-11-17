@@ -119,6 +119,7 @@ fn module(entries: Vec<EntryDescriptor>) -> ModuleDescriptor {
         key: ModuleKey::new("test", "counter"),
         api: API_VERSION,
         code: CodeIdentity::StaticNative {
+            build: None,
             crate_name: "test".into(),
             version: "0".into(),
         },
@@ -486,6 +487,7 @@ fn each_phase_lowers_only_the_requests_its_own_invocations_submitted() {
             key: ModuleKey::new("test", "phases"),
             api: API_VERSION,
             code: CodeIdentity::StaticNative {
+                build: None,
                 crate_name: "test".into(),
                 version: "0".into(),
             },
@@ -1245,6 +1247,7 @@ fn extra(version: &'static str) -> ModuleDescriptor {
         key: ModuleKey::new("test", "extra"),
         api: API_VERSION,
         code: CodeIdentity::StaticNative {
+            build: None,
             crate_name: "test".into(),
             version: version.into(),
         },

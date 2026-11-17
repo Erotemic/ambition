@@ -61,7 +61,7 @@ fn app() -> App {
     app.add_extension_module(ModuleDescriptor {
         key: ModuleKey::new("test", "reaction"),
         api: ambition_extension_sdk::API_VERSION,
-        code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
+        code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
         schemas: vec![Seen::schema()],
         entries: vec![
             EntryDescriptor {

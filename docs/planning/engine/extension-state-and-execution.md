@@ -35,6 +35,15 @@ removals, renames, and reordering migrate by tag. State under an unloaded
 module's key stays opaque; adding that module later must honor its saved
 schema. A new schema key declares new state and does not migrate old values.
 
+Linked declarations start with `CodeIdentity::StaticNative.build` absent.
+Desktop hosts set it from a digest of the running executable before generation
+identity or admission. Linux reads `/proc/self/exe`, so replacing the launch
+path during a rebuild cannot identify the old process as the new executable.
+The digest is cached outside simulation. Descriptor and generation identity
+include it; semantic declaration comparison excludes it. Browser and Android
+hosts cannot use the process executable for this purpose and report the build
+identity as unavailable. Their artifact loaders still need to supply it.
+
 ## Saved-row identity validation (new durable-session customer, 2026-10-11)
 
 **What landed (2026-10-12):** the schema written in a saved row is its

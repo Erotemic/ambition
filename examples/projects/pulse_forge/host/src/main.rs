@@ -23,6 +23,15 @@ fn main() {
         for _ in 0..ticks.parse::<u32>().expect("--headless-ticks needs a nonnegative integer") {
             sim.step(ambition_app::AgentAction::default());
         }
+        if let Some(file) = value(&args, "--compare") {
+            let linked = ambition_platformer2d::extension::linked_modules(sim.world());
+            let comparison = ambition_platformer2d::extension::load_module_file(std::path::Path::new(&file), &linked)
+                .and_then(|(_, modules)| ambition_platformer2d::extension::inspect::compare_contracts(sim.world(), &modules));
+            match comparison {
+                Ok(report) => print!("{report}"),
+                Err(reason) => { eprintln!("{reason}"); std::process::exit(1); }
+            }
+        }
         println!("project: {}", project.name);
         print!("{}", ambition_platformer2d::extension::inspect::describe_composition(sim.world()));
         print!("{}", ambition_platformer2d::extension::inspect::describe_records(sim.world_mut()));

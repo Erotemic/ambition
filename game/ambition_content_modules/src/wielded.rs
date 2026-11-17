@@ -13,6 +13,7 @@ pub fn module(key: &'static str, item: &'static str, requests: Vec<PortKey>, max
         key: ModuleKey::new(crate::PROVIDER, key),
         api: API_VERSION,
         code: CodeIdentity::StaticNative {
+            build: None,
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },

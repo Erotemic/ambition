@@ -36,7 +36,7 @@ fn probe() -> ModuleDescriptor {
     ModuleDescriptor {
         key: ModuleKey::new("test", "conduct_probe"),
         api: API_VERSION,
-        code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
+        code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
         schemas: Vec::new(),
         entries: vec![EntryDescriptor {
             key: "conduct".into(),

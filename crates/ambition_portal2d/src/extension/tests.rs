@@ -93,7 +93,7 @@ fn app() -> App {
         .add_extension_module(ModuleDescriptor {
             key: ModuleKey::new("test", "punch"),
             api: ambition_extension_sdk::API_VERSION,
-            code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
+            code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
             schemas: vec![],
             entries: vec![EntryDescriptor {
                 key: "conduct".into(),
@@ -265,7 +265,7 @@ fn line_app() -> App {
         .add_extension_module(ModuleDescriptor {
             key: ModuleKey::new("test", "lines"),
             api: ambition_extension_sdk::API_VERSION,
-            code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
+            code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
             schemas: vec![],
             entries: vec![EntryDescriptor {
                 key: "conduct".into(),
@@ -446,7 +446,7 @@ fn two_phase_app() -> App {
         .add_extension_module(ModuleDescriptor {
             key: ModuleKey::new("test", "recovery"),
             api: ambition_extension_sdk::API_VERSION,
-            code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
+            code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
             schemas: vec![],
             entries: vec![EntryDescriptor {
                 key: "open".into(),

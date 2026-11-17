@@ -35,7 +35,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 
 #[test]
@@ -64,8 +64,8 @@ fn god_blink_in_ambition_does_not_grant_blink_to_maryo() {
         panic!("route {route} did not activate a controlled body");
     }
 
-    let mut app = ambition_app::app::build_visible_app(
-        ambition_app::app::VisibleRenderMode::NoWindow, false,
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub,
     );
     ambition_platformer2d::app::enable_manual_stepping(&mut app);
     ambition_platformer2d::app::finish_stepped_app(&mut app);
@@ -100,7 +100,7 @@ fn god_blink_in_ambition_does_not_grant_blink_to_maryo() {
 /// inputs, compare checksums. A mismatch is reported by `rollback_health`.
 fn rollback_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )

@@ -39,7 +39,7 @@ fn an_ordinary_knockout_returns_to_the_select_screen_on_its_own() {
     struct Decided(usize);
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.init_resource::<Decided>();
     app.add_systems(
         Update,
@@ -156,7 +156,7 @@ fn a_fighter_knocked_out_of_the_world_is_not_drawn_until_it_returns() {
     use bevy::prelude::*;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..30 {
         app.update();
     }

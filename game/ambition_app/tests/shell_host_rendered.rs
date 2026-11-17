@@ -50,7 +50,7 @@ pub(crate) fn rendered_app() -> App {
 }
 
 pub(crate) fn rendered_app_with(render: VisibleRenderMode) -> App {
-    rendered_app_in_room(render, None)
+    rendered_app_in_room(render, Some(crate::common::SANDBOX_HUB))
 }
 
 /// The rendered host, its session starting in `room` when one is named (a

@@ -15,7 +15,7 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 
 use ambition_content::encounters::{SYMMETRY_ATTUNEMENT_FLAG, SYMMETRY_ATTUNEMENT_ID};
 use ambition_platformer2d::encounter::{
@@ -50,7 +50,7 @@ fn flip_kernel_face(sim: &mut Platformer2dSimHarness, switch_id: &str, action: &
 
 #[test]
 fn the_noether_attunement_completes_through_the_generic_path() {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room("symmetry_room");
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("symmetry_room boots");
@@ -142,7 +142,7 @@ fn the_noether_attunement_completes_through_the_generic_path() {
 /// engine's schedule, not about the attunement.
 #[test]
 fn a_switch_activation_is_drained_on_the_tick_after_it_was_pushed() {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room("symmetry_room");
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("symmetry_room boots");

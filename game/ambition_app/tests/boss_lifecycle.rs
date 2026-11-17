@@ -250,7 +250,7 @@ fn one_real_mockingbird_kill(sim: &mut Platformer2dSimHarness, placement: &str, 
 fn a_practice_copy_dies_without_the_story_consequences() {
     use ambition_platformer2d::entity_catalog::PickupKind;
 
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let step_before = sim
         .world()
@@ -344,7 +344,7 @@ fn boss_reward_chest_count(world: &mut World) -> usize {
 /// through the same death path).
 #[test]
 fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     spawn_mockingbird(&mut sim, "dying_boss");
 
@@ -402,7 +402,7 @@ fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
 fn cleared_is_kept_by_placement_and_a_pre_cleared_boss_never_replays_its_death() {
     use ambition_platformer2d::combat::components::{BossPhase, DeathBeat};
 
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     sim.world_mut()
         .resource_mut::<AmbitionGameSave>()
@@ -486,7 +486,7 @@ fn cleared_is_kept_by_placement_and_a_pre_cleared_boss_never_replays_its_death()
 /// constructed boss, and demands the replayed one match.
 #[test]
 fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
     // A contact-chase boss, placed far enough away that "does it move" has an
@@ -614,10 +614,9 @@ fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2
 /// the giant stands in the arena with nobody on its back.
 #[test]
 fn a_new_game_brings_back_every_boss_the_run_defeated() {
-    use ambition_app::Platformer2dSimHarnessOptions;
 
     const ARENA: &str = "gnu_ton_arena";
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(ARENA);
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the arena builds");
@@ -694,7 +693,6 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
 /// save would have built the guide dead.
 #[test]
 fn a_new_game_brings_back_a_person_the_run_killed() {
-    use ambition_app::Platformer2dSimHarnessOptions;
     use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
     use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::construction::PersistedFates;
@@ -702,7 +700,7 @@ fn a_new_game_brings_back_a_person_the_run_killed() {
 
     const HUB: &str = "central_hub_complex";
     const GUIDE: &str = "npc_kernel_guide";
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(HUB);
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the hub builds");
@@ -782,7 +780,7 @@ fn a_new_game_brings_back_a_person_the_run_killed() {
 /// covered a claim and not an empty request.
 #[test]
 fn a_boss_music_claim_is_the_same_after_a_rewind() {
-    let options = ambition_app::Platformer2dSimHarnessOptions::default()
+    let options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_sync_test_rollback_settings(4, 10);
     let mut sim = Platformer2dSimHarness::new_with_options(options)

@@ -24,7 +24,7 @@
 //! place the real population exists. This walks that, and it fails naming the
 //! silent characters rather than a count.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::characters::actor::character_catalog::{BarkSituation, CharacterCatalog};
 
 /// Every character the shipped host composes can produce at least one line.
@@ -35,7 +35,7 @@ use ambition_platformer2d::characters::actor::character_catalog::{BarkSituation,
 /// is part of the game and one that reads as unfinished.
 #[test]
 fn every_composed_character_can_say_at_least_one_line() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // Finalize before reading the cast: character registration is queued and the
     // prepared registry is published as a whole during `Plugin::finish`.
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);

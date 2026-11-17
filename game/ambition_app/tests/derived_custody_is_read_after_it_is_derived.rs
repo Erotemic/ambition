@@ -17,7 +17,7 @@
 
 use std::collections::{BTreeSet, HashSet, VecDeque};
 
-use ambition_app::rl_sim::{Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::rl_sim::{Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::platformer::lifecycle::InCustodyOf;
 use bevy::ecs::schedule::graph::Direction;
 use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules};
@@ -78,7 +78,7 @@ pub(crate) fn after(graph: &ScheduleGraph, start: NodeId) -> HashSet<NodeId> {
 #[test]
 fn every_reader_of_in_custody_of_runs_after_both_derivers() {
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {

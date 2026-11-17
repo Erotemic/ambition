@@ -134,7 +134,7 @@ fn wait_out_strike(sim: &mut Platformer2dSimHarness, boss: Entity) {
 
 #[test]
 fn possessed_boss_commands_its_authored_specials_and_release_restores_the_pattern() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let boss = spawn_and_possess_boss(&mut sim);
 
@@ -258,7 +258,7 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
 fn a_possessed_boss_prompt_shows_the_attack_and_special_it_fires() {
     use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
     use ambition_platformer2d::sim_view::ControlPrompt;
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let boss = spawn_and_possess_boss(&mut sim);
     let (primary, signature) = {

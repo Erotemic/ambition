@@ -3,7 +3,7 @@
 //! Image dimensions measure asset demand independently of machine speed.
 //! Schedule checks identify the repeated system itself.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 
 /// Decoded megapixels at boot.
 const BOOT_MEGAPIXEL_BUDGET: f64 = 40.0;
@@ -14,7 +14,7 @@ const BOOT_MEGAPIXEL_BUDGET: f64 = 40.0;
 /// unchanged for a stretch, which is the honest "loading is done" signal available without
 /// reaching into the asset server.
 fn boot_and_settle() -> bevy::app::App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));

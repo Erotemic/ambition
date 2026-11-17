@@ -10,7 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{VisibleRenderMode, build_visible_app};
+use ambition_app::app::{VisibleRenderMode, build_visible_app_with};
 use ambition_platformer2d::game_shell::ShellCommand;
 
 fn step(app: &mut App) {
@@ -42,7 +42,7 @@ fn session_room_and_worn(app: &mut App) -> Option<(String, String)> {
 fn the_starting_characters_sheet_is_decoded_before_the_route_activates() {
     use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));

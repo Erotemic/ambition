@@ -69,7 +69,7 @@ const KNOWN_UNARMED: &[&str] = &[
 #[test]
 fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // ONE frame first, and it is load-bearing: the seatable registry is filled by a `Startup`
     // system, so a build that has never updated has a catalog and no registry at all.
     app.update();
@@ -166,7 +166,7 @@ fn every_id_on_the_smash_wish_list_names_a_real_character() {
     const COMPOSITION_DEPENDENT: &[&str] = &[];
 
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let catalog = app
         .world()
         .get_resource::<CharacterCatalog>()
@@ -212,7 +212,7 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
     use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // ONE frame first, and it is load-bearing: the seatable registry is filled by a `Startup`
     // system, so a build that has never updated has a catalog and no registry at all.
     app.update();
@@ -303,7 +303,7 @@ fn every_fighter_this_composition_can_build_reaches_the_grid() {
     use ambition_demo_smash::select::{smash_roster, stand_ins, SmashRoster};
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let registry =
         app.world()
@@ -343,7 +343,7 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
     use ambition_demo_smash::select::{smash_roster, SmashRoster};
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let registry =
         app.world()
@@ -380,7 +380,7 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
 #[test]
 fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let registry = app
         .world()
@@ -452,7 +452,7 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
 #[test]
 fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // One frame, for the same reason the census above needs it: the seatable
     // registry is filled by a `Startup` system.
     app.update();
@@ -589,7 +589,7 @@ fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
 #[test]
 fn the_platformer_protagonists_keep_their_own_kits_at_home() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let catalog = app
         .world()
@@ -750,7 +750,7 @@ fn every_posture_must_answer(label: &str) -> bool {
 #[test]
 fn report_the_smash_kit_every_selectable_fighter_has() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let registry =
         app.world()
@@ -947,7 +947,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
     use ambition_platformer2d::engine_core as ae;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // One frame, for the same reason the census above needs it: the seatable
     // registry is filled by a `Startup` system.
     app.update();
@@ -1108,7 +1108,7 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
     const MAX_TUNING_FACTOR: f32 = 4.0;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let registry =
         app.world()
@@ -1195,7 +1195,7 @@ fn the_goblin_offers_its_raider_and_squat_skins() {
     use ambition_demo_smash::select::{SmashRoster, SmashSkins};
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let world = app.world();
     let registry = world.resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
@@ -1228,7 +1228,7 @@ fn the_smash_stage_reads_each_fighters_move_clocks_and_home_keeps_its_own() {
     use ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE;
     use ambition_platformer2d::entity_catalog::MoveEventKind;
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let registry = app
         .world()

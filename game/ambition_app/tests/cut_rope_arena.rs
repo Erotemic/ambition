@@ -21,7 +21,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_app::TimestepMode;
 use ambition_platformer2d::boss_encounter::EncounterGate;
 use ambition_platformer2d::world::rooms::RoomSet;
@@ -30,7 +30,7 @@ const CUT_ROPE_ROOM: &str = "you_have_to_cut_the_rope";
 const ROPE_KIND: &str = "cut_rope_rope";
 
 fn cut_rope_sim() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED, not optional: the tolerant road falls back to the authored
         // start room and would run this whole test in the wrong room, green.
@@ -423,7 +423,7 @@ fn a_replay_lets_the_rope_be_cut_again() {
 const WINDOW: usize = 60;
 
 fn cut_rope_rewinding_sim() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(CUT_ROPE_ROOM)
         .with_sync_test_rollback_settings(4, 10);
@@ -573,7 +573,7 @@ fn release_markers(sim: &mut Platformer2dSimHarness) -> usize {
 
 fn arena_killing_the_boss() -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
-    let options = Platformer2dSimHarnessOptions::default()
+    let options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(CUT_ROPE_ROOM)
         .with_sync_test_rollback_settings(4, 10);

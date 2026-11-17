@@ -6,7 +6,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_content::bosses::mockingbird::{conductor_module as module, conductor_of, MockingbirdView, Move, MOCKINGBIRD_ID};
 use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
@@ -20,7 +20,7 @@ const SHORE: &str = "mockingbird_arena";
 const PLACEMENT: &str = "cove.mockingbird";
 
 fn boot(room: &str) -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED: the tolerant road falls back to the start room, which has
         // no Mockingbird, and every assertion below would be vacuous.

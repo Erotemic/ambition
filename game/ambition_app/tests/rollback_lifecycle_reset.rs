@@ -32,7 +32,7 @@ fn entity_named(sim: &mut Platformer2dSimHarness, id: &SimId) -> Option<Entity> 
 
 fn repro_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("combat_calibration_lab")
             .with_sync_test_rollback_settings(4, 10),
@@ -371,7 +371,7 @@ fn probe_what_a_rollback_frame_costs() {
         );
     }
     let base = || {
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("combat_calibration_lab")
     };
@@ -396,7 +396,7 @@ fn probe_what_a_rollback_frame_costs() {
     // POPULATION vs SCHEMA, the whole point of this addition. Same rollback settings, same
     // frame count, different amounts of world to snapshot.
     let empty = || {
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("tiny_chamber")
     };
@@ -472,7 +472,7 @@ fn a_cross_room_checkpoint_resume_stays_checksum_clean() {
     );
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("combat_calibration_lab")
             .with_sync_test_rollback_settings(4, 10)

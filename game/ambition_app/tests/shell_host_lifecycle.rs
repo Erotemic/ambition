@@ -50,7 +50,7 @@ use ambition_platformer2d::world::rooms::RoomSet;
 /// composes (`visible_composition.rs`), so the render-frame arm is the
 /// approximation, not the other way round.
 fn shell_host_app_hosted_by(host: ambition_platformer2d::runtime::SimulationHost) -> App {
-    shell_host_app_started_in(host, None)
+    shell_host_app_started_in(host, Some(crate::common::SANDBOX_HUB))
 }
 
 /// The same host, with Ambition's start room PINNED.

@@ -9,7 +9,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 
 use crate::common::base;
@@ -55,7 +55,7 @@ struct Census {
 
 fn census(rollback: bool, frames: usize) -> Census {
     let mut options =
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz());
     if rollback {
         options = options.with_sync_test_rollback_settings(4, 10);
     }
@@ -128,10 +128,10 @@ fn census(rollback: bool, frames: usize) -> Census {
 #[ignore = "PROBE, print-only: panics to report its census. Preserved mid-investigation \
            (D71) when the run was paused; run explicitly with --ignored."]
 fn probe_d71_shipped_app_host() {
-    use ambition_app::app::{build_visible_app, VisibleRenderMode};
+    use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
     use ambition_platformer2d::game_shell::ShellCommand;
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_millis(16),
     ));
@@ -239,7 +239,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
     const SUMMONED: &str = "d71_crossing_body";
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("the harness builds");
     for _ in 0..20 {

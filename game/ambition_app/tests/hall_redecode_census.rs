@@ -50,7 +50,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{VisibleRenderMode, build_visible_app};
+use ambition_app::app::{VisibleRenderMode, build_visible_app_with};
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::sprite_sheet::game_assets::image_stages;
 
@@ -127,7 +127,7 @@ fn settle_cast_or_fail(app: &mut App, secs: u64, what: &str) {
 #[test]
 #[ignore = "reads the process-global image ledger: valid only when run alone, via scripts/measure/measure_hall_redecodes.sh"]
 fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));

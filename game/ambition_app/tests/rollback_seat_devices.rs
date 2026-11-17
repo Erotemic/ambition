@@ -23,7 +23,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 // `ambition_input` is not a direct dep of the app crate; the facade re-exports
 // it as `ambition_platformer2d::input`, which is the path every other test here
@@ -52,7 +52,7 @@ const FRAMES_BEFORE_THE_ROSTER: usize = 20;
 /// would test a frame shape the host never produces.
 fn two_pad_rollback_harness() -> Platformer2dSimHarness {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
             // The session must actually CARRY seat two, or its ownership is

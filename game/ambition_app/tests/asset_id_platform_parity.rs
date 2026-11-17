@@ -20,7 +20,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::asset_manager::{AssetId, AssetLocation, AssetProfile};
 use ambition_platformer2d::view::Platformer2dAssetCatalog;
 
@@ -63,7 +63,7 @@ fn names_the_same_file(left: &str, right: &str) -> bool {
 }
 
 fn production_catalog() -> Platformer2dAssetCatalog {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }

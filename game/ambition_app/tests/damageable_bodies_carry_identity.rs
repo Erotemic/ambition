@@ -86,7 +86,7 @@ fn census(world: &mut World) -> (Vec<String>, usize) {
 /// total is asserted non-trivial first.
 #[test]
 fn every_damageable_body_these_roads_build_carries_a_stable_identity() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     for _ in 0..30 {
         sim.step(AgentAction::default());
@@ -155,7 +155,7 @@ fn every_fighter_in_a_match_carries_a_stable_identity() {
     use bevy::prelude::*;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..30 {
         app.update();
     }

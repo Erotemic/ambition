@@ -34,7 +34,7 @@ fn the_directors_revision_asks_for_exactly_one_blink() {
     let blink = ambition_platformer2d::sfx::SfxId::from_static("player.blink");
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..30 {
         app.update();
     }
@@ -154,7 +154,7 @@ fn the_directors_revision_is_intangible_through_the_vanish_and_not_through_the_l
     use bevy::prelude::*;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..30 {
         app.update();
     }
@@ -280,7 +280,7 @@ fn the_directors_revision_rises_when_the_stick_is_released_after_the_press() {
     use bevy::prelude::*;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..30 {
         app.update();
     }

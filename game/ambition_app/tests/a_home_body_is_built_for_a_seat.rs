@@ -140,7 +140,7 @@ fn whose(sim: &Platformer2dSimHarness, body: Entity) -> Whose {
 #[test]
 fn the_recipe_builds_the_body_of_a_second_seat_that_is_not_primary() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     let primary = the_primary(&mut sim);
     let before = whose(&sim, primary);
@@ -242,7 +242,7 @@ fn the_primary_body_walks_the_same_beside_a_second_home_body() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let walked = |with_a_second: bool| {
         let mut sim =
-            Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+            Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
         sim.step_n(AgentAction::default(), 15);
         let primary = the_primary(&mut sim);
         let second = with_a_second.then(|| build_the_home_body_of(&sprite_content, &mut sim, PlayerSlot(1)));

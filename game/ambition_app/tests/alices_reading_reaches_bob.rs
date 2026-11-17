@@ -37,8 +37,8 @@ pub(crate) fn the_shipped_session() -> App {
 /// On, the session holds a claimable seat for a second player from its start
 /// (`declare_ambition_seating`).
 pub(crate) fn the_shipped_session_accepting_joins(accept: bool) -> App {
-    use ambition_app::app::{build_visible_app, VisibleRenderMode};
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.finish();
     the_player_enters(app, accept)
 }

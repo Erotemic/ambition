@@ -27,7 +27,7 @@ fn home_bank(world: &mut World) -> ActorResources {
 
 #[test]
 fn the_home_body_holds_mana_resets_to_it_and_nothing_else_does() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     // Built holding exactly the declared pool, at its declared (full) start.

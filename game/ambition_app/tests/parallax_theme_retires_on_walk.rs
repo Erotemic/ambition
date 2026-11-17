@@ -30,7 +30,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::sprite_sheet::game_assets::{
     GameAssets, ParallaxLayerAsset, ParallaxTheme,
@@ -81,7 +81,7 @@ fn layer_asset_ids(app: &App, themes: &[ParallaxTheme]) -> Vec<(ParallaxTheme, A
 // `docs/recipes/checks-that-did-not-run.md`.
 #[ignore = "boots a real app and reads Assets<Image>: valid only when run alone, via scripts/measure/measure_parallax_retire.sh"]
 fn a_theme_the_player_walked_away_from_leaves_assets_image() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));

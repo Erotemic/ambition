@@ -32,7 +32,7 @@ fn enemy_entity(world: &mut World) -> Entity {
 /// the SAME integration phase — not two separate routes.
 #[test]
 fn home_body_and_actor_body_move_through_the_same_integration_phase() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     // Drop the enemy to the player's RIGHT — a chasing brain is drawn toward it.
     let px = player_x(sim.world_mut());
@@ -97,7 +97,7 @@ fn home_body_and_actor_body_move_through_the_same_integration_phase() {
 /// leaves the body at rest; driving the slot moves it.
 #[test]
 fn brain_player_uses_the_slot_owned_control_path() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     sim.step(AgentAction::default());
     let x_before = player_x(sim.world_mut());
@@ -131,7 +131,7 @@ fn a_boss_body_uses_the_common_integration_step_and_its_own_envelope() {
     use ambition_platformer2d::entity_catalog::placements::BossBrain;
     use bevy::ecs::system::RunSystemOnce;
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("switch_lab"),
     )

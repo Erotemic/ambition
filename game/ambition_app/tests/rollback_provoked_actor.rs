@@ -18,7 +18,7 @@
 //! be measuring its own fixture rather than the codecs.
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::character::AutonomousSource;
 use ambition_platformer2d::character::BrainBinding;
@@ -29,7 +29,7 @@ use bevy::prelude::{Entity, World};
 
 fn hall_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("hall_of_characters")
             .with_sync_test_rollback_settings(4, 10),

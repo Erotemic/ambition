@@ -63,7 +63,7 @@
 #![cfg(feature = "rl_sim")]
 
 use crate::common::walk_through_the_door_to;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_app::AmbitionSim;
 use ambition_app::TimestepMode;
 
@@ -73,7 +73,7 @@ const ROOM: &str = "intro_wake_room";
 const SCRIPT: &str = "intro_wake";
 
 fn arena(rollback: bool) -> Platformer2dSimHarness {
-    let mut options = Platformer2dSimHarnessOptions::default()
+    let mut options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED, not tolerant: the fallback would run this whole arm in
         // the authored start room, which has no cutscene binding, and report a
@@ -180,7 +180,7 @@ const LAB_ROOM: &str = "cutscene_lab";
 const LAB_SCRIPT: &str = "cutscene_lab_intro";
 
 fn basement_arena(rollback: bool) -> Platformer2dSimHarness {
-    let mut options = Platformer2dSimHarnessOptions::default()
+    let mut options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(BASEMENT);
     if rollback {

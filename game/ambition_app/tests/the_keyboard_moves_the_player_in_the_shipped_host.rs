@@ -131,7 +131,7 @@ fn assert_arrows_walk_both_ways(app: &mut App, road: &str) {
 #[test]
 fn a_first_boot_from_the_keyboard_ends_with_a_player_who_walks() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     ambition_app::app::shell_host::compose_ambition_startup_sequence(&mut app);
     enter_until_walkable(&mut app);
     assert_arrows_walk_both_ways(&mut app, "shell-hosted first boot");
@@ -141,7 +141,7 @@ fn a_first_boot_from_the_keyboard_ends_with_a_player_who_walks() {
 #[test]
 fn a_direct_entry_player_walks_on_the_arrow_keys() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, false);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     enter_until_walkable(&mut app);
     assert_arrows_walk_both_ways(&mut app, "direct entry");
 }
@@ -165,7 +165,7 @@ fn travel_while_chorded(app: &mut App, modifier: KeyCode, key: KeyCode) -> f32 {
 #[test]
 fn shift_and_an_arrow_walk_where_the_arrow_alone_runs() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, false);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     enter_until_walkable(&mut app);
     let (run, _, _) = travel_while_held(&mut app, KeyCode::ArrowRight);
     assert!(run > MIN_TRAVEL_PX, "control: a held Right arrow ran {run:.2} px");

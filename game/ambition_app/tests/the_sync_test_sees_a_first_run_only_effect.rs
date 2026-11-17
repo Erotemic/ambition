@@ -17,7 +17,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::rollback::{GgrsSchedule, RollbackFrameCount};
@@ -100,7 +100,7 @@ struct Found {
 
 fn run(acts: Acts) -> Found {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(CHECK_DISTANCE, 10),
     )

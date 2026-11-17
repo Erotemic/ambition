@@ -430,7 +430,7 @@ pub(crate) fn waived_components(
 #[ignore = "audit listing: prints what the ceiling is holding; read it, do not assert on it"]
 fn probe_what_the_shipped_ceiling_is_still_holding() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..8 {
         app.update();
     }
@@ -457,7 +457,7 @@ fn probe_what_the_shipped_ceiling_is_still_holding() {
 fn probe_what_every_waiver_actually_covers() {
     for room in ["combat_calibration_lab", "mockingbird_sky"] {
         let mut sim = Platformer2dSimHarness::new_with_options(
-            ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            crate::common::sandbox_options()
                 .with_timestep(TimestepMode::fixed_60hz())
                 .with_required_start_room(room),
         )
@@ -490,7 +490,7 @@ fn assert_components_accounted(sim: &mut Platformer2dSimHarness, room: &str) {
 
 #[test]
 fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     // Step a few frames so lazily-inserted runtime state (timers, resolved
     // frames, published hurtboxes) is actually present on the bodies.
@@ -507,7 +507,7 @@ fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
 #[test]
 fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("combat_calibration_lab"),
     )
@@ -538,7 +538,7 @@ fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived
 #[test]
 fn every_component_in_a_boss_arena_is_registered_derived_or_waived() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("mockingbird_sky"),
     )
@@ -575,7 +575,7 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
         "combat_calibration_lab",
     ] {
         let mut sim = Platformer2dSimHarness::new_with_options(
-            ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            crate::common::sandbox_options()
                 .with_timestep(TimestepMode::fixed_60hz())
                 .with_required_start_room(room),
         )
@@ -595,7 +595,7 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
 #[test]
 fn every_component_on_a_body_warped_through_a_portal_is_registered_derived_or_waived() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("portal_lab"),
     )
@@ -671,7 +671,7 @@ fn every_component_on_a_boss_victory_npc_is_registered_derived_or_waived() {
     use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("you_have_to_cut_the_rope"),
     )
@@ -721,7 +721,7 @@ fn every_component_on_a_boss_victory_npc_is_registered_derived_or_waived() {
 #[test]
 fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("combat_calibration_lab"),
     )
@@ -816,7 +816,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::mount::{MountSlot, Mounted, RidingOn};
 
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let home = {
         let world = sim.world_mut();
@@ -1011,7 +1011,7 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
 fn every_component_in_a_live_match_is_registered_derived_or_waived() {
     use ambition_platformer2d::versus_match::MatchSeat;
 
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     seat_a_two_cpu_match(&mut sim);
     // The activation tick itself is already behind us, and it is swept below on
@@ -2402,7 +2402,7 @@ mod ambition_poison {
 
 #[test]
 fn the_resource_sweep_actually_catches_an_unregistered_resource() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     sim.world_mut()
         .insert_resource(ambition_poison::DeliberatelyUnregistered);
@@ -2422,7 +2422,7 @@ fn the_resource_sweep_actually_catches_an_unregistered_resource() {
 #[test]
 fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // A few frames so lazily-inserted runtime resources exist, exactly as the
     // sandbox sweep steps its harness first.
     for _ in 0..8 {
@@ -2467,7 +2467,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
 
 #[test]
 fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     // Step a few frames so lazily-inserted runtime resources exist.
     for _ in 0..8 {
@@ -2499,7 +2499,7 @@ fn sim_with_a_stopped_clock() -> Platformer2dSimHarness {
     use std::time::Duration;
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(true),
     )
@@ -2659,7 +2659,7 @@ fn the_authored_oscillating_column_is_in_the_rollback_envelope() {
     use ambition_platformer2d::platformer::gravity::OscillatingZone;
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("gravity_lab"),
     )
@@ -2844,7 +2844,7 @@ fn assert_no_inert_registrations(sim: &mut Platformer2dSimHarness, room: &str) {
 /// The boot world's snapshot registrations all actually apply.
 #[test]
 fn no_snapshot_registration_is_inert_in_the_boot_world() {
-    let mut sim = Platformer2dSimHarness::new().expect("sandbox sim boots");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options()).expect("sandbox sim boots");
     for _ in 0..8 {
         sim.step(AgentAction::default());
     }
@@ -2855,7 +2855,7 @@ fn no_snapshot_registration_is_inert_in_the_boot_world() {
 fn no_snapshot_registration_is_inert_in_a_live_match() {
     // Fixed-tick, like its sibling sweep: `seat_a_two_cpu_match` drives the
     // seating retry to completion and the default timestep does not reach it.
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     //  the helper returns the TICK the match activated, not a seat count — and
     // with the S2 transaction that tick is 0, because every seat now resolves
@@ -2879,7 +2879,7 @@ fn no_snapshot_registration_is_inert_in_a_live_match() {
 /// component and NO anchor — exactly the mistake — and confirm it is named.
 #[test]
 fn the_inert_sweep_actually_catches_an_unanchored_registration() {
-    let mut sim = Platformer2dSimHarness::new().expect("sandbox sim boots");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options()).expect("sandbox sim boots");
     for _ in 0..4 {
         sim.step(AgentAction::default());
     }
@@ -2913,7 +2913,7 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
     use ambition_platformer2d::game_shell::ShellCommand;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..8 {
         app.update();
     }
@@ -3023,7 +3023,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     use ambition_platformer2d::platformer::sim_id::SimId;
     use ambition_platformer2d::portal::{PortalFireIntent, PortalGunColor, PortalShot};
 
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     for _ in 0..8 {
         sim.step(AgentAction::default());

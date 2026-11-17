@@ -19,7 +19,7 @@ use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 
 fn harness() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("sandbox sim builds")

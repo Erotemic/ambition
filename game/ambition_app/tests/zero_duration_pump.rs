@@ -31,7 +31,7 @@ fn a_zero_duration_pump_costs_no_simulation_and_the_canonical_period_resumes() {
     use bevy::prelude::*;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let canonical = ambition_platformer2d::sim::enable_manual_stepping(&mut app);
 
     for _ in 0..30 {

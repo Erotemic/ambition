@@ -1017,9 +1017,9 @@ starts at the barn door. Removed: the basement lab, the service stair,
 checkpoint. The Drain Market and the culvert stay as town rooms. Decisions
 D1-D21 in the design page.
 
-**Next action:** move the new-game start to the workshop (D3); the art
+**Next action:** the art
 (terrain, props, villagers, publication; the three backgrounds are drawn);
-the residents (the gatekeeper, the miller, the innkeeper and the trader landed 2026-11-14, Hobford row 9); playtest and tune the waves.
+the residents (the gatekeeper, the miller, the innkeeper and the trader landed 2026-11-14, Hobford row 9); playtest and tune the waves. The sandbox hub remains the new-game start (D3, Jon, 2026-11-17); the workshop is reached from the hub.
 
 **LEVEL-1-KIT (done 2026-11-14 for verbs):** each level-1 room withholds the
 kit past run, one jump, drop through and the strike (the level field

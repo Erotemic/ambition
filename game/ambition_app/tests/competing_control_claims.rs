@@ -149,7 +149,7 @@ fn spawn_rival(sim: &mut Platformer2dSimHarness) -> Entity {
 
 #[test]
 fn a_seat_claimed_by_two_bodies_drives_neither_and_recovers_when_one_vacates() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let rival = spawn_rival(&mut sim);
 

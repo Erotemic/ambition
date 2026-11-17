@@ -16,7 +16,7 @@
 //! shipped composition registers both authorities, and this asks whether they
 //! used the same word.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogRegistry;
 use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
@@ -25,7 +25,7 @@ fn character_definitions_and_catalog_fragments_share_one_provider_namespace() {
     // SHELL-hosted, for the same reason the art guard next door is: the plugins
     // that register characters (Sanic, Mary-O, Pocket) only join in that
     // composition, and they are the ones with a provider id to disagree about.
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // Preparation publishes at the plugin-composition barrier, which building
     // alone does not close.
     ambition_platformer2d::runtime::finalize(&mut app);

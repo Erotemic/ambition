@@ -165,7 +165,7 @@ fn the_shipped_app_installs_the_reload_publication_system() {
     // ⚠ NOT UPDATED. Running the schedule moves its systems out of the graph
     // into the executor, and the graph then answers "no systems".
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let schedules = app.world().resource::<Schedules>();
     let graph = schedules
         .get(Update)
@@ -231,7 +231,7 @@ fn the_shipped_app_installs_the_reload_publication_system() {
 #[test]
 fn the_commit_sits_between_the_activation_and_session_adoption() {
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let schedules = app.world().resource::<Schedules>();
     let graph = schedules
         .get(Update)
@@ -380,7 +380,7 @@ fn the_commit_sits_between_the_activation_and_session_adoption() {
 #[test]
 fn the_rollback_session_start_is_ordered_after_the_generation_commit() {
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let schedules = app.world().resource::<Schedules>();
     let graph = schedules
         .get(Update)
@@ -493,7 +493,7 @@ fn the_rollback_session_start_is_ordered_after_the_generation_commit() {
 #[test]
 fn the_retired_scopes_sweep_precedes_the_incoming_sessions_construction() {
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let schedules = app.world().resource::<Schedules>();
     let graph = schedules
         .get(Update)
@@ -599,7 +599,7 @@ fn the_retired_scopes_sweep_precedes_the_incoming_sessions_construction() {
 #[test]
 fn the_publication_breaker_is_not_ordered_against_the_command_phase_it_writes_into() {
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let schedules = app.world().resource::<Schedules>();
     let graph = schedules
         .get(Update)
@@ -682,7 +682,7 @@ fn the_shipped_app_decides_a_mechanical_edit_before_the_timeline_advances() {
     use ambition_platformer2d::engine_core::MechanicalEditSet;
 
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let schedules = app.world().resource::<Schedules>();
     let graph = schedules
         .get(PreUpdate)
@@ -778,7 +778,7 @@ fn no_simulation_tick_falls_between_the_generation_commit_and_its_adoption() {
     use ambition_platformer2d::rollback::RunGgrsSystems;
 
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let schedules = app.world().resource::<Schedules>();
 
     let projection = ambition_platformer2d::actors::body::fighter_ladder::project_authored_fighter_ladder;

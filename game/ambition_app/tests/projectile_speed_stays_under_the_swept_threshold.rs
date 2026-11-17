@@ -80,7 +80,7 @@ fn every_named_kind() -> Vec<(&'static str, f32)> {
 #[test]
 fn no_authored_projectile_can_step_over_a_body_in_one_tick() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let registry = app
         .world()

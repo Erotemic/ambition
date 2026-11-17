@@ -15,7 +15,7 @@ use ambition_app::{RandomWalkPolicy, Platformer2dSimHarness};
 /// finish without panicking, with the player still alive, still inside
 /// the world bounds, and with HP in [0, hp_max].
 fn assert_seed_survives(seed: u64) {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("Platformer2dSimHarness::new should succeed");
     let mut policy = RandomWalkPolicy::fuzz(seed);
     let initial = sim.observation();

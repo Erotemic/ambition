@@ -38,9 +38,10 @@ fn the_trap_keeps_her_under_the_stage_until_an_action_press_ends_it() {
     /// ATTACK on that tick — a button the move was not started with, because
     /// *"a non-move action"* is the condition and not "the same button again".
     fn submerged_ticks(interrupt_at: Option<usize>) -> usize {
-        let mut app = ambition_app::app::build_visible_app(
+        let mut app = ambition_app::app::build_visible_app_with(
             ambition_app::app::VisibleRenderMode::NoWindow,
             true,
+            crate::common::in_the_sandbox_hub,
         );
         for _ in 0..30 {
             app.update();

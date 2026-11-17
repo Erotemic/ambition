@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
 use ambition_platformer2d::engine_core as ae;
@@ -56,7 +56,7 @@ fn cards(sim: &Platformer2dSimHarness) -> BTreeMap<String, f32> {
 #[test]
 fn each_boss_shows_its_name_card_after_it_wakes_and_puts_it_away() {
     for room in ROOMS {
-        let opts = Platformer2dSimHarnessOptions::default()
+        let opts = crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(room);
         let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the boss room builds headlessly");

@@ -182,7 +182,7 @@ fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
     let _guard = UNIFIED_MELEE_TEST_LOCK
         .lock()
         .expect("unified melee test lock");
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let player = player_entity(sim.world_mut());
 
@@ -215,7 +215,7 @@ fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
         .lock()
         .expect("unified melee test lock");
     const ENEMY_ID: &str = "test_aggressor";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     // ⛔ SPAWN BY CHARACTER, NOT BY ARCHETYPE. A `Custom(..)` row that no longer

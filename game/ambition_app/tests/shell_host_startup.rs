@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use ambition_app::app::shell_host;
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::game_shell::{
     ActiveFrontendAuthority, ActiveGameplaySession, ActiveShellSequence, ShellLauncherState,
     ShellRouter, ShellSequenceCommand,
@@ -28,7 +28,7 @@ use ambition_platformer2d::game_shell::{
 /// busy the machine is. Pinning the step makes every test here mean the same thing on any
 /// machine.
 fn startup_app() -> App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));
@@ -428,7 +428,7 @@ fn f1_toggles_the_debug_mode_with_no_gameplay_session() {
     use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
 
     // ⭐ THE STARTUP ROUTE, NOT THE DIRECT BYPASS. The first draft of this used
-    // `build_visible_app(.., false)` and its own premise guard caught that that
+    // `build_visible_app_with(.., false, crate::common::in_the_sandbox_hub)` and its own premise guard caught that that
     // boot DOES carry a gameplay session — so the assertion below would have
     // been about a state this test is not about, and would have passed against
     // the very gate it exists to pin. This module's opening paragraph already

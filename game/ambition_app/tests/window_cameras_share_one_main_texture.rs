@@ -7,11 +7,11 @@
 //! black stage under ghosting menus on Jon's GPU host
 //! (`ambition_render::rendering::window_camera_stack`).
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::render::rendering::window_camera_stack::{incompatible_window_stacks, window_cameras};
 
 fn gameplay_after_startup() -> bevy::prelude::App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }

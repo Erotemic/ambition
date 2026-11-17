@@ -36,7 +36,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::combat::components::CenteredAabb;
 use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::platformer::sim_id::SimId;
@@ -74,7 +74,7 @@ const DAMAGEABLE_FLOOR: usize = 1;
 /// of my own choosing would be a census of my opinion about who can be hit.
 #[test]
 fn every_body_the_strike_road_can_hit_has_a_stable_identity() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     for _ in 0..SETTLE_FRAMES {
         sim.step(AgentAction::default());
@@ -318,7 +318,7 @@ fn damageable_census(world: &mut World) -> (Vec<String>, Vec<String>) {
 #[test]
 fn the_giant_road_builds_a_host_and_two_identified_hands() {
     const ARENA: &str = "gnu_ton_arena";
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED, not tolerant: the tolerant road falls back to the authored
         // start room, which has no giant, and this test would be green having
@@ -398,7 +398,7 @@ fn the_giant_road_builds_a_host_and_two_identified_hands() {
 /// naming it.
 #[test]
 fn a_body_the_sweeper_declines_to_identify_is_nameable() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     for _ in 0..SETTLE_FRAMES {
         sim.step(AgentAction::default());
@@ -463,7 +463,7 @@ fn a_body_the_sweeper_declines_to_identify_is_nameable() {
 #[test]
 fn the_rider_road_builds_a_mounted_pair_each_identified() {
     const LOOKOUT: &str = "pirate_sky_lookout";
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED, not tolerant: the tolerant road falls back to the authored
         // start room and would run this whole test in a room with no mount link,
@@ -544,7 +544,7 @@ fn the_rider_road_builds_a_mounted_pair_each_identified() {
 /// impossible: `SimId` declares `#[require(SimIdCounter)]`.)
 #[test]
 fn the_summon_road_builds_an_identified_minion() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     for _ in 0..SETTLE_FRAMES {
         sim.step(AgentAction::default());
@@ -621,7 +621,7 @@ fn the_summon_road_builds_an_identified_minion() {
 /// authored 6) is what a derive that ran would clobber.
 #[test]
 fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     for _ in 0..SETTLE_FRAMES {
         sim.step(AgentAction::default());
@@ -683,7 +683,7 @@ fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
 /// that the published id is the worn one for every worn actor in the room.
 #[test]
 fn every_worn_actor_publishes_its_worn_character_as_its_art_identity() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     for _ in 0..SETTLE_FRAMES {
         sim.step(AgentAction::default());

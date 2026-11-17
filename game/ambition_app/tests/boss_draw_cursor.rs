@@ -44,7 +44,7 @@ fn read_published_cursor(world: &mut World, id: &str) -> Option<usize> {
 
 #[test]
 fn boss_draw_cursor_is_published_and_advances() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     let start = read_player_pos(sim.world_mut());

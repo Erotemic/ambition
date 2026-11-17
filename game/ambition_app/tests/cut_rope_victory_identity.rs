@@ -17,7 +17,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::persistence::save::AmbitionGameSave;
 use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
@@ -26,7 +26,7 @@ use bevy::prelude::*;
 const CUT_ROPE_ROOM: &str = "you_have_to_cut_the_rope";
 
 fn cut_rope_sim() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED, not optional: the tolerant road falls back to the authored
         // start room and would run this whole test in the wrong room, green.

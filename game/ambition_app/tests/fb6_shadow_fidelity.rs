@@ -30,7 +30,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::characters::actor::{ActorFaction, BodyHealth};
 use ambition_platformer2d::characters::brain::fighter::ShadowTuning;
 use ambition_platformer2d::characters::control::DrivingParticipant;
@@ -300,7 +300,7 @@ fn real_swing_lands(app: &mut App, pad: Entity, victim: Entity, frames: &MoveFra
 
 #[test]
 fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));

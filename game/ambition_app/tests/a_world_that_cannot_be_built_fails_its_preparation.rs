@@ -5,7 +5,7 @@
 //! a bad save reaches a running game with no build in between. Mary-O's
 //! source refuses through this road (`try_mary_o_session_world_entering`).
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::game_shell::{ShellCommand, ShellCommandRejection, ShellEvent, ShellRouteId};
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring, WorldRefusal};
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
@@ -28,7 +28,7 @@ fn record_failed_preparations(mut events: MessageReader<ShellEvent>, mut seen: R
 
 #[test]
 fn a_world_that_cannot_be_built_fails_its_preparation_and_the_game_keeps_running() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     PlatformerExperienceAuthoring::new(
         "refusing_world",
         ROUTE,

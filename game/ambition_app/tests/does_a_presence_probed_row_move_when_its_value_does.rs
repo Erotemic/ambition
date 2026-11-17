@@ -3,12 +3,12 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 
 fn sim_in(room: &str) -> Platformer2dSimHarness {
     Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(room)
             .with_sync_test_rollback_settings(4, 10),

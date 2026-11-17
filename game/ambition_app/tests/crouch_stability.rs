@@ -10,14 +10,14 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 
 #[test]
 fn holding_down_on_flat_ground_does_not_flicker_body_mode() {
     // Use a room with a flat floor and no overhead obstructions.
     // central_hub_complex's spawn area is open enough.
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("central_hub_complex"),
     )

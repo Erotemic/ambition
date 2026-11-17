@@ -8,7 +8,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::versus_match::{
     ActiveMatch, ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
@@ -19,7 +19,7 @@ use ambition_platformer2d::versus_match::{
 /// forced rewind somebody has to remember to trigger.
 fn match_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )
@@ -267,7 +267,7 @@ fn trace_the_activation(
 
 fn late_arriving_roster_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {
@@ -545,7 +545,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
     use ambition_platformer2d::input::ControlFrame;
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
             // THE MATCH OWNS THE STAGE. Without this the composition also lowers Ambition's
@@ -756,7 +756,7 @@ fn the_human_roster_arrives_on_a_tick(
 
 fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
             // THE MATCH OWNS THE STAGE. Without this the composition also lowers Ambition's

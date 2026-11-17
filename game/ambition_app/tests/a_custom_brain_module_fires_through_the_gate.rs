@@ -12,7 +12,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::characters::control::{ActorControl, ControlHold, ControlHolds};
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -50,7 +50,7 @@ fn record_gated_fire(mut seen: ResMut<GatedFires>, bodies: Query<(&FeatureId, &A
 /// A thinker beside the player, `held` by a script or not, with the fixture
 /// module loaded or not, under a GGRS sync test or not.
 fn run(module: Option<&std::path::Path>, held: bool, rollback: bool) -> Run {
-    let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    let mut options = crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz());
     if let Some(module) = module {
         options = options.with_extension_module_files(vec![module.to_path_buf()]);
     }
@@ -257,7 +257,7 @@ fn a_kept_body_record_outlives_its_body_and_comes_back_with_the_save() {
     let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
         .expect("the fixture crate builds for wasm32-unknown-unknown");
     let options = || {
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_extension_module_files(vec![wasm.clone()])
     };

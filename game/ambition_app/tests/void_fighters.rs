@@ -73,7 +73,7 @@ fn place_player(sim: &mut Platformer2dSimHarness, at: ae::Vec2) {
 /// The sandbox with `character` placed hostile `offset` px to the player's
 /// right, settled.
 fn a_void_fighter(character: &str, half_size: (f32, f32), offset: f32) -> Platformer2dSimHarness {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("the sandbox builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("the sandbox builds");
     for _ in 0..30 {
         sim.step(AgentAction::default());
     }

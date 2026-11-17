@@ -32,7 +32,7 @@ const TICKS: usize = 30;
 
 fn recording_sim() -> Platformer2dSimHarness {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("the Ambition sim harness builds");
     // the FEATURE and the PLUGIN are two switches, deliberately. The
@@ -80,7 +80,7 @@ fn the_recording_policy_is_what_decides_whether_it_costs_anything() {
     // and a recorder that published regardless would make every shipped frame
     // pay for an instrument nobody is reading.
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("the Ambition sim harness builds");
     for _ in 0..TICKS {

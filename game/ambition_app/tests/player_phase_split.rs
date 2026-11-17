@@ -6,7 +6,7 @@
 use ambition_platformer2d::actors::body::BodyFrameOutput;
 use ambition_app::AmbitionSim;
 use ambition_app::{
-    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::engine_core::MovementOp;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
@@ -25,7 +25,7 @@ fn primary_player(world: &mut World) -> Entity {
 /// This is half of netcode N0.1's exit check — see `actor_phase_split.rs`.
 fn player_handoff_seam_holds(fixed_tick: bool) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(fixed_tick),
     )

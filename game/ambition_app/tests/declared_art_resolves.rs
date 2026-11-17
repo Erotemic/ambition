@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 
 struct DeclaredSources {
     files: std::collections::BTreeMap<String, ambition_platformer2d::asset_manager::content_library::LibraryFile>,
@@ -49,7 +49,7 @@ fn the_resolver_can_actually_report_a_missing_file() {
 fn every_declared_world_item_art_path_names_a_file_that_exists() {
     use ambition_platformer2d::platformer::world_item_art::WorldItemArtManifest;
 
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let roots = asset_roots();
     assert!(
         !roots.files.is_empty(),
@@ -101,7 +101,7 @@ fn every_declared_projectile_image_names_a_file_that_exists() {
         ProjectileArtSource, ProjectileVisualCatalog,
     };
 
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let roots = asset_roots();
     assert!(!roots.files.is_empty(), "no asset root resolved");
 
@@ -150,7 +150,7 @@ fn every_declared_projectile_animation_resolves_to_frames() {
     use ambition_platformer2d::projectiles::visual::{
         ProjectileArtSource, ProjectileVisualCatalog,
     };
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let content = app
         .world()
         .resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
@@ -187,7 +187,7 @@ fn every_declared_projectile_animation_resolves_to_frames() {
 fn every_declared_music_track_path_names_a_file_that_exists() {
     use ambition_platformer2d::audio::spec::MusicRegistry;
 
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let roots = asset_roots();
     assert!(!roots.files.is_empty(), "no asset root resolved");
 
@@ -257,7 +257,7 @@ fn every_catalog_character_that_derives_a_portrait_has_the_art() {
     /// I already knew to look.
     const KNOWN_MISSING: &[&str] = &[];
 
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let roots = asset_roots();
     assert!(!roots.files.is_empty(), "no asset root resolved");
 
@@ -311,7 +311,7 @@ fn every_catalog_character_names_a_spritesheet_that_exists() {
     /// Characters whose spritesheet no regen batch produces.
     const KNOWN_MISSING: &[&str] = &[];
 
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let roots = asset_roots();
     assert!(!roots.files.is_empty(), "no asset root resolved");
 
@@ -357,7 +357,7 @@ fn every_catalog_character_names_a_manifest_that_exists() {
     /// Characters whose sheet manifest no regen batch produces.
     const KNOWN_MISSING: &[&str] = &[];
 
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let roots = asset_roots();
     assert!(!roots.files.is_empty(), "no asset root resolved");
 

@@ -24,7 +24,7 @@ use bevy::prelude::*;
 #[test]
 fn the_gameplay_gate_is_carried_by_the_set() {
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
 
     let schedules = app
         .world()

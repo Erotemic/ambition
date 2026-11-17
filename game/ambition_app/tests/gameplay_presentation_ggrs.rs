@@ -31,7 +31,7 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
     CameraScreenFraming, CameraViewport, ResolvedCameraSnapshot,
 };
 use ambition_sim_harness::{
-    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 
 const DISPLAY: ae::Vec2 = ae::Vec2::new(2400.0, 1080.0);
@@ -51,7 +51,7 @@ fn window_at(display: ae::Vec2) -> Window {
 /// the VISIBLE host so the presentation cluster is actually installed.
 fn ggrs_flagship() -> Platformer2dSimHarness {
     Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {

@@ -83,7 +83,7 @@ fn fixture_replays_with_zero_divergence() {
     );
 
     let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("Platformer2dSimHarness builds");
+        Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("Platformer2dSimHarness builds");
 
     let mut max_dx: f32 = 0.0;
     let mut max_dy: f32 = 0.0;

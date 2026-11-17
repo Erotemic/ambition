@@ -7,7 +7,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{VisibleRenderMode, build_visible_app};
+use ambition_app::app::{VisibleRenderMode, build_visible_app_with};
 use ambition_platformer2d::game_shell::ShellCommand;
 
 /// The authored door from the hub. Named rather than "any zone" so this test
@@ -108,7 +108,7 @@ fn wait_for_a_session_room_set(app: &mut App, what: &str) {
 /// record the hub → Hall transition through the room graph (not synthesised).
 /// Returns the staged-cast size BEFORE the transition was recorded.
 fn boot_and_record_the_hall_transition() -> (App, usize) {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
@@ -1045,7 +1045,7 @@ fn classified(
 /// page held past its realization (the exit guard above covers the latter).
 #[test]
 fn two_round_trips_through_the_gallery_return_the_same_working_set() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));

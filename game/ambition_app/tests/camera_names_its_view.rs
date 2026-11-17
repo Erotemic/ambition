@@ -11,13 +11,13 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::platformer::camera_layers::MainCamera;
 use ambition_platformer2d::sim_view::{LocalView, PresentsView};
 
 #[test]
 fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }
@@ -69,7 +69,7 @@ fn the_presented_view_carries_camera_state_that_is_actually_written() {
     // and the view's state stays exactly `Default` — which the assertion below
     // caught on the first run, correctly, by refusing to accept a component that
     // exists and is never written.
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }
@@ -198,7 +198,7 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
 /// participant does, which is also what couch co-op will need.
 #[test]
 fn the_launcher_has_one_view_and_no_split_layout() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }

@@ -16,7 +16,7 @@ use bevy::prelude::Entity;
 #[test]
 fn two_participants_route_a_room_granted_attack_through_the_same_gate() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(true)
             .with_required_start_room("switch_lab"),

@@ -56,7 +56,7 @@ fn the_camera_snaps_to_a_subject_that_was_put_somewhere_and_eases_to_one_that_ra
 
     // How far the camera still is from the subject a few frames after the jump.
     let lag_after_jump = |give_it_the_velocity: bool| -> f32 {
-        let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
             .expect("sandbox sim builds");
         settle(&mut sim);
 

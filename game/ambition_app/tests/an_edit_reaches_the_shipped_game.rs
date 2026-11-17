@@ -22,7 +22,7 @@
 //! ⚠ THE EDITS ARE BUILT IN MEMORY OR IN THE TEMPORARY DIRECTORY, NEVER IN THE
 //! TREE: `compile_pack_with` makes an edited pack without touching
 //! `game/ambition_content/assets`, and world edits are copies.
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
 
 /// Level one's reaction latency, as the LIVE composition holds it.
@@ -173,7 +173,7 @@ fn active_route(app: &bevy::prelude::App) -> Option<String> {
 /// composition and republished at the activation boundary.
 #[test]
 fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // What `App::run` does before the first update — see
     // `authored_feel_reaches_the_prepared_cast` for why a guard that skips this
     // takes a different barrier road than production.
@@ -635,7 +635,7 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
             .collect()
     }
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     {
         use ambition_platformer2d::characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA;
         let mut expected = vec!["the Ambition cast".to_string()];
@@ -1112,7 +1112,7 @@ fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
 
 /// The shipped app, gameplay activated, ready to be told to reload its world.
 pub(crate) fn a_running_shipped_session() -> bevy::prelude::App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.finish();
     app.update();
     app.world_mut().write_message(ShellCommand::ReplaceWith {
@@ -2154,7 +2154,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone())
     }
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.finish();
     app.update();
 
@@ -2428,7 +2428,7 @@ fn a_candidate_session_replaced_while_pending_is_discarded() {
     use ambition_platformer2d::game_shell::{PreparedSessionRegistry, ProviderLoadTransaction, ShellEvent, TransactionEnd};
     use bevy::ecs::message::Messages;
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.finish();
     app.update();
     let gameplay = ShellRouteId::new("ambition_gameplay");
@@ -2596,7 +2596,7 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     use ambition_platformer2d::game_shell::ShellRequestId;
     use ambition_platformer2d::platformer::lifecycle::{session_root_for_scope, SessionScopeId};
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.finish();
     app.update();
 
@@ -2730,7 +2730,7 @@ fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
     };
     use ambition_platformer2d::platformer::sim_id::SimId;
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.finish();
     app.update();
 

@@ -119,7 +119,7 @@ fn settle_out_of_any_move(sim: &mut Platformer2dSimHarness, actor: Entity) {
 /// frame — not next frame. Before the schedule fix this read last frame's input.
 #[test]
 fn possessed_actor_reads_this_frame_slot_input() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let actor = spawn_and_possess(&mut sim);
 
@@ -147,7 +147,7 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     use ambition_platformer2d::combat::hitbox::Hitbox;
     use ambition_platformer2d::combat::moveset::{ActorMoveset, MovePlayback, melee_swing_of};
 
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let home = {
         let mut q = sim
@@ -224,7 +224,7 @@ fn down_interact(edge: bool) -> AgentAction {
 
 #[test]
 fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     // Drop a normal actor one short stride from the player — inside POSSESS_RADIUS
@@ -318,7 +318,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
 /// The two halves were only ever inferred to compose.
 #[test]
 fn a_possessed_body_is_carried_through_a_room_transition() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     for _ in 0..10 {
         sim.step(AgentAction::default());
@@ -412,7 +412,7 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
 fn possess_two_seats(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, rollback: bool) -> (Platformer2dSimHarness, [Entity; 2], [Entity; 2], u64) {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d::platformer::lifecycle::InCustodyOf;
-    let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+    let mut options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_fixed_tick(true)
         .with_required_start_room("switch_lab");

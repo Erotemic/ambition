@@ -718,9 +718,10 @@ fn two_differently_aged_hosts_publish_the_same_roster_through_the_shipped_road()
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
 
     fn published_roster(extra_visits: usize) -> (u64, Vec<String>) {
-        let mut app = ambition_app::app::build_visible_app(
+        let mut app = ambition_app::app::build_visible_app_with(
             ambition_app::app::VisibleRenderMode::NoWindow,
             true,
+            crate::common::in_the_sandbox_hub,
         );
         for _ in 0..30 {
             app.update();
@@ -837,9 +838,10 @@ fn two_hosts_at_different_content_epochs_share_one_construction_provenance() {
     /// Every construction provenance in the live world, as a peer sees it,
     /// beside the local content epoch that produced it.
     fn provenance(restarts: usize) -> (u64, Vec<u64>) {
-        let mut app = ambition_app::app::build_visible_app(
+        let mut app = ambition_app::app::build_visible_app_with(
             ambition_app::app::VisibleRenderMode::NoWindow,
             true,
+            crate::common::in_the_sandbox_hub,
         );
         let settle = |app: &mut bevy::prelude::App| {
             for _ in 0..80 {
@@ -953,9 +955,10 @@ fn a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus() {
     use ambition_platformer2d::time::{ClockState, SimTick};
     use bevy::ecs::message::Messages;
 
-    let mut app = ambition_app::app::build_visible_app(
+    let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::NoWindow,
         true,
+        crate::common::in_the_sandbox_hub,
     );
     let settle = |app: &mut bevy::prelude::App| {
         for _ in 0..80 {

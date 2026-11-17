@@ -763,7 +763,7 @@ fn equip_the_minted_item(
 /// Restore a missing runtime item before frame zero, then load that baseline.
 #[test]
 fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
-    use ambition_app::{AmbitionSim, Platformer2dSimHarnessOptions, TimestepMode};
+    use ambition_app::{AmbitionSim, TimestepMode};
     use ambition_platformer2d::item::OwnedItems;
     use ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline;
     use ambition_platformer2d::platformer::lifecycle::session_world_component;
@@ -775,7 +775,7 @@ fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
     const ROOM: &str = "switch_lab";
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),

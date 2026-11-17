@@ -205,7 +205,8 @@ fn the_real_content_provider_publishes_into_its_own_app_only() {
 
     let mut other = App::new();
     other.add_plugins(MinimalPlugins);
-    other.insert_resource(provider_b());
+    // The sandbox's manifest: a new game's entry room is the intro's now.
+    other.insert_resource(provider_a());
 
     let content_entry = content
         .world()
@@ -216,11 +217,11 @@ fn the_real_content_provider_publishes_into_its_own_app_only() {
     let other_entry = other.world().resource::<WorldManifest>().entry_room.clone();
 
     assert_eq!(
-        content_entry, "central_hub_complex",
+        content_entry, "intro_wake_room",
         "the real provider's App holds the real provider's entry room"
     );
     assert_eq!(
-        other_entry, "intro_wake_room",
+        other_entry, "central_hub_complex",
         "building the real provider must not overwrite a second App's \
          declaration — that is exactly what the deleted OnceLock did"
     );

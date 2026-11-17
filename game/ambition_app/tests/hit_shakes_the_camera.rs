@@ -5,7 +5,7 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{
-    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::camera_presentation::CameraShakeState;
@@ -32,7 +32,7 @@ struct Bout {
 
 fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("duel_arena"),
     )

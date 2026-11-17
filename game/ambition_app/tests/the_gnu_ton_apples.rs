@@ -27,7 +27,7 @@ fn player_pos(world: &mut World) -> ae::Vec2 {
 
 #[test]
 fn the_bad_apple_glares_rears_back_then_rolls_at_you() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(APPLE, "Bad Apple", (p.x + 160.0, p.y), (20.0, 20.0), CharacterBrain::Custom("bad_apple".to_string()), "bad_apple");
     let mut noticed = None;

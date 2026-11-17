@@ -64,7 +64,7 @@ struct Bout {
 
 #[test]
 fn a_hit_that_lands_on_the_player_freezes_the_match() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     let p = player_pos(sim.world_mut());

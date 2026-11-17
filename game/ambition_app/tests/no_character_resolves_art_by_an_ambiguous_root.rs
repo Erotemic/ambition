@@ -31,7 +31,7 @@ fn no_composed_character_resolves_its_sheet_by_a_refused_file_root() {
     );
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // The barrier: the cast is PUBLISHED at `Plugin::finish`, so a freshly built
     // App carries a partial catalog.
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);

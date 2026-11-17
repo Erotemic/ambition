@@ -1,6 +1,6 @@
 #![cfg(all(feature = "portal", feature = "rl_sim"))]
 
-use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::{self as ae, BodyKinematics, RoomGeometry};
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::portal::{PlacedPortal, PortalConvention, PortalTuning, EditablePortalTuning};
@@ -15,7 +15,7 @@ fn body(sim: &mut Platformer2dSimHarness) -> (Entity, BodyKinematics) {
 
 fn slice() -> Platformer2dSimHarness {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_required_start_room("portal_lab")
             .with_sync_test_rollback_settings(4, 10),
     ).unwrap();

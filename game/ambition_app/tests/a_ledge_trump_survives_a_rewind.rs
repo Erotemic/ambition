@@ -18,7 +18,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AmbitionSim as _, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AmbitionSim as _, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -35,7 +35,7 @@ const SEAT: u8 = 1;
 
 fn rewinding_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10)
@@ -47,7 +47,7 @@ fn rewinding_sim() -> Platformer2dSimHarness {
 /// The control: the same world with no rollback session.
 fn fixed_tick_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM),
     )

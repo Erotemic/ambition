@@ -32,7 +32,7 @@ fn one_update_is_one_simulation_tick_in_a_live_rollback_match() {
     use bevy::prelude::*;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let period = ambition_platformer2d::sim::enable_manual_stepping(&mut app);
     assert_eq!(
         period,

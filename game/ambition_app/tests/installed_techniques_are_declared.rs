@@ -26,7 +26,7 @@ use ambition_app::{Platformer2dSimHarness, TimestepMode};
 fn the_shipped_composition_declares_the_techniques_it_installs() {
     use ambition_platformer2d::combat::technique::InstalledTechniques;
 
-    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let installed = sim
         .world()
@@ -111,7 +111,7 @@ fn the_shipped_composition_declares_the_techniques_it_installs() {
 fn the_techniques_that_name_other_definitions_declare_that_they_do() {
     use ambition_platformer2d::combat::technique::{InstalledTechniques, NestedReferences};
 
-    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let installed = &sim
         .world()
@@ -156,7 +156,7 @@ fn a_misspelled_technique_key_is_refused_by_the_shipped_composition() {
     use ambition_platformer2d::combat::technique::InstalledTechniques;
     use ambition_platformer2d::entity_catalog::{EffectRef, ParamValue};
 
-    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let installed = &sim
         .world()

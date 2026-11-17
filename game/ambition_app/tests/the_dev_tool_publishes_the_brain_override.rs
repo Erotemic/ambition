@@ -23,7 +23,7 @@
 #[test]
 fn the_developer_plugin_publishes_a_brain_override_for_the_simulation_to_read() {
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let forced = app
         .world()
         .get_resource::<ambition_platformer2d::characters::brain::AuthoredBrainOverride>()
@@ -51,7 +51,7 @@ fn the_developer_plugin_publishes_a_brain_override_for_the_simulation_to_read() 
 #[test]
 fn the_developer_plugin_publishes_a_population_cap_for_the_simulation_to_read() {
     let app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let cap = app
         .world()
         .get_resource::<ambition_platformer2d::characters::actor::AuthoredPopulationCap>()

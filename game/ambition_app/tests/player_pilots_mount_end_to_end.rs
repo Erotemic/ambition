@@ -58,7 +58,7 @@ fn pos_of(world: &mut World, e: Entity) -> ae::Vec2 {
 
 #[test]
 fn a_player_pilots_a_mount_end_to_end() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     // 1. Spawn the mount + rider near the player. Their archetypes carry the
@@ -211,7 +211,7 @@ fn a_player_pilots_a_mount_end_to_end() {
 /// the OTHER branch — the mount module's unit arm covers that one.
 #[test]
 fn a_dead_mount_rebuilds_its_riders_brain_through_the_real_schedule() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     let home = home_entity(sim.world_mut());
@@ -360,7 +360,7 @@ mod constrained_motion {
     }
 
     fn exercise(rollback: bool) {
-        let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        let mut options = crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(true)
             .with_required_start_room("switch_lab");

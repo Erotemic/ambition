@@ -12,7 +12,7 @@ const BASELINE: &str = include_str!("rollback_schema_baseline.txt");
 #[test]
 fn the_rollback_schema_matches_its_recorded_baseline() {
     let sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("sandbox sim builds");
@@ -77,7 +77,7 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
 #[test]
 fn the_schema_is_the_same_from_a_second_build() {
     let dump = |room: Option<&str>| {
-        let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        let mut options = crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz());
         if let Some(room) = room {
             options = options.with_required_start_room(room);
@@ -117,7 +117,7 @@ fn the_schema_is_the_same_from_a_second_build() {
 #[test]
 fn the_shipped_app_registers_the_same_schema_as_the_sandbox() {
     let shipped =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let shipped_dump = shipped
         .world()
         .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
@@ -125,7 +125,7 @@ fn the_shipped_app_registers_the_same_schema_as_the_sandbox() {
         .schema_dump();
 
     let sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("sandbox sim builds");
@@ -203,7 +203,7 @@ fn the_shipped_app_registers_the_same_schema_as_the_sandbox() {
 #[test]
 fn the_causal_instrument_is_registered_and_outside_the_peer_schema() {
     let sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("sandbox sim builds");
@@ -262,7 +262,7 @@ fn no_two_schema_rows_describe_the_same_type_the_same_way() {
     use std::collections::BTreeMap;
 
     let sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("sandbox sim builds");

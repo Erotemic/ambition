@@ -27,7 +27,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 
 type OwnedItems = ambition_platformer2d::item::OwnedItems;
@@ -63,7 +63,7 @@ fn sim_composed_with<M>(
 ) -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
     Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),

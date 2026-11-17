@@ -3647,7 +3647,7 @@ fn a_preparation_refusal_is_shown_instead_of_ready() {
 #[test]
 fn a_second_match_in_the_same_session_still_fights() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
@@ -3740,7 +3740,7 @@ fn a_second_match_in_the_same_session_still_fights() {
 #[test]
 fn quitting_a_paused_match_to_the_title_does_not_freeze_the_next_one() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));

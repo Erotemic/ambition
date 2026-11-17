@@ -22,7 +22,7 @@ const WARDEN: &str = "shield_test_warden";
 /// The sandbox, with a hostile Shock Warden to the player's right, settled
 /// and facing the player.
 fn a_warden_beside_you() -> Platformer2dSimHarness {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("the sandbox builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("the sandbox builds");
     for _ in 0..30 {
         sim.step(AgentAction::default());
     }

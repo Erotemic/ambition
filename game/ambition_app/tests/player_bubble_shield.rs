@@ -44,7 +44,7 @@ fn shield_active(sim: &mut Platformer2dSimHarness, player: Entity) -> bool {
 
 #[test]
 fn pressing_special_raises_the_bubble_shield_on_the_press_tick() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     // Settle the initial spawn (deferred cluster inserts applied) with a neutral

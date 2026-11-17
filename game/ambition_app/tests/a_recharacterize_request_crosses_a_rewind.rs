@@ -21,7 +21,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::TimestepMode;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 
 /// The tick the staged request is inserted on. Late enough that the session is
 /// published and the player body exists, early enough that the window closes
@@ -96,7 +96,7 @@ fn record_the_request_each_pass_sees(
 
 fn arena(rollback: bool) -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
-    let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    let mut options = crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz());
     if rollback {
         options = options.with_sync_test_rollback_settings(4, 10);
     }

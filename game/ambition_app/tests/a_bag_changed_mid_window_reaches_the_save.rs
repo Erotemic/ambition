@@ -13,7 +13,7 @@
 
 use ambition_platformer2d::input::InputOwner;
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 
 type SaveRestored = ambition_platformer2d::platformer::lifecycle::SaveRestored;
@@ -181,7 +181,7 @@ fn ticks_simulated_unrestored(sim: &Platformer2dSimHarness) -> Vec<u64> {
 fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
     use ambition_platformer2d::sim::SimScheduleExt;
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
@@ -313,7 +313,7 @@ fn leave_one_row_in_the_occurrence_ledger(
 fn one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test() {
     use ambition_platformer2d::sim::SimScheduleExt;
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
@@ -468,7 +468,7 @@ fn baseline_rows(sim: &Platformer2dSimHarness) -> (usize, usize) {
 fn a_new_game_asked_for_by_the_host_commits_once_under_a_rewind() {
     use ambition_platformer2d::sim::SimScheduleExt;
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
@@ -586,7 +586,7 @@ fn cutscene_beat(sim: &Platformer2dSimHarness) -> Option<(usize, bool)> {
 fn sim_playing_a_cutscene() -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
     Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
@@ -807,7 +807,7 @@ fn cycle_gravity_from_inside_the_sim(
 fn sim_cycling_gravity(with_an_in_sim_producer: bool) -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
     Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {
@@ -1064,7 +1064,7 @@ fn gated_witness_sim(rollback: bool) -> Platformer2dSimHarness {
 fn gated_witness_sim_with(rollback: bool, gate: bool) -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
     use bevy::prelude::IntoScheduleConfigs;
-    let mut options = Platformer2dSimHarnessOptions::default()
+    let mut options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(ROOM);
     if rollback {
@@ -1098,7 +1098,7 @@ fn witness_sim_with(
 ) -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
     use bevy::prelude::IntoScheduleConfigs;
-    let mut options = Platformer2dSimHarnessOptions::default()
+    let mut options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(ROOM);
     if rollback {
@@ -1330,7 +1330,7 @@ fn a_startup_load_is_applied_on_the_timeline_and_resimulates_identically() {
         )],
     );
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10)

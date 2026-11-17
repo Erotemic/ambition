@@ -19,7 +19,7 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{
-    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::combat::components::FeatureId;
@@ -52,7 +52,7 @@ fn enemy_entity(world: &mut World) -> Entity {
 /// ordering edge, exactly one of these two fails.
 fn brain_intent_seam_holds(fixed_tick: bool) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(fixed_tick),
     )

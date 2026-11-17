@@ -2,7 +2,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::{Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::characters::brain::action_set::{
     ActionSet, IdentityKit, RangedActionSpec,
 };
@@ -54,7 +54,7 @@ fn read_execution_repertoire(
 #[test]
 fn a_grant_and_its_retraction_reach_execution_in_the_same_tick() {
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(true),
         |app, options| {

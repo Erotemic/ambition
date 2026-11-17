@@ -249,6 +249,14 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
             inputs.saved.clear();
         }
     }
+    // A lifecycle operation (a crossing, a room's reset, a return) moves or
+    // rebuilds what the saves hold. One a replay records commits on the first
+    // live tick after it (the boundary `rewind_room` publishes); while one is
+    // recorded or loading the host keeps no history, so no later replay runs
+    // it a second time.
+    if !inputs.replaying && a_crossing_is_under_way(world) {
+        inputs.saved.clear();
+    }
     for seat in rooms.keys() {
         let frame = inputs.input_for(*seat, tick);
         inputs.used.entry(*seat).or_default().insert(tick, frame);

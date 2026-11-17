@@ -1140,7 +1140,21 @@ The test is now the whole word. The honest count is 17 over 6 types, and the
 ceiling rose to it. What it shows: every lifecycle operation (a room reset, a
 crossing, a party return) can be admitted inside a replay. A death's
 consequence fires once and is spent on the body, so its request must not die
-with the replay's private message stream. That is the next slice.
+with the replay's private message stream.
+
+**Lifecycle intents in a replay commit on the next live tick (2026-11-17).**
+Read again, the design already holds: during a replay `rewind_room` publishes
+a `ConfirmedFrameBoundary` for the replayed ticks, so an intent the replay
+records (a crossing, a reset admitted from a death's resume) is recorded at its
+frame and commits on the first live tick after it, with every room visible.
+The requests are read inside the replay, so none is lost with its stream. What
+was missing was the other direction: a live intent's tick could fall inside a
+later replay's window. The host now keeps no room history while an intent is
+recorded or loading, as it already refused rewinds then, so no replay runs a
+live intent again. (Holding the recorders off replays was tried and dropped:
+it loses a door or return press that the late input carried.) The census
+rules `PendingLifecycleCommit` and the cut-rope retry world-owned. Census: 8
+unclassified (the gate network, possession, the Hall of Bosses switches).
 
 ## Order, exclusions and integration
 

@@ -207,6 +207,12 @@ TOOL_SOURCES: dict[str, str] = {
 
 #: Host state that a rewind, whole or of one room, does not change.
 WORLD_OWNED: dict[str, str] = {
+    "PendingLifecycleCommit": (
+        "a lifecycle intent recorded at its frame; one a replay records commits on the first live tick after it (`rewind_room` publishes `ConfirmedFrameBoundary` for the replayed ticks), and while one is recorded or loading the host keeps no room history and refuses rewinds (`drive_guests_and_save_rooms`, `take_arrived_inputs`, read 2026-11-17)"
+    ),
+    "PendingCutRopeRoomReplay": (
+        "the cut-rope retry chosen in conversation and not yet asked for: its emitter asks for the room's reset, which is a lifecycle intent (`PendingLifecycleCommit`'s ruling) and commits on a live tick (`game/ambition_content/src/bosses/cut_rope/mod.rs`, read 2026-11-17)"
+    ),
     "PendingAuthoredCheckpoint": (
         "\"It carries a checkpoint's world half from a room replay to the next live "
         "tick\": the hold may run in a replay, and `commit_authored_checkpoint` runs "
@@ -332,7 +338,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 17
+UNCLASSIFIED_CEILING = 8
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200

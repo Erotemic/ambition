@@ -415,11 +415,9 @@ impl ContentSchemaHandler for BossProfilesSchema {
             }
         };
 
+        // An empty catalog still publishes a runtime value.
         if profiles.is_empty() {
-            out.report(facet.diagnostic(
-                DiagnosticCode::MalformedSource,
-                "the boss roster is empty, so every authored boss falls back to a generic clone",
-            ));
+            out.define(facet.content_id("catalog"), canonical(&profiles));
         }
 
         for (key, profile) in &profiles {

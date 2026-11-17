@@ -47,6 +47,16 @@ fn script(id: &str, beats: &str) -> String {
 
 const ONE_BEAT: &str = r#"Banner(text: "hello", seconds: 1.0)"#;
 
+#[test]
+fn an_empty_library_lowers_without_inventing_a_scene() {
+    let pack = compile(
+        &draft("empty_library", &[("empty.ron", "[]")]),
+        &registry(),
+        &AssetsUnchecked,
+    ).expect("a game can have no cutscenes");
+    assert!(lowered_cutscenes(&pack).unwrap().is_empty());
+}
+
 fn refusal(name: &str, files: &[(&str, &str)]) -> String {
     let failure = compile(&draft(name, files), &registry(), &AssetsUnchecked)
         .expect_err("these cutscenes must be refused");

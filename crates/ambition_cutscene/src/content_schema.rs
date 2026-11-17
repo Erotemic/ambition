@@ -46,6 +46,11 @@ impl ContentSchemaHandler for CutsceneLibrarySchema {
                 return;
             }
         };
+        // The source records script order and also identifies an empty library.
+        out.define(
+            facet.content_id_in("cutscene_library_source", facet.declared_path),
+            format!("{scripts:?}"),
+        );
         declare(facet, &scripts, out);
         if !out.failed() {
             out.lower(scripts);

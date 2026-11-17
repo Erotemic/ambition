@@ -97,12 +97,12 @@ impl Plugin for AmbitionContentPlugin {
             }
         }
 
-        // Install validated encounter waves lowered from this App's pack.
+        // A pack with no wave source has no authored wave timelines.
         ambition_encounter::install_encounter_waves(
             app,
             ambition_encounter::content_schema::lowered_encounter_waves(&pack)
                 .cloned()
-                .expect("the encounter schema lowers its book for every pack that compiles"),
+                .unwrap_or_default(),
         );
 
         // The CPU difficulty ladder of this binary: every room, the hosted

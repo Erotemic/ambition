@@ -127,6 +127,17 @@ pub fn boss_catalog_fragment_from(sprite_content: &ambition_platformer2d::sprite
     let behaviors = ambition_boss_encounter::pattern::content_schema::lowered_boss_profiles(pack)
         .ok_or("the pack carries no lowered boss roster")?
         .clone();
+    if behaviors.is_empty() {
+        return ambition_boss_encounter::BossCatalogFragment::from_prepared(
+            crate::AMBITION_CONTENT_PROVIDER,
+            None::<&str>,
+            None::<&str>,
+            behaviors,
+            Default::default(),
+            "{}",
+            Default::default(),
+        ).map_err(|error| error.to_string());
+    }
     let encounters = ambition_boss_encounter::pattern::content_schema::lowered_boss_encounters(pack)
         .ok_or("the pack carries no lowered boss encounters")?
         .clone();

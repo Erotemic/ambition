@@ -152,6 +152,8 @@ pub struct ClipRequest {
     pub fallbacks: Vec<String>,
     /// The clock supplied by the requester. None uses the sheet's clock.
     pub time: Option<ClipTime>,
+    /// A content clock for these rows. A fallback keeps the base clock.
+    pub row_clock: Option<(Vec<String>, ClipTime)>,
     /// The row is the picture of the body above the hips, and this is the
     /// pose of its legs: what the body does under the move (it walks, runs,
     /// jumps or falls). `None`: the row is the whole body. See
@@ -173,27 +175,31 @@ impl ClipRequest {
     /// crouched variant ([`ambition_sprite_sheet::character::stance_row`]), and a sheet with none
     /// draws the body's own request (its crouch). A pinned standing row would
     /// be drawn feet-first on the crouched box, at full height. The variants
-    /// run on the sheet's clock: the pin's clock would also run the body's own
-    /// crouch row, and loop a crouch that holds its last frame.
+    /// use the pin's clock. A missing variant keeps the base request's clock,
+    /// so a fallback crouch is not looped by the content pin.
     pub fn with_pin(
         base: Option<Self>,
         pin: Option<&ambition_sprite_sheet::character::PinnedRow>,
         crouched: bool,
     ) -> Option<Self> {
         let Some(pin) = pin.filter(|pin| pin.is_pinned()) else { return base; };
-        if crouched {
-            let variants: Vec<String> = pin.rows.iter().map(|row| ambition_sprite_sheet::character::stance_row(row, true)).collect();
-            return match base {
-                Some(base) => Some(variants.iter().rev().fold(base, |chain, row| chain.ahead_of(row))),
-                None => Self::from_chain(&variants.iter().map(String::as_str).collect::<Vec<_>>()),
-            };
-        }
+        let rows: Vec<String> = pin.rows.iter().map(|row| ambition_sprite_sheet::character::stance_row(row, crouched)).collect();
+        let base_time = base.as_ref().and_then(|base| base.time);
         let mut request = match base {
-            Some(base) => pin.rows.iter().rev().fold(base, |chain, row| chain.ahead_of(row)),
-            None => Self::from_chain(&pin.rows.iter().map(String::as_str).collect::<Vec<_>>())?,
+            Some(base) => rows.iter().rev().fold(base, |chain, row| chain.ahead_of(row)),
+            None => Self::from_chain(&rows.iter().map(String::as_str).collect::<Vec<_>>())?,
         };
-        request.time = Some(ClipTime::Seconds { elapsed: pin.elapsed, looping: pin.looping });
+        request.time = base_time;
+        request.row_clock = Some((rows, ClipTime::Seconds { elapsed: pin.elapsed, looping: pin.looping }));
         Some(request)
+    }
+
+    /// The clock of the row the animator selected, before facing.
+    pub fn time_for_row(&self, row: &str) -> Option<ClipTime> {
+        self.row_clock.as_ref()
+            .filter(|(rows, _)| rows.iter().any(|name| name == row))
+            .map(|(_, time)| *time)
+            .or(self.time)
     }
 
     /// Build a request from a static preference chain — the shape
@@ -204,6 +210,7 @@ impl ClipRequest {
             clip: (*clip).to_string(),
             fallbacks: fallbacks.iter().map(|f| (*f).to_string()).collect(),
             time: None,
+            row_clock: None,
             legs: None,
         })
     }
@@ -221,6 +228,7 @@ impl ClipRequest {
             clip: binding.clip.clone(),
             fallbacks: binding.fallbacks.clone(),
             time: Some(ClipTime::Phase(phase)),
+            row_clock: None,
             legs: None,
         }
     }
@@ -255,6 +263,7 @@ impl ClipRequest {
             // The row placed ahead is a BODY STATE's (a held charge), and the
             // move's progress is frozen while it shows — it runs its own clock.
             time: None,
+            row_clock: None,
             legs: None,
         }
     }
@@ -266,6 +275,7 @@ impl ClipRequest {
             clip: clip.to_string(),
             fallbacks: Vec::new(),
             time: None,
+            row_clock: None,
             legs: None,
         }
     }
@@ -711,22 +721,22 @@ mod pin_tests {
         std::iter::once(request.clip.as_str()).chain(request.fallbacks.iter().map(String::as_str)).collect()
     }
 
-    /// Crouched while the eye laser burns: the laser pins `eye_laser`/`shoot`,
-    /// and a standing row was drawn feet-first on the crouched box. A crouched
-    /// body asks for the crouched variants and then its own crouch, on the
-    /// sheet's clock; a standing body asks for the pin on the pin's clock.
+    /// The firing row uses the content clock in either stance. A missing
+    /// variant keeps the fallback crouch on its base clock.
     #[test]
     fn a_crouched_body_draws_a_pin_crouched_or_not_at_all() {
         let mut pin = PinnedRow::default();
         pin.pin(&["eye_laser", "shoot"], 0.4, true);
-        let crouch = ClipRequest::only("crouch");
+        let mut crouch = ClipRequest::only("crouch");
+        crouch.time = Some(ClipTime::Phase(0.75));
 
         let crouched = ClipRequest::with_pin(Some(crouch.clone()), Some(&pin), true).expect("a request");
         assert_eq!(rows(&crouched), ["eye_laser_crouch", "shoot_crouch", "crouch"]);
-        assert_eq!(crouched.time, None, "the crouch would loop on the pin's clock");
+        assert_eq!(crouched.time_for_row("eye_laser_crouch"), Some(ClipTime::Seconds { elapsed: 0.4, looping: true }));
+        assert_eq!(crouched.time_for_row("crouch"), Some(ClipTime::Phase(0.75)), "a missing variant keeps the crouch clock");
 
         let standing = ClipRequest::with_pin(Some(crouch), Some(&pin), false).expect("a request");
         assert_eq!(rows(&standing), ["eye_laser", "shoot", "crouch"]);
-        assert_eq!(standing.time, Some(ClipTime::Seconds { elapsed: 0.4, looping: true }));
+        assert_eq!(standing.time_for_row("eye_laser"), Some(ClipTime::Seconds { elapsed: 0.4, looping: true }));
     }
 }

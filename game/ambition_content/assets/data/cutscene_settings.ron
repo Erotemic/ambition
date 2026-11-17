@@ -1,0 +1,4 @@
+// Ambition's cutscene timing. A reload applies to the next cutscene.
+(
+    skip_hold_seconds: 0.9,
+)

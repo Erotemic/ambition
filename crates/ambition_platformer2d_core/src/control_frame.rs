@@ -251,6 +251,19 @@ pub struct ControlFrame {
 }
 
 impl ControlFrame {
+    /// Keep menu controls and discard gameplay controls when a surface captures input.
+    #[must_use]
+    pub fn menu_only(self) -> Self {
+        Self {
+            start_pressed: self.start_pressed,
+            confirm_pressed: self.confirm_pressed,
+            cancel_held: self.cancel_held,
+            control_frame_modes: self.control_frame_modes,
+            party_preference: self.party_preference,
+            ..Self::default()
+        }
+    }
+
     pub fn raw_direction_edges(self) -> RawDirectionEdges {
         RawDirectionEdges::new(
             self.left_pressed,
@@ -391,6 +404,11 @@ pub struct ControlFrameLatch {
 }
 
 impl ControlFrameLatch {
+    /// Discard gameplay input without losing menu edges that await a simulation tick.
+    pub fn suppress_gameplay(&mut self) {
+        self.accumulated = self.accumulated.menu_only();
+    }
+
     /// Fold one device sample in. Levels overwrite; edges stick.
     pub fn accumulate(&mut self, sample: ControlFrame) {
         self.accumulated = self.accumulated.merge_sample(sample);
@@ -422,6 +440,30 @@ impl ControlFrameLatch {
 #[cfg(test)]
 mod latch_tests {
     use super::{AttackStrengthHint, ControlFrame, ControlFrameLatch};
+
+    #[test]
+    fn a_menu_tap_survives_gameplay_suppression_until_one_tick_takes_it() {
+        let mut latch = ControlFrameLatch::default();
+        latch.accumulate(ControlFrame {
+            axis_x: 1.0,
+            attack_pressed: true,
+            attack_held: true,
+            confirm_pressed: true,
+            start_pressed: true,
+            cancel_held: true,
+            ..ControlFrame::default()
+        });
+        latch.suppress_gameplay();
+        latch.accumulate(ControlFrame::default());
+        latch.suppress_gameplay();
+        let tick = latch.take();
+        assert!(tick.confirm_pressed && tick.start_pressed);
+        assert!(!tick.attack_pressed && !tick.attack_held && !tick.cancel_held);
+        assert_eq!(tick.axis_x, 0.0);
+        assert!(latch.is_device_authority());
+        let next = latch.take();
+        assert!(!next.confirm_pressed && !next.start_pressed);
+    }
 
     /// A tap that opens and closes between two ticks must still reach the sim.
     #[test]

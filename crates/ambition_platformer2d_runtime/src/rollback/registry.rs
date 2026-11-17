@@ -301,7 +301,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // rewind puts back (`resource.portal_frames_in_rooms`).
 // 481 -> 482: the switch writes rooms' presses made, which a room rewind puts
 // back (`resource.switch_presses_in_rooms`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 482;
+// 482 -> 483: cutscene playback retains its selected game skip timing.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 483;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

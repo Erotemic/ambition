@@ -63,6 +63,10 @@ impl DialogControls {
 /// dialogue is running.
 #[derive(Resource, Default, Clone, Debug, PartialEq)]
 pub struct DialogView {
+    /// The next confirm's effect, resolved by the dialogue runtime.
+    pub confirm_action: ambition_dialog::DialogConfirmAction,
+    /// Whether Back can close this conversation early.
+    pub can_close: bool,
     /// The participant whose controls can advance this dialogue.
     pub input_owner: Option<ambition_input::InputOwner>,
     /// The simulation conversation from which this surface was built.
@@ -147,11 +151,13 @@ pub fn rebuild_dialog_view(
         // Written only when it differs: the cutscene republishes its
         // presentation each tick, and a write here rebuilds the box.
         view.set_if_neq(DialogView {
+            confirm_action: ambition_dialog::DialogConfirmAction::Advance,
+            can_close: false,
             input_owner: owner,
             instance: None,
             active: true,
             dialogue_id: cutscene.script_id().unwrap_or_default().to_owned(),
-            speaker_character_id: String::new(),
+            speaker_character_id: cutscene.presentation.speaker_character_id.clone(),
             portrait_clip: String::new(),
             speaker_label: speaker.to_owned(),
             conversation_label: speaker.to_owned(),
@@ -209,6 +215,8 @@ fn mirror_conversation(
     // buffer on a row that rebuilds on EVERY REVEAL TICK of an active dialogue —
     // the allocation this function's change-gate exists to avoid.
     let DialogView {
+        confirm_action,
+        can_close,
         input_owner,
         instance,
         active,
@@ -225,12 +233,16 @@ fn mirror_conversation(
     } = &mut **view;
 
     *active = shown;
+    *confirm_action = dialogue.confirm_action();
+    *can_close = dialogue.settings().close_on_back;
     *input_owner = dialogue.input_owner();
     let next_instance = conversation.as_deref().and_then(|conversation| conversation.instance());
     if instance.as_ref() != next_instance {
         *instance = next_instance.cloned();
     }
     if !*active {
+        *confirm_action = Default::default();
+        *can_close = false;
         *input_owner = None;
         *instance = None;
         dialogue_id.clear();

@@ -143,6 +143,8 @@ behaviors must be expressible, and this page sets the default.
 
 ## Ending rules for cutscenes and dialogue
 
+- A final conversation line closes on its confirm. Runner completion keeps
+  text visible only when that text has not received a confirm.
 - **A cutscene has one ending.** Skip and completion both call `end_cutscene`
   (`crates/ambition_platformer2d_runtime/src/cutscene.rs`), which sets
   the script's `seen_flag` and clears the runtime and presentation. If the flag

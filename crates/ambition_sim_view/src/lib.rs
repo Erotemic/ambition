@@ -51,6 +51,8 @@ pub use camera_snapshot::{local_view_facts, CameraViewState, PresentedViewState}
 pub use defense_view::{defense_cue_causes, DefenseCueCauses};
 #[cfg(feature = "dialogue")]
 pub use dialog_view::{rebuild_dialog_view, DialogView};
+#[cfg(feature = "dialogue")]
+pub use ambition_dialog::DialogConfirmAction;
 
 /// Dialogue facts are ready for this frame's presenters.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]

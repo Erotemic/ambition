@@ -11,6 +11,7 @@ crate-type = ["rlib"]
 
 [features]
 default = []
+content_pack = ["dep:ambition_content_pack"]
 # Enables the bevy_yarnspinner bridge + binding-installer machinery. Without
 # it the crate is just the view model + reveal/SFX logic (headless-safe).
 ui = ["dep:bevy_yarnspinner"]
@@ -19,6 +20,8 @@ ui = ["dep:bevy_yarnspinner"]
 input = ["ambition_input/input", "ambition_ui_nav/input"]
 
 [dependencies]
+serde = { workspace = true }
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 # Vec2 for pointer/reveal geometry.
 # MenuFocusState + windowed-list / pointer-row helpers + MenuInputFrame scroll.
 ambition_ui_nav = { path = "../ambition_ui_nav" }

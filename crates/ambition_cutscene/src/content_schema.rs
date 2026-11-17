@@ -22,6 +22,19 @@ use ambition_content_pack::{
 
 use crate::{CutsceneBeat, CutsceneScript};
 
+pub const CUTSCENE_SETTINGS_SCHEMA: &str = "cutscene_settings";
+
+pub fn cutscene_settings_schema() -> SchemaRegistration {
+    ambition_content_pack::rules_schema::<crate::CutsceneSettings>(
+        CUTSCENE_SETTINGS_SCHEMA, 1, CUTSCENE_CAPABILITY,
+        "Cutscene skip hold timing for a game's rooms.", crate::CutsceneSettings::problems,
+    )
+}
+
+pub fn lowered_cutscene_settings(pack: &ambition_content_pack::PreparedContentPack) -> Option<&crate::CutsceneSettings> {
+    ambition_content_pack::lowered_rules(pack, CUTSCENE_SETTINGS_SCHEMA)
+}
+
 /// The capability that owns this schema.
 pub const CUTSCENE_CAPABILITY: &str = "cutscene";
 

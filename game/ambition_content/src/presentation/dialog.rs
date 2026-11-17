@@ -694,12 +694,18 @@ fn input_hint(dialogue: &DialogView, text: &ShownText) -> String {
     let back = named(&dialogue.controls.back, "dialog.back");
     let key = if dialogue.controls.hold_to_skip {
         "dialog.cutscene_hint"
-    } else if dialogue.option_labels.is_empty() {
-        "dialog.continue_hint"
     } else {
-        "dialog.choice_hint"
+        use ambition_dialog::DialogConfirmAction;
+        match dialogue.confirm_action {
+            DialogConfirmAction::Wait => "dialog.wait_hint",
+            DialogConfirmAction::Reveal => "dialog.reveal_hint",
+            DialogConfirmAction::Advance => "dialog.continue_hint",
+            DialogConfirmAction::Select => "dialog.choice_hint",
+            DialogConfirmAction::Close => "dialog.close_hint",
+        }
     };
-    text.fill(key, &[hole("confirm", &confirm), hole("back", &back)])
+    let close = if dialogue.can_close { text.fill("dialog.close_action", &[hole("back", &back)]) } else { String::new() };
+    text.fill(key, &[hole("confirm", &confirm), hole("back", &back), hole("close", &close)])
 }
 
 fn advance_ambition_dialog_portrait(
@@ -1089,6 +1095,7 @@ mod tests {
 
     fn active_view() -> DialogView {
         DialogView {
+            can_close: true,
             active: true,
             dialogue_id: "hall_ada".to_string(),
             speaker_character_id: "npc_ada".to_string(),
@@ -1416,7 +1423,7 @@ mod tests {
         // The fixture's view names no controls, so the hint names the actions.
         let words = text.fill(
             "dialog.continue_hint",
-            &[hole("confirm", &text.line("dialog.confirm")), hole("back", &text.line("dialog.back"))],
+            &[hole("confirm", &text.line("dialog.confirm")), hole("close", &text.fill("dialog.close_action", &[hole("back", &text.line("dialog.back"))]))],
         );
         assert_eq!(hints.single(app.world()).unwrap().0, words);
 

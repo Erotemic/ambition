@@ -8,6 +8,27 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// Each game's cutscene skip timing. Playback keeps the value selected at its start.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CutsceneSettings {
+    pub skip_hold_seconds: f32,
+}
+
+impl Default for CutsceneSettings {
+    fn default() -> Self { Self { skip_hold_seconds: 0.9 } }
+}
+
+impl CutsceneSettings {
+    pub fn problems(&self) -> Vec<String> {
+        if self.skip_hold_seconds.is_finite() && self.skip_hold_seconds >= 0.0 {
+            Vec::new()
+        } else {
+            vec!["skip_hold_seconds must be finite and nonnegative".into()]
+        }
+    }
+}
+
 #[cfg(feature = "content_pack")]
 pub mod content_schema;
 
@@ -23,7 +44,13 @@ pub enum CutsceneBeat {
     /// Display a line of dialogue. The presentation layer is
     /// responsible for showing `text` and waiting for the dismiss
     /// button before advancing.
-    Dialogue { speaker: String, text: String },
+    Dialogue {
+        speaker: String,
+        text: String,
+        /// Stable character identity for portraits. Empty for a voice with no character.
+        #[serde(default)]
+        speaker_character_id: String,
+    },
     /// Pan the camera to `target` (a point in the room, in the room's own
     /// pixels, as bodies are placed) over `seconds`, eased, and hold it there
     /// through the beats that follow until a [`Self::CameraRelease`] or the
@@ -87,6 +114,8 @@ pub enum CutsceneBeat {
 pub struct CutscenePresentation {
     /// `(speaker, text)` while a dialogue beat is current.
     pub dialogue: Option<(String, String)>,
+    /// Stable identity of the character whose dialogue is shown.
+    pub speaker_character_id: String,
     /// `(text, seconds_remaining)` while a banner beat is current.
     ///
     /// The countdown is `authored - elapsed`; it is not separate state.
@@ -144,8 +173,9 @@ impl CutsceneRuntime {
         let standing = self.standing_fade();
         let camera = self.camera();
         let shown = match beat {
-            CutsceneBeat::Dialogue { speaker, text } => CutscenePresentation {
+            CutsceneBeat::Dialogue { speaker, text, speaker_character_id } => CutscenePresentation {
                 dialogue: Some((speaker.clone(), text.clone())),
+                speaker_character_id: speaker_character_id.clone(),
                 fade_alpha: standing,
                 ..Default::default()
             },
@@ -298,6 +328,7 @@ impl CutsceneScript {
 /// caller to apply (set flags, banners, dialogue lines).
 #[derive(Clone, Debug, PartialEq)]
 pub struct CutsceneRuntime {
+    pub settings: CutsceneSettings,
     /// Shared, not owned: the rollback log of a room's cutscene
     /// ([`CutscenesInRooms`]) keeps a state for each tick it changes, and the
     /// script does not change while it plays.
@@ -312,6 +343,7 @@ pub struct CutsceneRuntime {
 impl CutsceneRuntime {
     pub fn new(script: CutsceneScript) -> Self {
         Self {
+            settings: CutsceneSettings::default(),
             script: std::sync::Arc::new(script),
             beat_index: 0,
             elapsed: 0.0,
@@ -512,14 +544,9 @@ impl ActiveCutscene {
     }
 }
 
-/// Hold duration in seconds the player must keep the skip button held before the
-/// cutscene actually skips. Long enough that an accidental tap can't burn through
-/// scripted content.
-pub const SKIP_HOLD_THRESHOLD_SECS: f32 = 1.2;
-
 /// How long the participant has held cancel over the playing cutscene, in
 /// SIMULATION seconds. The skip fires when it reaches
-/// [`SKIP_HOLD_THRESHOLD_SECS`]; the HUD draws its progress.
+/// [`CutsceneSettings::skip_hold_seconds`]; the HUD draws its progress.
 ///
 /// ⛔ SIMULATION STATE, AND ROLLBACK STATE WITH IT. The hold is read from the
 /// seat's `ControlFrame::cancel_held` inside the timeline, so a rewind must
@@ -534,11 +561,11 @@ pub struct CutsceneSkipHold {
 impl CutsceneSkipHold {
     /// Fraction of the way through the skip-hold window. Useful for HUD progress
     /// bars; clamped to `[0, 1]`.
-    pub fn progress(&self) -> f32 {
-        if SKIP_HOLD_THRESHOLD_SECS <= 0.0 {
-            return 1.0;
+    pub fn progress(&self, settings: CutsceneSettings) -> f32 {
+        if settings.skip_hold_seconds <= 0.0 {
+            return if self.seconds > 0.0 { 1.0 } else { 0.0 };
         }
-        (self.seconds / SKIP_HOLD_THRESHOLD_SECS).clamp(0.0, 1.0)
+        (self.seconds / settings.skip_hold_seconds).clamp(0.0, 1.0)
     }
 }
 
@@ -744,6 +771,7 @@ mod tests {
                     seconds: 1.0,
                 },
                 CutsceneBeat::Dialogue {
+                    speaker_character_id: String::new(),
                     speaker: "Warden".into(),
                     text: "You are an instance.".into(),
                 },
@@ -816,6 +844,7 @@ mod tests {
                     seconds: 0.4,
                 },
                 CutsceneBeat::Dialogue {
+                    speaker_character_id: String::new(),
                     speaker: "V".into(),
                     text: "in the dark".into(),
                 },
@@ -926,7 +955,7 @@ mod tests {
             "last_words",
             vec![
                 CutsceneBeat::SetFlag { id: "before".into(), on: true },
-                CutsceneBeat::Dialogue { speaker: "A".into(), text: "B".into() },
+                CutsceneBeat::Dialogue { speaker_character_id: String::new(), speaker: "A".into(), text: "B".into() },
                 CutsceneBeat::Fall { character: "npc_creator".into() },
                 CutsceneBeat::SetFlag { id: "after".into(), on: true },
             ],
@@ -950,6 +979,7 @@ mod tests {
     fn auto_advances_predicate_distinguishes_dialogue_from_others() {
         // Dialogue waits for player input.
         let dialogue = CutsceneBeat::Dialogue {
+            speaker_character_id: String::new(),
             speaker: "X".into(),
             text: "Y".into(),
         };
@@ -1014,10 +1044,11 @@ mod snapshot {
                     put_u32(out, WAIT);
                     put_f32(out, *seconds);
                 }
-                Self::Dialogue { speaker, text } => {
+                Self::Dialogue { speaker, text, speaker_character_id } => {
                     put_u32(out, DIALOGUE);
                     put_str(out, speaker);
                     put_str(out, text);
+                    put_str(out, speaker_character_id);
                 }
                 Self::CameraPan { target, seconds } => {
                     put_u32(out, CAMERA_PAN);
@@ -1073,6 +1104,7 @@ mod snapshot {
                 DIALOGUE => Self::Dialogue {
                     speaker: reader.str()?.to_owned(),
                     text: reader.str()?.to_owned(),
+                    speaker_character_id: reader.str()?.to_owned(),
                 },
                 CAMERA_PAN => Self::CameraPan {
                     target: [reader.f32()?, reader.f32()?],
@@ -1216,6 +1248,7 @@ mod snapshot {
                     put_u32(out, runtime.beat_index as u32);
                     put_f32(out, runtime.elapsed);
                     put_bool(out, runtime.finished);
+                    put_f32(out, runtime.settings.skip_hold_seconds);
                     match self.room {
                         Some(room) => {
                             put_bool(out, true);
@@ -1238,6 +1271,7 @@ mod snapshot {
                 beat_index: reader.u32()? as usize,
                 elapsed: reader.f32()?,
                 finished: reader.bool()?,
+                settings: CutsceneSettings { skip_hold_seconds: reader.f32()? },
             };
             let room = if reader.bool()? { Some(reader.u32()?) } else { None };
             Some(Self {
@@ -1259,6 +1293,7 @@ mod snapshot {
                     put_u32(out, runtime.beat_index as u32);
                     put_f32(out, runtime.elapsed);
                     put_bool(out, runtime.finished);
+                    put_f32(out, runtime.settings.skip_hold_seconds);
                 }
                 _ => put_bool(out, false),
             }
@@ -1279,6 +1314,7 @@ mod snapshot {
                     beat_index: reader.u32()? as usize,
                     elapsed: reader.f32()?,
                     finished: reader.bool()?,
+                    settings: CutsceneSettings { skip_hold_seconds: reader.f32()? },
                 })
             } else {
                 None
@@ -1532,6 +1568,7 @@ mod snapshot {
                 "talk_then_pan",
                 vec![
                     CutsceneBeat::Dialogue {
+                        speaker_character_id: String::new(),
                         speaker: "Alice".into(),
                         text: "Look at that.".into(),
                     },
@@ -1566,7 +1603,7 @@ mod snapshot {
                 "look_over_there",
                 vec![
                     CutsceneBeat::CameraPan { target: [100.0, 50.0], seconds: 1.0 },
-                    CutsceneBeat::Dialogue { speaker: "Creator".into(), text: "There.".into() },
+                    CutsceneBeat::Dialogue { speaker_character_id: "npc_creator".into(), speaker: "Creator".into(), text: "There.".into() },
                     CutsceneBeat::CameraPan { target: [300.0, 50.0], seconds: 0.0 },
                     CutsceneBeat::CameraRelease { seconds: 1.0 },
                 ],
@@ -1601,6 +1638,7 @@ mod snapshot {
                 vec![
                     CutsceneBeat::Wait { seconds: 0.5 },
                     CutsceneBeat::Dialogue {
+                        speaker_character_id: "npc_creator".into(),
                         speaker: "Creator".into(),
                         text: "Wait.".into(),
                     },
@@ -1629,6 +1667,7 @@ mod snapshot {
             )
             .with_seen_flag("seen_intro");
             let mut runtime = CutsceneRuntime::new(script);
+            runtime.settings.skip_hold_seconds = 0.37;
             runtime.beat_index = 3;
             runtime.elapsed = 0.125;
             let before = ActiveCutscene {

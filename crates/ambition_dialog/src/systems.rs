@@ -46,14 +46,14 @@ pub fn dialog_reveal_tick(
 ) {
     // A held conversation is not on screen, so its typewriter waits. Without
     // this, a line would reveal and auto-advance out of sight.
-    if !dialogue.active() || dialogue.held || dialogue.current_line.is_empty() {
+    if !dialogue.active() || dialogue.held {
         return;
     }
     if !dialogue.line_reveal_complete() {
         let previous_visible_chars = dialogue.visible_line_char_count();
         dialogue.tick_reveal(time.delta_secs());
         let visible_chars = dialogue.visible_line_char_count();
-        if should_play_talk_blip(
+        if dialogue.settings().speech_blips && should_play_talk_blip(
             &dialogue.current_line,
             previous_visible_chars,
             visible_chars,
@@ -76,6 +76,10 @@ pub fn dialog_reveal_tick(
             && !dialogue.pending_advance
         {
             dialogue.pending_advance = true;
+        } else if !dialogue.current_line.is_empty()
+            && !dialogue.current_line_confirmed && !dialogue.pending_advance
+            && matches!(dialogue.settings().line_advance, crate::LineAdvance::Automatic { .. }) {
+            dialogue.tick_automatic_advance(time.delta_secs());
         }
         return;
     }
@@ -372,7 +376,7 @@ fn apply_dialog_menu_input(menu: &MenuControlFrame, mut dialogue: impl std::ops:
     // (`Q75`), and the conversation is still live, at the same line, when the
     // menu closes. Esc binds both Start and Back, so a Back that comes with
     // Start is that same pause press.
-    if menu.back && !menu.start {
+    if menu.back && !menu.start && dialogue.settings().close_on_back {
         // Back-button close: the dispatch system tells the runner to stop.
         // `close()` flips `DialogState.active` this same frame so every
         // presentation/input backend observes the same immediate closure.
@@ -792,6 +796,15 @@ mod tests {
         let before = app.world().resource_ref::<DialogState>().last_changed();
         app.update();
         assert_eq!(app.world().resource_ref::<DialogState>().last_changed(), before);
+    }
+
+    #[test]
+    fn a_game_can_keep_back_from_closing_a_conversation() {
+        let mut state = DialogState::default();
+        state.start_with_settings("guide", "Guide", crate::DialogueContext::scripted(), ambition_input::InputOwner::Primary,
+            crate::DialogSettings { close_on_back: false, ..Default::default() });
+        apply_dialog_menu_input(&MenuControlFrame { back: true, ..Default::default() }, &mut state);
+        assert!(state.active());
     }
 
     fn dialogue_with_options(count: usize) -> DialogState {

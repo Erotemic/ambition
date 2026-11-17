@@ -19,6 +19,7 @@ default = []
 ui = ["dep:bevy_yarnspinner", "ambition_dialog/ui"]
 
 [dependencies]
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # `BodyCombat` (the hit that breaks a conversation) and `ScriptedControl` (the
 # body a conversation holds still).
 ambition_characters = { path = "../ambition_characters" }
@@ -49,3 +50,6 @@ ambition_time = { path = "../ambition_time" }
 # UI data does not select a window backend. The host selects platform support.
 bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.9", optional = true }
+
+[dev-dependencies]
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world", features = ["test-support"] }

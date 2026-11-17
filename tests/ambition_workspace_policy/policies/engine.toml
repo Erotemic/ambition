@@ -656,10 +656,10 @@ scope = "engine"
 kind = "dependency-allowlist"
 owners = ["ambition_dialog"]
 watch_paths = ["crates/ambition_dialog/Cargo.toml"]
-rationale = "ambition_dialog is the reusable dialogue runtime; game bindings stay host-side"
+rationale = "ambition_dialog owns reusable dialogue behavior and its optional content schema; the pack compiler validates those settings, while named dialogue and game bindings stay in providers."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d_core", "ambition_ui_nav", "ambition_input", "ambition_sfx", "ambition_persistence"]
+allow = ["ambition_platformer2d_core", "ambition_ui_nav", "ambition_input", "ambition_sfx", "ambition_persistence", "ambition_content_pack"]
 manifest = "crates/ambition_dialog/Cargo.toml"
 
 [[policy]]
@@ -668,10 +668,11 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_dialog"]
 watch_paths = ["crates/ambition_dialog/src"]
-rationale = "ambition_dialog source stays free of forbidden refs"
+rationale = "Dialogue stays independent of game content, host composition and renderers. The engine content_pack compiler owns no named game content. Match crate identifiers so that compiler is not mistaken for the ambition_content game provider."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_dialog/src"]
+whole_ident = true
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "ambition_characters"]
 
 

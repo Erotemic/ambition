@@ -453,10 +453,8 @@ pub struct SeatBurstTriggerState(pub ambition_persistence::settings::GameplayEdg
 /// the machine-wide sliders when no device detector exists, so a headless
 /// fixture is unchanged.
 ///
-/// the WORLD-STOPPED row is preserved rather than harmonised, because the
-/// field it turns on — `start_pressed` — is read by the trace codec and by
-/// nothing in gameplay. Changing it would change the recorded input stream for
-/// no gameplay reason.
+/// While gameplay input is captured, each seat retains its menu controls.
+/// Menu edges stay in the latch until a simulation tick consumes them.
 ///
 /// ✔ Latched. Every seat's frame folds into `SlotControlLatches` on the FEEL clock and drains
 /// on the TICK clock, so a tap that opens and closes between two ticks reaches the sim.
@@ -512,7 +510,6 @@ pub fn populate_seat_control_frames(
         .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
         && !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused));
     for (participant, actions, mut burst) in &mut seats {
-        let primary = participant.id == ambition_input::ParticipantId::PRIMARY;
         let gameplay = world_running && active_context.gameplay_owned(participant.id.slot());
         // through the SEAM rather than by arithmetic (R5). This line is the
         // exact shape the reviewer asked new code to stop writing — a bare
@@ -549,31 +546,15 @@ pub fn populate_seat_control_frames(
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state.
             burst.0 = ambition_persistence::settings::GameplayEdgeState::default();
-            // seat zero is handed `read_menu_control_frame`, which sets
-            // exactly one field: `start_pressed`. Nothing in gameplay reads it
-            // — `brain/player.rs` destructures it away and says why: *"pause and
-            // reset belong to the session, and a body that could read them could
-            // act on somebody else's menu."* Its only readers are the trace codec
-            // and the harness's action encoder, so this is what the RECORDED
-            // stream contains and changing it would change the wire for no
-            // gameplay reason. Every other seat is handed neutral.
-            // The mode rides even the neutral frame, for the reason the table
-            // is published before this early-out: a paused seat still has a
-            // preference, and the first tick after it resumes must not resolve
-            // against a default nobody chose.
-            let mut paused_frame = if primary {
-                read_menu_control_frame(actions)
-            } else {
-                ControlFrame::default()
-            };
+            // Each seat retains its menu controls while gameplay input is captured.
+            let mut paused_frame = read_menu_control_frame(actions);
             paused_frame.control_frame_modes = modes;
             paused_frame.party_preference = preference;
             raw.set(slot, paused_frame);
-            // The latch is CLEARED rather than drained: a seat that has stopped
-            // being driven must not hand a held direction to the tick after the
-            // pause, and an edge accumulated before it must not survive it.
+            // Menu edges must survive rendered frames with no simulation tick.
+            // Gameplay edges and held movement must not cross the capture boundary.
             if let Some(latches) = latches.as_deref_mut() {
-                latches.reset(slot);
+                latches.suppress_gameplay(slot);
             }
             continue;
         }

@@ -342,7 +342,10 @@ fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>)
         });
         state.yarn_option_ids.push(option.id);
     }
-    state.reveal_full_options();
+    state.options_reveal = crate::runtime::OptionsRevealState::default();
+    if state.settings().choice_reveal == crate::ChoiceReveal::Immediate {
+        state.reveal_full_options();
+    }
     state.selected_option = 0;
 }
 
@@ -351,21 +354,13 @@ fn on_dialogue_completed(_event: On<DialogueCompleted>, mut state: ResMut<Dialog
         return;
     }
     state.pending_advance = false;
-    if !state.current_line.is_empty() {
-        // The runner finished but there's still accumulated text
-        // the player hasn't seen acknowledged yet (a final aside,
-        // last beat of a branch). Hold the dialog open until the
-        // player confirms.
+    if !state.current_line.is_empty() && !state.current_line_confirmed {
+        // Keep final text until it receives its own confirm.
         state.runner_done_pending_close = true;
         return;
     }
-    // Empty body + runner done → close immediately.
-    state.active = false;
-    state.reset_presentation_identity();
-    state.current_speaker.clear();
-    state.current_options.clear();
-    state.yarn_option_ids.clear();
-    state.selected_option = 0;
-    state.line_last_before_options = false;
-    state.options_reveal = crate::runtime::OptionsRevealState::default();
+    state.clear_conversation_presentation();
 }
+
+#[cfg(test)]
+mod tests;

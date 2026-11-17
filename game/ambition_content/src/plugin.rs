@@ -18,6 +18,7 @@ impl Plugin for AmbitionContentPlugin {
         // not publication: a later reload revises the families that
         // participate in it (`reload.rs`); this install happens once.
         let pack = crate::pack::select(app.world_mut());
+        crate::dialogue::settings::register(app, &pack);
 
         // Named projectile presentation used by Ambition content.
         super::projectiles::register(app);

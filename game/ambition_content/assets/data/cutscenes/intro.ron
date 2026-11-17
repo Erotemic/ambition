@@ -39,18 +39,22 @@
             ),
             Dialogue(
                 speaker: "Creator",
+                speaker_character_id: "npc_creator",
                 text: "Scout. Over here. Are you damaged?",
             ),
             Dialogue(
                 speaker: "Creator",
+                speaker_character_id: "npc_creator",
                 text: "Good. They took the case off the bench. Your logs are in it. Every answer since Tuesday.",
             ),
             Dialogue(
                 speaker: "Creator",
+                speaker_character_id: "npc_creator",
                 text: "I have to sit down for a minute.",
             ),
             Dialogue(
                 speaker: "Creator",
+                speaker_character_id: "npc_creator",
                 text: "You answered like yourself, all the way through. I want to write that d—",
             ),
             Fall(
@@ -97,6 +101,7 @@
             ),
             Dialogue(
                 speaker: "Creator",
+                speaker_character_id: "npc_creator",
                 text: "The case! He's got the case!",
             ),
             WaitFor(
@@ -126,6 +131,7 @@
             ),
             Dialogue(
                 speaker: "Creator",
+                speaker_character_id: "npc_creator",
                 text: "Scout, leave the door, it's barred for the test. ...Who's that out there?",
             ),
             Wait(
@@ -163,6 +169,7 @@
         beats: [
             Dialogue(
                 speaker: "Oiler",
+                speaker_character_id: "npc_oiler",
                 text: "Well. That\'s not a rat.",
             ),
             SetFlag(
@@ -179,6 +186,7 @@
         beats: [
             Dialogue(
                 speaker: "Gate Janitor",
+                speaker_character_id: "npc_gate_janitor",
                 text: "Don\'t touch that. That\'s not a gate.",
             ),
             Wait(
@@ -186,6 +194,7 @@
             ),
             Dialogue(
                 speaker: "Gate Janitor",
+                speaker_character_id: "npc_gate_janitor",
                 text: "Okay. That\'s a problem.",
             ),
             SetFlag(
@@ -207,10 +216,12 @@
             ),
             Dialogue(
                 speaker: "Creator",
+                speaker_character_id: "npc_creator",
                 text: "Hey you, you're finally awake.",
             ),
             Dialogue(
                 speaker: "Creator",
+                speaker_character_id: "npc_creator",
                 text: "Don't sit up fast. The left knee servo is new and I haven't set its torque yet.",
             ),
             SetFlag(

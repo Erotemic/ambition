@@ -57,9 +57,9 @@ count toward it.
 
 | Order | packet | status | open work / closure contract |
 |---|---|---|---|
-| `S0.1` | Clash and projectile priority | ✔ enabled 2026-11-17 | Smash declares a damage window of 9.0. Shared arbitration resolves shots and ground swings before damage, with stable strike and shot identities; aerial swing pairs retain their pass-through rule. A match-path test clashes two authored George jabs without body damage and checks both interruptions. Rebound is the shared body reaction; defeated shots expire through their owner. Human feel can refine the authored window. |
+| `S0.1` | Clash and projectile priority | ✔ enabled 2026-11-17 | Smash declares a damage window of 9.0. Shared arbitration resolves shots and ground swings before damage, with stable strike and shot identities; aerial swing pairs retain their pass-through rule. A match-path test clashes two authored George jabs without body damage and checks both interruptions. Rebound is the shared body reaction; defeated shots expire through their owner. Source: `30fed7fc7`, with native clash pieces in `c6a65c250`. Guard: `the_shipped_rules_clash_two_authored_ground_jabs_before_damage`. Human feel can refine the authored window. |
 | `S0.2` | Grab-contact arbitration | ✔ | Shared combat scheduling resolves hit-before-grab and mutual grab parries: `release_interrupted_captures`, `CapturesAcquired` in `Settle`, `GrabsParried` and recoil. Knocked bodies neither acquire nor receive captures; mutual grabs rebound, while ordinary nonmutual grabs still hold. Production-path and mirror-order witnesses exist. An authored grab-beats-hit exception has no customer and is **not** an open task. Human feel remains unreviewed. |
-| `S0.3` | Hit-volume target and interaction semantics | ◐ | `HitVolume` has `VolumeGuard::{Blockable{extra_shield_damage},Unblockable}` and resolved guard/parry policy; the fingerprint and planner derive from it. **Open, independent subfeatures:** victim posture eligibility (grounded/airborne/prone); clankability/transcendence; per-hit hitlag and SDI multipliers; no-tech override; weight-independent/set-weight reaction; armor bypass. Multiple same-frame volumes retain separate policies. Default ordinary hits must behave identically and at least one shipped move must exercise each introduced rule. Projectiles do not yet author the volume guard policy. |
+| `S0.3` | Hit-volume target and interaction semantics | ✔ 2026-11-17 | Missing volume policy now uses shared typed hit values across melee, projectiles, scripts, and body reactions. Defaults keep ordinary hits. Projectile Polygon supplies each customer, including separate same-frame air and floor volumes. Source: `c6a65c250`; SDI refinements: `c7db30815`, `c63641d4c`. Guards: ranked posture tests, body reaction and SDI restore tests, projectile wire tests, and four headless match tests in `smash_hit_properties`. See [hit properties](../../systems/hit-properties.md). |
 | `S0.4` | Airborne capture semantics | Closed by product ruling, 2026-11-17 | No airborne grabs. Standing grabs retain grounded capture rules. A tether may select a distinct aerial hit move through the ordinary moveset; that move damages or launches and creates no capture relationship. |
 | `S0.5` | Threshold armor | ✔ for selected damage-threshold semantics | Damage threshold shipped: `ArmorPolicy::{None, Super, Damage{breaks_at}}`, authored as `WindowTag::ArmorUnder{damage}`. Plain `WindowTag::Armor` still lowers to `Super`. `>=` breaks; nothing accumulates; overlapping windows take the stronger. **Deferred extension, not an open gate or current maintainer question:** knockback-threshold armor lacks an authored customer and a chosen typed quantity. `HitKnockbackMagnitude` is `FeelScale` or `LaunchSpeed`; a bare `f32` threshold would be incorrect, and launch velocity is computed below the armor gate. Preserve this candidate in [tracks](../tracks.md#deferred-smash-semantics) and revisit only for a concrete move. See the `ArmorPolicy` doc. |
 | `S0.6` | Localized hurtbox defense | ✔ | `HurtboxVolume::defense` and `HurtDefense::{Vulnerable,Intangible}` flow through `ResolvedHurtboxes::world_volumes` and all `strike_reaches_victim` callers; a vulnerable region still registers even when another region is intangible. Production resolver and publisher tests exist. No shipped move presently authors an intangible hurt region; that is a **customer/content decision**, not missing defense infrastructure. |
@@ -80,10 +80,8 @@ customer where required; an isolated kernel test does not close it.
 
 1. **S0.1 is enabled:** use match reports and play feedback to refine the
    authored damage window. The engine default remains off for other games.
-2. **S0.3:** posture eligibility first (grounded/airborne/prone), including
-   two differently eligible volumes in one move. Keep guard/shield-damage
-   closed. Implement the other listed hit properties in separate slices
-   with distinct real customers, not a universal flag dump.
+2. **S0.3 is complete:** shared contact policy and authored customers ship
+   in `c6a65c250`. Keep ordinary defaults and grounded capture rules.
 3. **S0.7:** add one fighter-authored crawl and prove a noncrawler stops on
    crouch; cover both new spawn and stock respawn.
 4. **S0.4 is closed:** airborne grabs are out of scope. Aerial tether moves
@@ -173,24 +171,24 @@ Preserve these and build new features on their seams.
 | Knockback-threshold armor | ▢ deferred | M | E1 | Candidate only; not required to close `S0.5`. Select an authored customer and typed magnitude before implementation; see [tracks](../tracks.md#deferred-smash-semantics). |
 | On-block cancel windows | ✔ | S/M | E1 | `CancelCondition::OnBlock` from `BlockedBodyHit`. Customer: George's jab → grab. |
 | Sweetspot/sourspot | ✔ | — | E1 | `StrikeRank` author order; one pulse is one hit. |
-| Same-frame hitbox parts | ▢ | M | E1 | `S0.3`. |
-| Victim-state hitbox eligibility | ▢ | M | E1 | `S0.3`: per-volume posture filter in hit eligibility, not move selection. |
+| Same-frame hitbox parts | ✔ | M | E1 | `S0.3`: ranked volumes keep separate target policies and share one pulse ledger. |
+| Victim-state hitbox eligibility | ✔ | M | E1 | `HitTargets` filters grounded, airborne, and prone bodies before contact and priority. |
 | Fixed/set knockback | ✔ | S/M | E1 | `knockback_growth: Some(0.0)`. |
 | Autolink/follow-owner knockback | ✔ | M | E1 | `HitKnockback::follow`, resolved at the producer in the attacker's frame. Pulse gaps are load-bearing: a contiguous track lands once. |
-| Weight-independent knockback | ▢ | S/M | E1 | `S0.3`. |
-| Armor-bypass hit property | ▢ | S/M | E1 | `S0.3`. Resolve against armor policy, never by move or fighter id. |
+| Weight-independent knockback | ✔ | S/M | E1 | `LaunchWeight::Fixed(w)` is kept by the resolver and planner. Projectile Polygon forward-air is the customer. |
+| Armor-bypass hit property | ✔ | S/M | E1 | `ArmorInteraction::Bypass` defeats motion armor. Customer: Projectile Polygon forward smash. |
 | Windboxes / flinchless push | ◐ | M | E1 | `WindboxVolume` (`flinchless`, `repeating`) ships; no move authors one. Which fighter gusts is a design call. |
 | Vacuum / suction | ✔ | M | E1 | A windbox with its launch aimed inward. |
 | Extra shield damage | ✔ | S/M | E1 | `S0.3`: `VolumeGuard::Blockable { extra_shield_damage }`, resolved where the guard is offered. |
 | Unblockable strike flag | ✔ | S/M | E1 | `S0.3`: `VolumeGuard::Unblockable` (no block, no parry). Planner metadata (`ignores_guard`) is not gameplay authority. |
-| Hitbox clanking | ◐ | C | E2 | `S0.1`: finished; stage declares it off. |
+| Hitbox clanking | ✔ | C | E2 | `S0.1`: Smash enables a damage window of 9. Native material pieces decide overlap. |
 | Projectile clash / priority | ✔ | C | E2 | `S0.1`: same contest as melee. |
-| Attack rebound after clang | ◐ | S/M | E1 | `rebound_from_clanks`; fires only when clanking is on. A shot has no body, so swing-vs-shot rebounds nobody. |
-| Cannot-clank/transcendent hit | ▢ | S | E1 | `S0.3`. Wants a melee customer; projectiles already pass through melee arbitration by architecture. |
-| Per-hit hitlag multiplier | ▢ | S/M | E1 | `S0.3`. |
+| Attack rebound after clang | ✔ | S/M | E1 | `rebound_from_clanks` uses the shared body response. Swing-vs-shot rebounds nobody. |
+| Cannot-clank/transcendent hit | ✔ | S | E1 | `ClashPolicy::Transcendent` passes attack contests. Customer: Projectile Polygon forward-air. |
+| Per-hit hitlag multiplier | ✔ | S/M | E1 | `HitProperties::hitlag_scale`. Customers: Projectile Polygon up-air and cannon. |
 | Per-hit hitstun multiplier | ▢ | S/M | E1 | Add only when a move needs reaction distinct from knockback. |
-| Per-hit SDI multiplier | ▢ | S/M | E1 | `S0.3`. |
-| Cannot-tech hit property | ◐ | S/M | E1 | Derived untechable launches ship (`untechable_launch_speed`). `S0.3` owes an authored override for a move untechable at any speed. |
+| Per-hit SDI multiplier | ✔ | S/M | E1 | `HitProperties::sdi_scale` controls SDI and ASDI. Customer: Projectile Polygon up-air. |
+| Cannot-tech hit property | ✔ | S/M | E1 | `TechPolicy::Deny` lasts for one launch. Customer: the Projectile Polygon down-air spike. |
 | Edge-cancel move recovery | ✔ | M | E1 | `CombatRules::edge_cancel_recovery`; a rule, not a per-move field. |
 | Pivot smash | ✔ | S/M | E1 | Falls out of the turnaround in `resolve_attack_gestures`. |
 
@@ -300,7 +298,7 @@ a simultaneous new grab may latch before the trump resolves.
 | Grounded command grab | ✔ | S/M | E1 | `lunge_grab` (stand-in `special_forward`). Zero starts in one complete shipped-ladder match. |
 | Aerial command grab | Not planned | — | — | S0.4 ruling: no airborne captures. |
 | Hit-grab | ▢ | M | E1 | A second consumer of `OnHitEffectMessage` (beside `apply_pogo_bounce`) plus an optional target on the capture attempt, because acquisition searches a box and can catch a different body. A connected hit is shield-blocked, unlike the overlap grab; choose that out loud. |
-| Tether grab | ◐ | M | E1 | Projectile Polygon has a standing tether capture. Its aerial version is a distinct ordinary hit move, with no capture relationship (S0.4 ruling, 2026-11-17). |
+| Tether grab | ✔ | M | E1 | Projectile Polygon has a standing tether capture and a distinct aerial tether hit. The air move creates no capture relationship. |
 | Grab-vs-grab cancellation | ✔ | S/M | E1 | `S0.2`: a mutual grab parries. |
 | Hitbox-vs-grab arbitration | ✔ | M | E1 | `S0.2`: an ordinary hit beats a same-tick grab. |
 | Cargo carry / moving throws | ▢ | C | E2 | Captor locomotion while `CapturedBy` stays authoritative; not repeated teleports. |
@@ -537,7 +535,7 @@ complete kits
 | ID | Primitive | Class | Status |
 |---|---|---:|---|
 | `P01` | Move charge state | E1 | ✔ `MoveSpec::charge_gesture`; stored charge on one move. Unreached by CPUs (above). |
-| `P02` | Hit reaction policy | E1 | ◐ `HitReaction` has `Strike` and `Windbox`; autolink has a road. Fixed reactions need new variants (`S0.3`/`S0.8`). |
+| `P02` | Hit reaction policy | E1 | ◐ `HitReaction` has `Strike` and `Windbox`; autolink has a road. Contact modifiers ship in `S0.3`. Other reaction kinds belong to `S0.8`. |
 | `P03` | Same-move hitbox arbitration | E1 | ✔ `StrikeRank`. |
 | `P04` | Move defense windows | E1 | ✔ `project_move_defense_windows`. |
 | `P05` | On-block cancel fact | E1 | ✔ `MoveContact`. |

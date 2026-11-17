@@ -36,8 +36,8 @@ use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
 pub use admission::{
-    admit, admit_with_roads, Admitted, AdmittedEntry, AdmittedSchema, DeclaredModule, EntryRunner,
-    ModuleBackend, ModuleCode, PortOffer, Refusal, SaveRoad,
+    admit, admit_with_roads, admit_selected, Admitted, AdmittedEntry, AdmittedSchema, DeclaredModule, EntryRunner,
+    ModuleBackend, ModuleCode, ModuleImplementation, ModuleSelections, PortOffer, Refusal, SaveRoad,
 };
 pub use exec::{
     run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink,
@@ -109,6 +109,7 @@ pub struct ExtensionComposition {
     pub(crate) offers: Vec<PortOffer>,
     pub(crate) save_roads: BTreeSet<SaveRoad>,
     pub(crate) declared: Vec<DeclaredModule>,
+    pub(crate) selections: ModuleSelections,
 }
 
 /// The extension generation (D6, `docs/planning/engine/extension-model.md`):
@@ -126,6 +127,17 @@ pub struct ExtensionComposition {
 pub struct ExtensionGeneration(pub String);
 
 impl ExtensionGeneration {
+    fn with_selections(declared: &[DeclaredModule], selections: &ModuleSelections) -> Self {
+        let mut generation = Self::of(declared);
+        let (active, _) = admission::resolve_replacements(declared, selections, &mut Vec::new());
+        for key in selections.0.keys() {
+            if let Some(module) = active.iter().find(|module| module.descriptor.key == *key) {
+                generation.0.push_str(&format!("selection\t{key}\t{:016x}\n", module.descriptor.identity_digest()));
+            }
+        }
+        generation
+    }
+
     pub fn of(declared: &[DeclaredModule]) -> Self {
         use ambition_extension_sdk::CodeIdentity;
         let mut out = String::new();
@@ -246,14 +258,16 @@ pub fn admit_world(world: &mut World) {
             bind(&linked).unwrap_or_else(|e| panic!("{artifact} does not bind: {e}"));
         installation.modules.extend(loaded_declarations(&artifact, &backend, modules, true));
     }
+    let selections = world.get_resource::<ModuleSelections>().cloned().unwrap_or_default();
     if world.contains_resource::<ExtensionGeneration>() {
-        world.insert_resource(ExtensionGeneration::of(&installation.modules));
+        world.insert_resource(ExtensionGeneration::with_selections(&installation.modules, &selections));
     }
-    let admitted = match admit_with_roads(
+    let admitted = match admit_selected(
         API_VERSION,
         &installation.offers,
         &installation.save_roads,
         &installation.modules,
+        &selections,
     ) {
         Ok(admitted) => admitted,
         Err(refusals) => {
@@ -271,6 +285,7 @@ pub fn admit_world(world: &mut World) {
         offers: installation.offers.clone(),
         save_roads: installation.save_roads.clone(),
         declared: installation.modules.clone(),
+        selections,
     });
     world.init_resource::<reload::StagedModuleReplacement>();
     world.insert_resource(InstalledPortCodecs {

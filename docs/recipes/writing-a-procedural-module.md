@@ -204,6 +204,23 @@ versions, triggers, dependencies, limits, idle rules, and all state contracts.
 A matching declaration does not prove matching gameplay. Run the same inputs
 and compare state and domain outcomes before you replace an implementation.
 
+An external project's `project.ron` can select an implementation by module key:
+
+```ron
+implementations: [
+    (provider: "my_game", module: "my_rule", implementation: File("modules/my_rule.wasm")),
+],
+```
+
+Use `File("modules/my_rule.rhai")` for source, or `Linked` for a module that
+the executable links. File paths are relative to the manifest and become
+watched inputs. Other modules can remain in the `modules` list. A selection
+must resolve to exactly one implementation. It takes precedence over the
+declarations' replacement flags. Without a selection, duplicate replacements
+are refused. Change a selection at a project restart. A failed reload of the
+selected file keeps the last good generation; a missing selected implementation
+is never replaced with another implementation.
+
 ## Validation
 
 Build the module and exercise the affected technique in the running game.

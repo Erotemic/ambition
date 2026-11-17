@@ -81,6 +81,18 @@ pub enum ModuleCode {
     },
 }
 
+/// The implementation selected for one module key.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ModuleImplementation {
+    Linked,
+    Artifact(Arc<str>),
+}
+
+/// Project choices fixed at admission. Changing a choice requires a restart;
+/// a reload can replace the bytes of the selected artifact.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ModuleSelections(pub BTreeMap<ModuleKey, ModuleImplementation>);
+
 /// One module as a composition declares it.
 #[derive(Clone)]
 pub struct DeclaredModule {
@@ -136,6 +148,11 @@ pub struct PortOffer {
 /// Why admission refused a module.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Refusal {
+    SelectedImplementation {
+        module: ModuleKey,
+        implementation: ModuleImplementation,
+        found: usize,
+    },
     ApiVersion {
         module: ModuleKey,
         built: ApiVersion,
@@ -201,6 +218,10 @@ pub enum Refusal {
 
 impl std::fmt::Display for Refusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Self::SelectedImplementation { module, implementation, found } = self {
+            return write!(f, "module {module}: selected {implementation:?} provides {found} implementations; \
+                select exactly one file that exports this key, or link the module and select Linked");
+        }
         write!(f, "{self:?}")
     }
 }
@@ -271,8 +292,20 @@ pub fn admit_with_roads(
     roads: &BTreeSet<SaveRoad>,
     declared: &[DeclaredModule],
 ) -> Result<Admitted, Vec<Refusal>> {
+    admit_selected(host_api, offers, roads, declared, &ModuleSelections::default())
+}
+
+/// Admit with explicit implementation choices. Unselected keys use the
+/// declarations' replacement rules. Each selected implementation must exist.
+pub fn admit_selected(
+    host_api: ApiVersion,
+    offers: &[PortOffer],
+    roads: &BTreeSet<SaveRoad>,
+    declared: &[DeclaredModule],
+    selections: &ModuleSelections,
+) -> Result<Admitted, Vec<Refusal>> {
     let mut refusals = Vec::new();
-    let (declared, replaced) = resolve_replacements(declared, &mut refusals);
+    let (declared, replaced) = resolve_replacements(declared, selections, &mut refusals);
     let mut schemas: BTreeMap<SchemaKey, AdmittedSchema> = BTreeMap::new();
     let mut entries: Vec<AdmittedEntry> = Vec::new();
     let mut seen_modules: Vec<&ModuleKey> = Vec::new();
@@ -412,13 +445,37 @@ pub fn admit_with_roads(
 /// a duplicate for the main loop to refuse.
 pub(crate) fn resolve_replacements(
     declared: &[DeclaredModule],
+    selections: &ModuleSelections,
     refusals: &mut Vec<Refusal>,
 ) -> (Vec<DeclaredModule>, Vec<String>) {
     let mut kept: Vec<DeclaredModule> = Vec::new();
     let mut replaced = Vec::new();
+    let mut selected = BTreeSet::new();
     for module in declared {
         let key = &module.descriptor.key;
         let same: Vec<&DeclaredModule> = declared.iter().filter(|m| m.descriptor.key == *key).collect();
+        if let Some(choice) = selections.0.get(key) {
+            if !selected.insert(key.clone()) {
+                continue;
+            }
+            let chosen: Vec<_> = same.iter().filter(|module| match (&module.code, choice) {
+                (ModuleCode::Native, ModuleImplementation::Linked) => true,
+                (ModuleCode::Loaded { artifact, .. }, ModuleImplementation::Artifact(path)) => artifact == path,
+                _ => false,
+            }).collect();
+            if chosen.len() != 1 {
+                refusals.push(Refusal::SelectedImplementation {
+                    module: key.clone(), implementation: choice.clone(), found: chosen.len(),
+                });
+            } else {
+                if same.len() > 1 {
+                    replaced.push(format!("{key}: project selected {choice:?}"));
+                }
+                // Keep the key's first place when its implementation changes.
+                kept.push((**chosen[0]).clone());
+            }
+            continue;
+        }
         let replacers = same.iter().filter(|m| m.replaces).count();
         if same.len() == 1 || replacers == 0 {
             kept.push(module.clone());
@@ -433,6 +490,13 @@ pub(crate) fn resolve_replacements(
                 module.descriptor.code
             ));
             kept.push(module.clone());
+        }
+    }
+    for (key, choice) in &selections.0 {
+        if !selected.contains(key) {
+            refusals.push(Refusal::SelectedImplementation {
+                module: key.clone(), implementation: choice.clone(), found: 0,
+            });
         }
     }
     (kept, replaced)

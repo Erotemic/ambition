@@ -314,6 +314,15 @@ impl Port for SpendManaPort {
     }
 }
 
+ambition_extension_sdk::port_record! {
+    SpendMana {
+        /// The mana this invocation pays before its requests are applied.
+        amount: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(SpendManaPort);
+
 /// The request port marker for a sound a body makes.
 ///
 /// Port card:

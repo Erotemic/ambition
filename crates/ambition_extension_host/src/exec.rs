@@ -128,6 +128,20 @@ pub struct ExtensionOutbox {
 }
 
 impl ExtensionOutbox {
+    /// Read submitted requests before their domain adapter consumes them.
+    /// Order is submission order for this port and phase. This view does not
+    /// accept, refuse, or remove a request.
+    pub fn submitted<'a, P: Port>(&'a self, phase: &'a Phase) -> impl Iterator<Item = Submitted<&'a P::Value>> + 'a {
+        self.items.iter().filter_map(move |item| {
+            if item.port != P::KEY || item.phase != *phase { return None; }
+            Some(Submitted {
+                scope: item.scope, invocation: item.invocation, occurrence: item.occurrence,
+                entry: item.entry.clone(),
+                value: item.value.downcast_ref::<P::Value>().expect("the port's value type is unique"),
+            })
+        })
+    }
+
     /// Whether an invocation of `phase` submitted a request still waiting
     /// here. It depends only on this tick's invocations, so a rollback that
     /// replays the tick answers it the same.

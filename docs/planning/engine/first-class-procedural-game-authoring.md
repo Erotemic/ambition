@@ -193,8 +193,9 @@ Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
 | Gate | Executed evidence | Remaining work |
 | --- | --- | --- |
 | A3 | SDK comparison tests: 3 passed. Active replacement inspection: 1 passed. Independent Rhai/Rust declaration: 1 passed. The inspection tool matched all 30 linked content modules with a fresh WASM build. Pulse Forge refused changed field type, attachment, and missing request port with status 1 and field paths. | Native build identity; the promoted game mechanic and its full contract checks. |
-| A4 | Explicit project selection passed on real Sentry Rhai, WASM, and linked implementations with one inspection executable and no compiler on PATH. Host tests prove that only the selected implementation emits requests. Removing its file refuses and keeps the last good implementation. | Promote the external project's own mechanic and run it beside its second Rhai module. |
-| A1, A2, A5-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Execute each gate on the external project. |
+| A4 | Pulse Forge's emitter runs as Rhai, WASM, and linked Rust. Both Rust paths use `portable/src/lib.rs`. Explicit selection keeps the same world, catalogs, and module key. Its second Rhai module remains admitted in every mode. The debug host and stock runtime were executed with no compiler on PATH. | Release-host build belongs to A8. |
+| A5 | Two promotion tests pass. Six backend/rollback cases compare 280 input frames each. They compare initial and populated state, ordered requests, body and occurrence identities, cost admission, entity lifetime, projectile motion, and mana. A second release is refused for insufficient mana. Changed Rhai bolt speed produces a structured diff. | Keep this fixture when the authored actor and catalogs change. |
+| A1, A2, A6-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Install the authored sentinel body, remove the fixed inventory binding, and execute the remaining gates. |
 
 Commands for this slice:
 
@@ -238,11 +239,48 @@ identity. Selection changes require a restart; selected-file edits still reload.
 It reported nine violations outside this slice: four dependency allowlist
 entries, three direct body writes, and two optional-catalog diagnostics. The full
 diagnostics are in `target/procedural-selection-policy.log`. Other selection
-logs use the same prefix. The next step is the Pulse Forge Rust module and
-its three-backend gameplay fixture.
+logs use the same prefix.
 
 The selection executable SHA-256 was
 `296479b1b9fa00351df40b21227c4378a453876d5921847cd60b39bb29bcfb39`.
+
+Promotion slice checks, Linux x86_64, debug host and release WASM:
+
+```bash
+cargo test -p pulse_forge_host --test promotion -- --test-threads=1
+cargo test -p ambition_combat_port -p ambition_extension_host --lib
+cargo test -p ambition_app --test app_it -- a_project_authors_a_technique
+cargo check -p ambition_app
+cargo build -p ambition_app -p ambition_app_tools -p pulse_forge_host --bin ambition_game_bin --bin extension_inspect --bin pulse_forge_host
+python3 scripts/checks/check_absence_contracts.py --check
+```
+
+Results: 2 promotion tests, 35 port tests, 46 host tests, and 5 project tests
+passed. The app check and all 53 absence contracts passed. The generated
+script reference includes the existing mana-cost port. The minimal consumer
+lock was refreshed for the persistence dependency merged from upstream.
+The policy check still had 33 passes and 2 failed tests. It reported ten
+violations outside the promotion change, including the new upstream
+persistence edge's allowlist. Logs use `target/procedural-promotion-*`.
+
+The [example guide](../../../examples/projects/pulse_forge/README.md) gives
+the exact build, copy, selection, and run commands. The stock executable ran
+both authored-file modes for 30 ticks with `PATH=/nonexistent`. Its SHA-256
+was unchanged between runs:
+`b3d4b0333281671c271fdf5517e01064fa4030d442568b7badc5d102521a1c90`.
+The linked example host also ran for 30 ticks and printed both native emitter
+entries and the loaded Rhai sentinel. Its SHA-256 was
+`814c4b7b4c0d2527a900bf04cb599311d34332abeff02d3d23eb0e6b9ee1e31d`.
+The WASM SHA-256 was
+`2465155e4fa0d304a740e34e0d30eee6d539f8cc94dadcfff97743f378986a66`.
+The semantic declaration matched as `46370e7146c047f6`.
+
+Complete traces are under `target/pulse-forge-parity`. The negative fixture's
+diff is `target/pulse-forge-parity-negative/diff.json`. The guide states the
+fixture's tick origin and exact float comparisons. These results do not
+establish parity for other algorithms, profiles, or platforms. The next step
+is the authored actor and an innate technique binding, through the character
+catalog and the shared action scheme.
 
 ## Owner documents and source locations
 

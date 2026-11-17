@@ -544,6 +544,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::WieldedUsePort>("wielded_use")
         .add::<ambition_combat_port::WieldedAlternatePort>("wielded_alternate")
         .add::<ambition_combat_port::SpawnModuleEntityPort>("spawn_module_entity")
+        .add::<ambition_combat_port::SpendManaPort>("spend_mana")
         .add::<ambition_combat_port::ModuleEntityTickPort>("module_entity_tick")
         .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
         .add::<ambition_combat_port::BodySoundPort>("sound")

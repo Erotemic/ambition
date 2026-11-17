@@ -7978,6 +7978,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "pulse_forge_host"
+version = "0.1.0"
+dependencies = [
+ "ambition_app",
+ "ambition_combat_port",
+ "ambition_extension_host",
+ "ambition_platformer2d",
+ "ambition_projectile_spec",
+ "bevy",
+ "pulse_forge_modules",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pulse_forge_modules"
+version = "0.1.0"
+dependencies = [
+ "ambition_combat_port",
+ "ambition_extension_sdk",
+ "ambition_projectile_spec",
+ "bevy_math",
+]
+
+[[package]]
 name = "pxfm"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"

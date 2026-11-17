@@ -69,6 +69,14 @@ Port `ambition.world.spawn_module_entity@2`, request: `this.requests.push(reques
 | `half_extents` | [x, y] | `[0.0, 0.0]` | The contact box half size. Zero gives a point that no body touches. |
 | `params` | table of text to one of: a number \| text \| a bool | `#{  }` | The values the entity reads in `this.trigger.params` on each tick. |
 
+## `spend_mana`
+
+Port `ambition.resources.spend_mana@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `amount` | number | required | The mana this invocation pays before its requests are applied. |
+
 ## `module_entity_tick`
 
 Port `ambition.world.module_entity_tick@2`, trigger: read as `this.trigger`.

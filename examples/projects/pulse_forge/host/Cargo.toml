@@ -1,0 +1,21 @@
+[package]
+name = "pulse_forge_host"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "Pulse Forge's host with its portable Rust module linked."
+
+[dependencies]
+ambition_app = { path = "../../../../game/ambition_app" }
+ambition_platformer2d = { path = "../../../../crates/ambition_platformer2d" }
+pulse_forge_modules = { path = "../portable" }
+bevy = { version = "0.19.1", default-features = false }
+
+[dev-dependencies]
+ambition_combat_port = { path = "../../../../crates/ambition_combat_port" }
+ambition_extension_host = { path = "../../../../crates/ambition_extension_host" }
+ambition_projectile_spec = { path = "../../../../crates/ambition_projectile_spec" }
+serde = { workspace = true }
+serde_json = "1"

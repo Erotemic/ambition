@@ -21,7 +21,7 @@ fn declare() {
         entries: [
             #{ key: "charge", phase: "technique_execution",
                trigger: #{ port: "technique_use", selector: "pulse_forge" },
-               writes: ["emitter.charge"], requests: ["spawn_module_entity"], limit: 1,
+               writes: ["emitter.charge"], requests: ["spend_mana", "spawn_module_entity"], limit: 2,
                idle: "reset" },
             #{ key: "pulse", phase: "module_entity_tick",
                trigger: #{ port: "module_entity_tick", selector: "pulse_forge.emitter" },
@@ -39,6 +39,7 @@ fn charge() {
     if this.trigger.released {
         let pulses = min(5, (c.seconds / global::CHARGE_PER_PULSE_S).to_int());
         if pulses > 0 && this.trigger.user.names_spawns {
+            this.requests.push(request("spend_mana", #{ amount: pulses * 12.0 }));
             this.requests.push(request("spawn_module_entity", #{
                 kind: "pulse_forge.emitter", at: this.trigger.user.position,
                 lifetime_s: 3.0, params: #{ pulses: pulses },

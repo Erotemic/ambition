@@ -393,7 +393,7 @@ fn a_project_technique_keeps_last_good_code_then_reloads_and_leaves() {
             .0
             .entries
             .iter()
-            .any(|e| e.path.starts_with("pulse_forge::"))
+            .any(|e| e.path.starts_with("pulse_forge::emitter/"))
     );
     assert!(
         sim.world_mut()

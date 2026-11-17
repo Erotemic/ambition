@@ -71,6 +71,7 @@ ambition_content = { path = "../ambition_content" }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
 ambition_demo_smash_app = { path = "../ambition_demo_smash_app" }
 serde_json = "1"
+ron = { workspace = true }
 image = { version = "0.25", default-features = false, features = ["png"] }
 clap = { workspace = true }
 libc = "0.2"

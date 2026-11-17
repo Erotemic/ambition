@@ -7,8 +7,13 @@ authors.workspace = true
 publish = false
 description = "Pulse Forge's host with its portable Rust module linked."
 
+[features]
+default = ["desktop_dev"]
+desktop_dev = ["ambition_app/desktop_dev"]
+desktop_player = ["ambition_app/desktop_player"]
+
 [dependencies]
-ambition_app = { path = "../../../../game/ambition_app" }
+ambition_app = { path = "../../../../game/ambition_app", default-features = false }
 ambition_platformer2d = { path = "../../../../crates/ambition_platformer2d" }
 pulse_forge_modules = { path = "../portable" }
 bevy = { version = "0.19.1", default-features = false }

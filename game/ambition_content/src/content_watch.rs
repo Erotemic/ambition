@@ -1,7 +1,8 @@
 //! ⭐ THE RUNNING GAME PLAYS A CONTENT EDIT (fast-iteration I3 step 4: "file
 //! watching calls the same request path").
 //!
-//! A build that reads its content off disk (no `static_content` feature) looks
+//! A native host watches each selected content directory, including an
+//! external project in a host with embedded installed content. It looks
 //! at `pack.ron` and at every source it declares; a change to `pack.ron` also
 //! changes which files are looked at, so a source added there is watched from
 //! the next look. When a file changes, it compiles the pack

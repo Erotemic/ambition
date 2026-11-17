@@ -652,7 +652,7 @@ fn stage_cast_from_pack(
 /// Define the live cast again from the selected pack and the sheet records
 /// now published, and publish it if a definition changed. A sheet publication
 /// calls it where no session is live.
-#[cfg(not(feature = "static_content"))]
+#[cfg(not(any(feature = "static_content", target_arch = "wasm32")))]
 fn restate_the_cast_from_the_sheets(world: &mut bevy::ecs::world::World) {
     use ambition_characters::prepared::{activate_staged_revision, RevisionOutcome};
     let (Some(pack), Some(support)) = (
@@ -2108,43 +2108,45 @@ pub fn register(app: &mut bevy::prelude::App) {
             .before(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands)
             .run_if(shell_is_installed),
     );
-    // A build that reads its content off disk plays an edit of it. See
-    // `crate::content_watch`. Before `Commands`, which reads the
-    // `ReplaceWith` a request writes.
-    #[cfg(not(feature = "static_content"))]
+    // Watch the selected directory. Embedded installed content has no watch;
+    // an external project keeps its source reload path in a shipped host.
+    #[cfg(not(target_arch = "wasm32"))]
     {
         // The selected pack's root: a project's own pack is the one it edits.
         let root = crate::pack::selected(app.world())
             .map(|pack| pack.root.clone())
             .filter(|root| !root.as_os_str().is_empty())
-            .unwrap_or_else(crate::pack::source_root);
-        app.insert_resource(crate::content_watch::ContentSourceWatch::new(root));
-        // The cast reads its body scale, hurtboxes and rigs from the sheets.
-        ambition_platformer2d::content::sprite_reload::restate_with_the_sheets(
-            app,
-            "the Ambition cast",
-            restate_the_cast_from_the_sheets,
-        );
-        app.add_systems(
-            bevy::prelude::Update,
-            crate::content_watch::watch_content_sources
-                .before(break_the_publication_lease_when_the_boundary_closes)
-                .before(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands)
-                .run_if(shell_is_installed),
-        );
-        // The dialogue: the running Yarn project's own files. See
-        // `crate::content_watch::yarn`. Only where a project is loaded.
-        #[cfg(feature = "ui")]
-        {
-            app.insert_resource(crate::content_watch::YarnSourceWatch::new(
-                crate::pack::source_root(),
-                crate::dialogue::yarn::yarn_sources().iter().map(|(name, _)| (*name).to_string()),
-            ));
+            .or_else(|| cfg!(not(feature = "static_content")).then(crate::pack::source_root));
+        if let Some(root) = root {
+            app.insert_resource(crate::content_watch::ContentSourceWatch::new(root));
+            // The cast reads its body scale, hurtboxes and rigs from the sheets.
+            #[cfg(not(feature = "static_content"))]
+            ambition_platformer2d::content::sprite_reload::restate_with_the_sheets(
+                app,
+                "the Ambition cast",
+                restate_the_cast_from_the_sheets,
+            );
             app.add_systems(
                 bevy::prelude::Update,
-                crate::content_watch::watch_yarn_sources
-                    .run_if(bevy::prelude::resource_exists::<bevy_yarnspinner::prelude::YarnProject>),
+                crate::content_watch::watch_content_sources
+                    .before(break_the_publication_lease_when_the_boundary_closes)
+                    .before(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands)
+                    .run_if(shell_is_installed),
             );
+            // The dialogue: the running Yarn project's own files. See
+            // `crate::content_watch::yarn`. Only where a project is loaded.
+            #[cfg(all(feature = "ui", not(feature = "static_content")))]
+            {
+                app.insert_resource(crate::content_watch::YarnSourceWatch::new(
+                    crate::pack::source_root(),
+                    crate::dialogue::yarn::yarn_sources().iter().map(|(name, _)| (*name).to_string()),
+                ));
+                app.add_systems(
+                    bevy::prelude::Update,
+                    crate::content_watch::watch_yarn_sources
+                        .run_if(bevy::prelude::resource_exists::<bevy_yarnspinner::prelude::YarnProject>),
+                );
+            }
         }
     }
 }

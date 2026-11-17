@@ -45,7 +45,7 @@ pub const PROJECT_SCHEMA: &str = "ambition.project.v1";
 pub const PROJECT_FILE: &str = "project.ron";
 
 /// `project.ron`, as written.
-#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectManifest {
     pub schema: String,
@@ -66,7 +66,7 @@ pub struct ProjectManifest {
 }
 
 /// One explicit choice for a module key. A file path is project-relative.
-#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectModuleSelection {
     pub provider: String,
@@ -74,7 +74,7 @@ pub struct ProjectModuleSelection {
     pub implementation: ProjectImplementation,
 }
 
-#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum ProjectImplementation {
     Linked,
     File(String),

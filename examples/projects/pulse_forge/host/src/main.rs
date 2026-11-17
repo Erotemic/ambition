@@ -37,9 +37,25 @@ fn main() {
         print!("{}", ambition_platformer2d::extension::inspect::describe_records(sim.world_mut()));
         return;
     }
-    ambition_app::app::build_visible_app_with(
-        ambition_app::app::VisibleRenderMode::Windowed,
-        false,
-        |app| { app.add_extension_module(pulse_forge_modules::module()); },
-    ).run();
+    let frames = value(&args, "--presentation-frames");
+    let mode = if frames.is_some() { ambition_app::app::VisibleRenderMode::NoWindow }
+        else { ambition_app::app::VisibleRenderMode::Windowed };
+    let mut app = ambition_app::app::build_visible_app_with(
+        mode, false, |app| { app.add_extension_module(pulse_forge_modules::module()); },
+    );
+    if let Some(frames) = frames {
+        app.finish();
+        app.cleanup();
+        for _ in 0..frames.parse::<u32>().expect("--presentation-frames needs a nonnegative integer") {
+            app.update();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let world = app.world_mut();
+        assert!(world.resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>().0.is_some(),
+            "the presentation probe did not activate the project");
+        println!("project: {}", world.resource::<ambition_app::app::project::ProjectWatch>().project.name);
+        print!("{}", ambition_platformer2d::extension::inspect::describe_composition(world));
+    } else {
+        app.run();
+    }
 }

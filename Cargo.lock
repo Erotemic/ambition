@@ -233,6 +233,7 @@ dependencies = [
  "clap",
  "image",
  "libc",
+ "ron 0.11.0",
  "serde_json",
 ]
 

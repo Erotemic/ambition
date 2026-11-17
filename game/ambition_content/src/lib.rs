@@ -56,7 +56,7 @@ pub mod pack;
 pub mod gameplay_defaults;
 /// The running game plays a content edit: the declared sources are watched,
 /// and a change asks for a reload.
-#[cfg(not(feature = "static_content"))]
+#[cfg(not(target_arch = "wasm32"))]
 pub mod content_watch;
 /// The running host's move-table reload — the revision road's first customer.
 pub mod reload;

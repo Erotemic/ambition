@@ -31,6 +31,7 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "headless",
+    "dialogue",
 ] }
 # The gameplay trace recorder, installed with the engine (`TraceSchedulePlugin`).
 ambition_platformer2d_trace = { path = "../ambition_platformer2d_trace" }

@@ -26,7 +26,54 @@ use bevy::prelude::*;
 // the ONLY dialogue name this module has left, and it is a port rather than a
 // type from `ambition_dialog`. See `ambition_conversation::opening`.
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
-use ambition_conversation::DialogueDispatch;
+#[cfg(feature = "dialogue")]
+use ambition_conversation::{DialogueDispatch, npc_talk_dialogue_id};
+#[cfg(not(feature = "dialogue"))]
+use no_dialogue::{NoDialogue as DialogueDispatch, npc_talk_dialogue_id};
+
+/// What a composition without the dialogue domain answers the three questions
+/// the interaction asks it: nothing, so no body is a speaker, and the press
+/// falls through to the switches as it does for a body with no identity.
+/// Uninhabited, so only `None` of it exists and no talk can be reached.
+#[cfg(not(feature = "dialogue"))]
+mod no_dialogue {
+    use bevy::prelude::Entity;
+
+    pub enum NoDialogue {}
+
+    impl NoDialogue {
+        pub fn speaker_id(
+            &self,
+            _body: Entity,
+            _interaction: Option<&super::ActorInteraction>,
+            _identity: Option<&super::ActorIdentity>,
+        ) -> Option<String> {
+            match *self {}
+        }
+
+        pub fn driving_slot(&self, _body: Entity) -> Option<ambition_characters::control::PlayerSlot> {
+            match *self {}
+        }
+
+        #[allow(clippy::too_many_arguments)]
+        pub fn open_between(
+            &mut self,
+            _initiator: Entity,
+            _talker: Entity,
+            _dialogue_id: &str,
+            _speaker_name: &str,
+            _speaker_id: &str,
+            _listener_id: &str,
+            _input_owner: ambition_input::InputOwner,
+        ) -> bool {
+            match *self {}
+        }
+    }
+
+    pub fn npc_talk_dialogue_id(authored: Option<&str>) -> &str {
+        authored.unwrap_or_default()
+    }
+}
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// The bodies Interact can talk to: peaceful feature actors with a
@@ -94,7 +141,7 @@ pub fn interact_ecs_actors_and_switches(
     // has no conversation authority, and the interaction system still serves
     // switches. No dispatch is the same state as a body with no dialogue
     // identity below: dialogue is skipped, the rest of the system runs.
-    mut dialogue: Option<DialogueDispatch>,
+    #[cfg(feature = "dialogue")] mut dialogue: Option<DialogueDispatch>,
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
     // ⭐ EVERY DRIVEN BODY. The gesture half was already per-body —
@@ -223,6 +270,8 @@ pub fn interact_ecs_actors_and_switches(
         // would make dialogue authority depend on whichever provider initialized
         // first in this process. A speaker-less body skips dialogue but still
         // works switches below.
+        #[cfg(not(feature = "dialogue"))]
+        let mut dialogue: Option<DialogueDispatch> = None;
         let speaker_id = dialogue.as_ref().and_then(|dialogue| {
             dialogue.speaker_id(subject, interactions.get(subject).ok(), identities.get(subject).ok(),
             )
@@ -274,7 +323,7 @@ pub fn interact_ecs_actors_and_switches(
             {
                 continue;
             }
-            let dialogue_id = ambition_conversation::npc_talk_dialogue_id(match &interactable.kind {
+            let dialogue_id = npc_talk_dialogue_id(match &interactable.kind {
                 ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
                 _ => None,
             });
@@ -402,5 +451,6 @@ pub fn interact_ecs_actors_and_switches(
     }
 }
 
-#[cfg(test)]
+// Each builds a conversation authority.
+#[cfg(all(test, feature = "dialogue"))]
 mod tests;

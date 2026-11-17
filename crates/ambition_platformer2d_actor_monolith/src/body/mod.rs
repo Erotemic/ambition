@@ -28,6 +28,7 @@ pub use movement_fx::{
 };
 
 pub use dismounted_rider::install_dismounted_rider_rebuild;
+#[cfg(feature = "dialogue")]
 pub use npcs::speak_conversation_cut_barks;
 
 use ambition_boss_encounter::ecs::tick_boss_brains_system;
@@ -85,6 +86,7 @@ pub use beat_cues::play_beat_cues;
 mod reactions;
 pub use reactions::advance_body_reactions;
 mod summon;
+#[cfg(feature = "dialogue")]
 mod talk_spacing;
 mod target_volumes;
 mod wear;
@@ -114,6 +116,7 @@ pub use pet::{
     apply_pet_requests, project_pet_holds,
 };
 pub use rest_row::{REST_ROW_WRITER, pin_rest_rows};
+#[cfg(feature = "dialogue")]
 pub use talk_spacing::{TALK_GAP, TalkSpacing, space_the_talkers};
 pub use wear::{WearRequested, apply_wear_requests};
 #[cfg(test)]
@@ -413,6 +416,7 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         );
         // Outside the gate: a conversation stops gated systems, and this is
         // what stops a talked-to body's plan.
+        #[cfg(feature = "dialogue")]
         app.add_systems(
             sim,
             crate::body::life::interrupt_talked_to_lives

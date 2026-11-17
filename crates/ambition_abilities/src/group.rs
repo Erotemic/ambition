@@ -64,7 +64,8 @@ type MemberQuery<'a> = (
 pub fn queue_group_thinks(
     admitted: Res<AdmittedExtensions>,
     time: Res<ambition_time::WorldTime>,
-    catalog: Res<CharacterCatalog>,
+    // A host with no assembled catalog has no tagged bodies, so no group.
+    catalog: Option<Res<CharacterCatalog>>,
     mut invocations: ResMut<ExtensionInvocations>,
     bodies: Query<MemberQuery>,
     items: Query<(Entity, &GroundItem, &ae::BodyKinematics, &ItemCustody, &SimId, Has<SettledItem>)>,
@@ -105,7 +106,7 @@ pub fn queue_group_thinks(
     for tag in tags {
         let mut groups: BTreeMap<LiveRoomInstance, Vec<GroupMember>> = BTreeMap::new();
         for (entity, form, health, kin, id, target, held, support, driven) in bodies.iter() {
-            let tagged = catalog.get(form.id()).is_some_and(|entry| entry.tags.iter().any(|t| *t == tag));
+            let tagged = catalog.as_ref().and_then(|catalog| catalog.get(form.id())).is_some_and(|entry| entry.tags.iter().any(|t| *t == tag));
             let Some(room) = rooms.of(entity).filter(|_| tagged) else {
                 continue;
             };

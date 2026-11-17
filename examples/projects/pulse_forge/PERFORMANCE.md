@@ -55,6 +55,11 @@ dependencies. The native command deliberately builds and links an executable.
 
 ## Executed results
 
+The measured implementation is committed as `9c1ccf62d`. These samples precede
+the upstream rollback schema 481 merge; the merged tree's functional checks
+are recorded in the acceptance receipt. The executable hash below identifies
+the measured host.
+
 Linux x86_64, 2026-11-17; Intel Core i9-11900K VM with 12 logical CPUs and
 62.8 GiB RAM, Linux 6.8.0, Rust 1.95.0, clang/mold. Source is on virtiofs;
 the assigned Cargo target is bound to ext4. These are three samples per backend

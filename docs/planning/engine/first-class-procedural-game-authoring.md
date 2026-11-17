@@ -222,11 +222,15 @@ python3 scripts/package/package_project.py --project /tmp/pulse-forge-authoring 
 
 Results: 46 host tests, two release promotion tests, two release project-state
 tests, the assembled app check, and all 53 absence contracts pass. The
-workspace policy lane has 33 passes and two failures with the same eight
-findings outside this slice: five dependency allowlist entries and three
-direct body writes. No waiver was added. This is a focused lane; the full
-workspace suite and visual acceptance were not run. Final check logs use
-`target/procedural-authoring-final-*`.
+workspace policy lane has 33 passes and two failures. Before the upstream
+merge it reports eight findings: five dependency allowlist entries and three
+direct body writes. The unchanged policy test binary reports ten findings on
+the merged source: upstream `d9022dd41` adds two optional-catalog findings at
+one group binding. No waiver was added. This is a focused lane; the full
+workspace suite and visual acceptance were not run. Check logs use
+`target/procedural-authoring-final-*` and `target/procedural-authoring-merged-*`.
+The merged app check and all four release project tests pass again after
+`af3ac0f6e`, including upstream's rollback schema 481.
 
 The independent source workspace is `/tmp/pulse-forge-authoring`. The stock
 engine SHA-256 stayed

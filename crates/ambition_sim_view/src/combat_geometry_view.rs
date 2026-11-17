@@ -94,6 +94,8 @@ pub struct CombatBodyGeometryView {
     /// combat reaches them (`ambition_combat::hitbox::hurt_pieces_of`).
     /// `None`: no pair cuts it, and the hurtboxes are where they are.
     pub hurt_pieces: Option<Vec<ae::frame::thread::VolumePiece>>,
+    /// The geometry owner's refusal, when it admitted no hurt material.
+    pub hurt_refusal: Option<String>,
     /// Which of the runtime's three damageable-volume states produced
     /// [`Self::hurtboxes`]. An empty list means two different things —
     /// deliberately intangible, or a body this view could not resolve — and an
@@ -142,6 +144,8 @@ pub struct CombatStrikeGeometryView {
     /// them (`ambition_combat::hitbox::strike_reach`). `None`: no pair cuts
     /// it, and the volume is where it is.
     pub pieces: Option<Vec<ae::frame::thread::VolumePiece>>,
+    /// The geometry owner's refusal, when it admitted no strike material.
+    pub geometry_refusal: Option<String>,
     /// The live strike entity, so an observer can tie a per-strike visual to
     /// the volume that owns it and retire the visual when the strike ends.
     ///
@@ -277,8 +281,10 @@ pub fn rebuild_combat_geometry_view(
     let passages = passages.as_deref();
     // A cut that left one whole piece is no cut.
     let cut = |result: ae::frame::thread::Partition| {
-        let Ok(pieces) = result else { return Some(Vec::new()); };
-        (pieces.len() > 1 || pieces.iter().any(|piece| piece.is_carried() || !piece.source_bounds().is_empty())).then_some(pieces)
+        match result {
+            Ok(pieces) => ((pieces.len() > 1 || pieces.is_empty() || pieces.iter().any(|piece| piece.is_carried() || !piece.source_bounds().is_empty())).then_some(pieces), None),
+            Err(reason) => (Some(Vec::new()), Some(format!("{reason:?}"))),
+        }
     };
     view.bodies.clear();
     view.strikes.clear();
@@ -286,18 +292,19 @@ pub fn rebuild_combat_geometry_view(
     for (body, aabb, damageable, combat, health, kin, ground, wall, playback, motion) in &bodies {
         let collision = aabb.aabb();
         let (hurtboxes, hurtbox_source) = effective_hurtboxes(collision, damageable, kin);
-        let hurt_pieces = passages.and_then(|passages| {
+        let (hurt_pieces, hurt_refusal) = passages.map(|passages| {
             cut(ambition_combat::hitbox::hurt_pieces_of(body,
                 kin,
                 aabb,
                 damageable, Some(passages), rooms.of(body),
             ))
-        });
+        }).unwrap_or((None, None));
         view.bodies.push(CombatBodyGeometryView {
             body,
             collision,
             hurtboxes,
             hurt_pieces,
+            hurt_refusal,
             hurtbox_source,
             damage_taken: health.map(|h| h.damage_taken()).unwrap_or(0),
             facing: kin.map(|k| k.facing).unwrap_or(1.0),
@@ -330,10 +337,12 @@ pub fn rebuild_combat_geometry_view(
         let owner = owner_kinematics.get(hitbox.owner).ok();
         let Ok(volume) = hitbox.world_volume(owner) else { continue; };
         let room = rooms.stamped(strike).or_else(|| rooms.of(hitbox.owner));
-        let pieces = passages.and_then(|passages| cut(ambition_combat::hitbox::strike_reach(Some(passages), hitbox, owner, room)));
+        let (pieces, geometry_refusal) = passages.map(|passages| cut(ambition_combat::hitbox::strike_reach(Some(passages), hitbox, owner, room)))
+            .unwrap_or((None, None));
         view.strikes.push(CombatStrikeGeometryView {
             volume,
             pieces,
+            geometry_refusal,
             strike,
             owner: hitbox.owner,
             damage: hitbox.damage,

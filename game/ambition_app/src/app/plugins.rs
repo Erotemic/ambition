@@ -437,6 +437,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 }
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
+    app.add_plugins(ambition_platformer2d::render::rendering::observed_geometry::ObservedGeometryPlugin);
     app.add_systems(PostUpdate, super::hud::fit_primary_inspection_hud.before(bevy::ui::UiSystems::Prepare));
     app.init_resource::<debug_overlay::DebugOverlayLabels>();
     // With portals, the continuity camera tag (registered by HostCameraPlugin)
@@ -444,7 +445,8 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     #[cfg(feature = "portal_render")]
     let overlay = (
         debug_overlay::draw_debug_overlay,
-        debug_overlay::label_observed_geometry,
+        debug_overlay::label_observed_geometry
+            .after(ambition_platformer2d::render::rendering::observed_geometry::collect_observed_geometry),
         // Labels use the same frame and room as their shapes.
         debug_overlay::render_debug_overlay_labels,
     )
@@ -454,7 +456,8 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
         debug_overlay::draw_debug_overlay,
-        debug_overlay::label_observed_geometry,
+        debug_overlay::label_observed_geometry
+            .after(ambition_platformer2d::render::rendering::observed_geometry::collect_observed_geometry),
         debug_overlay::render_debug_overlay_labels,
     )
         .chain()

@@ -1,7 +1,8 @@
-//! Render a room's collision geometry to a PNG with a CPU pixel buffer.
+//! Render a room's authored geometry to a PNG with a CPU pixel buffer.
 //!
 //! Shows solids, platforms, hazards, placement bounds, boss hurtboxes and the
 //! spawn point. Capture mode uses the shared camera snapshot resolver.
+//! For live geometry, use `inspect_geometry` or `capture_scene --geometry-overlay`.
 //!
 //! Usage:
 //!   cargo run -p ambition_app_tools --bin render_room_geometry -- [ROOM_ID] [OUT.png]

@@ -74,40 +74,55 @@ pub(crate) fn render_debug_overlay_labels(
     drawings.finish();
 }
 
-/// Label the observed geometry: its legend in the corner of each view
-/// (GOBS-4), and each piece (GOBS-1) when the Geometry Observer row has one
-/// observer selected: with every observer drawn, the labels would bury the
-/// room. Runs after the overlay, which clears the labels, and before they
-/// are drawn.
+#[derive(Component, Default)]
+pub(crate) struct ObservedLabelDrawing;
+
+/// Keep each report's labels and context in its own view mask.
 pub(crate) fn label_observed_geometry(
     developer_tools: Res<DeveloperTools>,
     frame: Option<Res<ambition_platformer2d::render::rendering::observed_geometry::ObservedGeometryFrame>>,
-    mut overlay_labels: ResMut<DebugOverlayLabels>,
-    views: Query<&ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot, With<ambition_platformer2d::sim_view::LocalView>>,
+    mut drawings: RetainedDrawings<ObservedLabelDrawing>,
+    worlds: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
+    views: Query<&ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>,
 ) {
-    let Some(frame) = frame else { return };
-    // The legend (GOBS-4), at the top left of each view of a room it observed.
-    for view in &views {
-        let Some(shown) = view.frame() else { continue };
-        let corner = shown.snapshot.target_world - shown.snapshot.visible_view * 0.5 + ae::Vec2::new(6.0, 10.0);
-        let legend = ambition_platformer2d::render::rendering::observed_geometry::observation_legend(frame.in_room(shown.room));
-        for (n, (text, color)) in legend.into_iter().enumerate() {
-            overlay_labels.0.push(DebugLabel {
-                room: shown.room,
-                world_pos: corner + ae::Vec2::new(0.0, n as f32 * (DEBUG_LABEL_FONT_PX + 3.0)),
-                text,
-                color,
-            });
+    let Some(frame) = frame else { drawings.finish(); return };
+    for observed in &frame.views {
+        let (Some(world), Ok(camera)) = (worlds.in_room(observed.room), views.get(observed.view)) else { continue };
+        let Some(shown) = camera.frame() else { continue };
+        let turn = bevy::math::Rot2::radians(shown.snapshot.rotation_radians);
+        let from_view = |delta: ae::Vec2| {
+            let rotated = turn * Vec2::new(delta.x, -delta.y);
+            ae::Vec2::new(rotated.x, -rotated.y)
+        };
+        let corner = shown.snapshot.center_world + from_view(-shown.snapshot.visible_view * 0.5 + ae::Vec2::new(6.0, 10.0));
+        let mut legend = Vec::new();
+        match &observed.report {
+            Ok(report) => {
+                legend.push((format!("{} #{} | tick {} | {}", report.context.room,
+                    report.context.room_instance, report.context.sim_tick.map_or_else(|| "unavailable".into(), |tick| tick.to_string()),
+                    report.context.subject.as_deref().unwrap_or("room view")), Color::WHITE));
+                legend.extend(ambition_platformer2d::render::rendering::observed_geometry::observation_legend(&report.layers));
+            }
+            Err(reason) => legend.push((format!("geometry unavailable: {reason}"), Color::srgb(1.0, 0.3, 0.3))),
         }
+        drawings.draw(DrawingScope::View(observed.view), |picture| {
+            let mut text_at = |pos, text: &str, color| picture.text_2d(
+                bevy::math::Isometry2d::new(world_to_bevy(&world.0, pos, 0.0).truncate(), turn), text,
+                DEBUG_LABEL_FONT_PX, Vec2::new(-0.5, 0.5), color,
+            );
+            for (n, (text, color)) in legend.iter().enumerate() {
+                text_at(corner + from_view(ae::Vec2::new(0.0, n as f32 * (DEBUG_LABEL_FONT_PX + 3.0))), text, *color);
+            }
+            if developer_tools.observed_geometry_only.is_some() {
+                if let Ok(report) = &observed.report {
+                    for label in ambition_platformer2d::render::rendering::observed_geometry::observation_labels(&report.layers) {
+                        text_at(label.at, &label.text, label.color);
+                    }
+                }
+            }
+        });
     }
-    if developer_tools.observed_geometry_only.is_none() {
-        return;
-    }
-    for (room, layers) in &frame.rooms {
-        for label in ambition_platformer2d::render::rendering::observed_geometry::observation_labels(layers) {
-            overlay_labels.0.push(DebugLabel { room: *room, world_pos: label.at, text: label.text, color: label.color });
-        }
-    }
+    drawings.finish();
 }
 
 #[cfg(not(feature = "input"))]

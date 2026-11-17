@@ -58,6 +58,7 @@ pub struct RoomNavigation {
     /// The graphs a body was advised from this tick. For instruments: a
     /// graph that is kept and not in use is no fact about the room now.
     in_use: Vec<NavGraphKey>,
+    by_body: BTreeMap<Entity, NavGraphKey>,
     /// Each live room's geometry stamp, folded again only when the room's
     /// geometry is written.
     stamps: ambition_platformer2d_world::navigation::GeometryStamps,
@@ -65,7 +66,7 @@ pub struct RoomNavigation {
 
 impl Default for RoomNavigation {
     fn default() -> Self {
-        Self { graphs: NavGraphCache::with_capacity(GRAPHS_KEPT), in_use: Vec::new(), stamps: Default::default() }
+        Self { graphs: NavGraphCache::with_capacity(GRAPHS_KEPT), in_use: Vec::new(), by_body: BTreeMap::new(), stamps: Default::default() }
     }
 }
 
@@ -172,6 +173,7 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
+    cache.by_body.clear();
     for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, visit, config, origin) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
@@ -193,6 +195,8 @@ pub fn advise_navigation(
         };
         let world = room.base();
         let stamp = cache.stamps.of(room);
+        cache.by_body.insert(entity, NavGraphKey::from_stamp(stamp, model.spec(), abilities.abilities,
+            kinematics.size(), *base_size, frame.get()));
         let graph = cache.graph_of(
             world,
             stamp,
@@ -444,7 +448,12 @@ fn observe_navigation(
     };
     let mut out = Vec::new();
     let stamp = ambition_platformer2d_world::navigation::geometry_stamp(walls.base(), &[]);
-    for (g, graph) in navigation.iter().flat_map(|navigation| navigation.graphs_in_use_stamped(stamp)).enumerate() {
+    let graphs: Vec<_> = navigation.iter().flat_map(|navigation| {
+        navigation.graphs.iter().filter(|(key, _)| key.room_stamp() == stamp && navigation.in_use.contains(key)
+            && query.subject.is_none_or(|body| navigation.by_body.get(&body) == Some(key)))
+            .filter_map(|(_, graph)| graph)
+    }).collect();
+    for (g, graph) in graphs.into_iter().enumerate() {
         for (k, surface) in graph.surfaces.iter().enumerate() {
             let (a, b) = (graph.frame.point(surface.left, surface.top), graph.frame.point(surface.right, surface.top));
             out.push(piece(format!("graph{g}/surface{k}"), "nav_surface", ObservedShape::Segment { a: a.to_array(), b: b.to_array() }));
@@ -459,7 +468,7 @@ fn observe_navigation(
         }
     }
     for (body, advised) in advice.iter().flat_map(|advice| advice.iter()) {
-        if room.is_some() && bodies.get(body).ok() != room.as_ref() {
+        if query.subject.is_some_and(|subject| subject != body) || (room.is_some() && bodies.get(body).ok() != room.as_ref()) {
             continue;
         }
         let name = names.get(body).map_or_else(|_| format!("{body}"), |id| id.as_str().to_owned());

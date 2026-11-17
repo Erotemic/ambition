@@ -45,22 +45,24 @@ fn debug_view_presets_drive_overlay_intent() {
     let mut tools = DeveloperTools::default();
     tools.apply_debug_view_mode(DebugViewMode::Collision, true);
     assert_eq!(tools.debug_view_mode, DebugViewMode::Collision);
-    assert!(tools.show_world_blocks);
+    assert!(!tools.show_world_blocks);
+    assert!(tools.show_observed_geometry);
     assert!(tools.show_player_hitbox);
-    assert!(tools.show_feature_hitboxes);
+    assert!(!tools.show_feature_hitboxes);
     assert!(tools.fill_debug_boxes);
     assert_eq!(tools.debug_art_mode, DebugArtMode::Hidden);
 
     tools.apply_debug_view_mode(DebugViewMode::Authoring, true);
     assert_eq!(tools.debug_view_mode, DebugViewMode::Authoring);
     assert!(tools.show_room_bounds);
-    assert!(tools.show_world_blocks);
+    assert!(!tools.show_world_blocks);
+    assert!(tools.show_observed_geometry);
     assert!(tools.show_loading_zones);
     assert!(tools.show_player_hitbox);
     assert!(tools.show_player_vectors);
     assert!(tools.show_blink_preview);
     assert!(tools.show_combat_preview);
-    assert!(tools.show_feature_hitboxes);
+    assert!(!tools.show_feature_hitboxes);
     assert!(tools.show_health_bars);
     assert!(tools.show_rebound_vectors);
     assert!(!tools.show_micro_grid);

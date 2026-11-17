@@ -92,7 +92,7 @@
     },
     {
       "id": "render_room_geometry",
-      "title": "Inspect room geometry diagnostics",
+      "title": "Inspect authored room geometry",
       "owner": "game/ambition_app_tools",
       "command": "target/debug/render_room_geometry military_tower /tmp/geometry.png",
       "help": "sed -n '1,25p' game/ambition_app_tools/src/bin/render_room_geometry.rs",
@@ -101,7 +101,7 @@
       ],
       "docs": "docs/tools/index.md",
       "inputs": "Room geometry options.",
-      "outputs": "Room geometry render.",
+      "outputs": "Authored room geometry render. Use inspect_geometry for live subject-specific geometry.",
       "mutation": "Runs an isolated simulation; writes requested output files.",
       "build": "Reuse target/debug/render_room_geometry or target/release/render_room_geometry. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin render_room_geometry.",
       "status": "active",
@@ -110,7 +110,7 @@
     },
     {
       "id": "inspect_geometry",
-      "title": "Inspect the effective gameplay geometry of a room headless (collision, bodies, combat, interaction, navigation) as JSON",
+      "title": "Inspect the effective gameplay geometry of a room headless (collision, bodies, combat, interaction, portals, navigation) as JSON",
       "owner": "game/ambition_app_tools",
       "command": "target/debug/inspect_geometry --room basement_breakables --ticks 30 --out /tmp/geometry.json",
       "help": "target/debug/inspect_geometry --help",
@@ -118,8 +118,8 @@
         "game/ambition_app_tools/src/bin/inspect_geometry.rs"
       ],
       "docs": "docs/planning/engine/geometry-observability-and-f1.md",
-      "inputs": "Room; ticks to step; observer names or prefixes (--provider, --list for the catalog); --no-subject for the room's own view.",
-      "outputs": "ambition.geometry_observation.v1 JSON: each observer's pieces with key, roles, shape and active or inactive with the owner's reason.",
+      "inputs": "Room; ticks to step; observer names or prefixes (--provider, --list for the catalog); --subjects and --subject SIM_ID; --no-subject for the room's own view.",
+      "outputs": "ambition.geometry_observation.v2 JSON: session, live room, subject and simulation tick; each observer's exact primitives, cuts, transforms, roles, state and refusal reasons.",
       "mutation": "Runs an isolated simulation; writes the requested output file.",
       "build": "Reuse target/debug/inspect_geometry or target/release/inspect_geometry. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin inspect_geometry.",
       "status": "active",

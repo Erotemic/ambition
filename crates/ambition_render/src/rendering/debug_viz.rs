@@ -790,7 +790,9 @@ impl Plugin for DebugVizPlugin {
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
         app.init_resource::<CombatGeometryView>();
-        app.init_resource::<super::observed_geometry::ObservedGeometryFrame>();
+        if !app.is_plugin_added::<super::observed_geometry::ObservedGeometryPlugin>() {
+            app.add_plugins(super::observed_geometry::ObservedGeometryPlugin);
+        }
         let start_enabled = self.start_enabled;
         app.add_systems(
             Startup,
@@ -809,8 +811,6 @@ impl Plugin for DebugVizPlugin {
             Update,
             (
                 toggle_debug_viz,
-                super::observed_geometry::collect_observed_geometry
-                    .after(ambition_sim_view::PresentedPoseSet),
                 draw_debug_viz
                     .after(ambition_sim_view::PresentedPoseSet)
                     // Simulation-only hosts do not install gizmo assets.
@@ -958,7 +958,6 @@ pub fn draw_debug_viz(
     // Live gravity for the world-edge lines. `Option` because headless and
     // test apps do not insert it; then "down" is used.
     gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::BaseGravity>>,
-    observed: Res<super::observed_geometry::ObservedGeometryFrame>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         drawings.finish();
@@ -976,9 +975,6 @@ pub fn draw_debug_viz(
         drawings.draw(DrawingScope::Room(room), |gizmos| {
             // Only what is in the shown room is drawn, by that room's geometry.
             let shown_here = |entity: Entity| worlds.room_of(entity) == Some(room);
-            if developer_tools.show_observed_geometry {
-                super::observed_geometry::draw_observed_layers(gizmos, world, observed.in_room(room));
-            }
             draw_world_geometry(
                 gizmos,
                 world,
@@ -1057,13 +1053,8 @@ pub fn draw_debug_viz(
     }
     if developer_tools.show_camera_frame {
         for (view, resolved, camera) in &views {
-            if let Some(world) = resolved
-                .frame()
-                .and_then(|frame| worlds.in_room(frame.room))
-            {
-                drawings.draw(DrawingScope::View(view), |gizmos| {
-                    draw_camera_frame(gizmos, &world.0, camera)
-                });
+            if let Some(world) = resolved.frame().and_then(|frame| worlds.in_room(frame.room)) {
+                drawings.draw(DrawingScope::View(view), |gizmos| draw_camera_frame(gizmos, &world.0, camera));
             }
         }
     }
@@ -1157,7 +1148,7 @@ mod presented_strike_tests {
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::splat(10.0),
             )),
-            pieces: None,
+            pieces: None, geometry_refusal: None,
             strike: bevy::prelude::Entity::from_raw_u32(1).unwrap(),
             owner: bevy::prelude::Entity::from_raw_u32(2).unwrap(),
             damage: 4,
@@ -1312,7 +1303,7 @@ mod room_drawing_tests {
         app.world_mut().resource_mut::<DeveloperTools>().show_combat_preview = true;
         app.world_mut().resource_mut::<CombatGeometryView>().strikes.push(ambition_sim_view::CombatStrikeGeometryView {
             volume: ae::CombatVolume::Aabb(ae::Aabb::new(ae::Vec2::splat(20.0), ae::Vec2::splat(4.0))),
-            pieces: None, strike, owner: credit, damage: 1, anchored_to_body: false,
+            pieces: None, geometry_refusal: None, strike, owner: credit, damage: 1, anchored_to_body: false,
             depicted_by_owner: false, ray: None, hit: Vec::new(),
         });
         for (index, room) in [rooms[0], rooms[1], rooms[1]].into_iter().enumerate() {

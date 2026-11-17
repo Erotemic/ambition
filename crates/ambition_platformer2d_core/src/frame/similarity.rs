@@ -127,6 +127,15 @@ impl Sim2 {
         Mat2::from_cols(self.orthogonal.x_axis.as_vec2(), self.orthogonal.y_axis.as_vec2())
     }
 
+    /// The exact affine rows for an observation or external geometry tool.
+    pub fn affine_rows(self) -> [[f64; 3]; 2] {
+        let linear = self.orthogonal * self.scale;
+        [
+            [linear.x_axis.x, linear.y_axis.x, self.translation.x],
+            [linear.x_axis.y, linear.y_axis.y, self.translation.y],
+        ]
+    }
+
     pub fn translation(self) -> bevy_math::DVec2 {
         self.translation
     }

@@ -8,7 +8,7 @@
 //! the geometry a second way.
 //!
 //! [`observe_all`] runs every installed provider. F1 draws what it returns and
-//! headless inspection prints it ([`to_json`]); both go through it, so they
+//! headless inspection prints it ([`GeometryReport::to_json`]); both go through it, so they
 //! cannot disagree, and a new provider is in both without an edit to either.
 //! Nothing runs unless someone asks.
 //!
@@ -43,6 +43,50 @@ pub enum ObservedShape {
     Circle { center: [f32; 2], radius: f32 },
     /// A closed outline: the last point joins the first.
     Polygon { points: Vec<[f32; 2]> },
+    /// The source primitive, cut before its map into room coordinates.
+    Clipped {
+        primitive: Box<ObservedShape>,
+        planes: Vec<ObservedPlane>,
+        /// Affine rows: `[xx, xy, tx]`, `[yx, yy, ty]`.
+        transform: [[f64; 3]; 2],
+        path: Vec<u32>,
+    },
+}
+
+/// A source-space cut: `inward.dot(point) >= offset`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ObservedPlane {
+    pub inward: [f64; 2],
+    pub offset: f64,
+}
+
+/// The authority and time of one room observation.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ObservationContext {
+    pub session: Option<u64>,
+    pub room: String,
+    pub room_instance: u32,
+    pub subject: Option<String>,
+    pub sim_tick: Option<u64>,
+}
+
+/// The common F1 and headless report, at the simulation tick pose.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct GeometryReport {
+    pub context: ObservationContext,
+    pub layers: Vec<ObservedLayer>,
+}
+
+impl GeometryReport {
+    pub fn to_json(&self) -> String {
+        serde_json::to_string_pretty(&serde_json::json!({
+            "schema": "ambition.geometry_observation.v2",
+            "coordinates": "room pixels, y down",
+            "pose": "simulation_tick",
+            "context": self.context,
+            "layers": self.layers,
+        })).expect("observations serialize")
+    }
 }
 
 impl ObservedShape {
@@ -181,15 +225,6 @@ pub fn observe_all(world: &mut World, query: ObservationQuery, wanted: impl Fn(&
         .collect()
 }
 
-/// The headless form: stable order, room pixels, y down.
-pub fn to_json(layers: &[ObservedLayer]) -> String {
-    serde_json::to_string_pretty(&serde_json::json!({
-        "schema": "ambition.geometry_observation.v1",
-        "frame": "room pixels, y down",
-        "layers": layers,
-    }))
-    .expect("observations serialize")
-}
 
 #[cfg(test)]
 mod tests {
@@ -241,7 +276,7 @@ mod tests {
         };
         assert_eq!(geometry.iter().map(|g| g.key.as_str()).collect::<Vec<_>>(), ["a", "b"]);
         assert_eq!(geometry[1].state, ObservedState::Inactive { reason: "broken".into() });
-        assert!(to_json(&layers).contains("\"reason\": \"broken\""));
+        assert_eq!(serde_json::to_value(&layers).unwrap()[0]["geometry"][1]["reason"], "broken");
     }
 
     #[test]

@@ -1,5 +1,5 @@
 //! Inspect geometry: what each installed geometry provider says a room holds,
-//! headless, as JSON (`ambition.geometry_observation.v1`, room pixels, y down).
+//! headless, as JSON (`ambition.geometry_observation.v2`, room pixels, y down).
 //!
 //! The same answer F1's Observed Geometry layer draws (`observe_all`): one
 //! layer per provider, each `observed` (its shapes, active or inactive with
@@ -15,6 +15,7 @@
 //!
 //! `--room` boots that room (default: the game's start room) and steps
 //! `--ticks` frames (default 5) with no input. The subject is Player 1 unless
+//! `--subject SIM_ID` selects a body from `--subjects`;
 //! `--no-subject` asks for the room's own view. `--provider` takes a comma
 //! list of provider names, or of prefixes ending in `.` (`collision.`).
 //! `--out FILE` writes the JSON there alone: stdout also carries the host's
@@ -25,16 +26,18 @@
 //! and the size of its JSON; then the whole observation's.
 
 use ambition_app::rl_sim::{Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_platformer2d::geometry_observation::{GeometryObservers, ObservationQuery, observe_all, to_json};
+use ambition_platformer2d::geometry_observation::{GeometryObservers, GeometryReport, ObservationQuery};
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::{Entity, With};
+use ambition_platformer2d::sim_view::geometry_inspection::{geometry_subjects, inspect_geometry};
 
 fn value_of(args: &[String], name: &str) -> Option<String> {
     let prefix = format!("{name}=");
     args.iter().enumerate().find_map(|(i, arg)| {
         if arg == name {
-            args.get(i + 1).cloned()
+            Some(args.get(i + 1).filter(|value| !value.starts_with("--"))
+                .unwrap_or_else(|| fail(&format!("{name} needs a value"))).clone())
         } else {
             arg.strip_prefix(&prefix).map(str::to_string)
         }
@@ -54,7 +57,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
         println!(
-            "usage: inspect_geometry [--project PATH] [--list] [--room ROOM] [--ticks N] [--provider A,B,prefix.] [--no-subject] [--out FILE] [--cost]"
+            "usage: inspect_geometry [--project PATH] [--list] [--room ROOM] [--ticks N] [--provider A,B,prefix.] [--subjects] [--subject SIM_ID | --no-subject] [--out FILE] [--cost]"
         );
         return;
     }
@@ -95,31 +98,50 @@ fn main() {
         eprintln!("inspect_geometry: no provider is named {unknown:?}; installed: {names:?}");
         std::process::exit(2);
     }
-    let ticks: u32 = value_of(&args, "--ticks").and_then(|ticks| ticks.parse().ok()).unwrap_or(5);
+    let ticks: u32 = match value_of(&args, "--ticks") {
+        None => 5,
+        Some(value) => value.parse().unwrap_or_else(|_| fail("--ticks must be a nonnegative integer")),
+    };
     for _ in 0..ticks {
         sim.app_mut().update();
     }
 
     let world = sim.world_mut();
-    let Ok((player, room)) =
-        world.query_filtered::<(Entity, &InRoomInstance), With<PrimaryPlayer>>().single(world).map(|(player, room)| (player, room.0))
-    else {
-        eprintln!("inspect_geometry: no Player 1 in a room after {ticks} ticks");
-        std::process::exit(2);
+    let subjects = geometry_subjects(world);
+    if args.iter().any(|arg| arg == "--subjects") {
+        for (name, body) in &subjects {
+            let room = world.get::<InRoomInstance>(*body).map(|at| at.0.ordinal());
+            println!("{name} (room instance {room:?})");
+        }
+        return;
+    }
+    let no_subject = args.iter().any(|arg| arg == "--no-subject");
+    let named_subject = value_of(&args, "--subject");
+    if no_subject && named_subject.is_some() {
+        fail("use --subject or --no-subject, not both");
+    }
+    let player = world.query_filtered::<Entity, With<PrimaryPlayer>>().single(world).ok();
+    let subject = if no_subject {
+        None
+    } else if let Some(name) = named_subject {
+        Some(subjects.iter().find(|(id, _)| *id == name).map(|(_, body)| *body)
+            .unwrap_or_else(|| fail(&format!("no live subject named {name}; use --subjects"))))
+    } else {
+        Some(player.unwrap_or_else(|| fail("no default subject; use --subjects or --no-subject")))
     };
-    let root = world
-        .query_filtered::<(Entity, &LiveRoomInstance), With<RoomInstanceRoot>>()
-        .iter(world)
-        .find(|(_, live)| **live == room)
-        .map(|(root, _)| root);
-    let subject = (!args.iter().any(|arg| arg == "--no-subject")).then_some(player);
+    let room = subject.or(player).and_then(|body| world.get::<InRoomInstance>(body).map(|at| at.0));
+    let roots: Vec<_> = world.query_filtered::<(Entity, &LiveRoomInstance), With<RoomInstanceRoot>>()
+        .iter(world).map(|(root, live)| (root, *live)).collect();
+    let root = room.and_then(|room| roots.iter().find(|(_, live)| *live == room).map(|(root, _)| *root))
+        .or_else(|| (roots.len() == 1).then(|| roots[0].0));
     let query = ObservationQuery { room: root, subject };
     if args.iter().any(|arg| arg == "--cost") {
         report_cost(world, query, &catalog, &selection);
         return;
     }
-    let layers = observe_all(world, query, |provider| selected(&selection, provider));
-    let json = to_json(&layers);
+    let report = inspect_geometry(world, query, |provider| selected(&selection, provider))
+        .unwrap_or_else(|reason| fail(&reason));
+    let json = report.to_json();
     match value_of(&args, "--out") {
         Some(path) => {
             if let Err(error) = std::fs::write(&path, json) {
@@ -137,16 +159,16 @@ fn timed(
     query: ObservationQuery,
     wanted: impl Fn(&str) -> bool + Copy,
     runs: usize,
-) -> (std::time::Duration, Vec<ambition_platformer2d::geometry_observation::ObservedLayer>) {
+) -> (std::time::Duration, GeometryReport) {
     let mut times = Vec::with_capacity(runs);
-    let mut layers = Vec::new();
+    let mut report = None;
     for _ in 0..runs {
         let start = std::time::Instant::now();
-        layers = observe_all(world, query, wanted);
+        report = Some(inspect_geometry(world, query, wanted).unwrap_or_else(|reason| fail(&reason)));
         times.push(start.elapsed());
     }
     times.sort();
-    (times[runs / 2], layers)
+    (times[runs / 2], report.expect("at least one sample"))
 }
 
 /// Each selected provider's pieces, inactive pieces, median time and JSON
@@ -161,8 +183,8 @@ fn report_cost(
     const RUNS: usize = 21;
     println!("{:<24} {:>7} {:>9} {:>11} {:>10}", "provider", "pieces", "inactive", "median_us", "json_bytes");
     for (name, ..) in catalog.iter().filter(|(name, ..)| selected(selection, name)) {
-        let (median, layers) = timed(world, query, |provider| provider == name, RUNS);
-        let (pieces, inactive, status) = match layers.first().map(|layer| &layer.answer) {
+        let (median, report) = timed(world, query, |provider| provider == name, RUNS);
+        let (pieces, inactive, status) = match report.layers.first().map(|layer| &layer.answer) {
             Some(ObserverAnswer::Observed { geometry }) => (
                 geometry.len(),
                 geometry.iter().filter(|piece| matches!(piece.state, ObservedState::Inactive { .. })).count(),
@@ -175,16 +197,21 @@ fn report_cost(
         println!(
             "{name:<24} {pieces:>7} {inactive:>9} {:>11} {:>10}{status}",
             median.as_micros(),
-            to_json(&layers).len()
+            report.to_json().len()
         );
     }
-    let (median, layers) = timed(world, query, |provider| selected(selection, provider), RUNS);
-    let pieces: usize = layers
+    let (median, report) = timed(world, query, |provider| selected(selection, provider), RUNS);
+    let pieces: usize = report.layers
         .iter()
         .map(|layer| match &layer.answer {
             ObserverAnswer::Observed { geometry } => geometry.len(),
             _ => 0,
         })
         .sum();
-    println!("{:<24} {pieces:>7} {:>9} {:>11} {:>10}", "(all selected)", "", median.as_micros(), to_json(&layers).len());
+    println!("{:<24} {pieces:>7} {:>9} {:>11} {:>10}", "(all selected)", "", median.as_micros(), report.to_json().len());
+}
+
+fn fail(reason: &str) -> ! {
+    eprintln!("inspect_geometry: {reason}");
+    std::process::exit(2)
 }

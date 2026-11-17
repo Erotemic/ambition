@@ -13,10 +13,10 @@
 use std::borrow::Cow;
 
 use ambition_geometry_observation::{
-    GeometryObservation, GeometryObserverAppExt as _, ObservationQuery, ObservedShape, ObservedState, ObserverInfo,
+    GeometryObservation, GeometryObserverAppExt as _, ObservationQuery, ObservedPlane, ObservedShape, ObservedState, ObserverInfo,
 };
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, LiveRoomInstance};
 use bevy::prelude::*;
 
 use crate::{CombatGeometryView, HurtboxSource};
@@ -49,20 +49,22 @@ fn volumes(
     query: In<ObservationQuery>,
     view: Res<CombatGeometryView>,
     roots: Query<&LiveRoomInstance>,
-    in_room: Query<&InRoomInstance>,
+    live: LiveRooms,
+    names: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) -> Vec<GeometryObservation> {
     let room = match (query.room, query.subject) {
         (Some(root), _) => roots.get(root).ok().copied(),
-        (None, Some(subject)) => in_room.get(subject).ok().map(|room| room.0),
+        (None, Some(subject)) => live.of(subject),
         (None, None) => None,
     };
-    let here = |entity: Entity| room.is_none() || in_room.get(entity).ok().map(|r| r.0) == room;
+    let here = |entity: Entity| room.is_none() || live.of(entity) == room;
+    let name = |entity: Entity| names.get(entity).map_or_else(|_| format!("{entity}"), |id| id.as_str().to_owned());
     let mut out = Vec::new();
     for body in view.bodies.iter().filter(|body| here(body.body)) {
         let cut = body.hurt_pieces.is_some();
         if body.hurtbox_source == HurtboxSource::Intangible {
             out.push(GeometryObservation {
-                key: format!("hurt {:?}", body.body),
+                key: format!("hurt {}", name(body.body)),
                 roles: vec![Cow::Borrowed("hurt")],
                 shape: ObservedShape::aabb(body.collision.min.to_array(), body.collision.max.to_array()),
                 state: ObservedState::Inactive { reason: Cow::Borrowed("intangible") },
@@ -71,29 +73,29 @@ fn volumes(
         }
         for (n, volume) in body.hurtboxes.iter().enumerate() {
             let mut roles = vec![Cow::Borrowed("hurt")];
-            if body.hurtbox_source == HurtboxSource::BodyFallback {
-                roles.push(Cow::Borrowed("body_fallback"));
-            }
+            roles.push(Cow::Borrowed(body.hurtbox_source.as_str()));
             if cut {
                 roles.push(Cow::Borrowed("portal_cut"));
             }
             out.push(GeometryObservation {
-                key: format!("hurt {:?} {n}", body.body),
+                key: format!("hurt {} {n}", name(body.body)),
                 roles,
                 shape: shape(volume),
-                state: whole_state(cut),
+                state: whole_state(cut, body.hurt_refusal.as_deref()),
             });
         }
         if let Some(pieces) = &body.hurt_pieces {
-            out.extend(observed_pieces(pieces, &format!("hurt {:?}", body.body), "hurt"));
+            out.extend(observed_pieces(pieces, &format!("hurt {}", name(body.body)), "hurt"));
         }
     }
-    for strike in view.strikes.iter().filter(|strike| here(strike.strike)) {
+    for strike in view.strikes.iter().filter(|strike| {
+        room.is_none() || live.stamped(strike.strike).or_else(|| live.of(strike.owner)) == room
+    }) {
         let mut roles = vec![Cow::Borrowed("hit")];
         if strike.pieces.is_some() {
             roles.push(Cow::Borrowed("portal_cut"));
         }
-        let key = format!("hit {:?} of {:?}", strike.strike, strike.owner);
+        let key = format!("hit {} of {}", name(strike.strike), name(strike.owner));
         if let Some(pieces) = &strike.pieces {
             out.extend(observed_pieces(pieces, &key, "hit"));
         }
@@ -101,15 +103,17 @@ fn volumes(
             key,
             roles,
             shape: shape(&strike.volume),
-            state: whole_state(strike.pieces.is_some()),
+            state: whole_state(strike.pieces.is_some(), strike.geometry_refusal.as_deref()),
         });
     }
     out
 }
 
 /// A volume a portal pair cuts is tested by its pieces, not whole.
-fn whole_state(cut: bool) -> ObservedState {
-    if cut {
+fn whole_state(cut: bool, refusal: Option<&str>) -> ObservedState {
+    if let Some(reason) = refusal {
+        ObservedState::Inactive { reason: format!("geometry refused: {reason}").into() }
+    } else if cut {
         ObservedState::Inactive { reason: Cow::Borrowed("cut by a portal pair: combat tests its pieces") }
     } else {
         ObservedState::Active
@@ -118,20 +122,30 @@ fn whole_state(cut: bool) -> ObservedState {
 
 /// Each piece of a cut volume where combat reaches it. A piece the cut left
 /// empty has no region and is not listed.
-fn observed_pieces(pieces: &[ae::frame::thread::VolumePiece], owner: &str, role: &'static str) -> Vec<GeometryObservation> {
+pub(crate) fn observed_pieces(pieces: &[ae::frame::thread::VolumePiece], owner: &str, role: &'static str) -> Vec<GeometryObservation> {
     pieces
         .iter()
         .enumerate()
         .filter_map(|(n, piece)| {
-            let region = piece.region()?;
-            let mut roles = vec![Cow::Borrowed(role), Cow::Borrowed("portal_piece")];
+            if piece.is_empty() { return None; }
+            let mut roles = vec![Cow::Borrowed(role), Cow::Borrowed("material_piece")];
+            if pieces.len() > 1 || piece.is_carried() || !piece.source_bounds().is_empty() {
+                roles.push(Cow::Borrowed("portal_piece"));
+            }
             if piece.is_carried() {
                 roles.push(Cow::Borrowed("portal_carried"));
             }
             Some(GeometryObservation {
                 key: format!("{owner} piece {n}"),
                 roles,
-                shape: ObservedShape::Polygon { points: region.into_iter().map(|p| p.to_array()).collect() },
+                shape: ObservedShape::Clipped {
+                    primitive: Box::new(shape(piece.source())),
+                    planes: piece.source_bounds().iter().map(|plane| ObservedPlane {
+                        inward: plane.inward.to_array(), offset: plane.offset,
+                    }).collect(),
+                    transform: piece.transform().affine_rows(),
+                    path: piece.path.clone(),
+                },
                 state: ObservedState::Active,
             })
         })
@@ -162,6 +176,7 @@ mod tests {
                 collision: whole,
                 hurtboxes: vec![ae::CombatVolume::Aabb(whole)],
                 hurt_pieces: Some(vec![ae::frame::thread::VolumePiece::whole(ae::CombatVolume::Aabb(near)), carried]),
+                hurt_refusal: None,
                 hurtbox_source: HurtboxSource::Published,
                 damage_taken: 0,
                 facing: 1.0,
@@ -184,9 +199,61 @@ mod tests {
         assert!(pieces.iter().all(|piece| piece.state == ObservedState::Active), "{pieces:?}");
         let carried: Vec<_> = pieces.iter().filter(|seen| seen.roles.iter().any(|role| role == "portal_carried")).collect();
         assert_eq!(carried.len(), 1, "the far piece is the carried one: {pieces:?}");
-        let ObservedShape::Polygon { points } = &carried[0].shape else { panic!("a piece is its region: {carried:?}") };
-        assert!(points.iter().all(|p| (p[0] - 400.0).abs() <= 6.0), "the carried piece is at the far end: {points:?}");
-        let whole = geometry.iter().find(|seen| seen.key == format!("hurt {body:?} 0")).expect("the whole volume is listed");
+        let ObservedShape::Clipped { primitive, transform, path, .. } = &carried[0].shape else { panic!("a piece retains its source: {carried:?}") };
+        assert_eq!(**primitive, shape(&ae::CombatVolume::Aabb(far)));
+        assert_eq!(*transform, ae::frame::Sim2::IDENTITY.affine_rows());
+        assert_eq!(path, &[0]);
+        let whole = geometry.iter().find(|seen| seen.key == format!("hurt {body} 0")).expect("the whole volume is listed");
         assert!(matches!(whole.state, ObservedState::Inactive { .. }), "the whole volume is not what combat tests: {whole:?}");
     }
+    #[test]
+    fn a_scaled_portal_cap_keeps_its_circle_and_exact_source_planes() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+        use ae::frame::thread::{MaterialPrimitive, PieceBudget, PortalLink, partition};
+        let enter = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::ZERO, ae::Vec2::NEG_Y), half_length: 40.0 };
+        let exit = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::Y), half_length: 20.0 };
+        let circle = ae::CombatVolume::Circle { center: ae::Vec2::ZERO, radius: 20.0 };
+        let parts = partition(MaterialPrimitive::world(&circle), ae::Vec2::new(0.0, -10.0),
+            &PortalLink::both_ways(0, (enter, exit)), None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+        let reported = observed_pieces(&parts, "circle", "hurt");
+        let part = parts.iter().find(|part| part.is_carried()).unwrap();
+        let report = reported.iter().find(|report| report.roles.iter().any(|role| role == "portal_carried")).unwrap();
+        let ObservedShape::Clipped { primitive, planes, transform, path } = &report.shape else { panic!("{report:?}") };
+        assert_eq!(**primitive, shape(&circle));
+        assert!(!planes.is_empty());
+        assert_eq!(planes.len(), part.source_bounds().len());
+        for (plane, source) in planes.iter().zip(part.source_bounds()) {
+            assert_eq!(plane.inward, source.inward.to_array());
+            assert_eq!(plane.offset, source.offset);
+        }
+        assert_eq!(*transform, part.transform().affine_rows());
+        assert_eq!(path, &part.path);
+        assert!(!part.meets(&ae::frame::thread::VolumePiece::whole(ae::CombatVolume::circle(ae::Vec2::new(509.0, -191.0), 1.0))));
+    }
+
+    #[test]
+    fn an_unstamped_strike_uses_its_owners_room_in_a_two_room_world() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, RoomInstanceRoot};
+        let mut app = App::new();
+        install(&mut app);
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        let roots = rooms.map(|room| app.world_mut().spawn((RoomInstanceRoot, room)).id());
+        let owners = rooms.map(|room| app.world_mut().spawn(InRoomInstance(room)).id());
+        let strikes = owners.map(|owner| {
+            let strike = app.world_mut().spawn_empty().id();
+            crate::CombatStrikeGeometryView {
+                volume: ae::CombatVolume::circle(ae::Vec2::ZERO, 10.0),
+                pieces: None, geometry_refusal: None, strike, owner, damage: 1,
+                anchored_to_body: true, depicted_by_owner: false, ray: None, hit: vec![],
+            }
+        });
+        app.insert_resource(CombatGeometryView { bodies: vec![], strikes: strikes.to_vec() });
+        for (n, root) in roots.into_iter().enumerate() {
+            let layers = observe_all(app.world_mut(), ObservationQuery { room: Some(root), subject: Some(owners[n]) }, |_| true);
+            let ObserverAnswer::Observed { geometry } = &layers[0].answer else { panic!("{layers:?}") };
+            assert_eq!(geometry.len(), 1, "a strike belongs only to its owner's room: {geometry:?}");
+            assert!(geometry[0].key.ends_with(&format!("of {}", owners[n])));
+        }
+    }
+
 }

@@ -5,6 +5,15 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// The body context of a geometry query.
+#[derive(Reflect, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GeometrySubjectSelection {
+    #[default]
+    View,
+    Room,
+    Body(String),
+}
+
 /// Top-level switches for debug UI and gizmo layers.
 #[derive(Resource, Reflect, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[reflect(Resource)]
@@ -52,6 +61,12 @@ pub struct DeveloperTools {
     /// The one geometry observer F1 draws, or the preset's (`None`), GOBS-1.
     /// A name the installed observers no longer have draws nothing.
     pub observed_geometry_only: Option<String>,
+    /// Follow the view, inspect the room, or select a stable body identity.
+    pub observed_geometry_subject: GeometrySubjectSelection,
+    /// Selectable live bodies. The collector updates this list on demand.
+    #[serde(skip)]
+    #[reflect(ignore)]
+    pub observed_geometry_subjects: Vec<String>,
     /// The observers the debug view preset draws when no one observer is
     /// chosen, by name or by namespace (an entry ending in `.`), GOBS-4: an
     /// observer installed later in a preset's namespace joins it. Empty: every
@@ -135,6 +150,8 @@ impl Default for DeveloperTools {
             show_navigation: false,
             show_observed_geometry: false,
             observed_geometry_only: None,
+            observed_geometry_subject: GeometrySubjectSelection::View,
+            observed_geometry_subjects: Vec::new(),
             observed_geometry_preset: Vec::new(),
             observed_geometry_providers: Vec::new(),
             show_presented_comparison: false,
@@ -157,8 +174,24 @@ impl Default for DeveloperTools {
 }
 
 impl DeveloperTools {
-    /// Step the observed-geometry selection: every observer, then each
-    /// installed one in turn (`dir < 0` steps back).
+    /// Step through view, room and live body contexts.
+    pub fn cycle_observed_geometry_subject(&mut self, dir: i32) {
+        let choices: Vec<_> = [GeometrySubjectSelection::View, GeometrySubjectSelection::Room].into_iter()
+            .chain(self.observed_geometry_subjects.iter().cloned().map(GeometrySubjectSelection::Body)).collect();
+        let at = choices.iter().position(|choice| *choice == self.observed_geometry_subject).unwrap_or(0);
+        let next = (at as i32 + dir).rem_euclid(choices.len() as i32) as usize;
+        self.observed_geometry_subject = choices[next].clone();
+    }
+
+    pub fn observed_subject_label(&self) -> &str {
+        match &self.observed_geometry_subject {
+            GeometrySubjectSelection::View => "view subject",
+            GeometrySubjectSelection::Room => "room view",
+            GeometrySubjectSelection::Body(id) => id,
+        }
+    }
+
+    /// Step through the preset and installed providers.
     pub fn cycle_observed_geometry_provider(&mut self, dir: i32) {
         let choices: Vec<Option<&String>> =
             std::iter::once(None).chain(self.observed_geometry_providers.iter().map(Some)).collect();
@@ -210,6 +243,9 @@ impl DeveloperTools {
 
     pub fn apply_debug_view_mode(&mut self, mode: DebugViewMode, apply_art_recommendation: bool) {
         self.debug_view_mode = mode;
+        if mode != DebugViewMode::Custom {
+            self.observed_geometry_subject = GeometrySubjectSelection::View;
+        }
         match mode {
             DebugViewMode::Gameplay => {
                 self.set_observed_geometry_preset(false, &[]);
@@ -229,17 +265,17 @@ impl DeveloperTools {
                 self.fill_debug_boxes = false;
             }
             DebugViewMode::Authoring => {
-                self.set_observed_geometry_preset(false, &[]);
+                self.set_observed_geometry_preset(true, &["collision.for_subject", "body."]);
                 self.show_room_bounds = true;
-                self.show_world_blocks = true;
+                self.show_world_blocks = false;
                 self.show_loading_zones = true;
                 self.show_player_hitbox = true;
                 self.show_player_vectors = true;
                 self.show_blink_preview = true;
                 self.show_combat_preview = true;
-                self.show_feature_hitboxes = true;
+                self.show_feature_hitboxes = false;
                 self.show_health_bars = true;
-                self.show_moving_platform = true;
+                self.show_moving_platform = false;
                 self.show_rebound_vectors = true;
                 self.show_micro_grid = false;
                 self.show_camera_frame = false;
@@ -248,15 +284,15 @@ impl DeveloperTools {
             DebugViewMode::Collision => {
                 self.set_observed_geometry_preset(true, &["collision.for_subject", "body."]);
                 self.show_room_bounds = true;
-                self.show_world_blocks = true;
+                self.show_world_blocks = false;
                 self.show_loading_zones = false;
                 self.show_player_hitbox = true;
                 self.show_player_vectors = false;
                 self.show_blink_preview = true;
                 self.show_combat_preview = false;
-                self.show_feature_hitboxes = true;
+                self.show_feature_hitboxes = false;
                 self.show_health_bars = false;
-                self.show_moving_platform = true;
+                self.show_moving_platform = false;
                 self.show_rebound_vectors = true;
                 self.show_micro_grid = false;
                 self.show_camera_frame = false;
@@ -295,6 +331,13 @@ impl DeveloperTools {
                 self.show_micro_grid = false;
                 self.show_camera_frame = false;
                 self.fill_debug_boxes = true;
+            }
+            DebugViewMode::Navigation => {
+                self.apply_debug_view_mode(DebugViewMode::Gameplay, false);
+                self.debug_view_mode = mode;
+                self.set_observed_geometry_preset(true, &["navigation."]);
+                self.observed_geometry_subject = GeometrySubjectSelection::Room;
+                self.show_navigation = false;
             }
             DebugViewMode::All => {
                 self.set_observed_geometry_preset(true, &[]);

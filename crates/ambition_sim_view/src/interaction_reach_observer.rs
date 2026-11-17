@@ -85,6 +85,23 @@ fn reach_of_subject(
             None,
         ),
     ];
+    if let Some(spec) = rooms.spec_of(subject) {
+        use ambition_platformer2d_core::AabbExt as _;
+        for zone in spec.loading_zones.iter().filter(|zone| zone.activation == ambition_platformer2d_world::rooms::LoadingZoneActivation::Door) {
+            let distance = zone.aabb.center().distance(reach.pos());
+            let refused = if !touch.strict_intersects(zone.aabb) {
+                Some("outside the door")
+            } else if door.is_some_and(|nearest| distance > nearest) {
+                Some("a nearer door takes the press")
+            } else if chosen.is_some() {
+                Some("an interactable takes the press")
+            } else {
+                None
+            };
+            out.push(piece(format!("door {}", zone.id), "door", refused.is_none(),
+                ObservedShape::aabb(zone.aabb.min.to_array(), zone.aabb.max.to_array()), refused));
+        }
+    }
     for (entity, aabb, disposition, _, health, out_of_play, plane, requires_facing) in &actors {
         if entity == subject || rooms.live().of(entity) != room {
             continue;

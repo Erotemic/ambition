@@ -445,9 +445,9 @@ OPTIONS:
     --carry on|off      the portal pairs carry what goes through them (on, the
                         default), or draw each drawable whole on its side (off,
                         to compare a film against)
-    --gear ID[@TICK]    the player wears the worn gear ID (a `worn_gear` id, as
-                        `space_helmet`) from sim tick TICK [default: 1]; repeat
-                        for more
+    --gear ID[@TICK]    the player wears a catalog equipment row (including
+                        its ability grants) or a `worn_gear` id, such as
+                        `space_helmet`, from TICK [default: 1]; repeat for more
     --limbs-unseen all|SLOT[,SLOT]
                         draw no limb (or these limbs, as `hand_right`) of a
                         part-drawn body: its `limb:<slot>` tracks, in the body
@@ -881,6 +881,7 @@ fn ask_bodies_to_wear(
 fn put_on_gear(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
+    catalog: Res<ambition_platformer2d::items::ItemCatalog>,
     tick: Res<ambition_platformer2d::time::SimTick>,
     mut player: Query<
         (Entity, Option<&mut ambition_platformer2d::characters::equipment::WornEquipment>),
@@ -896,7 +897,11 @@ fn put_on_gear(
             eprintln!("capture_scene: --gear found no player on tick {on_tick}");
             continue;
         };
-        let row = EquipmentRow { id: id.clone(), exclusive_slot: Some("head".into()), ..Default::default() };
+        let row = catalog.rows().iter()
+            .flat_map(|item| item.wears.iter().chain(item.levels.iter()))
+            .find(|row| row.id == *id)
+            .cloned()
+            .unwrap_or_else(|| EquipmentRow { id: id.clone(), exclusive_slot: Some("head".into()), ..Default::default() });
         match worn {
             Some(mut worn) => worn.equip(row),
             None => {

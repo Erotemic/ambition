@@ -180,6 +180,19 @@ from the visor and head pose. `BodyLandmarks` reads the point on the selected
 row's clock. Held rays use this point for their origin and the visor box for
 width. A missing point does not use a guessed body offset.
 
+Capture the standing and crouched firing poses through the production renderer:
+
+```bash
+cargo build -p ambition_app_tools --bin capture_scene
+./target/debug/capture_scene central_hub_complex player target/eye-review.png 960x540 \
+  --warmup 60 --frames 2 --stride 30 --gear eye_laser@30 \
+  --player-holds projectile@40 --player-holds down+projectile@70 \
+  --tick-per-frame --camera-zoom tight --art-snapshot
+```
+
+`--gear` uses the catalog row's grants, not only its display id. A content pin
+clocks its selected row in either stance. Its fallback keeps the base clock.
+
 **Vocabulary (target).** Hands (near/far), muzzle/projectile origin, feet,
 head, held-item sockets, weapon grips, rider/mount anchors, petting/contact
 points. The rig attachments (`HandNear`, `HandFar`, `Head`, `FootNear`,

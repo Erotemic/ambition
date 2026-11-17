@@ -33,6 +33,11 @@ pub struct StagedModuleReplacement {
 }
 
 impl StagedModuleReplacement {
+    /// The admission waiting for publication, for candidate-state validation.
+    pub fn admitted(&self) -> Option<&Admitted> {
+        self.candidate.as_ref().map(|(admitted, _)| admitted.as_ref())
+    }
+
     pub fn is_staged(&self) -> bool {
         self.candidate.is_some()
     }
@@ -56,6 +61,7 @@ pub fn stage_loaded_replacement(
     artifact: &str,
     backend: Arc<dyn ModuleBackend>,
     modules: Vec<ModuleDescriptor>,
+    saved: &[(crate::SaveRoad, crate::save::SavedRow)],
 ) -> Result<(), String> {
     stage_loaded_replacements(
         world,
@@ -64,12 +70,14 @@ pub fn stage_loaded_replacement(
             backend,
             modules,
         }],
+        saved,
     )
 }
 
 /// Stage the modules of reloaded files as replacements: ONE candidate for
 /// every file, admitted once. `Err` explains a refusal; the running code is
 /// unchanged either way until [`publish_staged_replacement`].
+/// Supply every saved row the composition can restore, with its save road.
 ///
 /// ⛔ EVERY MODULE A FILE GAVE LEAVES WITH IT. The modules of a replaced file
 /// are found by their origin (`ModuleCode::Loaded::artifact`), never by the
@@ -80,8 +88,8 @@ pub fn stage_loaded_replacement(
 /// one poll, or a second change while the first waits for admission, are one
 /// generation; a candidate built only from the published composition dropped
 /// the other file's change.
-pub fn stage_loaded_replacements(world: &mut World, artifacts: Vec<LoadedArtifact>) -> Result<(), String> {
-    stage_module_changes(world, artifacts, Vec::new())
+pub fn stage_loaded_replacements(world: &mut World, artifacts: Vec<LoadedArtifact>, saved: &[(crate::SaveRoad, crate::save::SavedRow)]) -> Result<(), String> {
+    stage_module_changes(world, artifacts, Vec::new(), saved)
 }
 
 /// [`stage_loaded_replacements`], and the files in `removed` leave: every
@@ -91,6 +99,7 @@ pub fn stage_module_changes(
     world: &mut World,
     artifacts: Vec<LoadedArtifact>,
     removed: Vec<Arc<str>>,
+    saved: &[(crate::SaveRoad, crate::save::SavedRow)],
 ) -> Result<(), String> {
     let composition = world
         .get_resource::<ExtensionComposition>()
@@ -164,25 +173,12 @@ pub fn stage_module_changes(
     // the same tag would replace live values with defaults, so it is refused.
     for (key, schema) in &candidate.schemas {
         if let Some(live) = current.schemas.get(key) {
-            if live.schema.attachment != schema.schema.attachment || live.schema.save != schema.schema.save {
-                return Err(format!(
-                    "schema {key} changed its attachment or its save policy under live records; \
-                     reconstruct the room or restart to take it"
-                ));
-            }
-            for old in &live.schema.fields {
-                if let Some(new) = schema.schema.fields.iter().find(|field| field.tag == old.tag) {
-                    if old.kind != new.kind {
-                        return Err(format!(
-                            "schema {key} field tag {} ({}) changed kind from {:?} to {:?}; \
-                             keep the kind, or declare new state under a new schema key",
-                            old.tag, new.name, old.kind, new.kind,
-                        ));
-                    }
-                }
+            if let Some(reason) = crate::save::schema_migration_refusal(&schema.schema, &live.schema) {
+                return Err(reason);
             }
         }
     }
+    crate::save::validate_saved_rows(&candidate, saved)?;
     world.resource_mut::<StagedModuleReplacement>().candidate = Some((Arc::new(candidate), declared));
     Ok(())
 }

@@ -30,6 +30,8 @@ pub enum DurableHorizonSet {
 /// orders these slots.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DurableRestoreSet {
+    /// Refuse incompatible saved contracts before any state is restored.
+    Validate,
     /// The lifecycle/occurrence baseline, which the domains' restores build on.
     Lifecycle,
     /// Each domain applies its half of the file and adopts its own baselines.

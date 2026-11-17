@@ -2131,6 +2131,15 @@ fn candidate_session_gate(
         release_candidate_in_world(world, candidate, "stale");
         return ShellGateVerdict::Hold;
     }
+    let saved_validation = candidate.prepared_from.data().map(|save|
+        ambition_platformer2d_runtime::module_save_road::validate_saved_module_records(world, save)
+    );
+    if let Some(Err(reason)) = saved_validation {
+        bevy::log::error!("the candidate session for `{experience}` refuses saved module state: {reason}");
+        let candidate = world.resource_mut::<CandidateSessionSlot>().0.take().expect("the candidate was just validated");
+        release_candidate_in_world(world, candidate, "incompatible-module-save");
+        return ShellGateVerdict::Refuse;
+    }
     match world
         .get::<ambition_platformer2d_publication::PublicationVerdict>(publication.0)
     {

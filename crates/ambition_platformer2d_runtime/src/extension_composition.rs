@@ -680,7 +680,9 @@ pub fn stage_module_file_changes(world: &mut World, changes: ModuleFileChanges) 
     let removed: Vec<std::sync::Arc<str>> =
         changes.removed.iter().map(|path| std::sync::Arc::from(path.display().to_string())).collect();
     names.extend(removed.iter().map(|name| format!("{name} (removed)")));
-    ambition_extension_host::reload::stage_module_changes(world, loaded, removed)?;
+    let saved = crate::module_save_road::current_saved_rows(world);
+    ambition_extension_host::reload::stage_module_changes(world, loaded, removed, &saved)
+        .map_err(|reason| format!("{}: {reason}", names.join(", ")))?;
     let mut watched = world.resource_mut::<WatchedModuleFiles>();
     let before = std::mem::replace(&mut watched.files, changes.current);
     watched.before_staging = Some(before);

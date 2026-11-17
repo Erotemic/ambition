@@ -122,6 +122,11 @@ impl CandidateSave<'_> {
 pub struct PreparedFromSave(Option<ambition_persistence::save_data::AmbitionGameSaveData>);
 
 impl PreparedFromSave {
+    /// The frozen save used to prepare this candidate.
+    pub fn data(&self) -> Option<&ambition_persistence::save_data::AmbitionGameSaveData> {
+        self.0.as_ref()
+    }
+
     /// A candidate built from `save`. `None`: a composition with no save.
     pub fn of(save: Option<ambition_persistence::save_data::AmbitionGameSaveData>) -> Self {
         Self(save)
@@ -444,6 +449,7 @@ pub fn install_durable_save_horizon(app: &mut App) {
         .configure_sets(
             sim,
             (
+                DurableRestoreSet::Validate,
                 DurableRestoreSet::Lifecycle,
                 DurableRestoreSet::Domains,
                 DurableRestoreSet::Complete,

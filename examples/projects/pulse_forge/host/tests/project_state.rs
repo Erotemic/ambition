@@ -39,6 +39,15 @@ impl Scratch {
         std::thread::sleep(std::time::Duration::from_millis(20));
         std::fs::write(self.0.join(file), text).unwrap();
     }
+    fn enable_progress(&self) -> String {
+        let source = std::fs::read_to_string(example().join("recipes/progress.rhai")).unwrap();
+        self.edit("modules/progress.rhai", &source);
+        let content = std::fs::read_to_string(self.0.join("content/characters.ron")).unwrap();
+        let content = content.replace(r#"tags: ["pulse_forge.sentinels"],"#,
+            r#"tags: ["pulse_forge.sentinels"], techniques: [(id: ("pulse_forge"), slot: Projectile, gate: Technique("pulse_forge"))],"#);
+        self.edit("content/characters.ron", &content);
+        source
+    }
     fn project(&self) -> Project { Project::load(&self.0).unwrap() }
     fn sim(&self) -> Platformer2dSimHarness { self.project().sim(options()).unwrap() }
 }
@@ -68,6 +77,7 @@ fn backend(sim: &Platformer2dSimHarness, key: &str) -> Weak<dyn ModuleBackend> {
 #[test]
 fn script_and_character_edits_publish_together_and_retire_old_code() {
     let files = Scratch::new("paired");
+    files.enable_progress();
     let mut sim = files.sim();
     sim.app_mut().init_resource::<Pairs>();
     let schedule = sim.app_mut().sim_schedule();
@@ -76,6 +86,7 @@ fn script_and_character_edits_publish_together_and_retire_old_code() {
         .before(ExtensionSet::Settle(phases::ACTOR_THINK))
         .in_set(ExtensionSet::Phase(phases::ACTOR_THINK)));
     sim.step_n(AgentAction::default(), 10);
+    let before = ticks(&mut sim);
     let generation = sim.world().resource::<ExtensionGeneration>().clone();
     let old = backend(&sim, "sentinel");
     let script = std::fs::read_to_string(files.0.join("modules/sentinel.rhai")).unwrap();
@@ -105,6 +116,7 @@ fn script_and_character_edits_publish_together_and_retire_old_code() {
     assert!(pairs.contains(&(180.0, 180.0, 96.0)), "the repaired content publishes the held script edit: {pairs:?}");
     assert!(pairs.iter().all(|pair| *pair == (120.0, 120.0, 48.0) || *pair == (180.0, 180.0, 96.0)), "mixed project generation: {pairs:?}");
     assert!(old.upgrade().is_none(), "the retired backend has no remaining owner");
+    assert!(ticks(&mut sim) > before, "publication preserves progress while the save changes each tick");
 }
 
 const TICKS: SchemaKey = SchemaKey::new("pulse_forge", "progress.ticks", 1);
@@ -121,12 +133,7 @@ fn ticks(sim: &mut Platformer2dSimHarness) -> u32 {
 fn a_durable_project_record_loads_and_an_incompatible_replacement_keeps_it() {
     use ambition_platformer2d::persistence::save::{load_save, write_save};
     let files = Scratch::new("saved");
-    let source = std::fs::read_to_string(example().join("recipes/progress.rhai")).unwrap();
-    files.edit("modules/progress.rhai", &source);
-    let content = std::fs::read_to_string(files.0.join("content/characters.ron")).unwrap();
-    let content = content.replace(r#"tags: ["pulse_forge.sentinels"],"#,
-        r#"tags: ["pulse_forge.sentinels"], techniques: [(id: ("pulse_forge"), slot: Projectile, gate: Technique("pulse_forge"))],"#);
-    files.edit("content/characters.ron", &content);
+    let source = files.enable_progress();
     let mut sim = files.sim();
     sim.step_n(AgentAction::default(), 60);
     let before = ticks(&mut sim);
@@ -152,7 +159,8 @@ fn a_durable_project_record_loads_and_an_incompatible_replacement_keeps_it() {
         files.edit("modules/progress.rhai", &incompatible);
         let linked = ambition_platformer2d::extension::linked_modules(sim.world());
         let (code, modules) = ambition_platformer2d::extension::load_module_file(&path, &linked).unwrap();
-        let reason = ambition_extension_host::reload::stage_loaded_replacement(sim.world_mut(), &path.to_string_lossy(), code, modules).unwrap_err();
+        let saved = ambition_platformer2d::runtime::module_save_road::current_saved_rows(sim.world());
+        let reason = ambition_extension_host::reload::stage_loaded_replacement(sim.world_mut(), &path.to_string_lossy(), code, modules, &saved).unwrap_err();
         assert!(reason.contains(diagnostic), "{reason}");
         sim.step_n(AgentAction::default(), 60);
         assert_eq!(*sim.world().resource::<ExtensionGeneration>(), generation);
@@ -168,5 +176,40 @@ fn a_durable_project_record_loads_and_an_incompatible_replacement_keeps_it() {
         "body": save.body_module_records()[0].body.as_str(),
         "before_save": before, "after_load": after_load,
         "after_refused_reload": continued + 1, "refusals": refusals,
+    })).unwrap()).unwrap();
+    let saved_file = std::fs::read(&file).unwrap();
+    let mut startup_refusals = Vec::new();
+    for incompatible in [
+        source.replace("attachment: \"body\"", "attachment: \"session\""),
+        source.replace("kind: \"u32\"", "kind: \"f32\""),
+    ] {
+        files.edit("modules/progress.rhai", &incompatible);
+        let mut refused = files.project().sim(options().with_save(save.clone())).unwrap();
+        for _ in 0..10 { refused.app_mut().update(); }
+        assert!(refused.world().resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>().0.is_none(),
+            "an incompatible saved schema must not activate a fresh session");
+        let reason = ambition_platformer2d::runtime::module_save_road::validate_saved_module_records(
+            refused.world(), &save).unwrap_err();
+        assert!(reason.contains("saved") && reason.contains("progress.ticks"), "{reason}");
+        startup_refusals.push(reason);
+    }
+    assert_eq!(std::fs::read(file).unwrap(), saved_file, "refused starts leave the save file intact");
+
+    std::fs::remove_file(files.0.join("modules/progress.rhai")).unwrap();
+    sim.step_n(AgentAction::default(), 60);
+    let removed = sim.world().resource::<ExtensionGeneration>().clone();
+    assert!(!sim.world().resource::<AdmittedExtensions>().0.schemas.contains_key(&TICKS));
+    let saved = sim.world().resource::<ambition_platformer2d::session::AmbitionGameSave>()
+        .data().body_module_records().iter().find(|row| row.key == TICKS.to_string()).unwrap().clone();
+    files.edit("modules/progress.rhai", &source.replace("kind: \"u32\"", "kind: \"f32\""));
+    sim.step_n(AgentAction::default(), 60);
+    assert_eq!(*sim.world().resource::<ExtensionGeneration>(), removed,
+        "a newly added module must honor the saved schema, even with no live schema to compare");
+    assert_eq!(sim.world().resource::<ambition_platformer2d::session::AmbitionGameSave>()
+        .data().body_module_records().iter().find(|row| row.key == TICKS.to_string()), Some(&saved));
+    std::fs::write(out.join("save-admission-refusals.json"), serde_json::to_vec_pretty(&serde_json::json!({
+        "startup_refusals": startup_refusals,
+        "incompatible_added_module_admitted": sim.world().resource::<AdmittedExtensions>().0.schemas.contains_key(&TICKS),
+        "saved_body": saved.body, "saved_key": saved.key,
     })).unwrap()).unwrap();
 }

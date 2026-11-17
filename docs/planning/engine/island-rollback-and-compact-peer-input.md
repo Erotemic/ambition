@@ -958,10 +958,40 @@ partitioned (Jon, 2026-11-16). The [room replay contract](../../systems/room-rep
 says a room-owned resource's writer asks `RoomReplay::allows(owner)` (47 call
 sites today). Nothing finds a sim-schedule writer of a global `Resource` that
 does neither that nor a shared-store retraction, so the next one is found by a
-cross-room desync, as these fixes were. Next action: a census over the
-rewinding schedule's `ResMut` writers, classified as room-gated, retracted
-store, world-owned by ruling, or unclassified, with the unclassified count
-ratcheted to zero.
+cross-room desync, as these fixes were.
+
+**Census and ratchet, done (2026-11-17).**
+`scripts/checks/check_sim_schedule_resource_writers_are_room_classified.py`
+(a `run_tests.py` job) classifies each `ResMut` binding of a sim-schedule
+system: room-gated (`.allows(`), room-stamped (`RoomWrite`), retracted (a
+registered room-write retractor takes the write back: the retractor's own log,
+a store this writer also logs to, or a store diffed whole at the tick's tail),
+derived (a ruled type the scan checks is rebuilt each run, not accumulated),
+instrument (a census, trace, capture tool or presentation-only state), or
+world-owned (host state a rewind does not change, by the type's own doc), or
+unclassified. Measured: 228 bindings; 11 room-gated, 14 room-stamped, 22
+retracted, 59 derived, 26 instrument, 2 world-owned and 94 unclassified over
+37 types. The ceiling is 94 and may only fall. **Open:** those 37 types are
+real state, not projections, so each needs a code change that the room-replay
+acceptance tests (`a_guests_room_rewinds_on_the_host`) must witness: a
+`RoomReplay::allows` gate, a room-stamped log, or a world-owned writer gated
+`not(resource_exists::<RoomReplay>)` as the cutscene runtime is. The largest
+are `AmbitionGameSave` (writers other than the boss-defeat retraction),
+`QuestRegistry`, `PendingLifecycleCommit` and `SlotInteractionState`; the
+clocks (`SimTick`, `ClockState`, `DayClock`) and the seat input frames
+(`SlotControls`, `SeatRawFrames`) want a ruling on whether a room replay runs
+them.
+
+**Gravity turns rewind with their room (2026-11-17).** The census missed one
+writer because it writes through a deferred world command: a `FlipGravity` or
+`SetGravity` switch turned its room's `BaseGravity` entry, and a rewind of
+that room kept the turn while the replay pressed the switch again, so a flip
+was applied twice. The switch arms now write through `BaseGravity::turn_from`,
+which logs the room, the tick and the replaced entry in `GravityTurnsInRooms`
+(rollback-registered, schema 478); `retract_room_gravity_turns` puts a rewound
+room's turns back. Witness: `a_rewound_room_puts_back_its_own_gravity_turns`.
+The census reads only `ResMut` parameters, so a write through
+`commands.queue` is still invisible to it.
 
 ## Order, exclusions and integration
 

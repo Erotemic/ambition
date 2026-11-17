@@ -613,8 +613,12 @@ impl<'a> SolidsByRoom<'a> {
 ///
 /// This runs before pickup command application so it reads settled hand state and cannot
 /// immediately undo a same-tick pickup. The entity/`SimId` is preserved; release places
-/// the item at the holder and clears velocity. Despawned holders are left to the actor
-/// death/drop policy to avoid creating a duplicate drop.
+/// the item at the holder and clears velocity.
+///
+/// An item whose holder no longer exists (a stock lost, a body despawned) goes back into
+/// the world where it was taken, under gravity: the one way an object outlives its
+/// holder. A death that mints its body's weapon (`drops_held_item`) mints nothing for a
+/// body that carries an object, so the object is not doubled.
 pub fn return_released_items(
     mut commands: Commands,
     // The hand, and where the body is standing. `Option<&HeldItem>` rather than
@@ -642,9 +646,11 @@ pub fn return_released_items(
         let ItemCustody::Held { holder } = *custody else {
             continue;
         };
-        // A holder that no longer exists is the death-drop resolver's question,
-        // not this one's — see the above.
         let Ok((kin, held, support, brandished)) = holders.get(holder) else {
+            // The holder is gone, so nothing can say where its hand was: the
+            // object comes back where its body was stored when it was taken.
+            PreparedItemRelease { body: BodyKinematics { vel: Vec2::ZERO, ..*body } }
+                .put_down(&mut commands, entity, &mut custody);
             continue;
         };
         // Still the object in that hand — nothing to do. Compared by SPEC ID
@@ -694,7 +700,7 @@ pub fn project_custody_onto_residency(
     // Residency follows the holder's actual `RoomResident` status, not merely
     // room scope. This makes nested custody transitive. A missing holder is
     // treated as resident so an orphaned item is retired with the room.
-    // TODO(item-orphan): release custody when a holder despawns.
+    // An orphan is released by `return_released_items` on the next tick.
     existing: Query<()>,
     residents: Query<(), ambition_platformer2d_shared_tangle::lifecycle::RoomResident>,
 ) {

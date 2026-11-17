@@ -158,9 +158,11 @@ Gaps the matrix shows:
 - **Match items have no road back.** `spawn_match_items`
   (`AM/items/match_spawn.rs`) gives an item a `SimId` but no `SpawnOrigin`,
   so the minted baseline and mint admission do not see it.
-- **Stock loss has no item owner.** An eliminated holder is despawned and its
-  item stays `Held` by a body that no longer exists: `return_released_items`
-  skips it and residency keeps it (`TODO(item-orphan)` in `HI`).
+- **Stock loss has an item owner (2026-11-17).** An item whose holder no
+  longer exists is put back into the world by `return_released_items` where
+  its body was stored when it was taken, under gravity. A death that mints
+  its body's weapon (`drops_held_item`) mints nothing for a body that carries
+  an object, so the object is never doubled.
 - **Equipment has two writers on two clocks.** The sim pickup runs in
   `HeldItemStep::Pickup`; the menu's Equip runs in `Update` and writes
   `HeldItem` with no occurrence, so a menu-equipped hand is not persisted.
@@ -178,7 +180,7 @@ Gaps the matrix shows:
 | Atomic durable horizon | `PersistedMintedItem` has its own setter (`set_minted_items`) and writer (`minted_horizon.rs`), separate from `set_durable_horizon`, which takes occurrences and custody together. Fold minted items into `set_durable_horizon` | One write; the guard `no_durable_row_names_an_occurrence_the_save_does_not_hold` becomes a property of the writer, not only a fixture test |
 | `durably_held` width | It matches the `ItemCustody` component, so it holds items lying on the ground too. Narrowing it to `Held` is a durability decision | Decide it explicitly; dropping a save row is the dangerous direction |
 | Lifetime matrix | **Done 2026-10-22**, above | Each row names its owner and phase |
-| Orphaned holder | An eliminated or despawned holder leaves its item `Held` by nobody (`TODO(item-orphan)`); stock loss has no item owner | An item outlives its holder in exactly one stated way |
+| Orphaned holder | **Done 2026-11-17**: the item comes back where it was taken (`return_released_items`); a carrying body's death mints no weapon copy (`FeatureHitWriters::carries_an_object`). Witness: `an_item_whose_holder_is_gone_comes_back_where_it_was_taken` | An item outlives its holder in exactly one stated way |
 | Match items | `spawn_match_items` gives no `SpawnOrigin`, so match items are invisible to minted accounting | A match item is either minted (described) or stated session-only |
 | Menu equip | The menu's Equip writes `HeldItem` in `Update`, outside custody | One equip road, or the menu's stated as session-only |
 | Item carve boundary | See below | The proofs below |

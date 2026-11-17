@@ -2401,3 +2401,23 @@ fn a_settled_item_rides_far_side_support_and_keeps_its_pose_on_refusal() {
     assert_eq!(after.material, before.material);
     assert!(app.world().get::<SettledItem>(item).is_some());
 }
+
+/// An item whose holder is gone (a stock lost, a body despawned) comes back
+/// where it was taken, and falls: the one way an object outlives its holder.
+#[test]
+fn an_item_whose_holder_is_gone_comes_back_where_it_was_taken() {
+    let mut app = App::new();
+    app.add_systems(Update, return_released_items);
+    let holder = app.world_mut().spawn_empty().id();
+    let at = Vec2::new(140.0, 60.0);
+    let item = app
+        .world_mut()
+        .spawn((GroundItem::at_rest(axe_spec(), at, Vec2::splat(8.0)), SettledItem::default()))
+        .id();
+    app.world_mut().entity_mut(item).insert(ItemCustody::Held { holder });
+    app.world_mut().despawn(holder);
+    app.update();
+    assert_eq!(app.world().get::<ItemCustody>(item), Some(&ItemCustody::InWorld));
+    assert_eq!(app.world().get::<BodyKinematics>(item).map(|body| body.pos), Some(at));
+    assert!(app.world().get::<SettledItem>(item).is_none(), "it is back under gravity");
+}

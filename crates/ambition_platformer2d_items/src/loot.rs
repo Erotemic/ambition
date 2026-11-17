@@ -362,5 +362,37 @@ pub fn drop_held_weapon(
     );
 }
 
+/// Spawn the item an authored placement grew again (a palm's coconut) as a
+/// `GroundItem` at rest at `pos`.
+///
+/// It is a runtime mint for the same reason a dropped weapon is: no record
+/// authors it, so the occurrence ledger admits it where it lies, and its
+/// identity (`SimId::regrown`) is what every durable road keys on. It is at
+/// rest where it grew, as the authored item it replaces was.
+#[allow(clippy::too_many_arguments)]
+pub fn grow_ground_item(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    placement: &SimId,
+    generation: u64,
+    spec: ambition_characters::brain::HeldItemSpec,
+    pos: ae::Vec2,
+    half_extent: ae::Vec2,
+    name: &str,
+) -> bevy::prelude::Entity {
+    spawn_death_drop(
+        commands,
+        session_scope,
+        placement,
+        generation,
+        DropIdentity::Occurrence(SimId::regrown(placement, generation)),
+        (
+            ambition_held_items::GroundItem::at_rest(spec, pos, half_extent),
+            ambition_held_items::SettledItem::default(),
+            bevy::prelude::Name::new(name.to_string()),
+        ),
+    )
+}
+
 #[cfg(test)]
 mod tests;

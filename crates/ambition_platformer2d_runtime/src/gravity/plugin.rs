@@ -38,6 +38,14 @@ impl Plugin for GravityPlugin {
         // sure they (and the per-frame `GravityZones` snapshot) exist.
         app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityField>();
         app.init_resource::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
+        // A rewound room puts back the gravity turns it made after the tick it
+        // was saved at (ISL-2d).
+        app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityTurnsInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.gravity_turns_in_rooms",
+            ambition_platformer2d_shared_tangle::gravity::retract_room_gravity_turns,
+        );
         app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityZones>();
         app.init_resource::<ambition_platformer2d_shared_tangle::frame_env::ForceZones>();
 

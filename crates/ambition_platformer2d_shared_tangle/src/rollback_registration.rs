@@ -88,6 +88,12 @@ where
     );
     registrar
         .rollback_resource_canonical::<crate::gravity::BaseGravity>(OWNER, "resource.base_gravity");
+    registrar.rollback_resource_clone_checksum::<crate::gravity::GravityTurnsInRooms>(
+        OWNER,
+        "resource.gravity_turns_in_rooms",
+        "the gravity turns rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
+        crate::gravity::GravityTurnsInRooms::checksum,
+    );
     // The PRIMARY body's frame, mirrored for the camera, HUD and touch
     // glyphs. No simulation system reads it (bodies read their own frame), and
     // `resolve_active_gravity` rewrites it every tick before any reader.

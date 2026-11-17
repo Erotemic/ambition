@@ -84,6 +84,107 @@ pub fn regrow_pickups(
     }
 }
 
+/// An authored ground item with a `regrow_seconds` grows again where it was
+/// placed: once nothing of its kind lies there, a fresh one appears that many
+/// seconds later (a palm's coconut, after a swallow or a player took it).
+///
+/// The wait is a [`WorldTimeSchedule`] record keyed by the placement, so it is
+/// rollback state with a rewind already written for it, and a placement left
+/// empty while its room was not live grows its item as soon as the room is
+/// live again, if the wait is over. The grown item is a runtime mint
+/// ([`crate::loot::grow_ground_item`]); a placement holds at most one item, so
+/// a taken item that is brought back fills it again and nothing grows.
+#[allow(clippy::too_many_arguments)]
+pub fn regrow_ground_items(
+    elapsed: SessionWorldRef<GameplayElapsed>,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    items: Query<(
+        Entity,
+        &ambition_held_items::GroundItem,
+        &ambition_held_items::ItemCustody,
+        &ambition_platformer2d_core::BodyKinematics,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    )>,
+    occurrences: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    participants: Query<(Entity, &DrivingParticipant)>,
+    mut schedule: SessionWorldMut<WorldTimeSchedule>,
+    mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
+    tick: Option<Res<ambition_time::SimTick>>,
+) {
+    let Some(session_scope) = commands.spawn_scope() else {
+        return;
+    };
+    for (live, definition) in rooms.live_rooms() {
+        let room = rooms.rooms().spec(definition);
+        for spec in &room.ground_items {
+            let Some(seconds) = spec.regrow_seconds else {
+                continue;
+            };
+            let key = format!("grown:{}", spec.id);
+            let written = tick.as_deref().map(|tick| {
+                ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room: live, tick: tick.0 }
+            });
+            // Within the placement's own box, doubled: an item put back
+            // roughly where it grew fills it.
+            let reach = spec.half_extent.max_element().max(8.0) * 2.0;
+            let held = items.iter().any(|(entity, item, custody, body, _)| {
+                custody.in_world()
+                    && item.spec.id == spec.held_item
+                    && rooms.live().of(entity) == Some(live)
+                    && body.pos.distance(spec.pos) <= reach
+            });
+            if held {
+                if schedule.holds(&room.id, &key) {
+                    schedule.forget_from(written, &room.id, &key);
+                }
+                continue;
+            }
+            match schedule.due(&room.id, &key) {
+                None => {
+                    let mut owners: Vec<_> = participants
+                        .iter()
+                        .filter(|(body, _)| rooms.live().of(*body) == Some(live))
+                        .map(|(_, driver)| driver.0)
+                        .collect();
+                    owners.sort();
+                    owners.dedup();
+                    schedule.record_from(written, &room.id, &key, elapsed.0 + seconds, &owners);
+                }
+                Some(due) if elapsed.0 >= due => {
+                    let Some(held_spec) = ambition_characters::brain::held_item_by_id(&spec.held_item) else {
+                        continue;
+                    };
+                    let placement = ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&spec.id);
+                    // The lowest generation nothing remembers and nothing
+                    // carries: derived from rollback state, so a rewind that
+                    // takes a grown item back hands its id out again.
+                    let live_ids: std::collections::BTreeSet<_> =
+                        items.iter().filter_map(|(.., sim_id)| sim_id).collect();
+                    let generation = (1u64..)
+                        .find(|generation| {
+                            let id = ambition_platformer2d_shared_tangle::sim_id::SimId::regrown(&placement, *generation);
+                            !live_ids.contains(&id)
+                                && !occurrences.as_deref().is_some_and(|ledger| ledger.remembers(&id))
+                        })
+                        .expect("an unbounded range has an unused generation");
+                    crate::loot::grow_ground_item(
+                        &mut commands,
+                        session_scope.in_room(Some(live)),
+                        &placement,
+                        generation,
+                        held_spec,
+                        spec.pos,
+                        spec.half_extent,
+                        &format!("Ground item: {}", spec.name),
+                    );
+                    schedule.forget_from(written, &room.id, &key);
+                }
+                Some(_) => {}
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1020,6 +1020,7 @@ fn destination_with_a_continuity_item(app: &mut App) {
     let mut rooms = session_world_component_mut::<ambition_platformer2d::world::rooms::RoomSet>(app.world_mut()).unwrap();
     let destination = rooms.rooms.iter_mut().find(|room| room.id == HUB).unwrap();
     destination.ground_items.push(ambition_platformer2d::world::rooms::GroundItemSpec {
+        regrow_seconds: None,
         id: PREPARATION_ITEM.into(), name: "Preparation item".into(), held_item: "gun_sword".into(),
         pos: destination.world.spawn, half_extent: ambition_platformer2d::engine_core::Vec2::splat(8.0),
     });

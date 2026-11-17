@@ -3189,6 +3189,7 @@ mod tests {
         let mut home = empty_spec("blink_run");
         home.ground_items
             .push(ambition_platformer2d_world::rooms::GroundItemSpec {
+                regrow_seconds: None,
                 id: "axe".into(),
                 name: "Axe".into(),
                 held_item: "gun_sword".into(),
@@ -3274,6 +3275,7 @@ mod tests {
         let sprites = ambition_sprite_sheet::test_support::shared_sprites();
         let mut spec = empty_spec("east");
         spec.ground_items.push(ambition_platformer2d_world::rooms::GroundItemSpec {
+            regrow_seconds: None,
             id: "axe".into(), name: "Axe".into(), held_item: "gun_sword".into(),
             pos: ae::Vec2::new(80.0, 80.0), half_extent: ae::Vec2::splat(8.0),
         });
@@ -3306,6 +3308,7 @@ mod tests {
         let sprites = ambition_sprite_sheet::test_support::shared_sprites();
         let mut home = empty_spec("west");
         home.ground_items.push(ambition_platformer2d_world::rooms::GroundItemSpec {
+            regrow_seconds: None,
             id: "axe".into(), name: "Axe".into(), held_item: "gun_sword".into(),
             pos: ae::Vec2::splat(80.0), half_extent: ae::Vec2::splat(8.0),
         });

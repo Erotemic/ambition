@@ -73,9 +73,12 @@ with the desired look.
 - [ ] **Remaining entity prop redesigns:** heart, coin, switches, morph ball,
   save point, doors and tiles. Check the latest assets before selecting an
   art pass; this is the old October inventory, not a fresh defect report.
-- [ ] **Coconut lifecycle:** a palm must grow/replenish coconuts so a taken
-  ground item can return. The existing swallow carries and drops a coconut;
-  taking one directly from a palm or from the air and equipping the European
+- [x] **Coconut lifecycle (2026-11-17):** a `GroundItem` authored with
+  `regrow_seconds` grows a fresh item of its kind at its placement once
+  nothing of that kind lies there (`regrow_ground_items`; the wait is a
+  `WorldTimeSchedule` record, the grown item a runtime mint with
+  `SimId::regrown`). The ten primeval-trail coconuts regrow after 30 s.
+  Taking one directly from a palm or from the air and equipping the European
   swallows remain optional follow-up behavior, not completed work.
 - [ ] **Launcher presentation:** the earlier backdrop/menu work landed, but
   a game-specific character, wordmark and a layout beyond the flat menu were

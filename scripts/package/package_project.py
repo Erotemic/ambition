@@ -21,7 +21,7 @@ from package_outlander import opened_assets
 REPO = Path(__file__).resolve().parents[2]
 
 
-def verify(root: Path, ticks: int, presentation_frames: int) -> dict:
+def verify(root: Path, ticks: int, presentation_frames: int, input_roots: tuple[Path, ...] = ()) -> dict:
     contract = AssetContract.from_json(json.loads((root / "CONTRACT.json").read_text()))
     for name in ("CONTRACT.json", "VERIFIED.json"):
         if (root / name).is_file():
@@ -37,7 +37,8 @@ def verify(root: Path, ticks: int, presentation_frames: int) -> dict:
     if presentation_frames:
         modes.append(("--presentation-frames", presentation_frames))
     for flag, count in modes:
-        code, opened, output = opened_assets([str(root / "run.sh"), flag, str(count)], Path("/"), env)
+        code, opened, output = opened_assets([str(root / "run.sh"), flag, str(count)], Path("/"), env,
+                                             input_roots=(root, *input_roots))
         outside = [path for path in opened if not Path(path).is_relative_to(root)]
         if outside:
             raise RuntimeError("the host read game inputs outside the artifact:\n  " + "\n  ".join(outside)
@@ -65,7 +66,8 @@ def verify(root: Path, ticks: int, presentation_frames: int) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--project", type=Path)
+    parser.add_argument("--project", type=Path,
+                        help="source project; also track its file reads during --verify-only")
     parser.add_argument("--host", type=Path)
     parser.add_argument("--exporter", type=Path, default=REPO / "target/debug/project_export")
     parser.add_argument("--out", type=Path, required=True)
@@ -75,8 +77,10 @@ def main() -> int:
     parser.add_argument("--verify-only", action="store_true")
     args = parser.parse_args()
     out = args.out.resolve()
+    source = args.project.resolve() if args.project is not None else None
+    input_roots = ((source if source.is_dir() else source.parent),) if source is not None else ()
     if args.verify_only:
-        report = verify(out, args.ticks, args.presentation_frames)
+        report = verify(out, args.ticks, args.presentation_frames, input_roots)
         write_json_atomic(out / "VERIFIED.json", report)
         print(f"verified {report['project']}: {len(report['opened_inputs'])} inputs from the artifact")
         return 0
@@ -100,9 +104,9 @@ def main() -> int:
                                       {"selected-project"}) for name, path in files.items()}
         contract = AssetContract("desktop-project", entries, ("project",))
         write_json_atomic(staged / "CONTRACT.json", contract.as_json())
-        verify(staged, args.ticks, args.presentation_frames)
+        verify(staged, args.ticks, args.presentation_frames, input_roots)
         staged.rename(out)
-    report = verify(out, args.ticks, args.presentation_frames)
+    report = verify(out, args.ticks, args.presentation_frames, input_roots)
     write_json_atomic(out / "VERIFIED.json", report)
     print(f"packaged {report['project']}: {len(entries)} files, {len(report['opened_inputs'])} opened inputs")
     print(out / "run.sh")

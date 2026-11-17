@@ -82,9 +82,9 @@ Start from `game/ambition_content_modules/src/overfit_volley.rs` (its own record
    `Vec<T>` with `[max N]`. Keep a field's tag when you rename it; a new tag
    is a new field. A hot reload that changes the fields carries the live
    records over by tag: a kept field keeps its value (also under a new name),
-   a new field or one whose type changed starts at its initial value, a
-   removed field is dropped. Moving a record to another store (body ↔
-   session) is refused (restart).
+   a new field starts at its initial value, and a removed field is dropped.
+   A changed kind on an existing tag, attachment, or save policy is refused
+   against live and saved records. Use a new schema key for new state.
 
    A record is the BODY's (one for each body the entry runs for). For one
    record that the whole session shares — a tally, a cursor across bodies —

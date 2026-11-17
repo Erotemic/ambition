@@ -1,7 +1,7 @@
 # Goal: first-class procedural game authoring
 
-**Selection:** Maintainer goal, 2026-11-16. **Status:** Open until the acceptance gates below pass.  
-**Command to an agent:** Complete this goal. Implement missing behavior, prove it in a real project, and commit the work. Do not stop after writing a plan.
+**Selection:** Maintainer goal, 2026-11-16. **Status:** Complete, 2026-11-17, for the desktop Linux acceptance slice.
+Browser and Android loader limits are stated below. They are not claimed from desktop results.
 
 ## Product result
 
@@ -186,292 +186,90 @@ The final handoff must contain:
 
 **Failure condition:** If a developer still needs to modify game-specific Rust code in the host for an ordinary new mechanic, or must rewrite content and bindings to move that mechanic from Rhai to portable Rust, this goal is not complete.
 
-## Execution status
+## Acceptance receipt
 
-Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
+Executed on Linux x86_64. Each gate below has runtime evidence. The
+[authoring guide](../../../examples/projects/pulse_forge/AUTHORING.md) routes
+through the [independent-directory commands](../../../examples/projects/pulse_forge/STANDALONE.md),
+[example reference](../../../examples/projects/pulse_forge/README.md), and
+[measured report](../../../examples/projects/pulse_forge/PERFORMANCE.md).
 
-| Gate | Executed evidence | Remaining work |
+| Gate | Result and implementation | Guard or retained evidence |
 | --- | --- | --- |
-| A3 | Semantic comparison and refusal checks pass. The inspection tool matches all 30 linked content modules with WASM. Pulse Forge matches Rhai, WASM, and linked contracts. A real native rebuild at the same crate version changes its independently checked executable digest; a copy keeps it. | Browser and Android native artifact identity remains a loader limit in A8. |
-| A4 | Pulse Forge's emitter runs as Rhai, WASM, and linked Rust. Both Rust paths use `portable/src/lib.rs`. Explicit selection keeps the same world, catalogs, and module key. Its second Rhai module remains admitted in every mode. The debug host and stock runtime were executed with no compiler on PATH. | Release-host build belongs to A8. |
-| A5 | Two promotion tests pass. Six backend/rollback cases compare 280 input frames each. They compare initial and populated state, ordered requests, body and occurrence identities, cost admission, entity lifetime, projectile motion, and mana. A second release is refused for insufficient mana. Changed Rhai bolt speed produces a structured diff. | Keep this fixture when the authored actor and catalogs change. |
-| A1, A6 | Pulse Forge owns its two character rows, starting-character rule, LDtk world, technique binding, and a stateful Rhai group patrol. The stock debug runtime loads it without a compiler. The parity fixture proves emitter effects, patrol steering, horizontal motion, and turn state. The guide lists the domain interfaces. | Self-contained delivery belongs to A8. |
-| A2 | Project tests execute source edits, additions, removals, invocation faults, and failed whole-set reloads. The project publication trace records a repaired content/script pair reaching the running body together. | Keep the author guide and installed-port diagnostics current. |
-| A7 | Project-state tests cover paired publication with a durable counter, old-backend retirement, body save/load, and refusal of changed attachment or field kind against live and saved records. Fresh starts refuse session activation with incompatible saves. The populated replay fixture remains green. | Keep these checks with changes to state or publication. |
-| A8 | An independent source directory runs Rhai, builds only its WASM module, selects it on the unchanged stock engine, builds its linked release host, and packages its runtime files. Both package probes read game inputs only inside the artifact. | Desktop Linux is proved. Browser and Android loaders remain unavailable in this workflow. |
-| A9-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Measure the three backends and finish the guide. |
+| A1 | Pulse Forge owns its world, two character rows, technique binding, emitter, and stateful group patrol. The stock runtime runs it without a compiler. | Five project gameplay tests; promotion fixture observes emitter effects and patrol motion and turns. |
+| A2 | Scripts declare modules through `declare()`. File edits and membership changes use the existing project candidate and mechanical-edit publication. Invalid candidates keep the last good set. | Project gameplay tests cover edits, additions, removals, faults, and whole-set rejection. `project_state` observes paired script/content publication in the simulation. |
+| A3 | Semantic declarations compare independently of code identity. Linked identity includes the running executable's digest (`25f88d451`). Copies keep it; a real native constant edit changes it. | 13 SDK, 46 host, and 3 Rhai tests passed. All 30 content module contracts match WASM. Changed field kinds and missing capabilities refuse with field or port diagnostics. |
+| A4 | One portable Rust source builds as WASM and linked Rust. Manifest selection changes only the active emitter implementation. The patrol stays Rhai. | Stock-engine hash stays fixed across external Rhai/WASM runs. Independent linked release host matches semantic declaration `46370e7146c047f6`. |
+| A5 | The same 280-frame input runs through all three backends, with and without populated GGRS rollback. Ordered requests, state, identities, costs, entity lifetime, projectile motion, and patrol motion agree exactly in this fixture. | Two `promotion` tests pass. A deliberately changed Rhai speed produces a structured diff. The guide states the float scope and tick origin. |
+| A6 | Shared character grants (`fb341a507`), explicit empty optional catalogs (`e4593e3a4`), and domain-owned ports support the game without private game adapters. | The example reference lists every domain interface. The authored sentinel and keeper use the common body/control path. |
+| A7 | One compatibility check covers live and saved schemas (`bb812e8d3`). Paired publication, durable body state, refusal, and old-generation retirement are exercised. | Two `project_state` tests pass, including a changing durable counter, fresh-start refusal, and incompatible readdition after unload. Forty-six host tests pass. |
+| A8 | Export and byte verification use existing project, pack, library, and packaging owners (`31949354d`). The source-kit helper and manifest-aware module builder prove an independent workspace (`80290fbe1`). File probes include ordinary project inputs (`8702d6b50`). | All five standalone steps executed. The package passes 30 headless ticks and 600 no-window frames from `/`, without a compiler on PATH. |
+| A9 | The actual workload is measured through all three backends (`9c1ccf62d`). Optional counters observe invocation boundaries without affecting state. | Eighteen processes run 50,400 measured ticks. Nine speed edits reach a projectile at 241 units/s. The report retains counts, host/backend time, full-step cost, memory, builds, and restart latency. |
+| A10 | One short guide covers declarations, state, domain effects, outcomes, reload, promotion, build cost, saves, and capability limits. Port fields come from the generated reference. | Guide commands match the executed project, parity, state, build, packaging, and profiling paths. Documentation links pass. |
 
-Commands for this slice:
-
-```bash
-cargo test -p ambition_extension_sdk -p ambition_extension_rhai -p ambition_extension_host --lib contract
-cargo test -p ambition_extension_rhai --lib an_independent_rhai_declaration
-cargo build -p ambition_app_tools --bin extension_inspect
-scripts/regen/build_extension_modules.sh ambition_content_modules
-./target/debug/extension_inspect --compare target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm
-./target/debug/extension_inspect --project examples/projects/pulse_forge --compare examples/projects/pulse_forge/modules/pulse_forge.rhai
-cargo check -p ambition_app
-```
-
-The inspection executable SHA-256 was
-`acef8cefe64643151d86d01746483fac0118d4fbe16067b8e6299fc618e043ba`.
-The WASM SHA-256 was
-`30d1fe400df2a575cbe87c4c4909b26702cd755163007b6634834c626c985798`.
-Logs are under `target/procedural-contract-*`.
-
-Selection slice checks:
+Final focused commands:
 
 ```bash
 cargo test -p ambition_extension_host --lib
-cargo test -p ambition_app --lib app::project::tests
-cargo test -p ambition_app --test app_it -- a_project_authors_a_technique
+CARGO_INCREMENTAL=0 cargo test --release -p pulse_forge_host --no-default-features --features desktop_player --test promotion --test project_state -- --test-threads=1
 cargo check -p ambition_app
-cargo build -p ambition_app_tools --bin extension_inspect
-PATH=/nonexistent ./target/debug/extension_inspect --project target/procedural-selection-projects/rhai.ron
-PATH=/nonexistent ./target/debug/extension_inspect --project target/procedural-selection-projects/wasm.ron
-PATH=/nonexistent ./target/debug/extension_inspect --project target/procedural-selection-projects/linked.ron
-```
-
-Results: 46 host tests, 4 project tests, and 5 gameplay tests passed. The app
-check passed. Each runtime manifest listed the same Sentry script and content
-WASM artifact. Only its `implementations` choice changed. The manifest syntax
-is in the [module recipe](../../recipes/writing-a-procedural-module.md).
-Moving an identical selected artifact to another directory keeps generation
-identity. Selection changes require a restart; selected-file edits still reload.
-
-`cargo test -p ambition_workspace_policy` had 33 passes and 2 failed tests.
-It reported nine violations outside this slice: four dependency allowlist
-entries, three direct body writes, and two optional-catalog diagnostics. The full
-diagnostics are in `target/procedural-selection-policy.log`. Other selection
-logs use the same prefix.
-
-The selection executable SHA-256 was
-`296479b1b9fa00351df40b21227c4378a453876d5921847cd60b39bb29bcfb39`.
-
-Promotion slice checks, Linux x86_64, debug host and release WASM:
-
-```bash
-cargo test -p pulse_forge_host --test promotion -- --test-threads=1
-cargo test -p ambition_combat_port -p ambition_extension_host --lib
-cargo test -p ambition_app --test app_it -- a_project_authors_a_technique
-cargo check -p ambition_app
-cargo build -p ambition_app -p ambition_app_tools -p pulse_forge_host --bin ambition_game_bin --bin extension_inspect --bin pulse_forge_host
 python3 scripts/checks/check_absence_contracts.py --check
+python3 scripts/checks/check_doc_links.py
+python3 examples/projects/pulse_forge/profile.py --out target/pulse-forge-profile-final --samples 3 --cycles 10
+python3 examples/projects/pulse_forge/measure_edits.py --samples 3
+python3 scripts/package/package_project.py --project /tmp/pulse-forge-authoring --out /tmp/pulse-forge-release --verify-only --ticks 30 --presentation-frames 600
 ```
 
-Results: 2 promotion tests, 35 port tests, 46 host tests, and 5 project tests
-passed. The app check and all 53 absence contracts passed. The generated
-script reference includes the existing mana-cost port. The minimal consumer
-lock was refreshed for the persistence dependency merged from upstream.
-The policy check still had 33 passes and 2 failed tests. It reported ten
-violations outside the promotion change, including the new upstream
-persistence edge's allowlist. Logs use `target/procedural-promotion-*`.
+Results: 46 host tests, two release promotion tests, two release project-state
+tests, the assembled app check, and all 53 absence contracts pass. The
+workspace policy lane has 33 passes and two failures. Before the upstream
+merge it reports eight findings: five dependency allowlist entries and three
+direct body writes. The unchanged policy test binary reports ten findings on
+the merged source: upstream `d9022dd41` adds two optional-catalog findings at
+one group binding. No waiver was added. This is a focused lane; the full
+workspace suite and visual acceptance were not run. Check logs use
+`target/procedural-authoring-final-*` and `target/procedural-authoring-merged-*`.
+The merged app check and all four release project tests pass again after
+`af3ac0f6e`, including upstream's rollback schema 481.
 
-The [example guide](../../../examples/projects/pulse_forge/README.md) gives
-the exact build, copy, selection, and run commands. The stock executable ran
-both authored-file modes for 30 ticks with `PATH=/nonexistent`. Its SHA-256
-was unchanged between runs:
-`b3d4b0333281671c271fdf5517e01064fa4030d442568b7badc5d102521a1c90`.
-The linked example host also ran for 30 ticks and printed both native emitter
-entries and the loaded Rhai sentinel. Its SHA-256 was
-`814c4b7b4c0d2527a900bf04cb599311d34332abeff02d3d23eb0e6b9ee1e31d`.
-The WASM SHA-256 was
-`2465155e4fa0d304a740e34e0d30eee6d539f8cc94dadcfff97743f378986a66`.
-The semantic declaration matched as `46370e7146c047f6`.
-
-Complete traces are under `target/pulse-forge-parity`. The negative fixture's
-diff is `target/pulse-forge-parity-negative/diff.json`. The guide states the
-fixture's tick origin and exact float comparisons. These results do not
-establish parity for other algorithms, profiles, or platforms. The next step
-was the authored actor and an innate technique binding, through the character
-catalog and the shared action scheme. The next receipt records that work.
-
-Independent cast slice, Linux x86_64, debug host, 2026-11-16:
-
-The example uses its own character catalog and an innate Projectile technique.
-It has no Eye Laser item binding. The room places a tagged sentinel. Its Rhai
-group rule reads room observations, keeps patrol state, and sends steering to
-the common control owner. The fixture compares horizontal motion and two turns
-alongside the emitter and mana refusal in all six backend/replay cases.
-Character grants and retraction use the shared body path (`fb341a507`). An
-explicit empty boss or cutscene catalog is valid (`e4593e3a4`). The rollback
-schema is 477 because character technique declarations now change at runtime.
-
-Focused checks passed: 20 action-scheme tests, 22 projection tests, 12 boss
-schema tests, 7 cutscene schema tests, 112 Sanic tests, 74 Smash tests, 5 project
-tests, 4 rollback-schema checks, 21 rollback coverage checks, and 2 group tests.
-The app check and 53 absence contracts passed. Six diagnostic Smash probes and
-two rollback probes were ignored. The workspace policy check had 33 passes and
-2 failures, with eight findings outside this slice: five dependency allowlist
-entries and three direct body writes. The group's required catalog resolves
-its two earlier findings. Logs use `target/procedural-innate-*`.
-
-```bash
-cargo test -p ambition_cutscene -p ambition_boss_encounter --features ambition_cutscene/content_pack,ambition_boss_encounter/content_pack --lib content_schema
-cargo test -p pulse_forge_host --test promotion -- --test-threads=1
-PATH=/nonexistent ./target/debug/extension_inspect --project examples/projects/pulse_forge --ticks 280
-PATH=/nonexistent ./target/debug/ambition_game_bin --project examples/projects/pulse_forge/project-rhai.ron --headless-ticks 60
-PATH=/nonexistent ./target/debug/ambition_game_bin --project examples/projects/pulse_forge/project-wasm.ron --headless-ticks 60
-PATH=/nonexistent ./target/debug/pulse_forge_host --project examples/projects/pulse_forge/project-linked.ron --headless-ticks 60
-```
-
-The inspection run reports two patrol turns. All three prebuilt runs succeed.
-The stock executable's SHA-256 stays
-`7cb0474e9af45d3a570eb6e061190b75665f2ff1ff3a1b9683cd0a3f4570129e`
-across the source and WASM runs. The linked host SHA-256 is
-`68b971c66a433f856464fa95bd75eec0a4e7134a81df970cd6eaeab93c00d985`.
-The WASM remains
-`2465155e4fa0d304a740e34e0d30eee6d539f8cc94dadcfff97743f378986a66`.
-The project still reads installed shared catalogs, tuning, and assets through
-repository paths. A8 must remove those delivery paths. Native build identity
-is still an A3 gap. The next acceptance case pairs a content edit with a script
-edit and exercises a durable body record through save/load.
-
-Project publication and durable record slice, Linux x86_64, debug host,
-2026-11-17:
-
-A character reload stages only the selected pack's cast. It no longer rebuilds
-other providers' characters under the selected provider. The paired test reads
-the catalog, live body tuning, and script request in one invocation. Its trace
-contains only `(120, 120, 48)` and `(180, 180, 96)`, including a failed content
-candidate and a repair of only that content. The replaced backend is released.
-
-The optional `recipes/progress.rhai` counter uses the existing durable body road
-on the authored sentinel. It saves at 61, loads and reaches 71, then continues
-to 192 through two refused replacements. Changed attachment and changed kind on
-field tag 1 both leave the live code and record usable. Compatible additions,
-renames, and field reordering still migrate by tag. A changed kind on an
-existing live tag now refuses instead of resetting its value.
-
-```bash
-cargo test -p ambition_extension_host --lib
-cargo test -p pulse_forge_host --test project_state -- --test-threads=1
-cargo test -p ambition_app --test app_it -- an_edit_reaches_the_shipped_game::an_edited_pack_reaches_the_cast_the_shipped_composition_plays
-cargo check -p ambition_app
-```
-
-Results: 46 host tests, 2 project-state tests, the shipped reload test, and the
-app check passed. Artifacts are `target/procedural-project-state/paired-trace.json`,
-`save.ron`, and `save-observation.json`. Logs use `target/procedural-project-*`.
-The guide states the durable identity requirement: the current home avatar has
-no durable construction provenance and does not use this body save road. This
-slice did not prove rejection of an incompatible saved schema at a fresh
-session admission. The next slice adds that check.
-
-Saved-schema admission, Linux x86_64, debug host, 2026-11-17:
-
-One compatibility check now covers live replacements and saved rows. It
-refuses changed attachment, save policy, or kind on an existing field tag.
-It permits compatible additions, removals, renames, and field reordering.
-Code replacement checks the active save before staging. Candidate session
-admission checks its own frozen save before activation. Fresh headless starts
-refuse activation with a useful diagnostic. A direct restore also checks saved
-schemas before it applies state. The save file stays intact. Unknown module rows stay opaque.
-
-The project fixture saves and loads an authored body's counter. It rejects
-incompatible fresh starts and an incompatible module added after its live
-schema has left. The paired content/script test also keeps this counter
-active. Publication succeeds while the record changes each tick.
-
-```bash
-cargo test -p ambition_extension_host --lib
-cargo test -p pulse_forge_host --test project_state -- --test-threads=1
-cargo test -p pulse_forge_host --test promotion -- --test-threads=1
-cargo test -p ambition_platformer2d_provider --lib the_candidate_gate_refuses_rather_than_retiring_a_playing_session
-cargo test -p ambition_app --test app_it -- a_durable_session_record_comes_back_with_its_save
-cargo check -p ambition_app
-cargo check -p ambition_app_tools --bin extension_inspect
-```
-
-Commit `bb812e8d3` adds saved-schema admission. Results: 46 host tests,
-2 project-state tests, 2 promotion tests, the session gate test, the existing
-durable-session save test, both compile checks, documentation links, and all
-53 absence contracts passed. Workspace policy had 33 passes and 2 failures
-with the same eight findings listed in the earlier character slice. No waiver
-was added. Logs use `target/procedural-save-final-*`. The saved-schema artifact
-is `target/procedural-project-state/save-admission-refusals.json`. Native build
-identity, release packaging, backend measurements, and platform loader checks
-remain.
-
-Native build identity, Linux x86_64, debug host, 2026-11-17:
-
-Commit `25f88d451` binds linked code to the running executable's BLAKE3 digest,
-read once before simulation. Crate name and version alone could not distinguish
-two native builds. Descriptor identity includes the build digest; semantic
-comparison excludes it. Portable declarations keep `build: None`.
-
-The artifact probe copied the same executable to two paths and checked each
-reported digest against an independent file hash. It then changed only
-`BOLT_SPEED` from `240.0` to `241.0` in `portable/src/lib.rs`, rebuilt with the
-same command and version `0.1.0`, and repeated inspection. The digest changed
-from `19abf154906767ad45b7cf3885525472170834c0dc9bbbf8da867f3883dfdd0b`
-to `6741ae97a4d4ef1692b7b35606145394fa7fe7146f8e3238424044437863b288`.
-Both match semantic declaration `46370e7146c047f6`. Restoring the source
-reproduced the original executable bytes. Each edit/relink took about 2.9 s
-on this warm target. This is build evidence, not a gameplay performance result.
-
-```bash
-cargo test -p ambition_extension_sdk -p ambition_extension_host -p ambition_extension_rhai --lib
-cargo build -p pulse_forge_host -p ambition_app_tools --bin pulse_forge_host --bin extension_inspect
-PATH=/nonexistent ./target/debug/pulse_forge_host --project examples/projects/pulse_forge/project-linked.ron --headless-ticks 0 --compare examples/projects/pulse_forge/build/pulse_forge.wasm
-PATH=/nonexistent ./target/debug/extension_inspect --compare target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm --ticks 0
-cargo test -p pulse_forge_host --test promotion -- --test-threads=1
-cargo check -p ambition_app
-cargo check -p ambition_extension_sdk --target wasm32-unknown-unknown
-cargo check -p ambition_extension_sdk --target aarch64-linux-android
-```
-
-Results: 13 SDK tests, 46 host tests, 3 Rhai tests, both promotion tests, and
-the compile checks pass. All 30 content module contracts match. The linked
-host refuses a changed field kind with status 1 and a field path. Workspace
-policy has the same eight findings: 33 tests pass and 2 fail. The consumer
-lockfiles now include the host's hash dependency; all 53 absence contracts
-pass. Logs use `target/procedural-native-*`; artifact observations are in
-`target/procedural-native-builds/observations.json`. Browser and Android host
-loaders still need native artifact identity. The SDK cross-target checks do
-not prove either loader. Release delivery and backend measurements remain.
-
-Desktop delivery, Linux x86_64, release without incremental compilation,
-2026-11-17:
-
-Commit `31949354d` exports declared project, content, world, module, and library
-inputs through their existing owners. It verifies the exported catalog against
-the original. The package tool uses the existing byte contract and file-open
-probe. Embedded installed content can still reload an external project's
-paired content and scripts. Default shell libraries no longer override the
-project's selected library.
-
-The [standalone guide](../../../examples/projects/pulse_forge/STANDALONE.md)
-contains the five executed steps. `/tmp/pulse-forge-authoring` has its own
-Cargo workspace, module source, host source, and runtime files. The SDK source
-is an explicit Rust build input. The workspace copies the SDK's dependency
-patches. Runtime loading needs no SDK source.
-
-The stock engine ran Rhai and WASM with `PATH=/nonexistent`. Its SHA-256 stayed
-`2af71b81af56bcf0d7dd7c59a0c1ac0726b8a99837baa3a694a41cac37e8b358`.
-A forced WASM build compiled only the module and public value dependencies.
-The module SHA-256 is
+The independent source workspace is `/tmp/pulse-forge-authoring`. The stock
+engine SHA-256 stayed
+`2af71b81af56bcf0d7dd7c59a0c1ac0726b8a99837baa3a694a41cac37e8b358`
+through source and WASM runs. A forced WASM build compiled only the module and
+public value dependencies. Its SHA-256 is
 `7cdfa44fedf283fbf8304c510d8baa8d8fc212ae8d845c3f8494cecf5e844856`.
-The independently built native host matches semantic declaration
-`46370e7146c047f6`. It keeps the Rhai patrol active.
 
-`/tmp/pulse-forge-release` contains 28,365 payload files. Its host SHA-256 is
-`2db3637166c3a019b0da754ed2b4a1de161b02beec027c808a1c441ed5e113dd`.
-Both the temporary package and final package pass byte and identity checks.
-From `/`, with no compiler on PATH, 30 simulation ticks read 9,568 game inputs;
-600 no-window frames read 10,361. All are inside the artifact. The presentation
-probe loads assets but draws no pixels. The package includes the whole selected
-shared library, about 5.7 GB with its host and metadata; asset minimization is
-not implemented. Browser and Android project loaders and native artifact
-identity are not proved by this desktop result.
+The verified desktop artifact is `/tmp/pulse-forge-release`. Its host SHA-256
+is `2db3637166c3a019b0da754ed2b4a1de161b02beec027c808a1c441ed5e113dd`.
+It contains 28,365 payload files. The broader input probe records 9,601 inputs
+for 30 ticks and 10,394 inputs for 600 no-window frames. All observed game
+inputs are inside the artifact. A focused external-script probe confirms that
+ordinary source reads outside the artifact are visible to rejection. Logs use
+`target/procedural-standalone-*` and `target/procedural-package-input-roots.log`.
 
-Focused checks pass: two release project-state tests, two release promotion
-tests, the app check, 53 absence contracts, documentation links, shell syntax,
-and Python compilation. The prior policy lane has 33 passes and two failures
-with the same eight findings outside this slice. Logs and Cargo artifact lists
-use `target/procedural-standalone-*` and `target/procedural-package-final-*`.
-Release builds use `CARGO_INCREMENTAL=0`; an earlier incremental build is not
-performance evidence.
+Median complete-step costs are 648.9 us for Rhai, 740.8 us for WASM, and
+629.5 us for linked Rust. Native and Rhai ranges overlap; a whole-game native
+speedup is not established. WASM is slower for this small mechanic. Retain
+four-projectile request batches and use Rhai for this edit loop. Warm module
+edits build in 0.421–0.470 s; linked release-host edits build in 3.734–3.818 s.
+Restart-to-observed results and the separate native probe build are stated in
+the report. The [raw observations](../../../dev/journals/2026-11-17-procedural-backends.json)
+retain the machine, toolchain, profile, hashes, commands, and all samples.
+
+Standing limits:
+
+- Browser and Android project loaders and native artifact identity are not
+  established. SDK cross-target compilation proves neither loader.
+- No-window verification loads presentation assets but draws no pixels.
+- The package includes the full selected shared library, about 5.7 GB with
+  its host and metadata. Asset reduction remains open.
+- Selection changes require restart. Arbitrary live state migration is not
+  supported. Transient records stay out of saves. Durable body state needs
+  stable construction provenance; the current home avatar lacks it.
+- Native linking is a deliberate host build. The measured restart loop is
+  not live reload latency or visual readiness. Process RSS is not an isolated
+  guest allocation count. No backend is an optimization merely because it is
+  implemented in Rust.
 
 ## Owner documents and source locations
 

@@ -6,6 +6,8 @@ declaration defines the inputs, state schemas, requests, and limits.
 Its LDtk world has one drill room, a raised platform, and a patrol body.
 The project owns both character rows and its starting-character rule.
 
+Start with the [authoring and promotion guide](AUTHORING.md).
+
 For the full workflow in an independent directory, use the
 [standalone guide](STANDALONE.md). The commands below use the SDK checkout.
 
@@ -126,7 +128,7 @@ python3 scripts/package/package_project.py --out /tmp/pulse-forge-desktop --veri
 opened inputs, host digest, and module generation. A source edit can run and
 reload without a rebuild, but it changes those packaged bytes; export a new
 package to obtain a new byte contract. The current package carries the full
-selected shared library. The measured Linux package is about 5.8 GB. It does
+selected shared library. The measured Linux package is about 5.7 GB. It does
 not yet reduce assets to the files this drill room uses. Installed library
 publication and Yarn source reload keep their existing separate limits.
 

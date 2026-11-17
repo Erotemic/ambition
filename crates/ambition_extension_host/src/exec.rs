@@ -19,6 +19,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use ambition_extension_sdk::abi::{self, InvocationInput, InvocationOutput};
 use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload, StagedRequest};
@@ -300,6 +301,23 @@ pub struct ScopePace(pub Box<dyn FnMut(&mut World, Entity) -> f32 + Send + Sync>
 /// What an invocation staged, after the host's checks.
 type Staged = (Vec<(SchemaKey, Record)>, Vec<(PortKey, Box<dyn Any + Send + Sync>)>);
 
+/// Optional diagnostic counters. Simulation code must not read these values.
+/// Insert this resource to measure calls. Remove it to stop measurement.
+/// Replay calls count again; these counters are not rollback state.
+#[derive(Resource, Default)]
+pub struct ExtensionProfile(pub std::collections::BTreeMap<String, EntryProfile>);
+
+#[derive(Default, Debug)]
+pub struct EntryProfile {
+    pub calls: u64,
+    pub faults: u64,
+    /// State read, observations, invocation, validation, and commit.
+    pub total: Duration,
+    /// Native entry function or loaded backend call. A loaded call includes
+    /// its ABI conversion and VM setup, including the fresh WASM instance.
+    pub backend: Duration,
+}
+
 /// The exclusive system for one phase.
 pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
     // Kept from tick to tick: a new query state matches each archetype of the
@@ -360,10 +378,12 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         continue;
                     }
                 }
+                let started = world.contains_resource::<ExtensionProfile>().then(Instant::now);
+                let mut backend_time = started.map(|_| Duration::ZERO);
                 let result = read_state(world, &admitted, invocation.scope, session, &descriptor.writes)
                     .and_then(|state| match &entry.runner {
                     EntryRunner::Native(run) => {
-                        run_native(world, entry, *run, invocation, &codecs, (tick, dt), state)
+                        run_native(world, entry, *run, invocation, &codecs, (tick, dt), state, &mut backend_time)
                     }
                     EntryRunner::Loaded {
                         backend,
@@ -371,7 +391,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         entry: index,
                     } => run_loaded(
                         world, &admitted, entry, backend.as_ref(), *module, *index, invocation,
-                        &codecs, (tick, dt), state,
+                        &codecs, (tick, dt), state, &mut backend_time,
                     ),
                 })
                 .and_then(|staged| {
@@ -387,6 +407,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                     Ok(staged)
                 });
 
+                let faulted = result.is_err();
                 match result {
                     Ok((state, requests)) => {
                         commit(world, &admitted, invocation.scope, session, state);
@@ -418,6 +439,15 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         });
                     }
                 }
+                if let Some(started) = started {
+                    let total = started.elapsed();
+                    let mut profile = world.resource_mut::<ExtensionProfile>();
+                    let row = profile.0.entry(path.to_string()).or_default();
+                    row.calls += 1;
+                    row.faults += u64::from(faulted);
+                    row.total += total;
+                    row.backend += backend_time.unwrap();
+                }
             }
         }
     }
@@ -432,6 +462,7 @@ fn run_native(
     codecs: &InstalledPortCodecs,
     (tick, dt): (u64, f32),
     mut state: Vec<(SchemaKey, Record)>,
+    backend_time: &mut Option<Duration>,
 ) -> Result<Staged, Fault> {
     let observations: Vec<Observation> = entry
         .descriptor
@@ -457,7 +488,10 @@ fn run_native(
         state: &mut state,
         requests: &mut requests,
     });
-    run(&mut call)?;
+    let started = backend_time.is_some().then(Instant::now);
+    let result = run(&mut call);
+    if let Some(started) = started { *backend_time = Some(started.elapsed()); }
+    result?;
     drop(call);
     Ok((state, requests.into_iter().map(|r| (r.port, r.value)).collect()))
 }
@@ -477,6 +511,7 @@ fn run_loaded(
     codecs: &InstalledPortCodecs,
     (tick, dt): (u64, f32),
     state: Vec<(SchemaKey, Record)>,
+    backend_time: &mut Option<Duration>,
 ) -> Result<Staged, Fault> {
     let descriptor = &entry.descriptor;
     let mut trigger = Vec::new();
@@ -502,8 +537,10 @@ fn run_loaded(
         state: &state,
     }
     .encode();
-    let output = backend
-        .invoke(module, index, &input)
+    let started = backend_time.is_some().then(Instant::now);
+    let output = backend.invoke(module, index, &input);
+    if let Some(started) = started { *backend_time = Some(started.elapsed()); }
+    let output = output
         .map_err(|e| Fault::Module(format!("the loaded module failed: {e}").into()))?;
     let output = abi::read_output(&output, |key| {
         descriptor

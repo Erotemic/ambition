@@ -3,6 +3,9 @@
 The runtime reads the game's files. Rust builds use an explicit SDK source
 checkout for the public crates. The final runtime package needs no SDK source.
 Use the same SDK revision for the prebuilt tools and Rust dependencies.
+Start with a prepared SDK checkout and its generated content, as described in
+the [repository setup](../../../README.md). The exporter needs the selected
+shared library's runtime files on disk.
 
 Build these SDK artifacts once. The optimized build needs
 `CARGO_INCREMENTAL=0`, as the repository's release policy requires.

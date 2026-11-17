@@ -11,6 +11,8 @@
 //! Shared fixtures live in `mod common`, referenced as `crate::common::*`.
 
 mod common;
+mod lightning_is_authored_in_rhai;
+mod the_boss_stage_has_scripted_pyro;
 mod smash_hit_properties;
 mod the_creator_answers_each_confirm;
 mod a_project_authors_a_technique;

@@ -151,7 +151,8 @@ fn a_cell_states_each_fact_once() {
     assert_eq!(details[Item::HealthCell.index()], "use | x3");
     // A locked cell (a placeholder) says so once, and its name fits its cell:
     // no "--" beside "not owned", no " - ???" after the name.
-    assert_eq!(details[Item::Lightning.index()], "not owned");
+    assert_eq!(details[Item::AxeStance.index()], "not owned");
+    assert_eq!(details[Item::Lightning.index()], "equip");
     let labels: Vec<String> = page
         .nodes
         .iter()

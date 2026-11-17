@@ -293,7 +293,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // boost and the axis gravity pair leave `actor.motion_model`.
 // 477 -> 478: the gravity turns rooms made, which a room rewind puts back
 // (`resource.gravity_turns_in_rooms`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 478;
+// 478 -> 479: the death fee changes rooms made, which a room rewind puts back
+// (`death.fees_in_rooms`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 479;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

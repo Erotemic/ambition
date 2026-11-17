@@ -405,6 +405,14 @@ impl Plugin for PlayerSchedulePlugin {
         // A death's fee (PLAYER-DEATH): owed from the same death message, taken
         // once the body is back in play, and its coins kept in the world.
         app.init_resource::<crate::death_fee::DeathFees>();
+        // A rewound room puts back the fees and parcels it changed after the
+        // tick it was saved at (ISL-2d).
+        app.init_resource::<crate::death_fee::DeathFeesInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.death_fees_in_rooms",
+            crate::death_fee::retract_room_death_fees,
+        );
         app.add_systems(
             sim,
             (

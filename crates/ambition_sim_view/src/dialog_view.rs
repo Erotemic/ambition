@@ -151,7 +151,7 @@ pub fn rebuild_dialog_view(
             instance: None,
             active: true,
             dialogue_id: cutscene.script_id().unwrap_or_default().to_owned(),
-            speaker_character_id: String::new(),
+            speaker_character_id: cutscene.presentation.speaker_character_id.clone(),
             portrait_clip: String::new(),
             speaker_label: speaker.to_owned(),
             conversation_label: speaker.to_owned(),

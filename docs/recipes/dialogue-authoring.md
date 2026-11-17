@@ -58,6 +58,20 @@ Alice: This returns to the catalog default.
 - Clip timing and image rectangles belong to the generated portrait manifest;
   Yarn content does not know about frames or asset paths.
 
+Cutscene dialogue selects the same portrait by character id:
+
+```ron
+Dialogue(
+    speaker: "Creator",
+    speaker_character_id: "npc_creator",
+    text: "Hey you, you're finally awake.",
+)
+```
+
+`speaker` is the displayed label. `speaker_character_id` selects the portrait
+from the character catalog. Omit the id for a caption or a voice with no
+character. Each dialogue beat supplies its own identity.
+
 ## Edit loop
 
 1. Edit the smallest `.yarn` file in the owning provider.

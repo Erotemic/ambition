@@ -77,6 +77,8 @@ pub struct DialogState {
     pub(crate) current_speaker: String,
     /// Latest line text (with character-name prefix stripped).
     pub(crate) current_line: String,
+    /// The displayed line has received a confirm after its text was fully revealed.
+    pub(crate) current_line_confirmed: bool,
     /// Typewriter reveal state for the current line.
     pub(crate) line_reveal: LineRevealState,
     /// Presentation style for the current line, derived from Yarn markup.
@@ -212,6 +214,7 @@ impl DialogState {
         self.portrait_clip.clear();
         self.current_speaker.clear();
         self.current_line.clear();
+        self.current_line_confirmed = false;
         self.line_reveal = LineRevealState::default();
         self.speech_style = DialogSpeechStyle::Normal;
         self.line_last_before_options = false;
@@ -252,6 +255,7 @@ impl DialogState {
         self.reset_presentation_identity();
         self.current_speaker.clear();
         self.current_line.clear();
+        self.current_line_confirmed = false;
         self.line_reveal = LineRevealState::default();
         self.speech_style = DialogSpeechStyle::Normal;
         self.line_last_before_options = false;
@@ -393,6 +397,7 @@ impl DialogState {
     #[cfg_attr(not(feature = "ui"), allow(dead_code))]
     pub(crate) fn start_revealing_line(&mut self, text: String) {
         self.current_line = text;
+        self.current_line_confirmed = false;
         self.line_reveal = LineRevealState::from_line(&self.current_line);
     }
 
@@ -525,6 +530,7 @@ impl DialogState {
             self.clear_conversation_presentation();
             self.pending_close = true;
         } else if self.current_options.is_empty() {
+            self.current_line_confirmed = true;
             self.pending_advance = true;
         } else {
             self.pending_select = Some(
@@ -678,6 +684,7 @@ mod closed_state_tests {
             portrait_clip,
             current_speaker,
             current_line,
+            current_line_confirmed,
             line_reveal,
             speech_style,
             line_last_before_options,
@@ -710,6 +717,7 @@ mod closed_state_tests {
         assert!(portrait_clip.is_empty());
         assert!(current_speaker.is_empty());
         assert!(current_line.is_empty());
+        assert!(!current_line_confirmed);
         assert_eq!(*line_reveal, LineRevealState::default());
         assert_eq!(*speech_style, DialogSpeechStyle::default());
         assert!(!line_last_before_options);

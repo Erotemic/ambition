@@ -346,7 +346,14 @@ impl SlotControlLatches {
             .unwrap_or_default()
     }
 
-    /// Clear a slot outright — a pause, a lost context, a seat going neutral.
+    /// Discard gameplay controls but retain menu edges until the next simulation tick.
+    pub fn suppress_gameplay(&mut self, slot: PlayerSlot) {
+        if let Some(latch) = self.slots.get_mut(slot.0 as usize) {
+            latch.suppress_gameplay();
+        }
+    }
+
+    /// Clear a slot when its input authority ends.
     ///
     /// Distinct from `take`, which RETAINS levels: a seat that has stopped being
     /// driven must not keep reporting a held direction, and the post-pause

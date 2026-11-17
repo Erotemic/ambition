@@ -23,7 +23,13 @@ pub enum CutsceneBeat {
     /// Display a line of dialogue. The presentation layer is
     /// responsible for showing `text` and waiting for the dismiss
     /// button before advancing.
-    Dialogue { speaker: String, text: String },
+    Dialogue {
+        speaker: String,
+        text: String,
+        /// Stable character identity for portraits. Empty for a voice with no character.
+        #[serde(default)]
+        speaker_character_id: String,
+    },
     /// Pan the camera to `target` (a point in the room, in the room's own
     /// pixels, as bodies are placed) over `seconds`, eased, and hold it there
     /// through the beats that follow until a [`Self::CameraRelease`] or the
@@ -87,6 +93,8 @@ pub enum CutsceneBeat {
 pub struct CutscenePresentation {
     /// `(speaker, text)` while a dialogue beat is current.
     pub dialogue: Option<(String, String)>,
+    /// Stable identity of the character whose dialogue is shown.
+    pub speaker_character_id: String,
     /// `(text, seconds_remaining)` while a banner beat is current.
     ///
     /// The countdown is `authored - elapsed`; it is not separate state.
@@ -144,8 +152,9 @@ impl CutsceneRuntime {
         let standing = self.standing_fade();
         let camera = self.camera();
         let shown = match beat {
-            CutsceneBeat::Dialogue { speaker, text } => CutscenePresentation {
+            CutsceneBeat::Dialogue { speaker, text, speaker_character_id } => CutscenePresentation {
                 dialogue: Some((speaker.clone(), text.clone())),
+                speaker_character_id: speaker_character_id.clone(),
                 fade_alpha: standing,
                 ..Default::default()
             },
@@ -744,6 +753,7 @@ mod tests {
                     seconds: 1.0,
                 },
                 CutsceneBeat::Dialogue {
+                    speaker_character_id: String::new(),
                     speaker: "Warden".into(),
                     text: "You are an instance.".into(),
                 },
@@ -816,6 +826,7 @@ mod tests {
                     seconds: 0.4,
                 },
                 CutsceneBeat::Dialogue {
+                    speaker_character_id: String::new(),
                     speaker: "V".into(),
                     text: "in the dark".into(),
                 },
@@ -926,7 +937,7 @@ mod tests {
             "last_words",
             vec![
                 CutsceneBeat::SetFlag { id: "before".into(), on: true },
-                CutsceneBeat::Dialogue { speaker: "A".into(), text: "B".into() },
+                CutsceneBeat::Dialogue { speaker_character_id: String::new(), speaker: "A".into(), text: "B".into() },
                 CutsceneBeat::Fall { character: "npc_creator".into() },
                 CutsceneBeat::SetFlag { id: "after".into(), on: true },
             ],
@@ -950,6 +961,7 @@ mod tests {
     fn auto_advances_predicate_distinguishes_dialogue_from_others() {
         // Dialogue waits for player input.
         let dialogue = CutsceneBeat::Dialogue {
+            speaker_character_id: String::new(),
             speaker: "X".into(),
             text: "Y".into(),
         };
@@ -1014,10 +1026,11 @@ mod snapshot {
                     put_u32(out, WAIT);
                     put_f32(out, *seconds);
                 }
-                Self::Dialogue { speaker, text } => {
+                Self::Dialogue { speaker, text, speaker_character_id } => {
                     put_u32(out, DIALOGUE);
                     put_str(out, speaker);
                     put_str(out, text);
+                    put_str(out, speaker_character_id);
                 }
                 Self::CameraPan { target, seconds } => {
                     put_u32(out, CAMERA_PAN);
@@ -1073,6 +1086,7 @@ mod snapshot {
                 DIALOGUE => Self::Dialogue {
                     speaker: reader.str()?.to_owned(),
                     text: reader.str()?.to_owned(),
+                    speaker_character_id: reader.str()?.to_owned(),
                 },
                 CAMERA_PAN => Self::CameraPan {
                     target: [reader.f32()?, reader.f32()?],
@@ -1532,6 +1546,7 @@ mod snapshot {
                 "talk_then_pan",
                 vec![
                     CutsceneBeat::Dialogue {
+                        speaker_character_id: String::new(),
                         speaker: "Alice".into(),
                         text: "Look at that.".into(),
                     },
@@ -1566,7 +1581,7 @@ mod snapshot {
                 "look_over_there",
                 vec![
                     CutsceneBeat::CameraPan { target: [100.0, 50.0], seconds: 1.0 },
-                    CutsceneBeat::Dialogue { speaker: "Creator".into(), text: "There.".into() },
+                    CutsceneBeat::Dialogue { speaker_character_id: "npc_creator".into(), speaker: "Creator".into(), text: "There.".into() },
                     CutsceneBeat::CameraPan { target: [300.0, 50.0], seconds: 0.0 },
                     CutsceneBeat::CameraRelease { seconds: 1.0 },
                 ],
@@ -1601,6 +1616,7 @@ mod snapshot {
                 vec![
                     CutsceneBeat::Wait { seconds: 0.5 },
                     CutsceneBeat::Dialogue {
+                        speaker_character_id: "npc_creator".into(),
                         speaker: "Creator".into(),
                         text: "Wait.".into(),
                     },

@@ -11,6 +11,7 @@
 //! Shared fixtures live in `mod common`, referenced as `crate::common::*`.
 
 mod common;
+mod the_creator_answers_each_confirm;
 mod a_project_authors_a_technique;
 
 // Guard: this aggregate must stay in sync with the tests/ directory (see the

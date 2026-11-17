@@ -72,13 +72,14 @@ table):
 | --- | --- |
 | The bossofthegame | Vocals and the keytar (his keyboard on its strap). The microphone is his alone: the agents are instrumentalists (Jon, 2026-11-13). |
 | Full Stack | Lead guitar (its electric guitar; its knobs go to eleven). |
-| Geppetto | Bass: the orchestrator holds the low end. |
+| Geppetto | Rhythm guitar, under Full Stack's lead (Jon, 2026-11-17). |
 | Clause | Drums: the methodical one keeps time. |
-| Wren | Rhythm guitar: the generalist plays anything, and can take the keytar. |
+| Wren | Triangle: the smallest instrument, for the model Jon gives the smallest jobs (Jon, 2026-11-17: a joke on Qwen). |
 
-Every agent can play every instrument: the guitar, the bass, the keytar and
-the drumsticks are parts of each agent's rig, hidden until a row shows one
-(`band_guitar`, `band_bass`, `band_keytar`, `band_drums`; each drawn from the
+Every agent can play every instrument: the guitar, the bass, the keytar, the
+drumsticks and the triangle are parts of each agent's rig, hidden until a row
+shows one (`band_guitar`, `band_bass`, `band_keytar`, `band_drums`,
+`band_triangle`; each drawn from the
 front three-quarter view). The drum kit is a prop of the stage, not of a body
 (renderer target `band_drum_kit`: rows `idle` and `played`); the drummer sits
 at it in `band_drums`. The Boss's microphone is in his far hand, with his
@@ -102,9 +103,9 @@ in. Witness: `his_named_agents_join_the_fight`. The rest is still to build:
   Full Stack's top.
 - **Phase 1**: the agents play on while Full Stack fights; the chord, the
   riff and the feedback are the band's song.
-- **Phase 2**: "Do I need to get Geppetto to do it?": the bass stops,
-  Geppetto puts it down and drops into the fight.
-- **The encore**: Clause leaves the drums and Wren her guitar; the Boss's
+- **Phase 2**: "Do I need to get Geppetto to do it?": the rhythm guitar
+  stops, Geppetto puts it down and drops into the fight.
+- **The encore**: Clause leaves the drums and Wren her triangle; the Boss's
   keystroke rain and backspace are his keytar solo.
 - **The retirement**: whoever still stands plays him off.
 

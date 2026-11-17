@@ -316,7 +316,7 @@
             "lesser_appendages", // the FSM: 2 × npc_fsm_noodling, once it is wounded
             "trex_call",         // the T-rex: his kin, parrots from the high corners (and raptors, enraged)
             "boss_subagents",       // the bossofthegame, at his encore: two Agent Swarm bodies drop onto the stage
-            "boss_call_geppetto",   // the bossofthegame, phase 2 opens: Geppetto puts down the bass and drops in
+            "boss_call_geppetto",   // the bossofthegame, phase 2 opens: Geppetto puts down the guitar and drops in
             "boss_call_clause_wren", // the bossofthegame, his encore opens: Clause and Wren leave the band and drop in
         ],
         recipes: [

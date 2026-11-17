@@ -191,7 +191,7 @@ fn his_named_agents_join_the_fight() {
     let band: Vec<(String, String)> = band_rows(&mut sim).into_iter().collect();
     assert_eq!(
         band,
-        [("npc_clause_band", "band_drums"), ("npc_geppetto_band", "band_bass"), ("npc_wren_band", "band_guitar")]
+        [("npc_clause_band", "band_drums"), ("npc_geppetto_band", "band_guitar"), ("npc_wren_band", "band_triangle")]
             .map(|(who, row)| (who.to_string(), row.to_string())),
         "the band plays as the show opens, each at an instrument"
     );
@@ -201,7 +201,7 @@ fn his_named_agents_join_the_fight() {
     assert!(second.contains("npc_geppetto"), "in his second phase Geppetto is on the stage: {second:?}");
     assert!(!second.contains("npc_clause") && !second.contains("npc_wren"), "and not yet the others: {second:?}");
     let band: Vec<String> = band_rows(&mut sim).into_keys().collect();
-    assert_eq!(band, ["npc_clause_band", "npc_wren_band"], "Geppetto put the bass down; the others play on");
+    assert_eq!(band, ["npc_clause_band", "npc_wren_band"], "Geppetto put the guitar down; the others play on");
     boss_health_to(&mut sim, 0.2);
     sim.step_n(base(), 60 * 6);
     let encore = worn_on_stage(&mut sim);

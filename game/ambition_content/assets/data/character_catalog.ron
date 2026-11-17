@@ -2909,8 +2909,8 @@
         // ===== The bossofthegame's band (`docs/planning/game/final-boss.md`,
         // "The band"): his agents at their instruments as the show opens.
         "npc_geppetto_band": (
-            display_name: "Geppetto on Bass",
-            // Geppetto at the bass in the Boss's band, until he calls them into
+            display_name: "Geppetto on Guitar",
+            // Geppetto at the guitar in the Boss's band, until he calls them into
             // his fight (the module `bossofthegame` sends this body away and
             // drops the fighter where it stood). The same sheet as the fighter.
             manifest: "sprites/geppetto_spritesheet.ron",
@@ -2919,7 +2919,7 @@
             standing_height: Some(70.4),
             composition: None,
             default_action_set: "peaceful",
-            rest_row: Some("band_bass"),
+            rest_row: Some("band_guitar"),
             locomotion: Some((run_speed: 0.0, move_style: Walk)),
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             max_health: Some(4),
@@ -2945,8 +2945,10 @@
             hall_dialogue_id: Some("hall_npc_clause"),
         ),
         "npc_wren_band": (
-            display_name: "Wren on Guitar",
-            // Wren at the rhythm guitar in the Boss's band, until he calls them into
+            display_name: "Wren on Triangle",
+            // Wren at the triangle in the Boss's band (Jon, 2026-11-17: the
+            // smallest instrument, for the model he gives the smallest jobs),
+            // until he calls them into
             // his fight (the module `bossofthegame` sends this body away and
             // drops the fighter where it stood). The same sheet as the fighter.
             manifest: "sprites/wren_spritesheet.ron",
@@ -2955,7 +2957,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_action_set: "peaceful",
-            rest_row: Some("band_guitar"),
+            rest_row: Some("band_triangle"),
             locomotion: Some((run_speed: 0.0, move_style: Walk)),
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             max_health: Some(4),

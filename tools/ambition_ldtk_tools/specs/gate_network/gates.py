@@ -66,14 +66,16 @@ def ring(label: str, zone: str, x: int, floor: int, name: str, shape: str = "tri
     """A dialed ring standing on `floor` with its left edge at `x`: the ring
     prop, the portal prop and the zone. `label` names the props, which each
     portal owns alone ("<label> Ring", "<label> Portal"); `shape` is a key of
-    `RING_SHAPES`."""
+    `RING_SHAPES`. The ring's props are its picture, so the zone draws no
+    door marker over them (`presentation: SceneArt`)."""
     top = floor - RING
     ring_kind, portal_kind = RING_SHAPES[shape]
     return [
         ("Prop", x, top, RING, RING, dict(name=f"{label} Ring", kind=ring_kind)),
         ("Prop", x, top, RING, RING, dict(name=f"{label} Portal", kind=portal_kind)),
         ("LoadingZone", x + (RING - ZONE_W) // 2, top, ZONE_W, RING,
-         dict(id=zone, name=name, activation="Door", target_room="", target_zone="", bidirectional=False)),
+         dict(id=zone, name=name, activation="Door", target_room="", target_zone="", bidirectional=False,
+              presentation="SceneArt")),
     ]
 
 

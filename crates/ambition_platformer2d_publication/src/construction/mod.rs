@@ -784,6 +784,7 @@ impl RoomFeatureConstructionPlan {
                                 parameters:
                                     ambition_platformer2d_construction::ActorConstructionParams::GroundItem {
                                         spec: ambition_platformer2d_world::rooms::GroundItemSpec {
+                                            regrow_seconds: None,
                                             id: sim_id.as_str().to_string(),
                                             name: format!("Ground item: {}", description.held_item),
                                             held_item: description.held_item.clone(),

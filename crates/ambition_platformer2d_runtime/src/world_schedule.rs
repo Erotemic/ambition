@@ -312,6 +312,8 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 ambition_breakables::record_spent_breakables,
                 // Q152: a collected pickup comes back when its regrowth is due.
                 ambition_platformer2d_items::regrowth::regrow_pickups,
+                // A palm grows its coconut again once it is taken.
+                ambition_platformer2d_items::regrowth::regrow_ground_items,
                 // Q154: a collected pickup authored `Never` is gone for good.
                 ambition_platformer2d_items::pickups::record_consumed_pickups,
                 update_ecs_falling_chests.run_if(any_with_component::<ambition_world_items::containers::FallingChest>),

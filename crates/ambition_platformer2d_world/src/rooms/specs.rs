@@ -95,6 +95,12 @@ pub struct GroundItemSpec {
     pub pos: ae::Vec2,
     /// Pickup half-extent, taken from the LDtk entity's box size.
     pub half_extent: ae::Vec2,
+    /// Seconds after which a fresh item of the same kind appears here, once
+    /// nothing of that kind lies at the placement: a palm grows its coconut
+    /// again. `None` is an ordinary placement, whose item, once taken, is gone
+    /// from here.
+    #[serde(default)]
+    pub regrow_seconds: Option<f32>,
 }
 
 /// Portal channel color, re-exported here to keep the room-spec API stable.

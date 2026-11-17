@@ -140,6 +140,7 @@ pub fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharact
 pub fn ground_item(id: &str, held_item: &str,
 ) -> ambition_platformer2d_world::rooms::GroundItemSpec {
     ambition_platformer2d_world::rooms::GroundItemSpec {
+        regrow_seconds: None,
         id: id.to_string(),
         name: format!("{id} display"),
         held_item: held_item.to_string(),

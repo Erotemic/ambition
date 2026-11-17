@@ -120,6 +120,101 @@ fn each_room_places_its_cast_and_its_coconuts() {
     }
 }
 
+/// A palm grows its coconut again (`regrow_seconds`): once nothing of its
+/// kind lies at the placement, a fresh one grows there, and only one.
+#[test]
+fn a_palm_grows_a_taken_coconut_again() {
+    use ambition_platformer2d::held_items::{GroundItem, ItemCustody};
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    let mut sim = room("primeval_trailhead");
+    let placement = SimId::placement("primeval_trailhead_coconut_1");
+    let grown = SimId::regrown(&placement, 1);
+    let world = sim.world_mut();
+    let mut items = world.query::<(&SimId, &mut ae::BodyKinematics, &GroundItem)>();
+    let (_, mut kin, _) = items.iter_mut(world).find(|(id, ..)| **id == placement).expect("the trailhead places its first coconut");
+    let at = kin.pos;
+    // Taken: it lies far from its palm now.
+    kin.pos.x += 600.0;
+    let mut grew_at = None;
+    for tick in 0..60 * 40 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut items = world.query::<(&SimId, &ae::BodyKinematics, &GroundItem, &ItemCustody)>();
+        let near: Vec<&SimId> = items
+            .iter(world)
+            .filter(|(_, kin, item, custody)| item.spec.id == "coconut" && custody.in_world() && kin.pos.distance(at) <= 32.0)
+            .map(|(id, ..)| id)
+            .collect();
+        assert!(near.len() <= 1, "one coconut grows at a placement, not {near:?}");
+        if grew_at.is_none() && near.first() == Some(&&grown) {
+            grew_at = Some(tick);
+        }
+    }
+    let grew_at = grew_at.expect("the palm did not grow its coconut again in 40 s");
+    assert!(grew_at >= 60 * 29, "the coconut grew after {grew_at} ticks, before the authored 30 s");
+}
+
+/// Takes the trailhead's first coconut from inside the rewinding schedule, so
+/// a replay takes it on the same tick.
+fn take_the_first_coconut_at_tick_60(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut items: bevy::prelude::Query<(&ambition_platformer2d::platformer::sim_id::SimId, &mut ae::BodyKinematics)>,
+) {
+    if tick.0 != 60 {
+        return;
+    }
+    let placement = ambition_platformer2d::platformer::sim_id::SimId::placement("primeval_trailhead_coconut_1");
+    for (id, mut kin) in &mut items {
+        if *id == placement {
+            kin.pos.x += 600.0;
+        }
+    }
+}
+
+/// ⭐ A GROWN COCONUT RESIMULATES TO THE SAME WORLD. Under a sync test each
+/// frame is rewound and replayed: the wait's schedule record and the grown
+/// item must come back with a rewind, or the replayed world differs.
+#[test]
+fn a_palm_grows_its_coconut_the_same_under_a_rewind() {
+    use ambition_platformer2d::held_items::GroundItem;
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let options = fixed_60hz_room_options("primeval_trailhead").with_sync_test_rollback_settings(4, 10);
+    let mut sim = Platformer2dSimHarness::build(options, |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        let label = app.sim_schedule();
+        app.add_systems(label, take_the_first_coconut_at_tick_60);
+        Ok(())
+    })
+    .expect("the trailhead boots under a sync test");
+    let grown = SimId::regrown(&SimId::placement("primeval_trailhead_coconut_1"), 1);
+    let mut grew = false;
+    for _ in 0..60 * 34 {
+        if sim.try_step(base()).is_err() {
+            break;
+        }
+        let world = sim.world_mut();
+        let mut items = world.query::<(&SimId, &GroundItem)>();
+        grew |= items.iter(world).any(|(id, _)| *id == grown);
+        if grew {
+            break;
+        }
+    }
+    assert_eq!(
+        (
+            ambition_platformer2d::rollback::session_is_active(sim.world()),
+            ambition_platformer2d::rollback::session_health(sim.world())
+        ),
+        (true, Ok(())),
+        "the replayed world differs from the world that ran first"
+    );
+    assert!(grew, "premise: the palm grew its coconut again under the sync test");
+    for _ in 0..60 {
+        sim.try_step(base()).expect("the grown coconut resimulates");
+    }
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+}
+
 /// An African swallow by the door of the rookery goes to the coconut under it,
 /// takes it, carries it over a player who stands still, and lets it go from
 /// high enough to hurt.

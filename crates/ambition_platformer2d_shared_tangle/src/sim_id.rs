@@ -126,6 +126,17 @@ impl SimId {
         Self(format!("{}/drop/{}", parent.0, escape_segment(kind)))
     }
 
+    /// The `generation`th item an authored placement grew again (a palm's
+    /// coconut, after the first one was taken).
+    ///
+    /// The generation is chosen from the occurrences that exist, not counted
+    /// (the grower takes the lowest one nothing remembers), so like
+    /// [`Self::death_drop`] it needs no rollback counter. Its own `grown`
+    /// segment keeps it from spelling a [`Self::spawned`] id.
+    pub fn regrown(placement: &SimId, generation: u64) -> Self {
+        Self(format!("{}/grown/{generation}", placement.0))
+    }
+
     /// A strike volume: the transient hitbox a move's active window opens.
     ///
     /// DERIVED, not sequenced — which is why it is not [`Self::spawned`]. A

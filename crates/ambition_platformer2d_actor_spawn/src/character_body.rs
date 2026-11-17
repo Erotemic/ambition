@@ -32,6 +32,7 @@ pub struct ProjectedCharacterKit {
 /// remembered.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct GrantedBodyFacts {
+    pub techniques: bool,
     pub hurtboxes: bool,
     /// The character's semantic rig and the pose resolved from it.
     pub body_rig: bool,
@@ -99,6 +100,7 @@ impl GrantedBodyFacts {
         movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
     ) -> Self {
         Self {
+            techniques: !prepared.techniques.is_empty(),
             hurtboxes: prepared.hurtboxes.is_some(),
             body_rig: prepared.body_rig.is_some(),
             pose_clock: reads_the_pose_clock(prepared),
@@ -141,6 +143,7 @@ impl GrantedBodyFacts {
     ) {
         // Exhaustive on purpose: a new fact does not compile until it is handled.
         let Self {
+            techniques,
             hurtboxes,
             body_rig,
             pose_clock,
@@ -153,6 +156,11 @@ impl GrantedBodyFacts {
             forms,
             carried,
         } = self;
+        if techniques {
+            scope.queue_component_mut::<ambition_characters::action_scheme::ActorTechniques>(|techniques| {
+                techniques.set_character(Vec::new());
+            });
+        }
         for carried in carried.into_iter().filter(|carried| !incoming.contains(carried)) {
             scope.remove_carried(carried);
         }
@@ -441,6 +449,13 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
         // because a borrowed set does not change how the borrower fires.
         if kit != KitOwnership::PersonaDerive {
             install_ranged_execution(scope, prepared.ranged_execution);
+        }
+        if !prepared.techniques.is_empty() {
+            let techniques = prepared.techniques.clone();
+            scope.queue_component_upsert(
+                ambition_characters::action_scheme::ActorTechniques::default,
+                move |body| body.set_character(techniques),
+            );
         }
         // The rest is what the persona derive does not own on ANY path: the
         // authored silhouette, the movement feel, and the motion model — body

@@ -42,9 +42,54 @@ use crate::brain::action_set::ActionSet;
 /// shared resolver always has somewhere to write the technique's edge. Without
 /// this a technique-bearing body could silently drop its input on the tick
 /// before a separate ensure-system attached the edge component.
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone, Default, PartialEq, serde::Serialize)]
 #[require(ResolvedTechniqueEdges)]
-pub struct ActorTechniques(pub Vec<ActionSpec>);
+pub struct ActorTechniques {
+    character: Vec<ActionSpec>,
+    additional: Vec<ActionSpec>,
+}
+
+impl ActorTechniques {
+    /// Techniques supplied by the body's other capabilities.
+    pub fn new(additional: Vec<ActionSpec>) -> Self {
+        Self { character: Vec::new(), additional }
+    }
+
+    /// Replace only the character's declarations. Other capabilities keep
+    /// their declarations when the body changes character.
+    pub fn set_character(&mut self, techniques: Vec<ActionSpec>) {
+        self.character = techniques;
+    }
+
+    pub fn set_additional(&mut self, techniques: Vec<ActionSpec>) {
+        self.additional = techniques;
+    }
+
+    /// Fingerprint both declaration sources for rollback checksums.
+    pub fn fingerprint(&self) -> u64 {
+        use std::hash::Hasher;
+        let text = ron::ser::to_string(self).expect("technique declarations serialize");
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        hasher.write(text.as_bytes());
+        hasher.finish()
+    }
+
+    /// Other body capabilities take precedence on a shared control slot.
+    pub fn all(&self) -> std::borrow::Cow<'_, [ActionSpec]> {
+        if self.character.is_empty() { return std::borrow::Cow::Borrowed(&self.additional); }
+        if self.additional.is_empty() { return std::borrow::Cow::Borrowed(&self.character); }
+        let mut techniques = self.character.clone();
+        replace_slots(&mut techniques, self.additional.iter());
+        std::borrow::Cow::Owned(techniques)
+    }
+}
+
+fn replace_slots<'a>(techniques: &mut Vec<ActionSpec>, incoming: impl Iterator<Item = &'a ActionSpec>) {
+    for technique in incoming {
+        techniques.retain(|held| held.slot != technique.slot);
+        techniques.push(technique.clone());
+    }
+}
 
 /// Techniques a game's rules give to the body a player drives, whichever body
 /// that is. Declared per rules scope (`declare_rules`), so they exist only in
@@ -71,7 +116,7 @@ pub fn techniques_of<'a>(
     driven: Option<&'a DrivenTechniques>,
     worn: Option<&'a crate::equipment::WornEquipment>,
 ) -> std::borrow::Cow<'a, [ActionSpec]> {
-    let own = own.map_or(&[][..], |own| own.0.as_slice());
+    let own = own.map(ActorTechniques::all).unwrap_or(std::borrow::Cow::Borrowed(&[]));
     let rules = driven.map_or(&[][..], |driven| driven.0.as_slice());
     let mut granted = worn
         .into_iter()
@@ -80,13 +125,10 @@ pub fn techniques_of<'a>(
         .filter_map(crate::equipment::EquipmentGrant::technique)
         .peekable();
     if rules.is_empty() && granted.peek().is_none() {
-        return std::borrow::Cow::Borrowed(own);
+        return own;
     }
-    let mut techniques = own.to_vec();
-    for technique in rules.iter().chain(granted) {
-        techniques.retain(|held| held.slot != technique.slot);
-        techniques.push(technique.clone());
-    }
+    let mut techniques = own.into_owned();
+    replace_slots(&mut techniques, rules.iter().chain(granted));
     std::borrow::Cow::Owned(techniques)
 }
 
@@ -1218,7 +1260,7 @@ mod tests {
                 .map(|t| (t.slot, t.id.as_str().to_owned()))
                 .collect::<Vec<_>>()
         };
-        let own = ActorTechniques(vec![
+        let own = ActorTechniques::new(vec![
             technique("own_attack", ControlSlot::Attack),
             technique("own_modifier", ControlSlot::Modifier),
         ]);
@@ -1264,7 +1306,7 @@ mod tests {
     fn declaring_a_technique_auto_attaches_the_edge_component() {
         use bevy::prelude::World;
         let mut world = World::new();
-        let e = world.spawn(ActorTechniques(vec![])).id();
+        let e = world.spawn(ActorTechniques::new(vec![])).id();
         assert!(
             world.get::<ResolvedTechniqueEdges>(e).is_some(),
             "ActorTechniques must pull in ResolvedTechniqueEdges via #[require]"

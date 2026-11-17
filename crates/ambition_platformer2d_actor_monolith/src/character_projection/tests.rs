@@ -69,6 +69,37 @@ fn stage(app: &mut App, character_id: &str) {
         .request(character_id);
 }
 
+#[test]
+fn character_techniques_change_without_removing_other_body_techniques() {
+    use ambition_characters::action_scheme::ActorTechniques;
+    use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    let technique = |id: &str, slot| ActionSpec {
+        id: ActionId::new(id), slot, display_name: None, visual: None,
+        gate: ActionGate::Technique(id.into()),
+    };
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("charged", "Charged", "demo")
+        .with_techniques(vec![technique("pulse", ControlSlot::Projectile)]));
+    app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
+    stage(&mut app, "charged");
+    stage(&mut app, "plain");
+    let body = app.world_mut().spawn((
+        ambition_characters::actor::CharacterForm::new("charged"),
+        ambition_combat::CombatTuning::default(),
+        ActorTechniques::new(vec![technique("body_special", ControlSlot::Special)]),
+    )).id();
+    settle(&mut app);
+    let ids = |app: &App| app.world().get::<ActorTechniques>(body).unwrap().all()
+        .iter().map(|action| action.id.as_str().to_owned()).collect::<Vec<_>>();
+    assert_eq!(ids(&app), vec!["pulse", "body_special"]);
+    app.world_mut().entity_mut(body).insert(ambition_characters::actor::CharacterForm::new("plain"));
+    settle(&mut app);
+    assert_eq!(ids(&app), vec!["body_special"]);
+    app.world_mut().entity_mut(body).insert(ambition_characters::actor::CharacterForm::new("charged"));
+    settle(&mut app);
+    assert_eq!(ids(&app), vec!["pulse", "body_special"]);
+}
+
 /// The gap this closes. A secondary provider's cue was DENIED in production.
 ///
 /// `write_from` tags a request with the emitting character's provider, and

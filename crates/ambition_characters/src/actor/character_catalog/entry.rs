@@ -663,6 +663,9 @@ pub struct CharacterCatalogEntry {
     pub default_brain: String,
     /// Name of the preset in `action_set_presets` to apply by default.
     pub default_action_set: String,
+    /// Techniques this character exposes through the shared action scheme.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub techniques: Vec<ambition_entity_catalog::action_scheme::ActionSpec>,
     /// Free-form tags. Tooling filters by these (e.g. the hall
     /// generator uses `tags = ["boss"]` to fence basement entries).
     #[serde(default)]

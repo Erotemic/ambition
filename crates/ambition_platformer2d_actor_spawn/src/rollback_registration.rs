@@ -5,6 +5,11 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 
 /// Register this domain's rollback state.
 pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
+    registrar.rollback_component_clone_probed::<ambition_characters::action_scheme::ActorTechniques>(
+        OWNER,
+        "actor.techniques",
+        |techniques| techniques.fingerprint(),
+    );
     registrar.rollback_component_clone_probed::<crate::ProjectedCharacterKit>(
         OWNER,
         "actor.projected_character_kit",
@@ -12,6 +17,7 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
             use std::hash::{Hash, Hasher};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             projected.id.hash(&mut hasher);
+            projected.granted.techniques.hash(&mut hasher);
             projected.granted.hurtboxes.hash(&mut hasher);
             projected.granted.movement_tuning.hash(&mut hasher);
             projected.granted.body_contact.map(|contact| contact.map(|contact| contact.resistance.to_bits())).hash(&mut hasher);

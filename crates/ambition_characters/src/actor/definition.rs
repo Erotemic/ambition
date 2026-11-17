@@ -140,6 +140,10 @@ pub struct CharacterDefinition {
     pub fighter_body: Option<crate::smash_fighter::FighterBodyAuthoring>,
     /// Actions this character may choose, separate from the moveset that defines the moves.
     pub action_set: Option<crate::brain::ActionSet>,
+    /// The character's techniques. Absence uses the catalog row; an empty
+    /// list declares no character techniques.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub techniques: Option<Vec<ambition_entity_catalog::action_scheme::ActionSpec>>,
     /// How this character MOVES — the state-free movement policy.
     ///
     /// `None` leaves the catalog row's movement policy in force.
@@ -241,6 +245,7 @@ impl CharacterDefinition {
             scaled_move_knockback: crate::move_damage::ScaledMoveKnockback::new(),
             fighter_body: None,
             action_set: None,
+            techniques: None,
             motion_model: None,
             movement_tuning: None,
             abilities: None,
@@ -381,6 +386,11 @@ impl CharacterDefinition {
         self
     }
 
+    pub fn with_techniques(mut self, techniques: Vec<ambition_entity_catalog::action_scheme::ActionSpec>) -> Self {
+        self.techniques = Some(techniques);
+        self
+    }
+
     /// Author how this character moves, outranking the catalog row.
     pub fn with_motion_model(mut self, spec: ambition_platformer2d_core::MotionModelSpec) -> Self {
         self.motion_model = Some(spec);
@@ -461,6 +471,7 @@ mod authority_tests {
             scaled_move_knockback: _,
             fighter_body: _,
             action_set: _,
+            techniques: _,
             motion_model: _,
             movement_tuning: _,
             abilities: _,

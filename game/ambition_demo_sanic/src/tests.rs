@@ -788,7 +788,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
             ae::MotionModel::surface_momentum(ae::MomentumParams::default()),
             // `#[require]` pulls in `ResolvedTechniqueEdges` — the seam the gate
             // writes and the toggle reads.
-            ActorTechniques(vec![super::transform_technique()]),
+            ActorTechniques::new(vec![super::transform_technique()]),
         ))
         .id();
     app.insert_resource(

@@ -212,6 +212,7 @@ fn a_definition_carries_no_controller_binding() {
         // get the identical action set — which is exactly why it belongs on the
         // definition and `default_brain` does not.
         action_set: _,
+        techniques: _,
         // Also a capability, and the same §4.7 reasoning: how a body MOVES is a
         // fact about the body, not about who is steering it. A human and a CPU
         // wearing this character move identically.

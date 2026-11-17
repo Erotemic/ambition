@@ -218,7 +218,7 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
                 ambition_platformer2d_core::AbilitySet::sandbox_all(),
             ),
             ActionSet::peaceful(),
-            ActorTechniques(vec![spin]),
+            ActorTechniques::new(vec![spin]),
             ResolvedTechniqueEdges::default(),
             ActorControl(frame),
         ))
@@ -525,7 +525,7 @@ fn a_driven_actor_outside_the_player_population_is_gated_by_its_own_scheme() {
         .spawn((
             ambition_platformer2d_core::BodyAbilities::new(abilities),
             ActionSet::peaceful(),
-            ActorTechniques(vec![ActionSpec {
+            ActorTechniques::new(vec![ActionSpec {
                 id: ActionId::new("spin_dash"),
                 slot: ControlSlot::Attack,
                 display_name: None,
@@ -657,7 +657,7 @@ fn the_gate_derives_the_scheme_again_only_when_an_authority_changed() {
         let world = app.world();
         let techniques = world
             .get::<ActorTechniques>(body)
-            .map(|t| t.0.clone())
+            .map(|t| t.all().into_owned())
             .unwrap_or_default();
         derive_action_scheme(
             &world.get::<BodyAbilities>(body).unwrap().abilities,
@@ -695,7 +695,7 @@ fn the_gate_derives_the_scheme_again_only_when_an_authority_changed() {
 
     app.world_mut()
         .entity_mut(body)
-        .insert(ActorTechniques(vec![spin]));
+        .insert(ActorTechniques::new(vec![spin]));
     app.update();
     assert!(
         derived(&app)

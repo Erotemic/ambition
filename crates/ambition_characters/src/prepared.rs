@@ -108,6 +108,8 @@ struct PreparedCharacterOverrides {
     /// `None` and `Some(empty)` mean different things all the way to the body —
     /// see [`CharacterDefinition::action_set`].
     action_set: Option<crate::brain::ActionSet>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    techniques: Option<Vec<ambition_entity_catalog::action_scheme::ActionSpec>>,
     /// The authored movement policy, carried through preparation unchanged.
     /// `None` leaves the catalog row in charge.
     motion_model: Option<ambition_platformer2d_core::MotionModelSpec>,
@@ -1166,6 +1168,7 @@ pub struct SheetSizing {
 pub struct PreparedCharacterDefinition {
     pub id: ambition_entity_catalog::CharacterId,
     pub display_name: String,
+    pub techniques: Vec<ambition_entity_catalog::action_scheme::ActionSpec>,
     pub provider: String,
     pub lineage: Option<Lineage>,
     /// The sheet target this character wears: its definition's, else its
@@ -1823,6 +1826,7 @@ fn prepare_character(
         contact_damage: definition.contact_damage,
         autonomous_policy: definition.autonomous_policy.clone(),
         ranged_vfx: definition.ranged_vfx.clone(),
+        techniques: definition.techniques.clone(),
         ranged_execution: definition.ranged_execution,
         provoked_profile_ref: definition.provoked_profile_ref.clone(),
         practice_target: definition.practice_target,
@@ -1927,6 +1931,7 @@ fn finalize_character(
         scaled_move_knockback,
         fighter_body,
         action_set,
+        techniques,
         motion_model,
         movement_tuning,
         cue_dependencies,
@@ -1948,6 +1953,7 @@ fn finalize_character(
     // every actor road read this field, so the same character could run as
     // the player and not as an NPC.
     let catalog_row = catalog.and_then(|catalog| catalog.get(&id));
+    let techniques = techniques.unwrap_or_else(|| catalog_row.map_or_else(Vec::new, |row| row.techniques.clone()));
     let ranged_execution = ranged_execution
         .or_else(|| catalog_row?.ranged_execution)
         .unwrap_or(crate::brain::RangedExecution::MovesetVerb);
@@ -2173,6 +2179,7 @@ fn finalize_character(
         // consumes the prepared identity and does not reinterpret authored references.
         id: ambition_entity_catalog::CharacterId::new(id),
         display_name,
+        techniques,
         provider,
         lineage,
         sheet,

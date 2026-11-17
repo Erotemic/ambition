@@ -1206,9 +1206,10 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
         &boss_attack_behavior,
         &boss_capability,
     );
-    scope.insert(ambition_characters::action_scheme::ActorTechniques(
-        possessed_techniques,
-    ));
+    scope.entity_scope().queue_component_upsert(
+        ambition_characters::action_scheme::ActorTechniques::default,
+        move |techniques| techniques.set_additional(possessed_techniques),
+    );
     scope.insert((
         // The brain bundle stays grouped because each piece is required
         // for the boss tick chain.

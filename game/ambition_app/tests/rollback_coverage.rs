@@ -57,11 +57,6 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_publication::transaction::ActiveContentBinding",
         "the session's content generation: written only by a content authority in `Update` (activation, hot reload), never by the simulation; the hot reload restarts the local session and refuses an external one, so no rewind crosses a change",
     ),
-    // A body's technique DECLARATIONS, which the action scheme reads. The boss
-    // road writes them once at construction (`possessed_boss_techniques`). The
-    // two runtime writers, Mary-O's run slot and Sanic's techniques, re-declare
-    // them from worn equipment and the controlled subject, which are rewound.
-    // The edges the gate routes are a separate, derived row.
     (
         "ambition_platformer2d_actor_monolith::body::life::LifeBook",
         "the authored NPC lives (domains, schedules, holds): prepared content, published at build and by a content reload's publication, which stops and rebases the local timeline, so no rewind crosses a change; the simulation only reads it",
@@ -69,10 +64,6 @@ const WAIVED: &[(&str, &str)] = &[
     (
         "ambition_platformer2d_ldtk::bevy_runtime::asset::LdtkRuntimeIndex",
         "the LDtk project's area table (levels and bounds per area): prepared content, written only by a content authority in `Update` (activation, hot reload) under the same restart as `ActiveContentBinding`, so no rewind crosses a change. The active area is `RoomSet`'s, which is registered",
-    ),
-    (
-        "ambition_characters::action_scheme::ActorTechniques",
-        "technique declarations: written at construction (bosses) or re-declared from rewound state (Mary-O, Sanic); the routed edges are the derived row",
     ),
     // Diagnostics beside a body, read by traces and the agent harness only.
     (

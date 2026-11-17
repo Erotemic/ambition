@@ -169,6 +169,25 @@ values in a leaf crate (SDK only), an adapter in the owning domain installed
 by `ambition_platformer2d_runtime::extension_composition`, and a port card.
 That is engine work; every module after it is not.
 
+## Bind a technique to a character
+
+A character catalog row can declare its control binding:
+
+```ron
+techniques: [(
+    id: ("my_charge"), slot: Projectile,
+    display_name: Some("Charge"), gate: Technique("my_charge"),
+)],
+```
+
+The module uses `technique_use` with selector `my_charge`. The shared action
+scheme routes the control edge for every body that wears this character.
+Changing character removes these declarations and preserves declarations from
+other body capabilities. Rules and worn equipment can then override a slot
+through the same action scheme. No inventory item or new Rust descriptor is
+required. The [Pulse Forge project](../../examples/projects/pulse_forge/README.md)
+uses this path and a separate tagged group patrol.
+
 ## Inspecting what runs
 
 ```bash

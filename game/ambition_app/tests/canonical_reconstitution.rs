@@ -585,6 +585,12 @@ fn a_neighbour_of_the_room(sim: &mut Platformer2dSimHarness) -> String {
 /// the commit tick, before the next rebuild, because that is the only moment
 /// the defect exists; the tick after, the arrival room's own contributions are
 /// back.
+///
+/// The overlay half needs a room whose neighbour adds overlay geometry the
+/// room lacks, and neither exit of `ROOM` does any more. It takes the
+/// breakable wall lab's secret room and the lab: the lab's cracked wall is
+/// the overlay block the secret room does not have, and the lab exists to
+/// hold it.
 #[test]
 fn leaving_a_room_and_returning_rebuilds_what_entering_it_built() {
     let (mut sim, live) = enter_the_room();
@@ -596,23 +602,9 @@ fn leaving_a_room_and_returning_rebuilds_what_entering_it_built() {
     let away = walk_to(&mut sim, &neighbour);
     assert_eq!(away, neighbour, "the fixture never actually left '{ROOM}'");
     let live = settle_after_construction(&mut sim, &live);
-    let left_behind = overlay_geometry(&sim);
-    let only_there: BTreeSet<_> = left_behind.difference(&built_here).cloned().collect();
-    assert!(
-        !only_there.is_empty(),
-        "'{neighbour}' puts no geometry in the collision overlay that '{ROOM}' does \
-         not also have, so this test cannot see a stale overlay"
-    );
 
     let back = walk_to(&mut sim, ROOM);
     assert_eq!(back, ROOM, "the fixture did not get back to '{ROOM}'");
-    let on_the_commit_tick = overlay_geometry(&sim);
-    let stale: Vec<_> = on_the_commit_tick.intersection(&only_there).collect();
-    assert!(
-        stale.is_empty(),
-        "on the tick that committed '{ROOM}', the collision overlay still holds \
-         geometry of '{neighbour}', the room just left: {stale:#?}"
-    );
     settle_after_construction(&mut sim, &live);
 
     assert_eq!(
@@ -623,6 +615,51 @@ fn leaving_a_room_and_returning_rebuilds_what_entering_it_built() {
     );
     let returned = census(&mut sim);
     assert_same_population("leaving and re-entering", &fresh, &returned);
+
+    the_overlay_leaves_with_the_room_it_describes();
+}
+
+fn the_overlay_leaves_with_the_room_it_describes() {
+    const HERE: &str = "breakable_wall_lab_secret";
+    const THERE: &str = "breakable_wall_lab";
+    // The secret room is empty, so there is no population to wait for: the
+    // overlay is sampled after a fixed run of frames.
+    let settle = |sim: &mut Platformer2dSimHarness| {
+        for _ in 0..30 {
+            sim.step(base());
+        }
+    };
+    let mut sim = fixed_60hz_room_sim(HERE);
+    settle(&mut sim);
+    let built_here = overlay_geometry(&sim);
+
+    let away = walk_to(&mut sim, THERE);
+    assert_eq!(away, THERE, "the fixture never actually left '{HERE}'");
+    settle(&mut sim);
+    let left_behind = overlay_geometry(&sim);
+    let only_there: BTreeSet<_> = left_behind.difference(&built_here).cloned().collect();
+    assert!(
+        !only_there.is_empty(),
+        "'{THERE}' puts no geometry in the collision overlay that '{HERE}' does \
+         not also have, so this test cannot see a stale overlay"
+    );
+
+    let back = walk_to(&mut sim, HERE);
+    assert_eq!(back, HERE, "the fixture did not get back to '{HERE}'");
+    let on_the_commit_tick = overlay_geometry(&sim);
+    let stale: Vec<_> = on_the_commit_tick.intersection(&only_there).collect();
+    assert!(
+        stale.is_empty(),
+        "on the tick that committed '{HERE}', the collision overlay still holds \
+         geometry of '{THERE}', the room just left: {stale:#?}"
+    );
+    settle(&mut sim);
+    assert_eq!(
+        overlay_geometry(&sim),
+        built_here,
+        "after the rebuild the overlay must describe '{HERE}' as it did when the \
+         room was first entered"
+    );
 }
 
 /// Every piece of geometry the collision overlay holds, one line each, so two

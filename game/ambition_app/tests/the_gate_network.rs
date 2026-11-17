@@ -507,19 +507,14 @@ fn ring_seven_answers_by_its_power_and_its_facility() {
 fn the_visible_app_builds_its_update_schedule_with_the_gate_network() {
     let mut app = ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     use bevy::prelude::*;
-    #[derive(Resource, Default)]
-    struct SeenGateVisuals(usize);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    app.init_resource::<SeenGateVisuals>();
     app.add_systems(Last, |portals: Option<Res<ambition_platformer2d::world::rooms::GatePortalRegistry>>,
-        visuals: Query<(&ambition_platformer2d::render::rendering::LoadingZoneVisual, &Visibility)>,
-        mut seen: ResMut<SeenGateVisuals>| {
+        visuals: Query<(&ambition_platformer2d::render::rendering::LoadingZoneVisual, &Visibility)>| {
         let Some(portals) = portals else { return };
         for (zone, visibility) in &visuals {
             if portals.is_portal(&zone.id) {
-                seen.0 += 1;
                 assert_eq!(*visibility, Visibility::Hidden,
                     "gate {} drew its generic door before its gate art", zone.id);
             }
@@ -535,7 +530,25 @@ fn the_visible_app_builds_its_update_schedule_with_the_gate_network() {
     for _ in 0..5 {
         app.update();
     }
-    assert!(app.world().resource::<SeenGateVisuals>().0 > 0, "the route drew no gate zones");
+    // The rule above is about a gate's generic door, and a gate whose ring is
+    // its picture (`presentation: SceneArt`) has no generic door at all. So
+    // what proves the observer looked at a gate is a gate zone in the live
+    // room, not a door drawn for one.
+    let gates_in_the_room = {
+        let world = app.world_mut();
+        let portals = world
+            .get_resource::<ambition_platformer2d::world::rooms::GatePortalRegistry>()
+            .cloned()
+            .expect("the route registers its gates");
+        let definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the route has a live room");
+        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(world)
+        .expect("the session keeps its room set");
+        rooms.spec(definition).loading_zones.iter().filter(|zone| portals.is_portal(&zone.id)).count()
+    };
+    assert!(gates_in_the_room > 0, "the route's first room has no gate zone, so the rule above saw no gate");
     let mut names = Vec::new();
     app.world_mut().resource_scope::<bevy::ecs::schedule::Schedules, _>(|world, mut schedules| {
         let update = schedules.get_mut(bevy::prelude::Update).expect("an Update schedule");

@@ -943,6 +943,12 @@
     "hill_woods_fallen_trunk": (),
     // The surveyors' boards on stakes (the lane, the woods).
     "hill_stake_board": (),
+    // The workshop's slates, one per width of words.
+    "workshop_slate_96": (),
+    "workshop_slate_120": (),
+    "workshop_slate_180": (),
+    "workshop_slate_260": (),
+    "workshop_slate_300": (),
     // The catacombs under the moor (Evil).
     "catacombs_west": (),
     "catacombs_east": (),

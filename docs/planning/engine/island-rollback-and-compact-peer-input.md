@@ -958,10 +958,20 @@ partitioned (Jon, 2026-11-16). The [room replay contract](../../systems/room-rep
 says a room-owned resource's writer asks `RoomReplay::allows(owner)` (47 call
 sites today). Nothing finds a sim-schedule writer of a global `Resource` that
 does neither that nor a shared-store retraction, so the next one is found by a
-cross-room desync, as these fixes were. Next action: a census over the
-rewinding schedule's `ResMut` writers, classified as room-gated, retracted
-store, world-owned by ruling, or unclassified, with the unclassified count
-ratcheted to zero.
+cross-room desync, as these fixes were.
+
+**Census and ratchet, done (2026-11-17).**
+`scripts/checks/check_sim_schedule_resource_writers_are_room_classified.py`
+(a `run_tests.py` job) classifies each `ResMut` binding of a sim-schedule
+system: room-gated (`.allows(`), room-stamped (`RoomWrite`), derived (a
+ruled type the scan checks is rebuilt each run, not accumulated), instrument
+(a census, trace or capture tool), or unclassified. First measurement: 228
+bindings; 11 room-gated, 14 room-stamped, 40 derived, 16 instrument and 147
+unclassified over 69 types. The ceiling is 147 and may only fall. **Open:**
+the 69 unclassified types, each to be gated, stamped or ruled world-owned. The
+largest are `AmbitionGameSave` (17 bindings), `QuestRegistry` (8),
+`PendingLifecycleCommit` (7), `GameplayBanner` and `SlotInteractionState` (6
+each).
 
 ## Order, exclusions and integration
 

@@ -1661,6 +1661,16 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/checks/check_sim_schedule_resource_memory_is_adjudicated.py",
             ],
         ),
+        # A global `Resource` written in the rewinding schedule is room-gated,
+        # room-stamped, or ruled derived or an instrument; the rest is a
+        # ratchet that may only fall (the island-rollback room-owner rule).
+        Job(
+            "every global resource writer in the rewinding schedule names its room rule",
+            [
+                sys.executable,
+                "scripts/checks/check_sim_schedule_resource_writers_are_room_classified.py",
+            ],
+        ),
         # ⛔⛤ Q136's POPULATION, WHICH HAD NEVER BEEN ENUMERATED. An intent
         # raised outside the rewinding schedule and SPENT inside it is lost, and
         # the player's press does nothing. Two witnesses existed for two

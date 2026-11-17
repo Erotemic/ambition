@@ -112,6 +112,8 @@ members = [
     "game/ambition_demo_smash_modules",
     "game/ambition_fighter_specials",
     "fixtures/extension_fixture_modules",
+    "examples/projects/pulse_forge/portable",
+    "examples/projects/pulse_forge/host",
     "crates/ambition_extension_rhai",
     "tests/ambition_workspace_policy",
 ]

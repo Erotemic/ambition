@@ -1,0 +1,11 @@
+(
+    schema: "ambition.project.v1",
+    name: "Pulse Forge",
+    content: Some("content"),
+    worlds: Some("worlds"),
+    modules: ["modules"],
+    implementations: [
+        (provider: "pulse_forge", module: "emitter", implementation: File("build/pulse_forge.wasm")),
+    ],
+    starting_items: Some([("eyelaser", 1), ("lantern", 1)]),
+)

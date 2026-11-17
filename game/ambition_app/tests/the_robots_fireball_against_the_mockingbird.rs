@@ -6,7 +6,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_content::bosses::mockingbird::{MOCKINGBIRD_ID, conductor_of};
 use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
@@ -19,7 +19,7 @@ use bevy::prelude::*;
 const SKY: &str = "mockingbird_sky";
 
 fn sky() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // Rollback on, as the game plays it: GGRS drives the schedule, and a
         // check distance of 0 saves and resimulates nothing.
@@ -249,7 +249,7 @@ fn place_player(sim: &mut Platformer2dSimHarness, at: ae::Vec2, facing: f32) {
 /// put beside the bird once, before the window. In the window, only the input
 /// moves it, so a resimulated tick does what the first run of that tick did.
 fn hp_through_the_window(check_distance: usize, standoff: f32, mut input: impl FnMut(u32) -> AgentAction) -> Vec<i32> {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_sync_test_rollback_settings(check_distance, 12)
         .with_required_start_room(SKY);

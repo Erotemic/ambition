@@ -147,7 +147,7 @@ fn treasure_paid(sim: &Platformer2dSimHarness) -> bool {
 fn a_replay_takes_back_a_defeat_since_the_checkpoint_and_everything_it_minted() {
     use ambition_platformer2d::items::Item;
     const BOSS: &str = "retracted";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     {
         let world = sim.world_mut();
         world
@@ -273,7 +273,7 @@ fn a_replay_takes_back_a_defeat_since_the_checkpoint_and_everything_it_minted() 
 fn a_defeat_before_the_checkpoint_survives_a_replay_with_its_quest_and_payout() {
     use ambition_platformer2d::items::Item;
     const BOSS: &str = "banked";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let cells_before = owns(sim.world_mut(), Item::HealthCell);
     spawn_mockingbird(&mut sim, BOSS);
     for _ in 0..15 {
@@ -364,7 +364,7 @@ fn owns(world: &mut World, item: ambition_platformer2d::items::Item) -> u32 {
 #[test]
 fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
     use ambition_platformer2d::items::Item;
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 2);
     crate::common::begin_without(&mut sim, &[Item::MarkRecall]);
     let (px, py) = {

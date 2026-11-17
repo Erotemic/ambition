@@ -9,7 +9,7 @@
 //! engine ships it" is a claim about the composition, and a fixture that
 //! inserted the sheets itself would prove nothing about what a player gets.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::characters::load_demand::CharacterLoadDemand;
 use ambition_platformer2d::render::fx::resolve_drawable;
 use ambition_platformer2d::sprite_sheet::fx::{core_fx_targets, fx_sheets};
@@ -19,7 +19,7 @@ use bevy::prelude::*;
 
 /// Boot far enough for the engine's `Startup` asset binding to have run.
 fn booted() -> App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     app
 }

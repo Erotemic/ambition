@@ -16,7 +16,7 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{
-    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::ActorControl;
@@ -189,7 +189,7 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
 fn resetting_the_room_restages_the_duel_fighters_fresh() {
     use ambition_platformer2d::engine_core::BodyKinematics as Kin;
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("duel_arena"),
     )
@@ -256,7 +256,7 @@ fn resetting_the_room_restages_the_duel_fighters_fresh() {
 #[test]
 fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("duel_arena"),
     )
@@ -287,7 +287,7 @@ fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
 #[test]
 fn duel_fighters_actually_enact_their_abilities_on_the_body() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("duel_arena"),
     )
@@ -367,7 +367,7 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
 #[test]
 fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("duel_arena"),
     )

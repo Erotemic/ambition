@@ -230,7 +230,7 @@ fn first_part(frames: &[[SeatState; 2]], with_stream: bool) -> Option<(usize, St
 /// would be empty. `smash_roster_movesets` carries the same warning.
 fn host() -> App {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     app
 }

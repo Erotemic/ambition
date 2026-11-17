@@ -15,7 +15,7 @@
 //! cargo test -p ambition_app --test hall_scale_spread -- --ignored --nocapture
 //! ```
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::character::CharacterCatalog;
 use ambition_platformer2d::character_sprites::posed_body_geometry;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
@@ -30,7 +30,7 @@ fn sheet_target(spritesheet: &str) -> Option<&str> {
 
 /// Every catalog character's baked body, in sheet pixels.
 fn measured_bodies(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> Vec<(String, f32, f32)> {
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let catalog = app
         .world()
         .get_resource::<CharacterCatalog>()

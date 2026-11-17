@@ -66,7 +66,7 @@ fn swap_brain(
 
 #[test]
 fn a_brain_switched_away_and_back_does_not_resurrect_the_hostile_it_saw() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     // A PERCEIVING brain: the fighter profile builds a world view and remembers

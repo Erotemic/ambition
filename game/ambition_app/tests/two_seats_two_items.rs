@@ -26,7 +26,7 @@ fn two_local_seats_each_pick_up_their_own_bomb() {
     use bevy::prelude::*;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..30 {
         app.update();
     }

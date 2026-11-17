@@ -2,7 +2,7 @@
 //! could see it, and "a stranger can run it and watch" is what separates an engine demo from an
 //! engine.
 //!
-//! Driven through the real shell composition (`build_visible_app(NoWindow, true)`
+//! Driven through the real shell composition (`build_visible_app_with(NoWindow, true, crate::common::in_the_sandbox_hub)`
 //! plus the startup sequence), because a versus route that only a hand-built app
 //! can reach is the same defect one layer up.
 
@@ -13,7 +13,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::game_shell::{
     ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouter,
 };
@@ -27,7 +27,7 @@ fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
 }
 
 fn versus_app() -> App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));
@@ -2688,7 +2688,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
 fn every_fighter_the_duel_can_seat_authors_the_abilities_its_ceiling_narrows() {
     use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // The registry is filled by a `Startup` system, so a build that has never
     // updated has no registered characters at all.
     app.update();

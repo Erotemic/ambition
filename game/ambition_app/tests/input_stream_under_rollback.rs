@@ -19,7 +19,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::engine_core::{ControlFrame, InputStream};
 use ambition_platformer2d::runtime::InputStreamRecorder;
@@ -76,7 +76,7 @@ fn record(sim: &mut Platformer2dSimHarness) -> InputStream {
 }
 
 fn eager() -> Platformer2dSimHarness {
-    Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("the eager harness builds")
 }
 
@@ -84,7 +84,7 @@ fn eager() -> Platformer2dSimHarness {
 /// so every tick past the fourth is recorded more than once.
 fn rewinding() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )

@@ -3,7 +3,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 use bevy::prelude::{Entity, With};
 use std::collections::HashSet;
@@ -228,7 +228,7 @@ const TARGET_ROOM: &str = "first_system_boss";
 
 fn repro_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(SOURCE_ROOM)
             .with_sync_test_rollback_settings(4, 10),

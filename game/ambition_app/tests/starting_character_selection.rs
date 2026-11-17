@@ -38,7 +38,7 @@ fn a_selected_starting_character_activates_a_controllable_session() {
     let mut sim = Platformer2dSimHarness::build(
         Platformer2dSimHarnessOptions {
             timestep: TimestepMode::fixed_60hz(),
-            ..Default::default()
+            ..crate::common::sandbox_options()
         },
         |app, options| {
             // Exactly what `cli.rs::insert_starting_character_override` does for
@@ -93,7 +93,7 @@ fn a_selected_starting_character_activates_a_controllable_session() {
 fn an_unselected_start_is_built_with_the_default_characters_authored_kit() {
     let mut sim = Platformer2dSimHarness::new_with_options(Platformer2dSimHarnessOptions {
         timestep: TimestepMode::fixed_60hz(),
-        ..Default::default()
+        ..crate::common::sandbox_options()
     })
     .expect("the sandbox sim builds");
     sim.step(AgentAction::default());

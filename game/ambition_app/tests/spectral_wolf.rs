@@ -7,7 +7,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, CharacterForm};
 use ambition_platformer2d::combat::actor_tuning::ContactThreatWithdrawn;
 use ambition_platformer2d::combat::components::DamageableVolumes;
@@ -21,7 +21,7 @@ const ROAD: &str = "evil_gate_forest";
 const WOLF: &str = "npc_evil_spectral_wolf";
 
 fn road() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(ROAD);
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the road builds headlessly");

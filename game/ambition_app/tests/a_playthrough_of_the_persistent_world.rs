@@ -316,9 +316,9 @@ fn the_playthrough_runs_in_the_composition_that_draws_it() {
 /// reads the save file there (`load_save_at_startup`), before the gameplay
 /// route starts.
 fn a_session_loaded_from(root: &ambition_platformer2d::persistence::PersistenceRoot) -> App {
-    use ambition_app::app::{build_visible_app, VisibleRenderMode};
+    use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(root.clone());
     app.finish();
     app.update();

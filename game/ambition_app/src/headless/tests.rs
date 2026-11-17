@@ -11,6 +11,9 @@ use bevy::ecs::message::Messages;
 fn sandbox_sim_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
+    // The sandbox hub, not a new game's workshop, whose opening cutscene
+    // holds the robot.
+    app.insert_resource(crate::app::StartRoomOverride("central_hub_complex".to_string()));
     crate::app::shell_host::compose_ambition_gameplay_host(&mut app);
     // ⛔ A FRAME IS A TICK HERE, AND IT WAS NOT BEFORE. `add_headless_foundation`
     // brings `MinimalPlugins`, which leaves `TimeUpdateStrategy::Automatic`, so

@@ -55,7 +55,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::snapshot::non_finite;
 
 /// Floor on the number of finite canonical floats a 30-frame sync-test window
@@ -70,7 +70,7 @@ const ENCODED_FLOAT_FLOOR: u64 = 1_000;
 /// nothing and would report a serene zero.
 fn sync_test_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_sync_test_rollback_settings(4, 10),
+        crate::common::sandbox_options().with_sync_test_rollback_settings(4, 10),
     )
     .expect("sandbox sim builds with a sync-test rollback session")
 }

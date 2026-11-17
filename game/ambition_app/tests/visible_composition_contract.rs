@@ -11,7 +11,7 @@
 use bevy::prelude::*;
 
 use ambition_app::app::visible_composition::VisibleGameSpec;
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::game_shell::ShellHostConfiguration;
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
@@ -109,13 +109,13 @@ fn assert_contract_holds(persona: &str, app: &App) {
 #[test]
 fn the_launcher_persona_composes_a_route_and_room_visuals() {
     let browser = VisibleGameSpec::browser(GameAssetConfig::default());
-    let app = build_visible_app(VisibleRenderMode::NoWindow, browser.shell_hosted);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, browser.shell_hosted, crate::common::in_the_sandbox_hub);
     assert_contract_holds("browser / launcher persona", &app);
 }
 
 #[test]
 fn the_direct_gameplay_persona_composes_a_route_and_room_visuals() {
-    let app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     assert_contract_holds("direct gameplay persona", &app);
 }
 
@@ -168,7 +168,7 @@ fn the_browser_persona_boots_the_launcher_with_no_desktop_curtain() {
 /// headless composition, not a rendered host.
 #[test]
 fn a_no_window_app_can_despawn_a_camera() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     // ⚠ THE PREMISE. A profile that quietly gained a `RenderApp` would drain
     // `PendingSyncEntity` the ordinary way and make every assertion below pass
     // for a reason that has nothing to do with the fix.
@@ -228,7 +228,7 @@ fn a_no_window_app_can_despawn_a_camera() {
 /// fixed.
 #[test]
 fn a_no_window_app_can_despawn_a_plain_entity() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     let plain = app.world_mut().spawn(Transform::default()).id();
     app.world_mut().entity_mut(plain).despawn();
 }
@@ -260,7 +260,7 @@ fn a_no_window_app_can_despawn_a_plain_entity() {
 /// anti-vacuity trap the identity census fell into.
 #[test]
 fn whether_the_offscreen_render_path_composes_here_is_measured_not_assumed() {
-    let app = build_visible_app(VisibleRenderMode::OffscreenGpu, false);
+    let app = build_visible_app_with(VisibleRenderMode::OffscreenGpu, false, crate::common::in_the_sandbox_hub);
     let render_app = app
         .get_sub_app(bevy::render::RenderApp)
         .is_some();
@@ -272,7 +272,7 @@ fn whether_the_offscreen_render_path_composes_here_is_measured_not_assumed() {
         "[offscreen] render_app={render_app} render_device_in_main_world={device}"
     );
     // The NoWindow control, in the same process: the one field that differs.
-    let no_window = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let no_window = build_visible_app_with(VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     let no_window_render_app = no_window.get_sub_app(bevy::render::RenderApp).is_some();
     eprintln!("[offscreen] control no_window_render_app={no_window_render_app}");
     assert!(

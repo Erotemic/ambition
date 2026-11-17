@@ -205,7 +205,7 @@ const A_MEASURABLE_DUEL: usize = 600;
 fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let fighter = fighter();
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // the frame is load-bearing: `PreparedCharacterRegistry` is filled by a
     // `Startup` system, so a build that has never updated has a catalog and no
     // registry.
@@ -899,7 +899,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
 #[ignore = "a measurement, not a guard: minutes per fighter, run it when a scoring change needs validating"]
 fn every_fighter_on_the_grid_can_fight_its_mirror() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let ids: Vec<String> = {
         let registry = app
@@ -1013,7 +1013,7 @@ fn mirror_bout(
     String,
 ) {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     // ⭐⭐ **A MIRROR IS A ROOM, AND A ROOM IS A POPULATION.** Two copies of
     // one brain at one rung see mirrored worlds and rank the same menu the
@@ -1422,7 +1422,7 @@ fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick()
     }
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let roster = ambition_demo_smash::smash_roster_at_levels(
         ["goblin", "perfect_cellular_automaton"],
@@ -1597,7 +1597,7 @@ fn probe_where_the_goblin_pca_hit_events_come_from() {
     use std::collections::BTreeMap;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.update();
     let roster = ambition_demo_smash::smash_roster_at_levels(
         ["goblin", "perfect_cellular_automaton"],

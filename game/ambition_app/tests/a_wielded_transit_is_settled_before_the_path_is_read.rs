@@ -19,7 +19,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::rl_sim::{Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::rl_sim::{Platformer2dSimHarness, TimestepMode};
 use bevy::ecs::schedule::{NodeId, Schedules};
 
 use crate::derived_custody_is_read_after_it_is_derived::after;
@@ -33,7 +33,7 @@ const READERS: [&str; 2] = ["::apply_hazard_contacts", "::detect_room_transition
 #[test]
 fn every_reader_of_the_record_runs_after_each_wielded_transit() {
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
         |app, options| ambition_app::rl_sim::ambition_sim_composition(app, options),

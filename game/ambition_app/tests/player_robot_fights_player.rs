@@ -81,7 +81,7 @@ fn observe(world: &mut World, player_pos: ae::Vec2, t: &mut Tally) {
 
 #[test]
 fn the_player_robot_fights_the_player_with_its_own_full_kit() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     // Drop the protagonist's own body a medium stride away — far enough to open

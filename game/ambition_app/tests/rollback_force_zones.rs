@@ -2,7 +2,7 @@
 //! Force-region lifetime and values across GGRS save, load and replay.
 
 use ambition_app::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::engine_core::{Aabb, Vec2};
 use ambition_platformer2d::platformer::{
@@ -20,7 +20,7 @@ const WIND_ID: &str = "test.force_zone";
 #[test]
 fn a_force_zone_replays_its_birth_motion_and_retirement() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )

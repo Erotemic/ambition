@@ -9,7 +9,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim as _, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim as _, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes;
 use ambition_platformer2d::session::participants::SessionParticipants;
@@ -118,7 +118,7 @@ pub(crate) fn die(sim: &mut Platformer2dSimHarness, body: Entity) {
 #[test]
 fn a_seat_with_no_body_joins_beside_the_primary_on_a_start_press() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
             .with_rollback_players(2),
@@ -202,7 +202,7 @@ fn a_seat_with_no_body_joins_beside_the_primary_on_a_start_press() {
 #[test]
 fn a_second_seat_that_dies_beside_the_primary_comes_back_at_the_rooms_spawn() {
     let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     let primary = the_primary(&mut sim);
     let spawn = place_of(&sim, primary);
@@ -753,7 +753,7 @@ fn both_seats_release_blink_and_finish_its_cooldown() {
 #[test]
 fn start_does_not_readmit_a_participant_without_a_current_body_assignment() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()),
     ).expect("the session builds");
     let (body, _) = join(&mut sim, 4).expect("the second participant joins");
     sim.world_mut().entity_mut(body).remove::<DrivingParticipant>();

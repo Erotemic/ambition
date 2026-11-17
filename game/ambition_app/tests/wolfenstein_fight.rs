@@ -6,7 +6,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_content::bosses::wolfenstein::conductor_module as module;
 use ambition_content::bosses::wolfenstein::{conductor_of, Move, WolfensteinView, WOLFENSTEIN_ID};
 use ambition_platformer2d::boss_encounter::BossConfig;
@@ -19,7 +19,7 @@ const ARENA: &str = "castle_godwin_throne";
 
 /// The throne room, asleep: he lies on his slab and you are at the door.
 fn dark_arena() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED: the tolerant road falls back to the start room, which has
         // no Wolfenstein, and every assertion below would be vacuous.

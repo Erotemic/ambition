@@ -36,7 +36,7 @@ fn raptor(world: &mut World) -> Option<(Option<String>, bool)> {
 
 #[test]
 fn the_raptor_notices_the_player_then_winds_up_before_it_strikes() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(
         RAPTOR,
@@ -77,7 +77,7 @@ fn the_raptor_notices_the_player_then_winds_up_before_it_strikes() {
 #[test]
 fn the_pachycephalosaurus_stands_through_its_windup_then_charges() {
     const PACHY: &str = "charging_pachy";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(
         PACHY,
@@ -135,7 +135,7 @@ fn the_pachycephalosaurus_stands_through_its_windup_then_charges() {
 #[test]
 fn the_raptor_pounces_off_the_ground_at_its_strike() {
     const POUNCER: &str = "pouncing_raptor";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(
         POUNCER,
@@ -176,7 +176,7 @@ fn the_raptor_pounces_off_the_ground_at_its_strike() {
 #[test]
 fn the_dilophosaurus_coils_before_it_spits() {
     const SPITTER: &str = "spitting_dilophosaurus";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(
         SPITTER,
@@ -205,7 +205,7 @@ fn the_dilophosaurus_coils_before_it_spits() {
 #[test]
 fn the_parrot_notices_then_hangs_for_its_tell_before_it_dives() {
     const PARROT: &str = "telling_parrot";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(
         PARROT,
@@ -243,7 +243,7 @@ fn the_parrot_notices_then_hangs_for_its_tell_before_it_dives() {
 #[test]
 fn the_attack_hound_lunges_from_a_run() {
     const HOUND: &str = "lunging_hound";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(
         HOUND,
@@ -279,7 +279,7 @@ fn the_attack_hound_lunges_from_a_run() {
 #[test]
 fn the_failed_prototype_lurches_from_a_run() {
     const PROTO: &str = "lurching_prototype";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(
         PROTO,
@@ -319,7 +319,7 @@ fn the_raptor_is_heard_noticing_then_striking() {
     const HEARD: &str = "heard_raptor";
     let notice = SfxId::new("enemy.raptor.notice");
     let swing = SfxId::new("enemy.raptor.swing");
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(
         HEARD,

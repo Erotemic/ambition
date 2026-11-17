@@ -42,7 +42,7 @@ fn read_player_pos(world: &mut World) -> ae::Vec2 {
 /// real gravity plunge.
 #[test]
 fn dormant_boss_floats_and_does_not_fall() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     let start = read_player_pos(sim.world_mut());
@@ -83,7 +83,7 @@ fn dormant_boss_floats_and_does_not_fall() {
 #[test]
 fn woken_boss_moves_and_stays_afloat() {
     const FRAMES: usize = 300;
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     let start = read_player_pos(sim.world_mut());
@@ -158,7 +158,7 @@ fn the_frame_a_held_boss_integrates_under_is_the_gated_one() {
     use ambition_platformer2d::characters::control::{ActorControl, ControlHold, ControlHolds};
     const FRAMES: usize = 60;
     for held in [false, true] {
-        let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
             .expect("sandbox sim builds");
         let start = read_player_pos(sim.world_mut());
         sim.spawn_boss_at(

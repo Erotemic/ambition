@@ -8,7 +8,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::rl_sim::{Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::rl_sim::{Platformer2dSimHarness, TimestepMode};
 use ambition_app::AmbitionSim as _;
 use bevy::ecs::schedule::{NodeId, Schedules};
 
@@ -17,7 +17,7 @@ use crate::derived_custody_is_read_after_it_is_derived::after;
 #[test]
 fn the_conduct_collector_runs_after_the_rider_sync() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("the sandbox builds");
     let world = sim.world_mut();

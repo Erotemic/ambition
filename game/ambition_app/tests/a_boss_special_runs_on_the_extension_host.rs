@@ -18,7 +18,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
@@ -157,7 +157,7 @@ fn fight(
 
 #[test]
 fn the_warden_fires_one_volley_per_strike_through_the_extension_host() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let bursts = fight_requests(&mut sim, 2, TWO_STRIKES);
     assert!(
@@ -176,7 +176,7 @@ fn the_warden_fires_one_volley_per_strike_through_the_extension_host() {
 fn a_rollback_replays_the_fan_and_its_strike_latch() {
     // Live shots need a clear lane to witness the replayed emission.
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_required_start_room("combat_calibration_lab")
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
@@ -212,7 +212,7 @@ fn a_rollback_replays_the_fan_and_its_strike_latch() {
 /// other.
 #[test]
 fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
-    let mut linked = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut linked = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let (linked_modules, linked_fingerprint) = modules_section(&mut linked);
     assert!(
@@ -235,7 +235,7 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
     let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_content_modules")
         .expect("the module crate builds for wasm32-unknown-unknown");
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_extension_module_files(vec![wasm]),
     )
@@ -316,7 +316,7 @@ fn a_module_file_that_changes_while_the_game_runs_is_reloaded() {
             std::process::id()
         ));
         std::fs::copy(&built, &watched).unwrap();
-        let mut options = Platformer2dSimHarnessOptions::default()
+        let mut options = crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_extension_module_files(vec![watched.clone()]);
         if rollback {
@@ -408,7 +408,7 @@ fn saddle_arms(world: &mut World, boss: Entity) -> (usize, usize) {
 fn a_rollback_replays_the_saddle_points_held_arm() {
     const WARDEN: &str = "saddle_warden";
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )
@@ -488,7 +488,7 @@ fn a_rollback_replays_the_saddle_points_held_arm() {
 /// plain run cannot show, and the plain run's facts are the same.
 fn sync_test_sandbox() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )

@@ -77,7 +77,7 @@
 use std::collections::BTreeMap;
 
 use ambition_app::AmbitionSim;
-use ambition_app::{Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame};
 use ambition_platformer2d::sim::{Platformer2dSimulationPhase as Phase, SimScheduleExt};
 use ambition_platformer2d::platformer::schedule::WorldPrepSet;
@@ -266,7 +266,7 @@ fn walking(tick: usize) -> ControlFrame {
 
 fn harness() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("sandbox sim builds")
 }

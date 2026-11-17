@@ -5,7 +5,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_content::bosses::trex::conductor_module as module;
 use ambition_content::bosses::trex::{Move, TREX_ID, TrexView, conductor_of};
@@ -18,7 +18,7 @@ use bevy::prelude::*;
 const ARENA: &str = "trex_arena";
 
 fn arena() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED: the tolerant road falls back to the start room, which has
         // no T-rex, and every assertion below would be vacuous.

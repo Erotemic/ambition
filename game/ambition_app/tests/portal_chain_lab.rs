@@ -1,6 +1,6 @@
 #![cfg(all(feature = "portal", feature = "rl_sim"))]
 
-use ambition_app::{AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::{self as ae, BodyKinematics, ControlFrame};
 use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::combat::{hitbox::strike_pieces, strike::{Hitbox, HitboxHits}};
@@ -24,7 +24,7 @@ fn place(sim: &mut Platformer2dSimHarness, who: Entity, at: Vec2) {
 
 fn station(max_hops: u8) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_required_start_room("portal_chain_lab")
+        crate::common::sandbox_options().with_required_start_room("portal_chain_lab")
             .with_sync_test_rollback_settings(4, 10)).unwrap();
     for _ in 0..30 { sim.step(crate::common::base()); }
     let (player, axe, target) = {

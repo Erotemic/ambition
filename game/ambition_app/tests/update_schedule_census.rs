@@ -101,7 +101,7 @@ fn set_membership(
 #[test]
 fn census_of_how_much_of_update_is_inside_a_set() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }
@@ -143,7 +143,7 @@ fn the_menu_frame_reader_sets_are_co_scheduled() {
 use ambition_platformer2d::input::MenuNavConsume;
 
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }
@@ -434,7 +434,7 @@ fn ordering_the_pair_clears_the_menu_frame_conflict() {
 #[test]
 fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }
@@ -519,7 +519,7 @@ fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
 fn name_the_menu_frame_conflicts() {
     use bevy::ecs::schedule::IntoSystemSet;
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }
@@ -597,7 +597,7 @@ fn name_the_menu_frame_conflicts() {
 fn the_conversation_reads_its_input_after_the_inventory_claims_it() {
     use bevy::ecs::schedule::IntoSystemSet;
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }
@@ -846,7 +846,7 @@ fn ordering_the_pair_clears_the_room_transition_conflict() {
 #[test]
 fn report_room_transition_load_state_conflicts_in_the_shipped_app() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }
@@ -881,7 +881,7 @@ fn report_room_transition_load_state_conflicts_in_the_shipped_app() {
 #[test]
 fn seat_raw_frame_writers_are_ordered_against_each_other_in_the_shipped_app() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }
@@ -965,7 +965,7 @@ fn the_seat_raw_frame_conflict_detector_reports_an_unordered_pair() {
 #[test]
 fn name_the_room_transition_conflicts() {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }

@@ -13,7 +13,7 @@
 
 use crate::common::base;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_content::bosses::fsm::{conductor_of, Move, FSM_ID};
 use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
@@ -26,7 +26,7 @@ const ARENA: &str = "flying_spaghetti_monster_arena";
 const BELL_HALF: ae::Vec2 = ae::Vec2::new(95.0, 44.0);
 
 fn arena() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED: the tolerant road falls back to the start room, which has
         // no FSM, and every assertion below would be vacuous.
@@ -606,7 +606,7 @@ fn wounded_it_sends_noodlings() {
 /// that builds it, as the arena's placement is (checked by `arena()`).
 #[test]
 fn a_staged_god_is_built_with_its_conductor() {
-    let mut staged = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("the sandbox builds");
+    let mut staged = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("the sandbox builds");
     assert_eq!(conducted(&mut staged), None, "the premise: no god before it is staged");
     staged.spawn_boss_at(
         "staged_fsm",

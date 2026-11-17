@@ -505,7 +505,7 @@ fn ring_seven_answers_by_its_power_and_its_facility() {
 /// test saw) panics at the first update of the schedule.
 #[test]
 fn the_visible_app_builds_its_update_schedule_with_the_gate_network() {
-    let mut app = ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let mut app = ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     use bevy::prelude::*;
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),

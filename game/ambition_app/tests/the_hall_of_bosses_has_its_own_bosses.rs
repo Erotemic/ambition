@@ -11,7 +11,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use std::collections::BTreeSet;
 
@@ -90,7 +90,7 @@ fn the_halls_copied_bosses_are_practice_copies_at_their_own_placements() {
 
 fn boss_practice_in(room: &str) -> Vec<(String, bool)> {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(room),
     )

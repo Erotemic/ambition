@@ -36,6 +36,7 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
     app.add_plugins(bevy::text::TextPlugin);
     app.insert_resource(shell_host::AmbitionShellHosted);
+    crate::common::in_the_sandbox_hub(&mut app);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);

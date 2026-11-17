@@ -59,7 +59,7 @@ use ambition_app::AmbitionSim;
 /// when the line goes, rather than a comment saying it matters.
 #[test]
 fn the_shipped_composition_closes_its_barrier_through_the_checked_road() {
-    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     assert!(
         ambition_platformer2d::characters::prepared::barrier_closed_with_admission(sim.world()),
@@ -74,7 +74,7 @@ fn the_shipped_composition_closes_its_barrier_through_the_checked_road() {
 fn every_authored_effect_in_the_shipped_composition_is_admitted() {
     use ambition_platformer2d::combat::technique::InstalledTechniques;
 
-    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let world = sim.world();
     let installed = &world
@@ -161,9 +161,10 @@ fn every_authored_effect_in_the_shipped_composition_is_admitted() {
 /// convenient ordering is a guard for a program nobody runs.**
 #[test]
 fn the_barrier_closes_through_the_checked_road_under_the_real_lifecycle() {
-    let mut app = ambition_app::app::build_visible_app(
+    let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::NoWindow,
         true,
+        crate::common::in_the_sandbox_hub,
     );
     // ⭐ THE THREE CALLS `App::run` MAKES, IN ITS ORDER. Not `update()` alone,
     // which is what every hand-driven fixture in this repository does and what
@@ -203,7 +204,7 @@ fn the_barrier_closes_through_the_checked_road_under_the_real_lifecycle() {
 /// records what was removed.
 #[test]
 fn the_shipped_composition_withheld_nothing_at_its_barrier() {
-    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let refusals = sim
         .world()
@@ -245,7 +246,7 @@ fn the_shipped_support_table_refuses_a_grab_that_reaches_nothing() {
     };
     use ambition_platformer2d::entity_catalog::{EffectRef, ParamValue};
 
-    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let installed = &sim
         .world()

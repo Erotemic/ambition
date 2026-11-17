@@ -13,7 +13,7 @@ use bevy::prelude::{App, Entity, With};
 /// load-bearing, since `PreparedCharacterRegistry` is filled by a `Startup`
 /// system and a grid assembled before it would be empty.
 pub fn shipped_host() -> App {
-    let mut app = ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let mut app = ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..30 {
         app.update();
     }

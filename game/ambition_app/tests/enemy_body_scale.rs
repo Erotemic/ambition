@@ -96,7 +96,7 @@ fn the_enemy_body_report_is_actually_measuring_something() {
 // What the RENDERER draws, against the box the body actually collides with.
 // ─────────────────────────────────────────────────────────────────────────────
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::assets::character_sprites::{
     sheet_for_character_id_in, sprite_body_collision_for_character_id_in,
 };
@@ -170,7 +170,7 @@ fn publishers(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteConten
 #[ignore]
 fn print_the_two_render_size_publishers() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let catalog = app.world().resource::<CharacterCatalog>();
     let mut ids: Vec<&String> = catalog.iter().map(|(id, _)| id).collect();
     ids.sort();
@@ -251,7 +251,7 @@ fn print_the_two_render_size_publishers() {
 #[test]
 fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let catalog = app.world().resource::<CharacterCatalog>();
     let mut measured = 0usize;
     let mut wrong: Vec<String> = Vec::new();
@@ -341,7 +341,7 @@ fn print_the_height_each_legacy_row_already_has() {
         ("npc_viking_heavy_shieldmaiden", 32.0, 48.0),
         ("npc_viking_heavy_warrior", 32.0, 48.0),
     ];
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let catalog = app.world().resource::<CharacterCatalog>();
     println!(
         "{:>36} {:>10} {:>18}",

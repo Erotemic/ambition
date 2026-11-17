@@ -22,7 +22,7 @@ const BESIDE_PX: f32 = 30.0;
 /// A match with `fighter` in seat 0 and the sandbag in seat 1, run by one
 /// update a tick.
 fn a_match(fighter: &str) -> App {
-    let mut app = ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let mut app = ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     ambition_platformer2d::sim::enable_manual_stepping(&mut app);
     for _ in 0..30 {
         app.update();

@@ -9,7 +9,7 @@
 use ambition_platformer2d::engine_core::{Block, Vec2};
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 
 fn base() -> AgentAction {
     AgentAction::default()
@@ -17,7 +17,7 @@ fn base() -> AgentAction {
 
 fn open_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("central_hub_complex"),
     )

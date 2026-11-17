@@ -5,7 +5,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_content::bosses::gnu_ton::{GNU_TON_ID, conductor_of};
 use ambition_platformer2d::boss_encounter::BossConfig;
@@ -23,7 +23,7 @@ use bevy::prelude::*;
 const ARENA: &str = "gnu_ton_arena";
 
 fn arena() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // ⚠ REQUIRED: the tolerant road falls back to the start room, which has
         // no GNU-ton, and every assertion below would be vacuous.
@@ -1610,7 +1610,7 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
 /// then very quickly move into the correct location").
 #[test]
 fn entering_the_arena_the_fists_are_on_the_giants_arms() {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room("gnu_ton_approach");
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the approach to the arena builds headlessly");
@@ -1827,7 +1827,7 @@ fn the_gnu_is_built_unmirrored_and_only_its_arena_stands_it_behind() {
         panic!("{room} builds no body wearing `{id}`, so this test says nothing");
     }
     let mut arena = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ARENA),
     )
@@ -1846,7 +1846,7 @@ fn the_gnu_is_built_unmirrored_and_only_its_arena_stands_it_behind() {
 #[test]
 fn the_scholar_is_built_with_his_conductor() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ARENA),
     )
@@ -1880,7 +1880,7 @@ fn the_scholar_is_built_with_his_conductor() {
 #[test]
 fn the_fists_are_built_as_the_scholars() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ARENA),
     )
@@ -2124,7 +2124,7 @@ fn defeating_him_opens_the_arena_and_his_body_going_does_not_close_it() {
 fn a_won_fight_leaves_the_arena_open_when_you_come_back() {
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_boss("hall.gnu_ton", ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(ARENA)
         .with_save(save);
@@ -2149,7 +2149,7 @@ fn a_won_fight_leaves_the_arena_open_when_you_come_back() {
 #[test]
 fn the_punchs_pair_is_one_pair_across_rewinds() {
     use ambition_platformer2d::portal::extension::HeldPortalOf;
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(ARENA)
         .with_sync_test_rollback_settings(4, 10);
@@ -2797,7 +2797,7 @@ fn gnu_ton_multiple_path_scene() -> (Platformer2dSimHarness, Vec<(Entity, Limb, 
     use ambition_platformer2d::portal::{PlacedPortal, PortalChannel, PortalChannelColor, PortalHost,
         PortalConvention, PortalTuning, EditablePortalTuning, PortalGeometry};
     use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
-    let options = Platformer2dSimHarnessOptions::default().with_required_start_room(ARENA)
+    let options = crate::common::sandbox_options().with_required_start_room(ARENA)
         .with_sync_test_rollback_settings(4, 10);
     let mut sim = Platformer2dSimHarness::new_with_options(options).unwrap();
     for _ in 0..ARRIVED { sim.step(AgentAction::default()); }
@@ -3023,7 +3023,7 @@ fn both_gnu_ton_fists_damage_separate_bodies_through_their_paths_in_one_tick() {
 fn beaten_in_his_prelude_gnu_ton_leaves_by_the_door_and_does_not_die() {
     use ambition_platformer2d::combat::components::{ActorIdentity, DeathBeat};
     use ambition_platformer2d::session::rooms::passage::{PassageKind, ZonePassage};
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room("gnu_ton_approach");
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the approach builds headlessly");

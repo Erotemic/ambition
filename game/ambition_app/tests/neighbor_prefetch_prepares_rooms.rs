@@ -19,12 +19,12 @@
 //! context is built in ONE place now, so the next authority cannot be added to two roads out of
 //! three.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 
 /// Prefetch is a host system on the FEEL clock, so a few frames of settled
 /// gameplay is all it takes — the assertion is about what it produced, not when.
 fn gameplay_after_startup() -> bevy::prelude::App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }

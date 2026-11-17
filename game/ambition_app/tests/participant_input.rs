@@ -47,6 +47,7 @@ fn shell_input_app(with_startup_cards: bool) -> App {
     ));
     app.add_plugins(bevy::text::TextPlugin);
     app.insert_resource(shell_host::AmbitionShellHosted);
+    crate::common::in_the_sandbox_hub(&mut app);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     // The host input face: leafwing + the participant spawn + the context

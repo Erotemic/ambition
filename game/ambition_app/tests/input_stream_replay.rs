@@ -68,7 +68,7 @@ fn scripted_input(tick: usize) -> ControlFrame {
 }
 
 fn new_sim() -> Platformer2dSimHarness {
-    Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("Platformer2dSimHarness builds")
 }
 

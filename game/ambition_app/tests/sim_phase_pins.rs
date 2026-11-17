@@ -35,7 +35,7 @@ fn systems_in(app: &mut App, schedule: impl ScheduleLabel, set: impl SystemSet) 
 
 fn shipped_app() -> App {
     let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+        ambition_app::app::build_visible_app_with(ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     for _ in 0..4 {
         app.update();
     }

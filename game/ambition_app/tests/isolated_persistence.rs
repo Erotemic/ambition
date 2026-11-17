@@ -12,7 +12,7 @@
 //! and every test still passes. Nothing else notices — which is how it got there
 //! the first time.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::persistence::PersistenceRoot;
 
 /// The shipped windowless host writes somewhere private.
@@ -22,7 +22,7 @@ use ambition_platformer2d::persistence::PersistenceRoot;
 /// keeps this true on every platform and cannot drift from the thing it guards.
 #[test]
 fn a_windowless_host_does_not_write_the_players_directory() {
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let root = app
         .world()
         .get_resource::<PersistenceRoot>()
@@ -69,7 +69,7 @@ fn two_isolated_roots_in_one_process_are_different_directories() {
 /// that pins a different dt on purpose stays green while a host that pins nothing does not.
 #[test]
 fn a_windowless_host_does_not_advance_its_clock_by_wall_clock() {
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     let strategy = app
         .world()
         .get_resource::<bevy::time::TimeUpdateStrategy>()
@@ -99,7 +99,7 @@ fn a_windowless_host_does_not_advance_its_clock_by_wall_clock() {
 fn a_headless_sim_persists_into_a_root_of_its_own() {
     use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
 
-    let mut sim = Platformer2dSimHarness::new().expect("the headless sim composes");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options()).expect("the headless sim composes");
     sim.step_n(crate::common::base(), 8);
 
     let root = sim

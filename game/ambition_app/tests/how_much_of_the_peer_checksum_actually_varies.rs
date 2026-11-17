@@ -13,7 +13,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, TimestepMode,
 };
 
 type OwnedItems = ambition_platformer2d::item::OwnedItems;
@@ -72,7 +72,7 @@ fn playing() -> impl FnMut() -> AgentAction {
 fn run_with(mut action: impl FnMut() -> AgentAction) -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
@@ -122,7 +122,7 @@ fn run_with(mut action: impl FnMut() -> AgentAction) -> Platformer2dSimHarness {
 /// censusing the interior-mutable `static`s in `tests/`.
 fn run_with_a_writer_outside_the_schedule() -> Platformer2dSimHarness {
     let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
@@ -262,7 +262,7 @@ fn probe_whether_s8s_baselines_are_quiet_or_frozen() {
     let mut sim = {
         use ambition_platformer2d::sim::SimScheduleExt;
         let mut sim = Platformer2dSimHarness::build(
-            Platformer2dSimHarnessOptions::default()
+            crate::common::sandbox_options()
                 .with_timestep(TimestepMode::fixed_60hz())
                 .with_required_start_room(ROOM)
                 .with_sync_test_rollback_settings(4, 10),

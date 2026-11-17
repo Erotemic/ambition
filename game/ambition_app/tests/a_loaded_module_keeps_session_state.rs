@@ -12,7 +12,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::extension::sdk::{FieldRef, SchemaKey, Value};
 use ambition_platformer2d::extension::SessionRecords;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
@@ -38,7 +38,7 @@ fn a_loaded_modules_session_record_counts_every_press_through_rollback() {
     let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
         .expect("the fixture crate builds for wasm32-unknown-unknown");
     for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default()
+        let mut options = crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_extension_module_files(vec![wasm.clone()]);
         if rollback {
@@ -101,7 +101,7 @@ fn a_loaded_graph_module_closes_a_loop_the_same_way_through_rollback() {
         .expect("the fixture crate builds for wasm32-unknown-unknown");
     let mut runs = Vec::new();
     for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default()
+        let mut options = crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_extension_module_files(vec![wasm.clone()]);
         if rollback {
@@ -193,7 +193,7 @@ fn a_module_file_replaced_while_the_game_runs_takes_over() {
     let file = dir.join("game_modules.wasm");
     std::fs::copy(&first, &file).unwrap();
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_extension_module_files(vec![file.clone()]),
     )
@@ -359,7 +359,7 @@ fn a_module_reload_rebases_the_local_timeline_onto_the_new_identity() {
     let file = dir.join("game_modules.wasm");
     std::fs::copy(&first, &file).unwrap();
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_extension_module_files(vec![file.clone()])
             .with_sync_test_rollback_settings(4, 10),
@@ -447,7 +447,7 @@ fn a_durable_session_record_comes_back_with_its_save_and_a_transient_one_does_no
     let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
         .expect("the fixture crate builds for wasm32-unknown-unknown");
     let options = || {
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_extension_module_files(vec![wasm.clone()])
     };

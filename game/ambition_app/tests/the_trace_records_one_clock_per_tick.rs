@@ -41,7 +41,7 @@ fn move_the_clock_before_the_trace(
 #[test]
 fn every_trace_row_states_the_scale_its_dts_were_stepped_at() {
     let mut sim = Platformer2dSimHarness::build(
-        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz()),
         |app, options| {
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;

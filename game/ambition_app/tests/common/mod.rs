@@ -70,8 +70,26 @@ pub fn hold_right() -> AgentAction {
     }
 }
 
+/// The sandbox hub, where a test that names no room boots. A new game starts
+/// in level 1's workshop instead (`worlds.ron` `entry_room`), which withholds
+/// most of the kit and opens on a cutscene; these tests are about the robot's
+/// whole kit and the hub's rooms.
+pub const SANDBOX_HUB: &str = "central_hub_complex";
+
+/// Harness options that boot the sandbox hub. A later `with_start_room` or
+/// `with_required_start_room` names another room.
+pub fn sandbox_options() -> Platformer2dSimHarnessOptions {
+    Platformer2dSimHarnessOptions::default().with_start_room(SANDBOX_HUB)
+}
+
+/// The visible app's pre-simulation hook (`build_visible_app_with`) that
+/// boots it in the sandbox hub, as [`sandbox_options`] does for the harness.
+pub fn in_the_sandbox_hub(app: &mut bevy::prelude::App) {
+    app.insert_resource(ambition_app::app::StartRoomOverride(SANDBOX_HUB.to_string()));
+}
+
 pub fn fixed_60hz_options() -> Platformer2dSimHarnessOptions {
-    Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz())
+    sandbox_options().with_timestep(TimestepMode::fixed_60hz())
 }
 
 pub fn fixed_60hz_room_options(room: &str) -> Platformer2dSimHarnessOptions {

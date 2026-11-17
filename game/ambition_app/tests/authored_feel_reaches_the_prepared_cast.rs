@@ -16,14 +16,14 @@
 //! holds every catalog id and the read-site fold is deleted. This test is the
 //! check that a row authoring feel is in the prepared cast.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 use std::collections::BTreeSet;
 
 #[test]
 fn every_catalog_row_that_authors_feel_is_in_the_prepared_cast() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // What `App::run` does before the first update. `combat_schedule.rs` notes
     // that `PreStartup` lives inside that update and that a guard driving
     // `update()` by hand otherwise takes a different barrier road than

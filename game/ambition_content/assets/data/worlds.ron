@@ -8,7 +8,9 @@
 // still boots. A world added here is in the next start, with no Rust build;
 // a build without a source tree (`static_map`) embeds each file listed here.
 (
-    entry_room: "central_hub_complex",
+    // A new game starts in the Creator's workshop in Hobford, level 1 (D3 in
+    // docs/planning/game/level-1.md). The hub is the sandbox, reached later.
+    entry_room: "intro_wake_room",
     worlds: [
         (id: "world.sandbox_ldtk", file: "sandbox.ldtk", required: true),
         (id: "world.intro_ldtk", file: "intro.ldtk"),

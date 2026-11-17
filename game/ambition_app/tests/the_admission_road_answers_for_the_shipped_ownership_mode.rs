@@ -27,7 +27,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::engine_core::{MechanicalEditAdmission, PendingMechanicalEdits};
 
@@ -69,7 +69,7 @@ struct AdmissionProbeDomain;
 #[test]
 fn a_caller_owned_timeline_refuses_a_developer_edit_and_keeps_it_pending() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )

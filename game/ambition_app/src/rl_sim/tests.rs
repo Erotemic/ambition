@@ -47,7 +47,11 @@ fn step_with_reward_returns_finite_positive_reward_while_surviving() {
 
 #[test]
 fn move_action_translates_to_horizontal_velocity() {
-    let mut sim = Platformer2dSimHarness::new().expect("sim builds");
+    // The hub: a new game's workshop opens on a cutscene that holds the robot.
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default().with_required_start_room("central_hub_complex"),
+    )
+    .expect("sim builds");
     // 10 frames of "walk right". Velocity should pick up positive x;
     // exact magnitude depends on movement tuning so we only assert
     // the sign.
@@ -172,8 +176,8 @@ fn observation_hp_fraction_handles_default() {
 #[test]
 fn sim_can_start_in_a_specific_room_via_options() {
     // Build a sim explicitly starting in goblin_encounter. The default
-    // start room is central_hub_complex, so a successful override
-    // should change `active_room`.
+    // start room is a new game's (`worlds.ron` `entry_room`), so a
+    // successful override should change `active_room`.
     let mut default_sim = Platformer2dSimHarness::new().expect("default builds");
     let default_room = default_sim.observation().active_room.clone();
 

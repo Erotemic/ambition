@@ -109,6 +109,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     app.add_plugins(StatesPlugin);
     app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
+    crate::common::in_the_sandbox_hub(&mut app);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
@@ -343,11 +344,11 @@ fn holding_up_for_air_attacks_does_not_open_a_door() {
 #[test]
 fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
     use ambition_app::rl_sim::{
-        AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+        AmbitionSim, Platformer2dSimHarness, TimestepMode,
     };
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             // A rollback host: this is what puts `ConfirmedFrameBoundary` in the
             // world and sends the transition down the DEFERRED branch.
@@ -421,12 +422,12 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
 #[cfg(feature = "rl_sim")]
 fn the_rollback_door_host_publishes_a_prepared_cast() {
     use ambition_app::rl_sim::{
-        AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+        AmbitionSim, Platformer2dSimHarness, TimestepMode,
     };
     use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )

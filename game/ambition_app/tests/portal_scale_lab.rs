@@ -3,7 +3,7 @@
 //! `portal_scale_lab`: two scaling doors, each a wall with a mouth on either
 //! face, crossed again and again under the shipped portal tuning.
 
-use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::prelude::*;
@@ -15,7 +15,7 @@ const B: (f32, f32) = (608.0, 640.0);
 #[test]
 fn walking_back_and_forth_through_the_scaling_doors_halves_and_restores_the_upright_body() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_required_start_room("portal_scale_lab")
+        crate::common::sandbox_options().with_required_start_room("portal_scale_lab")
             .with_sync_test_rollback_settings(4, 10)).unwrap();
     for _ in 0..30 { sim.step(crate::common::base()); }
     let player = { let world = sim.world_mut(); world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap() };

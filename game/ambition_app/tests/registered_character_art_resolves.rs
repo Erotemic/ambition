@@ -1,7 +1,7 @@
 //! Assembled-app guard that every registered character resolves its declared
 //! art and that each shipped provider's starting character is actually registered.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
 #[test]
@@ -10,7 +10,7 @@ fn every_registered_character_resolves_the_art_it_declares() {
     // Mary-O) join in that composition, and they are the ones this guard exists
     // for. The non-hosted build has no cast to check. Pocket is not in the
     // shipped composition; its own crate checks its cast.
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // BUILDING an app is not COMPOSING one. Character preparation publishes its
     // registry at the plugin-composition barrier, which Bevy's runners close and
     // `build_visible_app` alone does not — so a guard that inspects a built-but-
@@ -64,7 +64,7 @@ fn every_registered_character_resolves_the_art_it_declares() {
 /// The assembled cast must have one effective authority per character.
 #[test]
 fn the_shipped_cast_has_one_authority_per_character() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     ambition_platformer2d::runtime::finalize(&mut app);
     let conflicts =
         ambition_platformer2d::assets::materialization::audit::audit_character_authority_parity(
@@ -88,7 +88,7 @@ fn the_shipped_cast_has_one_authority_per_character() {
 /// The assembled app must prepare the authored mite characters with their body traits.
 #[test]
 fn the_migrated_mites_reach_the_prepared_registry_with_their_death_traits() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     ambition_platformer2d::runtime::finalize(&mut app);
     let registry = app
         .world()

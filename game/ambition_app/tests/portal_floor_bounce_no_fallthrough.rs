@@ -16,7 +16,7 @@ use crate::common::{base, first_floor_authored_portal_pair};
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 
 struct BounceStats {
     died_at: Option<usize>,
@@ -24,7 +24,7 @@ struct BounceStats {
 }
 
 fn run_bounce(dt: f32) -> BounceStats {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::Fixed { dt })
         .with_required_start_room("portal_lab");
     let mut sim = Platformer2dSimHarness::new_with_options(opts)
@@ -107,7 +107,7 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
         16.0_f32, 50.0, 13.0, 33.0, 16.0, 45.0, 11.0, 40.0, 25.0, 50.0,
     ];
 
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::Fixed { dt: 1.0 / 60.0 })
         .with_required_start_room("portal_lab");
     let mut sim = Platformer2dSimHarness::new_with_options(opts)
@@ -191,7 +191,7 @@ fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
     const SPIKE_DT: f32 = 0.050; // measured worst-frame hitch (~20 FPS)
     const DROPS: usize = 8;
 
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::Fixed { dt: SMALL_DT })
         .with_required_start_room("portal_lab");
     let mut sim = Platformer2dSimHarness::new_with_options(opts)

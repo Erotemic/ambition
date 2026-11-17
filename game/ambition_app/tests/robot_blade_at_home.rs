@@ -13,13 +13,13 @@
 //! velocity and its facing, in the game the player plays.
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::combat::moveset::MovePlayback;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 
 fn home() -> Platformer2dSimHarness {
-    let opts = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    let opts = crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz());
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the start room builds headlessly");
     for _ in 0..40 {
         sim.step(AgentAction::default());

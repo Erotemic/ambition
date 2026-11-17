@@ -7,7 +7,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::abilities::module_entity::ModuleEntity;
 use ambition_platformer2d::extension::sdk::{FieldRef, SchemaKey, Value};
 use ambition_platformer2d::extension::{AdmittedExtensions, BodyRecords, EntryRunner, ExtensionFaults};
@@ -34,7 +34,7 @@ fn sandbox(arm: &str, text: &str, rollback: bool) -> (Platformer2dSimHarness, st
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("sentry.rhai");
     std::fs::write(&file, text).unwrap();
-    let mut options = Platformer2dSimHarnessOptions::default()
+    let mut options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_extension_module_files(vec![file.clone()]);
     if rollback {
@@ -191,7 +191,7 @@ fn a_script_added_to_a_watched_directory_runs_and_removed_leaves() {
     let dir = root().join(format!("target/extension-modules/script_test_{}_discovery", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let options = Platformer2dSimHarnessOptions::default()
+    let options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_extension_module_files(vec![dir.clone()]);
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
@@ -238,7 +238,7 @@ fn hold_the_sentry(sim: &mut Platformer2dSimHarness) {
 fn a_projects_scripted_turret_keeps_its_cadence_through_rollback() {
     let project = ambition_app::app::project::Project::load(&root().join("examples/projects/sentry_drill"))
         .expect("the example project loads");
-    let options = Platformer2dSimHarnessOptions::default()
+    let options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_sync_test_rollback_settings(4, 10);
     let mut sim = project.sim(options).expect("the project builds");
@@ -269,7 +269,7 @@ fn a_projects_throwing_script_commits_nothing() {
     )
     .unwrap();
     let project = ambition_app::app::project::Project::load(&dir).expect("the project loads");
-    let options = Platformer2dSimHarnessOptions::default()
+    let options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_sync_test_rollback_settings(4, 10);
     let mut sim = project.sim(options).expect("the project builds");
@@ -329,7 +329,7 @@ fn a_module_a_script_declares_runs_with_its_own_record() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("turret_tally.rhai"), TALLY).unwrap();
-    let options = Platformer2dSimHarnessOptions::default()
+    let options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_sync_test_rollback_settings(4, 10)
         .with_extension_module_files(vec![dir.join("turret_tally.rhai")]);
@@ -384,7 +384,7 @@ fn a_projects_starting_bag_is_its_data() {
         r#"(schema: "ambition.project.v1", name: "a bag", starting_items: Some([("bomb", 3), ("lantern", 1)]))"#,
     )
     .unwrap();
-    let options = || Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    let options = || crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz());
     let project = ambition_app::app::project::Project::load(&dir).expect("the project loads");
     let sim = project.sim(options()).expect("the project builds");
     let bag = sim.world().resource::<OwnedItems>();
@@ -440,7 +440,7 @@ fn a_script_ends_a_turret_through_a_described_port() {
         world.query::<&ModuleEntity>().iter(world).filter(|entity| entity.kind == "sentry").count()
     };
     let deployed = |files: Vec<std::path::PathBuf>| -> (usize, usize) {
-        let options = Platformer2dSimHarnessOptions::default()
+        let options = crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
             .with_extension_module_files(files);

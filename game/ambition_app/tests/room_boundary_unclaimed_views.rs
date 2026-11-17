@@ -11,7 +11,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::combat::components::ActorDisposition;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
@@ -119,7 +119,7 @@ fn gameplay_is_live(app: &mut App) -> bool {
 /// Boot the shipped app, walk it to the gameplay route, and land in the hub with
 /// a live session.
 fn gameplay_app() -> App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));
@@ -470,7 +470,7 @@ fn the_room_transition_cover_is_ordered_after_the_unclaimed_census() {
     use ambition_platformer2d::world_flow::RoomTransitionCoverSet;
     use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
 
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
 
     // `systems_in_set` answers only once the graph has been BUILT; an unbuilt
     // one reports `Uninitialized` rather than an empty set, which is the good

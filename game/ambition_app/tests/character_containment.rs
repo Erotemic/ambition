@@ -24,7 +24,7 @@ use ambition_platformer2d::engine_core::movement::containment::{
     probe_containment, walled_box, ContainmentProbe,
 };
 use ambition_platformer2d::engine_core::{Aabb, LocalAxes, Vec2};
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 
 const ROOM: Vec2 = Vec2::new(960.0, 540.0);
 const WALL_PX: f32 = 16.0;
@@ -32,7 +32,7 @@ const WALL_PX: f32 = 16.0;
 #[test]
 fn no_registered_character_can_leave_a_plain_walled_room() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     // What `App::run` does before the first update, so the barrier closes on
     // the road production takes.
     app.finish();

@@ -11,7 +11,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AmbitionSim as _, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AmbitionSim as _, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -25,7 +25,7 @@ const PARASOL: ae::EffectSource = ae::EffectSource::named("test.parasol");
 const FEATHER: ae::EffectSource = ae::EffectSource::named("test.feather");
 
 fn sim(rewinding: bool) -> Platformer2dSimHarness {
-    let options = Platformer2dSimHarnessOptions::default()
+    let options = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(ROOM);
     let options = if rewinding { options.with_sync_test_rollback_settings(4, 10) } else { options };

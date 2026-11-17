@@ -22,7 +22,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode};
 
 /// Frames to walk. Long enough for the body to land, run into a wall, leave the
 /// ground again and come back, at 60Hz.
@@ -30,7 +30,7 @@ const FRAMES: usize = 240;
 
 fn contact_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
+        crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             // The lab floor, its blocks and its hazard band — a room whose
             // authored geometry the body is guaranteed to touch, rather than an

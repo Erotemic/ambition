@@ -41,7 +41,7 @@ struct Fight {
 /// The sandbox, with `character` placed `gap` px to the player's right as a
 /// castle placement places it; the player stands still for `seconds`.
 fn fight(character: &str, gap: f32, seconds: usize) -> Fight {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("the sandbox builds");
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("the sandbox builds");
     for _ in 0..30 {
         sim.step(AgentAction::default());
     }

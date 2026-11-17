@@ -78,7 +78,7 @@ fn observe(world: &mut World, player: ae::Vec2, t: &mut EnemyTally) {
 
 #[test]
 fn a_hostile_enemy_next_to_the_player_attacks_it() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
 
     let p = player_pos(sim.world_mut());
@@ -142,7 +142,7 @@ fn a_smash_enemy_swings_from_the_reach_of_its_own_move() {
     use ambition_platformer2d::combat::moveset::ActorMoveset;
 
     const BRUTE: &str = "reach_view_brute";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_character_at(

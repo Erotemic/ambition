@@ -89,7 +89,7 @@ fn put_body_at(sim: &mut Platformer2dSimHarness, body: Entity, at: Vec2) {
 #[test]
 fn a_joined_seat_has_its_own_hud_on_the_shared_view() {
     let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     let primary = the_primary(&mut sim);
     give_purse(&mut sim, primary, PRIMARY_PURSE);

@@ -6,7 +6,7 @@ eight rooms of the level are built by the generator
 Alice, the meadow, the gate clearing and its ring, the freight siding fight,
 the millstream, the village and Bob in the woods. The rooms are drawn with
 the level's own looks (`hobford`, `hobford_woods`, `creator_workshop`);
-props and villagers are not made yet. A new game still starts in the hub
+props and villagers are not made yet. A new game starts in the workshop
 (D3). Queue row
 [LEVEL-1](../queue.md#level-1--the-lab-raid-and-the-first-level-after-it)
 holds what remains.
@@ -372,7 +372,7 @@ residents (row 9 there).
 |---|---|---|
 | D1 | The settlement is **Hobford** (a hob is a household sprite in English folklore; the village had no goblins until the gate opened). The region has no name of its own yet. | rename titles and lines; ids carry `hobford`, so rename the rooms too if the name goes |
 | D2 | **Scout** is the robot's name in the dialogue only. The protagonist row keeps `display_name` "Player Robot v3", which engine crates' tests pin (`ambition_platformer2d_actor_monolith`). | set the row's `display_name` and update those tests |
-| D3 | A new game still starts in the hub (`worlds.ron` `entry_room`); the hub's door into the workshop is the way in. Measured 2026-11-14 with `entry_room: "intro_wake_room"`: 20 of 33 tests failed in a sample of 16 modules (of 93 test files that boot the default start); they test the robot's whole kit, the hub's fights and the first frames of play, and the workshop withholds the kit and opens on a cutscene. Over the coordinator's limit of about 10, so the start stays in the hub until the coordinator decides. | set `entry_room: "intro_wake_room"` and give those tests an explicit start room |
+| D3 | A new game starts in the workshop (`worlds.ron` `entry_room: "intro_wake_room"`, 2026-11-17). Tests that boot without naming a room keep the sandbox hub: app_it's `common::sandbox_options()` names it (and `fixed_60hz_options()` builds on it), and the two `ambition_app` library fixtures that walk or strike name it. A test about the robot's whole kit or the hub's rooms is not a test of the new-game start. | set `entry_room` back to `central_hub_complex`; the tests' explicit hub can stay |
 | D4 | Oiler is not in level 1. He stays at the Drain Market under the gate stack (canon: the largest town's mechanic). His lines name Hobford. | put his `NpcSpawn` back in a level-1 room |
 | D5 | `drain_alley` and `under_town_pipes` stay as town rooms outside level 1; their ways to the removed rooms are walled. The culvert's raft walk (`across_the_raft`) is deleted with its crossing. | regenerate the old rooms from the previous generator in git history |
 | D6 | The Creator dies (Q173's default). Open: whether something the player does could keep him alive. | a branch in `creator_final_fragment` on a world fact |

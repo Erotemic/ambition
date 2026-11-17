@@ -13,7 +13,7 @@
 //!   gate is still unsettled. Without the control, an instrument that could
 //!   never see a loading screen would pass the first arm.
 
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
 use ambition_platformer2d::load_presentation::LoadPresentations;
 use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
 
@@ -33,7 +33,7 @@ fn step(app: &mut bevy::prelude::App) {
 /// fast hardware, 250 ms a machine slow enough that work outlasts the
 /// loading screen's reveal grace.
 fn gameplay_after_startup(frame: std::time::Duration) -> bevy::prelude::App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, crate::common::in_the_sandbox_hub);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(frame));
     for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();

@@ -14,7 +14,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::combat::events::{HitEvent, HitSource, HitTarget};
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -48,7 +48,7 @@ struct Strike {
 }
 
 fn arena() -> (Platformer2dSimHarness, Entity, Entity) {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         // Required: the tolerant road falls back to the authored start room
         // and would run this test in the wrong room, green.

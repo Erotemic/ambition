@@ -18,7 +18,7 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{Platformer2dSimHarness, Platformer2dSimHarnessOptions, RandomWalkPolicy};
+use ambition_app::{Platformer2dSimHarness, RandomWalkPolicy};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 
@@ -630,7 +630,7 @@ fn run_episode(
     zones: &std::collections::HashMap<String, Vec<ae::Aabb>>,
 ) -> (Vec<Violation>, u64, u32) {
     let mut opts =
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz());
     if !start_room.is_empty() {
         opts = opts.with_required_start_room(start_room);
     }
@@ -912,7 +912,7 @@ fn oob_classifies_through_wall_vs_open_edge() {
 #[test]
 #[ignore = "diagnostic trace — run with --ignored --nocapture"]
 fn trace_oob_under_town_pipes() {
-    let opts = Platformer2dSimHarnessOptions::default()
+    let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room("under_town_pipes");
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("sim");
@@ -1000,7 +1000,7 @@ fn collision_oracle_smoke() {
 #[test]
 #[ignore = "diagnostic catalog — run with --ignored --nocapture; surfaces deferred OOB bugs"]
 fn collision_oracle_full_sweep() {
-    let rooms = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let rooms = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("Platformer2dSimHarness::new should succeed")
         .room_ids();
     assert!(
@@ -1493,7 +1493,7 @@ fn a_class_b_remap_exempts_the_frames_position_jump_from_the_teleport_probe() {
 fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
     const OVERLAP_MARGIN: f32 = 1.0;
 
-    let rooms = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+    let rooms = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
         .expect("Platformer2dSimHarness::new should succeed")
         .room_ids();
     assert!(!rooms.is_empty(), "no rooms — the measurement is vacuous");
@@ -1504,7 +1504,7 @@ fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
         std::collections::BTreeMap::new();
 
     for room in &rooms {
-        let opts = Platformer2dSimHarnessOptions::default()
+        let opts = crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(room);
         let Ok(mut sim) = Platformer2dSimHarness::new_with_options(opts) else {

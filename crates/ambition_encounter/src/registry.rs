@@ -110,6 +110,14 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
         let sim = app.sim_schedule();
         app.init_resource::<crate::rewards::ClearedEncounters>();
         app.init_resource::<crate::switches::ResolvedSwitchActivations>();
+        // A rewound room puts back the switches its presses wrote after the
+        // tick it was saved at (ISL-2d).
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<crate::switches::SwitchPressesInRooms>(app);
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.switch_presses_in_rooms",
+            crate::switches::retract_room_switch_presses,
+        );
         // THE one drain of the activation queue, published for every policy
         // that used to read the queue itself. It owns the persisted switch
         // write; see `switches::drain_switch_activations`.

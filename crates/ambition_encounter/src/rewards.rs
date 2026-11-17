@@ -233,6 +233,10 @@ mod published_fact_guard {
         let scheduled = graph.systems.iter().count();
         let lifecycle = members_of(crate::EncounterLifecycleSet.intern());
         let drained = members_of(crate::switches::SwitchActivationDrained.intern());
+        // The switch-press log is emptied when a session begins, in the
+        // session's own activation set.
+        let activation =
+            members_of(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate.intern());
 
         assert_eq!(
             lifecycle, 2,
@@ -248,7 +252,7 @@ mod published_fact_guard {
         );
         assert_eq!(
             scheduled,
-            lifecycle + drained,
+            lifecycle + drained + activation,
             "every system this plugin schedules must be in one of those sets; a \
              system in neither runs at an arbitrary point and its consumers read \
              stale facts with nothing red"

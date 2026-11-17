@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v481",
+    "version": "ggrs-rollback-schema-v482",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -164,6 +164,7 @@
       "resource.stocks_match_settled\tresource-canonical-custom-checksum\tStocksMatchSettled\tbevy_ggrs canonical codec snapshot + checksum over the verdict and the peer match ordinal, excluding the host-local session and activation-tick stamps",
       "resource.sudden_death_entered\tresource-canonical-custom-checksum\tSuddenDeathEntered\tbevy_ggrs canonical codec snapshot + checksum over whether a match is latched and the peer match ordinal, excluding the host-local session and activation-tick stamps",
       "resource.switch_activation_queue\tcomponent-clone-custom-checksum\tSwitchActivationQueue\tbevy_ggrs clone snapshot + queued switch activations with acting bodies and live rooms, in order",
+      "resource.switch_presses_in_rooms\tresource-clone-custom-checksum\tSwitchPressesInRooms\tbevy_ggrs clone snapshot + the switch writes rooms' presses made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
       "resource.versus_match\tresource-clone-custom-checksum\tVersusMatch\tbevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins",
       "resource.world_time\tresource-canonical\tWorldTime\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "root.encounter_music_request\tcomponent-clone-custom-checksum\tEncounterMusicRequest\tbevy_ggrs clone snapshot + each room's music candidates (source, track, tick began) and base track, in key order",

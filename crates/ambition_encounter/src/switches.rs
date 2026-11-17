@@ -501,6 +501,60 @@ impl ResolvedSwitchActivation {
 #[derive(bevy::prelude::Resource, Default, Clone, Debug)]
 pub struct ResolvedSwitchActivations(pub Vec<ResolvedSwitchActivation>);
 
+/// The save switches presses wrote within the rewind horizon, each with its
+/// room, its tick and the value it replaced (ISL-2d). The save is shared by
+/// rooms and a replay presses the switch again, so a toggle the rewind kept
+/// would be toggled back. Bookkeeping for a rewind, not a fact.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SwitchPressesInRooms {
+    writes: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, String, bool)>,
+}
+
+impl SwitchPressesInRooms {
+    fn record(&mut self, written: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, id: &str, replaced: bool) {
+        self.writes.retain(|(write, ..)| !write.beyond_the_horizon(written.tick));
+        self.writes.push((written, id.to_owned(), replaced));
+    }
+
+    /// Entity-free value projection, in write order.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.writes.len() as u64);
+        for (written, id, replaced) in &self.writes {
+            put_u64(&mut bytes, u64::from(written.room.ordinal()));
+            put_u64(&mut bytes, written.tick);
+            put_str(&mut bytes, id);
+            put_bool(&mut bytes, *replaced);
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// The room retractor: `room` rewinds to `saved_at`, so the switches its
+/// presses wrote after that tick are put back, newest first.
+pub fn retract_room_switch_presses(
+    world: &mut bevy::prelude::World,
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    saved_at: u64,
+) {
+    let Some(mut log) = world.get_resource_mut::<SwitchPressesInRooms>() else {
+        return;
+    };
+    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+        return;
+    }
+    let (taken, kept): (Vec<_>, Vec<_>) =
+        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
+    log.writes = kept;
+    let Some(mut save) = world.get_resource_mut::<ambition_persistence::save::AmbitionGameSave>() else {
+        return;
+    };
+    for (_, id, replaced) in taken.into_iter().rev() {
+        save.data_mut().set_switch(&id, replaced);
+    }
+}
+
 /// The set [`drain_switch_activations`] runs in.
 ///
 /// Consumers of [`ResolvedSwitchActivations`] order `.after()` this rather than
@@ -532,6 +586,10 @@ pub fn drain_switch_activations(
     mut queue: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SwitchActivationQueue>,
     mut resolved: bevy::prelude::ResMut<ResolvedSwitchActivations>,
     mut save: bevy::prelude::ResMut<ambition_persistence::save::AmbitionGameSave>,
+    // Each press's write, with its room and tick, for a rewind of the room.
+    mut presses: Option<bevy::prelude::ResMut<SwitchPressesInRooms>>,
+    tick: Option<bevy::prelude::Res<ambition_time::SimTick>>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     resolved.0.clear();
     if queue.0.is_empty() {
@@ -539,6 +597,14 @@ pub fn drain_switch_activations(
     }
     for QueuedSwitchActivation { activation, room, subject } in std::mem::take(&mut queue.0) {
         let action = SwitchAction::parse(&activation.action);
+        if matches!(action, SwitchAction::ResetEncounter | SwitchAction::ToggleFlag | SwitchAction::FlipGravity | SwitchAction::SetGravity(_)) {
+            if let (Some(presses), Some(room), Some(tick)) =
+                (presses.as_deref_mut(), room.or_else(|| live.sole()), tick.as_deref())
+            {
+                let written = ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 };
+                presses.record(written, &activation.id, save.data().switch(&activation.id));
+            }
+        }
         // THIS ROAD'S persisted write, in its one place: three arms of one
         // match, so an action's meaning and its durable consequence cannot
         // drift apart. `ResetEncounter` TOGGLES; the gravity kinds latch ON so

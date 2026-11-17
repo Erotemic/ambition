@@ -67,6 +67,12 @@ where
         "derived.cleared_encounters",
         "which encounters are cleared this tick; rebuilt from the lifecycles after the reducer",
     );
+    registrar.rollback_resource_clone_checksum::<crate::switches::SwitchPressesInRooms>(
+        OWNER,
+        "resource.switch_presses_in_rooms",
+        "the switch writes rooms' presses made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
+        crate::switches::SwitchPressesInRooms::checksum,
+    );
     registrar.declare_rollback_derived_resource::<crate::switches::ResolvedSwitchActivations>(
         OWNER,
         "derived.resolved_switch_activations",

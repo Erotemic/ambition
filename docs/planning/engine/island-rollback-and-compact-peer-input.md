@@ -1041,6 +1041,15 @@ seats outside the room. Census: 52 unclassified over 20 types. Open:
 the snapshot's entity remap; `AmbitionGameSave` (13 writers),
 `PendingLifecycleCommit`, `QuestRegistry`.
 
+**Switch presses rewind with their room (2026-11-17).** A press toggles a
+save switch, and a replay presses it again, so a rewind toggled it back. Each
+press's write now logs its room, tick and replaced value in
+`SwitchPressesInRooms` (schema 482); `retract_room_switch_presses` puts a
+rewound room's switches back. Census rulings by system: the save's four
+`persist_*` mirrors (derived), `track_room_visits` (a liveness fact), the
+session-start loaders behind their own flag, and `ResolvedSwitchActivations`
+(replaced each tick). Census: 38 unclassified over 16 types.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

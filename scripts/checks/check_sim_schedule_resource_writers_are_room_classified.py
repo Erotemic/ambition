@@ -144,6 +144,10 @@ DERIVED: dict[str, str] = {
         "feedback layer and the headless observation (read 2026-11-17)"
     ),
     "SimDt": "\"Mirror of the host's sim clock\", written each frame by `mirror_sim_dt_into_runtime`",
+    "ResolvedSwitchActivations": (
+        "\"REPLACED each tick, never appended\": `drain_switch_activations` clears "
+        "it first and fills it from the drained queue (`ambition_encounter/src/switches.rs`)"
+    ),
     "ControlFrame": (
         "the primary seat's mirror: both writers overwrite it whole from "
         "`SlotControls` (`mirror_primary_slot_to_control_frame`; `publish_ggrs_input`, "
@@ -272,7 +276,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 40
+UNCLASSIFIED_CEILING = 38
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200

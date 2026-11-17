@@ -14,9 +14,8 @@
 //! carry were written under the old schema. At publication, a record whose
 //! schema changed its fields is carried over by field tag
 //! (`StateSchema::migrate`), and a record whose schema left the generation is
-//! removed. A reload that changes a schema's attachment or save policy is
-//! refused: the record cannot change store; reconstructing the room (or a
-//! restart) is the road for that.
+//! removed. A reload that changes a field kind, attachment, or save policy is
+//! refused. Existing records keep their meaning under the running code.
 
 use std::sync::Arc;
 
@@ -161,9 +160,8 @@ pub fn stage_module_changes(
         let lines: Vec<String> = refusals.iter().map(|r| format!("  - {r}")).collect();
         format!("the reloaded composition is refused:\n{}", lines.join("\n"))
     })?;
-    // A changed field list is migrated at publication (`migrate_records`).
-    // A record that would change STORE (its attachment) or save road cannot
-    // be carried over.
+    // Field tags keep compatible values at publication. A different kind on
+    // the same tag would replace live values with defaults, so it is refused.
     for (key, schema) in &candidate.schemas {
         if let Some(live) = current.schemas.get(key) {
             if live.schema.attachment != schema.schema.attachment || live.schema.save != schema.schema.save {
@@ -171,6 +169,17 @@ pub fn stage_module_changes(
                     "schema {key} changed its attachment or its save policy under live records; \
                      reconstruct the room or restart to take it"
                 ));
+            }
+            for old in &live.schema.fields {
+                if let Some(new) = schema.schema.fields.iter().find(|field| field.tag == old.tag) {
+                    if old.kind != new.kind {
+                        return Err(format!(
+                            "schema {key} field tag {} ({}) changed kind from {:?} to {:?}; \
+                             keep the kind, or declare new state under a new schema key",
+                            old.tag, new.name, old.kind, new.kind,
+                        ));
+                    }
+                }
             }
         }
     }

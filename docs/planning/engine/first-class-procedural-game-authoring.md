@@ -196,7 +196,9 @@ Contract inspection slice, Linux x86_64, debug host, 2026-11-16:
 | A4 | Pulse Forge's emitter runs as Rhai, WASM, and linked Rust. Both Rust paths use `portable/src/lib.rs`. Explicit selection keeps the same world, catalogs, and module key. Its second Rhai module remains admitted in every mode. The debug host and stock runtime were executed with no compiler on PATH. | Release-host build belongs to A8. |
 | A5 | Two promotion tests pass. Six backend/rollback cases compare 280 input frames each. They compare initial and populated state, ordered requests, body and occurrence identities, cost admission, entity lifetime, projectile motion, and mana. A second release is refused for insufficient mana. Changed Rhai bolt speed produces a structured diff. | Keep this fixture when the authored actor and catalogs change. |
 | A1, A6 | Pulse Forge owns its two character rows, starting-character rule, LDtk world, technique binding, and a stateful Rhai group patrol. The stock debug runtime loads it without a compiler. The parity fixture proves emitter effects, patrol steering, horizontal motion, and turn state. The guide lists the domain interfaces. | Self-contained delivery belongs to A8. |
-| A2, A7-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Execute paired content/code reload and save acceptance, build and package the release host, measure the three backends, and finish the guide. |
+| A2 | Project tests execute source edits, additions, removals, invocation faults, and failed whole-set reloads. The project publication trace records a repaired content/script pair reaching the running body together. | Keep the author guide and installed-port diagnostics current. |
+| A7 | Two project-state tests pass: paired publication, old-backend retirement, durable body save/load, and refusal of changed attachment or field kind under live records. The populated replay fixture remains green. | Check incompatible saved schemas at a fresh session admission; do not infer that from live-replacement refusal. |
+| A8-A10 | Existing foundation retained. These gates are not claimed complete by these slices. | Build and package the release host, measure the three backends, and finish the guide. |
 
 Commands for this slice:
 
@@ -323,6 +325,38 @@ The project still reads installed shared catalogs, tuning, and assets through
 repository paths. A8 must remove those delivery paths. Native build identity
 is still an A3 gap. The next acceptance case pairs a content edit with a script
 edit and exercises a durable body record through save/load.
+
+Project publication and durable record slice, Linux x86_64, debug host,
+2026-11-17:
+
+A character reload stages only the selected pack's cast. It no longer rebuilds
+other providers' characters under the selected provider. The paired test reads
+the catalog, live body tuning, and script request in one invocation. Its trace
+contains only `(120, 120, 48)` and `(180, 180, 96)`, including a failed content
+candidate and a repair of only that content. The replaced backend is released.
+
+The optional `recipes/progress.rhai` counter uses the existing durable body road
+on the authored sentinel. It saves at 61, loads and reaches 71, then continues
+to 192 through two refused replacements. Changed attachment and changed kind on
+field tag 1 both leave the live code and record usable. Compatible additions,
+renames, and field reordering still migrate by tag. A changed kind on an
+existing live tag now refuses instead of resetting its value.
+
+```bash
+cargo test -p ambition_extension_host --lib
+cargo test -p pulse_forge_host --test project_state -- --test-threads=1
+cargo test -p ambition_app --test app_it -- an_edit_reaches_the_shipped_game::an_edited_pack_reaches_the_cast_the_shipped_composition_plays
+cargo check -p ambition_app
+```
+
+Results: 46 host tests, 2 project-state tests, the shipped reload test, and the
+app check passed. Artifacts are `target/procedural-project-state/paired-trace.json`,
+`save.ron`, and `save-observation.json`. Logs use `target/procedural-project-*`.
+The guide states the durable identity requirement: the current home avatar has
+no durable construction provenance and does not use this body save road. This
+slice does not prove rejection of an incompatible saved schema at a fresh
+session admission. That check remains part of A7. Native build identity,
+release packaging, backend measurements, and platform loader checks remain.
 
 ## Owner documents and source locations
 

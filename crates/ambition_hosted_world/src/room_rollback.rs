@@ -68,8 +68,10 @@ pub struct RoomRollbackStats {
 /// the room, which the replay does not run.
 /// The freeze is an expiry against the timeline that stops the shared clock
 /// while one room is live: a connect the replay takes back must take its
-/// freeze back with it.
-#[derive(Clone, Copy, Debug)]
+/// freeze back with it. Possession is each seat's too (the body it drives, the
+/// hold that takes another), and `rewind_room` keeps it live for the seats
+/// outside the room, as it keeps their gestures.
+#[derive(Clone)]
 struct Clock(
     SimTick,
     WorldTime,
@@ -79,6 +81,7 @@ struct Clock(
     ImpactHitstop,
     RequestedClockScale,
     SlotInteractionState,
+    ambition_platformer2d_actor_monolith::control::possession::PossessionState,
 );
 
 fn clock(world: &World) -> Option<Clock> {
@@ -91,6 +94,7 @@ fn clock(world: &World) -> Option<Clock> {
         world.get_resource::<ImpactHitstop>().copied().unwrap_or_default(),
         world.get_resource::<RequestedClockScale>().copied().unwrap_or_default(),
         world.get_resource::<SlotInteractionState>().copied().unwrap_or_default(),
+        world.get_resource::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>().cloned().unwrap_or_default(),
     ))
 }
 
@@ -105,6 +109,9 @@ fn set_clock(world: &mut World, clock: Clock) {
     }
     if let Some(mut gestures) = world.get_resource_mut::<SlotInteractionState>() {
         *gestures = clock.7;
+    }
+    if let Some(mut possession) = world.get_resource_mut::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>() {
+        *possession = clock.8;
     }
     if let Some(mut elapsed) =
         ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<GameplayElapsed>(world)
@@ -289,7 +296,7 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
         for room in guest_rooms {
             let entities = of_room(world, room);
             let snapshot = rows.save(world, &entities);
-            inputs.saved.entry(room).or_default().insert(tick, (snapshot, now));
+            inputs.saved.entry(room).or_default().insert(tick, (snapshot, now.clone()));
         }
         // Hidden rooms still have guests and rollback history during replay.
         if !inputs.replaying {
@@ -394,8 +401,10 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     world.insert_resource(rows);
     ambition_platformer2d_shared_tangle::lifecycle::begin_room_replay(world, room);
     let live_gestures = world.get_resource::<SlotInteractionState>().copied();
+    let live_possession = world.get_resource::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>().cloned();
+    let saved_at = at.0 .0;
     set_clock(world, at);
-    ambition_platformer2d_shared_tangle::lifecycle::retract_room_writes(world, room, at.0 .0);
+    ambition_platformer2d_shared_tangle::lifecycle::retract_room_writes(world, room, saved_at);
     let others: Vec<LiveRoomInstance> = world
         .query::<&LiveRoomInstance>()
         .iter(world)
@@ -447,14 +456,22 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
         world.insert_resource(slots);
     }
     // The seats outside the room did not run the replayed ticks: their
-    // gestures are the live ones.
+    // gestures and possession are the live ones.
+    let inside: Vec<PlayerSlot> = world
+        .query::<(&DrivingParticipant, &InRoomInstance)>()
+        .iter(world)
+        .filter(|(_, at)| at.0 == room)
+        .map(|(driver, _)| driver.0)
+        .collect();
+    if let (Some(live), Some(mut possession)) = (live_possession, world.get_resource_mut::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>()) {
+        for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
+            let seat = PlayerSlot(index as u8);
+            if !inside.contains(&seat) && possession.get(seat) != live.get(seat) {
+                *possession.get_mut(seat) = *live.get(seat);
+            }
+        }
+    }
     if let Some(live) = live_gestures {
-        let inside: Vec<PlayerSlot> = world
-            .query::<(&DrivingParticipant, &InRoomInstance)>()
-            .iter(world)
-            .filter(|(_, at)| at.0 == room)
-            .map(|(driver, _)| driver.0)
-            .collect();
         if let Some(mut gestures) = world.get_resource_mut::<SlotInteractionState>() {
             for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
                 let seat = PlayerSlot(index as u8);

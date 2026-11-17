@@ -699,6 +699,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/authority.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
+        "crates/ambition_hosted_world/src/room_rollback.rs",
     ),
     "PreparedSessionRegistry": (
         "crates/ambition_game_shell/src/plugin.rs",
@@ -2545,7 +2546,12 @@ ADJUDICATED: dict[str, str] = {
         "the target on release. `project_driving_participant` retracts that seat, "
         "returns it to its live home, then clears the home record. Session "
         "teardown clears all records. The possession unit tests and the real "
-        "two-participant handoff tests cover independent release."
+        "two-participant handoff tests cover independent release. The fourth "
+        "file is the room rollback host (ISL-2d, 2026-11-17): a room's save "
+        "carries the possession table with its clock, the rewind puts it back, "
+        "and after the replay it returns each seat OUTSIDE the room to its live "
+        "record, so a replay can change only the rewound room's seats: a "
+        "restore of an earlier value, not a second authority."
     ),
     "ClockState": (
         "CORRECT — three policies over one smoothed value, and the coupling is "

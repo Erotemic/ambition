@@ -298,6 +298,20 @@ MIRRORS: dict[str, str] = {
 
 #: Systems whose write follows a world fact a room replay does not change.
 WORLD_FACT_WRITERS: dict[str, str] = {
+    "apply_boss_life_switches": (
+        "sets the life the press publishes (`ResolvedSwitchActivation::on`: alive or "
+        "dead), not a toggle, so a replay that presses the switch again sets the same "
+        "boss state; the press itself rewinds with its room (`SwitchPressesInRooms`). "
+        "A press a replay takes back keeps its effect: these are the Hall of Bosses' "
+        "practice switches, and that limit is recorded "
+        "(`ambition_boss_encounter/src/life_switch.rs`, read 2026-11-17)"
+    ),
+    "detect_room_transition_system": (
+        "its one store besides the lifecycle intent is the gate network's link timer, "
+        "which an admitted traversal sets back to its full timeout (`GateNetworkState::used`): "
+        "the same value however often it runs, and the traversal commits on a live tick "
+        "(`session/src/rooms/systems.rs`, read 2026-11-17)"
+    ),
     "compact_ended_mints_at_checkpoint": (
         "acts only on `CheckpointCommitted`, which only live ticks write: the shrine's "
         "rest and the authored commit hold theirs for a live tick during a replay, and "
@@ -338,7 +352,7 @@ OUTSIDE_ACTS: dict[str, str] = {
 
 #: The unclassified bindings, a ratchet: lower it with the change that lowers
 #: the count, never raise it.
-UNCLASSIFIED_CEILING = 8
+UNCLASSIFIED_CEILING = 0
 
 #: A floor, not a target: a scan that suddenly sees far less has broken.
 POPULATION_FLOOR = 200

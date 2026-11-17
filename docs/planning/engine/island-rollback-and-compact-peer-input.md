@@ -1156,6 +1156,20 @@ it loses a door or return press that the late input carried.) The census
 rules `PendingLifecycleCommit` and the cut-rope retry world-owned. Census: 8
 unclassified (the gate network, possession, the Hall of Bosses switches).
 
+**Every writer in the rewinding schedule is classified (2026-11-17).**
+`run_gate_network` runs off replays: a link joins two rooms and runs out on
+world time, which a replay's ticks counted a second time; its dials are the
+host's intents, read on live ticks. A traversal only sets a link's idle timer
+back to full (`GateNetworkState::used`). `PossessionState` is each seat's (the
+body it drives and the hold that takes another), so the host saves it with the
+clock and, after a replay, keeps the live records of the seats outside the
+room, as it does their gestures. The Hall of Bosses' switches set the life the
+press publishes rather than toggling it, so a repeated press sets the same
+state; a press a replay takes back keeps its effect, a recorded limit of those
+practice switches. Census: **0 unclassified**, and the ceiling is 0: a new
+global writer in the rewinding schedule must ask `RoomReplay::allows`, stamp a
+`RoomWrite`, or get a ruling.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

@@ -100,8 +100,12 @@ impl Plugin for ProgressionSchedulePlugin {
         // reads the links), so a dial boots its ring on the tick it is made.
         app.add_systems(
             sim,
+            // Off room replays (ISL-2d): a link joins two rooms and runs out on
+            // world time, which a replay's ticks would count a second time.
+            // Its dials are the host's intents, read on live ticks.
             ambition_platformer2d_session::rooms::gate_network::run_gate_network
                 .run_if(ambition_platformer2d_session::rooms::gate_network::the_gate_network_has_work)
+                .run_if(not(resource_exists::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>))
                 .after(ambition_encounter::switches::SwitchActivationDrained)
                 .before(ambition_platformer2d_session::rooms::tick_portal_phases_system)
                 .in_set(ProgressionSet::WorldSync),

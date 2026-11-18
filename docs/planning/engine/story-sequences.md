@@ -181,8 +181,12 @@ language.
   plays it for the whole world on the first tick its condition holds (it
   needs a seen flag).
 - **The acceptance scene** (all content): `intro_raider_runs_with_the_case`
-  starts at `actor.fallen_is npc_lab_raider 2` (not "one live": the raiders
-  come in one at a time, so that is true as the first walks in), opens the yard gate (now gated
+  starts at `actor.fallen_in npc_lab_raider 2 intro_wake_room` (not "one
+  live": the raiders come in one at a time, so that is true as the first
+  walks in; and in the workshop only, 2026-11-17: a condition scene is asked
+  from no room, and `fallen_is` counted the siding's crew too, so a raid
+  whose last two fell together left the scene armed for the yard fight,
+  where it held the fight on a line of the absent Creator), opens the yard gate (now gated
   on `intro_case_taken`; the Creator's last words set it too, for a raid whose
   last two fall together), sends the raider out through the lane edge with
   `runs_where_sent`, and waits for `actor.gone`. His going wins the raid.

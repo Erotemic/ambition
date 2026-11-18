@@ -41,7 +41,12 @@
 //! - `actor.count_is <character> <n>`: exactly `n` live bodies of the
 //!   character.
 //! - `actor.fallen_is <character> <n>`: exactly `n` fallen bodies of the
-//!   character (the raid's last raider: `actor.fallen_is npc_lab_raider 2`;
+//!   character, in every live room.
+//! - `actor.fallen_in <character> <n> <room>`: exactly `n` fallen bodies of
+//!   the character in the live room `room` (a room's id). A scene that starts
+//!   on a condition is asked from no room, so a count meant for one room
+//!   names it: the workshop raid's runaway counts the workshop's raiders,
+//!   not the siding's (`actor.fallen_in npc_lab_raider 2 intro_wake_room`;
 //!   its raiders come in one at a time, so "one live" is also true as the
 //!   first walks in).
 //!
@@ -103,6 +108,11 @@ const COUNT: ParamSpec = ParamSpec {
     name: "count",
     kind: ParamKind::Number,
     summary: "how many live bodies of the character",
+};
+const ROOM: ParamSpec = ParamSpec {
+    name: "room",
+    kind: ParamKind::Name,
+    summary: "a room's id (`intro_wake_room`): only bodies in that live room count",
 };
 const BRAIN: ParamSpec = ParamSpec {
     name: "brain",
@@ -245,6 +255,14 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
     );
     app.publish_condition(
         ConditionDescriptor {
+            id: ConditionId::new("actor", "fallen_in"),
+            summary: "exactly this many bodies of the character have fallen in the named room",
+            params: &[CHARACTER, COUNT, ROOM],
+        },
+        fallen_in,
+    );
+    app.publish_condition(
+        ConditionDescriptor {
             id: ConditionId::new("actor", "gone"),
             summary: "no body of the character is live",
             params: &[CHARACTER],
@@ -288,6 +306,25 @@ fn live_count(world: &World, character: &str) -> Option<usize> {
 fn fallen_count(world: &World, character: &str) -> Option<usize> {
     let mut bodies = world.try_query::<(&CharacterForm, Option<&ambition_characters::actor::BodyHealth>)>()?;
     Some(bodies.iter(world).filter(|(worn, health)| worn.0.as_str() == character && !alive(*health)).count())
+}
+
+/// How many fallen bodies wear `character` in the live room whose id is
+/// `room`.
+fn fallen_count_in(world: &World, character: &str, room: &str) -> Option<usize> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{session_world_component, InRoomInstance};
+    let rooms = session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(world)?;
+    let mut bodies =
+        world.try_query::<(&CharacterForm, Option<&ambition_characters::actor::BodyHealth>, Option<&InRoomInstance>)>()?;
+    Some(
+        bodies
+            .iter(world)
+            .filter(|(worn, health, _)| worn.0.as_str() == character && !alive(*health))
+            .filter(|(_, _, in_room)| {
+                ambition_platformer2d_world::rooms::live_room_definition_in(world, in_room.map(|in_room| in_room.0))
+                    .is_some_and(|definition| rooms.rooms[definition.index()].id == room)
+            })
+            .count(),
+    )
 }
 
 /// Where `name` is in the room of `body`.
@@ -669,6 +706,18 @@ fn fallen_is(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         ConditionOutcome::Satisfied
     } else {
         ConditionOutcome::NotSatisfied(WhyNot::new("actor.fallen_is", character, format!("{fallen} fallen, not {count}")))
+    }
+}
+
+fn fallen_in(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let (Some(character), Some(count), Some(room)) = (args[0].as_name(), args[1].as_number(), args[2].as_name()) else {
+        return ConditionOutcome::Unanswerable("`actor.fallen_in` takes a character, a count and a room".into());
+    };
+    let fallen = fallen_count_in(world, character, room).unwrap_or(0);
+    if fallen as f64 == count {
+        ConditionOutcome::Satisfied
+    } else {
+        ConditionOutcome::NotSatisfied(WhyNot::new("actor.fallen_in", character, format!("{fallen} fallen in `{room}`, not {count}")))
     }
 }
 

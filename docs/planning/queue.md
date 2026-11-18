@@ -70,8 +70,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    capability architecture. Continue AP14 ownership work before lower-priority
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
-4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
-5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
+4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
+5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
    remain selected at their stated boundaries (TOOL-DISCOVERY and EDITOR-SHELL
    are complete: [tooling layout](engine/tooling-layout-and-editor-consolidation.md),
    T0-T5; retired from this queue 2026-11-11). Portal, rendering,
@@ -163,7 +163,7 @@ or updating their source. Check with
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 
-### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro
+### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro — ✅ DONE 2026-11-17
 
 **State:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami), and each local view shows the card of the boss in its own room (2026-11-10; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). Done: the rendered witnesses below are the acceptance's evidence (two non-Wolfenstein fights, and two views).
 
@@ -197,11 +197,13 @@ or updating their source. Check with
 
 **Rendered parts measured and fixed in the source (2026-11-14, [owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)):** none of the giant's clips tweened, so its walk moved its legs 22-26 px at once every 0.08 s while its body slid smoothly; its publisher now tweens its four walking loops as every character's walk is tweened (renderer `81b31ac`).
 
-**Next action:** republish the giant on the publishing machine (this VM publishes no core art), then watch the walk in the fight at 60 and 144 Hz; turning, buck and rider remain as measured (smooth).
+**Republished 2026-11-17** (on this VM, which may render art since 2026-11-11): the published `giant_gnu_parts.ron` carries the four tweened walking clips (`tween: Linear`); the bundle before it had none.
+
+**Next action:** watch the walk in the fight at 60 and 144 Hz (Jon's displays); turning, buck and rider remain as measured (smooth).
 
 **Acceptance:** walking, turning, buck, rider movement and portal strikes are visually continuous and align with collision, footholds, hits and camera, across fixed ticks, relevant render rates, reset/replay and quality levels.
 
-### ITEM-CONTENT — remove retired items without letting fixtures retain them
+### ITEM-CONTENT — remove retired items without letting fixtures retain them — ✅ DONE 2026-11-17
 
 **Done 2026-11-10 for the grid; the held javelin ruled 2026-11-14.** The Javelin and the Sealed Note are gone
 from the item grid, `items.ron`, the intro dialogue and every test that
@@ -273,9 +275,12 @@ worn row follows the count ([loadout, open 3](game/ability-loadout.md#open)).
 ceiling contribution, and Precision Blink has two levels: the quick blink,
 then the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
 
+**Done 2026-11-17:** Precision Blink has its three levels: the aim's time
+slow is a verb of its own (`blink_slow`), level 2 withholds it and level 3
+is the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
+
 **Next action:** the laser's own sound waits for an SFX bank republish.
-Precision Blink's third level waits for the aim's time slow as a verb of
-its own. Then Blink and stance replacement through the existing
+Then Blink and stance replacement through the existing
 technique/equipment seam. Author Contextual Blink, Precision Blink
 tiers and the remaining variants in that model, not named engine branches.
 
@@ -420,8 +425,6 @@ this VM lacks four, so release composition refuses here before and after.
 **Acceptance:** local preview uses the same selected file set without hashing
 all media. Missing required files have a useful diagnostic. Android, Steam
 Deck and static web release packages still pass their final asset contracts.
-
-<a id="geometry-observability--render-the-effective-geometry-behind-gameplay"></a>
 
 ### GEOMETRY-OBSERVABILITY — render the effective geometry behind gameplay — ✅ DONE 2026-11-17
 
@@ -979,9 +982,18 @@ starts at the barn door. Removed: the basement lab, the service stair,
 checkpoint. The Drain Market and the culvert stay as town rooms. Decisions
 D1-D21 in the design page.
 
+**Walked, the far half (2026-11-17):** `a_walked_route_of_the_persistent_world::the_player_walks_from_the_woods_to_the_siding_and_wins_its_fight`
+goes from the woods up the hill path, lifts the barrier by its lever, goes
+down the freight track, wins the yard fight (both waves, about 1230 frames,
+no death) and opens the goblins' crate for the notes, all by the player's
+own inputs. Found on the way and fixed: the raid's runaway scene counted
+fallen raiders in every room, so a raid whose last two fell together left it
+armed for the siding, where it held the yard fight on a line of the absent
+Creator (`actor.fallen_in`, the count in one named room).
+
 **Next action:** the art
 (terrain, props, villagers, publication; the three backgrounds are drawn);
-the residents (the gatekeeper, the miller, the innkeeper and the trader landed 2026-11-14, Hobford row 9); playtest and tune the waves. The sandbox hub remains the new-game start (D3, Jon, 2026-11-17); the workshop is reached from the hub.
+the residents (the gatekeeper, the miller, the innkeeper and the trader landed 2026-11-14, Hobford row 9); tune the waves by playing them. The sandbox hub remains the new-game start (D3, Jon, 2026-11-17); the workshop is reached from the hub.
 
 **LEVEL-1-KIT (done 2026-11-14 for verbs):** each level-1 room withholds the
 kit past run, one jump, drop through and the strike (the level field

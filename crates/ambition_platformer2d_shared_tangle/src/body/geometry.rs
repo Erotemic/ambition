@@ -254,6 +254,15 @@ impl BodyGeometry {
         ambition_platformer2d_core::frame::thread::short_of_refusal(cut, material, &links)
     }
 
+    /// Partition the body's physical box through the current room apertures.
+    pub fn physical_body_pieces(&self, body: Entity, kinematics: &ambition_platformer2d_core::BodyKinematics,
+        room: Option<LiveRoomInstance>) -> Partition {
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        let domain = kinematics.canonical_box().map_err(numeric)?;
+        self.body_pieces(MaterialPrimitive { domain: &domain,
+            to_world: kinematics.material_map().map_err(numeric)? }, body, room)
+    }
+
     /// Partition accepted body material without a reach wedge.
     pub fn body_pieces(&self, material: MaterialPrimitive<'_>, body: Entity, room: Option<LiveRoomInstance>) -> Partition {
         self.body_pieces_from(material, body, false, room)
@@ -374,6 +383,24 @@ mod tests {
 #[cfg(test)]
 mod material_tests {
     use super::*;
+
+    #[test]
+    fn physical_partition_uses_the_accepted_body_material_and_refuses_invalid_dimensions() {
+        let body = Entity::from_raw_u32(1).unwrap();
+        let geometry = BodyGeometry::default();
+        let mut kinematics = ambition_platformer2d_core::BodyKinematics {
+            pos: Vec2::new(30.0, 40.0), canonical_size: Vec2::new(20.0, 10.0),
+            ..Default::default()
+        };
+        kinematics.material = kinematics.material.turned(std::f64::consts::FRAC_PI_2).unwrap();
+        let pieces = geometry.physical_body_pieces(body, &kinematics, None).unwrap();
+        assert_eq!(pieces.len(), 1);
+        assert_eq!(pieces[0].world_volume().bounds(), kinematics.aabb());
+        assert_eq!(pieces[0].source().bounds(), ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::new(10.0, 5.0)));
+        kinematics.canonical_size = Vec2::ZERO;
+        assert_eq!(geometry.physical_body_pieces(body, &kinematics, None).unwrap_err().reason,
+            RefusalReason::Numeric(NumericFault::InvalidScale));
+    }
 
     #[test]
     fn a_carrier_supplies_material_axes_without_moving_world_geometry() {

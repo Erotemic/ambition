@@ -165,6 +165,13 @@ pub enum BodyHitResolution {
     },
 }
 
+impl BodyHitResolution {
+    /// The accepted damage amount, after all defenses and damage modifiers.
+    pub fn damage_applied(self) -> i32 {
+        match self { Self::Damaged { damage, .. } => damage, _ => 0 }
+    }
+}
+
 /// What the shared resolver DECIDED about one hit, announced so an observer
 /// can explain it.
 ///
@@ -739,7 +746,7 @@ pub(crate) fn handle_player_damage_events(
                         damage.attacker,
                         combat.hitstop_timer,
                         damage.source.clone(),
-                        damage.damage,
+                        resolution,
                         damage.attacker_move_instance,
                     );
                     publish_reaction(death_writers, player_entity, reaction);
@@ -837,7 +844,7 @@ pub(crate) fn handle_player_damage_events(
                     damage.attacker,
                     combat.hitstop_timer,
                     damage.source.clone(),
-                    damage.damage,
+                    resolution,
                     damage.attacker_move_instance,
                 );
                 publish_reaction(death_writers, player_entity, reaction);
@@ -1030,7 +1037,7 @@ pub fn publish_resolved_hit(
     attacker: Option<bevy::prelude::Entity>,
     hitlag_seconds: f32,
     source: ambition_combat::HitSource,
-    damage: i32,
+    resolution: BodyHitResolution,
     attacker_move_instance: Option<u32>,
 ) {
     if let Some(resolved) = resolved {
@@ -1039,7 +1046,7 @@ pub fn publish_resolved_hit(
             attacker,
             hitlag_seconds,
             source,
-            damage,
+            damage: resolution.damage_applied(),
             attacker_move_instance,
         });
     }

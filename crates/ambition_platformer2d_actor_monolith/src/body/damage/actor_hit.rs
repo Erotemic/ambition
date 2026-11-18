@@ -505,7 +505,7 @@ pub(crate) fn apply_actor_hit(
                 event.attacker,
                 combat.hitstop_timer,
                 event.source.clone(),
-                event.damage,
+                resolution,
                 event.attacker_move_instance,
             );
             #[cfg(feature = "causal")]

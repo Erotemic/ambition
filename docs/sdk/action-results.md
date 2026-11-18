@@ -45,6 +45,11 @@ Each domain must publish its own actual result.
 
 ## Installed command results
 
+- [`consume_contact`](contact-consumption.md) reports terminal
+  `contact_consumed` after both the native destructible state and inventory
+  exchange apply. `subjects` contains the consumed object identity. A refusal
+  changes neither owner.
+
 - [`inventory_exchange`](inventory-exchanges.md) reports terminal
   `inventory_exchanged` after the exact native bag and wallet exchange applies.
   A refused cost or reward leaves both owners unchanged.

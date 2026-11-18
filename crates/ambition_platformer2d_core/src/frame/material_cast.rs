@@ -289,11 +289,11 @@ impl<'a> MaterialCast<'a> {
         if self.time.start<0.0 || self.time.end>1.0 || self.time.start>self.time.end {
             return Err(numeric(NumericFault::InvalidFrame));
         }
-        super::thread::map_volume(self.material.domain, &self.material.to_world)
+        super::thread::validate_volume_map(self.material.domain, &self.material.to_world)
             .map_err(numeric)?;
         if !self.delta.is_finite() || !self.root.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
-        let bounds = self.material.domain.bounds();
-        let dimensions = bounds.max - bounds.min;
+        let material_bounds = self.material.domain.bounds();
+        let dimensions = material_bounds.max - material_bounds.min;
         // A finite cross-section sweeps a band without an artificial thickness.
         if dimensions.min_element() < 0.0 {
             return Err(numeric(NumericFault::InvalidScale));
@@ -326,12 +326,17 @@ impl<'a> MaterialCast<'a> {
                 travel: self.delta.as_dvec2(), planes: vec![], time: 0.0..self.until }]
         };
         let mut bounds=Vec::with_capacity(parts.len());
+        let mut validated = self.material.to_world;
         for cell in &parts {
             for time in [cell.time.start, cell.time.end] {
-                super::thread::map_volume(self.material.domain, &cell.at(time)
-                    .map_err(|e| numeric_at(cell, e))?).map_err(|e| numeric_at(cell, e))?;
+                let map = cell.at(time).map_err(|e| numeric_at(cell, e))?;
+                if map != validated {
+                    super::thread::validate_volume_map(self.material.domain, &map)
+                        .map_err(|e| numeric_at(cell, e))?;
+                    validated = map;
+                }
             }
-            bounds.push(cell.bounds(self.material.domain.bounds(), DVec2::ZERO).map_err(|e| numeric_at(cell, e))?);
+            bounds.push(cell.bounds(material_bounds, DVec2::ZERO).map_err(|e| numeric_at(cell, e))?);
         }
         Ok(MaterialCastCells {
             material: self.material,

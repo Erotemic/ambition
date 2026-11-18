@@ -141,7 +141,17 @@ impl Sim2 {
     }
 
     pub(crate) fn shifted(self, delta: DVec2) -> Result<Self, NumericFault> {
-        Self::from_wide_translation(self.scale, self.orthogonal, self.translation + delta)
+        let translation = self.translation + delta;
+        if !translation.is_finite() {
+            return Err(NumericFault::NonFinite);
+        }
+        // Translation preserves the admitted scale and orthogonal basis.
+        let inverse_scale = (1.0 / self.scale) as f32;
+        let inverse_translation = -rotate_wide(self.orthogonal.transpose(), translation);
+        if !(inverse_translation * f64::from(inverse_scale)).is_finite() {
+            return Err(NumericFault::Overflow);
+        }
+        Ok(Self { translation, ..self })
     }
 
     /// The determinant sign belongs to orientation, independently of scale.
@@ -317,6 +327,28 @@ mod tests {
             frame: PortalFrame::fixed(at, normal),
             half_length,
         }
+    }
+
+    #[test]
+    fn translation_keeps_the_admitted_basis_and_inverse() {
+        for scale in [0.125, 1.0, 8.0] {
+            for parity in [-1.0, 1.0] {
+                let axis = Vec2::from_angle(0.37);
+                let basis = Mat2::from_cols(axis, axis.perp() * parity);
+                let map = Sim2::new(scale, basis, Vec2::new(100.0, 200.0)).unwrap();
+                let delta = DVec2::new(64.0, -32.0);
+                let moved = map.shifted(delta).unwrap();
+                assert_eq!(moved.translation(), map.translation() + delta);
+                assert_eq!(moved.scale(), map.scale());
+                assert_eq!(moved.direction(Vec2::X), map.direction(Vec2::X));
+                let point = Vec2::new(-3.0, 7.0);
+                let recovered = moved.inverse().unwrap().point(moved.point(point).unwrap()).unwrap();
+                assert!(recovered.distance(point) < 0.001);
+            }
+        }
+        let small = Sim2::new(1.0e-10, Mat2::IDENTITY, Vec2::ZERO).unwrap();
+        assert_eq!(small.shifted(DVec2::splat(1.0e308)), Err(NumericFault::Overflow));
+        assert_eq!(small.shifted(DVec2::splat(f64::NAN)), Err(NumericFault::NonFinite));
     }
 
     #[test]

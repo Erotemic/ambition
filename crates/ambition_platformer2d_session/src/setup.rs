@@ -458,6 +458,7 @@ fn build_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     match prepared_characters.and_then(|registry| registry.get(worn_id).map(|p| (registry, p))) {
         Some((registry, prepared)) => {
             ambition_platformer2d_actor_spawn::grant_prepared_character_body(&sprite_content,
+                ambition_body_seed::BaselineBoundary::Construction,
                 &mut ambition_platformer2d_shared_tangle::construction::EntityScope::new(
                     commands, player,
                 ),

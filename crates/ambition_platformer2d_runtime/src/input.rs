@@ -703,6 +703,7 @@ pub fn install_latched_slot_publication(app: &mut bevy::prelude::App) {
     app.add_systems(
         sim,
         publish_latched_slot_controls
+            .in_set(crate::input_sampling::LocalInputPublication)
             .in_set(
                 ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerInput,
             )

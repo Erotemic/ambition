@@ -59,6 +59,7 @@ timeline_chunks="12"
 # Timed Smash uses separate native and Tracy runs so native samples cannot
 # include Tracy client drain/export work. Both remain one user command/bundle.
 two_pass_smash="no"
+tracy_and_no_tracy="no"
 capture_role="primary"
 # Uncapped by default for timed windowed Smash; never changes saved settings.
 uncapped="auto"
@@ -173,6 +174,9 @@ Build selection:
                            Timed, windowed Smash normally runs a clean native
                            perf pass followed automatically by a Tracy-only
                            diagnostic pass, both packaged in one archive.
+  --tracy-and-no-tracy     Run Tracy first, then a clean native capture.
+                          Keep both results in one bundle. --duration applies
+                          to each pass. Requires a launch mode and warm builds.
   AMBITION_SPRITE_WATCH=0  Disable the runtime sprite-sheet watcher (Android
                            already defaults to off); recorded in metadata and
                            separated from the default benchmark identity.
@@ -334,6 +338,7 @@ while [[ $# -gt 0 ]]; do
         --uncapped) uncapped="yes" ;;
         --respect-video-settings) uncapped="no" ;;
         --no-tracy) want_tracy="no" ;;
+        --tracy-and-no-tracy) tracy_and_no_tracy="yes" ;;
         --perf-probe) want_perf_probe="yes" ;;
         --headless) headless="yes" ;;
         --smash|--smash-match) workload="smash-match" ;;
@@ -415,7 +420,15 @@ fi
 # The normal timed Smash invocation uses two launches: first an uninstrumented
 # binary under perf; then a Tracy-enabled build for per-system diagnostics.
 # --no-tracy deliberately retains the legacy single-pass behavior.
-if [[ "$workload" == "smash-match" && "$smash_seconds" != "0" \
+if [[ "$tracy_and_no_tracy" == "yes" ]]; then
+    [[ "$want_tracy" == "yes" ]] || fail "--tracy-and-no-tracy cannot be combined with --no-tracy"
+    [[ "$warm_build" != "no" ]] || fail "--tracy-and-no-tracy requires warm builds to switch instrumentation"
+    case "$mode" in
+        timeline-run|perf-run|stat-run|asset-run) ;;
+        *) fail "--tracy-and-no-tracy requires a launch mode" ;;
+    esac
+    want_tracy="no"
+elif [[ "$workload" == "smash-match" && "$smash_seconds" != "0" \
       && "$headless" == "no" && "$want_tracy" == "yes" \
       && "$want_perf_probe" == "no" \
       && "$mode" == "timeline-run" ]]; then
@@ -652,6 +665,17 @@ resolve_launch_plan() {
     plan_status="ok"
 }
 
+apply_launch_plan() {
+    if [[ "$plan_status" == "ok" ]]; then
+        local assignment
+        for assignment in "${plan_runtime_env[@]}"; do export "$assignment"; done
+        export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
+        if mode_uses_launch "$mode" || [[ "$mode" == "all-run" ]]; then
+            run_cmd=("$plan_binary" "${plan_game_args[@]+"${plan_game_args[@]}"}")
+        fi
+    fi
+}
+
 # timeline-run is the "just record my session" mode: it runs until the game
 # exits and skips call-graph capture, so an open-ended session cannot balloon
 # perf.data. Every other mode keeps the old bounded-window defaults.
@@ -676,13 +700,16 @@ fi
 # escape hatch when the flags are absent, and record that the zone timestamps
 # came off a TSC the kernel does not vouch for.
 tracy_tsc_note=""
-if [[ "$want_tracy" == "yes" ]]; then
+configure_tracy_clock() {
+    [[ "$want_tracy" == "yes" ]] || return 0
+    local cpu_flags
     cpu_flags="$(grep -m1 '^flags' /proc/cpuinfo 2>/dev/null || true)"
     if [[ -n "$cpu_flags" ]] && ! { [[ "$cpu_flags" == *constant_tsc* ]] && [[ "$cpu_flags" == *nonstop_tsc* ]]; }; then
         export TRACY_NO_INVARIANT_CHECK=1
         tracy_tsc_note="this CPU does not advertise an invariant TSC (constant_tsc + nonstop_tsc); TRACY_NO_INVARIANT_CHECK=1 was set so the game could run. Tracy zone durations here come from a timer the kernel does not vouch for: treat their RATIOS as sound and their absolute microseconds as approximate."
     fi
-fi
+}
+configure_tracy_clock
 
 # The in-process censuses read this. Exported here, once, so every launch mode
 # and the attach modes' target inherit the same cadence.
@@ -1085,7 +1112,13 @@ write_metadata() {
         echo "report_timeout_seconds=$report_timeout"
         echo "include_raw_data=$include_raw_data"
         echo "include_perf_script=$include_perf_script"
-        echo "capture_strategy=$([[ "$two_pass_smash" == "yes" ]] && echo split-native-perf-and-tracy || echo single-pass)"
+        if [[ "$tracy_and_no_tracy" == "yes" ]]; then
+            echo "capture_strategy=split-tracy-then-native"
+        elif [[ "$two_pass_smash" == "yes" ]]; then
+            echo "capture_strategy=split-native-perf-and-tracy"
+        else
+            echo "capture_strategy=single-pass"
+        fi
         echo "capture_role=$capture_role"
         echo "profile_uncapped=$uncapped"
         echo "sprite_sheet_watch=${AMBITION_SPRITE_WATCH:-platform-default}"
@@ -1532,6 +1565,13 @@ prepare_launch_mode() {
         log "cannot profile: $plan_binary does not exist or is not executable"
         return 1
     fi
+    if [[ "$want_tracy" == "no" && ( "$tracy_and_no_tracy" == "yes" || "$two_pass_smash" == "yes" ) ]] \
+            && binary_has_tracy "$plan_binary"; then
+        printf 'Native pass still contains a Tracy client. Remove profile-enabling features from the launch arguments.\n' \
+            > "$out_dir/capture.skipped"
+        log "cannot record a clean native pass: $plan_binary still contains Tracy"
+        return 1
+    fi
     printf 'Direct executable (no Cargo inside capture): %s\n' "$plan_binary" > "$out_dir/capture-target.txt"
 }
 
@@ -1694,36 +1734,41 @@ run_one_mode() {
     return "$status"
 }
 
-# The primary pass has already finished perf record and all perf reports.
-# Cargo may rebuild to enable the `profile` feature here, but that compilation
-# is outside BOTH captures. The Tracy client is never present in the native
-# pass, and no perf recorder is running while Tracy drains or exports.
+# Build each instrumentation variant before its capture. Native sampling does
+# not overlap Tracy capture, shutdown, or export.
 run_tracy_diagnostic_pass() {
-    local out_dir="$1" diag="$1/tracy_diagnostic" assignment
+    local out_dir="$1" diag="$1/tracy_diagnostic" pass="${2:-2}"
     mkdir -p "$diag"
     capture_role="tracy-diagnostic"
     want_tracy="yes"
+    configure_tracy_clock
     build_effective_run_args
     resolve_launch_plan
-    if [[ "$plan_status" == "ok" ]]; then
-        for assignment in "${plan_runtime_env[@]}"; do export "$assignment"; done
-        run_cmd=("$plan_binary" "${plan_game_args[@]+"${plan_game_args[@]}"}")
-    fi
-    log "pass 2/2: Tracy diagnostic (no perf recorder; separate compilation)"
+    apply_launch_plan
+    log "pass $pass/2: Tracy diagnostic (no perf recorder; separate compilation)"
     local diag_status=0
     if prepare_launch_mode "$diag" "$mode"; then
-        run_instrumented_launch "$diag" "$diag/tracy-only.status" "${run_cmd[@]}"
+        local capture_argv=() item
+        while IFS= read -r -d '' item; do capture_argv+=("$item"); done < <(bounded_argv "${run_cmd[@]}")
+        run_instrumented_launch "$diag" "$diag/tracy-only.status" "${capture_argv[@]}"
         diag_status="$(cat "$diag/tracy-only.status" 2>/dev/null || echo 1)"
+        if [[ "$diag_status" -eq 124 || "$diag_status" -eq 130 ]]; then diag_status=0; fi
         if [[ "$diag_status" -ne 0 ]]; then
             log "Tracy diagnostic game exited with status $diag_status; retaining partial trace"
         fi
-        python3 "$repo_root/scripts/lib/profile_census_csv.py" "$diag" \
-            || log "Tracy pass census extraction failed"
     else
         diag_status=1
-        log "Tracy diagnostic build failed; preserving the clean native results"
+        log "Tracy diagnostic build failed; see tracy_diagnostic/warm-build.stderr"
     fi
+    write_bundle_reports "$diag"
     echo "$diag_status" > "$out_dir/tracy-diagnostic.status"
+    capture_role="primary"
+    want_tracy="no"
+}
+
+expose_tracy_diagnostic() {
+    local out_dir="$1" diag="$1/tracy_diagnostic" diag_status
+    diag_status="$(cat "$out_dir/tracy-diagnostic.status" 2>/dev/null || echo 1)"
     # Make zone tables discoverable at the existing top-level paths. Do not
     # duplicate the potentially multi-gigabyte raw trace: a relative symlink
     # keeps the local GUI path and respects the --no-raw-data archive exclude.
@@ -1741,11 +1786,6 @@ run_tracy_diagnostic_pass() {
         printf 'Tracy diagnostic build or launch failed; see tracy_diagnostic/warm-build.stderr and tracy-only.status\n' \
             > "$out_dir/tracy.skipped"
     fi
-    # Restore root profiling metadata, whose executable reflects the primary
-    # pass, so the summary does not silently use the Tracy build as its source.
-    capture_role="primary"
-    want_tracy="no"
-    return 0
 }
 
 main() {
@@ -1754,14 +1794,7 @@ main() {
     # `run_game.sh --print-plan` is the authority for both target and runtime
     # arguments. Running its binary directly makes Cargo compilation outside
     # the perf process tree an invariant, not a best-effort warm-build guess.
-    if [[ "$plan_status" == "ok" ]]; then
-        local assignment
-        for assignment in "${plan_runtime_env[@]}"; do export "$assignment"; done
-        export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
-        if mode_uses_launch "$mode" || [[ "$mode" == "all-run" ]]; then
-            run_cmd=("$plan_binary" "${plan_game_args[@]+"${plan_game_args[@]}"}")
-        fi
-    fi
+    apply_launch_plan
     log "profiling the $build_profile build: ${plan_binary:-<unresolved>}"
     if [[ -n "$plan_features" ]]; then log "cargo features: $plan_features"; fi
     if [[ "$workload" == "ambition-autoplay" ]]; then
@@ -1795,13 +1828,23 @@ main() {
         write_bundle_reports "$out_dir"
     else
         out_dir="$(make_profile_dir "$mode")"
-        if [[ "$two_pass_smash" == "yes" ]]; then
+        if [[ "$tracy_and_no_tracy" == "yes" ]]; then
+            mkdir -p "$out_dir"
+            run_tracy_diagnostic_pass "$out_dir" 1
+            build_effective_run_args
+            resolve_launch_plan
+            apply_launch_plan
+            log "pass 2/2: native perf and frame census (no Tracy client)"
+        elif [[ "$two_pass_smash" == "yes" ]]; then
             log "pass 1/2: native perf and frame census (no Tracy client)"
         fi
         run_one_mode "$mode" "$out_dir" || run_status=$?
         if [[ "$two_pass_smash" == "yes" && "$run_status" -eq 0 \
               && ! -e "$out_dir/capture.skipped" ]]; then
             run_tracy_diagnostic_pass "$out_dir"
+        fi
+        if [[ -e "$out_dir/tracy-diagnostic.status" ]]; then
+            expose_tracy_diagnostic "$out_dir"
             write_bundle_reports "$out_dir"
         fi
     fi

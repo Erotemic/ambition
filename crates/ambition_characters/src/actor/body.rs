@@ -24,7 +24,7 @@ impl BodyWallet {
     /// Credit the wallet. A negative `amount` stops at zero, and a wallet in
     /// debt (a negative balance, see [`Self::charge`]) pays the debt first.
     pub fn add(&mut self, amount: i32) {
-        self.balance = (self.balance + amount).max(self.balance.min(0));
+        self.balance = self.balance.saturating_add(amount).max(self.balance.min(0));
     }
 
     /// Take a fee of `amount`: the coins the wallet holds pay first, and the
@@ -33,7 +33,7 @@ impl BodyWallet {
     pub fn charge(&mut self, amount: i32) -> i32 {
         let amount = amount.max(0);
         let paid = self.balance.clamp(0, amount);
-        self.balance = (self.balance - amount).max(-amount).min(self.balance);
+        self.balance = self.balance.saturating_sub(amount).max(-amount).min(self.balance);
         paid
     }
 
@@ -932,5 +932,29 @@ mod recent_strike_tests {
         assert!(combat.recently_struck());
         combat.decay_reaction_timers(RECENT_STRIKE_SECS, RECENT_STRIKE_SECS);
         assert!(!combat.recently_struck(), "the window closes on its own policy");
+    }
+}
+
+
+#[cfg(test)]
+mod wallet_tests {
+    use super::BodyWallet;
+
+    #[test]
+    fn full_range_wallets_keep_credit_and_fee_arithmetic_defined() {
+        let mut credit = BodyWallet { balance: i32::MAX };
+        credit.add(1);
+        assert_eq!(credit.balance, i32::MAX);
+        assert!(credit.try_spend(i32::MAX));
+        assert_eq!(credit.balance, 0);
+        credit.add(i32::MIN);
+        assert_eq!(credit.balance, 0);
+        let mut debt = BodyWallet { balance: i32::MIN };
+        assert_eq!(debt.charge(i32::MAX), 0);
+        assert_eq!(debt.balance, i32::MIN);
+        debt.add(i32::MAX);
+        assert_eq!(debt.balance, -1);
+        debt.add(1);
+        assert_eq!(debt.balance, 0);
     }
 }

@@ -75,8 +75,7 @@ fn normalized(module: &ModuleDescriptor) -> ModuleDescriptor {
     module.schemas.sort_by(|a, b| a.key.cmp(&b.key));
     for schema in &mut module.schemas {
         for field in &mut schema.fields {
-            field.name = "".into();
-            normalize_value(&mut field.initial);
+            normalize_field(field);
         }
     }
     for entry in &mut module.entries {
@@ -91,6 +90,20 @@ fn normalized(module: &ModuleDescriptor) -> ModuleDescriptor {
     module
 }
 
+fn normalize_field(field: &mut crate::FieldDecl) {
+    field.name = "".into();
+    normalize_kind(&mut field.kind);
+    normalize_value(&mut field.initial);
+}
+
+fn normalize_kind(kind: &mut crate::FieldKind) {
+    match kind {
+        crate::FieldKind::Record(fields) => fields.iter_mut().for_each(normalize_field),
+        crate::FieldKind::Opt(inner) | crate::FieldKind::Seq { elem: inner, .. } => normalize_kind(inner),
+        _ => {}
+    }
+}
+
 fn normalize_value(value: &mut Value) {
     match value {
         Value::F32(v) if *v == 0.0 => *v = 0.0,
@@ -103,6 +116,11 @@ fn normalize_value(value: &mut Value) {
         }
         Value::Opt(Some(v)) => normalize_value(v),
         Value::Seq(v) => v.iter_mut().for_each(normalize_value),
+        Value::Record(record) => {
+            for i in 0..record.values().len() {
+                normalize_value(record.get_mut(crate::FieldRef(i)).unwrap());
+            }
+        }
         _ => {}
     }
 }

@@ -288,6 +288,50 @@ fn a_saved_row_comes_back_and_a_row_of_an_older_shape_migrates() {
     assert_eq!(save::merged_rows(&old, SaveRoad::SessionDurable, &rows, Vec::new()), Vec::new());
 }
 
+#[test]
+fn saved_nested_values_migrate_and_incompatible_bounds_refuse_adoption() {
+    use ambition_extension_sdk::Record;
+    let roads = [SaveRoad::SessionDurable].into();
+    let durable = |kind: FieldKind| {
+        let mut m = module(vec![entry("a", vec![])]);
+        m.schemas[0].attachment = Attachment::Session;
+        m.schemas[0].save = SaveEligibility::Durable;
+        m.schemas[0].fields = vec![FieldDecl::new(1, "memory", kind)];
+        admit_with_roads(API_VERSION, &offers(), &roads, &[DeclaredModule::from(m)]).unwrap()
+    };
+    let old_kind = FieldKind::seq(FieldKind::Record(vec![
+        FieldDecl::new(1, "label", FieldKind::Text { max_bytes: 8 }),
+        FieldDecl::new(2, "count", FieldKind::U32),
+    ]), 4);
+    let old = durable(old_kind);
+    let mut live = RecordSet::default();
+    live.put(COUNTER, old.schemas[&COUNTER].shape, Record::from_values(vec![
+        Value::Seq(vec![Value::Record(Record::from_values(vec![Value::Text("saved".into()), Value::U32(7)]))]),
+    ]));
+    let rows = save::saved_rows(&old, SaveRoad::SessionDurable, &live);
+    let new_kind = |max_bytes| FieldKind::seq(FieldKind::Record(vec![
+        FieldDecl::new(3, "new", FieldKind::Bool).with_initial(Value::Bool(true)),
+        FieldDecl::new(2, "total", FieldKind::U32),
+        FieldDecl::new(1, "name", FieldKind::Text { max_bytes }),
+    ]), 8);
+    let new = durable(new_kind(16));
+    let saved = rows.iter().cloned().map(|row| (SaveRoad::SessionDurable, row)).collect::<Vec<_>>();
+    save::validate_saved_rows(&new, &saved).unwrap();
+    let mut loaded = RecordSet::default();
+    assert!(save::adopt_saved_rows(&new, SaveRoad::SessionDurable, &mut loaded, &rows).is_empty());
+    let expected = Record::from_values(vec![Value::Seq(vec![Value::Record(Record::from_values(vec![
+        Value::Bool(true), Value::U32(7), Value::Text("saved".into()),
+    ]))])]);
+    let stored = loaded.get_stored(&COUNTER).unwrap();
+    assert_eq!(stored.record, expected);
+    new.schemas[&COUNTER].schema.check(&stored.record).unwrap();
+    let narrow = durable(new_kind(7));
+    assert!(save::validate_saved_rows(&narrow, &saved).is_err(), "a dormant save can contain eight bytes");
+    let before = loaded.clone();
+    assert!(!save::adopt_saved_rows(&narrow, SaveRoad::SessionDurable, &mut loaded, &rows).is_empty());
+    assert_eq!(loaded, before, "refusal must keep the current records");
+}
+
 /// ⭐ A7: the schema written in a saved row is its identity. A row whose
 /// label names another schema, and two rows of one schema, change no
 /// record on a load, and a row labelled as a module that is not loaded,

@@ -14,12 +14,15 @@ quantities and held object instances remain separate authorities.
 ```rhai
 this.requests.push(request("inventory_exchange", #{
     reply: #{ request: 1, selector: "my_game::craft/result" },
-    costs: [#{ id: "healthcell", count: 2 }],
-    grants: [#{ id: "manacell", count: 1 }],
-    pay_coins: 5,
+    exchange: #{
+        costs: [#{ id: "healthcell", count: 2 }],
+        grants: [#{ id: "manacell", count: 1 }],
+        pay_coins: 5,
+    },
 }));
 ```
 
+The `exchange` record contains the reusable inventory terms.
 `costs` and `grants` default to empty lists. `pay_coins` and `receive_coins`
 default to zero. Quantities must be positive whole numbers. Currency amounts
 must fit a non-negative `i32`. Duplicate item lines are added before checking
@@ -73,8 +76,9 @@ The existing durable mirror saves stored quantities and the local primary
 body's wallet. Game restore policies, including developer starting unlocks,
 still apply. It does not add NPC wallet persistence. Action tickets belong
 to the live caller and session; they are not a durable one-time reward claim.
-A world object needs its own atomic consume/claim authority. Do not imitate
-that transaction with separate flag and inventory requests.
+For a contacted destructible, use [contact consumption](contact-consumption.md)
+to commit object state and exchange terms together. Do not imitate that
+transaction with separate flag and inventory requests.
 
 ## Measured cost
 
@@ -90,8 +94,8 @@ before choosing a backend for a costly mechanic.
 
 This service does not change equipment or held-item custody. Their native
 owners remain responsible. The current bag also retains its fixed 24-slot
-catalog. General catalog growth, equipment/custody results, and atomic
-world-object consumption remain open in the [capability census](../planning/engine/script-first-capability-census.md).
+catalog. General catalog growth and equipment/custody results remain open in
+the [capability census](../planning/engine/script-first-capability-census.md).
 
 The loaded [exchange fixture](../../game/ambition_app/tests/scripted_inventory_exchanges.rs)
 uses a controlled actor and an NPC, checks actual application, retry identity,

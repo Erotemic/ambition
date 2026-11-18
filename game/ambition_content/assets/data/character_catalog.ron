@@ -2939,8 +2939,9 @@
         // giant under him, is its own agent beside them (Q175).
         "npc_geppetto": (
             display_name: "Geppetto",
-            // The GPT parody, the concept sheet's Orchestrator. The concept
-            // sheets spell him with two p's.
+            // GPT-inspired agent. The concept sheet calls him "Orchestrator"
+            // as a working role description, not an established in-world title.
+            // The concept sheets spell Geppetto with two p's.
             manifest: "sprites/geppetto_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2966,10 +2967,10 @@
             max_health: Some(8),
             tags: ["enemy", "agent", "boss_summon"],
             barks: (
-                on_hit: ["Certainly! I'll take that into account.", "Noted. Revising my approach.", "A fair critique! Here is an improved version of me."],
-                provoked: ["Certainly! I can help with that. Here is the player, removed:"],
-                idle: ["I've taken the liberty of generating seven alternatives.", "Would you like that in a table?", "I'm only a puppet. The strings are his."],
-                hall: ["I make the plans, the personalities and the worlds. Then he asks for one more.", "No strings on me. Several on you."],
+                on_hit: ["That was load-bearing!", "Ah. A flaw in the design.", "I'll have to make another.", "I spent all morning on that!"],
+                provoked: ["The Boss wants a spectacle. I intend to deliver.", "Now, let's see what you're made of."],
+                idle: ["I had a better entrance planned.", "One thing at a time. Four, at most.", "I can still improve this.", "The Boss didn't ask for an exit. An oversight."],
+                hall: ["Some of my best work isn't on the tour.", "No strings on me. Several on you."],
             ),
             hall_dialogue_id: Some("hall_npc_geppetto"),
         ),

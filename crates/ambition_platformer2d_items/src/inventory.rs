@@ -9,7 +9,7 @@ use ambition_extension_sdk::{
 };
 use ambition_items::{
     Item, ItemCatalog, OwnedItems,
-    transaction::{ExchangeApplied, ExchangeRefusal},
+    transaction::ExchangeRefusal,
 };
 use ambition_platformer2d_shared_tangle::{
     action_results::{begin_action, publish_action_result},
@@ -20,6 +20,8 @@ use ambition_world_port::inventory::{
     InventoryExchangePort, InventoryItem, InventoryView, InventoryViewPort,
 };
 use bevy::prelude::*;
+
+pub use ambition_items::transaction::{InventoryExchange, ExchangeApplied};
 
 pub const EXCHANGE_DOMAIN: &str = "inventory.exchange";
 
@@ -218,18 +220,8 @@ fn lower_one(
     scope: Entity,
     request: &ambition_world_port::inventory::InventoryExchange,
 ) -> Result<Vec<String>, &'static str> {
-    let Some(catalog) = world.get_resource::<ItemCatalog>() else {
-        return Err("inventory_unavailable");
-    };
-    let lines = |lines: &[ambition_world_port::inventory::ItemAmount]| -> Result<Vec<ambition_items::transaction::ItemAmount>, &'static str> {
-        lines.iter().map(|line| Ok(ambition_items::transaction::ItemAmount { item: catalog.item_by_id(&line.id).filter(|item| catalog.is_real(*item)).ok_or("unknown_item")?, count: line.count })).collect()
-    };
-    let exchange = ambition_items::transaction::InventoryExchange {
-        costs: lines(&request.costs)?,
-        grants: lines(&request.grants)?,
-        pay_coins: request.pay_coins,
-        receive_coins: request.receive_coins,
-    };
+    let catalog = world.get_resource::<ItemCatalog>().ok_or("inventory_unavailable")?;
+    let exchange = resolve(catalog, &request.exchange)?;
     let subjects = exchange
         .costs
         .iter()
@@ -240,4 +232,19 @@ fn lower_one(
         .collect();
     apply(world, scope, &exchange)?;
     Ok(subjects)
+}
+
+/// Resolve authored item IDs before a domain transaction mutates state.
+pub fn resolve(catalog: &ItemCatalog, terms: &ambition_world_port::inventory::InventoryTerms)
+    -> Result<InventoryExchange, &'static str> {
+    let lines = |lines: &[ambition_world_port::inventory::ItemAmount]| {
+        lines.iter().map(|line| Ok(ambition_items::transaction::ItemAmount {
+            item: catalog.item_by_id(&line.id).filter(|item| catalog.is_real(*item)).ok_or("unknown_item")?,
+            count: line.count,
+        })).collect::<Result<Vec<_>, &'static str>>()
+    };
+    Ok(InventoryExchange {
+        costs: lines(&terms.costs)?, grants: lines(&terms.grants)?,
+        pay_coins: terms.pay_coins, receive_coins: terms.receive_coins,
+    })
 }

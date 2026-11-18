@@ -254,6 +254,7 @@ fn a_definition_carries_no_controller_binding() {
         // Whether the body's wallet can absorb a hit: a fact about the
         // creature (Sanic's rings), whoever drives it.
         wallet_shield: _,
+        starting_wallet: _,
         held_item: _,
         // Presentation, like the sheet: what this creature LOOKS like is a
         // property of the creature, and no controller changes it.
@@ -3176,4 +3177,30 @@ fn a_retained_cast_keeps_its_definitions_after_a_new_publication() {
     assert_eq!(retained.mechanics_digest().unwrap(), digest);
     assert_eq!(retained.get("retained").unwrap().vitals.max_health, Some(4));
     assert_eq!(cast.get("retained").unwrap().vitals.max_health, Some(80));
+}
+
+
+#[test]
+fn a_catalog_wallet_is_a_birth_fact_with_an_explicit_definition_override() {
+    use crate::actor::character_catalog::CharacterCatalog;
+    let data = r#"(
+        brain_presets: {"still": StandStill},
+        action_set_presets: {"empty": (move_style: Walk, melee: None, ranged: None, special: None)},
+        characters: {"merchant": (
+            display_name: "Merchant", manifest: "sprites/x.ron", tier: MainHall,
+            body_kind: Standard, composition: None, default_brain: "still",
+            default_action_set: "empty", tags: [], fallback_dialogue: [], starting_wallet: Some(7),
+        )},
+    )"#;
+    let catalog = CharacterCatalog::from_data(crate::actor::character_catalog::parse_catalog(data));
+    let bindings = CharacterBindings::default();
+    let definition = || CharacterDefinition::new("merchant", "Merchant", "test");
+    for (input, expected) in [(definition(), 7), (definition().with_starting_wallet(0), 0),
+        (definition().with_starting_wallet(-3), -3)] {
+        let value = prepare_and_finalize_against_for_test(input, &bindings, Some(&catalog)).prepared;
+        assert_eq!(value.starting_wallet, Some(expected));
+    }
+    let absent = prepare_and_finalize_for_test(
+        CharacterDefinition::new("without_wallet", "No wallet", "test"), &bindings).prepared;
+    assert_eq!(absent.starting_wallet, None);
 }

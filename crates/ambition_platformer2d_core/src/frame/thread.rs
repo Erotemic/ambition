@@ -385,8 +385,7 @@ impl VolumePiece {
     }
 }
 
-/// Derive world geometry from canonical material and one admitted map.
-pub fn map_volume(volume: &CombatVolume, map: &Sim2) -> Result<CombatVolume, NumericFault> {
+fn validate_volume_bounds(volume: &CombatVolume, map: &Sim2) -> Result<(), NumericFault> {
     let bounds = volume.bounds();
     if !bounds.min.is_finite() || !bounds.max.is_finite() {
         return Err(NumericFault::NonFinite);
@@ -395,6 +394,29 @@ pub fn map_volume(volume: &CombatVolume, map: &Sim2) -> Result<CombatVolume, Num
     let dimensions = bounds.max - bounds.min;
     let feature = dimensions.min_element();
     if feature > 0.0 { map.admits_resolution(volume.center(), feature)?; }
+    Ok(())
+}
+
+/// Admit a projection without constructing geometry for a cast.
+pub(super) fn validate_volume_map(volume: &CombatVolume, map: &Sim2) -> Result<(), NumericFault> {
+    validate_volume_bounds(volume, map)?;
+    match volume {
+        CombatVolume::Aabb(a) => { map.point(a.center())?; }
+        CombatVolume::Obb { center, .. } => { map.point(*center)?; }
+        CombatVolume::Circle { center, radius } => {
+            map.point(*center)?;
+            map.length(*radius)?;
+        }
+        CombatVolume::Convex { points, .. } => {
+            for point in points { map.point(*point)?; }
+        }
+    }
+    Ok(())
+}
+
+/// Derive world geometry from canonical material and one admitted map.
+pub fn map_volume(volume: &CombatVolume, map: &Sim2) -> Result<CombatVolume, NumericFault> {
+    validate_volume_bounds(volume, map)?;
     Ok(match volume {
         CombatVolume::Aabb(a) => boxed(map.point(a.center())?, a.half_size() * map.scale(), map.direction(Vec2::X)),
         CombatVolume::Obb { center, half, rotation } => {

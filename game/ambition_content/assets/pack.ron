@@ -31,6 +31,7 @@
     // schema. This grows as families migrate.
     requires: [],
     sources: [
+        (path: "data/actor_creation_rules.ron", schema: "actor_creation_rules", version: 1),
         (path: "data/dialogue_settings.ron", schema: "dialogue_settings", version: 1),
         (path: "data/cutscene_settings.ron", schema: "cutscene_settings", version: 1),
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),

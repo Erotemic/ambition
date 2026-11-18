@@ -722,6 +722,10 @@ struct PackDerivedFamily {
 /// at the boundary.
 const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
     PackDerivedFamily {
+        domain: ambition_platformer2d_world::creation::ACTOR_CREATION_RULES_SCHEMA,
+        publish: publish_actor_creation_rules,
+    },
+    PackDerivedFamily {
         domain: ambition_dialog::DIALOGUE_SETTINGS_SCHEMA,
         publish: crate::dialogue::settings::publish_dialogue,
     },
@@ -1309,6 +1313,15 @@ fn publish_room_rules(
         ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms,
         ambition_combat::room_rules::lowered_room_rules(pack),
     );
+}
+
+fn publish_actor_creation_rules(world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack) {
+    use ambition_platformer2d_world::{creation::{ActorCreationLimits, ACTOR_CREATION_RULES_SCHEMA},
+        scoped_rules::{DeclaredRules, RulesScope}};
+    let rules = pack.lowered::<ActorCreationLimits>(&ambition_content_pack::SchemaId::new(ACTOR_CREATION_RULES_SCHEMA));
+    world.get_resource_or_insert_with(DeclaredRules::<ActorCreationLimits>::default)
+        .restate(RulesScope::UntaggedRooms, rules.copied());
 }
 
 /// Absent in the candidate means remove. `ItemCatalogRead` treats an absent

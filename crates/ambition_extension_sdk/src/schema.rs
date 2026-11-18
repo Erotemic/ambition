@@ -85,7 +85,7 @@ pub enum SaveEligibility {
 }
 
 /// The type of one field.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum FieldKind {
     Bool,
     U32,
@@ -104,6 +104,10 @@ pub enum FieldKind {
     /// reference that may be absent is an `Opt`. What it names may be gone:
     /// the reader resolves it.
     Ref(RefKind),
+    /// UTF-8 text with a declared maximum byte length.
+    Text { max_bytes: u32 },
+    /// A value with its own tagged fields. The outer schema owns its lifetime.
+    Record(Vec<FieldDecl>),
 }
 
 /// What a [`FieldKind::Ref`] names. A body and an item are distinct kinds,
@@ -127,6 +131,9 @@ impl RefKind {
 
 /// The longest reference, in bytes.
 pub const MAX_REF_LEN: u32 = 128;
+
+/// The largest number of nested field kinds in a schema.
+pub const MAX_SCHEMA_DEPTH: usize = 32;
 
 impl FieldKind {
     pub fn opt(inner: FieldKind) -> Self {
@@ -153,6 +160,8 @@ impl FieldKind {
             Self::Seq { .. } => Value::Seq(Vec::new()),
             // Not a valid value: a bare reference field states its initial.
             Self::Ref(_) => Value::Ref(String::new()),
+            Self::Text { .. } => Value::Text(String::new()),
+            Self::Record(fields) => Value::Record(initial_fields(fields)),
         }
     }
 
@@ -162,9 +171,11 @@ impl FieldKind {
             Self::Bool => 1,
             Self::U32 | Self::I32 | Self::F32 => 4,
             Self::U64 | Self::Vec2 => 8,
-            Self::Opt(inner) => 1 + inner.max_encoded_len(),
-            Self::Seq { elem, max_len } => 4 + u64::from(*max_len) * elem.max_encoded_len(),
+            Self::Opt(inner) => 1u64.saturating_add(inner.max_encoded_len()),
+            Self::Seq { elem, max_len } => 4u64.saturating_add(u64::from(*max_len).saturating_mul(elem.max_encoded_len())),
             Self::Ref(_) => 4 + u64::from(MAX_REF_LEN),
+            Self::Text { max_bytes } => 4 + u64::from(*max_bytes),
+            Self::Record(fields) => fields_max_encoded_len(fields),
         }
     }
 
@@ -191,10 +202,25 @@ impl FieldKind {
                 put_u8(out, 9);
                 put_u8(out, kind.code());
             }
+            Self::Text { max_bytes } => {
+                put_u8(out, 10);
+                put_u32(out, *max_bytes);
+            }
+            Self::Record(fields) => {
+                put_u8(out, 11);
+                put_fields(fields, out);
+            }
         }
     }
 
     pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
+        Self::read_at(r, 0)
+    }
+
+    fn read_at(r: &mut crate::wire::WireReader<'_>, depth: usize) -> Result<Self, crate::wire::WireError> {
+        if depth >= MAX_SCHEMA_DEPTH {
+            return Err(crate::wire::WireError::TooDeep);
+        }
         Ok(match r.u8()? {
             1 => Self::Bool,
             2 => Self::U32,
@@ -202,16 +228,18 @@ impl FieldKind {
             4 => Self::U64,
             5 => Self::F32,
             6 => Self::Vec2,
-            7 => Self::opt(Self::read(r)?),
+            7 => Self::opt(Self::read_at(r, depth + 1)?),
             8 => {
                 let max_len = r.u32()?;
-                Self::seq(Self::read(r)?, max_len)
+                Self::seq(Self::read_at(r, depth + 1)?, max_len)
             }
             9 => Self::Ref(match r.u8()? {
                 1 => RefKind::Body,
                 2 => RefKind::Item,
                 other => return Err(crate::wire::WireError::BadTag(other)),
             }),
+            10 => Self::Text { max_bytes: r.u32()? },
+            11 => Self::Record(read_fields(r, depth + 1)?),
             other => return Err(crate::wire::WireError::BadTag(other)),
         })
     }
@@ -235,7 +263,44 @@ impl FieldKind {
                 d
             }
             Self::Ref(kind) => d.u8(9).u8(kind.code()),
+            Self::Text { max_bytes } => d.u8(10).u32(*max_bytes),
+            Self::Record(fields) => {
+                d.u8(11);
+                digest_fields(fields, d);
+                d
+            }
         };
+    }
+
+    /// A new kind can keep all values of the old kind. Bounds can grow.
+    pub fn accepts_migration_from(&self, from: &Self) -> bool {
+        match (self, from) {
+            (Self::Text { max_bytes: to }, Self::Text { max_bytes: from }) => to >= from,
+            (Self::Opt(to), Self::Opt(from)) => to.accepts_migration_from(from),
+            (Self::Seq { elem: to, max_len }, Self::Seq { elem: from, max_len: old_max }) => {
+                max_len >= old_max && to.accepts_migration_from(from)
+            }
+            (Self::Record(to), Self::Record(from)) => fields_accept_migration(to, from),
+            _ => self == from,
+        }
+    }
+
+    fn migrate_value(&self, from: &Self, value: &Value) -> Option<Value> {
+        if !self.accepts_migration_from(from) || value.conforms(from, 0).is_err() {
+            return None;
+        }
+        Some(match (self, from, value) {
+            (Self::Record(to), Self::Record(from), Value::Record(record)) => {
+                Value::Record(migrate_fields(to, from, record))
+            }
+            (Self::Opt(to), Self::Opt(from), Value::Opt(Some(value))) => {
+                Value::some(to.migrate_value(from, value)?)
+            }
+            (Self::Seq { elem: to, .. }, Self::Seq { elem: from, .. }, Value::Seq(values)) => {
+                Value::Seq(values.iter().map(|v| to.migrate_value(from, v)).collect::<Option<_>>()?)
+            }
+            _ => value.clone(),
+        })
     }
 }
 
@@ -253,6 +318,8 @@ pub enum Value {
     Seq(Vec<Value>),
     /// A simulation identity ([`FieldKind::Ref`]).
     Ref(String),
+    Text(String),
+    Record(Record),
 }
 
 /// Why a value or record does not match its schema.
@@ -262,7 +329,7 @@ pub enum SchemaError {
     KindMismatch { field: u16, expected: String },
     /// A float is NaN or infinite.
     NotFinite { field: u16 },
-    /// A sequence is longer than its declared maximum.
+    /// A sequence or text value is longer than its declared maximum.
     TooLong { field: u16, len: usize, max_len: u32 },
     /// The record has a different number of fields than the schema.
     FieldCount { expected: usize, found: usize },
@@ -270,6 +337,7 @@ pub enum SchemaError {
     NoSuchField { index: usize },
     /// A reference is empty or longer than [`MAX_REF_LEN`].
     BadReference { field: u16, len: usize },
+    Nested { field: u16, error: Box<SchemaError> },
 }
 
 impl std::fmt::Display for SchemaError {
@@ -286,6 +354,7 @@ impl std::fmt::Display for SchemaError {
                 write!(f, "the record has {found} fields; the schema declares {expected}")
             }
             Self::NoSuchField { index } => write!(f, "no field has index {index}"),
+            Self::Nested { field, error } => write!(f, "field tag {field}: {error}"),
             Self::BadReference { field, len } => {
                 write!(f, "field tag {field}: a reference of {len} bytes names nothing (1..={MAX_REF_LEN})")
             }
@@ -328,6 +397,14 @@ impl Value {
                 }
                 Ok(())
             }
+            (Value::Text(text), FieldKind::Text { max_bytes }) => {
+                if text.len() > *max_bytes as usize {
+                    return Err(SchemaError::TooLong { field, len: text.len(), max_len: *max_bytes });
+                }
+                Ok(())
+            }
+            (Value::Record(record), FieldKind::Record(fields)) => check_fields(fields, record)
+                .map_err(|error| SchemaError::Nested { field, error: Box::new(error) }),
             _ => Err(mismatch()),
         }
     }
@@ -357,10 +434,11 @@ impl Value {
                     item.encode(out);
                 }
             }
-            Value::Ref(id) => {
+            Value::Ref(id) | Value::Text(id) => {
                 out.extend_from_slice(&(id.len() as u32).to_le_bytes());
                 out.extend_from_slice(id.as_bytes());
             }
+            Value::Record(record) => record.encode(out),
         }
     }
 
@@ -385,12 +463,13 @@ impl Value {
                     item.put_wire(out);
                 }
             }
-            Value::Ref(id) => put_str(out, id),
+            Value::Ref(id) | Value::Text(id) => put_str(out, id),
+            Value::Record(record) => record.put_wire(out),
         }
     }
 
-    /// Read a value of `kind`. Bounds are the schema check's job, not the
-    /// reader's; the reader only refuses lengths past [`crate::wire::MAX_LEN`].
+    /// Read a value of `kind`. Refuse collection bounds before allocation.
+    /// The schema check also validates references and finite numbers.
     pub fn read_wire(
         kind: &FieldKind,
         r: &mut crate::wire::WireReader<'_>,
@@ -403,11 +482,18 @@ impl Value {
             FieldKind::F32 => Value::F32(r.f32()?),
             FieldKind::Vec2 => Value::Vec2(r.vec2()?),
             FieldKind::Opt(inner) => Value::Opt(r.opt(|r| Self::read_wire(inner, r).map(Box::new))?),
-            FieldKind::Seq { elem, .. } => {
+            FieldKind::Seq { elem, max_len } => {
                 let n = r.read_len()?;
+                if n > *max_len as usize { return Err(crate::wire::WireError::TooLong(n as u64)); }
                 Value::Seq((0..n).map(|_| Self::read_wire(elem, r)).collect::<Result<_, _>>()?)
             }
             FieldKind::Ref(_) => Value::Ref(r.str()?.to_owned()),
+            FieldKind::Text { max_bytes } => {
+                let text = r.str()?;
+                if text.len() > *max_bytes as usize { return Err(crate::wire::WireError::TooLong(text.len() as u64)); }
+                Value::Text(text.to_owned())
+            }
+            FieldKind::Record(fields) => Value::Record(read_record_fields(fields, r)?),
         })
     }
 
@@ -464,6 +550,18 @@ impl Value {
 
     pub fn some(inner: Value) -> Self {
         Value::Opt(Some(Box::new(inner)))
+    }
+
+    pub fn as_text(&self) -> Option<&str> {
+        match self { Self::Text(text) => Some(text), _ => None }
+    }
+
+    pub fn as_record(&self) -> Option<&Record> {
+        match self { Self::Record(record) => Some(record), _ => None }
+    }
+
+    pub fn as_record_mut(&mut self) -> Option<&mut Record> {
+        match self { Self::Record(record) => Some(record), _ => None }
     }
 }
 
@@ -531,28 +629,16 @@ pub struct StateSchema {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SchemaDeclError {
     DuplicateTag { tag: u16 },
+    DuplicateName { name: String },
     BadInitial(SchemaError),
     Empty,
+    TooDeep,
 }
 
 impl StateSchema {
-    /// Checks tag uniqueness and the initial values.
+    /// Checks field identities, nesting and initial values.
     pub fn validate(&self) -> Result<(), SchemaDeclError> {
-        if self.fields.is_empty() {
-            return Err(SchemaDeclError::Empty);
-        }
-        let mut tags: Vec<u16> = self.fields.iter().map(|f| f.tag).collect();
-        tags.sort_unstable();
-        if let Some(pair) = tags.windows(2).find(|w| w[0] == w[1]) {
-            return Err(SchemaDeclError::DuplicateTag { tag: pair[0] });
-        }
-        for field in &self.fields {
-            field
-                .initial
-                .conforms(&field.kind, field.tag)
-                .map_err(SchemaDeclError::BadInitial)?;
-        }
-        Ok(())
+        validate_fields(&self.fields, 0)
     }
 
     /// The canonical shape digest: key, attachment, save policy, and each
@@ -569,59 +655,32 @@ impl StateSchema {
             SaveEligibility::Checkpoint => 2,
             SaveEligibility::Durable => 3,
         });
-        d.u32(self.fields.len() as u32);
-        for field in &self.fields {
-            d.u16(field.tag);
-            field.kind.digest_into(&mut d);
-            let mut initial = Vec::new();
-            field.initial.encode(&mut initial);
-            d.u64(initial.len() as u64).bytes(&initial);
-        }
+        digest_fields(&self.fields, &mut d);
         d.finish()
     }
 
     /// A new record with every field at its initial value.
     pub fn initial_record(&self) -> Record {
-        Record {
-            values: self.fields.iter().map(|f| f.initial.clone()).collect(),
-        }
+        initial_fields(&self.fields)
     }
 
     /// `record`, written under `from`, as a record of this schema: a field
-    /// keeps the value of the field with its TAG in `from` when that field has
-    /// the same kind, and takes its initial value otherwise (a new field, or
-    /// one whose kind changed). A field `from` had and this schema does not is
-    /// dropped. A name is not an identity: a renamed field keeps its value.
+    /// keeps the value of the field with its TAG in `from` when the kinds are
+    /// compatible, and takes its initial value otherwise. This rule applies
+    /// to nested records too. A name is not an identity.
     pub fn migrate(&self, from: &StateSchema, record: &Record) -> Record {
-        Record {
-            values: self
-                .fields
-                .iter()
-                .map(|field| {
-                    from.fields
-                        .iter()
-                        .position(|old| old.tag == field.tag && old.kind == field.kind)
-                        .and_then(|i| record.values.get(i))
-                        .filter(|value| value.conforms(&field.kind, field.tag).is_ok())
-                        .cloned()
-                        .unwrap_or_else(|| field.initial.clone())
-                })
-                .collect(),
-        }
+        migrate_fields(&self.fields, &from.fields, record)
+    }
+
+    /// Whether all retained fields can keep their old values.
+    pub fn accepts_migration_from(&self, from: &StateSchema) -> bool {
+        self.key == from.key && self.attachment == from.attachment && self.save == from.save
+            && fields_accept_migration(&self.fields, &from.fields)
     }
 
     /// Checks that a record is a valid value of this schema.
     pub fn check(&self, record: &Record) -> Result<(), SchemaError> {
-        if record.values.len() != self.fields.len() {
-            return Err(SchemaError::FieldCount {
-                expected: self.fields.len(),
-                found: record.values.len(),
-            });
-        }
-        for (value, field) in record.values.iter().zip(&self.fields) {
-            value.conforms(&field.kind, field.tag)?;
-        }
-        Ok(())
+        check_fields(&self.fields, record)
     }
 
     pub fn put(&self, out: &mut Vec<u8>) {
@@ -642,13 +701,7 @@ impl StateSchema {
                 SaveEligibility::Durable => 3,
             },
         );
-        put_u32(out, self.fields.len() as u32);
-        for field in &self.fields {
-            put_u16(out, field.tag);
-            put_str(out, &field.name);
-            field.kind.put(out);
-            field.initial.put_wire(out);
-        }
+        put_fields(&self.fields, out);
     }
 
     pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
@@ -665,20 +718,7 @@ impl StateSchema {
             3 => SaveEligibility::Durable,
             other => return Err(WireError::BadTag(other)),
         };
-        let n = r.read_len()?;
-        let mut fields = Vec::with_capacity(n.min(256));
-        for _ in 0..n {
-            let tag = r.u16()?;
-            let name: Name = r.str()?.to_owned().into();
-            let kind = FieldKind::read(r)?;
-            let initial = Value::read_wire(&kind, r)?;
-            fields.push(FieldDecl {
-                tag,
-                name,
-                kind,
-                initial,
-            });
-        }
+        let fields = read_fields(r, 0)?;
         Ok(Self {
             key,
             attachment,
@@ -689,19 +729,113 @@ impl StateSchema {
 
     /// A record of this schema on the wire.
     pub fn read_record(&self, r: &mut crate::wire::WireReader<'_>) -> Result<Record, crate::wire::WireError> {
-        Ok(Record {
-            values: self
-                .fields
-                .iter()
-                .map(|f| Value::read_wire(&f.kind, r))
-                .collect::<Result<_, _>>()?,
-        })
+        read_record_fields(&self.fields, r)
     }
 
     /// The largest canonical encoding of one record.
     pub fn max_encoded_len(&self) -> u64 {
-        self.fields.iter().map(|f| f.kind.max_encoded_len()).sum()
+        fields_max_encoded_len(&self.fields)
     }
+}
+
+fn validate_kind(kind: &FieldKind, depth: usize) -> Result<(), SchemaDeclError> {
+    if depth >= MAX_SCHEMA_DEPTH {
+        return Err(SchemaDeclError::TooDeep);
+    }
+    match kind {
+        FieldKind::Opt(inner) | FieldKind::Seq { elem: inner, .. } => validate_kind(inner, depth + 1),
+        FieldKind::Record(fields) => validate_fields(fields, depth + 1),
+        _ => Ok(()),
+    }
+}
+
+fn validate_fields(fields: &[FieldDecl], depth: usize) -> Result<(), SchemaDeclError> {
+    if fields.is_empty() {
+        return Err(SchemaDeclError::Empty);
+    }
+    let mut tags = std::collections::BTreeSet::new();
+    let mut names = std::collections::BTreeSet::new();
+    for field in fields {
+        if !tags.insert(field.tag) {
+            return Err(SchemaDeclError::DuplicateTag { tag: field.tag });
+        }
+        if !names.insert(field.name.as_ref()) {
+            return Err(SchemaDeclError::DuplicateName { name: field.name.to_string() });
+        }
+        validate_kind(&field.kind, depth)?;
+        field.initial.conforms(&field.kind, field.tag).map_err(SchemaDeclError::BadInitial)?;
+    }
+    Ok(())
+}
+
+fn initial_fields(fields: &[FieldDecl]) -> Record {
+    Record::from_values(fields.iter().map(|f| f.initial.clone()).collect())
+}
+
+fn check_fields(fields: &[FieldDecl], record: &Record) -> Result<(), SchemaError> {
+    if record.values.len() != fields.len() {
+        return Err(SchemaError::FieldCount { expected: fields.len(), found: record.values.len() });
+    }
+    for (value, field) in record.values.iter().zip(fields) {
+        value.conforms(&field.kind, field.tag)?;
+    }
+    Ok(())
+}
+
+fn fields_accept_migration(to: &[FieldDecl], from: &[FieldDecl]) -> bool {
+    from.iter().all(|old| to.iter().find(|f| f.tag == old.tag)
+        .is_none_or(|new| new.kind.accepts_migration_from(&old.kind)))
+}
+
+fn migrate_fields(to: &[FieldDecl], from: &[FieldDecl], record: &Record) -> Record {
+    Record::from_values(to.iter().map(|field| {
+        from.iter().position(|old| old.tag == field.tag)
+            .and_then(|i| field.kind.migrate_value(&from[i].kind, record.values.get(i)?))
+            .unwrap_or_else(|| field.initial.clone())
+    }).collect())
+}
+
+fn fields_max_encoded_len(fields: &[FieldDecl]) -> u64 {
+    fields.iter().fold(0u64, |n, f| n.saturating_add(f.kind.max_encoded_len()))
+}
+
+fn digest_fields(fields: &[FieldDecl], digest: &mut Digest) {
+    digest.u32(fields.len() as u32);
+    for field in fields {
+        digest.u16(field.tag);
+        field.kind.digest_into(digest);
+        let mut initial = Vec::new();
+        field.initial.encode(&mut initial);
+        digest.u64(initial.len() as u64).bytes(&initial);
+    }
+}
+
+fn put_fields(fields: &[FieldDecl], out: &mut Vec<u8>) {
+    use crate::wire::*;
+    put_u32(out, fields.len() as u32);
+    for field in fields {
+        put_u16(out, field.tag);
+        put_str(out, &field.name);
+        field.kind.put(out);
+        field.initial.put_wire(out);
+    }
+}
+
+fn read_fields(r: &mut crate::wire::WireReader<'_>, depth: usize) -> Result<Vec<FieldDecl>, crate::wire::WireError> {
+    let n = r.read_len()?;
+    let mut fields = Vec::with_capacity(n.min(256));
+    for _ in 0..n {
+        let tag = r.u16()?;
+        let name = r.str()?.to_owned().into();
+        let kind = FieldKind::read_at(r, depth)?;
+        let initial = Value::read_wire(&kind, r)?;
+        fields.push(FieldDecl { tag, name, kind, initial });
+    }
+    Ok(fields)
+}
+
+fn read_record_fields(fields: &[FieldDecl], r: &mut crate::wire::WireReader<'_>) -> Result<Record, crate::wire::WireError> {
+    Ok(Record::from_values(fields.iter().map(|f| Value::read_wire(&f.kind, r)).collect::<Result<_, _>>()?))
 }
 
 /// The values of one record, in the order of its schema's fields.
@@ -711,10 +845,19 @@ pub struct Record {
 }
 
 impl Record {
+    /// Construct values in schema order. The host checks them before commit.
+    pub fn from_values(values: Vec<Value>) -> Self {
+        Self { values }
+    }
+
     pub fn get(&self, field: FieldRef) -> Result<&Value, SchemaError> {
         self.values
             .get(field.0)
             .ok_or(SchemaError::NoSuchField { index: field.0 })
+    }
+
+    pub fn get_mut(&mut self, field: FieldRef) -> Result<&mut Value, SchemaError> {
+        self.values.get_mut(field.0).ok_or(SchemaError::NoSuchField { index: field.0 })
     }
 
     /// Replaces one value. The host checks the record against its schema
@@ -757,6 +900,82 @@ impl Record {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn nested_kind() -> FieldKind {
+        FieldKind::seq(FieldKind::Record(vec![
+            FieldDecl::new(1, "label", FieldKind::Text { max_bytes: 8 }),
+            FieldDecl::new(2, "target", FieldKind::opt(FieldKind::Ref(RefKind::Body))),
+            FieldDecl::new(3, "offset", FieldKind::Vec2),
+        ]), 4)
+    }
+
+    #[test]
+    fn nested_values_keep_wire_bits_and_canonical_checksums() {
+        let kind = nested_kind();
+        let value = Value::Seq(vec![Value::Record(Record::from_values(vec![
+            Value::Text("écho".into()), Value::some(Value::Ref("placement:target".into())),
+            Value::Vec2([-0.0, 2.0]),
+        ]))]);
+        assert_eq!(value.conforms(&kind, 1), Ok(()));
+        let mut bytes = Vec::new();
+        value.put_wire(&mut bytes);
+        assert_eq!(crate::wire::decode_all(&bytes, |r| Value::read_wire(&kind, r)).unwrap(), value);
+        let mut canonical = Vec::new();
+        value.encode(&mut canonical);
+        assert_ne!(bytes, canonical, "wire keeps the sign of zero");
+        let plus_zero = crate::wire::decode_all(&canonical, |r| Value::read_wire(&kind, r)).unwrap();
+        let mut again = Vec::new();
+        plus_zero.encode(&mut again);
+        assert_eq!(again, canonical);
+        let mut encoded_kind = Vec::new();
+        kind.put(&mut encoded_kind);
+        assert_eq!(crate::wire::decode_all(&encoded_kind, FieldKind::read).unwrap(), kind);
+        assert!(bytes.len() as u64 <= kind.max_encoded_len());
+        assert!(Value::Text("ééé".into()).conforms(&FieldKind::Text { max_bytes: 5 }, 1).is_err(),
+            "text bounds count UTF-8 bytes");
+        assert!(Value::Ref(String::new()).conforms(&FieldKind::Ref(RefKind::Body), 1).is_err());
+        assert!(Value::Text(String::new()).conforms(&FieldKind::Text { max_bytes: 0 }, 1).is_ok());
+    }
+
+    #[test]
+    fn nested_migration_keeps_tags_and_refuses_narrower_contracts() {
+        let old = FieldKind::opt(nested_kind());
+        let new = FieldKind::opt(FieldKind::seq(FieldKind::Record(vec![
+            FieldDecl::new(4, "new", FieldKind::Bool).with_initial(Value::Bool(true)),
+            FieldDecl::new(2, "who", FieldKind::opt(FieldKind::Ref(RefKind::Body))),
+            FieldDecl::new(1, "name", FieldKind::Text { max_bytes: 16 }),
+        ]), 8));
+        let value = Value::some(Value::Seq(vec![Value::Record(Record::from_values(vec![
+            Value::Text("old".into()), Value::some(Value::Ref("slot:0/7".into())), Value::Vec2([2.0, 3.0]),
+        ]))]));
+        assert!(new.accepts_migration_from(&old));
+        assert_eq!(new.migrate_value(&old, &value), Some(Value::some(Value::Seq(vec![
+            Value::Record(Record::from_values(vec![Value::Bool(true),
+                Value::some(Value::Ref("slot:0/7".into())), Value::Text("old".into())])),
+        ]))));
+        assert!(!old.accepts_migration_from(&new), "a smaller bound can lose saved values");
+        assert!(!FieldKind::opt(FieldKind::U32).accepts_migration_from(&old));
+    }
+
+    #[test]
+    fn empty_sequences_do_not_hide_invalid_nested_declarations() {
+        let schema = |kind| StateSchema { key: SchemaKey::new("test", "nested", 1),
+            attachment: Attachment::Body, save: SaveEligibility::Transient,
+            fields: vec![FieldDecl::new(1, "entries", kind)] };
+        let mut fields = vec![FieldDecl::new(1, "a", FieldKind::U32), FieldDecl::new(1, "b", FieldKind::Bool)];
+        assert_eq!(schema(FieldKind::seq(FieldKind::Record(fields.clone()), 3)).validate(),
+            Err(SchemaDeclError::DuplicateTag { tag: 1 }));
+        fields[1].tag = 2;
+        fields[1].name = "a".into();
+        assert!(matches!(schema(FieldKind::seq(FieldKind::Record(fields), 3)).validate(),
+            Err(SchemaDeclError::DuplicateName { .. })));
+        let mut kind = FieldKind::U32;
+        for _ in 0..MAX_SCHEMA_DEPTH { kind = FieldKind::opt(kind); }
+        assert_eq!(schema(kind.clone()).validate(), Err(SchemaDeclError::TooDeep));
+        let mut bytes = Vec::new();
+        kind.put(&mut bytes);
+        assert_eq!(FieldKind::read(&mut crate::wire::WireReader::new(&bytes)), Err(crate::wire::WireError::TooDeep));
+    }
 
     /// A reference names something by its identity: it goes to the wire and
     /// back, its kind is part of the shape, and an empty or overlong one is

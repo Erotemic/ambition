@@ -300,6 +300,24 @@ def test_the_profiler_share_is_summed_across_tracys_threads(bundle: Path):
     assert record["instruments"]["tracy"] is True
 
 
+@pytest.mark.parametrize("strategy", ["split-native-perf-and-tracy", "split-tracy-then-native"])
+def test_separate_tracy_results_do_not_instrument_the_native_primary(tmp_path: Path, strategy: str):
+    native = write_bundle(tmp_path, "paired-native", metadata={
+        "capture_strategy": strategy, "capture_role": "primary",
+        "tracy_requested": "no", "cargo_features": "",
+    })
+    diagnostic = write_bundle(tmp_path, "paired-tracy", metadata={
+        "capture_strategy": strategy, "capture_role": "tracy-diagnostic",
+    })
+    record = hist.build_record(str(native))
+    assert record["instruments"]["tracy"] is False
+    assert record["scheduler"]["system_executions_total"] is None
+    assert record["frame_ms"]["mean"] == pytest.approx(1.25)
+    trace_record = hist.build_record(str(diagnostic))
+    assert trace_record["instruments"]["tracy"] is True
+    assert trace_record["scheduler"]["system_executions_total"] == 400
+
+
 def test_p90_stays_null_because_the_census_does_not_emit_one(bundle: Path):
     """A series cannot be back-filled with a dimension it never recorded."""
     frame = hist.build_record(str(bundle))["frame_ms"]

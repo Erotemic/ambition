@@ -279,8 +279,7 @@ impl Autopilot {
     }
 }
 
-/// Where the autopilot runs: after the game's policy, before the script is
-/// written into the seat.
+/// Runs before the sampled input is written into the seat.
 #[derive(bevy::ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct AutopilotDrive;
 
@@ -288,11 +287,8 @@ pub struct AutopilotDrive;
 pub fn install(app: &mut App) {
     app.init_resource::<AutopilotOrder>();
     app.init_resource::<Autopilot>();
-    app.configure_sets(
-        Update,
-        AutopilotDrive.after(crate::scripted_input::AutoplayPolicy),
-    );
-    app.add_systems(Update, (drive_autopilot, report_autopilot).chain().in_set(AutopilotDrive));
+    app.add_systems(ambition_platformer2d_runtime::input_sampling::LocalInputSampling,
+        (drive_autopilot, report_autopilot).chain().in_set(AutopilotDrive));
 }
 
 type PlayerBody<'a> = (
@@ -312,7 +308,7 @@ pub fn drive_autopilot(
     order: Res<AutopilotOrder>,
     mut pilot: ResMut<Autopilot>,
     mut script: ResMut<ScriptedControls>,
-    time: Res<Time>,
+    clock: Res<ambition_platformer2d_runtime::input_sampling::LocalInputClock>,
     collision: CollisionWorld,
     specs: Option<LiveRoomSpecs>,
     players: Query<(Entity, PlayerBody), With<PrimaryPlayer>>,
@@ -327,12 +323,14 @@ pub fn drive_autopilot(
             return;
         }
         AutopilotOrder::Press(frame) => {
+            let frame = if order.is_changed() { frame } else { frame.levels_only() };
             script.0 = frame;
             pilot.last = frame;
             return;
         }
         AutopilotOrder::GoTo(goal) => goal,
     };
+    let (now, dt) = (clock.now, clock.dt);
     let Ok((entity, (kin, ground, wall, model, abilities, base_size, frame, in_room, flight))) = players.single() else {
         script.0 = pilot.edges(LegInput::default());
         return;
@@ -432,6 +430,10 @@ pub fn drive_autopilot(
         Some(Some(graph)) => graph,
     };
 
+    if dt <= 0.0 {
+        script.0 = pilot.edges(LegInput::default());
+        return;
+    }
     pilot.toggle_wait = pilot.toggle_wait.saturating_sub(1);
     match goal {
         // A goal in the air: take off, then fly the route.
@@ -472,14 +474,14 @@ pub fn drive_autopilot(
     }
     pilot.retry_in = pilot.retry_in.saturating_sub(1);
     let facts = FollowFacts {
-        now: time.elapsed_secs(),
+        now,
         leg: LegFacts {
             feet,
             vel: kin.vel,
             on_ground: ground.on_ground,
             side: graph.frame.side,
             down: graph.frame.down,
-            dt: time.delta_secs().max(1.0 / 240.0),
+            dt,
             wall: wall.and_then(|wall| wall.on_wall.then_some(wall.wall_normal_x.signum())),
             // A player runs at its top speed and stops by its own braking.
             approach: graph.approach_law(),
@@ -664,7 +666,7 @@ mod tests {
     fn autopilot_in_a_room() -> App {
         AsyncComputeTaskPool::get_or_init(TaskPool::default);
         let mut app = App::new();
-        app.init_resource::<Time>();
+        app.insert_resource(ambition_platformer2d_runtime::input_sampling::LocalInputClock { now: 0.0, dt: 1.0 / 60.0 });
         app.init_resource::<ScriptedControls>();
         app.init_resource::<Autopilot>();
         app.insert_resource(AutopilotOrder::GoTo(NavGoal::Stand(ae::Vec2::new(300.0, 360.0))));

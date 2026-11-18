@@ -212,12 +212,6 @@ where
         },
     );
 
-    registrar.declare_rollback_derived_component::<crate::body::BodyFrameOutput>(
-        OWNER,
-        "derived.player_body_frame_output",
-        "republished by body integration every simulation frame",
-    );
-
     registrar.declare_rollback_derived_resource::<crate::body::ActorDecisionFacts>(
         OWNER,
         "derived.actor_decision_facts",

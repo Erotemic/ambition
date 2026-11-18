@@ -32,14 +32,14 @@ fn trade() {
     if this.state.trade.sent { return; }
     this.state.trade.sent = true;
     let trade = #{ reply: #{ request: 1, selector: "exchange_probe::trade/result" },
-        costs: [#{ id: "healthcell", count: 1 }], grants: [#{ id: "manacell", count: 1 }], pay_coins: 5 };
+        exchange: #{ costs: [#{ id: "healthcell", count: 1 }], grants: [#{ id: "manacell", count: 1 }], pay_coins: 5 } };
     this.requests.push(request("inventory_exchange", trade));
     this.requests.push(request("inventory_exchange", trade));
     trade.reply.request = 2;
-    trade.grants = [#{ id: "portalgun", count: 1 }];
+    trade.exchange.grants = [#{ id: "portalgun", count: 1 }];
     this.requests.push(request("inventory_exchange", trade));
     trade.reply.request = 3;
-    trade.grants = [#{ id: "not_a_catalog_item", count: 1 }];
+    trade.exchange.grants = [#{ id: "not_a_catalog_item", count: 1 }];
     this.requests.push(request("inventory_exchange", trade));
 }
 fn result() {

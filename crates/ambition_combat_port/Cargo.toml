@@ -11,3 +11,4 @@ description = "The pure values of the combat domain's extension ports: a damage 
 # owns the adapter that lowers them into the effect executor.
 [dependencies]
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_world_port = { path = "../ambition_world_port" }

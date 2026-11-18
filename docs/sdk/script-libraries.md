@@ -5,6 +5,9 @@ functions, parameterized behaviors, and factories for typed state declarations.
 A new use can choose parameters and compose those behaviors in script code.
 It needs no new Rust adapter.
 
+Use [structured state](script-state.md) for reusable nested record types and
+bounded text. Library factories can compose these declarations.
+
 ## Files and imports
 
 A file or directory listed in `AMBITION_EXTENSION_MODULES` supplies entry
@@ -132,10 +135,11 @@ The fixture checks native item and wallet changes, actual projectile creation
 replies, and GGRS replay. File edits cover syntax errors, missing dependencies,
 incompatible schema changes, repair, deletion, and updates to both consumers.
 
-One cached development run on 2026-11-18 measured 95–219 microseconds per
-backend call and 118–273 microseconds per whole host invocation. These are
-per-entry averages from 32–160 calls under a GGRS sync test. They include ABI
-conversion and library initialization. Whole-host time also includes state
+One cached development run on 2026-11-18 measured 123–256 microseconds per
+backend call and 153–313 microseconds per whole host invocation. These are
+per-entry averages from 32–160 calls under a GGRS sync test. The records include
+nested reports and bounded outcome logs. These times include ABI conversion and
+library initialization. Whole-host time also includes state
 read, validation, and commit. Native reducers, physics, rendering, source
 compilation, and asset startup are excluded. This is a local fixture result,
 not a release or device budget.
@@ -144,6 +148,7 @@ The owner builds for WebAssembly. The assembled app also passes the Android
 check with its declared Android features and API 31 NDK wrapper. These checks
 prove compilation; they do not prove browser or device playback.
 
-Libraries complete source reuse and behavior factories. Named nested records,
-bounded text, general actor and prop creation, cross-object event routing,
-and the remaining domain lifecycle contracts stay open in the [capability census](../planning/engine/script-first-capability-census.md).
+Libraries and structured state support source reuse, behavior factories, nested
+records and bounded text. [Actor creation](actor-creation.md) now supplies native character compositions.
+Interactive props, cross-object event routing, and the remaining domain lifecycle
+contracts stay open in the [capability census](../planning/engine/script-first-capability-census.md).

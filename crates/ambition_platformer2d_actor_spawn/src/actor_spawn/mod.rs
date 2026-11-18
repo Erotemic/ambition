@@ -877,7 +877,7 @@ impl NpcActorSpawnPlan {
         if let Some(character) = worn {
             match prepared.get(&character) {
                 Some(definition) => {
-                    wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
+                    initialize_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
                     attach_character_mount_role(sprite_content, &mut scope.entity_scope(), definition, body_size);
                 }
                 None => {
@@ -1485,7 +1485,7 @@ pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteC
     // A summon wears its character like a placement does, so its identity is
     // `CharacterForm` rather than only the config's sprite id. The grant writes
     // no health or contact tuning, so the per-summon overrides above stand.
-    wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
+    initialize_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
     // The authored mount role captured above, on the body that now exists.
     if let Some(mount) = mount_role.as_ref() {
         attach_mount_role_from(
@@ -1521,7 +1521,7 @@ pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteC
 /// Answers to no match: the character's own feel is the whole answer (see
 /// `MatchRules::body_over`). An unregistered held item is a WARNING, not a
 /// refusal: the body is fine without it.
-fn wear_prepared_character(sprite_content: &ambition_sprite_sheet::SpriteContent,
+fn initialize_prepared_character(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
     definition: &ambition_characters::prepared::PreparedCharacterDefinition,
     generation: ambition_characters::prepared::CharacterCatalogGeneration,
@@ -1540,6 +1540,7 @@ fn wear_prepared_character(sprite_content: &ambition_sprite_sheet::SpriteContent
         spec.map(HeldItem::new)
     });
     crate::character_body::grant_prepared_character_body(&sprite_content,
+                ambition_body_seed::BaselineBoundary::Construction,
         &mut scope.entity_scope(),
         definition,
         generation,
@@ -1720,7 +1721,7 @@ pub fn spawn_enemy_with_faction_into(sprite_content: &ambition_sprite_sheet::Spr
         }
         // IT WEARS ITSELF, so its kit comes from its character rather than from
         // `enemy.spec.melee`.
-        wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
+        initialize_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
         //  a body that states no mount gets no role, and that is the whole
         // rule now. The other arm read the archetype row this placement's brain
         // key happened to name — which for every migrated character was the
@@ -2272,11 +2273,8 @@ pub fn spawn_encounter_mob(sprite_content: &ambition_sprite_sheet::SpriteContent
     // The mob wears its authored character, so identity/kit state follows the
     // same character seam used by the other body-construction roads.
     if let Some(definition) = definition {
-        commands
-            .entity(entity)
-            .insert(ambition_characters::actor::CharacterForm::new(
-                definition.id.as_str(),
-            ));
+        initialize_prepared_character(&sprite_content,
+            &mut RootScope::new(commands, session_scope, entity), definition, prepared.generation());
     }
     commands
         .entity(entity)

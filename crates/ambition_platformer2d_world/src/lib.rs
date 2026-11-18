@@ -6,6 +6,7 @@
 //! simulation crates interpret them through explicit lowering seams.
 
 pub mod collision;
+pub mod creation;
 pub mod debug_label;
 pub mod light_source;
 pub mod geometry_observers;

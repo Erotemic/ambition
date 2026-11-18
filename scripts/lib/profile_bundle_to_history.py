@@ -381,6 +381,11 @@ def perception_metrics(bundle: Bundle) -> dict | None:
     return out if any(value is not None for value in out.values()) else None
 
 
+def has_separate_tracy_pass(meta: dict) -> bool:
+    return (meta.get("capture_strategy") in {"split-native-perf-and-tracy", "split-tracy-then-native"}
+            and meta.get("capture_role", "primary") == "primary")
+
+
 def read_tracy_zones(bundle: Bundle) -> list[dict]:
     """`tracy_zones.csv`, with its unquoted comma-bearing `name` column repaired.
 
@@ -389,6 +394,8 @@ def read_tracy_zones(bundle: Bundle) -> list[dict]:
     such a row. The trailing columns are fixed in number, so split from the
     RIGHT. `scripts/lib/tracy_zone_report.py` carries the same repair.
     """
+    if has_separate_tracy_pass(bundle.metadata()):
+        return []
     path = os.path.join(bundle.path, "tracy_zones.csv")
     if not os.path.exists(path):
         return []
@@ -754,7 +761,7 @@ def instrument_facts(bundle: Bundle, meta: dict) -> dict:
     be absent. The key must carry what happened; the request is kept beside it
     so a surprising row can be explained.
     """
-    tracy_effective = bool(
+    tracy_effective = not has_separate_tracy_pass(meta) and bool(
         bundle.exists("tracy.trace")
         or bundle.exists("tracy_zones.csv")
         or bundle.exists("tracy_summary.md")

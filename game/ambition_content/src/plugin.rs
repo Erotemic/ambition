@@ -132,6 +132,15 @@ impl Plugin for AmbitionContentPlugin {
                 .expect("Ambition's pack has a `room_rules` source, and a pack that compiles lowers it"),
         );
 
+        {
+            use ambition_platformer2d_world::{creation::{ActorCreationLimits, ACTOR_CREATION_RULES_SCHEMA},
+                scoped_rules::{DeclareRulesExt as _, RulesScope}};
+            if let Some(limits) = pack.lowered::<ActorCreationLimits>(
+                &ambition_content_pack::SchemaId::new(ACTOR_CREATION_RULES_SCHEMA)) {
+                app.declare_rules(RulesScope::UntaggedRooms, *limits);
+            }
+        }
+
         // Ambition's people are on the player's side (Jon, 2026-10-30: "NPCs in
         // dangerous areas that are aligned with you need to help you fight").
         // An NPC with a kit joins the player's fight in a room authored

@@ -41,6 +41,7 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         // The gate network reads the same rooms as the portals it opens.
         gate_network_schema(),
         world_manifest_schema(),
+        actor_creation_rules_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
         ambition_items::content_schema::held_item_art::held_item_art_schema(),
@@ -115,5 +116,15 @@ pub fn world_manifest_schema() -> ambition_content_pack::SchemaRegistration {
         "A game's world declaration: the room a fresh session starts in, and \
          each world file by its id, the first one required.",
         world_manifest_problems,
+    )
+}
+
+/// Room-scoped bounds for native character composition.
+pub fn actor_creation_rules_schema() -> ambition_content_pack::SchemaRegistration {
+    use ambition_platformer2d_world::creation::{ActorCreationLimits, ACTOR_CREATION_RULES_SCHEMA};
+    ambition_content_pack::rules_schema::<ActorCreationLimits>(
+        ACTOR_CREATION_RULES_SCHEMA, 1, ambition_platformer2d_world::rooms::WORLD_CAPABILITY,
+        "Bounds for actor batches, complete clusters, room population and initial behavior state. Zero disables that allowance.",
+        |_| Vec::new(),
     )
 }

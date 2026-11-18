@@ -86,6 +86,12 @@ where
         |tuning| (u64::from(tuning.0.gravity.to_bits()) << 32) | u64::from(tuning.0.run_accel.to_bits()),
     );
 
+    registrar.declare_rollback_derived_component::<crate::BodyFrameOutput>(
+        OWNER,
+        "derived.player_body_frame_output",
+        "republished by body integration every simulation frame",
+    );
+
     // DECLARED DERIVED — not state, and each says what rebuilds it.
     registrar
         .declare_rollback_derived_component::<bc::BodyEnvironmentContact>(

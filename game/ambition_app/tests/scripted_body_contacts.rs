@@ -104,6 +104,7 @@ fn scripts_read_bounded_native_contacts_and_bounce_either_controller_through_rep
             ContactFactsLimits {
                 max_touchers: 1,
                 max_surfaces: 1,
+                ..Default::default()
             },
         );
     let x = teacher_body.pos.x + teacher_body.half_extent().x + player_body.half_extent().x - 5.0;
@@ -138,5 +139,126 @@ fn scripts_read_bounded_native_contacts_and_bounce_either_controller_through_rep
     }
     assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
     sim.rollback_health().unwrap();
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+const WORLD_RECORD: SchemaKey = SchemaKey::new("world_contact_probe", "contact", 1);
+const WORLD_SOURCE: &str = r#"
+fn declare() {
+    #{ provider: "world_contact_probe", key: "reactive_geometry", schemas: [
+        #{key: "contact", fields: [
+            #{tag: 1, name: "support", kind: "u32"},
+            #{tag: 2, name: "head", kind: "u32"},
+            #{tag: 3, name: "source", kind: "text 128"},
+            #{tag: 4, name: "requested", kind: "bool"},
+            #{tag: 5, name: "created", kind: "u32"},
+            #{tag: 6, name: "child", kind: "opt body"},
+        ]}
+    ], entries: [
+        #{key: "sense", phase: "body_contact",
+          trigger: #{port: "body_contact", selector: "world_contact_probe.observe"},
+          writes: ["contact"], requests: ["create_actors"], limit: 1},
+        #{key: "created", phase: "actor_think",
+          trigger: #{port: "action_result", selector: "created"}, writes: ["contact"]}
+    ]}
+}
+fn sense() {
+    let sample = this.trigger;
+    if !sample.world_available { throw "no current movement output"; }
+    if sample.world_refusal != () { throw sample.world_refusal; }
+    if sample.world_truncated { throw "world contact budget exhausted"; }
+    for hit in sample.world {
+        if hit.role == "support" { this.state.contact.support += 1; }
+        if hit.role != "head" || hit.block == () { continue; }
+        if hit.block.geometry.origin != "placement" { continue; }
+        this.state.contact.head += 1;
+        this.state.contact.source = hit.block.geometry.key;
+        if this.state.contact.requested { continue; }
+        this.state.contact.requested = true;
+        let p = sample.body.position;
+        this.requests.push(request("create_actors", #{
+            reply: #{request: 1, selector: "world_contact_probe::reactive_geometry/created"},
+            actors: [#{key: "bonk_reward", character: "practice_sandbag",
+                       at: [p[0] + 200.0, p[1] - 100.0]}]
+        }));
+    }
+}
+fn created() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage != "applied" { throw this.trigger.message; }
+    this.state.contact.created += this.trigger.subjects.len();
+    this.state.contact.child = this.trigger.subjects[0];
+}
+"#;
+
+#[test]
+fn native_world_contacts_start_scripted_creation_for_both_controllers_and_replay() {
+    use ambition_platformer2d::{
+        breakables::{BreakableFeature, StandTimer},
+        combat::components::{CenteredAabb, FeatureId, FeatureName},
+        engine_core as ae,
+        interaction::{Breakable, BreakableCollision},
+        platformer::lifecycle::{FeatureSimEntity, InRoomInstance, SessionScopedEntity},
+    };
+    let dir = std::env::temp_dir().join(format!("ambition_world_contacts_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("contacts.rhai");
+    std::fs::write(&file, WORLD_SOURCE).unwrap();
+    let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
+    save.set_flag("intro_wake_seen", true);
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("intro_wake_room")
+            .with_save(save).with_extension_module_files(vec![file])
+            .with_sync_test_rollback_settings(4, 12),
+    ).unwrap();
+    sim.step_n(AgentAction::default(), 30);
+    let world = sim.world_mut();
+    let player = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+    let teacher = world.query::<(Entity, &CharacterForm)>().iter(world)
+        .find(|(_, form)| form.id() == "npc_creator").unwrap().0;
+    for (index, body) in [player, teacher].into_iter().enumerate() {
+        let kinematics = *world.get::<BodyKinematics>(body).unwrap();
+        let room = *world.get::<InRoomInstance>(body).unwrap();
+        let session = *world.get::<SessionScopedEntity>(body).unwrap();
+        let id = format!("contact-probe-ceiling-{index}");
+        let mut prop = Breakable::new(&id, 1);
+        prop.collision = BreakableCollision::Solid;
+        world.spawn((FeatureSimEntity, FeatureId::new(&id), FeatureName::new("Contact probe ceiling"),
+            CenteredAabb::from_center_size(
+                kinematics.pos - ae::Vec2::Y * (kinematics.half_extent().y + 18.0),
+                ae::Vec2::new(100.0, 16.0)),
+            BreakableFeature::new(prop), StandTimer(0.0), SimId::placement(&id), room, session));
+        world.entity_mut(body).insert(BodyStatuses(vec!["world_contact_probe.observe".into()]));
+    }
+    world.init_resource::<ambition_platformer2d::extension::ExtensionProfile>();
+    // The autonomous body enters its ceiling through the same movement solver.
+    world.get_mut::<BodyKinematics>(teacher).unwrap().vel.y = -400.0;
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction { jump: true, jump_held: true, ..Default::default() }, 1);
+    sim.step_n(AgentAction { jump_held: true, ..Default::default() }, 20);
+    sim.step_n(AgentAction::default(), 30);
+    for (index, body) in [player, teacher].into_iter().enumerate() {
+        let record = sim.world().get::<BodyRecords>(body).unwrap().get(&WORLD_RECORD).unwrap();
+        assert!(matches!(record.get(FieldRef(0)).unwrap(), Value::U32(n) if *n > 0));
+        assert!(matches!(record.get(FieldRef(1)).unwrap(), Value::U32(n) if *n > 0));
+        assert_eq!(record.get(FieldRef(2)).unwrap(), &Value::Text(format!("contact-probe-ceiling-{index}")));
+        assert_eq!(record.get(FieldRef(4)).unwrap(), &Value::U32(1));
+        let Value::Opt(Some(child)) = record.get(FieldRef(5)).unwrap() else { panic!("actual child identity") };
+        let id = child.as_ref_id().unwrap();
+        let mut query = sim.world().try_query::<(&SimId, &CharacterForm, &InRoomInstance)>().unwrap();
+        let children: Vec<_> = query.iter(sim.world()).filter(|(actual, _, _)| actual.as_str() == id).collect();
+        assert_eq!(children.len(), 1);
+        assert_eq!(children[0].1.id(), "practice_sandbag");
+        assert_eq!(Some(children[0].2), sim.world().get::<InRoomInstance>(body));
+    }
+    assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
+    sim.rollback_health().unwrap();
+    if let Some(profile) = sim.world().get_resource::<ambition_platformer2d::extension::ExtensionProfile>() {
+        for (key, row) in &profile.0 {
+            eprintln!("{key}: {} calls; backend {:.1} us/call; host {:.1} us/call", row.calls,
+                row.backend.as_secs_f64() * 1e6 / row.calls.max(1) as f64,
+                row.total.as_secs_f64() * 1e6 / row.calls.max(1) as f64);
+        }
+    }
     let _ = std::fs::remove_dir_all(dir);
 }

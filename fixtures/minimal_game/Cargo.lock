@@ -312,6 +312,7 @@ name = "ambition_combat_port"
 version = "0.1.0"
 dependencies = [
  "ambition_extension_sdk",
+ "ambition_world_port",
 ]
 
 [[package]]
@@ -799,6 +800,7 @@ dependencies = [
  "ambition_combat",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_extension_sdk",
  "ambition_held_items",
  "ambition_mount",
  "ambition_persistence",

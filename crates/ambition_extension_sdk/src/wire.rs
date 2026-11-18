@@ -19,6 +19,8 @@ pub enum WireError {
     Trailing(usize),
     /// A length is larger than the limit for that place.
     TooLong(u64),
+    /// A schema has more nesting than the SDK permits.
+    TooDeep,
 }
 
 impl std::fmt::Display for WireError {
@@ -96,6 +98,8 @@ impl<'a> WireReader<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, pos: 0 }
     }
+
+    pub(crate) fn position(&self) -> usize { self.pos }
 
     fn take(&mut self, n: usize) -> Result<&'a [u8], WireError> {
         let end = self.pos.checked_add(n).ok_or(WireError::Truncated)?;

@@ -14,6 +14,7 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_held_items = { path = "../ambition_held_items" }
 ambition_mount = { path = "../ambition_mount" }
 ambition_persistence = { path = "../ambition_persistence" }

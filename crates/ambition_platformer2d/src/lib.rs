@@ -965,6 +965,8 @@ pub use ambition_shrine as shrine;
 /// tool composes with: declaring modules, naming module files to load, and
 /// reading what the host admitted.
 pub mod extension {
+    pub use ambition_platformer2d_construction::runtime::{ActorCreationLimits, CreatedActor,
+        RuntimeActor, RuntimeLink, create_actors};
     pub use ambition_extension_host::{
         AdmittedExtensions, BodyRecords, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
         ExtensionHostPlugin, ExtensionSet, ExtensionProfile, EntryProfile, ObservationContext,

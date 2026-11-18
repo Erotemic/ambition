@@ -622,7 +622,8 @@ def build_summary(bundle: Bundle) -> str:
     children = sorted(
         name
         for name in os.listdir(bundle.path)
-        if os.path.isdir(os.path.join(bundle.path, name))
+        if name != "tracy_diagnostic"
+        and os.path.isdir(os.path.join(bundle.path, name))
         and os.path.exists(os.path.join(bundle.path, name, "summary.md"))
     )
     if children:
@@ -671,15 +672,18 @@ def build_summary(bundle: Bundle) -> str:
         f"| scenario | `{meta.get('scenario_id') or meta.get('headless_scenario', 'n/a')}` |",
         "",
     ]
-    if meta.get("capture_strategy") == "split-native-perf-and-tracy":
+    if (meta.get("capture_strategy") in {"split-native-perf-and-tracy", "split-tracy-then-native"}
+            and meta.get("capture_role", "primary") == "primary"):
+        tracy_first = meta.get("capture_strategy") == "split-tracy-then-native"
         lines += [
-            "**Two-pass timed Smash capture.** The primary frame, census, and native",
+            ("**Tracy-first paired capture.** The primary frame, census, and native" if tracy_first
+             else "**Two-pass timed Smash capture.** The primary frame, census, and native"),
             "`perf` reports come from a separate build **without Tracy**. The",
-            "`tracy_diagnostic/` directory is a second launch built with the `profile`",
+            f"`tracy_diagnostic/` directory is the {'first' if tracy_first else 'second'} launch built with the `profile`",
             "feature for per-system zone analysis. Do not combine their absolute",
             "frame-time or CPU percentages as if they were the same run.",
             "No native recorder remains active during Tracy shutdown/export.",
-            "If the primary pass lacks GPU/render diagnostics, inspect the second",
+            "If the primary pass lacks GPU/render diagnostics, inspect the Tracy",
             "pass at `tracy_diagnostic/render_diagnostics.csv`.",
             "",
         ]

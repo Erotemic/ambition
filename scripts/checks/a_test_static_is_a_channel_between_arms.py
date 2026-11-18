@@ -134,6 +134,12 @@ ADJUDICATED: dict[tuple[str, str], str] = {
     ): "cross-arm UNIQUENESS is the job — it names failure-dump files, and two "
     "arms must not pick the same one",
     (
+        "game/ambition_app/tests/scripted_libraries.rs",
+        "NEXT",
+    ): "Each call needs a distinct temporary directory across tests in one "
+    "process. The counter selects a host file path; it does not supply script "
+    "or simulation state.",
+    (
         "crates/ambition_platformer2d_publication/src/construction/fixtures.rs",
         "CAST",
     ): "a `OnceLock` built by `get_or_init` from a deterministic builder, read "

@@ -13,6 +13,8 @@ use bevy::time::{Fixed, Time};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
 mod body_feedback;
+mod actor_creation;
+mod contact_consumption;
 pub mod authored_verdict_timeline;
 pub mod checkpoint_horizon;
 mod combat_schedule;
@@ -54,6 +56,7 @@ pub mod gravity;
 #[cfg(test)]
 mod host_invariant_tests;
 pub mod input;
+pub mod input_sampling;
 pub mod schedule;
 pub mod input_drive;
 pub mod input_stream;

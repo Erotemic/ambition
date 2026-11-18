@@ -117,6 +117,7 @@ pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res
         // after IT applies the baseline. One writer, one record. This one covers
         // the authored silhouette, the movement feel and the motion model below.
         grant_prepared_character_body(&sprite_content,
+                ambition_body_seed::BaselineBoundary::Replacement,
             &mut EntityScope::new(&mut commands, entity),
             prepared,
             registry.generation(),

@@ -1,0 +1,4 @@
+// Runtime body creation in Ambition's rooms. Other bounds use engine defaults.
+(
+    max_room_bodies: 2048,
+)

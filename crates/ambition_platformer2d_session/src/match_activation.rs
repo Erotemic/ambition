@@ -195,6 +195,7 @@ fn realize_seat(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // character's overlaid with the match's override — so the grant must not
     // write the kit, but must do everything else and stamp BOTH records.
     ambition_platformer2d_actor_spawn::grant_prepared_character_body(&sprite_content,
+                ambition_body_seed::BaselineBoundary::Construction,
         &mut ambition_platformer2d_shared_tangle::construction::EntityScope::new(commands, body),
         &seat.definition,
         cast_generation,

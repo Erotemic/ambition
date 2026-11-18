@@ -1065,20 +1065,29 @@ pub mod udp {
     pub fn host(world: &mut World, port: u16, guests: usize) -> std::io::Result<SocketAddr> {
         let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, port))?;
         let address = socket.local_addr()?;
+        host_on(world, socket, vec![address], guests)?;
+        Ok(address)
+    }
+
+    /// Host on `socket`, joined at `public_addresses`, for up to `guests`
+    /// guests, unauthenticated. Netcode refuses a join that names an address
+    /// not in the list, so a host behind a router or a relay names the
+    /// address its guests send to, not the one it is bound to.
+    pub fn host_on(world: &mut World, socket: UdpSocket, public_addresses: Vec<SocketAddr>, guests: usize) -> std::io::Result<()> {
         let transport = NetcodeServerTransport::new(
             ServerConfig {
                 current_time: now()?,
                 max_clients: guests,
                 protocol_id: PROTOCOL_ID,
                 authentication: ServerAuthentication::Unsecure,
-                public_addresses: vec![address],
+                public_addresses,
             },
             socket,
         )?;
         let server = RenetServer::new(connection(world));
         world.insert_resource(server);
         world.insert_resource(transport);
-        Ok(address)
+        Ok(())
     }
 
     /// Join the host at `server` as guest `client_id`, unauthenticated.

@@ -934,9 +934,41 @@ intent is pruned before a replay of its tick could release it again. A
 boundary published every tick would never be fully confirmed while a guest
 plays (its inputs arrive a round trip late), and the sandbox autosave waits
 for that; a guest whose stamps lead the host tick (NA-3's run-ahead) would
-let confirmation keep up. Also not yet: the cost of a rewind on a release
-build over a real link; and an edge exit walked by a mispredicted guest
-commits at once and cannot be taken back.
+let confirmation keep up. Also not yet: an edge exit walked by a
+mispredicted guest commits at once and cannot be taken back.
+
+## A rewind's cost on a release build over a real link (2026-11-18)
+
+Measurement `a_guests_room_rewinds_over_a_real_link` (ignored; run with
+`--release --ignored --nocapture`): the guest drives Bob over renet's
+netcode on loopback, through a relay that holds each datagram a fixed delay
+each way (`udp::host_on` names the relay as the host's public address, as a
+host behind a router names its router). Both Apps are paced at 60 Hz of wall
+time for 600 frames; Bob turns every 13 frames and jumps every 29, so about
+one frame in seven brings an input that differs from the prediction. The
+guest stamps its input with its own estimate of the host tick, so the
+lateness is the ticks a rewind replays (renet's round trip is timed on the
+App clock the harness steps, and reads 0.1 ms whatever the relay holds).
+
+| Scene | Each way | Ticks a rewind | Host update, no rewind (mean, p95) | With a rewind (mean, p95, max) |
+|---|---|---|---|---|
+| Alice in the hub | 0 ms | 1.2 | 4.1, 5.0 ms | 8.8, 10.6, 20.9 ms |
+| Alice in the hub | 25 ms | 4.0 | 4.2, 5.5 ms | 13.9, 16.3, 31.8 ms |
+| Alice in the hub | 50 ms | 7.0 | 3.9, 5.0 ms | 18.6, 22.1, 29.0 ms |
+| Alice beside Bob | 0 ms | 1.4 | 3.5, 4.6 ms | 8.9, 11.9, 19.6 ms |
+| Alice beside Bob | 25 ms | 4.0 | 3.8, 5.2 ms | 16.7, 18.9, 26.2 ms |
+| Alice beside Bob | 50 ms | 6.7 | 3.8, 5.2 ms | 21.9, 31.0, 33.2 ms |
+
+A rewind costs about 2–2.6 ms of restore and bookkeeping plus 1.7 ms a
+replayed tick when the room holds only the guest, 2.4 ms when the host's
+player fights in it (the debug build: about 9 ms a tick). Every late input
+that differed was rewound (none refused). At a 100 ms round trip a rewind
+frame costs 19–22 ms on average and up to 31 ms at the 95th percentile,
+more than a 60 Hz frame's 16.7 ms, on about one frame in seven while the
+guest plays. So the late-input rewind is affordable on a LAN-like link and
+not on an internet one: a guest that stamps its input ahead of the host
+(NA-3's run-ahead) removes the rewinds of a guest that does not predict
+itself, and is also what the confirmed-frame observers above wait on.
 
 ## Review fixes, 2026-11-16
 

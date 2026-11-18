@@ -111,7 +111,7 @@ pub fn record(
                 .or_else(|| world.get::<BodyKinematics>(shot).map(|kin| kin.pos))
                 .unwrap_or_default(),
         };
-        extension::enqueue(world, &fact);
+        extension::enqueue(world, shot, &fact);
         world.write_message(fact);
     });
 }

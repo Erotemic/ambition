@@ -190,3 +190,36 @@ fn a_live_credited_body_keeps_its_outcome_after_travel() {
     assert_eq!(seen(&app, source).events, 1);
     assert!(seen(&app, source).named);
 }
+
+#[test]
+fn a_hidden_shot_cannot_write_into_its_visible_credited_body() {
+    let mut app = app();
+    let source = scope(&mut app, "source", 1, 0);
+    let id = app.world().get::<SimId>(source).unwrap().clone();
+    let shot = app
+        .world_mut()
+        .spawn((
+            LiveProjectile,
+            ProjectileOwner(source),
+            ProjectileSeq(0),
+            SimId::spawned(&id, 0),
+            SessionScopedEntity(SessionScopeId(1)),
+            InRoomInstance(LiveRoomInstance::ACTIVATION),
+            ProjectileCredit {
+                body: Some(id),
+                room: Some(LiveRoomInstance::ACTIVATION),
+            },
+            ambition_platformer2d_core::BodyKinematics::default(),
+            bevy::ecs::entity_disabling::Disabled,
+        ))
+        .id();
+    super::super::retire(
+        &mut app.world_mut().commands(),
+        shot,
+        super::super::ProjectileOutcomeKind::Expired,
+        None,
+    );
+    app.world_mut().flush();
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(seen(&app, source).events, 0);
+}

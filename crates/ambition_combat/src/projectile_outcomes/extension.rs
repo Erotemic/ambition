@@ -78,7 +78,7 @@ impl PendingProjectileOutcomes {
     }
 }
 
-pub(super) fn enqueue(world: &mut World, report: &ProjectileOutcome) {
+pub(super) fn enqueue(world: &mut World, shot: Entity, report: &ProjectileOutcome) {
     use ambition_platformer2d_shared_tangle::lifecycle::live_room_root_for;
     use bevy::ecs::system::SystemState;
     let bound: std::collections::BTreeSet<_> = world
@@ -112,6 +112,9 @@ pub(super) fn enqueue(world: &mut World, report: &ProjectileOutcome) {
     let (rules, visible) = state
         .get(world)
         .expect("projectile outcome rules must be readable");
+    if !visible.contains(shot) {
+        return;
+    }
     let limits: Vec<_> = candidates
         .iter()
         .filter(|entity| visible.contains(**entity))

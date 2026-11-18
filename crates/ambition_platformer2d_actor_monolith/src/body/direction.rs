@@ -596,7 +596,8 @@ const SHOVE_LIFT: f32 = 280.0;
 /// How long a shoved actor reels before it acts again.
 const SHOVE_STUN_S: f32 = 0.45;
 
-fn shove(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn shove(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let (Some(character), Some(radius)) = (args[0].as_name(), args[1].as_number()) else {
         return CommandOutcome::refused("`actor.shove` takes a character and a radius");
     };
@@ -656,7 +657,8 @@ fn shove(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>
     CommandOutcome::Done
 }
 
-fn fight(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn fight(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     use ambition_combat::components::{ActorAggression, ActorDisposition, AggressionMode, Grudge};
     let (Some(character), Some(target)) = (args[0].as_name(), args[1].as_name()) else {
         return CommandOutcome::refused("`actor.fight` takes a character and a target character");
@@ -738,7 +740,8 @@ const THROW_FLIGHT_S: (f32, f32) = (0.45, 0.85);
 /// clamp above.
 const THROW_PACE: f32 = 380.0;
 
-fn throw(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn throw(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     use ambition_combat::held_items::HeldItem;
     let (Some(character), Some(target)) = (args[0].as_name(), args[1].as_name()) else {
         return CommandOutcome::refused("`actor.throw` takes a character and a target character");

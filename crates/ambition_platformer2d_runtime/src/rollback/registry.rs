@@ -303,7 +303,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // back (`resource.switch_presses_in_rooms`).
 // 482 -> 483: cutscene playback retains its selected game skip timing.
 // 483 -> 484: contact policy, hitlag SDI, and launch tech policy rewind with bodies and shots.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 484;
+// 484 -> 485: `AbilitySet` encodes `blink_slow`, the aim's time slow a worn
+// row can withhold (Precision Blink's level 2).
+// 485 -> 486: action mailboxes and room caller sequences join the canonical
+// simulation state. Flag requests use native batches. The orchard branch adds
+// the hanging-item countdown at the same version.
+// 486 -> 487: the merged schema contains both sets of state.
+// 487 -> 488: bounded body-query facts remain available for their replies.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 488;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

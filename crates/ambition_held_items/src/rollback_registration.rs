@@ -22,6 +22,7 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
     registrar.rollback_component_canonical::<crate::HeldMaterialBasis>(OWNER, "item.held_material_basis");
     registrar.require_rollback::<crate::GroundItem>(OWNER, "entity:ground_item");
     registrar.require_rollback::<crate::SettledItem>(OWNER, "entity:settled_item");
+    registrar.require_rollback::<crate::HangingItem>(OWNER, "entity:hanging_item");
     registrar
         .rollback_component_clone::<crate::GroundItem>(OWNER, "item.ground_item");
     // ⭐ SLEEP IS SIMULATION STATE, and this one is presence/absence rather than
@@ -55,6 +56,13 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         OWNER,
         "item.settled_item",
         |settled| settled.impact_speed.to_bits() as u64,
+    );
+    // When a hanging apple drops is simulation state: a rewind that lost the
+    // countdown drops it on one peer and keeps it on the tree on the other.
+    registrar.rollback_component_clone_probed::<crate::HangingItem>(
+        OWNER,
+        "item.hanging_item",
+        |hanging| (u64::from(hanging.seconds_left.to_bits()) << 32) | u64::from(hanging.seconds.to_bits()),
     );
     // CUSTODY IS SIMULATION STATE, not a cache. It decides on every later
     // frame whether the item is drawn, stepped by `ground_item_physics`, and

@@ -124,7 +124,7 @@ language.
   when that many of its mobs remain, they `leave_through` a named zone (with
   what they carry), and the encounter is won. That is the raid's survivors
   running off with the case. With radiant objectives
-  ([RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning))
+  ([RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17))
   the same exit becomes an objective a goblin plans for. SS6 is the authored
   form that works before that. **Covered 2026-11-14 without a new field:**
   a retreat is a cutscene that starts on the count (`starts_when:
@@ -165,8 +165,18 @@ language.
   <held item>` (2026-11-17) puts a held item of the registry in each body's
   empty hand (a hand that holds something else is refused). It is the
   body's own, not a world object: it goes where the body goes and out of the
-  world with it. The raid's last raider takes the Creator's case
+  world with it. The raid's brute takes the Creator's case
   (`creator_case`) that way before he runs, and is drawn carrying it.
+  2026-11-17 also: `actor.shove <character> <radius>` throws every other
+  body in the room within the radius away from the character's;
+  `actor.fight <character> <target>` sets each body on the nearest body of
+  the target character as a provocation does (hostile, with its provoked
+  mind and a grudge); `actor.throw <character> <target>` throws the item in
+  its hand at the nearest body of the target, on an arc that lands there
+  (a thrown bomb goes off as any thrown bomb); and the condition
+  `actor.beaten <character>` holds while a body of the character stands at
+  its `beaten_at` floor (a death trait: blows take it no lower, so a body
+  that the story needs alive is beaten there rather than killed).
 - **SS2, cutscene beats** (`crates/ambition_cutscene`):
   `Command { line }` runs a prepared command in the cutscene's room (a skip
   still runs it), `WaitFor { condition, seconds_at_most }` holds until the
@@ -180,15 +190,20 @@ language.
 - **SS4, first form:** `starts_when: Some("<condition line>")` on a script
   plays it for the whole world on the first tick its condition holds (it
   needs a seen flag).
-- **The acceptance scene** (all content): `intro_raider_runs_with_the_case`
-  starts at `actor.fallen_is npc_lab_raider 2` (not "one live": the raiders
-  come in one at a time, so that is true as the first walks in), opens the yard gate (now gated
-  on `intro_case_taken`; the Creator's last words set it too, for a raid whose
-  last two fall together), sends the raider out through the lane edge with
-  `runs_where_sent`, and waits for `actor.gone`. His going wins the raid.
-  Witness: `game/ambition_app/tests/the_raids_last_raider_runs_with_the_case.rs`.
-  The case itself is not yet an object he carries; the siding's crate as the
-  case is SS3/SS6 work.
+- **The acceptance scene** (all content): `intro_brute_takes_the_case`
+  (2026-11-17; it replaced the last raider running at two fallen, which
+  left the Creator's death unexplained). The raid's second wave is a brute
+  (`npc_raid_brute`, `beaten_at: 1`). The scene starts at `actor.beaten
+  npc_raid_brute`: he roars and throws everyone back, goes to the bench, the
+  Creator is set on him, and he throws a bomb that wounds the Creator (the
+  Creator is `beaten_at: 1` too, so the blast cannot kill him before his
+  last words). Then he takes the case, opens the yard gate
+  (`intro_case_taken`; the Creator's last words set it too), runs out
+  through the lane edge with `runs_where_sent`, and the scene waits for
+  `actor.gone`. His going wins the raid.
+  Witness: `game/ambition_app/tests/the_raid_brute_takes_the_case.rs` (the
+  Creator's health falls when the bomb lands and stays above zero). The
+  siding's crate as the case is SS3/SS6 work.
 - **SS3, a death in a scene stays:** a cutscene `Fall` writes the death
   record a hit writes. Witness:
   `the_creator_lies_where_he_fell_when_scout_comes_back` (same file): his
@@ -198,7 +213,8 @@ language.
 ## Acceptance for the first slice (SS1 + SS2)
 
 The raid's last raider, at one left, runs out of the barn door with the
-case (a cutscene with `Command` beats using `actor.leave_through`). The
+case (a cutscene with `Command` beats using `actor.leave_through`; met
+2026-11-14, and since 2026-11-17 the brute does it, above). The
 Creator's last words then play, and the siding's crate is the case the
 goblins carried. It is written entirely in content files, with no engine
 change after the slice lands. A misspelled actor or zone is refused when

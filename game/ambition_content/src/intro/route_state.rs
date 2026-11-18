@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::SetFlagRequested;
+use ambition_combat::SetFlagsRequested;
 
 /// The chains the selected pack states (`data/flag_chains.ron`).
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
@@ -26,14 +26,14 @@ pub(crate) fn register(app: &mut App) {
 pub fn emit_intro_flag_chains(
     chains: Res<FlagChains>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    mut effects: MessageWriter<SetFlagRequested>,
+    mut effects: MessageWriter<SetFlagsRequested>,
 ) {
     let data = save.data();
     for chain in &chains.0 {
         if data.flag(&chain.when) && !data.flag(&chain.set) {
-            effects.write(SetFlagRequested {
-                id: chain.set.clone(),
-                on: true,
+            effects.write(SetFlagsRequested {
+                changes: vec![(chain.set.clone(), true)],
+                reply: None,
                 written: None,
             });
         }

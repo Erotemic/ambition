@@ -32,16 +32,35 @@
 //!   item of the registry (the raid's last raider and the Creator's case). It
 //!   is the body's own, not a world object: it goes where the body goes, and
 //!   out of the world with it. A hand that holds something else is refused.
+//! - `actor.shove <character> <radius>`: each body of the character throws
+//!   back every other body within `radius` pixels of it in its room, away from
+//!   it and off its feet (a launch, as a blow's is; it deals no damage).
+//! - `actor.fight <character> <other character>`: each body of the character
+//!   takes the nearest live body of the other character in its room as its
+//!   foe, as a provocation does (hostile, a grudge, its character's provoked
+//!   mind), without a provocation's record: it is the scene's, not the
+//!   player's. A body whose character states no provoked mind stays as it is.
+//! - `actor.throw <character> <other character>`: each body of the character
+//!   throws what its hand holds at the nearest live body of the other
+//!   character in its room: the hand empties and the item flies, thrown, on
+//!   an arc that lands at that body (a bomb arms and goes off where it lands).
 //!
 //! And the questions a sequence waits on:
 //!
 //! - `actor.arrived <character>`: every live body of the character stands
 //!   where it was sent (and at least one lives).
 //! - `actor.gone <character>`: no live body of the character.
+//! - `actor.beaten <character>`: a live body of the character has been
+//!   beaten down to the health its character stops at (`beaten_at`).
 //! - `actor.count_is <character> <n>`: exactly `n` live bodies of the
 //!   character.
 //! - `actor.fallen_is <character> <n>`: exactly `n` fallen bodies of the
-//!   character (the raid's last raider: `actor.fallen_is npc_lab_raider 2`;
+//!   character, in every live room.
+//! - `actor.fallen_in <character> <n> <room>`: exactly `n` fallen bodies of
+//!   the character in the live room `room` (a room's id). A scene that starts
+//!   on a condition is asked from no room, so a count meant for one room
+//!   names it: the workshop raid's runaway counts the workshop's raiders,
+//!   not the siding's (`actor.fallen_in npc_lab_raider 2 intro_wake_room`;
 //!   its raiders come in one at a time, so "one live" is also true as the
 //!   first walks in).
 //!
@@ -104,6 +123,11 @@ const COUNT: ParamSpec = ParamSpec {
     kind: ParamKind::Number,
     summary: "how many live bodies of the character",
 };
+const ROOM: ParamSpec = ParamSpec {
+    name: "room",
+    kind: ParamKind::Name,
+    summary: "a room's id (`intro_wake_room`): only bodies in that live room count",
+};
 const BRAIN: ParamSpec = ParamSpec {
     name: "brain",
     kind: ParamKind::Name,
@@ -129,6 +153,16 @@ const HELD_ITEM: ParamSpec = ParamSpec {
     name: "held_item",
     kind: ParamKind::Name,
     summary: "a held item id of the registry (`creator_case`, `coconut`, ...)",
+};
+const RADIUS: ParamSpec = ParamSpec {
+    name: "radius",
+    kind: ParamKind::Number,
+    summary: "pixels from the body: every other body this near is thrown back",
+};
+const TARGET: ParamSpec = ParamSpec {
+    name: "target",
+    kind: ParamKind::Name,
+    summary: "a character id: the nearest live body of it in the room is aimed at",
 };
 const MODE: ParamSpec = ParamSpec {
     name: "mode",
@@ -219,6 +253,38 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
         },
         hold,
     );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "shove"),
+            summary: "throw back every other body near each body of a character in the asking room",
+            params: &[CHARACTER, RADIUS],
+        },
+        shove,
+    );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "fight"),
+            summary: "set each body of a character on the nearest body of another character, as a provocation does",
+            params: &[CHARACTER, TARGET],
+        },
+        fight,
+    );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "throw"),
+            summary: "throw what each body of a character holds at the nearest body of another character",
+            params: &[CHARACTER, TARGET],
+        },
+        throw,
+    );
+    app.publish_condition(
+        ConditionDescriptor {
+            id: ConditionId::new("actor", "beaten"),
+            summary: "a live body of the character is down to the health its character stops at",
+            params: &[CHARACTER],
+        },
+        beaten,
+    );
     app.publish_condition(
         ConditionDescriptor {
             id: ConditionId::new("actor", "arrived"),
@@ -242,6 +308,14 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
             params: &[CHARACTER, COUNT],
         },
         fallen_is,
+    );
+    app.publish_condition(
+        ConditionDescriptor {
+            id: ConditionId::new("actor", "fallen_in"),
+            summary: "exactly this many bodies of the character have fallen in the named room",
+            params: &[CHARACTER, COUNT, ROOM],
+        },
+        fallen_in,
     );
     app.publish_condition(
         ConditionDescriptor {
@@ -288,6 +362,25 @@ fn live_count(world: &World, character: &str) -> Option<usize> {
 fn fallen_count(world: &World, character: &str) -> Option<usize> {
     let mut bodies = world.try_query::<(&CharacterForm, Option<&ambition_characters::actor::BodyHealth>)>()?;
     Some(bodies.iter(world).filter(|(worn, health)| worn.0.as_str() == character && !alive(*health)).count())
+}
+
+/// How many fallen bodies wear `character` in the live room whose id is
+/// `room`.
+fn fallen_count_in(world: &World, character: &str, room: &str) -> Option<usize> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{session_world_component, InRoomInstance};
+    let rooms = session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(world)?;
+    let mut bodies =
+        world.try_query::<(&CharacterForm, Option<&ambition_characters::actor::BodyHealth>, Option<&InRoomInstance>)>()?;
+    Some(
+        bodies
+            .iter(world)
+            .filter(|(worn, health, _)| worn.0.as_str() == character && !alive(*health))
+            .filter(|(_, _, in_room)| {
+                ambition_platformer2d_world::rooms::live_room_definition_in(world, in_room.map(|in_room| in_room.0))
+                    .is_some_and(|definition| rooms.rooms[definition.index()].id == room)
+            })
+            .count(),
+    )
 }
 
 /// Where `name` is in the room of `body`.
@@ -363,22 +456,26 @@ fn send(
     CommandOutcome::Done
 }
 
-fn walk_to(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn walk_to(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     send(world, args, room, "walk_to", false, 0.0)
 }
 
-fn leave_through(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn leave_through(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     send(world, args, room, "leave_through", true, 0.0)
 }
 
-fn form_up(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn form_up(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let Some(spacing) = args[2].as_number().map(|value| value as f32).filter(|value| value.is_finite()) else {
         return CommandOutcome::refused("actor.form_up needs finite spacing in pixels");
     };
     send(world, &[args[0].clone(), args[1].clone(), args[3].clone()], room, "form_up", false, spacing)
 }
 
-fn release(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn release(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let Some(character) = args[0].as_name() else {
         return CommandOutcome::refused("`actor.release` takes a character");
     };
@@ -393,7 +490,8 @@ fn release(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstanc
     CommandOutcome::Done
 }
 
-fn face(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn face(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let (Some(character), Some(way)) = (args[0].as_name(), args[1].as_name()) else {
         return CommandOutcome::refused("`actor.face` takes a character and a way");
     };
@@ -441,7 +539,8 @@ fn face(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>)
     CommandOutcome::Done
 }
 
-fn pose(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn pose(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let (Some(character), Some(row), Some(mode)) = (args[0].as_name(), args[1].as_name(), args[2].as_name()) else {
         return CommandOutcome::refused("`actor.pose` takes a character, a row and `loop` or `hold`");
     };
@@ -461,7 +560,8 @@ fn pose(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>)
     CommandOutcome::Done
 }
 
-fn hold(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn hold(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     use ambition_combat::held_items::HeldItem;
     let (Some(character), Some(item)) = (args[0].as_name(), args[1].as_name()) else {
         return CommandOutcome::refused("`actor.hold` takes a character and a held item");
@@ -487,6 +587,261 @@ fn hold(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>)
         world.entity_mut(body).insert(held);
     }
     CommandOutcome::Done
+}
+
+/// How fast a shove throws a body at its middle; at its edge, slower.
+const SHOVE_SPEED: f32 = 520.0;
+/// How high a shove lifts a body off its feet (px/s, up).
+const SHOVE_LIFT: f32 = 280.0;
+/// How long a shoved actor reels before it acts again.
+const SHOVE_STUN_S: f32 = 0.45;
+
+fn shove(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
+    let (Some(character), Some(radius)) = (args[0].as_name(), args[1].as_number()) else {
+        return CommandOutcome::refused("`actor.shove` takes a character and a radius");
+    };
+    let radius = radius as f32;
+    if !(radius.is_finite() && radius > 0.0) {
+        return CommandOutcome::refused("`actor.shove` needs a finite radius above zero");
+    }
+    let cast = cast_in(world, character, room);
+    if cast.is_empty() {
+        return CommandOutcome::refused(format!("no body of `{character}` is live in the asking room"));
+    }
+    for (shover, _, at) in cast {
+        let Some((center, facing)) = world.get::<ae::BodyKinematics>(shover).map(|k| (k.pos, k.facing)) else {
+            continue;
+        };
+        let mut state: SystemState<(
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+            Query<(
+                Entity,
+                &ae::BodyKinematics,
+                &mut ae::body_clusters::BodyFlightState,
+                Option<&ambition_characters::actor::BodyHealth>,
+                Option<&mut ambition_characters::actor::BodyCombat>,
+            )>,
+        )> = SystemState::new(world);
+        let Ok((rooms, mut bodies)) = state.get_mut(world) else {
+            continue;
+        };
+        for (body, kinematics, mut flight, health, combat) in &mut bodies {
+            if body == shover || rooms.of(body) != at || !alive(health) {
+                continue;
+            }
+            let apart = kinematics.pos - center;
+            let distance = apart.length();
+            if distance > radius {
+                continue;
+            }
+            let away = if apart.x.abs() > 0.5 { apart.x.signum() } else { facing.signum() };
+            let speed = SHOVE_SPEED * (1.0 - 0.4 * distance / radius);
+            flight.stage_launch(ae::Vec2::new(away * speed, -SHOVE_LIFT), false, Default::default());
+            if let Some(mut combat) = combat {
+                combat.hitstun_timer = combat.hitstun_timer.max(SHOVE_STUN_S);
+            }
+        }
+        state.apply(world);
+        world.write_message(ambition_vfx::vfx::VfxInRoom {
+            room: at,
+            vfx: ambition_vfx::vfx::VfxMessage::Burst {
+                pos: center,
+                count: 22,
+                speed: 260.0,
+                color: [0.86, 0.78, 0.62, 0.9],
+                kind: ambition_vfx::vfx::ParticleKind::Dust,
+            },
+        });
+    }
+    CommandOutcome::Done
+}
+
+fn fight(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
+    use ambition_combat::components::{ActorAggression, ActorDisposition, AggressionMode, Grudge};
+    let (Some(character), Some(target)) = (args[0].as_name(), args[1].as_name()) else {
+        return CommandOutcome::refused("`actor.fight` takes a character and a target character");
+    };
+    let cast = cast_in(world, character, room);
+    if cast.is_empty() {
+        return CommandOutcome::refused(format!("no body of `{character}` is live in the asking room"));
+    }
+    let foes: Vec<(Entity, Option<LiveRoomInstance>, ae::Vec2)> = cast_in(world, target, room)
+        .iter()
+        .filter_map(|(body, _, at)| world.get::<ae::BodyKinematics>(*body).map(|k| (*body, *at, k.pos)))
+        .collect();
+    if foes.is_empty() {
+        return CommandOutcome::refused(format!("no body of `{target}` is live in the asking room"));
+    }
+    let mut state: SystemState<(
+        Commands,
+        ambition_characters::prepared::SessionCast,
+        Query<(
+            &ae::BodyKinematics,
+            &CharacterForm,
+            &mut ActorAggression,
+            &mut ActorDisposition,
+            Option<&ambition_characters::brain::ActionSet>,
+            &ambition_combat::actor_tuning::ActorConfig,
+            &ambition_combat::components::ActorIdentity,
+            &ae::BodyAbilities,
+        )>,
+    )> = SystemState::new(world);
+    let mut set = 0;
+    {
+        let Ok((mut commands, prepared, mut bodies)) = state.get_mut(world) else {
+            return CommandOutcome::refused("`actor.fight` found no bodies to set on");
+        };
+        for (body, _, at) in &cast {
+            let Ok((kinematics, worn, mut aggression, mut disposition, repertoire, config, identity, abilities)) =
+                bodies.get_mut(*body)
+            else {
+                continue;
+            };
+            let here = kinematics.pos;
+            let Some(foe) = foes
+                .iter()
+                .filter(|(_, room, _)| room == at)
+                .min_by(|a, b| (a.2 - here).length().total_cmp(&(b.2 - here).length()))
+                .map(|(foe, ..)| *foe)
+            else {
+                continue;
+            };
+            let Some(policy) = prepared.get().and_then(|registry| {
+                ambition_platformer2d_actor_spawn::brain_builders::authored_provoked_policy(registry, worn.id())
+            }) else {
+                continue;
+            };
+            aggression.mode = AggressionMode::Hostile;
+            aggression.target = Some(foe);
+            aggression.grudge = Some(Grudge::Body(foe));
+            crate::body::actors::provoke_actor_in_place(
+                &mut commands,
+                *body,
+                (config, identity, abilities.abilities),
+                &mut disposition,
+                repertoire,
+                Some(policy),
+            );
+            set += 1;
+        }
+    }
+    state.apply(world);
+    if set == 0 {
+        return CommandOutcome::refused(format!("no body of `{character}` has a provoked mind to fight with"));
+    }
+    CommandOutcome::Done
+}
+
+/// How long a scene's throw is in the air, at most and at least.
+const THROW_FLIGHT_S: (f32, f32) = (0.45, 0.85);
+/// How far a scene's throw travels in each second of its flight, before the
+/// clamp above.
+const THROW_PACE: f32 = 380.0;
+
+fn throw(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
+    use ambition_combat::held_items::HeldItem;
+    let (Some(character), Some(target)) = (args[0].as_name(), args[1].as_name()) else {
+        return CommandOutcome::refused("`actor.throw` takes a character and a target character");
+    };
+    let cast = cast_in(world, character, room);
+    if cast.is_empty() {
+        return CommandOutcome::refused(format!("no body of `{character}` is live in the asking room"));
+    }
+    let targets: Vec<(Option<LiveRoomInstance>, ae::Vec2)> = cast_in(world, target, room)
+        .iter()
+        .filter_map(|(body, _, at)| world.get::<ae::BodyKinematics>(*body).map(|k| (*at, k.pos)))
+        .collect();
+    if targets.is_empty() {
+        return CommandOutcome::refused(format!("no body of `{target}` is live in the asking room"));
+    }
+    let scope = world
+        .get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
+        .map_or(ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
+    let mut thrown = 0;
+    for (body, sim_id, at) in cast {
+        let Some(spec) = world.get::<HeldItem>(body).map(|held| held.spec.clone()) else {
+            continue;
+        };
+        let Some((here, size)) = world.get::<ae::BodyKinematics>(body).map(|k| (k.pos, k.size())) else {
+            continue;
+        };
+        let Some(aim) = targets
+            .iter()
+            .filter(|(room, _)| *room == at)
+            .map(|(_, pos)| *pos)
+            .min_by(|a, b| (*a - here).length().total_cmp(&(*b - here).length()))
+        else {
+            continue;
+        };
+        let side = if aim.x >= here.x { 1.0 } else { -1.0 };
+        // Out of the hand ahead of the body, clear of its own box, so the
+        // item does not strike the body that threw it.
+        let from = here
+            + ae::Vec2::new(
+                side * (size.x * 0.5 + ambition_held_items::MINTED_ITEM_HALF_EXTENT.x + 6.0),
+                -size.y * 0.3,
+            );
+        // The arc that lands at the target: a fall under the items' own
+        // gravity, its time set by the distance.
+        let gap = aim - from;
+        let flight = (gap.x.abs() / THROW_PACE).clamp(THROW_FLIGHT_S.0, THROW_FLIGHT_S.1);
+        let gravity = ambition_held_items::GROUND_ITEM_GRAVITY;
+        let vel = ae::Vec2::new(gap.x / flight, (gap.y - 0.5 * gravity * flight * flight) / flight);
+        let Some(sequence) = world
+            .get_mut::<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>(body)
+            .map(|mut counter| counter.next())
+        else {
+            continue;
+        };
+        if let Some(mut kinematics) = world.get_mut::<ae::BodyKinematics>(body) {
+            kinematics.facing = side;
+        }
+        world.entity_mut(body).remove::<HeldItem>();
+        ambition_combat::hand::refold_in_world_with_held(world, body, None);
+        let mut commands = world.commands();
+        ambition_platformer2d_items::loot::throw_minted_item(
+            &mut commands,
+            scope.in_room(at),
+            &sim_id,
+            sequence,
+            spec,
+            from,
+            vel,
+            ambition_held_items::MINTED_ITEM_HALF_EXTENT,
+        );
+        world.flush();
+        thrown += 1;
+    }
+    if thrown == 0 {
+        return CommandOutcome::refused(format!("no body of `{character}` holds anything it can throw"));
+    }
+    CommandOutcome::Done
+}
+
+fn beaten(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let Some(character) = args[0].as_name() else {
+        return ConditionOutcome::Unanswerable("`actor.beaten` takes a character".into());
+    };
+    let Some(mut bodies) = world.try_query::<(
+        &CharacterForm,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_combat::components::CombatCapabilities,
+    )>() else {
+        return ConditionOutcome::Unanswerable("no body has a character in this composition".into());
+    };
+    let beaten = bodies.iter(world).any(|(worn, health, caps)| {
+        worn.0.as_str() == character
+            && health.health.current > 0
+            && caps.beaten_at.is_some_and(|floor| health.health.current <= floor)
+    });
+    if beaten {
+        ConditionOutcome::Satisfied
+    } else {
+        ConditionOutcome::NotSatisfied(WhyNot::new("actor.beaten", character, "no body of it is beaten".to_owned()))
+    }
 }
 
 /// Draw each posed body with its pose's row, on the pose's own clock; and
@@ -669,6 +1024,18 @@ fn fallen_is(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         ConditionOutcome::Satisfied
     } else {
         ConditionOutcome::NotSatisfied(WhyNot::new("actor.fallen_is", character, format!("{fallen} fallen, not {count}")))
+    }
+}
+
+fn fallen_in(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let (Some(character), Some(count), Some(room)) = (args[0].as_name(), args[1].as_number(), args[2].as_name()) else {
+        return ConditionOutcome::Unanswerable("`actor.fallen_in` takes a character, a count and a room".into());
+    };
+    let fallen = fallen_count_in(world, character, room).unwrap_or(0);
+    if fallen as f64 == count {
+        ConditionOutcome::Satisfied
+    } else {
+        ConditionOutcome::NotSatisfied(WhyNot::new("actor.fallen_in", character, format!("{fallen} fallen in `{room}`, not {count}")))
     }
 }
 

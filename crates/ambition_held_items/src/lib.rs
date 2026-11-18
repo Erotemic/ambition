@@ -474,6 +474,35 @@ pub struct SettledItem {
     pub impact_speed: f32,
 }
 
+/// THIS ITEM HANGS WHERE IT GREW, as an apple hangs on its tree, and drops
+/// when it ripens: [`carry_or_wake_settled_items`] keeps it settled, support
+/// or none, until its time is out, and then asks for its support as it asks
+/// of any settled item (an apple in mid-air falls the way its room pulls).
+///
+/// The countdown is at the item's room's pace, as the support step is, so a
+/// held room's apples wait and bullet time slows them. Letting go of an item
+/// that was picked off its tree ([`put_down`]) ends it: a thrown apple does
+/// not hang again where it lands.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
+pub struct HangingItem {
+    /// Seconds until it drops.
+    pub seconds_left: f32,
+    /// Seconds it hangs in all, for a picture that ripens over the wait.
+    pub seconds: f32,
+}
+
+impl HangingItem {
+    /// An item that hangs `seconds` from now.
+    pub fn for_seconds(seconds: f32) -> Self {
+        Self { seconds_left: seconds, seconds }
+    }
+
+    /// How far through its wait it is, from 0 (just grown) to 1 (ripe).
+    pub fn ripeness(&self) -> f32 {
+        if self.seconds <= 0.0 { 1.0 } else { (1.0 - self.seconds_left / self.seconds).clamp(0.0, 1.0) }
+    }
+}
+
 /// HOW A LOOSE ITEM MOVES: its weight, and how it meets a surface.
 ///
 /// An item without this component falls at [`GROUND_ITEM_GRAVITY`] and stops
@@ -531,13 +560,13 @@ pub fn carry_or_wake_settled_items(
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
-    mut settled: Query<(Entity, &mut BodyKinematics, &mut ae::SweepSample, &ItemCustody, Has<ItemStruckSurface>), (With<SettledItem>, With<GroundItem>)>,
+    mut settled: Query<(Entity, &mut BodyKinematics, &mut ae::SweepSample, &ItemCustody, Has<ItemStruckSurface>, Option<&mut HangingItem>), (With<SettledItem>, With<GroundItem>)>,
 ) {
     let live = freeze.live();
     let shared_dt = time.sim_dt();
     if shared_dt <= 0.0 { return; }
     let solids = SolidsByRoom::build(&collision, settled.iter().map(|(entity, ..)| live.of(entity)));
-    for (entity, mut item, mut sweep, custody, struck_surface) in &mut settled {
+    for (entity, mut item, mut sweep, custody, struck_surface, hanging) in &mut settled {
         let dt = shared_dt * freeze.scale_of(entity);
         if dt <= 0.0 { continue; }
         if struck_surface { commands.entity(entity).remove::<ItemStruckSurface>(); }
@@ -545,6 +574,16 @@ pub fn carry_or_wake_settled_items(
         let before = *item;
         *sweep = ae::SweepSample::at_tick_end(before, Vec2::ZERO);
         let room = live.of(entity);
+        if let Some(mut hanging) = hanging {
+            hanging.seconds_left = (hanging.seconds_left - dt).max(0.0);
+            if hanging.seconds_left > 0.0 {
+                // Still on its stem: at rest where it grew, whatever is under it.
+                *sweep = ae::SweepSample::at_rest(before, Vec2::ZERO);
+                continue;
+            }
+            // Ripe: from this tick it is a settled item like any other.
+            commands.entity(entity).remove::<HangingItem>();
+        }
         let Some(world) = solids.raw(room) else { continue; };
         let down = gravity.dir_for(room, item.aabb());
         let admission = geometry.as_deref().and_then(|geometry| geometry.motion_for(entity, room));

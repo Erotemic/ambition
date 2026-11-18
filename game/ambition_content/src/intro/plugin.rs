@@ -32,7 +32,7 @@ impl Plugin for IntroPlugin {
         // save changed again, so a chain of chains resolves on the next frame.
         //
         // In the rewinding schedule, not `Update`, because the consumer rewinds and
-        // the message does not. `apply_flag_effects` reads `SetFlagRequested` and
+        // the message does not. `apply_flag_effects` reads `SetFlagsRequested` and
         // writes `AmbitionGameSave` and `QuestRegistry`, both
         // `rollback_resource_clone_checksum`-registered. A message raised from
         // `Update` is outside the resimulated frame, so the replay would diverge on

@@ -6,6 +6,8 @@ use bevy::prelude::*;
 
 use ambition_demo_mary_o::ai_slop::is_ai_slop_brain;
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
+use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+use ambition_platformer2d::platformer::{sim_id::SimId, lifecycle::SessionScopedEntity, frame_env::ResolvedMotionFrame};
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
@@ -38,6 +40,8 @@ fn a_mob() -> (App, Entity) {
 }
 
 fn a_player_body(app: &mut App, room: LiveRoomInstance) -> Entity {
+    let first = her(app);
+    let session = *app.world().get::<SessionScopedEntity>(first).unwrap();
     app.world_mut()
         .spawn((
             ae::BodyKinematics { material: Default::default(),
@@ -47,6 +51,10 @@ fn a_player_body(app: &mut App, room: LiveRoomInstance) -> Entity {
                 facing: 1.0,
             },
             PlayerEntity,
+            DrivingParticipant(PlayerSlot(1)),
+            SimId::placement(&format!("fixture_second_player_{}", room.ordinal())),
+            session,
+            ResolvedMotionFrame::default(),
             InRoomInstance(room),
         ))
         .id()

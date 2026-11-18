@@ -1,155 +1,165 @@
-//! The ports of a contact rule: what a touch on a body does, decided by a
-//! module in `body_contact` (`ambition_extension_sdk::phases::BODY_CONTACT`).
-//!
-//! A stomp that bounces the toucher and defeats the body, a roll that defeats
-//! it, a shell that a touch kicks: each is a rule of its game about a touch,
-//! and it runs before the shared contact damage, so a body that a rule
-//! defeated hurts nobody in that tick.
+//! Physical contact facts and responses for a body's bound rules.
 
-use ambition_extension_sdk::wire::{self, WireError, WireReader};
+use ambition_extension_sdk::wire::{WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
 
-/// The trigger port marker for a contact rule.
-///
-/// Port card:
-///
-/// * **Operation** — a live body whose brain is the bound key is touched by
-///   one or more player bodies of its own live room this tick. The selector
-///   is the `CharacterBrain::Custom` key the placement authors. A body a
-///   player drives does not have a contact rule.
-/// * **Owner** — `ambition_combat::extension::contact`.
-/// * **Time** — `body_contact`: after the bodies integrated, and before the
-///   shared contact damage. One invocation for each touched body, in the
-///   order of the body's simulation identity.
-/// * **Touch** — the two boxes overlap side to side, and top to bottom they
-///   overlap or meet: a body that stands on the other's head touches it.
-/// * **Read model** — world units, +Y down; each box and velocity as it is
-///   at the start of the phase. A box is the one the body collides with
-///   under its own DOWN: a body in turned gravity has a turned box. The touchers are in the order of their
-///   simulation identity, and a request names a toucher by its index.
+/// Contact rules bind a held status or a custom brain key. Every controller
+/// uses the same path. Each active recipient reads one sample in body_contact,
+/// after movement and before shared contact damage, including an empty sample.
 pub struct BodyContactPort;
 
-/// A body in a contact: where its box is, and how it moves.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ContactBody {
     pub position: [f32; 2],
     pub size: [f32; 2],
     pub velocity: [f32; 2],
 }
 
-/// What a contact rule reads: the touched body and each body that touches it.
-#[derive(Clone, Debug, PartialEq)]
-pub struct BodyContact {
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ContactSurface {
+    pub point: [f32; 2],
+    pub normal: [f32; 2],
+    pub distance: f32,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ContactParticipant {
+    pub id: String,
     pub body: ContactBody,
-    pub touchers: Vec<ContactBody>,
+    pub driven: bool,
+    pub relation: Option<crate::targets::TargetRelation>,
+    pub surfaces: Vec<ContactSurface>,
+    pub surfaces_truncated: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ContactRefusal {
+    pub id: String,
+    pub reason: String,
+}
+ambition_extension_sdk::port_record! { ContactRefusal { id: String, reason: String } }
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BodyContact {
+    pub observed_at: u64,
+    pub room: Option<u32>,
+    pub body_id: String,
+    pub driven: bool,
+    pub body: ContactBody,
+    pub down: Option<[f32; 2]>,
+    pub touchers: Vec<ContactParticipant>,
+    pub truncated: bool,
+    pub incomplete: bool,
+    pub refusals: Vec<ContactRefusal>,
+    pub refusals_truncated: bool,
 }
 
 ambition_extension_sdk::port_record! {
     ContactBody {
-        /// The body's centre (world units, +Y down).
+        /// The physical body's centre in its root room chart, with +Y down.
         position: [f32; 2],
-        /// The body's full width and height.
+        /// The full physical envelope under the body's current material axes.
         size: [f32; 2],
-        /// World units per second, +Y down.
         velocity: [f32; 2],
     }
 }
-
-fn put_body(out: &mut Vec<u8>, body: &ContactBody) {
-    wire::put_vec2(out, body.position);
-    wire::put_vec2(out, body.size);
-    wire::put_vec2(out, body.velocity);
-}
-
-fn body(r: &mut WireReader<'_>) -> Result<ContactBody, WireError> {
-    Ok(ContactBody { position: r.vec2()?, size: r.vec2()?, velocity: r.vec2()? })
-}
-
-impl Port for BodyContactPort {
-    const KEY: PortKey = PortKey::new("ambition.body.contact", 1);
-    const ROLE: PortRole = PortRole::Trigger;
-    type Value = BodyContact;
-
-    fn encode(v: &BodyContact, out: &mut Vec<u8>) {
-        put_body(out, &v.body);
-        wire::put_u32(out, v.touchers.len() as u32);
-        for toucher in &v.touchers {
-            put_body(out, toucher);
-        }
-    }
-
-    fn decode(r: &mut WireReader<'_>) -> Result<BodyContact, WireError> {
-        let touched = body(r)?;
-        let count = r.read_len()?;
-        let touchers = (0..count).map(|_| body(r)).collect::<Result<_, _>>()?;
-        Ok(BodyContact { body: touched, touchers })
+ambition_extension_sdk::port_record! {
+    ContactSurface {
+        /// A point on the recipient in the recipient's root room chart.
+        point: [f32; 2],
+        /// The recipient's outward unit normal in that same chart.
+        normal: [f32; 2],
+        /// Signed surface separation in the recipient's chart. Penetration is negative.
+        distance: f32,
     }
 }
+ambition_extension_sdk::port_record! {
+    ContactParticipant {
+        id: String,
+        body: ContactBody,
+        driven: bool,
+        relation: Option<crate::targets::TargetRelation>,
+        /// Native physical contacts, including contacts through room apertures.
+        surfaces: Vec<ContactSurface>,
+        surfaces_truncated: bool,
+    }
+}
+ambition_extension_sdk::port_record! {
+    BodyContact {
+        observed_at: u64,
+        room: Option<u32>,
+        body_id: String,
+        driven: bool,
+        body: ContactBody,
+        down: Option<[f32; 2]>,
+        /// Same-session and same-room touchers in simulation identity order.
+        touchers: Vec<ContactParticipant>,
+        /// More touching bodies existed than the game's contact budget.
+        truncated: bool,
+        /// At least one same-scope body could not supply accepted geometry.
+        incomplete: bool,
+        refusals: Vec<ContactRefusal>,
+        refusals_truncated: bool,
+    }
+}
 
-/// The request port marker for a toucher that bounces off the body.
-///
-/// Port card:
-///
-/// * **Operation** — the toucher `toucher` (an index into this invocation's
-///   `touchers`) jumps up off the body at `speed`, against its gravity. With
-///   `pogo_cue`, the toucher's pogo cue plays at the body: a bounce off a
-///   body is the pogo verb.
-/// * **Owner** — `ambition_combat::extension::contact`.
-/// * **Scope** — a toucher of this invocation's contact. An index past the
-///   touchers is refused with a warning.
-/// * **Time** — `body_contact`, this tick: before the shared contact damage.
+/// Bounce a toucher from this invocation, against that toucher's own gravity.
+/// The index refers to the current sample, not a retained identity.
 pub struct ContactBouncePort;
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ContactBounce {
     pub toucher: u32,
     pub speed: f32,
     pub pogo_cue: bool,
 }
-
-impl Port for ContactBouncePort {
-    const KEY: PortKey = PortKey::new("ambition.body.contact_bounce", 1);
-    const ROLE: PortRole = PortRole::Request;
-    type Value = ContactBounce;
-
-    fn encode(v: &ContactBounce, out: &mut Vec<u8>) {
-        wire::put_u32(out, v.toucher);
-        wire::put_f32(out, v.speed);
-        wire::put_bool(out, v.pogo_cue);
-    }
-
-    fn decode(r: &mut WireReader<'_>) -> Result<ContactBounce, WireError> {
-        Ok(ContactBounce { toucher: r.u32()?, speed: r.f32()?, pogo_cue: r.bool()? })
-    }
+ambition_extension_sdk::port_record! {
+    ContactBounce { toucher: u32, speed: f32, pogo_cue: bool = false }
 }
 
-/// The request port marker for the touched body's defeat.
-///
-/// Port card:
-///
-/// * **Operation** — the body is defeated now: its health is zero before
-///   the shared contact damage reads it, so it hurts nobody this tick, and
-///   it is removed from the world. No drops, no score, no death sequence:
-///   the squash of a walker.
-/// * **Owner** — `ambition_combat::extension::contact`.
-/// * **Scope** — the body the invocation ran for.
-/// * **Time** — `body_contact`, this tick.
+/// Defeat this invocation's recipient before shared contact damage.
+/// This immediate retirement has no drop, score, or death sequence.
 pub struct BodyDefeatPort;
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BodyDefeat;
+ambition_extension_sdk::port_record! { BodyDefeat {} }
 
-impl Port for BodyDefeatPort {
-    const KEY: PortKey = PortKey::new("ambition.body.defeat", 1);
-    const ROLE: PortRole = PortRole::Request;
-    type Value = BodyDefeat;
-
-    fn encode(_: &BodyDefeat, _: &mut Vec<u8>) {}
-
-    fn decode(_: &mut WireReader<'_>) -> Result<BodyDefeat, WireError> {
-        Ok(BodyDefeat)
-    }
+macro_rules! port {
+    ($port:ty, $key:literal, $version:literal, $role:ident, $value:ty) => {
+        impl Port for $port {
+            const KEY: PortKey = PortKey::new($key, $version);
+            const ROLE: PortRole = PortRole::$role;
+            type Value = $value;
+            fn encode(value: &Self::Value, out: &mut Vec<u8>) {
+                ambition_extension_sdk::structure::put(value, out);
+            }
+            fn decode(reader: &mut WireReader<'_>) -> Result<Self::Value, WireError> {
+                ambition_extension_sdk::structure::read(reader)
+            }
+        }
+        ambition_extension_sdk::script_port!($port);
+    };
 }
+port!(
+    BodyContactPort,
+    "ambition.body.contact",
+    2,
+    Trigger,
+    BodyContact
+);
+port!(
+    ContactBouncePort,
+    "ambition.body.contact_bounce",
+    1,
+    Request,
+    ContactBounce
+);
+port!(
+    BodyDefeatPort,
+    "ambition.body.defeat",
+    1,
+    Request,
+    BodyDefeat
+);
 
 #[cfg(test)]
 mod tests {
@@ -167,14 +177,34 @@ mod tests {
     #[test]
     fn the_contact_values_survive_the_wire() {
         let contact = BodyContact {
-            body: ContactBody { position: [400.0, 900.0], size: [40.0, 30.0], velocity: [-60.0, 0.0] },
-            touchers: vec![
-                ContactBody { position: [395.0, 870.5], size: [24.0, 44.0], velocity: [10.0, 210.0] },
-                ContactBody { position: [430.0, 899.0], size: [24.0, 44.0], velocity: [-300.0, 0.0] },
-            ],
+            body: ContactBody {
+                position: [400.0, 900.0],
+                size: [40.0, 30.0],
+                velocity: [-60.0, 0.0],
+            },
+            touchers: vec![ContactParticipant {
+                id: "body:test".into(),
+                driven: true,
+                body: ContactBody {
+                    position: [395.0, 870.5],
+                    size: [24.0, 44.0],
+                    velocity: [10.0, 210.0],
+                },
+                surfaces: vec![ContactSurface {
+                    point: [400.0, 885.0],
+                    normal: [0.0, -1.0],
+                    distance: 0.0,
+                }],
+                ..Default::default()
+            }],
+            ..Default::default()
         };
         assert_eq!(round::<BodyContactPort>(&contact), contact);
-        let bounce = ContactBounce { toucher: 1, speed: 460.0, pogo_cue: true };
+        let bounce = ContactBounce {
+            toucher: 1,
+            speed: 460.0,
+            pogo_cue: true,
+        };
         assert_eq!(round::<ContactBouncePort>(&bounce), bounce);
         assert_eq!(round::<BodyDefeatPort>(&BodyDefeat), BodyDefeat);
     }

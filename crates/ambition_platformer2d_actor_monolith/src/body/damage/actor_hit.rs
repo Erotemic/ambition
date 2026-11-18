@@ -7,7 +7,7 @@ use bevy::prelude::Entity;
 
 use super::super::ae;
 use ambition_combat::components::ActorDisposition;
-use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
+use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagsRequested};
 use ambition_platformer2d_items::loot::{drop_currency_coin, drop_health_pickup, id_drops_health};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
@@ -271,6 +271,12 @@ pub(crate) fn apply_actor_hit(
         let victim_facing = em.kin.facing;
         let victim_pos = em.kin.pos;
         let victim_size = em.kin.size();
+        // A body beaten at a floor takes no more than brings it there; the
+        // blast zone is not a blow, and still ends it.
+        let damage = match caps.beaten_at {
+            Some(floor) if !left_the_world => event.damage.min((em.health.current() - floor).max(0)),
+            _ => event.damage,
+        };
         let resolution = ambition_damage::resolve_body_hit(
             combat,
             Some(&mut *em.health),
@@ -289,7 +295,7 @@ pub(crate) fn apply_actor_hit(
             victim_pos,
             event.volume.center(),
             gravity_dir,
-            event.damage,
+            damage,
             1.0,
             caps.never_dies,
             ambition_damage::BodyHitFeel {
@@ -505,7 +511,7 @@ pub(crate) fn apply_actor_hit(
                 event.attacker,
                 combat.hitstop_timer,
                 event.source.clone(),
-                event.damage,
+                resolution,
                 event.attacker_move_instance,
             );
             #[cfg(feature = "causal")]
@@ -699,7 +705,11 @@ pub(crate) fn apply_actor_hit(
                         let written = room.zip(writers.tick.as_deref()).map(|(room, tick)| {
                             ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
                         });
-                        writers.set_flag.write(SetFlagRequested { id, on: true, written });
+                        writers.set_flag.write(SetFlagsRequested {
+                            changes: vec![(id, true)],
+                            reply: None,
+                            written
+                        });
                     }
                 }
             }

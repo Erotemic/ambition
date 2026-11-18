@@ -1895,6 +1895,38 @@
         ),
         hall_dialogue_id: Some("hall_npc_goblin_brute"),
         ),
+        // The brute who ends the workshop raid (wave 2 of `intro_workshop_raid`):
+        // the brute's body and hammer, but he cannot be killed there. Beaten to
+        // his last point he stops taking damage, and the scene
+        // `intro_brute_takes_the_case` takes over: he throws everyone back, takes
+        // the case and throws a bomb at the Creator on his way out.
+        "npc_raid_brute": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Raid Brute",
+            manifest: "sprites/goblin_brute_hammer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(59.7),
+            composition: None,
+            default_action_set: "brute_hammer",
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.85, amount: 1)),
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 460.0,
+                attack_range: 44.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(10),
+            death_traits: Some((beaten_at: Some(1))),
+            tags: ["intro", "raid", "enemy", "goblin", "heavy"],
+        barks: (
+            on_hit: ["Rrrgh!", "Brute not done!", "Little tin thing!"],
+            provoked: ["BRUTE TAKE CASE!"],
+            hall: ["Sheet say case. Brute take case. Brute not read sheet.", "Bomb was for door. Door was open. Brute improvise."],
+        ),
+        ),
         // The other goblin heavy (Jon, 2026-10-18: "keep all of these"): a
         // bare-knuckle bruiser with a stone club, the brute's body and kit.
         "npc_goblin_bruiser": (
@@ -3311,6 +3343,10 @@
             // room): with the default 4 he fell in about five seconds, before
             // the fight was a fight together.
             max_health: Some(12),
+            // The raid wounds him and does not kill him: the brute's bomb is
+            // the blow, and he falls after his last words
+            // (`creator_final_fragment`).
+            death_traits: Some((beaten_at: Some(1))),
             tags: ["intro", "story"],
         barks: (
             on_hit: ["Ow. That's my good arm.", "Not the bench!", "Scout, behind you!"],

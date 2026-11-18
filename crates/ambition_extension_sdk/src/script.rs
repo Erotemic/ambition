@@ -326,7 +326,7 @@ fn value_to_script(value: &Value) -> ScriptValue {
         Value::Bool(b) => ScriptValue::Bool(*b),
         Value::U32(v) => ScriptValue::Int(i64::from(*v)),
         Value::I32(v) => ScriptValue::Int(i64::from(*v)),
-        Value::U64(v) => ScriptValue::Int(*v as i64),
+        Value::U64(v) => <u64 as crate::structure::Field<u64>>::to_script(v),
         Value::F32(v) => ScriptValue::Num(*v),
         Value::Vec2(v) => ScriptValue::vec2(*v),
         Value::Opt(None) => ScriptValue::Unit,
@@ -342,7 +342,7 @@ fn value_from_script(kind: &FieldKind, v: &ScriptValue) -> Result<Value, String>
         FieldKind::Bool => Value::Bool(v.as_bool()?),
         FieldKind::U32 => Value::U32(u32::try_from(int(v)?).map_err(|_| "out of range for u32".to_owned())?),
         FieldKind::I32 => Value::I32(i32::try_from(int(v)?).map_err(|_| "out of range for i32".to_owned())?),
-        FieldKind::U64 => Value::U64(u64::try_from(int(v)?).map_err(|_| "out of range for u64".to_owned())?),
+        FieldKind::U64 => Value::U64(<u64 as crate::structure::Field<u64>>::from_script(v)?),
         FieldKind::F32 => Value::F32(v.as_num()?),
         FieldKind::Vec2 => Value::Vec2(v.as_vec2()?),
         FieldKind::Opt(inner) => Value::Opt(match v {

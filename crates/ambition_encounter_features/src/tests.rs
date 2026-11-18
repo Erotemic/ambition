@@ -727,7 +727,7 @@ mod cleanup {
         app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
         app.add_message::<EncounterCommand>();
         app.add_message::<EncounterEventMsg>();
-        app.add_message::<ambition_combat::events::SetFlagRequested>();
+        app.add_message::<ambition_combat::events::SetFlagsRequested>();
         app.add_systems(
             Update,
             (reduce_encounter_lifecycles, apply_encounter_cleanup).chain(),
@@ -900,7 +900,7 @@ fn a_reset_does_not_retire_the_reward_chest() {
 
     let mut app = App::new();
     app.add_message::<ambition_encounter::EncounterEventMsg>();
-    app.add_message::<ambition_combat::events::SetFlagRequested>();
+    app.add_message::<ambition_combat::events::SetFlagsRequested>();
 
     app.world_mut().spawn((
         Encounter {
@@ -960,7 +960,7 @@ fn completing_a_two_switch_encounter_greens_both_and_leaves_it_disarmed() {
 
     let mut app = App::new();
     app.add_message::<ambition_encounter::EncounterEventMsg>();
-    app.add_message::<ambition_combat::events::SetFlagRequested>();
+    app.add_message::<ambition_combat::events::SetFlagsRequested>();
     app.add_message::<ambition_combat::events::GameplayBannerRequested>();
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
@@ -1082,7 +1082,7 @@ fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
 
     let mut app = App::new();
     app.add_message::<ambition_encounter::EncounterEventMsg>();
-    app.add_message::<ambition_combat::events::SetFlagRequested>();
+    app.add_message::<ambition_combat::events::SetFlagsRequested>();
     app.add_message::<ambition_combat::events::GameplayBannerRequested>();
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
@@ -1163,7 +1163,7 @@ fn a_player_in_either_live_room_starts_only_that_rooms_encounter() {
         app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
         app.add_message::<ambition_encounter::EncounterCommand>();
         app.add_message::<ambition_encounter::EncounterEventMsg>();
-        app.add_message::<ambition_combat::events::SetFlagRequested>();
+        app.add_message::<ambition_combat::events::SetFlagsRequested>();
         app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();
@@ -1244,7 +1244,7 @@ fn a_death_fails_only_the_encounter_of_its_own_live_room() {
         app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
         app.add_message::<ambition_encounter::EncounterCommand>();
         app.add_message::<ambition_encounter::EncounterEventMsg>();
-        app.add_message::<ambition_combat::events::SetFlagRequested>();
+        app.add_message::<ambition_combat::events::SetFlagsRequested>();
         app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();
@@ -1354,7 +1354,7 @@ fn two_live_rooms_of_one_room_run_their_encounters_apart() {
     app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
     app.add_message::<EncounterCommand>();
     app.add_message::<EncounterEventMsg>();
-    app.add_message::<ambition_combat::events::SetFlagRequested>();
+    app.add_message::<ambition_combat::events::SetFlagsRequested>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
@@ -1512,7 +1512,7 @@ fn liveness_by_room(dead: usize,
     app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
     app.add_message::<EncounterCommand>();
     app.add_message::<EncounterEventMsg>();
-    app.add_message::<ambition_combat::events::SetFlagRequested>();
+    app.add_message::<ambition_combat::events::SetFlagsRequested>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
@@ -1644,7 +1644,7 @@ fn a_switch_dates_the_flags_it_turns_on_in_its_own_room() {
     app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
     app.add_message::<ambition_encounter::EncounterCommand>();
     app.add_message::<ambition_encounter::EncounterEventMsg>();
-    app.add_message::<ambition_combat::events::SetFlagRequested>();
+    app.add_message::<ambition_combat::events::SetFlagsRequested>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ambition_time::SimTick(42));
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
@@ -1685,9 +1685,9 @@ fn a_switch_dates_the_flags_it_turns_on_in_its_own_room() {
     app.add_systems(Update, crate::drive_wave_encounters);
     let written = |app: &App| -> Vec<(String, Option<RoomWrite>)> {
         app.world()
-            .resource::<Messages<ambition_combat::events::SetFlagRequested>>()
+            .resource::<Messages<ambition_combat::events::SetFlagsRequested>>()
             .iter_current_update_messages()
-            .map(|write| (write.id.clone(), write.written))
+            .flat_map(|write| write.changes.iter().map(move |(id, _)| (id.clone(), write.written)))
             .collect()
     };
     app.update();

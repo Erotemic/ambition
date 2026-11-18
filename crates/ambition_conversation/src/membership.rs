@@ -15,7 +15,7 @@ use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::authored_logic::{
     AuthoredArg, CommandDescriptor, CommandId, CommandOutcome, ParamKind, ParamSpec,
 };
-use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 use super::authority::{ActiveConversation, Leaving};
@@ -71,7 +71,7 @@ type Bodies<'w, 's> = Query<
 /// The body must be within earshot of a member, in the same live room, and
 /// alive: a body farther off would leave again on the next tick by the
 /// continuity rule, so it is refused here, where an author reads why.
-pub fn join(world: &mut World, args: &[AuthoredArg], _room: Option<LiveRoomInstance>) -> CommandOutcome {
+pub fn join(world: &mut World, args: &[AuthoredArg], _context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
     let Some(character) = args[0].as_name() else {
         return CommandOutcome::refused("`character` must be a name");
     };
@@ -118,7 +118,7 @@ pub fn join(world: &mut World, args: &[AuthoredArg], _room: Option<LiveRoomInsta
 }
 
 /// `conversation.leave` — see [`leave_descriptor`].
-pub fn leave(world: &mut World, args: &[AuthoredArg], _room: Option<LiveRoomInstance>) -> CommandOutcome {
+pub fn leave(world: &mut World, args: &[AuthoredArg], _context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
     let Some(character) = args[0].as_name() else {
         return CommandOutcome::refused("`character` must be a name");
     };

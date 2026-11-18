@@ -960,11 +960,14 @@ pub use ambition_shrine as shrine;
 pub mod extension {
     pub use ambition_extension_host::{
         AdmittedExtensions, BodyRecords, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
-        ExtensionHostPlugin, ExtensionSet, ModuleBackend, ModuleCode, ModuleImplementation, ModuleSelections,
+        ExtensionHostPlugin, ExtensionSet, ExtensionProfile, EntryProfile, ObservationContext,
+        ModuleBackend, ModuleCode, ModuleImplementation, ModuleSelections,
         SessionRecords,
     };
     pub use ambition_extension_host::{inspect, reload};
     pub use ambition_extension_sdk as sdk;
+    pub use ambition_world_port as world;
+    pub use ambition_combat_port as combat;
 #[cfg(feature = "wasm_modules")]
     pub use ambition_extension_wasm::{LoadError, WasmModules, build_module_crate};
     pub use ambition_platformer2d_runtime::extension_composition::{

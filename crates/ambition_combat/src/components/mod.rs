@@ -74,6 +74,9 @@ pub struct CombatCapabilities {
     /// Damage never kills (training dummy with an effectively
     /// infinite pool).
     pub never_dies: bool,
+    /// Damage stops at this much health: the body is beaten, not killed. See
+    /// [`ambition_characters::actor::CharacterDeathTraits::beaten_at`].
+    pub beaten_at: Option<i32>,
     /// Whether the corpse leaves what the body was HOLDING as a wieldable
     /// `GroundItem` — the "steal the enemy's weapon" rule.
     ///
@@ -109,6 +112,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             divides_into,
             charge_crash_explodes,
             never_dies,
+            beaten_at,
             drops_held_item,
             death_sound,
             corpse,
@@ -119,6 +123,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             divides_into: divides_into.clone(),
             charge_crash_explodes: *charge_crash_explodes,
             never_dies: *never_dies,
+            beaten_at: *beaten_at,
             drops_held_item: *drops_held_item,
             death_sound: death_sound.clone(),
             corpse: *corpse,

@@ -2,7 +2,7 @@
 
 **State:** OPEN. Slice 1 is done (2026-11-10): the core is chosen and built
 (`crates/ambition_htn`); nothing drives a body with it yet. This page owns the plan for
-[RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning).
+[RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17).
 **Related:** [agentic character runtime](agentic-character-runtime.md) (the
 layering: facts → observations → goals → policy → typed action),
 [world facts, observations and memory](world-facts-observations-and-memory.md),

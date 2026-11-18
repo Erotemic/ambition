@@ -669,3 +669,24 @@ pub fn assisted_fire_direction(
     }
     best.map_or(commanded, |(_, _, _, toward)| toward)
 }
+
+
+/// Project the shared relation for a pair of live bodies.
+pub(crate) fn observed_relation(world: &World, source: Entity, target: Entity)
+    -> Option<ambition_combat_port::targets::TargetRelation> {
+    use ambition_characters::control::DrivingParticipant;
+    use ambition_combat_port::targets::TargetRelation;
+    let combatant = |entity| {
+        Some(Combatant {
+            faction: *world.get::<ActorFaction>(entity)?,
+            driver: world.get::<DrivingParticipant>(entity),
+            team: world.get::<MatchTeam>(entity),
+        })
+    };
+    Some(match combat_relation(world.get_resource(), combatant(source)?,
+        world.get::<ActorAggression>(source).and_then(|state| state.grudge), target, combatant(target)?) {
+        CombatRelation::Foe => TargetRelation::Foe,
+        CombatRelation::Ally => TargetRelation::Ally,
+        CombatRelation::Neutral => TargetRelation::Neutral,
+    })
+}

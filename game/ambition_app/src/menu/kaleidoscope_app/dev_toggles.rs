@@ -66,6 +66,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     ));
     values.push(DevSnapshot::toggle(D::SlowMotion, ctx.dev_state.slowmo));
     values.push(DevSnapshot::toggle(D::GodBlink, ctx.abilities.is_some_and(|a| a.unrestricted_blink)));
+    values.push(DevSnapshot::toggle(D::UnlockAllAbilities, ctx.abilities.is_some_and(|a| a.unlock_all_abilities)));
     values.push(DevSnapshot::toggle(D::Inspector, dev.inspector_visible));
     values.push(DevSnapshot::toggle(
         D::WorldInspector,
@@ -159,6 +160,11 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
                 abilities.unrestricted_blink = !abilities.unrestricted_blink;
             }
         }
+        D::UnlockAllAbilities => {
+            if let Some(abilities) = ctx.abilities {
+                abilities.unlock_all_abilities = !abilities.unlock_all_abilities;
+            }
+        }
         D::Inspector => dev.inspector_visible = !dev.inspector_visible,
         D::WorldInspector => dev.world_inspector_visible = !dev.world_inspector_visible,
         D::Gizmos => dev.gizmos_enabled = !dev.gizmos_enabled,
@@ -173,11 +179,11 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         }
         D::HideSprites => dev.hide_sprites = !dev.hide_sprites,
         D::PlaceholderSprites => dev.placeholder_sprites = !dev.placeholder_sprites,
-        D::FillDebugBoxes => dev.fill_debug_boxes = !dev.fill_debug_boxes,
-        D::MicroGrid => dev.show_micro_grid = !dev.show_micro_grid,
-        D::CameraFrame => dev.show_camera_frame = !dev.show_camera_frame,
-        D::Navigation => dev.show_navigation = !dev.show_navigation,
-        D::ObservedGeometry => dev.show_observed_geometry = !dev.show_observed_geometry,
+        D::FillDebugBoxes => { dev.mark_debug_view_custom(); dev.fill_debug_boxes = !dev.fill_debug_boxes; },
+        D::MicroGrid => { dev.mark_debug_view_custom(); dev.show_micro_grid = !dev.show_micro_grid; },
+        D::CameraFrame => { dev.mark_debug_view_custom(); dev.show_camera_frame = !dev.show_camera_frame; },
+        D::Navigation => { dev.mark_debug_view_custom(); dev.show_navigation = !dev.show_navigation; },
+        D::ObservedGeometry => { dev.mark_debug_view_custom(); dev.show_observed_geometry = !dev.show_observed_geometry; },
         D::ObservedGeometryProvider => dev.cycle_observed_geometry_provider(dir),
         D::ObservedGeometrySubject => dev.cycle_observed_geometry_subject(dir),
         D::PresentedComparison => dev.show_presented_comparison = !dev.show_presented_comparison,

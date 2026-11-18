@@ -37,7 +37,7 @@ fn perform(app: &mut App, call: &PreparedCommand) -> CommandOutcome {
         call,
         ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new("probe", "a test"),
     );
-    signal(app.world_mut(), &request.args, request.room)
+    signal(app.world_mut(), &request.args, &ambition_platformer2d_shared_tangle::authored_logic::CommandContext { room: request.room, reply: None })
 }
 
 /// AN AUTHORED LINE SIGNALS A LIVE ENCOUNTER, AND THE REDUCER RECEIVES THE
@@ -59,7 +59,7 @@ fn an_authored_line_signals_the_encounter_it_references() {
         "something wrote an encounter command before the verb ran"
     );
 
-    assert_eq!(perform(&mut app, &call), CommandOutcome::Done);
+    assert_eq!(perform(&mut app, &call), CommandOutcome::Queued);
 
     let commands = drain(&mut app);
     assert_eq!(
@@ -165,11 +165,11 @@ fn a_signal_asked_in_a_room_reaches_that_room_s_occurrence_of_two() {
     let ask = || RunAuthoredCommand::prepared(&call, ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new("probe", "a test"));
 
     let request = ask();
-    assert!(matches!(signal(app.world_mut(), &request.args, None), CommandOutcome::Refused(_)), "a signal asked in no room picked one of two");
+    assert!(matches!(signal(app.world_mut(), &request.args, &Default::default()), CommandOutcome::Refused(_)), "a signal asked in no room picked one of two");
     assert!(drain(&mut app).is_empty());
 
     let request = ask().in_room(Some(there));
-    assert!(matches!(signal(app.world_mut(), &request.args, request.room), CommandOutcome::Done));
+    assert!(matches!(signal(app.world_mut(), &request.args, &ambition_platformer2d_shared_tangle::authored_logic::CommandContext { room: request.room, reply: None }), CommandOutcome::Queued));
     let sent = drain(&mut app);
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].room, Some(there), "the signal went to another room's occurrence");

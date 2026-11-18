@@ -38,6 +38,8 @@ use crate::AdmittedExtensions;
 /// One queued trigger.
 pub struct PendingInvocation {
     pub phase: Phase,
+    /// A directed reply names one admitted entry. Ordinary triggers broadcast.
+    pub entry: Option<Name>,
     pub port: PortKey,
     pub selector: Name,
     pub scope: Entity,
@@ -71,6 +73,7 @@ impl ExtensionInvocations {
     ) {
         self.pending.push(PendingInvocation {
             phase: phase.clone(),
+            entry: None,
             port: P::KEY,
             selector: selector.into(),
             scope,
@@ -79,6 +82,16 @@ impl ExtensionInvocations {
             encode: encode_erased::<P>,
             idle,
         });
+    }
+
+    /// Deliver a domain reply to one entry. Other entries with the same
+    /// trigger selector do not receive it.
+    pub fn trigger_entry<P: Port>(
+        &mut self, phase: &Phase, entry: impl Into<Name>, selector: impl Into<Name>,
+        scope: Entity, value: P::Value,
+    ) {
+        self.trigger::<P>(phase, selector, scope, None, false, value);
+        self.pending.last_mut().unwrap().entry = Some(entry.into());
     }
 
     pub fn is_empty(&self) -> bool {
@@ -276,9 +289,26 @@ impl ExtensionFaults {
     }
 }
 
-/// A domain's projection for one observation port: the value for one scope at
-/// the read cut, or `None` when the domain has no value for that scope.
-pub type Supplier = Arc<dyn Fn(&World, Entity) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
+/// The current entry and its trigger at the host's read cut.
+#[derive(Clone, Copy)]
+pub struct ObservationContext<'a> {
+    pub scope: Entity,
+    pub entry: &'a str,
+    invocation: &'a PendingInvocation,
+}
+
+impl ObservationContext<'_> {
+    /// Read a trigger only when its port and native value type match.
+    pub fn trigger<P: Port>(&self) -> Option<&P::Value> {
+        (self.invocation.port == P::KEY)
+            .then(|| self.invocation.value.downcast_ref())
+            .flatten()
+    }
+}
+
+/// A domain projects one observation for this invocation's read cut.
+pub type Supplier =
+    Arc<dyn Fn(&World, ObservationContext<'_>) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
 
 /// What the installed ports need at invocation time, frozen at admission:
 /// each observation port's projection and encoder, and each request port's
@@ -366,6 +396,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             let path: Arc<str> = Arc::from(entry.path.as_str());
             for (invocation, pace) in pending.iter().zip(&paces).filter(|(p, _)| {
                 p.port == descriptor.trigger.port && p.selector == descriptor.trigger.selector
+                    && p.entry.as_ref().is_none_or(|path| path.as_ref() == entry.path)
             }) {
                 let dt = dt * pace;
                 if world.get_entity(invocation.scope).is_err() {
@@ -470,7 +501,7 @@ fn run_native(
         .iter()
         .filter_map(|port| {
             let (supply, _) = codecs.suppliers.get(port)?;
-            supply(world, invocation.scope).map(|value| Observation {
+            supply(world, ObservationContext { scope: invocation.scope, entry: &entry.path, invocation }).map(|value| Observation {
                 port: port.clone(),
                 value: OwnedPayload::Native(value),
             })
@@ -521,7 +552,7 @@ fn run_loaded(
         .iter()
         .filter_map(|port| {
             let (supply, encode) = codecs.suppliers.get(port)?;
-            let value = supply(world, invocation.scope)?;
+            let value = supply(world, ObservationContext { scope: invocation.scope, entry: &entry.path, invocation })?;
             let mut bytes = Vec::new();
             encode(value.as_ref(), &mut bytes);
             Some((port.clone(), bytes))

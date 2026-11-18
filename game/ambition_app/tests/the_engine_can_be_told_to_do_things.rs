@@ -11,7 +11,7 @@
 //! did, and that the request survives the whole road: the message channel, the
 //! set, the dispatcher, the domain's own effect bus, and the save.
 //!
-//! the road is the point, not the flag. Writing `SetFlagRequested`
+//! the road is the point, not the flag. Writing `SetFlagsRequested`
 //! directly would set the same flag and prove nothing — every link this test
 //! exists to check would be untested and still green.
 
@@ -186,7 +186,7 @@ fn a_requested_command_reaches_the_domain_and_the_save() {
         ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"),
     ));
     // One tick: the dispatcher runs in `AuthoredCommandSet`, which is ordered
-    // before `GameplayEffects` precisely so the `SetFlagRequested` it writes is
+    // before `GameplayEffects` precisely so the `SetFlagsRequested` it writes is
     // applied by `apply_flag_effects` on the SAME tick.
     sim.step_n(base(), 1);
 

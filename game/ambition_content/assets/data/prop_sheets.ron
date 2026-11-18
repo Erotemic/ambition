@@ -934,6 +934,23 @@
     "hill_salt_run_hatch": (),
     "hill_salt_run_lantern": (),
     "hill_salt_run_ladder": (),
+    // The freight siding: its crates, loading stages, notice and fingerpost.
+    "hill_freight_crates": (),
+    "hill_loading_stage": (),
+    "hill_siding_notice": (),
+    "hill_fingerpost": (),
+    // The woods: the tree down across the path.
+    "hill_woods_fallen_trunk": (),
+    // The surveyors' boards on stakes (the lane, the woods).
+    "hill_stake_board": (),
+    // The siding's chest: the crate the raiders packed the notes in.
+    "hill_goblins_crate": (),
+    // The workshop's slates, one per width of words.
+    "workshop_slate_96": (),
+    "workshop_slate_120": (),
+    "workshop_slate_180": (),
+    "workshop_slate_260": (),
+    "workshop_slate_300": (),
     // The catacombs under the moor (Evil).
     "catacombs_west": (),
     "catacombs_east": (),

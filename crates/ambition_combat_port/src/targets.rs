@@ -74,3 +74,12 @@ mod tests {
         assert_eq!(FoesPort::decode(&mut WireReader::new(&bytes)).unwrap(), foes);
     }
 }
+
+ambition_extension_sdk::port_choices! {
+    /// The shared targeting relation, independent of friendly-fire policy.
+    pub enum TargetRelation {
+        Foe = 1 => "foe",
+        Ally = 2 => "ally",
+        Neutral = 3 => "neutral",
+    }
+}

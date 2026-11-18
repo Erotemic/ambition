@@ -466,6 +466,11 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     moving_platforms::sync_moving_platform_visuals
                         .run_if(moving_platforms::platforms_or_their_visuals)
                         .after(ambition_sim_view::PresentedPoseSet),
+                    // A body in the cart behind its near rail, after the
+                    // bodies are placed.
+                    moving_platforms::seat_bodies_in_vessels
+                        .run_if(moving_platforms::platforms_or_their_visuals)
+                        .after(actors::sync_visuals),
                 )
                     .after(item_visuals::report_unloadable_item_art)
                     .run_if(session_presentation_is_ready),

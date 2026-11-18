@@ -1,7 +1,7 @@
 //! Authored-logic domain for durable world flags.
 //!
 //! Conditions read flags from `AmbitionGameSaveData`; commands request flag
-//! writes through `SetFlagRequested`. The provider publishes both halves without
+//! writes through `SetFlagsRequested`. The provider publishes both halves without
 //! adding central enums/match arms. It lives here because resolving a flag spans
 //! persistence and combat-owned write vocabulary without adding a new dependency
 //! edge between those crates.
@@ -139,7 +139,7 @@ pub fn set_flag_descriptor() -> CommandDescriptor {
 /// `world.set_flag` — see [`set_flag_descriptor`].
 ///
 /// it writes the domain's OWN typed request rather than the save, and
-/// that is the rollback argument in one line. `SetFlagRequested` already exists,
+/// that is the rollback argument in one line. `SetFlagsRequested` already exists,
 /// is already cleared on rollback, and is already applied by `apply_flag_effects`
 /// in `GameplayEffects` — which the authored-command set is ordered before. So
 /// this command introduces no new kind of write, mutates nothing the snapshot
@@ -151,7 +151,8 @@ pub fn set_flag_descriptor() -> CommandDescriptor {
 /// a different road than the same effect takes from a chest, a pickup or an
 /// interaction — which is the second-authority shape this contract exists to
 /// remove.
-pub fn set_flag(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
+pub fn set_flag(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let Some(flag) = args[0].as_name() else {
         return CommandOutcome::refused("`flag` must be a name");
     };
@@ -159,7 +160,7 @@ pub fn set_flag(world: &mut World, args: &[AuthoredArg], room: Option<ambition_p
         return CommandOutcome::refused("`on` must be a truth");
     };
     if !world.contains_resource::<
-        bevy::ecs::message::Messages<ambition_combat::events::SetFlagRequested>,
+        bevy::ecs::message::Messages<ambition_combat::events::SetFlagsRequested>,
     >() {
         return CommandOutcome::refused(
             "no world-fact channel is installed in this composition, so nothing \
@@ -177,12 +178,12 @@ pub fn set_flag(world: &mut World, args: &[AuthoredArg], room: Option<ambition_p
         .filter(|_| changes)
         .zip(world.get_resource::<ambition_time::SimTick>().map(|tick| tick.0))
         .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick });
-    world.write_message(ambition_combat::events::SetFlagRequested {
-        id: flag.to_string(),
-        on,
+    world.write_message(ambition_combat::events::SetFlagsRequested {
+        changes: vec![(flag.to_string(), on)],
+        reply: context.reply.clone(),
         written,
     });
-    CommandOutcome::Done
+    CommandOutcome::Queued
 }
 
 /// Publishes the world-fact domain's conditions and commands.

@@ -1,6 +1,6 @@
 //! Apply typed flag, quest, switch, and audio effects.
 
-use ambition_combat::events::{GameplaySfxRequested, SetFlagRequested};
+use ambition_combat::events::{GameplaySfxRequested, SetFlagsRequested};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_encounter::switches::SwitchActivated;
 use ambition_persistence::quest::QuestAdvanceRequested;
@@ -15,7 +15,8 @@ use bevy::prelude::{Res, ResMut};
 /// caused by it, so a rewind of that room takes both back (ISL-2d). Without
 /// the log (a bare fixture) the writes are only applied.
 pub fn apply_flag_effects(
-    mut effects: ReplayMessageReader<SetFlagRequested>,
+    mut replies: ambition_platformer2d_shared_tangle::action_results::ActionReplies,
+    mut effects: ReplayMessageReader<SetFlagsRequested>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut log: Option<ResMut<ambition_combat::events::FlagWritesInRooms>>,
@@ -23,7 +24,12 @@ pub fn apply_flag_effects(
 ) {
     let now = tick.map_or(0, |tick| tick.0);
     for effect in effects.read() {
-        write_logged_flag(&mut save, &mut quests, log.as_deref_mut(), effect.id.clone(), effect.on, effect.written, now);
+        if !replies.is_pending(effect.reply.as_ref()) { continue; }
+        for (id, on) in &effect.changes {
+            write_logged_flag(&mut save, &mut quests, log.as_deref_mut(), id.clone(), *on, effect.written, now);
+        }
+        replies.publish(effect.reply.as_ref(), ambition_extension_sdk::action::ActionStage::Applied, true,
+            "flags_written", "", effect.changes.iter().map(|(id, _)| id.clone()).collect());
     }
 }
 
@@ -213,9 +219,9 @@ mod tests {
 
     #[test]
     fn gameplay_effect_messages_remain_typed() {
-        let flag = SetFlagRequested {
-            id: "flag".into(),
-            on: true,
+        let flag = SetFlagsRequested {
+            changes: vec![("flag".into(), true)],
+            reply: None,
             written: None,
         };
         let quest = QuestAdvanceRequested::new(
@@ -237,7 +243,7 @@ mod tests {
             room: None,
         };
 
-        assert!(flag.on);
+        assert!(flag.changes[0].1);
         assert!(matches!(
             quest.0,
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(_)

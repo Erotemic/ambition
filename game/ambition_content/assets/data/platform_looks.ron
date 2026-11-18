@@ -104,6 +104,9 @@
         span_px: (108.0, 636.0),
         top_px: 126.0,
         front_row: Some("front"),
+        // `RAIL_HEIGHT` (19) at `PX` 2: a body on the bed is in the cart,
+        // and one that jumps clear of the rail is over it.
+        rim_px: Some(38.0),
     ),
     // The first step of the cart's ramp: the row `ramp` of the cart's sheet
     // (`RAMP_STEP_SPAN_PX`, `RAMP_STEP_TOP_PX`). It starts where the bed

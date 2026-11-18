@@ -362,13 +362,46 @@ pub fn drop_held_weapon(
     );
 }
 
+/// Spawn the item a body throws when no world object stands behind its hand
+/// (a scene put the item there, `actor.throw`): a `GroundItem` leaving `pos` at
+/// `vel`, released as a throw, so what arms on a throw arms (a bomb's fuse).
+///
+/// An occurrence named under the thrower (`SimId::spawned(thrower, sequence)`,
+/// `sequence` from the thrower's own counter), as an inventory throw's mint
+/// is: it rewinds, and it is swept with the room.
+#[allow(clippy::too_many_arguments)]
+pub fn throw_minted_item(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    thrower: &SimId,
+    sequence: u64,
+    spec: ambition_characters::brain::HeldItemSpec,
+    pos: ae::Vec2,
+    vel: ae::Vec2,
+    half_extent: ae::Vec2,
+) -> bevy::prelude::Entity {
+    spawn_death_drop(
+        commands,
+        session_scope,
+        thrower,
+        sequence,
+        DropIdentity::Occurrence(SimId::spawned(thrower, sequence)),
+        (
+            ambition_held_items::GroundItem::released(spec, pos, vel, half_extent),
+            ambition_held_items::ReleasedAs(ambition_held_items::Release::Throw),
+            bevy::prelude::Name::new("Ground item: thrown in a scene"),
+        ),
+    )
+}
+
 /// Spawn the item an authored placement grew again (a palm's coconut) as a
 /// `GroundItem` at rest at `pos`.
 ///
 /// It is a runtime mint for the same reason a dropped weapon is: no record
 /// authors it, so the occurrence ledger admits it where it lies, and its
 /// identity (`SimId::regrown`) is what every durable road keys on. It is at
-/// rest where it grew, as the authored item it replaces was.
+/// rest where it grew, as the authored item it replaces was, and hangs there
+/// `hang_seconds` first when its placement says so (an apple on its tree).
 #[allow(clippy::too_many_arguments)]
 pub fn grow_ground_item(
     commands: &mut Commands,
@@ -378,9 +411,10 @@ pub fn grow_ground_item(
     spec: ambition_characters::brain::HeldItemSpec,
     pos: ae::Vec2,
     half_extent: ae::Vec2,
+    hang_seconds: Option<f32>,
     name: &str,
 ) -> bevy::prelude::Entity {
-    spawn_death_drop(
+    let grown = spawn_death_drop(
         commands,
         session_scope,
         placement,
@@ -391,7 +425,11 @@ pub fn grow_ground_item(
             ambition_held_items::SettledItem::default(),
             bevy::prelude::Name::new(name.to_string()),
         ),
-    )
+    );
+    if let Some(seconds) = hang_seconds {
+        commands.entity(grown).insert(ambition_held_items::HangingItem::for_seconds(seconds));
+    }
+    grown
 }
 
 #[cfg(test)]

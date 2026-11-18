@@ -205,7 +205,7 @@ pub fn drive_wave_encounters(
     // them back (ISL-2d), and the tick that dates them.
     // And each room's pace, which its waves run at.
     (mut flag_writes, sim_tick, freeze): (
-        MessageWriter<ambition_combat::events::SetFlagRequested>,
+        MessageWriter<ambition_combat::events::SetFlagsRequested>,
         Option<Res<ambition_time::SimTick>>,
         ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     ),
@@ -423,7 +423,11 @@ pub fn drive_wave_encounters(
                 .filter(|_| !save.data().flag(&flag))
                 .zip(sim_tick.as_deref())
                 .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 });
-            flag_writes.write(ambition_combat::events::SetFlagRequested { id: flag, on: true, written });
+            flag_writes.write(ambition_combat::events::SetFlagsRequested {
+                changes: vec![(flag, true)],
+                reply: None,
+                written
+            });
         }
         match &activation.action {
             // A gravity switch turns the ambient of the live room it is in,

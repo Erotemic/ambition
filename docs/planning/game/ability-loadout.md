@@ -189,15 +189,18 @@ tests (bounce, one-way landing, strike rules).
    level, and a level's count is not a stock: the menu shows no count on it,
    and a load gives a missing one back at the starting level. Witnesses:
    `a_worn_row_withholds_its_verbs_until_it_is_taken_off`,
-   `precision_blink_has_two_levels_and_the_demo_starts_at_the_top`, and the
+   `precision_blink_has_three_levels_and_the_demo_starts_at_the_top`, and the
    schema test's refusal of a withheld name that is no verb.
-   Provisional (reversible): two levels, not three. Jon's notes give level 2
-   the controlled blink and level 3 the time slow, but the aimed blink and
-   its slow are one verb today (`precision_blink`; the slow is
-   `time_control` reading `blink_aiming`). A third level needs the slow as a
-   verb of its own, so a row can withhold it; then level 2 withholds the
-   slow and level 3 is the whole blink. The quick-press "intuitive thing"
-   and the double press are item 2's.
+   **Three levels (2026-11-17), as Jon's notes give them.** The aim's time
+   slow is a verb of its own, `AbilitySet::blink_slow`: a permission every
+   kit has (as `ranged` is), which exists to be withheld. Time control
+   slows the world for an aim only when the aiming body has it
+   (`emit_primary_observer_time_intent`; witness
+   `an_aim_without_the_blink_slow_verb_leaves_the_world_at_full_speed`).
+   Level 2 (`precision_blink_2`) withholds `blink_slow`: the controlled
+   blink at full speed. Level 3 (`precision_blink_3`) is the whole blink.
+   Schema 485. The quick-press "intuitive thing" and the double press are
+   item 2's.
 4. **Placeholders:** Lightning, Axe Stance, Whip Stance, Dash II. A stance
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.
@@ -226,6 +229,6 @@ standing row is no longer drawn on a crouched box
 
 The maintainer requested removal of Javelin, Axe, Map Fragment and Sealed Note
 on 2026-10-30. All four are gone from the grid, the catalog, the dialogue and
-the tests that granted them; see [ITEM-CONTENT](../queue.md#item-content--remove-retired-items-without-letting-fixtures-retain-them)
+the tests that granted them; see [ITEM-CONTENT](../queue.md#item-content--remove-retired-items-without-letting-fixtures-retain-them---done-2026-11-17)
 for the replacements and the usage list. The held object `javelin` (not the
 grid item) remains as the portal similarity lab's asymmetric gauge.

@@ -9,6 +9,7 @@ use bevy::prelude::*;
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
 pub struct EditableAbilitySet {
+    pub unlock_all_abilities: bool,
     pub move_horizontal: bool,
     pub jump: bool,
     pub variable_jump: bool,
@@ -45,6 +46,7 @@ pub struct EditableAbilitySet {
     pub climb: bool,
     pub morph: bool,
     pub ranged: bool,
+    pub blink_slow: bool,
 }
 
 impl EditableAbilitySet {
@@ -84,6 +86,7 @@ impl EditableAbilitySet {
             climb: self.climb,
             morph: self.morph,
             ranged: self.ranged,
+            blink_slow: self.blink_slow,
         }
     }
 }
@@ -129,8 +132,10 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             climb,
             morph,
             ranged,
+            blink_slow,
         } = value;
         Self {
+            unlock_all_abilities: true,
             move_horizontal,
             jump,
             variable_jump,
@@ -165,6 +170,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             climb,
             morph,
             ranged,
+            blink_slow,
         }
     }
 }
@@ -669,7 +675,10 @@ pub struct ActivePlayerBodyProfile(pub Option<PlayerBodyProfile>);
 /// `None` means nothing is admitted yet. The first publish seeds it from the
 /// editable, so controlled bodies have the mask from the first tick.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
-pub struct ActiveEditableAbilityMask(pub Option<ae::AbilitySet>);
+pub struct ActiveEditableAbilityMask {
+    pub mask: Option<ae::AbilitySet>,
+    pub unlock_all_abilities: bool,
+}
 
 pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,

@@ -26,7 +26,7 @@ pub fn withhold_the_rooms_verbs(
             .spec_of(body)
             .and_then(|spec| spec.metadata.withheld_verbs.as_deref())
             .and_then(|withheld| AbilitySet::all_but_listed(withheld).ok())
-            .map(AbilityContribution::Ceiling);
+            .map(AbilityContribution::AccessCeiling);
         if contributions.get(ROOM_WITHHELD_VERBS) == wanted {
             continue;
         }

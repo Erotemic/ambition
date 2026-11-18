@@ -17,7 +17,7 @@ use ambition_projectile_combat::{charge_projectile_input, step_projectiles};
 use ambition_gameplay_trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::{PlayerSlot, SeatRawFrames};
-use ambition_combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
+use ambition_combat::events::{GameplayBanner, HitEvent, SetFlagsRequested};
 use ambition_platformer2d_core::{ControlFrame, RoomGeometry};
 use ambition_projectiles::state::PlayerProjectileState;
 use ambition_vfx::vfx::DebrisBurstMessage;
@@ -122,7 +122,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
     app.add_message::<DebrisBurstMessage>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<ambition_combat::events::ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();

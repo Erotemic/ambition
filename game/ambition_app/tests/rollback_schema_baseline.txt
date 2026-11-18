@@ -1,10 +1,12 @@
-ggrs-rollback-schema-v484
+ggrs-rollback-schema-v488
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.held_course	component-clone	HeldCourse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.module_entity	component-clone	ModuleEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actions.mailbox	component-canonical	ActionMailbox	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actions.scope_sequence	component-canonical	ActionScopeSequence	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -130,6 +132,7 @@ boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + id
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 checkpoint.authored_pending	resource-clone-custom-checksum	PendingAuthoredCheckpoint	bevy_ggrs clone snapshot + the seat of an authored checkpoint asked and not yet committed
 combat.attack_allegiance	component-canonical	AttackAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+combat.body_query_history	component-canonical	BodyQueryHistory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
 combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapshot; not in the session checksum
 combat.fixed_strike_feature_pulse	component-canonical	FixedStrikeFeaturePulse	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -265,6 +268,7 @@ entity:fighter_eliminated	component-canonical	FighterEliminated	bevy_ggrs canoni
 entity:fighter_stocks	component-canonical	FighterStocks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:force_zone	required-rollback	ForceZone	component presence automatically installs bevy_ggrs::Rollback
 entity:ground_item	required-rollback	GroundItem	component presence automatically installs bevy_ggrs::Rollback
+entity:hanging_item	required-rollback	HangingItem	component presence automatically installs bevy_ggrs::Rollback
 entity:heal_shrine	required-rollback	HealShrine	component presence automatically installs bevy_ggrs::Rollback
 entity:held_material_basis	required-rollback	HeldMaterialBasis	component presence automatically installs bevy_ggrs::Rollback
 entity:hitbox	required-rollback	Hitbox	component presence automatically installs bevy_ggrs::Rollback
@@ -314,6 +318,7 @@ gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; v
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.bag_uses_in_rooms	resource-clone-custom-checksum	BagUsesInRooms	bevy_ggrs clone snapshot + the cells bodies used from the shared bag, and what a room's conversation added to it or sold from it, within the rewind horizon, with the room and tick of each, which a room rewind takes back (ISL-2d)
 item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; not in the session checksum
+item.hanging_item	component-clone	HangingItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.held_material_basis	component-canonical	HeldMaterialBasis	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -442,7 +447,7 @@ message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buff
 message.room_replay_admitted	message-clear	RoomReplayAdmitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.run_authored_command	message-clear	RunAuthoredCommand	clear abandoned-future message buffer in LoadWorld::Mapping
-message.set_flag_requested	message-clear	SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.set_flags_requested	message-clear	SetFlagsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.shop_transaction_requested	message-clear	ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_projectile	message-clear	ProjectileSpawnRequest	clear abandoned-future message buffer in LoadWorld::Mapping

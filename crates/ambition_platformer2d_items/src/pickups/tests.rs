@@ -46,7 +46,7 @@ fn collect_marks_only_the_overlapping_pickup() {
     app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
@@ -74,7 +74,7 @@ fn currency_pickup_credits_the_player_wallet() {
     app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
@@ -127,7 +127,7 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
@@ -174,7 +174,7 @@ fn collect_is_a_noop_with_no_player() {
     app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
@@ -346,7 +346,7 @@ mod who_gets_it {
         app.add_message::<BodyHealRequested>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
-        app.add_message::<SetFlagRequested>();
+        app.add_message::<SetFlagsRequested>();
         app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
         app.add_systems(Update, collect_ecs_pickups);
 
@@ -415,7 +415,7 @@ mod who_gets_it {
         app.add_message::<BodyHealRequested>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
-        app.add_message::<SetFlagRequested>();
+        app.add_message::<SetFlagsRequested>();
         app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
         app.add_systems(Update, collect_ecs_pickups);
 
@@ -586,7 +586,7 @@ fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
     app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
@@ -628,7 +628,7 @@ fn a_collected_pickup_reports_its_id_to_the_quests() {
     app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 

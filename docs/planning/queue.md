@@ -22,7 +22,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    are [story sequences](engine/story-sequences.md): SS1 (actor commands),
    SS2 (cutscene `Command`/`WaitFor` beats) and a first SS4 (`starts_when`)
    landed 2026-11-14 with the raid's last raider running out through the
-   lane with the case; SS3's first part (a death in a scene stays: the
+   lane with the case (since 2026-11-17 a brute, beaten, bombs the Creator
+   and takes it); SS3's first part (a death in a scene stays: the
    Creator lies where he fell on a later visit) landed the same day, and
    its `present_when` landed 2026-11-17 (the game show's goat and car are
    actors in their closets); SS5 (cutscene camera pans that
@@ -38,66 +39,22 @@ carries closed campaigns. Unselected or customer-gated plans live in
    light stops at the room's solid ground), TN3 (the Lantern, found in
    the salt run) and TN1 (the navigation graph plans over painted ground)
    are done (2026-11-16): the plan is complete.
-0b. **Runtime authoring: a scripting language (Jon, 2026-11-14: "I think its
-   time for a scripting language"; after the audit's obvious fixes, scripting
-   is the feature priority).** The
+0b. **Script-first Ambition gameplay.** Follow the
+   [capability program](engine/script-first-ambition-gameplay.md) for new
+   flagship gameplay. The first slice adds the Boss of the Game's scripted
+   encore jets and the Lightning inventory skill (`31443e23b`). The
+   [capability census](engine/script-first-capability-census.md) records the
+   existing contracts and the next useful gaps. Keep working native game
+   mechanics. Do not use migration counts or port counts as acceptance.
+   The [authoring recipe](../recipes/scripted-stage-attacks.md) describes the
+   built-host edit loop and domain authority.
+   **Retained receipt:** [first-class procedural game authoring](engine/first-class-procedural-game-authoring.md)
+   proves A1–A10 on desktop Linux (`9c1ccf62d`): authored mechanics,
+   three-backend parity, saved-state refusal, release delivery, and measured
+   promotion. Keep its fixtures. The older
    [runtime authoring audit](engine/runtime-authoring-audit-2026-11-14/README.md)
-   is the plan; its P1 fixes B01 (the app's build label no longer rebuilds
-   the app for unrelated edits or a `git add`), B02 (`run_game.sh --reuse`)
-   and B03 (the module watcher follows its package) are done 2026-11-14.
-   The Luau-vs-Rhai bake-off is measured (2026-11-14,
-   [result](engine/scripting-language-bakeoff.md)): provisional choice Rhai
-   (it builds for the browser target, matches the native sentry byte for
-   byte with exact float comparisons, and cannot keep hidden state); Luau has
-   the better analyzer and VM but does not build for `wasm32-unknown-unknown`.
-   The Rhai backend landed 2026-11-14 (`crates/ambition_extension_rhai`,
-   P3's backend half): `AMBITION_EXTENSION_MODULES` takes `.rhai` files, each
-   the code of the linked module its stem names, hot-reloaded on the
-   mechanical-edit road with a new content generation; the shipped
-   `game/ambition_content_modules/rhai/sentry.rhai` runs the turret, and
-   `a_script_module_runs_without_a_build` edits it in a running sync-test
-   game and witnesses that a faulting invocation commits nothing.
-   The sentry's port descriptions (P2) landed 2026-11-14: one declaration
-   per value (`ambition_extension_sdk::structure`) gives the wire codec, the
-   script conversion and the [generated reference](../sdk/script-ports.md),
-   and `request(..)` errors name the script's line.
-   P3's project entry landed 2026-11-16: `--project` runs a `project.ron`
-   (scripts, a content pack root, an entry room) on the built host
-   (`examples/projects/sentry_drill`, no Rust).
-   The authored technique slice (`5dfb7d683`, 2026-11-16) adds
-   [Pulse Forge](../../examples/projects/pulse_forge/README.md): equipment
-   binds a new scripted technique that creates and ticks its own entity kind.
-   The module declares its schemas and entries in Rhai. The
-   `a_project_authors_a_technique` tests cover rollback, atomic faults, and
-   live edit/removal/addition. The inspector also accepts Rhai candidates.
-   The project world slice (`6f8d4d9c7`, 2026-11-16) lets a project's
-   `worlds` directory supply the selected pack's LDtk files. Pulse Forge
-   now has its own drill room. One App-local manifest feeds loading,
-   validation, drawing, and reload; the app test covers rejection and repair.
-   Script reload now stages all changed files and removals from one poll
-   together (`32061bec9`). A compile failure keeps the full module set;
-   repair retries the held edits. Pack and script revisions still publish
-   separately (P5).
-   **Next action:** the rest of P3's project entry (the
-   [plan's progress note](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p3-run-source-scripts-and-a-project-on-the-prebuilt-host):
-   body grants and behaviour attachments as a project's data when a
-   customer needs them; module discovery from the manifest, the tools'
-   `--project`, the rollback and fault witnesses through a project,
-   modules a script declares (`fn declare()`) and the starting bag as data
-   (`starting_items`) landed 2026-11-16); describing the
-   other ports as scripts need them (a module entity's own requests,
-   `end_module_entity`, `pull_bodies` and `launch_toucher`, and a brain's
-   `actor_think`, `fire` and `velocity` with Mary-O's laden swallow as a
-   Rhai script, landed 2026-11-16). P4's coconut swallows are under way
-   ([design](engine/runtime-authoring-audit-2026-11-14/execution-plan.md#p4-prove-rich-composition-with-existing-game-requirements)):
-   the room-coordinated `group_think` and `steer`, and the custody
-   requests `take` and `release`, reference fields in a room's record,
-   and the swallows themselves as a shipped script (`swallows.rhai`, the
-   native producer removed) landed 2026-11-16; P4's controller/attachment
-   split and its two parallel customers remain.
-   Story sequences (SS1, SS2, landed) are the first content customer of
-   the authored command catalog a script will call.
-   **Completed acceptance slice (2026-11-17):** [first-class procedural game authoring](engine/first-class-procedural-game-authoring.md) proves A1–A10 on desktop Linux: authored mechanics, three-backend parity, saved-state refusal, independent release delivery, and measured promotion (`9c1ccf62d`). Keep the promotion and project-state fixtures. The broader P4 work above remains open.
+   records prior P1–P5 work; its proposed migrations need a separately
+   selected product benefit before execution.
 
 1. **Network architecture (maintainer priority, updated 2026-11-10):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. **Direction set 2026-11-10:** the metroidvania moves to a hybrid model, with rollback kept inside a room boundary while it is easy to maintain and its room-level cost measured, and hosted authority for the world around the rooms: [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world) is selected and runs beside the experiment.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
@@ -114,8 +71,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    capability architecture. Continue AP14 ownership work before lower-priority
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
-4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
-5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
+4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
+5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
    remain selected at their stated boundaries (TOOL-DISCOVERY and EDITOR-SHELL
    are complete: [tooling layout](engine/tooling-layout-and-editor-consolidation.md),
    T0-T5; retired from this queue 2026-11-11). Portal, rendering,
@@ -175,7 +132,7 @@ or updating their source. Check with
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
 
-### RADIANT-NPC-HTN — authored NPC lives and replaceable planning
+### RADIANT-NPC-HTN — authored NPC lives and replaceable planning — ✅ DONE 2026-11-17
 
 **State:** done 2026-11-14 (slices 1–7).
 
@@ -207,7 +164,7 @@ or updating their source. Check with
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 
-### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro
+### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro — ✅ DONE 2026-11-17
 
 **State:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami), and each local view shows the card of the boss in its own room (2026-11-10; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). Done: the rendered witnesses below are the acceptance's evidence (two non-Wolfenstein fights, and two views).
 
@@ -241,11 +198,13 @@ or updating their source. Check with
 
 **Rendered parts measured and fixed in the source (2026-11-14, [owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)):** none of the giant's clips tweened, so its walk moved its legs 22-26 px at once every 0.08 s while its body slid smoothly; its publisher now tweens its four walking loops as every character's walk is tweened (renderer `81b31ac`).
 
-**Next action:** republish the giant on the publishing machine (this VM publishes no core art), then watch the walk in the fight at 60 and 144 Hz; turning, buck and rider remain as measured (smooth).
+**Republished 2026-11-17** (on this VM, which may render art since 2026-11-11): the published `giant_gnu_parts.ron` carries the four tweened walking clips (`tween: Linear`); the bundle before it had none.
+
+**Next action:** watch the walk in the fight at 60 and 144 Hz (Jon's displays); turning, buck and rider remain as measured (smooth).
 
 **Acceptance:** walking, turning, buck, rider movement and portal strikes are visually continuous and align with collision, footholds, hits and camera, across fixed ticks, relevant render rates, reset/replay and quality levels.
 
-### ITEM-CONTENT — remove retired items without letting fixtures retain them
+### ITEM-CONTENT — remove retired items without letting fixtures retain them — ✅ DONE 2026-11-17
 
 **Done 2026-11-10 for the grid; the held javelin ruled 2026-11-14.** The Javelin and the Sealed Note are gone
 from the item grid, `items.ron`, the intro dialogue and every test that
@@ -317,9 +276,12 @@ worn row follows the count ([loadout, open 3](game/ability-loadout.md#open)).
 ceiling contribution, and Precision Blink has two levels: the quick blink,
 then the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
 
+**Done 2026-11-17:** Precision Blink has its three levels: the aim's time
+slow is a verb of its own (`blink_slow`), level 2 withholds it and level 3
+is the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
+
 **Next action:** the laser's own sound waits for an SFX bank republish.
-Precision Blink's third level waits for the aim's time slow as a verb of
-its own. Then Blink and stance replacement through the existing
+Then Blink and stance replacement through the existing
 technique/equipment seam. Author Contextual Blink, Precision Blink
 tiers and the remaining variants in that model, not named engine branches.
 
@@ -375,7 +337,7 @@ seeds retain their established fields. Publish each changed product and its
 quality variants through the current pipeline. No runtime shader redraws the
 character or changes gameplay geometry.
 
-### ASSET-SELECTION — one selected-file contract for runtime and tools
+### ASSET-SELECTION — one selected-file contract for runtime and tools — ✅ DONE 2026-11-17
 
 **Failure:** the inspector reads loose audio and font paths while the runtime
 uses selected publications. Python packaging and Rust also differ on missing
@@ -418,7 +380,7 @@ publication can run without a rebuild or a deep audit. A native host with
 served-content support enabled admits its shared library once; standalone
 served games still run.
 
-### ASSET-PUBLISH — selection does not audit old bundle payloads
+### ASSET-PUBLISH — selection does not audit old bundle payloads — ✅ DONE 2026-11-17
 
 **Failure:** acceptance hashes the source and copied product; selection calls
 `integrity()` for every selected bundle, including unchanged bundles.
@@ -464,8 +426,6 @@ this VM lacks four, so release composition refuses here before and after.
 **Acceptance:** local preview uses the same selected file set without hashing
 all media. Missing required files have a useful diagnostic. Android, Steam
 Deck and static web release packages still pass their final asset contracts.
-
-<a id="geometry-observability--render-the-effective-geometry-behind-gameplay"></a>
 
 ### GEOMETRY-OBSERVABILITY — render the effective geometry behind gameplay — ✅ DONE 2026-11-17
 
@@ -678,7 +638,7 @@ attack poses remain readable. Check interruptions, rollback resets, quality
 tiers and portals at game scale. Preserve Mary-O's classic home-game tall
 poses. Visual rig work does not enable gameplay rig geometry.
 
-### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave
+### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave — ✅ DONE 2026-11-17
 
 **Owner:** `ambition_input` (seating, `sources.rs`), Ambition's seating
 declaration (`ambition_content::provider::declare_ambition_seating`), the join
@@ -868,7 +828,7 @@ any flicker remains (the shader layer is unchecked).
 **Acceptance:** the gate renders continuously after its opening on desktop and
 Steam Deck. Keep intended opening animation separate from missing frames.
 
-### CHARACTER-FORM — a change of form is the same body in the new form's geometry
+### CHARACTER-FORM — a change of form is the same body in the new form's geometry — ✅ DONE 2026-11-17
 
 **Owner:** the form application (`avatar/character_execution.rs`, the re-wear
 road), `ambition_body_seed::PhysicalBaseline` / `BaselineBoundary`, the
@@ -1023,9 +983,18 @@ starts at the barn door. Removed: the basement lab, the service stair,
 checkpoint. The Drain Market and the culvert stay as town rooms. Decisions
 D1-D21 in the design page.
 
+**Walked, the far half (2026-11-17):** `a_walked_route_of_the_persistent_world::the_player_walks_from_the_woods_to_the_siding_and_wins_its_fight`
+goes from the woods up the hill path, lifts the barrier by its lever, goes
+down the freight track, wins the yard fight (both waves, about 1230 frames,
+no death) and opens the goblins' crate for the notes, all by the player's
+own inputs. Found on the way and fixed: the raid's runaway scene counted
+fallen raiders in every room, so a raid whose last two fell together left it
+armed for the siding, where it held the yard fight on a line of the absent
+Creator (`actor.fallen_in`, the count in one named room).
+
 **Next action:** the art
 (terrain, props, villagers, publication; the three backgrounds are drawn);
-the residents (the gatekeeper, the miller, the innkeeper and the trader landed 2026-11-14, Hobford row 9); playtest and tune the waves. The sandbox hub remains the new-game start (D3, Jon, 2026-11-17); the workshop is reached from the hub.
+the residents (the gatekeeper, the miller, the innkeeper and the trader landed 2026-11-14, Hobford row 9); tune the waves by playing them. The sandbox hub remains the new-game start (D3, Jon, 2026-11-17); the workshop is reached from the hub.
 
 **LEVEL-1-KIT (done 2026-11-14 for verbs):** each level-1 room withholds the
 kit past run, one jump, drop through and the strike (the level field
@@ -1176,7 +1145,7 @@ at hand; the later-work list in the design page.
 fight runs with the Boss riding the guitar robot, in phases, with its intro,
 music cue and art; the ending follows the retirement rule.
 
-### PLAYER-DEATH — what a death is in Ambition
+### PLAYER-DEATH — what a death is in Ambition — ✅ DONE 2026-11-17
 
 **Owner:** `session/death.rs` (the beat), the presentation owner, and the bag
 (currency). Request (Jon, 2026-11-12): Ambition needs a presented player
@@ -1245,7 +1214,7 @@ wipe, a departed seat, R5) pass in Ambition's rooms, which declare it.
 and lies where the body fell until fetched; with too little to pay, the
 bigger penalty applies; co-op recovery and the wipe keep their rules.
 
-### HIT-FEEL — hits that answer
+### HIT-FEEL — hits that answer — ✅ DONE 2026-11-17
 
 **Owner:** combat feel (`ambition_combat::feel`, kill beat, hit-stop), the
 sound and effect recipes, and each move's poise. Request (Jon, 2026-11-12):
@@ -1450,7 +1419,7 @@ heights (was 0.85) at peak alpha 0.018 (was 0.042): the same light at half a
 body height from the middle (0.013), now fading out over twice the distance
 instead of ending near the outline.
 
-### COOP-RECOVERY — independent respawn and a full-party wipe
+### COOP-RECOVERY — independent respawn and a full-party wipe — ✅ DONE 2026-11-17
 
 **Owner:** `session/death.rs`, `sandbox_reset.rs`, the checkpoint restore
 (`session/checkpoint.rs`). Rulings: Q151 amended and Q153 (2026-10-19, the
@@ -1539,7 +1508,7 @@ different rooms, room B and its wins unchanged; both dead, the checkpoint
 restores; a removed participant not counted; a local recovery duplicates no
 object.
 
-### PARTNER-RECOVERY — an optional respawn beside a living partner
+### PARTNER-RECOVERY — an optional respawn beside a living partner — ✅ DONE 2026-11-17
 
 **Owner:** as COOP-RECOVERY, plus the settings owner. Ruling: Q153
 (2026-10-19, the later row).

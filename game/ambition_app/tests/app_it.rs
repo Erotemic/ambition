@@ -11,6 +11,9 @@
 //! Shared fixtures live in `mod common`, referenced as `crate::common::*`.
 
 mod common;
+mod playtest_ability_access;
+mod lightning_is_authored_in_rhai;
+mod the_boss_stage_has_scripted_pyro;
 mod smash_hit_properties;
 mod the_creator_answers_each_confirm;
 mod a_project_authors_a_technique;
@@ -75,6 +78,8 @@ mod a_hosted_guest_shows_the_hosts_bodies;
 mod a_guests_room_rewinds_on_the_host;
 mod f1_blocks_against_collision;
 mod observed_geometry;
+mod the_guitar_answers_a_climb;
+mod scripted_status_capabilities;
 mod grounded_attack_momentum;
 mod room_rollback_host;
 mod one_body_two_tickers;
@@ -118,7 +123,7 @@ mod the_behemoth_shoots_from_its_eyes;
 mod a_custom_brain_module_fires_through_the_gate;
 mod a_loaded_module_keeps_session_state;
 mod a_script_module_runs_without_a_build;
-mod the_raids_last_raider_runs_with_the_case;
+mod the_raid_brute_takes_the_case;
 mod boss_lifecycle;
 mod boss_replay_retraction;
 mod breakable_respawn_across_rooms;
@@ -368,3 +373,9 @@ mod repertoire_publication;
 mod smash_reaction_poses;
 mod level_one_withholds_the_large_kit;
 mod intro_training;
+
+mod scripted_action_results;
+
+mod scripted_body_queries;
+
+mod scripted_body_contacts;

@@ -301,7 +301,8 @@ fn ray_start(
         Spot::Part(spot) => {
             let kin = body?;
             let part = match spot.part {
-                ArtPart::Visor => ambition_characters::actor::PartBox::Visor,
+                ArtPart::Visor => Some(ambition_characters::actor::PartBox::Visor),
+                ArtPart::Hand => None,
             };
             let requested: Vec<&str> = spot.rows.iter().map(String::as_str).collect();
             let rows = landmarks.rows_for_stance(owner, &requested);
@@ -310,7 +311,8 @@ fn ray_start(
                 .find(|landmark| landmark.attachment() == spot.landmark)?;
             let point = landmarks.in_rig_space(owner, landmark,
                 crate::body_landmarks::LandmarkPose::Row { chain: &rows, elapsed_s: spot.elapsed, looping: spot.looping })?;
-            let width = landmarks.part_box_in_row(owner, part, &rows, spot.elapsed, spot.looping, spot.inset_px)
+            let width = part
+                .and_then(|part| landmarks.part_box_in_row(owner, part, &rows, spot.elapsed, spot.looping, spot.inset_px))
                 .map_or(ray.width, |bounds| bounds.height());
             match landmarks.place_rig_point(owner, point, kin) {
                 Ok(at) => Some((at, width)),
@@ -879,6 +881,7 @@ pub mod reaction;
 pub mod special;
 pub mod status;
 pub mod targets;
+pub mod body_query;
 pub mod think;
 pub use contact::install_for_body_contact;
 pub use reaction::install_for_hit_reaction;

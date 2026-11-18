@@ -210,6 +210,7 @@ name = "ambition_platformer2d_shared_tangle"
 version = "0.1.0"
 dependencies = [
  "ambition_binding",
+ "ambition_extension_sdk",
  "ambition_hit_spec",
  "ambition_platformer2d_core",
  "ambition_projectile_spec",

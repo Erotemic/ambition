@@ -149,11 +149,11 @@ impl Port for TimeScalePort {
     type Value = TimeScale;
 
     fn encode(v: &TimeScale, out: &mut Vec<u8>) {
-        wire::put_f32(out, v.scale);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<TimeScale, WireError> {
-        Ok(TimeScale { scale: r.f32()? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -185,12 +185,11 @@ impl Port for StatusClockPort {
     type Value = StatusClock;
 
     fn encode(v: &StatusClock, out: &mut Vec<u8>) {
-        wire::put_str(out, &v.kind);
-        wire::put_f32(out, v.remaining);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<StatusClock, WireError> {
-        Ok(StatusClock { kind: r.str()?.to_owned(), remaining: r.f32()? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -207,6 +206,23 @@ impl Port for StatusClockPort {
 /// * **Time** — offered in `technique_execution`; read when the entry runs.
 /// * **Absence** — absent for a scope that is not a body.
 pub struct InPlayPort;
+
+ambition_extension_sdk::port_record! {
+    TimeScale {
+        /// The body's clock rate from the next tick. It must be finite and positive.
+        scale: f32,
+    }
+}
+ambition_extension_sdk::port_record! {
+    StatusClock {
+        kind: String,
+        /// The remaining fraction, clamped to 0 through 1.
+        remaining: f32,
+    }
+}
+ambition_extension_sdk::script_port!(TimeScalePort);
+ambition_extension_sdk::script_port!(StatusClockPort);
+ambition_extension_sdk::script_port!(InPlayPort);
 
 impl Port for InPlayPort {
     const KEY: PortKey = PortKey::new("ambition.body.in_play", 1);
@@ -226,9 +242,13 @@ impl Port for InPlayPort {
 mod tests {
     use super::*;
 
-    fn round_trip<P: Port>(value: P::Value) -> P::Value {
+    fn round_trip<P: Port + ambition_extension_sdk::script::ScriptPort>(value: P::Value) -> P::Value {
         let mut bytes = Vec::new();
         P::encode(&value, &mut bytes);
+        let scripted = P::from_script(&P::to_script(&value)).unwrap();
+        let mut script_bytes = Vec::new();
+        P::encode(&scripted, &mut script_bytes);
+        assert_eq!(script_bytes, bytes);
         P::decode(&mut WireReader::new(&bytes)).unwrap()
     }
 

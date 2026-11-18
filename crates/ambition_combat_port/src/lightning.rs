@@ -3,7 +3,7 @@
 //! reads either. A bolt that hurts is a ray ([`crate::ray::HeldRayPort`]),
 //! drawn from its own geometry.
 
-use ambition_extension_sdk::wire::{self, WireError, WireReader};
+use ambition_extension_sdk::wire::{WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
 
 use crate::ray::Spot;
@@ -35,39 +35,17 @@ pub struct Lightning {
     pub hold_s: f32,
 }
 
-pub(crate) fn put_rgba(out: &mut Vec<u8>, c: [f32; 4]) {
-    for v in c {
-        wire::put_f32(out, v);
-    }
-}
-
-pub(crate) fn rgba(r: &mut WireReader<'_>) -> Result<[f32; 4], WireError> {
-    Ok([r.f32()?, r.f32()?, r.f32()?, r.f32()?])
-}
-
 impl Port for LightningPort {
     const KEY: PortKey = PortKey::new("ambition.feedback.lightning", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = Lightning;
 
     fn encode(v: &Lightning, out: &mut Vec<u8>) {
-        wire::put_str(out, &v.key);
-        v.from.put(out);
-        v.to.put(out);
-        wire::put_str(out, &v.look);
-        wire::put_opt(out, v.glow, put_rgba);
-        wire::put_f32(out, v.hold_s);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Lightning, WireError> {
-        Ok(Lightning {
-            key: r.str()?.to_owned(),
-            from: Spot::read(r)?,
-            to: Spot::read(r)?,
-            look: r.str()?.to_owned(),
-            glow: r.opt(rgba)?,
-            hold_s: r.f32()?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -102,23 +80,11 @@ impl Port for LightningAuraPort {
     type Value = LightningAura;
 
     fn encode(v: &LightningAura, out: &mut Vec<u8>) {
-        wire::put_str(out, &v.key);
-        wire::put_vec2(out, v.center);
-        wire::put_vec2(out, v.half);
-        wire::put_str(out, &v.look);
-        wire::put_opt(out, v.glow, put_rgba);
-        wire::put_f32(out, v.hold_s);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<LightningAura, WireError> {
-        Ok(LightningAura {
-            key: r.str()?.to_owned(),
-            center: r.vec2()?,
-            half: r.vec2()?,
-            look: r.str()?.to_owned(),
-            glow: r.opt(rgba)?,
-            hold_s: r.f32()?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -157,3 +123,26 @@ mod tests {
         r.finish().unwrap();
     }
 }
+
+ambition_extension_sdk::port_record! {
+    Lightning {
+        key: String,
+        from: Spot,
+        to: Spot,
+        look: String,
+        glow: Option<[f32; 4]> = None,
+        hold_s: f32,
+    }
+}
+ambition_extension_sdk::port_record! {
+    LightningAura {
+        key: String,
+        center: [f32; 2],
+        half: [f32; 2],
+        look: String,
+        glow: Option<[f32; 4]> = None,
+        hold_s: f32,
+    }
+}
+ambition_extension_sdk::script_port!(LightningPort);
+ambition_extension_sdk::script_port!(LightningAuraPort);

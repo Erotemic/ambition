@@ -18,7 +18,7 @@ fn app() -> App {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<SlotInteractionState>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();

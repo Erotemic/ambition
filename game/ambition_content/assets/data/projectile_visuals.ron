@@ -5,6 +5,23 @@
 // effect at expiry (`None`: the generic impact). An edit here is drawn at the
 // next start, and after a content reload, with no Rust build.
 {
+    "stage_pyro": (
+        source: Sheet(target: "shot_kit", animation: "fireball", animate: true),
+        size: FixedWidth(56.0),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.5, 0.15, 1.0),
+        label: "stage pyro",
+        expiry_vfx: Some((fx: "ember_wisp", scale: 0.6)),
+    ),
+    "lightning": (
+        source: Line(look: "force", length: 96.0),
+        size: FixedWidth(48.0),
+        rotation: VelocityAligned,
+        debug_tint: (0.45, 0.8, 1.0, 1.0),
+        label: "lightning",
+        expiry_vfx: Some((fx: "classic_burst", scale: 0.3)),
+        hit_vfx: Some((fx: "classic_burst", scale: 0.5)),
+    ),
     // A shot that names no look (the empty id): a bolt of magic. A boss's
     // volley and a `Bolt` ranged action are this, not the engine's orange box.
     "": (

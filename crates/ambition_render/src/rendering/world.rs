@@ -224,6 +224,12 @@ pub fn spawn_room_visuals(
     // Chests come through the `placements` channel.
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Chest(chest) = &record.schema {
+            if let Some(look) = chest.look.as_deref() {
+                let fallback = game_assets::chest_state_sprite(chest.opened);
+                spawn_feature_look(commands, session_scope, world, record, FeatureVisualKind::Chest, look, fallback, assets);
+                spawn_chest_label(commands, session_scope, world, record.id.as_str(), &record.name, record.aabb);
+                continue;
+            }
             let authored = ambition_platformer2d_world::rooms::Authored {
                 id: record.id.as_str().to_string(),
                 name: record.name.clone(),
@@ -239,7 +245,8 @@ pub fn spawn_room_visuals(
             &record.schema
         {
             if let Some(look) = breakable.look.as_deref() {
-                spawn_breakable_look(commands, session_scope, world, record, look, assets);
+                let fallback = game_assets::EntitySprite::BreakableIntact;
+                spawn_feature_look(commands, session_scope, world, record, FeatureVisualKind::Breakable, look, fallback, assets);
                 continue;
             }
             spawn_authored_basic(
@@ -1397,23 +1404,26 @@ fn spawn_authored_basic(
     }
 }
 
-/// Spawn a breakable that names a look: the prop sheet `look` fills its box,
-/// as a lock wall's look does. It is a [`FeatureVisual`], so `sync_visuals`
-/// places it, hides it when it breaks and tints it ([`PropTint`]) as it takes
-/// hits; and a [`PropVisual`], so the prop sheet binds when it is loaded and
-/// again after a quality change. Until the sheet loads it is the generic
-/// breakable sprite.
-fn spawn_breakable_look(
+/// Spawn a breakable or a chest that names a look: the prop sheet `look`
+/// fills its box, as a lock wall's look does. It is a [`FeatureVisual`], so
+/// `sync_visuals` places it, hides it when it breaks and tints it
+/// ([`PropTint`]) as it takes hits (a chest has no health, so it stays
+/// white); and a [`PropVisual`], so the prop sheet binds when it is loaded and
+/// again after a quality change. Until the sheet loads it is `fallback`, the
+/// generic sprite of its kind.
+#[allow(clippy::too_many_arguments)]
+fn spawn_feature_look(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
     record: &ambition_platformer2d_world::placements::PlacementRecord,
+    kind: FeatureVisualKind,
     look: &str,
+    fallback_sprite: game_assets::EntitySprite,
     assets: Option<&GameAssets>,
 ) {
     let size = record.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
-    let kind = FeatureVisualKind::Breakable;
     let mut entity = commands.spawn_session_scoped(
         session_scope,
         (
@@ -1439,7 +1449,7 @@ fn spawn_breakable_look(
         None => {
             let fallback = feature_color(kind, false, false);
             entity.insert(match assets {
-                Some(a) => entity_sprite_or_color(a, Some(game_assets::EntitySprite::BreakableIntact), render, fallback),
+                Some(a) => entity_sprite_or_color(a, Some(fallback_sprite), render, fallback),
                 None => Sprite::from_color(fallback, render),
             });
         }
@@ -1524,16 +1534,27 @@ fn spawn_authored_chest(
         game_assets::entity_sprite_for_chest(&authored.payload),
         assets,
     );
-    // Chest label.
-    let half_h = authored.aabb.half_size().y;
+    spawn_chest_label(commands, session_scope, world, &authored.id, &authored.name, authored.aabb);
+}
+
+/// A chest's name, over its box.
+fn spawn_chest_label(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    world: &ae::World,
+    id: &str,
+    name: &str,
+    aabb: ae::Aabb,
+) {
+    let half_h = aabb.half_size().y;
     spawn_world_label(
         commands,
         session_scope,
         world,
-        format!("fixture:chest:{}", authored.id),
+        format!("fixture:chest:{id}"),
         WorldLabelFamily::Fixture,
-        authored.aabb.center() + ae::Vec2::new(0.0, -half_h - 22.0),
-        &authored.name,
+        aabb.center() + ae::Vec2::new(0.0, -half_h - 22.0),
+        name,
         14.0,
     );
 }

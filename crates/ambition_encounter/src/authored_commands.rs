@@ -62,7 +62,8 @@ const START_TARGET: ParamSpec = ParamSpec {
 /// every tick (a room's `while_live` line) starts it once, and a completed
 /// encounter is not started again. The occurrence rule is the one
 /// [`signal`] uses.
-fn start(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
+fn start(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let Some(target) = args[0].as_reference() else {
         return CommandOutcome::refused("`encounter.start` takes an occurrence reference");
     };
@@ -82,8 +83,11 @@ fn start(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platform
             )
         });
     };
-    world.write_message(EncounterCommand::new(encounter_id.clone(), crate::lifecycle::EncounterCommandKind::Start).in_room(*room));
-    CommandOutcome::Done
+    if !world.contains_resource::<bevy::ecs::message::Messages<EncounterCommand>>() {
+        return CommandOutcome::refused("No encounter command consumer is installed.");
+    }
+    world.write_message(EncounterCommand::new(encounter_id.clone(), crate::lifecycle::EncounterCommandKind::Start).in_room(*room).with_reply(context.reply.clone()));
+    CommandOutcome::Queued
 }
 
 /// Tell one live encounter that a fact it is waiting for has happened.
@@ -100,7 +104,8 @@ fn start(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platform
 /// that room's occurrence. One that is no room's signals the one occurrence
 /// there is, and refuses when two live rooms each hold one: which of them was
 /// meant is not written anywhere it can read.
-fn signal(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
+fn signal(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let (Some(target), Some(key)) = (args[0].as_reference(), args[1].as_name()) else {
         return CommandOutcome::refused(
             "`encounter.signal` takes an occurrence reference and a signal key",
@@ -122,8 +127,11 @@ fn signal(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platfor
             )
         });
     };
-    world.write_message(EncounterCommand::signal(encounter_id.clone(), key).in_room(*room));
-    CommandOutcome::Done
+    if !world.contains_resource::<bevy::ecs::message::Messages<EncounterCommand>>() {
+        return CommandOutcome::refused("No encounter command consumer is installed.");
+    }
+    world.write_message(EncounterCommand::signal(encounter_id.clone(), key).in_room(*room).with_reply(context.reply.clone()));
+    CommandOutcome::Queued
 }
 
 /// The encounter id and live room of every occurrence a reference names.

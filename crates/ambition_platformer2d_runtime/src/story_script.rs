@@ -6,8 +6,7 @@ use ambition_characters::control::DrivingParticipant;
 use ambition_extension_host::{
     AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox,
 };
-use ambition_extension_sdk::wire::{WireError, WireReader};
-use ambition_extension_sdk::{phases::ACTOR_THINK, Port, PortKey, PortRole};
+use ambition_extension_sdk::{phases::ACTOR_THINK, Port};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::{
     authored_logic::{AuthoredAsk, CommandCatalog, RunAuthoredCommand},
@@ -17,136 +16,7 @@ use ambition_platformer2d_shared_tangle::{
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 use bevy::prelude::*;
 
-/// One `actor_think` invocation for each live instance of the selected room
-/// definition. Its scope is the room root. No invocation runs while its
-/// room clock is held. The trigger contains simulation facts only.
-pub struct StoryTickPort;
-/// Submit an authored command in the invocation's room. Lowering prepares
-/// the line against `CommandCatalog`. A bad line or absent room is refused
-/// and logged. The command owner applies the effect through its usual path.
-pub struct StoryCommandPort;
-/// Queue a known cutscene in the invocation's room. A missing library id
-/// is refused and logged. Playback owns the queue, skip policy and cursor.
-pub struct PlayCutscenePort;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct StoryTick {
-    pub busy: bool,
-    pub flags: Vec<String>,
-    pub bodies: Vec<StoryBody>,
-    pub marks: Vec<StoryMark>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct StoryBody {
-    pub id: String,
-    pub form: String,
-    pub position: [f32; 2],
-    pub size: [f32; 2],
-    pub on_ground: bool,
-    pub alive: bool,
-    pub driven: bool,
-    pub struck_recently: bool,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct StoryCommand {
-    pub line: String,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PlayCutscene {
-    pub id: String,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct StoryMark {
-    pub name: String,
-    pub position: [f32; 2],
-}
-
-ambition_extension_sdk::port_record! {
-    StoryTick {
-        /// A conversation or cutscene currently holds this room.
-        busy: bool,
-        /// The save flags that are true, sorted by name.
-        flags: Vec<String>,
-        /// This room's bodies, sorted by simulation identity.
-        bodies: Vec<StoryBody>,
-        /// Named LDtk labels and their points, in room pixels.
-        marks: Vec<StoryMark>,
-    }
-}
-ambition_extension_sdk::port_record! {
-    StoryMark {
-        /// The authored label name.
-        name: String,
-        /// The label's point in room pixels.
-        position: [f32; 2],
-    }
-}
-ambition_extension_sdk::port_record! {
-    StoryBody {
-        /// The body's simulation identity.
-        id: String,
-        /// The character id.
-        form: String,
-        /// The body's centre, in room pixels with +Y down.
-        position: [f32; 2],
-        /// The body's width and height.
-        size: [f32; 2],
-        /// The shared movement system reports ground contact.
-        on_ground: bool,
-        /// The body is alive.
-        alive: bool,
-        /// A participant drives this body.
-        driven: bool,
-        /// The shared hit resolver reports a recent strike on this body.
-        struck_recently: bool,
-    }
-}
-ambition_extension_sdk::port_record! {
-    StoryCommand {
-        /// A command line from the authored command catalog. It runs in this room.
-        line: String,
-    }
-}
-ambition_extension_sdk::port_record! {
-    PlayCutscene {
-        /// A script id from the cutscene library. It plays in this room.
-        id: String,
-    }
-}
-
-macro_rules! story_port {
-    ($port:ty, $key:literal, $role:ident, $value:ty) => {
-        impl Port for $port {
-            const KEY: PortKey = PortKey::new($key, 1);
-            const ROLE: PortRole = PortRole::$role;
-            type Value = $value;
-            fn encode(value: &Self::Value, out: &mut Vec<u8>) {
-                ambition_extension_sdk::structure::put(value, out)
-            }
-            fn decode(reader: &mut WireReader<'_>) -> Result<Self::Value, WireError> {
-                ambition_extension_sdk::structure::read(reader)
-            }
-        }
-        ambition_extension_sdk::script_port!($port);
-    };
-}
-story_port!(StoryTickPort, "ambition.story.tick", Trigger, StoryTick);
-story_port!(
-    StoryCommandPort,
-    "ambition.story.command",
-    Request,
-    StoryCommand
-);
-story_port!(
-    PlayCutscenePort,
-    "ambition.story.play_cutscene",
-    Request,
-    PlayCutscene
-);
+use ambition_world_port::*;
 
 pub fn install(app: &mut App) {
     app.install_extension_trigger::<StoryTickPort, _>(
@@ -278,31 +148,29 @@ fn queue_story_ticks(
     }
 }
 
-fn lower_commands(
-    mut outbox: ResMut<ExtensionOutbox>,
-    catalog: Res<CommandCatalog>,
-    rooms: LiveRooms,
-    mut commands: MessageWriter<RunAuthoredCommand>,
-) {
-    for submitted in outbox.drain::<StoryCommandPort>(&ACTOR_THINK) {
-        let Some(room) = rooms.of(submitted.scope) else {
-            warn!(
-                "story command from {} refused: its scope has no live room",
-                submitted.entry
-            );
-            continue;
-        };
-        match catalog.prepare_line(&submitted.value.line) {
+fn lower_commands(world: &mut World) {
+    use ambition_platformer2d_shared_tangle::action_results::publish_action_result;
+    use ambition_extension_sdk::{action::ActionStage, digest::Digest};
+    let submitted: Vec<_> = world.resource_mut::<ExtensionOutbox>().drain::<StoryCommandPort>(&ACTOR_THINK);
+    for submitted in submitted {
+        let signature = Digest::new().str(&submitted.value.line).finish();
+        let dispatch = crate::action_replies::begin(world, submitted.scope, &submitted.entry,
+            "authored.command", submitted.value.reply.as_ref(), signature);
+        if !dispatch.execute { continue; }
+        let room = world.get::<LiveRoomInstance>(submitted.scope).copied()
+            .or_else(|| world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(submitted.scope).map(|at| at.0));
+        let prepared = room.ok_or_else(|| "The caller has no live room.".to_owned())
+            .and_then(|_| world.resource::<CommandCatalog>().prepare_line(&submitted.value.line).map_err(|problem| problem.to_string()));
+        match prepared {
             Ok(prepared) => {
-                commands.write(
-                    RunAuthoredCommand::prepared(
-                        &prepared,
-                        AuthoredAsk::new("script", submitted.entry.to_string()),
-                    )
-                    .in_room(Some(room)),
-                );
+                world.write_message(RunAuthoredCommand::prepared(&prepared,
+                    AuthoredAsk::new("script", submitted.entry.to_string())).in_room(room).with_reply(dispatch.reply));
             }
-            Err(problem) => warn!("story command from {} refused: {problem}", submitted.entry),
+            Err(problem) => {
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Rejected, true,
+                    "command_invalid", problem.clone(), Vec::new());
+                warn!("story command from {} refused: {problem}", submitted.entry);
+            }
         }
     }
 }

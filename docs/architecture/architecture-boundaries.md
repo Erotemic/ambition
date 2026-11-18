@@ -53,6 +53,11 @@ Build scripts can use `ambition_content_pack` and `ambition_sprite_part_format`.
 The format crate shares the sprite schema with the runtime and has no Bevy
 dependency. A game's normal engine dependencies still use the facade.
 
+Runtime can name content-free port contracts to register scripting
+descriptions. The domain adapters keep scope, admission, and request
+authority. A script uses the same values and state contracts as a portable
+Rust module. This registration does not admit named game logic into runtime.
+
 Representative rules:
 
 - Reusable engine crates do not depend on Ambition's named content or app.

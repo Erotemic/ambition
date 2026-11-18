@@ -4,6 +4,10 @@
 //! bodies.
 
 use super::*;
+use crate::actor_tuning::ActorConfig;
+use ambition_entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ae::AabbExt as _;
 use ambition_characters::actor::Health;
 use ambition_combat_port::{BodyDefeat, ContactBounce};
@@ -28,8 +32,8 @@ fn stomp(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let head = contact.body.position[1] - contact.body.size[1] * 0.5;
     let mut stomped = false;
     for (index, toucher) in contact.touchers.iter().enumerate() {
-        let feet = toucher.position[1] + toucher.size[1] * 0.5;
-        if toucher.velocity[1] >= 0.0 && feet <= head + 8.0 {
+        let feet = toucher.body.position[1] + toucher.body.size[1] * 0.5;
+        if toucher.body.velocity[1] >= 0.0 && feet <= head + 8.0 {
             inv.submit::<ContactBouncePort>(ContactBounce { toucher: index as u32, speed: BOUNCE, pogo_cue: true })?;
             stomped = true;
         }
@@ -40,7 +44,9 @@ fn stomp(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     Ok(())
 }
 
-fn app() -> App {
+fn app() -> App { app_with(stomp) }
+
+fn app_with(run: fn(&mut Invocation<'_>) -> Result<(), Fault>) -> App {
     let mut app = App::new();
     app.init_schedule(Sim);
     app.add_plugins(ExtensionHostPlugin::new(Sim))
@@ -59,11 +65,11 @@ fn app() -> App {
             trigger: TriggerBinding { port: BodyContactPort::KEY, selector: WALKER.into() },
             reads: vec![],
             writes: vec![],
-            requests: vec![ContactBouncePort::KEY, BodyDefeatPort::KEY],
+            requests: vec![ContactBouncePort::KEY, BodyDefeatPort::KEY, ambition_combat_port::HoldStatusPort::KEY],
             after: vec![],
             limits: Limits { max_requests: 4 },
             on_idle: IdlePolicy::Invoke,
-            run: EntryCode::Native(stomp),
+            run: EntryCode::Native(run),
         }],
     });
     app.finish();
@@ -89,6 +95,7 @@ fn player(app: &mut App, id: &str, at: ae::Vec2, vel: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
             PlayerEntity,
+            DrivingParticipant(PlayerSlot(0)),
             ae::BodyKinematics { pos: at, vel, canonical_size: ae::Vec2::new(24.0, 44.0), ..Default::default() },
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
             SimId::placement(id),
@@ -140,6 +147,7 @@ fn a_bound_body_decides_what_a_touch_does() {
 fn a_body_that_stands_on_a_head_touches_it_and_one_above_does_not() {
     let body = ae::Aabb::new(ae::Vec2::new(0.0, 100.0), ae::Vec2::new(20.0, 15.0));
     let standing = ae::Aabb::new(ae::Vec2::new(5.0, 100.0 - 15.0 - 22.0), ae::Vec2::new(12.0, 22.0));
+    let touches = |a: ae::Aabb, b: ae::Aabb| !ae::CombatVolume::aabb(a).surface_contacts(&ae::CombatVolume::aabb(b), 0.0).is_empty();
     assert!(touches(body, standing));
     assert!(!touches(body, standing.translated(ae::Vec2::new(0.0, -1.0))));
     assert!(!touches(body, standing.translated(ae::Vec2::new(40.0, 0.0))), "beside it, apart");
@@ -227,4 +235,119 @@ fn a_bounce_is_against_the_touchers_own_gravity() {
         let vel = app.world().get::<ae::BodyKinematics>(toucher).unwrap().vel;
         assert_eq!(vel, expected, "{name}: the toucher's velocity after the bounce");
     }
+}
+
+#[test]
+fn contact_rules_follow_the_body_for_all_controller_pairs_and_status_bindings() {
+    for recipient_driven in [false, true] {
+        for toucher_driven in [false, true] {
+            for brain in [WALKER, "unbound_brain"] {
+                let mut app = app();
+                let recipient = walker(&mut app, brain, ae::Vec2::new(100.0, 900.0));
+                app.world_mut().entity_mut(recipient).insert(crate::extension::status::BodyStatuses(vec![WALKER.into()]));
+                if recipient_driven { app.world_mut().entity_mut(recipient).insert(DrivingParticipant(PlayerSlot(1))); }
+                let toucher = player(&mut app, "toucher", on_head(100.0), ae::Vec2::new(0.0, 200.0));
+                app.world_mut().entity_mut(toucher).remove::<PlayerEntity>();
+                if !toucher_driven { app.world_mut().entity_mut(toucher).remove::<DrivingParticipant>(); }
+                app.world_mut().run_schedule(Sim);
+                assert!(app.world().get_entity(recipient).is_err());
+                assert_eq!(app.world().get::<ae::BodyKinematics>(toucher).unwrap().vel.y, -BOUNCE);
+                assert_eq!(app.world().resource::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>().len(), 1,
+                    "the brain and held status bind the same rule only once");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_contact_sample_excludes_foreign_sessions_and_held_rooms() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot, RoomPace, SessionScopeId, SessionScopedEntity,
+    };
+    for (same_session, held) in [(false, false), (true, true), (true, false)] {
+        let mut app = app();
+        let room = LiveRoomInstance::ACTIVATION;
+        app.world_mut().spawn((RoomInstanceRoot, room, RoomPace { held_until: if held { 10 } else { 0 }, clock_scale: 1.0 }));
+        let recipient = walker(&mut app, WALKER, ae::Vec2::new(100.0, 900.0));
+        app.world_mut().entity_mut(recipient).insert((InRoomInstance(room), SessionScopedEntity(SessionScopeId(1))));
+        let toucher = player(&mut app, "toucher", on_head(100.0), ae::Vec2::new(0.0, 200.0));
+        app.world_mut().entity_mut(toucher).insert((InRoomInstance(room), SessionScopedEntity(SessionScopeId(if same_session { 1 } else { 2 }))));
+        app.world_mut().run_schedule(Sim);
+        assert_eq!(app.world().get_entity(recipient).is_err(), same_session && !held);
+    }
+}
+
+#[test]
+fn contact_budgets_keep_identity_order_and_bound_native_responses() {
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
+    let mut app = app();
+    app.declare_rules(RulesScope::EveryRoom, ContactFactsLimits { max_touchers: 1, max_surfaces: 1 });
+    walker(&mut app, WALKER, ae::Vec2::new(100.0, 900.0));
+    let later = player(&mut app, "b", on_head(100.0), ae::Vec2::new(0.0, 200.0));
+    let first = player(&mut app, "a", on_head(100.0), ae::Vec2::new(0.0, 200.0));
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(app.world().get::<ae::BodyKinematics>(first).unwrap().vel.y, -BOUNCE);
+    assert_eq!(app.world().get::<ae::BodyKinematics>(later).unwrap().vel.y, 200.0);
+}
+
+#[test]
+fn overlapping_envelopes_do_not_report_contact_outside_rotated_material() {
+    let mut app = app();
+    let recipient = walker(&mut app, WALKER, ae::Vec2::new(100.0, 900.0));
+    {
+        let mut shape = app.world_mut().get_mut::<ae::BodyKinematics>(recipient).unwrap();
+        shape.canonical_size = ae::Vec2::new(40.0, 2.0);
+        shape.material = shape.material.turned(std::f64::consts::FRAC_PI_4).unwrap();
+    }
+    let toucher = player(&mut app, "corner", ae::Vec2::new(90.0, 910.0), ae::Vec2::ZERO);
+    app.world_mut().get_mut::<ae::BodyKinematics>(toucher).unwrap().canonical_size = ae::Vec2::splat(2.0);
+    let first = app.world().get::<ae::BodyKinematics>(recipient).unwrap().aabb();
+    let second = app.world().get::<ae::BodyKinematics>(toucher).unwrap().aabb();
+    assert!(first.strict_intersects(second));
+    app.world_mut().run_schedule(Sim);
+    assert!(app.world().resource::<ContactTouchers>().0.is_empty());
+    assert!(app.world().get_entity(recipient).is_ok());
+}
+
+#[test]
+fn a_carried_piece_does_not_leave_a_phantom_contact_behind_its_aperture() {
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+    use ae::frame::{PortalAperture, PortalFrame};
+    for (y, contacts) in [(-2.5, true), (0.5, false)] {
+        let mut app = app();
+        let recipient = walker(&mut app, WALKER, ae::Vec2::new(0.0, -1.0));
+        app.world_mut().get_mut::<ae::BodyKinematics>(recipient).unwrap().canonical_size = ae::Vec2::splat(4.0);
+        let toucher = player(&mut app, "toucher", ae::Vec2::new(0.0, y), ae::Vec2::ZERO);
+        app.world_mut().get_mut::<ae::BodyKinematics>(toucher).unwrap().canonical_size = ae::Vec2::splat(0.2);
+        let mut geometry = BodyGeometry::default();
+        geometry.add_pair(None, (
+            PortalAperture { frame: PortalFrame::fixed(ae::Vec2::ZERO, -ae::Vec2::Y), half_length: 10.0 },
+            PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, -50.0), ae::Vec2::Y), half_length: 10.0 },
+        ));
+        app.insert_resource(geometry);
+        app.world_mut().run_schedule(Sim);
+        assert_eq!(!app.world().resource::<ContactTouchers>().0.is_empty(), contacts);
+    }
+}
+
+
+#[test]
+fn a_geometry_refusal_is_not_published_as_a_proven_empty_contact_sample() {
+    fn observe(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+        let sample = inv.trigger::<BodyContactPort>()?;
+        assert!(sample.incomplete);
+        assert!(sample.touchers.is_empty());
+        assert_eq!(sample.refusals.len(), 1);
+        assert_eq!(sample.refusals[0].id, SimId::placement("broken").as_str());
+        assert!(sample.refusals[0].reason.contains("InvalidScale"));
+        inv.submit::<ambition_combat_port::HoldStatusPort>(ambition_combat_port::HoldStatus {
+            kind: "test.saw_refusal".into(), held: true,
+        })
+    }
+    let mut app = app_with(observe);
+    let recipient = walker(&mut app, WALKER, ae::Vec2::new(100.0, 900.0));
+    let broken = player(&mut app, "broken", on_head(100.0), ae::Vec2::ZERO);
+    app.world_mut().get_mut::<ae::BodyKinematics>(broken).unwrap().canonical_size = ae::Vec2::ZERO;
+    app.world_mut().run_schedule(Sim);
+    assert!(app.world().get::<crate::extension::status::BodyStatuses>(recipient).unwrap().holds("test.saw_refusal"));
 }

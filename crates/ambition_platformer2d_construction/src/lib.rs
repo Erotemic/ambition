@@ -762,19 +762,22 @@ fn construct_authored_ground_item(
     // never `spawn` — and it was one of only TWO production references
     // `construction` made into `features/ecs` at all. Both had this file as their
     // only caller, so the domain edge existed to serve nobody.
-    ctx.insert_in_session(
-        (
-            bevy::prelude::Name::new(format!("Ground item: {}", spec.name)),
-            ambition_held_items::GroundItem::at_rest(held.clone(), spec.pos, spec.half_extent),
-            // ⭐⭐ AN AUTHORED PLACEMENT IS ALREADY AT REST, and saying so is what
-            // lets everything else fall. An author put this object where it is;
-            // it is not necessarily standing on collision geometry the physics
-            // predicate can see, and stepping it drops the whole authored
-            // population out of the world (measured: a room rebuild came back
-            // with zero ground items where it had fifteen).
-            ambition_held_items::SettledItem::default(),
-        ),
+    let placed = (
+        bevy::prelude::Name::new(format!("Ground item: {}", spec.name)),
+        ambition_held_items::GroundItem::at_rest(held.clone(), spec.pos, spec.half_extent),
+        // ⭐⭐ AN AUTHORED PLACEMENT IS ALREADY AT REST, and saying so is what
+        // lets everything else fall. An author put this object where it is;
+        // it is not necessarily standing on collision geometry the physics
+        // predicate can see, and stepping it drops the whole authored
+        // population out of the world (measured: a room rebuild came back
+        // with zero ground items where it had fifteen).
+        ambition_held_items::SettledItem::default(),
     );
+    // An apple on its tree hangs there until it ripens.
+    match spec.hang_seconds {
+        Some(seconds) => ctx.insert_in_session((placed, ambition_held_items::HangingItem::for_seconds(seconds))),
+        None => ctx.insert_in_session(placed),
+    };
 }
 
 fn construct_staged_actor(

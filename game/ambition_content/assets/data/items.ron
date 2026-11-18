@@ -54,10 +54,18 @@
     ),
     (
         display_name: "Lightning",
-        description: "A projectile of lightning. Not yet found.",
+        description: "Hold out your hand and lightning crackles from it in a short cone. Hold to keep it crackling; it spends mana while it does.",
         category: Ability,
         held_item_id: None,
         dialog_id: "lightning",
+        wears: Some((
+            id: "lightning",
+            exclusive_slot: Some("projectile"),
+            grants: [Technique((
+                id: ("lightning"), slot: Projectile,
+                display_name: Some("Lightning"), gate: Technique("lightning"),
+            ))],
+        )),
     ),
     (
         display_name: "Sword Stance",
@@ -90,10 +98,14 @@
         held_item_id: None,
         dialog_id: "precisionblink",
         // Level 1: the quick directional blink, without the aimed one.
-        // Level 2: the robot's whole blink (aimed, under the aim's time slow).
+        // Level 2: the aimed blink, at full speed (no time slow).
+        // Level 3: the robot's whole blink (aimed, under the aim's time slow).
         wears: Some((id: "precision_blink", exclusive_slot: Some("blink"), withholds: ["precision_blink"])),
-        levels: [(id: "precision_blink_2", exclusive_slot: Some("blink"))],
-        stack: 2,
+        levels: [
+            (id: "precision_blink_2", exclusive_slot: Some("blink"), withholds: ["blink_slow"]),
+            (id: "precision_blink_3", exclusive_slot: Some("blink")),
+        ],
+        stack: 3,
         icon: Some("sprites/props/gauntlet_blink.png"),
     ),
     (

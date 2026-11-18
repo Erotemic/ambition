@@ -232,6 +232,13 @@ pub struct PlatformLook {
     /// is this row, so a body on its bed is in the cart and not on it.
     #[serde(default)]
     pub front_row: Option<String>,
+    /// How high the near side ([`Self::front_row`]) stands over the platform's
+    /// top, in frame pixels (as `top_px`): a body whose feet are on the bed or
+    /// over it below this height is IN the thing and drawn behind its near
+    /// side; any other body is drawn in front of it. `None`: only a body on
+    /// the bed is in it.
+    #[serde(default)]
+    pub rim_px: Option<f32>,
 }
 
 fn yes() -> bool {
@@ -322,6 +329,7 @@ mod tests {
             top_px,
             faces_right: true,
             front_row: None,
+            rim_px: None,
         };
         let good = PlatformLookRows::from([("lift".to_string(), look([0.0, 192.0], 4.0))]);
         assert!(look_problems(&good).is_empty(), "{:?}", look_problems(&good));

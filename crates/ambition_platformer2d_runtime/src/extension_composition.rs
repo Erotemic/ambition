@@ -73,6 +73,7 @@ pub fn install_ports(app: &mut App) {
     // A room's group decides in one invocation (P4: the coconut swallows).
     ambition_abilities::group::install(app);
     crate::story_script::install(app);
+    crate::action_replies::install(app);
     // Where the things a scope's records name are (P5 step 3).
     ambition_abilities::whereabouts::install(app);
     // body_contact: retirement follows all ordinary request adapters.
@@ -541,6 +542,13 @@ pub fn load_module_file(
 pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
     let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
     ports
+        .add::<ambition_boss_special_port::BossSpecialCast>("boss_special")
+        .add::<ambition_boss_special_port::BossConductPort>("boss_conduct")
+        .add::<ambition_boss_special_port::MountViewPort>("mount")
+        .add::<ambition_boss_special_port::DrawnRowPort>("drawn_row")
+        .add::<ambition_combat_port::HeldRayPort>("held_ray")
+        .add::<ambition_combat_port::LightningPort>("lightning")
+        .add::<ambition_combat_port::LightningAuraPort>("lightning_aura")
         .add::<ambition_combat_port::TechniqueUsePort>("technique_use")
         .add::<ambition_combat_port::WieldedUsePort>("wielded_use")
         .add::<ambition_combat_port::WieldedAlternatePort>("wielded_alternate")
@@ -549,6 +557,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ModuleEntityTickPort>("module_entity_tick")
         .add::<ambition_projectile_spec::ProjectileSpawnPort>("projectile")
         .add::<ambition_combat_port::BodySoundPort>("sound")
+        .add::<ambition_combat_port::EffectPort>("effect")
         .add::<ambition_combat_port::EndModuleEntityPort>("end_module_entity")
         .add::<ambition_combat_port::PullBodiesPort>("pull_bodies")
         .add::<ambition_combat_port::LaunchToucherPort>("launch_toucher")
@@ -556,13 +565,29 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ActorFirePort>("fire")
         .add::<ambition_combat_port::SetVelocityPort>("velocity")
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
-        .add::<crate::story_script::StoryTickPort>("story_tick")
-        .add::<crate::story_script::StoryCommandPort>("story_command")
-        .add::<crate::story_script::PlayCutscenePort>("play_cutscene")
+        .add::<ambition_combat_port::BodyContactPort>("body_contact")
+        .add::<ambition_combat_port::ContactBouncePort>("contact_bounce")
+        .add::<ambition_combat_port::BodyDefeatPort>("defeat_body")
+        .add::<ambition_combat_port::body_query::BodyQueryPort>("body_query")
+        .add::<ambition_combat_port::body_query::BodyQueryResultPort>("body_query_result")
+        .add::<ambition_extension_sdk::action::CancelActionPort>("cancel_action")
+        .add::<ambition_extension_sdk::action::ActionResultPort>("action_result")
+        .add::<ambition_extension_sdk::action::ActionResultsPort>("action_history")
+        .add::<ambition_world_port::StoryTickPort>("story_tick")
+        .add::<ambition_world_port::StoryCommandPort>("story_command")
+        .add::<ambition_world_port::PlayCutscenePort>("play_cutscene")
         .add::<ambition_combat_port::SteerPort>("steer")
         .add::<ambition_combat_port::TakeItemPort>("take")
         .add::<ambition_combat_port::ReleaseItemPort>("release")
         .add::<ambition_combat_port::WhereaboutsPort>("whereabouts")
+        .add::<ambition_combat_port::ParriedPort>("parried")
+        .add::<ambition_combat_port::AnswerParryPort>("answer_parry")
+        .add::<ambition_combat_port::StruckPort>("struck")
+        .add::<ambition_combat_port::CreditPort>("credit")
+        .add::<ambition_combat_port::BlastPort>("blast")
+        .add::<ambition_combat_port::TimeScalePort>("time_scale")
+        .add::<ambition_combat_port::StatusClockPort>("status_clock")
+        .add::<ambition_combat_port::InPlayPort>("in_play")
         .add::<ambition_combat_port::HoldStatusPort>("hold_status")
         .add::<ambition_combat_port::StatusTickPort>("status_tick");
     ports

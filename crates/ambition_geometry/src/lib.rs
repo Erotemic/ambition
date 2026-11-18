@@ -12,7 +12,7 @@ pub mod swing_shape;
 pub mod volume_shape;
 
 pub use bevy_math::Vec2;
-pub use combat_volume::CombatVolume;
+pub use combat_volume::{CombatVolume, VolumeContact};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 pub use reference_frame::{
     AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,

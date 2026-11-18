@@ -49,8 +49,9 @@ impl SimId {
     /// The one inverse of the spelling, kept beside the constructor so the two
     /// cannot drift: [`Self::placement`] is the identity a save file already
     /// uses, and a fact the save keys by the authored id (a recorded death,
-    /// `enemy_<id>_dead`) is found from the identity through this. Nothing
-    /// else is recovered from a `SimId`'s text (see [`Self::as_str`]).
+    /// `enemy_<id>_dead`) is found from the identity through this. Beside it,
+    /// [`Self::is_regrown_from`] inverts [`Self::regrown`]; nothing else is
+    /// recovered from a `SimId`'s text (see [`Self::as_str`]).
     pub fn placement_key(&self) -> Option<String> {
         let escaped = self.0.strip_prefix("placement:")?;
         // `placement` escapes every separator, so a raw one is a descendant
@@ -135,6 +136,16 @@ impl SimId {
     /// segment keeps it from spelling a [`Self::spawned`] id.
     pub fn regrown(placement: &SimId, generation: u64) -> Self {
         Self(format!("{}/grown/{generation}", placement.0))
+    }
+
+    /// Whether this identity is one [`Self::regrown`] made from `placement`,
+    /// of any generation: the items a placement grew, which its regrowth
+    /// limit counts. The inverse of that spelling, kept beside it.
+    pub fn is_regrown_from(&self, placement: &SimId) -> bool {
+        self.0
+            .strip_prefix(placement.0.as_str())
+            .and_then(|rest| rest.strip_prefix("/grown/"))
+            .is_some_and(|generation| !generation.is_empty() && generation.bytes().all(|b| b.is_ascii_digit()))
     }
 
     /// A strike volume: the transient hitbox a move's active window opens.

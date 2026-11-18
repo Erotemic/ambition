@@ -1,6 +1,6 @@
 # Boss cinematics, GNU2's finale and the giant's motion
 
-**Owner of:** [BOSS-CINEMATIC-COVERAGE](../queue.md#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro), [GNUTON-GNU2-FINALE](../queue.md#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), [GNU-MOTION-PARTS](../queue.md#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion).
+**Owner of:** [BOSS-CINEMATIC-COVERAGE](../queue.md#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](../queue.md#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), [GNU-MOTION-PARTS](../queue.md#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion).
 **Related:** [bosses](bosses.md) (the fights' design), [GNU-ton's debts](gnu-ton-fight-debts.md), [semantic-part rendering](../engine/semantic-part-rendering-and-ragdolls.md).
 
 ## Name cards (BOSS-CINEMATIC-COVERAGE)
@@ -140,8 +140,8 @@ every jump.
    (renderer `81b31ac`): `GIANT_TWEENED_ROWS` (walk, walk_back, armed_walk,
    armed_walk_back) publish as tweened clips; built in-process, 276 of the
    walk's 348 draws pair with their next frame and move between frames, the
-   rest change picture and hold. **It reaches the game with the giant's
-   next republish** (this VM publishes no core art). Render-rate
+   rest change picture and hold. **Republished 2026-11-17:** the published
+   flipbook carries the four tweened clips (`tween: Linear`). Render-rate
    interpolation itself is the shared rigged path's (`frame_phase` of the
    way to the next frame), so a tweened clip is interpolated at any render
    rate; the root's own interpolation is `PresentedPose`, measured smooth

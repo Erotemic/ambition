@@ -102,11 +102,11 @@ pub fn cycle_descriptor() -> CommandDescriptor {
 
 /// `look.cycle`: see [`cycle_descriptor`].
 ///
-/// It writes the world-fact domain's own request (`SetFlagRequested`), as
+/// It writes the world-fact domain's own request (`SetFlagsRequested`), as
 /// `world.set_flag` does, and for the same reason: that request is cleared on
 /// a rollback, applied in `GameplayEffects`, and mirrored to quests. A write
 /// to the save from here would be a second road for a flag.
-pub fn cycle(world: &mut World, args: &[AuthoredArg], _room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
+pub fn cycle(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
     let Some(room) = args[0].as_name() else {
         return CommandOutcome::refused("`room` must be a name");
     };
@@ -116,7 +116,7 @@ pub fn cycle(world: &mut World, args: &[AuthoredArg], _room: Option<ambition_pla
         );
     };
     if !world.contains_resource::<
-        bevy::ecs::message::Messages<ambition_combat::events::SetFlagRequested>,
+        bevy::ecs::message::Messages<ambition_combat::events::SetFlagsRequested>,
     >() {
         return CommandOutcome::refused(
             "no world-fact channel is installed in this composition, so nothing \
@@ -125,17 +125,12 @@ pub fn cycle(world: &mut World, args: &[AuthoredArg], _room: Option<ambition_pla
     }
     let next = RoomLookState::of(save, room).next();
     let (pure, corrupt) = (pure_flag(room), corrupt_flag(room));
-    world.write_message(ambition_combat::events::SetFlagRequested {
-        id: pure,
-        on: next == RoomLookState::Pure,
+    world.write_message(ambition_combat::events::SetFlagsRequested {
+        changes: vec![(pure, next == RoomLookState::Pure), (corrupt, next == RoomLookState::Corrupt)],
+        reply: context.reply.clone(),
         written: None,
     });
-    world.write_message(ambition_combat::events::SetFlagRequested {
-        id: corrupt,
-        on: next == RoomLookState::Corrupt,
-        written: None,
-    });
-    CommandOutcome::Done
+    CommandOutcome::Queued
 }
 
 /// Publishes the room-look domain's verb. It is a simulation plugin: a

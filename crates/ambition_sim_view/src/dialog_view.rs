@@ -118,6 +118,7 @@ impl DialogView {
 /// `Option`: a composition without the dialogue capability (`Capability::Dialogue`)
 /// has no `DialogState`, and the view stays at its idle default.
 pub fn rebuild_dialog_view(
+    settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
     dialogue: Option<Res<DialogState>>,
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     // A cutscene's line, and the seat that answers it: the lowest seat in the
@@ -141,6 +142,10 @@ pub fn rebuild_dialog_view(
         .filter(|_| !conversation_shown)
         .and_then(|cutscene| cutscene.line().map(|line| (cutscene, line)));
     if let Some((cutscene, (speaker, text))) = line {
+        let policy = settings.in_live_room(cutscene.room.map(
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
+        )).copied().unwrap_or_default();
+        let elapsed = cutscene.runtime.as_ref().map_or(0.0, |runtime| runtime.elapsed);
         let seat = cutscene.answering_seat(
             drivers.iter().map(|(driver, body)| (driver.0, rooms.of(body).map(|at| at.ordinal()))),
             ambition_characters::control::PlayerSlot::PRIMARY,
@@ -151,7 +156,8 @@ pub fn rebuild_dialog_view(
         // Written only when it differs: the cutscene republishes its
         // presentation each tick, and a write here rebuilds the box.
         view.set_if_neq(DialogView {
-            confirm_action: ambition_dialog::DialogConfirmAction::Advance,
+            confirm_action: policy.reveal_confirm_action(elapsed >= policy.text_reveal.duration(text))
+                .unwrap_or(ambition_dialog::DialogConfirmAction::Advance),
             can_close: false,
             input_owner: owner,
             instance: None,
@@ -161,7 +167,7 @@ pub fn rebuild_dialog_view(
             portrait_clip: String::new(),
             speaker_label: speaker.to_owned(),
             conversation_label: speaker.to_owned(),
-            body: text.to_owned(),
+            body: policy.text_reveal.visible_text(text, elapsed).to_owned(),
             option_labels: Vec::new(),
             selected_option: 0,
             controls: DialogControls::of(owner, bindings.as_deref(), devices.as_deref(), true),

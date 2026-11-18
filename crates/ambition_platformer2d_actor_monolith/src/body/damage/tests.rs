@@ -29,7 +29,7 @@ fn install_hit_reaction_consumers(app: &mut App) {
     // installed beside it rather than in 29 hand-rolled `App::new()` blocks.
     app.init_resource::<ambition_damage::PlayerDamagePolicy>();
     ambition_combat::hitbox::register_strike_outcome_messages(app);
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
@@ -3334,5 +3334,28 @@ fn a_resolved_feature_recipient_is_not_selected_again_from_its_current_box() {
         });
         app.update();
         assert!(app.world().get::<ambition_breakables::BreakableFeature>(recipient).unwrap().broken());
+    }
+}
+
+
+#[test]
+fn resolved_hit_damage_comes_from_health_resolution_instead_of_the_proposed_amount() {
+    use ambition_characters::actor::{BodyWallet, BodyWalletShield};
+    use ambition_combat::hitbox::ResolvedBodyHit;
+    for shielded in [false, true] {
+        let mut app = shield_test_app();
+        let victim = spawn_shielding_actor(&mut app, false);
+        if shielded {
+            app.world_mut().entity_mut(victim).insert((BodyWallet { balance: 7 }, BodyWalletShield));
+        }
+        let hit = slash_at(victim, ae::Vec2::new(14.0, 0.0), 3);
+        app.world_mut().write_message(hit);
+        app.update();
+        let messages = app.world().resource::<bevy::prelude::Messages<ResolvedBodyHit>>();
+        let hits: Vec<_> = messages.get_cursor().read(messages).cloned().collect();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].damage, if shielded { 0 } else { 3 });
+        assert_eq!(actor_hp(&app, victim), if shielded { 5 } else { 2 });
+        if shielded { assert_eq!(app.world().get::<BodyWallet>(victim).unwrap().balance, 0); }
     }
 }

@@ -563,6 +563,19 @@ pub struct GroundItemFact {
     /// The seconds left on a lit fuse (a thrown bomb), or `None` for an item
     /// with no fuse. The visual flashes faster as the fuse burns down.
     pub fuse_left_s: Option<f32>,
+    /// The wait of an item hanging where it grew (an apple on its tree), or
+    /// `None` for one that does not hang. The visual ripens over it.
+    pub hanging: Option<HangingFact>,
+}
+
+/// How far through its wait a hanging item is (`HangingItem`), as the visual
+/// reads it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HangingFact {
+    /// From 0 (just grown) to 1 (about to drop).
+    pub ripeness: f32,
+    /// Seconds until it drops.
+    pub seconds_left: f32,
 }
 
 /// only items that are IN THE WORLD. A picked-up item is no longer
@@ -581,14 +594,15 @@ pub fn rebuild_ground_items_view(
         &ae::BodyKinematics,
         &ambition_held_items::ItemCustody,
         Option<&ambition_abilities::ranged::bomb::BombFuse>,
+        Option<&ambition_held_items::HangingItem>,
     )>,
 ) {
     view.0.clear();
     view.0.extend(
         grounds
             .iter()
-            .filter(|(_, _, _, custody, _)| custody.in_world())
-            .map(|(item, ground, body, _, fuse)| GroundItemFact {
+            .filter(|(_, _, _, custody, ..)| custody.in_world())
+            .map(|(item, ground, body, _, fuse, hanging)| GroundItemFact {
                 item,
                 pos: body.pos,
                 half_extent: body.canonical_size * 0.5,
@@ -596,6 +610,10 @@ pub fn rebuild_ground_items_view(
                 room: live.of(item),
                 material: body.material,
                 fuse_left_s: fuse.map(|fuse| fuse.timer),
+                hanging: hanging.map(|hanging| HangingFact {
+                    ripeness: hanging.ripeness(),
+                    seconds_left: hanging.seconds_left,
+                }),
             }),
     );
 }

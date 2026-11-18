@@ -72,6 +72,9 @@ pub fn propose_editable_abilities(
     if !editable.is_changed() || editable.is_added() {
         return;
     }
+    if let Some(developer) = developer.as_mut() {
+        developer.unlock_all_abilities = editable.unlock_all_abilities;
+    }
     if let (Some(developer), Some(owner)) = (developer.as_mut(), owner.as_deref()) {
         let selected = developer.god_blink_experiences.contains(owner.current());
         if selected != editable.unrestricted_blink {
@@ -84,7 +87,7 @@ pub fn propose_editable_abilities(
             }
         }
     }
-    if active.0 == Some(editable.as_engine()) {
+    if active.mask == Some(editable.as_engine()) && active.unlock_all_abilities == editable.unlock_all_abilities {
         pending.take(ability_set_domain());
         return;
     }
@@ -110,12 +113,14 @@ pub fn reset_editable_abilities_on_activation(
         .is_some_and(|(developer, owner)| developer.god_blink_experiences.contains(owner.current()));
     *editable = EditableAbilitySet {
         unrestricted_blink: god_blink,
+        unlock_all_abilities: developer.as_deref().map_or(true, |dev| dev.unlock_all_abilities),
         ..defaults
     };
-    active.0 = Some(defaults.as_engine());
+    active.mask = Some(defaults.as_engine());
+    active.unlock_all_abilities = false;
     pending.take(ability_set_domain());
     // A stored preference cannot bypass a peer host's mechanical edit policy.
-    if god_blink {
+    if god_blink || editable.unlock_all_abilities {
         pending.propose(ability_set_domain());
     }
 }
@@ -143,12 +148,15 @@ pub fn admit_editable_abilities(
         return;
     }
     if proposed {
-        active_mask.0 = Some(editable_abilities.as_engine());
+        active_mask.mask = Some(editable_abilities.as_engine());
+        active_mask.unlock_all_abilities = editable_abilities.unlock_all_abilities;
         pending.take(ability_set_domain());
-    } else if active_mask.0.is_none() {
+    } else if active_mask.mask.is_none() {
         // Seed the baseline when nothing is pending. The continuous `base ∩ mask`
         // reconciliation is not a mechanical edit and must work from frame one.
-        active_mask.0 = Some(editable_abilities.as_engine());
+        active_mask.mask = Some(editable_abilities.as_engine());
+        active_mask.unlock_all_abilities = editable_abilities.unlock_all_abilities
+            && !matches!(admission.as_deref(), Some(ambition_platformer2d_core::MechanicalEditAdmission::Refuse));
     }
 }
 
@@ -157,8 +165,8 @@ pub fn admit_editable_abilities(
 /// [`AbilityContributions`]: ambition_platformer2d_core::AbilityContributions
 pub const EDITABLE_ABILITY_MASK: &str = "dev.editable_ability_mask";
 
-/// Apply the admitted ceiling to controlled bodies. God Blink adds a separate
-/// grant. Other ceilings still apply. `project_body_abilities` computes the result.
+/// Apply the admitted mask and access grants to controlled bodies. Physical
+/// limits still apply. `project_body_abilities` computes the result.
 ///
 /// It runs in the simulation, where bodies are built, so a new body gets its
 /// admitted abilities on the same tick. It reads the mask, not the editor
@@ -167,9 +175,9 @@ pub const EDITABLE_ABILITY_MASK: &str = "dev.editable_ability_mask";
 /// still withdraws the old body's contribution.
 pub fn contribute_editable_ability_mask(
     active_mask: Res<dev_tools::ActiveEditableAbilityMask>,
-    mut bodies: Query<(&mut ambition_platformer2d_core::AbilityContributions, Has<DrivingParticipant>)>,
+    mut bodies: Query<(Option<&ambition_platformer2d_core::AbilityBase>, &mut ambition_platformer2d_core::AbilityContributions, Has<DrivingParticipant>)>,
 ) {
-    let Some(mask) = active_mask.0 else {
+    let Some(mask) = active_mask.mask else {
         return;
     };
     use ambition_platformer2d_core::{AbilityContribution, AbilityGrant};
@@ -180,15 +188,23 @@ pub fn contribute_editable_ability_mask(
         ..mask.union(granted)
     });
     const GOD_BLINK: &str = "dev.god_blink";
-    for (mut contributions, controlled) in &mut bodies {
+    const ALL_ABILITIES: &str = "dev.all_abilities";
+    for (base, mut contributions, controlled) in &mut bodies {
         if !controlled {
-            for key in [EDITABLE_ABILITY_MASK, GOD_BLINK] {
+            for key in [EDITABLE_ABILITY_MASK, GOD_BLINK, ALL_ABILITIES] {
                 if contributions.get(key).is_some() { contributions.clear(key); }
             }
             continue;
         }
         if contributions.get(EDITABLE_ABILITY_MASK) != Some(ceiling) {
             contributions.set(EDITABLE_ABILITY_MASK, ceiling);
+        }
+        if let Some(base) = base.filter(|_| active_mask.unlock_all_abilities) {
+            contributions.set(ALL_ABILITIES, AbilityContribution::AccessGrant(
+                base.abilities,
+            ));
+        } else {
+            contributions.clear(ALL_ABILITIES);
         }
         if god_blink {
             let grant = AbilityContribution::Lend(granted);
@@ -435,7 +451,7 @@ mod ability_admission_tests {
         assert_eq!(
             app.world()
                 .resource::<dev_tools::ActiveEditableAbilityMask>()
-                .0,
+                .mask,
             Some(proposed),
             "nothing recorded WHAT was admitted, so a body built later projects \
              whatever the editor panel holds at that moment instead",
@@ -543,7 +559,7 @@ mod ability_admission_tests {
         assert_eq!(
             app.world()
                 .resource::<dev_tools::ActiveEditableAbilityMask>()
-                .0,
+                .mask,
             None,
             "a refused edit was recorded as the admitted mask",
         );

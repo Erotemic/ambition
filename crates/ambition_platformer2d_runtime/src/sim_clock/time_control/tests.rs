@@ -377,3 +377,40 @@ fn pace_of(app: &mut App, room: ambition_platformer2d_shared_tangle::lifecycle::
         .map(|(_, pace)| pace.map_or(1.0, |pace| pace.clock_scale))
         .expect("the room has a root")
 }
+
+/// ABILITY-VARIANTS 3: the aim slows the world only with the `blink_slow`
+/// verb. A body whose worn row withholds it (Precision Blink's level 2) aims
+/// at full speed; the same body with the verb (level 3) aims under bullet
+/// time.
+#[test]
+fn an_aim_without_the_blink_slow_verb_leaves_the_world_at_full_speed() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let here = LiveRoomInstance::from_ordinal(1);
+    let mut app = App::new();
+    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    app.add_message::<ClockScaleRequest>();
+    app.add_systems(Update, emit_primary_observer_time_intent);
+    app.world_mut().spawn((RoomInstanceRoot, here));
+    let without = ambition_platformer2d_core::AbilitySet { blink_slow: false, ..ambition_platformer2d_core::AbilitySet::sandbox_all() };
+    let player = app
+        .world_mut()
+        .spawn((
+            DrivingParticipant(PlayerSlot::PRIMARY),
+            ambition_platformer2d_core::BodyMotionFacts { blink_aiming: true, ..Default::default() },
+            BodyCombat::default(),
+            ambition_platformer2d_core::BodyAbilities::new(without),
+            InRoomInstance(here),
+        ))
+        .id();
+    app.update();
+    let request = app.world_mut().resource_mut::<Messages<ClockScaleRequest>>().drain().last().unwrap();
+    assert_eq!((request.scale, request.reason), (1.0, "default"), "the aim slowed the world without the verb");
+
+    let with = ambition_platformer2d_core::AbilitySet::sandbox_all();
+    app.world_mut().entity_mut(player).insert(ambition_platformer2d_core::BodyAbilities::new(with));
+    app.update();
+    let request = app.world_mut().resource_mut::<Messages<ClockScaleRequest>>().drain().last().unwrap();
+    let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
+    assert_eq!((request.scale, request.reason), (bullet, "bullet_blink"), "control: with the verb the aim slows the world");
+}

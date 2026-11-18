@@ -83,6 +83,7 @@ collections:
   - pirate_heavy_axe
   - throwing_javelin
   - coconut
+  - orchard_apple
   - seam_gauge
   - creator_case
   - evil_chain_gun
@@ -1244,6 +1245,18 @@ collections:
   - hill_salt_run_hatch
   - hill_salt_run_lantern
   - hill_salt_run_ladder
+  - hill_freight_crates
+  - hill_loading_stage
+  - hill_siding_notice
+  - hill_fingerpost
+  - hill_woods_fallen_trunk
+  - hill_stake_board
+  - hill_goblins_crate
+  - workshop_slate_96
+  - workshop_slate_120
+  - workshop_slate_180
+  - workshop_slate_260
+  - workshop_slate_300
   - catacombs_west
   - catacombs_east
   - ridge_west
@@ -1361,6 +1374,7 @@ static_props:
   throwing_javelin: javelin
   evil_chain_gun: evil_chain_gun
   coconut: coconut
+  orchard_apple: orchard_apple
   seam_gauge: seam_gauge
   creator_case: creator_case
   pool_noodle: pool_noodle

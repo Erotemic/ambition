@@ -37,6 +37,7 @@ use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
 pub use admission::{
+    reply_entry,
     admit, admit_with_roads, admit_selected, Admitted, AdmittedEntry, AdmittedSchema, DeclaredModule, EntryRunner,
     ModuleBackend, ModuleCode, ModuleImplementation, ModuleSelections, PortOffer, Refusal, SaveRoad,
 };
@@ -44,7 +45,7 @@ pub use exec::{
     run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink,
     InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick, InTechniqueExecution,
     InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn, PendingInvocation, ScopePace,
-    Submitted, Supplier, ExtensionProfile, EntryProfile,
+    Submitted, Supplier, ObservationContext, ExtensionProfile, EntryProfile,
 };
 pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
 
@@ -327,6 +328,13 @@ pub trait ExtensionAppExt {
         supplier: fn(&World, Entity) -> Option<P::Value>,
     ) -> &mut Self;
 
+    /// Install facts that depend on this invocation's trigger, such as the
+    /// typed value of one correlated action result.
+    fn install_extension_context_observation<P: Port>(
+        &mut self, phase: Phase, owner: &'static str,
+        supplier: fn(&World, ObservationContext<'_>) -> Option<P::Value>,
+    ) -> &mut Self;
+
     /// Install request port `P` in `phase` as a COST: what an invocation pays
     /// for its action (mana, a cooldown). It has no adapter of its own. The
     /// domain's settle system ([`Self::settle_extension_costs`]) drains it in
@@ -593,19 +601,18 @@ impl ExtensionAppExt for App {
         owner: &'static str,
         supplier: fn(&World, Entity) -> Option<P::Value>,
     ) -> &mut Self {
-        let (schedule, mut installation) = installation(self);
-        installation
-            .offers
-            .push(offer::<P>(PortRole::Observation, phase.clone(), owner));
-        ensure_phase(self, schedule, &phase);
-        let mut installation = self.world_mut().resource_mut::<ExtensionInstallation>();
-        let erased: Supplier = Arc::new(move |world: &World, scope: Entity| {
-            supplier(world, scope).map(|v| Box::new(v) as Box<dyn std::any::Any + Send + Sync>)
-        });
-        installation
-            .suppliers
-            .insert(P::KEY, (erased, ambition_extension_sdk::encode_erased::<P>));
-        self
+        install_observation::<P>(self, phase, owner, Arc::new(move |world, context| {
+            supplier(world, context.scope).map(|value| Box::new(value) as Box<dyn std::any::Any + Send + Sync>)
+        }))
+    }
+
+    fn install_extension_context_observation<P: Port>(
+        &mut self, phase: Phase, owner: &'static str,
+        supplier: fn(&World, ObservationContext<'_>) -> Option<P::Value>,
+    ) -> &mut Self {
+        install_observation::<P>(self, phase, owner, Arc::new(move |world, context| {
+            supplier(world, context).map(|value| Box::new(value) as Box<dyn std::any::Any + Send + Sync>)
+        }))
     }
 
     fn install_extension_cost<P: Port>(&mut self, phase: Phase, owner: &'static str) -> &mut Self {
@@ -707,3 +714,12 @@ impl ExtensionAppExt for App {
 
 #[cfg(test)]
 mod tests;
+
+fn install_observation<'a, P: Port>(app: &'a mut App, phase: Phase, owner: &'static str, supplier: Supplier) -> &'a mut App {
+    let (schedule, mut installed) = installation(app);
+    installed.offers.push(offer::<P>(PortRole::Observation, phase.clone(), owner));
+    ensure_phase(app, schedule, &phase);
+    app.world_mut().resource_mut::<ExtensionInstallation>().suppliers
+        .insert(P::KEY, (supplier, ambition_extension_sdk::encode_erased::<P>));
+    app
+}

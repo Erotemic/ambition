@@ -185,19 +185,23 @@ fn end_cutscene(active: &mut ActiveCutscene) -> Option<String> {
 }
 
 /// Write the flags a cutscene set this tick, dated in the room it plays for
-/// (ISL-2d): through `SetFlagRequested`, so a rewind of that room takes them
+/// (ISL-2d): through `SetFlagsRequested`, so a rewind of that room takes them
 /// back and the quests they moved, as it does a switch's. A composition with
 /// no flag channel writes the save directly.
 fn write_cutscene_flags(
     flags: Vec<(String, bool)>,
     written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
-    requests: Option<&mut Messages<ambition_combat::events::SetFlagRequested>>,
+    requests: Option<&mut Messages<ambition_combat::events::SetFlagsRequested>>,
     save: &mut ambition_persistence::save::AmbitionGameSave,
 ) {
     match requests {
         Some(requests) => {
             for (id, on) in flags {
-                requests.write(ambition_combat::events::SetFlagRequested { id, on, written });
+                requests.write(ambition_combat::events::SetFlagsRequested {
+                    changes: vec![(id, on)],
+                    reply: None,
+                    written
+                });
             }
         }
         None => {
@@ -329,6 +333,8 @@ fn cutscene_seat(
 /// press re-delivers it. The primary seat owns the shell controls, as it owns
 /// `MenuControlFrame`.
 pub fn tick_active_cutscene(
+    #[cfg(feature = "dialogue")]
+    dialogue_settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
     time: Res<ambition_time::WorldTime>,
     controls: Res<ambition_characters::control::SlotControls>,
     mut active: ResMut<ActiveCutscene>,
@@ -340,7 +346,7 @@ pub fn tick_active_cutscene(
     (drivers, rooms, mut requests, tick, freeze, mut cast): (
         Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-        Option<ResMut<Messages<ambition_combat::events::SetFlagRequested>>>,
+        Option<ResMut<Messages<ambition_combat::events::SetFlagsRequested>>>,
         Option<Res<ambition_time::SimTick>>,
         ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
         // The bodies a `Fall` beat can name: by the character they wear; and
@@ -431,7 +437,40 @@ pub fn tick_active_cutscene(
         false
     };
     // An EDGE: a held confirm does not burn through several beats.
+    #[cfg(feature = "dialogue")]
+    let mut dismiss = seat.confirm_pressed;
+    #[cfg(not(feature = "dialogue"))]
     let dismiss = seat.confirm_pressed;
+    #[cfg(feature = "dialogue")]
+    let mut beat_dt = dt;
+    #[cfg(feature = "dialogue")]
+    let mut reveal_to = None;
+    #[cfg(not(feature = "dialogue"))]
+    let beat_dt = dt;
+    #[cfg(feature = "dialogue")]
+    if let Some(ambition_cutscene::CutsceneBeat::Dialogue { text, .. }) = runtime.current_beat() {
+        let policy = dialogue_settings.in_live_room(room.map(
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
+        )).copied().unwrap_or_default();
+        let duration = policy.text_reveal.duration(text);
+        let clock_end = match policy.line_advance {
+            ambition_dialog::LineAdvance::Manual => duration,
+            ambition_dialog::LineAdvance::Automatic { delay_seconds } => duration + delay_seconds,
+        }.max(f32::EPSILON);
+        beat_dt = dt.min((clock_end - runtime.elapsed).max(0.0));
+        if dismiss {
+            match policy.reveal_confirm_action(runtime.elapsed >= duration) {
+                Some(ambition_dialog::DialogConfirmAction::Reveal) => {
+                    reveal_to = Some(duration.max(f32::EPSILON));
+                    dismiss = false;
+                },
+                Some(ambition_dialog::DialogConfirmAction::Wait) => dismiss = false,
+                _ => {},
+            }
+        } else if let ambition_dialog::LineAdvance::Automatic { delay_seconds } = policy.line_advance {
+            dismiss = runtime.elapsed >= duration + delay_seconds;
+        }
+    }
 
     if skip {
         skip_hold.seconds = 0.0;
@@ -451,7 +490,9 @@ pub fn tick_active_cutscene(
         return;
     }
 
-    let events = runtime.tick_asking(dt, dismiss, |line| wait.holds(line));
+    let events = runtime.tick_asking(beat_dt, dismiss, |line| wait.holds(line));
+    #[cfg(feature = "dialogue")]
+    if let Some(elapsed) = reveal_to { runtime.elapsed = elapsed; }
     let mut completed = false;
     let mut flags = Vec::new();
     for event in events {
@@ -840,14 +881,14 @@ mod tests {
 
     /// The flags a cutscene sets, and its seen flag, under the room it plays
     /// for and the tick (ISL-2d), so a rewind of that room takes them back.
-    fn flags_written_by_a_cutscene_in(room: Option<u32>) -> Vec<ambition_combat::events::SetFlagRequested> {
+    fn flags_written_by_a_cutscene_in(room: Option<u32>) -> Vec<ambition_combat::events::SetFlagsRequested> {
         let mut app = bevy::prelude::App::new();
         app.insert_resource(ambition_time::WorldTime::new(1.0, 1.0));
         app.insert_resource(ambition_time::SimTick(5));
         app.init_resource::<ambition_characters::control::SlotControls>();
         app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
-        app.add_message::<ambition_combat::events::SetFlagRequested>();
+        app.add_message::<ambition_combat::events::SetFlagsRequested>();
         app.insert_resource(ActiveCutscene {
             room,
             runtime: Some(ambition_cutscene::CutsceneRuntime::new(
@@ -862,7 +903,7 @@ mod tests {
         app.init_resource::<CutsceneWaitAnswer>();
         app.add_systems(bevy::prelude::Update, tick_active_cutscene);
         app.update();
-        let messages = app.world().resource::<Messages<ambition_combat::events::SetFlagRequested>>();
+        let messages = app.world().resource::<Messages<ambition_combat::events::SetFlagsRequested>>();
         messages.get_cursor().read(messages).cloned().collect()
     }
 
@@ -870,7 +911,7 @@ mod tests {
     fn a_room_cutscene_dates_its_flags_in_its_room() {
         let room = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(3);
         let dated = Some(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: 5 });
-        let written: Vec<_> = flags_written_by_a_cutscene_in(Some(3)).into_iter().map(|flag| (flag.id, flag.on, flag.written)).collect();
+        let written: Vec<_> = flags_written_by_a_cutscene_in(Some(3)).into_iter().flat_map(|flag| flag.changes.into_iter().map(move |(id, on)| (id, on, flag.written))).collect();
         assert_eq!(
             written,
             [("probe_flag".to_string(), true, dated), ("probe_seen".to_string(), true, dated)],

@@ -173,18 +173,19 @@ fn a_held_bomb_stacks_to_its_row_and_a_held_axe_stays_unique() {
 }
 
 /// Precision Blink's levels (ABILITY-VARIANTS 3): level 1 is the quick blink
-/// and withholds the aimed one, level 2 is the robot's whole blink. The demo
-/// bag starts at the top level, and its count is a level, not a stock the
-/// menu counts.
+/// and withholds the aimed one, level 2 aims without the aim's time slow,
+/// level 3 is the robot's whole blink. The demo bag starts at the top level,
+/// and its count is a level, not a stock the menu counts.
 #[test]
-fn precision_blink_has_two_levels_and_the_demo_starts_at_the_top() {
+fn precision_blink_has_three_levels_and_the_demo_starts_at_the_top() {
     let catalog = shipped();
     let withheld = |count| catalog.wears_at(Item::PrecisionBlink, count).map(|row| row.withholds.clone());
     assert_eq!(withheld(1), Some(vec!["precision_blink".to_string()]));
-    assert_eq!(withheld(2), Some(Vec::new()));
-    assert_eq!(catalog.stack(Item::PrecisionBlink), Some(2));
+    assert_eq!(withheld(2), Some(vec!["blink_slow".to_string()]));
+    assert_eq!(withheld(3), Some(Vec::new()));
+    assert_eq!(catalog.stack(Item::PrecisionBlink), Some(3));
     assert!(!catalog.stacks(Item::PrecisionBlink), "a level is not a stock");
-    assert_eq!(OwnedItems::starter(catalog).count(Item::PrecisionBlink), 2);
+    assert_eq!(OwnedItems::starter(catalog).count(Item::PrecisionBlink), 3);
 }
 
 /// A save written with more than a stack holds comes back at the stack.
@@ -288,7 +289,7 @@ fn one_variant_of_a_slot_is_in_effect() {
     assert!(fresh.contains(Item::Fireball), "the body's own projectile is in effect");
     assert!(!fresh.contains(Item::EyeLaser));
     assert!(fresh.contains(Item::SwordStance) && fresh.contains(Item::Dash) && fresh.contains(Item::PrecisionBlink));
-    assert!(!fresh.contains(Item::Lightning), "a placeholder is never in effect");
+    assert!(!fresh.contains(Item::Lightning), "lightning must be equipped");
 
     let mut worn = WornEquipment::default();
     worn.equip(catalog.wears(Item::EyeLaser).unwrap().clone());
@@ -318,10 +319,10 @@ fn the_starter_bag_unlocks_every_real_item() {
             assert_eq!(catalog.is_real(item), catalog.wears(item).is_some(), "{item:?}");
         }
     }
-    for item in [Item::EyeLaser, Item::PortalGun, Item::GunSword, Item::Grapple] {
+    for item in [Item::EyeLaser, Item::Lightning, Item::PortalGun, Item::GunSword, Item::Grapple] {
         assert!(owned.has(item), "{item:?} is unlocked");
     }
-    for placeholder in [Item::Lightning, Item::AxeStance, Item::WhipStance, Item::DashTwo, Item::ContextualBlink] {
+    for placeholder in [Item::AxeStance, Item::WhipStance, Item::DashTwo, Item::ContextualBlink] {
         assert!(!owned.has(placeholder), "{placeholder:?} is a placeholder");
     }
     for quest_item in [Item::FieldSurvey] {

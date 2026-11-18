@@ -190,3 +190,59 @@ fn body_contact_is_scoped_and_removed_when_the_rule_is_removed() {
         assert!(!check(&format!("(body_contact: Some((resistance: {value})))")).diagnostics.is_empty());
     }
 }
+
+
+#[test]
+fn body_query_budgets_are_authored_scoped_and_replaced() {
+    use crate::extension::body_query::BodyQueryLimits;
+    use ambition_platformer2d_world::scoped_rules::ActiveRoom;
+    let out = check("(body_queries: Some((max_targets: 8, max_radius: 700.0)))");
+    assert!(out.diagnostics.is_empty(), "{:?}", out.diagnostics);
+    let rules = lowered(&out).unwrap();
+    let scope = RulesScope::Mode("query_test");
+    let active = ActiveRoom::Mode("query_test");
+    let mut app = App::new();
+    declare_room_rules(&mut app, scope, rules);
+    assert_eq!(app.world().resource::<DeclaredRules<BodyQueryLimits>>().governing(active),
+        Some(&BodyQueryLimits { max_targets: 8, max_radius: 700.0 }));
+    assert!(app.world().resource::<DeclaredRules<BodyQueryLimits>>().governing(ActiveRoom::Mode("other")).is_none());
+    let changed = lowered(&check("(body_queries: Some((max_targets: 4, max_radius: 300.0)))")).unwrap();
+    restate_room_rules(app.world_mut(), scope, Some(&changed));
+    assert_eq!(app.world().resource::<DeclaredRules<BodyQueryLimits>>().governing(active),
+        Some(&BodyQueryLimits { max_targets: 4, max_radius: 300.0 }));
+    restate_room_rules(app.world_mut(), scope, None);
+    assert!(app.world().resource::<DeclaredRules<BodyQueryLimits>>().governing(active).is_none());
+    for (text, field) in [
+        ("(body_queries: Some((max_targets: 0)))", "body_queries.max_targets"),
+        ("(body_queries: Some((max_radius: -1.0)))", "body_queries.max_radius"),
+        ("(body_queries: Some((max_radius: NaN)))", "body_queries.max_radius"),
+    ] {
+        let out = check(text);
+        assert!(lowered(&out).is_none());
+        assert!(format!("{:?}", out.diagnostics).contains(field));
+    }
+}
+
+
+#[test]
+fn contact_fact_budgets_reload_and_invalid_bounds_are_refused() {
+    use crate::extension::contact::ContactFactsLimits;
+    use ambition_platformer2d_world::scoped_rules::ActiveRoom;
+    let out = check("(body_contact_events: Some((max_touchers: 6, max_surfaces: 2)))");
+    assert!(out.diagnostics.is_empty(), "{:?}", out.diagnostics);
+    let rules = lowered(&out).unwrap();
+    let scope = RulesScope::Mode("contacts");
+    let mut app = App::new();
+    declare_room_rules(&mut app, scope, rules.clone());
+    assert_eq!(app.world().resource::<DeclaredRules<ContactFactsLimits>>().governing(ActiveRoom::Mode("contacts")), rules.body_contact_events.as_ref());
+    restate_room_rules(app.world_mut(), scope, None);
+    assert!(app.world().resource::<DeclaredRules<ContactFactsLimits>>().governing(ActiveRoom::Mode("contacts")).is_none());
+    for (text, field) in [
+        ("(body_contact_events: Some((max_touchers: 0)))", "max_touchers"),
+        ("(body_contact_events: Some((max_surfaces: 0)))", "max_surfaces"),
+    ] {
+        let out = check(text);
+        assert!(lowered(&out).is_none());
+        assert!(format!("{:?}", out.diagnostics).contains(field));
+    }
+}

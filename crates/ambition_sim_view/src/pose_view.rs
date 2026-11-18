@@ -122,6 +122,11 @@ impl StopClock {
 /// head turned as this row turns it (`BodyPoseView::head_up`).
 pub const LOOK_UP_CLIP: &str = "idle_look_up";
 
+/// The row of a look down. A body that holds its crouch until the camera
+/// looks down has its head turned down as this row turns it
+/// (`BodyPoseView::head_down`).
+pub const LOOK_DOWN_CLIP: &str = "crouch_look_down";
+
 /// What a held look reads off a body's pose this frame.
 #[derive(Clone, Copy, Debug)]
 struct Stillness {
@@ -295,6 +300,12 @@ pub struct BodyPoseView {
     /// `idle_look_up` row turns it, over the row the body moves in. `0` for a
     /// body that stands, whose whole body is drawn in that row.
     pub head_up: f32,
+    /// How far down the head of a body that holds its crouch is turned, 0 to
+    /// 1: as far as the camera looks down for it
+    /// (`camera_snapshot::camera_look` of its held gaze), so the head goes
+    /// down with the camera and comes up with it. The head turns as the
+    /// [`LOOK_DOWN_CLIP`] row turns it, over the crouch it is drawn in.
+    pub head_down: f32,
     /// How long this body has held a still look: negative while it stands
     /// with its head fully up, positive while it crouches still, `0` when it
     /// does neither. The camera follows a look held past a beat
@@ -537,6 +548,7 @@ impl Default for BodyPoseView {
             turn_secs: f32::INFINITY,
             look_up: 0.0,
             head_up: 0.0,
+            head_down: 0.0,
             gaze_secs: 0.0,
             crouch: 0.0,
             crawl: 0.0,
@@ -985,6 +997,7 @@ pub fn rebuild_body_pose_views(
             look_up,
             // Not through a turn: the turn's row goes round through the front.
             head_up: if free && !turning && strides(anim) { look_up } else { 0.0 },
+            head_down: if free && crouched(anim) { crate::camera_snapshot::camera_look(gaze_secs).max(0.0) } else { 0.0 },
             gaze_secs,
             crouch,
             crawl,
@@ -1080,7 +1093,7 @@ pub fn rebuild_body_pose_views(
                     None => chain,
                 })
                 .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP)))
-                .or_else(|| crate::anim_index::aim_over_legs(anim_facts.is_some_and(|f| f.aim_anim_active) && free, anim)), pinned, crouched(anim)),
+                .or_else(|| crate::anim_index::aim_over_legs(anim_facts.is_some_and(|f| f.aim_anim_active) && free, anim)), pinned, crouched(anim), Some(anim)),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
             hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(

@@ -34,6 +34,7 @@ pub mod slow;
 pub mod special;
 pub mod status;
 pub mod targets;
+pub mod body_query;
 pub mod technique;
 pub mod think;
 pub mod whereabouts;
@@ -54,7 +55,7 @@ pub use module_entity::{
     SpawnModuleItemPort, SpawnerBody, SpawnerBodyPort, ToucherCreditsPort,
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
-pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort};
+pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort, ContactParticipant, ContactSurface, ContactRefusal};
 pub use hold::{BodyHold, BodyHoldPort};
 pub use ledge::{BodyLine, BodyLinePort, LedgeAhead, LedgeAheadPort, LedgeSight, OnGroundPort, LEDGE_SEARCH_REACH};
 pub use special::{

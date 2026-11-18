@@ -300,6 +300,12 @@ impl Plugin for HostedWorldPlugin {
                 let sim = app.sim_schedule();
                 app.add_systems(
                     sim,
+                    room_rollback::publish_live_boundary
+                        .in_set(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished)
+                        .before(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot),
+                );
+                app.add_systems(
+                    sim,
                     room_rollback::drive_guests_and_save_rooms
                         .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
                         .before(ambition_platformer2d_shared_tangle::schedule::SimClockHead),

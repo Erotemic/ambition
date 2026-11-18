@@ -926,16 +926,15 @@ the live rooms, and a replay would hide them. Late, Bob now joins Alice's hub
 at frame 34 and ends where the on-time run ends (2 rewinds; 4 late inputs
 applied from the next tick during the crossing).
 
-Not yet: the other confirmed-frame observers. Outside a replay the hosted
-host publishes no boundary, so checkpoints, deaths, passages, the
-conversation ledger and host intents treat each tick as confirmed when it
-first runs: an act on a tick a rewind replays is not taken back, and a host
-intent is pruned before a replay of its tick could release it again. A
-boundary published every tick would never be fully confirmed while a guest
-plays (its inputs arrive a round trip late), and the sandbox autosave waits
-for that; a guest whose stamps lead the host tick (NA-3's run-ahead) would
-let confirmation keep up. Also not yet: an edge exit walked by a
-mispredicted guest commits at once and cannot be taken back.
+The other confirmed-frame observers (checkpoints, deaths, passages, the
+conversation ledger, host intents) treated each live tick as confirmed when
+it first ran, because outside a replay the hosted host published no
+boundary: an act on a tick a rewind replayed was not taken back. A boundary
+published every tick would never have been fully confirmed while a guest
+played (its inputs arrived a round trip late), and the sandbox autosave
+waits for that. Both are answered below (2026-11-18): the guest runs ahead,
+and the host publishes a live boundary. Still open: an edge exit walked by
+a mispredicted guest commits at once and cannot be taken back.
 
 ## A rewind's cost on a release build over a real link (2026-11-18)
 
@@ -1009,6 +1008,45 @@ before the first report (15 ticks and a round trip) would leave; a link
 with jitter beyond the slack would add more, and the rewind stays as the
 correction for them. The confirmed-frame observers can now be given a
 boundary that keeps up while a guest plays: that is the next step.
+
+## The live confirmed-frame boundary on a hosted host (2026-11-18)
+
+A host that rewinds guest rooms now publishes `ConfirmedFrameBoundary` at
+the head of every live tick (`publish_live_boundary`, in
+`ConfirmedFrameBoundaryPublished`, before `GameplaySimulationRoot`), so the
+irreversible observers that already read it for GGRS (checkpoints, deaths,
+passages, the conversation ledger, host intents, persistence's
+`world_state_is_confirmed`) act on a tick only once no late input can make
+the host replay it. A tick is confirmed for a guest seat once an input
+stamped after it has arrived: the host clamps a stamp that goes back to the
+seat's latest, as it clamps one before the seat's ownership, so nothing for
+an earlier tick can come after it. A seat with no input yet holds the line
+before its ownership began; a tick past the rewind horizon is final
+whatever arrives. The line is the least over the guest seats.
+
+A replay keeps its own boundary: the ticks it runs are unconfirmed (a
+crossing it records waits for the first live tick, as before), and so is
+anything the live boundary had not confirmed, since another guest's input
+can still be late. The live boundary stands again after the replay.
+
+An input stamped for the very next tick leaves that tick unconfirmed while
+it runs (a second sample for it could still arrive after it), so a guest is
+fully confirmed only when its inputs arrive a tick early, which is the
+run-ahead's slack. Witnessed in both late-input scenes
+(`a_guests_late_input_rewinds_only_its_room_on_the_host`,
+`..._a_room_the_host_shares`): on time, the boundary trails the live tick
+by 1; three frames late, by up to 4; no rewind in either replays a tick the
+host had published as confirmed; and the ends still match the on-time run.
+Those scenes now rewind 22 times over 66 ticks, not 26 over 78 as written
+above: the same at the commit before this change, so an earlier change to
+the input path moved it, not the boundary.
+
+Over the real link with run-ahead (release, 600 frames): the host's boundary
+is fully confirmed after 582, 575 and 547 frames with Alice in the hub and
+580, 566 and 560 with her beside Bob, at 0, 25 and 50 ms each way. Fewer as
+the round trip grows, as the window before the guest's lead settles grows
+with it; so persistence and the other observers that wait for a fully
+confirmed world keep up while a guest plays.
 
 ## Review fixes, 2026-11-16
 

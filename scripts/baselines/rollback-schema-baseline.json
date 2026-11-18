@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v489",
+    "version": "ggrs-rollback-schema-v490",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actions.scope_sequence\tcomponent-canonical\tActionScopeSequence",
@@ -150,6 +150,7 @@
       "resource.owned_items_baseline\tcomponent-clone-custom-checksum\tOwnedItemsBaseline\tbevy_ggrs clone snapshot + entity-free stored-quantity and checkpoint purse checksum projection",
       "resource.pending_lifecycle_commit\tresource-clone-custom-checksum\tPendingLifecycleCommit\tbevy_ggrs clone snapshot + the pending, withdrawn, and applied intents with their restore admissions",
       "resource.pending_player_hit_events\tresource-clone-custom-checksum\tPendingPlayerHitEvents\tbevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection",
+      "resource.pending_projectile_emissions\tresource-clone-custom-checksum\tPendingProjectileEmissions\tbevy_ggrs clone snapshot + captured emission data with semantic owner identity and local session counters excluded",
       "resource.placement_continuity\tresource-clone-custom-checksum\tAuthoredOccurrences\tbevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)",
       "resource.projectile_seq_counter\tresource-canonical\tProjectileSeqCounter\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.quest_causes_in_rooms\tresource-clone-custom-checksum\tQuestCausesInRooms\tbevy_ggrs clone snapshot + the quest events rooms queued within the rewind horizon, with the cause each is queued under, which a room rewind retracts (ISL-2d)",

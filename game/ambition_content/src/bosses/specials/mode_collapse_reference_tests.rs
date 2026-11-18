@@ -17,7 +17,8 @@ use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
-use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 
 // ===================================================================
 // NEW boss special authored entirely on the open `Special(key)` seam —
@@ -67,7 +68,7 @@ fn converge_ring(center: ae::Vec2, count: u32, radius: f32) -> Vec<(ae::Vec2, ae
 
 /// Technique: Mode Collapse converging ring (content-only; open-seam special).
 pub fn spawn_mode_collapse_converge_from_special_messages(
-    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+    mut projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
     mut messages: MessageReader<ActorActionMessage>,
     player_query: Query<&BodyKinematics, With<PlayerEntity>>,
     mut bosses: Query<

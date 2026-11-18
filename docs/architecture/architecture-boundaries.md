@@ -58,6 +58,11 @@ descriptions. The domain adapters keep scope, admission, and request
 authority. A script uses the same values and state contracts as a portable
 Rust module. This registration does not admit named game logic into runtime.
 
+Projectile emission belongs to `ambition_combat::projectile_spawn`. Its native
+writer captures source facts and reserves identity before deferred construction.
+`ambition_projectiles` supplies physical construction, material admission, and
+flight vocabulary. It has no direct dependency on combat or the extension host.
+
 Representative rules:
 
 - Reusable engine crates do not depend on Ambition's named content or app.

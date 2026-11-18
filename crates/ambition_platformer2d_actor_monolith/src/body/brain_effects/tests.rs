@@ -48,7 +48,7 @@ fn build_app() -> App {
     app.add_message::<ActorActionMessage>();
     app.add_message::<ambition_combat::RangedFireRefused>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
+    app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>();
     app.init_resource::<ProjectileSeqCounter>();
     // The consumer emits ProjectileSpawnRequest; chain the immediate materializer
     // so the projectile entity spawns within the update.
@@ -56,7 +56,7 @@ fn build_app() -> App {
         Update,
         (
             spawn_projectiles_from_brain_actions,
-            ambition_projectiles::materialize_projectiles_for_this_tick,
+            ambition_combat::projectile_spawn::materialize_projectiles_for_this_tick,
         )
             .chain(),
     );

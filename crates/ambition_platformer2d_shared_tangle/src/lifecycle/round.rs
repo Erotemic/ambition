@@ -97,6 +97,9 @@ impl RoundSpawnScope {
         Self { id: Some(id) }
     }
 
+    /// The round captured for this work.
+    pub const fn id(self) -> Option<RoundScopeId> { self.id }
+
     /// Attach this ownership to an already-created entity command.
     pub fn apply_to(self, entity: &mut EntityCommands<'_>) {
         if let Some(id) = self.id {

@@ -905,7 +905,7 @@ fn rendered_pad_combat(enabled: bool) {
     use ambition_platformer2d::actor::{BodyHealth, Health};
     use ambition_platformer2d::combat::{events::{HitEvent, HitSource, HitTarget}, strike::Hitbox};
     use ambition_platformer2d::persistence::settings::UserSettings;
-    use ambition_platformer2d::projectiles::ProjectileSpawnRequest;
+
     use ambition_platformer2d::settings_menu::settings::{apply_settings_option, SettingsOptionId};
     use crate::neighbor_prefetch_prepares_rooms::cross;
     use crate::alices_reading_reaches_bob::put_body_at;
@@ -937,7 +937,7 @@ fn rendered_pad_combat(enabled: bool) {
                 app.world_mut().get_mut::<BodyKinematics>(body).unwrap().facing = if seat == 0 { 1.0 } else { -1.0 };
             }
             for _ in 0..6 { app.update(); }
-            let mut shots = app.world().resource::<Messages<ProjectileSpawnRequest>>().get_cursor_current();
+            let mut shots = app.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>().get_cursor_current();
             let mut hits = app.world().resource::<Messages<HitEvent>>().get_cursor_current();
             let mut emitted = false;
             let mut hit_victim = false;
@@ -947,7 +947,7 @@ fn rendered_pad_combat(enabled: bool) {
                 if frame == 2 { pad_button(&mut app, pads[source_seat], button, 0.0); }
                 app.update();
                 if projectile {
-                    emitted |= shots.read(app.world().resource::<Messages<ProjectileSpawnRequest>>())
+                    emitted |= shots.read(app.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>())
                         .any(|shot| shot.owner == source);
                 } else {
                     let world = app.world_mut();

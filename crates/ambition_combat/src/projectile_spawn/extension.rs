@@ -6,20 +6,23 @@
 //! The module cannot name another owner or another move use.
 
 use ambition_extension_host::{
-    ExtensionAppExt, ExtensionOutbox, InBossConduct, InModuleEntityTick, InTechniqueExecution, InWieldedUse, LowersIn,
+    ExtensionAppExt, ExtensionOutbox, InBossConduct, InHitReaction, InModuleEntityTick,
+    InTechniqueExecution, InWieldedUse, LowersIn,
 };
-use ambition_extension_sdk::phases::{BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::phases::{
+    BOSS_CONDUCT, HIT_REACTION, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE,
+};
 use ambition_projectile_spec::ProjectileSpawnPort;
 use bevy::prelude::*;
 
-use crate::spawn_request::{ProjectileSpawnRequest, ProjectileStart};
+use super::{ProjectileSpawnRequest, ProjectileStart};
 
 /// Install the request port in `technique_execution`, where a spawn
 /// materializes before this tick's projectile step.
 pub fn install(app: &mut App) {
     app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
         TECHNIQUE_EXECUTION,
-        "ambition_projectiles",
+        "ambition_combat",
         lower_projectile_spawns::<InTechniqueExecution>,
     );
 }
@@ -29,7 +32,7 @@ pub fn install(app: &mut App) {
 pub fn install_for_wielded_use(app: &mut App) {
     app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
         WIELDED_USE,
-        "ambition_projectiles",
+        "ambition_combat",
         lower_projectile_spawns::<InWieldedUse>,
     );
 }
@@ -39,7 +42,7 @@ pub fn install_for_wielded_use(app: &mut App) {
 pub fn install_for_module_entity_tick(app: &mut App) {
     app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
         MODULE_ENTITY_TICK,
-        "ambition_projectiles",
+        "ambition_combat",
         lower_projectile_spawns::<InModuleEntityTick>,
     );
 }
@@ -48,14 +51,23 @@ pub fn install_for_module_entity_tick(app: &mut App) {
 pub fn install_for_boss_conduct(app: &mut App) {
     app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
         BOSS_CONDUCT,
-        "ambition_projectiles",
+        "ambition_combat",
         lower_projectile_spawns::<InBossConduct>,
+    );
+}
+
+/// A hit reaction can emit a counter shot after this tick's materializer.
+pub fn install_for_hit_reaction(app: &mut App) {
+    app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
+        HIT_REACTION,
+        "ambition_combat",
+        lower_projectile_spawns::<InHitReaction>,
     );
 }
 
 fn lower_projectile_spawns<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
-    mut spawns: MessageWriter<ProjectileSpawnRequest>,
+    mut spawns: super::ProjectileWriter,
 ) {
     for submitted in outbox.drain::<ProjectileSpawnPort>(&L::PHASE) {
         spawns.write(

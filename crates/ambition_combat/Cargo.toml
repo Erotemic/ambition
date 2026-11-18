@@ -10,6 +10,7 @@ description = "Reusable, content-free combat MODEL: Damage / Hitbox / Hurtbox / 
 crate-type = ["rlib"]
 
 [dependencies]
+ambition_projectile_spec = { path = "../ambition_projectile_spec" }
 ambition_hit_spec = { path = "../ambition_hit_spec" }
 # The adapter of the combat domain's extension request port (`extension.rs`);
 # the port's pure values are a leaf so modules need no Bevy.

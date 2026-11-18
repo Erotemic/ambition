@@ -52,7 +52,7 @@ impl Plugin for SimCoreResourcesPlugin {
         crate::external_effects::end_presentation_effects_with_their_session(app);
         app.add_message::<ambition_sfx::OwnedSfxMessage>()
             .add_message::<VfxInRoom>()
-            .add_message::<ambition_projectiles::ProjectileSpawnRequest>()
+            .init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>()
             .add_message::<FxRequest>()
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()

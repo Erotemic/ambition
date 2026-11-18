@@ -89,7 +89,7 @@ Each port crate names only the SDK (workspace policies
 `engine.ambition_portal_port-portable`,
 `engine.ambition_projectile_spec-portable`). The owning domain installs the
 adapter (`ambition_boss_encounter::extension`, `ambition_combat::extension`,
-`ambition_projectiles::extension`, `ambition_abilities::extension` and
+`ambition_combat::projectile_spawn::extension`, `ambition_abilities::extension` and
 `ambition_abilities::ride`, `ambition_portal2d::extension`).
 `extension_composition::install_ports` is the one list of offered ports. No
 production observation port exists yet; every module reads its trigger.

@@ -43,9 +43,9 @@ fn pulses(sim: &Platformer2dSimHarness, boss: Entity) -> u32 {
 }
 
 fn shots(sim: &Platformer2dSimHarness, boss: Entity) -> Vec<&ProjectileSpawnRequest> {
-    sim.world().resource::<Messages<ProjectileSpawnRequest>>()
+    sim.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>()
         .iter_current_update_messages().filter(|shot| shot.owner == boss
-            && matches!(&shot.presentation, ProjectilePresentation::OpenVisual(id) if id == "stage_pyro")).collect()
+            && matches!(&shot.presentation, ProjectilePresentation::OpenVisual(id) if id == "stage_pyro")).map(|emission| &emission.request).collect()
 }
 
 fn trace(rollback: bool) -> Vec<(u32, i32)> {

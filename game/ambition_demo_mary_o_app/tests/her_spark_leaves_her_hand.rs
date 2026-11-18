@@ -114,7 +114,7 @@ struct Throw {
 
 fn requests(app: &App, owner: Entity) -> Vec<(Vec2, Vec2)> {
     app.world()
-        .resource::<Messages<ProjectileSpawnRequest>>()
+        .resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>()
         .iter_current_update_messages()
         .filter(|request| request.owner == owner)
         .map(|request| {

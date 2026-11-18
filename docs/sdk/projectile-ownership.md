@@ -19,10 +19,30 @@ restored from one matching identity in the same session and reference room.
 No match, or an ambiguous match, leaves it unresolved. Creation provenance does
 not supply current credit. A missing live owner does not erase semantic credit.
 
-The runtime publishes identified shots before their first contact, including
-shots that retire during that step. Both materialization timing classes use
-this publication path. The original source must have a simulation identity and
-counter. An unidentified source cannot supply a semantic descendant ID.
+The native `ambition_combat::projectile_spawn::ProjectileWriter` captures each
+request before deferred construction. It reserves a descendant ID from the
+emitter's counter and captures session, room, round, credit, allegiance, and
+presentation. Materialization does not read these facts from a live source.
+Source travel, control changes, or retirement cannot change a queued shot's
+birth context. Both first-step classes use this path.
+
+`write` uses the owner as the emitter. `write_from` can use a separate emitter
+and credit body. A credit body in another session is refused before an ID is
+spent. An unidentified source cannot supply a semantic descendant ID. Native
+scratch hosts can still emit unidentified shots. Environmental requests with
+no emitter capture the optional active lifetime at emission.
+
+The projectile model owns physical construction and material admission. Combat
+owns emission and source capture. `PendingProjectileEmissions` retains requests
+that cross a tick boundary. It is cloned on rollback, remaps native owner
+links, and has a semantic checksum. The emission message is an observation;
+clearing that transport does not discard pending work. Session activation and
+retirement clear the queue.
+
+A `hit_reaction` entry can request `projectile`. That phase runs after the
+early materializer. Its shot becomes available at the next early materializer.
+The native pending queue preserves this timing across rollback. Early technique,
+wielded-item, module-entity, and boss-conduct requests use the same service.
 
 ## Author a parry window
 
@@ -58,7 +78,16 @@ the deflector through native requests. The fixture checks original lineage,
 current credit, and GGRS replay across reflection and retirement.
 
 This does not complete the projectile outcome API. Per-shot callbacks and
-accepted damage correlation remain open. Spawn requests also still need
-captured emission context and downstream replies. A source that retires before
-materialization cannot supply missing source facts at that later boundary.
-Request submission is not proof of creation or damage.
+accepted damage correlation remain open. Spawn requests still need downstream replies. Request submission is not proof
+of creation or damage.
+
+Native tests in
+[`projectile_spawn/materialize.rs`](../../crates/ambition_combat/src/projectile_spawn/materialize.rs)
+check delayed construction after source retirement, control and team changes,
+travel, and session or round changes. They also check separate timing classes,
+room-root emitters, and refusal of credit from another session.
+
+The loaded reception fixture also requests a projectile from `hit_reaction`.
+It checks native construction and GGRS replay across the pending interval.
+The native pending tests check transport clearing, queue restore, one-time
+consumption, and a checksum that excludes host session and entity counters.

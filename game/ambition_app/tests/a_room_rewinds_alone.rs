@@ -12,6 +12,7 @@
 //! A divergence names the state the replay could not keep to one room. The
 //! owner is `docs/planning/engine/island-rollback-and-compact-peer-input.md`.
 
+use bevy::ecs::system::RunSystemOnce;
 use std::collections::BTreeMap;
 
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
@@ -116,7 +117,7 @@ fn alice_fires(sim: &mut Platformer2dSimHarness, frame: i32) {
         .single(world)
         .map(|(entity, body)| (entity, body.pos))
         .expect("Alice has a body");
-    world.write_message(ProjectileSpawnRequest::open(
+    world.run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
         alice,
         ambition_platformer2d::projectiles::ProjectileSpawn {
             properties: Default::default(),
@@ -135,7 +136,7 @@ fn alice_fires(sim: &mut Platformer2dSimHarness, frame: i32) {
             splash_half_extent: 0.0,
         },
         ProjectileStart::StepThisTick,
-    ));
+    )).unwrap();
 }
 
 /// The hub's shots in flight: age and position, in order.

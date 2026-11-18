@@ -13,7 +13,7 @@ use crate::a_pet_hand_meets_the_contact_point::{art_point_in_world, drawn_at};
 use crate::common::{base, fixed_60hz_sim};
 use ambition_app::Platformer2dSimHarness;
 use ambition_platformer2d::engine_core::BodyKinematics;
-use ambition_platformer2d::projectiles::ProjectileSpawnRequest;
+
 use ambition_platformer2d::sprite_sheet::character::SpritePosedBody;
 use bevy::math::Vec2;
 use bevy::prelude::{Entity, Messages, With};
@@ -29,7 +29,7 @@ struct Tap {
 
 fn requests(sim: &Platformer2dSimHarness, owner: Entity) -> Vec<(Vec2, Vec2)> {
     sim.world()
-        .resource::<Messages<ProjectileSpawnRequest>>()
+        .resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>()
         .iter_current_update_messages()
         .filter(|request| request.owner == owner)
         .map(|request| {

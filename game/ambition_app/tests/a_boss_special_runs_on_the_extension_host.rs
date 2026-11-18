@@ -97,15 +97,15 @@ fn fan_shots(world: &mut World, boss: Entity) -> usize {
 /// session a resimulated tick makes its requests again, so that arm counts
 /// live shots instead: [`fight`].)
 fn fight_requests(sim: &mut Platformer2dSimHarness, strikes: usize, ticks: usize) -> Vec<usize> {
-    use ambition_platformer2d::projectiles::spawn_request::ProjectileSpawnRequest;
+
     use bevy::ecs::message::Messages;
     let boss = spawn_volley_warden(sim);
-    let mut cursor = sim.world().resource::<Messages<ProjectileSpawnRequest>>().get_cursor();
+    let mut cursor = sim.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>().get_cursor();
     let mut bursts = Vec::new();
     let mut since_the_last = 0;
     for _ in 0..ticks {
         sim.step(AgentAction::default());
-        let messages = sim.world().resource::<Messages<ProjectileSpawnRequest>>();
+        let messages = sim.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>();
         let fan = cursor
             .read(messages)
             .filter(|r| r.owner == boss && (r.projectile.body.kin.vel.length() - FAN_SPEED).abs() < 1.0)

@@ -22,7 +22,7 @@ use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, BodyKinematics};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
-use ambition_projectiles::ProjectileSpawnRequest;
+
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
@@ -190,7 +190,7 @@ fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ro
     app.insert_resource(sprite_content.clone());
     app.init_schedule(Sim);
     app.add_message::<ActorActionMessage>()
-        .add_message::<ProjectileSpawnRequest>()
+        .init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>()
         .add_message::<ambition_characters::summon::SummonRequest>()
         .add_message::<ambition_combat::damage_box::DamageBoxRequest>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
@@ -330,8 +330,8 @@ fn run(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, road
         let mut by_boss: BTreeMap<usize, Vec<String>> = BTreeMap::new();
         for mut request in app
             .world_mut()
-            .resource_mut::<Messages<ProjectileSpawnRequest>>()
-            .drain()
+            .resource_mut::<Messages<ambition_combat::projectile_spawn::ProjectileEmission>>()
+            .drain().map(|emission| emission.request)
         {
             let boss = bosses
                 .iter()

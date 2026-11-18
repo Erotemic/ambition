@@ -367,14 +367,14 @@ fn detached_attacks_and_splashes_keep_the_participants_rule_after_control_or_own
                         }).expect("the live source emits a box").id()
                 }).unwrap()
             } else {
-                sim.world_mut().write_message(shot(bob, center, 24.0, 0.0, shots::WorldHitPolicy::Bouncing));
+                sim.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), shot(bob, center, 24.0, 0.0, shots::WorldHitPolicy::Bouncing)).unwrap();
                 sim.step(base());
                 shot_of(&mut sim, bob, center)
             };
             launched.push((kind, center, attack));
         }
         let splash_origin = home + ae::Vec2::new(60.0, -80.0);
-        sim.world_mut().write_message(shot(bob, splash_origin, 4.0, 128.0, shots::WorldHitPolicy::ExpireOnContact));
+        sim.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), shot(bob, splash_origin, 4.0, 128.0, shots::WorldHitPolicy::ExpireOnContact)).unwrap();
         sim.step(base());
         let splash = shot_of(&mut sim, bob, splash_origin);
         for (kind, _, attack) in launched.iter().copied().chain([("splash", splash_origin, splash)]) {

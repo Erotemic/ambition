@@ -109,8 +109,8 @@ pub struct FeatureHitWriters<'w, 's> {
     /// shakes nothing.
     pub shake: Option<MessageWriter<'w, ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>>,
     /// The shots a body bursts into when it dies (`CombatCapabilities::bursts_into`).
-    /// `Option`: a composition with no projectiles bursts into nothing.
-    pub projectiles: Option<MessageWriter<'w, ambition_projectiles::ProjectileSpawnRequest>>,
+    /// A host without the projectile channel emits no shots.
+    pub projectiles: ambition_combat::projectile_spawn::ProjectileWriter<'w, 's>,
     pub wallet_shield_spent: MessageWriter<'w, ambition_damage::WalletShieldSpent>,
     /// S4: KOs of bodies a RULESET owns, for the stocks loop. Written from the
     /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands

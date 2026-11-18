@@ -1,11 +1,7 @@
-//! Reusable, content-free projectile vocabulary and materialization.
+//! Physical projectile vocabulary, construction, and flight services.
 //!
-//! All projectile producers share one spawn-request path and the physics
-//! primitive re-exported from `ambition_platformer2d_shared_tangle::projectile`,
-//! so ownership does not select a separate motion path. Victim-side hit routing
-//! and player charge/animation stepping remain in
-//! `ambition_platformer2d_actor_monolith` while they still depend on unextracted
-//! actor/world state.
+//! Combat captures source facts and materializes requests with this model.
+//! All controllers use the shared flight primitive.
 
 pub mod collision_world;
 /// The `projectile_visuals` schema: a game's projectile looks as pack data.
@@ -13,13 +9,11 @@ pub mod collision_world;
 pub mod content_schema;
 pub mod diagnostics;
 pub mod entity;
-pub mod extension;
 pub mod kind;
-pub mod materialize;
 pub mod ownership;
 mod snapshot_impls;
 pub mod spawn;
-pub mod spawn_request;
+pub mod birth;
 pub mod state;
 pub mod visual;
 
@@ -31,12 +25,9 @@ pub use entity::{
     ProjectileSeqCounter, WeaponShot,
 };
 pub use kind::{FireballChargeTuning, FireballFlight, ProjectileKind};
-pub use materialize::{
-    materialize_projectiles_for_next_tick, materialize_projectiles_for_this_tick,
-};
 pub use spawn::{ProjectileSpawner, SpawnFailure};
-pub use spawn_request::{
-    build_in_flight_projectile, ProjectileBirth, ProjectilePresentation, ProjectileSpawnRequest, ProjectileStart,
+pub use birth::{
+    build_in_flight_projectile, ProjectileBirth,
 };
 pub use state::PlayerProjectileState;
 pub use visual::{

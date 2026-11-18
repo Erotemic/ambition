@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free projectile MODEL: shot vocabulary, charge state, ECS projectile components, the unified ProjectileSpawnRequest materialization seam, and pure portal transit. Pure logic over the projectile-physics primitive; game ECS steppers consume it."
+description = "Physical projectile model: shot vocabulary, charge state, ECS projectile components, material admission, and portal transit. Combat owns source capture and emission."
 
 [lib]
 crate-type = ["rlib"]
@@ -17,10 +17,6 @@ content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
-# The projectile domain owns the adapter of its extension request port
-# (`extension.rs`): submitted spawns enter the one spawn-request seam.
-ambition_extension_host = { path = "../ambition_extension_host" }
-ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 # Geometry (Vec2 / Aabb / AabbExt / World) + the shared BodyKinematics body.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The generic projectile-physics primitive (spec / body / collision) the model

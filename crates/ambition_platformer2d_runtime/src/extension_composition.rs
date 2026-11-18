@@ -12,7 +12,7 @@
 //! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, after the rider sync, gameplay-gated | trigger `ambition.boss.conduct`; observations `ambition.body.attachments` and `ambition.boss.mount`; requests `ambition.boss.conducted_pose`, `ambition.boss.limb_pose`, `ambition.boss.limb_opening`, `ambition.boss.limb_blow`, `ambition.boss.mount_launch`, `ambition.boss.mount_walk`, `ambition.boss.foe_launch`, `ambition.boss.wear`, `ambition.feedback.speech_bubble`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.feedback.lightning`, `ambition.feedback.lightning_aura`, `ambition.boss.summon`, `ambition.boss.dismiss_summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.held_ray`, `ambition.combat.riding_hitbox` (combat), `ambition.world.held_force` (`ambition_abilities`), `ambition.projectiles.spawn`, `ambition.feedback.body_sound`, `ambition.portal.held_pair` (portal, with the `portal` feature) |
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; observations `ambition.world.item_state`, `ambition.world.spawner_body` and `ambition.world.toucher_credits` (`ambition_abilities`); requests `ambition.feedback.body_sound`, `ambition.feedback.effect`, `ambition.world.move_module_entity`, `ambition.world.launch_toucher`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn`, `ambition.combat.blast` and observation `ambition.combat.credit` (`ambition_combat`) |
 //! | `actor_think` | after `ActorDecisionSet::Publish`, before `PlayerInputSet::ControlGate`, gameplay-gated | trigger `ambition.actor.think`; requests `ambition.actor.fire` (`ambition_combat`) and `ambition.motion.velocity` (`ambition_abilities`); trigger `ambition.actor.group_think`, requests `ambition.actor.steer`, `ambition.item.take` and `ambition.item.release`, observation `ambition.world.whereabouts` (`ambition_abilities`) |
-//! | `hit_reaction` | `CombatSet::ContentFlavor`, gameplay-gated | triggers `ambition.combat.parried`, `ambition.combat.struck`, and `ambition.combat.hit_receptions` (damage domain); requests `ambition.combat.answer_parry` and `ambition.body.hold_status` (`ambition_combat`) |
+//! | `hit_reaction` | `CombatSet::ContentFlavor`, gameplay-gated | triggers `ambition.combat.parried`, `ambition.combat.struck`, and `ambition.combat.hit_receptions` (damage domain); requests `ambition.combat.answer_parry`, `ambition.body.hold_status`, and captured projectile emission (`ambition_combat`) |
 //! | `body_contact` | `WorldPrepSet::AfterIntegrate`, after `boss_conduct`, before `WorldPrepSet::ContactDamage`, gameplay-gated | trigger `ambition.body.contact`; requests `ambition.body.contact_bounce` and `ambition.body.defeat` (`ambition_combat`) |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
@@ -39,7 +39,7 @@ use bevy::prelude::*;
 pub fn install_ports(app: &mut App) {
     // technique_execution
     ambition_boss_encounter::extension::install(app);
-    ambition_projectiles::extension::install(app);
+    ambition_combat::projectile_spawn::extension::install(app);
     ambition_combat::extension::install(app);
     ambition_combat::extension::install_for_specials(app);
     // After the damage box: the host lowers request ports in install order.
@@ -52,16 +52,16 @@ pub fn install_ports(app: &mut App) {
     // wielded_use
     ambition_abilities::extension::install(app);
     ambition_combat::extension::install_for_wielded_use(app);
-    ambition_projectiles::extension::install_for_wielded_use(app);
+    ambition_combat::projectile_spawn::extension::install_for_wielded_use(app);
     // module_entity_tick
     ambition_abilities::extension::install_module_entities(app);
-    ambition_projectiles::extension::install_for_module_entity_tick(app);
+    ambition_combat::projectile_spawn::extension::install_for_module_entity_tick(app);
     ambition_combat::extension::blast::install_for_module_entity_tick(app);
     // boss_conduct: the boss-domain ports first (the pose, the drawn row, a
     // burst, a summon), then the swung volumes, the throws and the sounds.
     ambition_boss_encounter::extension::install_conduct(app);
     ambition_combat::extension::install_for_boss_conduct(app);
-    ambition_projectiles::extension::install_for_boss_conduct(app);
+    ambition_combat::projectile_spawn::extension::install_for_boss_conduct(app);
     ambition_abilities::extension::install_for_boss_conduct(app);
     // The held portal pair: a game with no portals offers no such port, and
     // admission refuses an entry that asks for it.
@@ -80,6 +80,7 @@ pub fn install_ports(app: &mut App) {
     ambition_abilities::extension::install_for_body_contact(app);
     ambition_combat::extension::install_for_body_contact(app);
     // hit_reaction
+    ambition_combat::projectile_spawn::extension::install_for_hit_reaction(app);
     ambition_combat::extension::install_for_hit_reaction(app);
     ambition_damage::extension::install(app);
 }

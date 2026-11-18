@@ -22,7 +22,7 @@ use ambition_platformer2d_core::{self as ae, BodyKinematics};
 use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use ambition_projectiles::ProjectileSpawnRequest;
+
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
@@ -116,7 +116,7 @@ fn world(road: Road, ability: &Ability) -> (App, Vec<Entity>) {
     let mut app = App::new();
     app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.init_schedule(Sim);
-    app.add_message::<ProjectileSpawnRequest>()
+    app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>()
         .add_message::<ambition_combat::damage_box::DamageBoxRequest>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .add_message::<ambition_characters::brain::ActorActionMessage>()
@@ -199,7 +199,7 @@ fn run(road: Road, ability: &Ability) -> Trace {
         }
         app.world_mut().run_schedule(Sim);
         let mut out: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-        for mut request in app.world_mut().resource_mut::<Messages<ProjectileSpawnRequest>>().drain() {
+        for mut request in app.world_mut().resource_mut::<Messages<ambition_combat::projectile_spawn::ProjectileEmission>>().drain().map(|emission| emission.request) {
             let i = index(request.owner);
             request.owner = Entity::PLACEHOLDER;
             out.entry(i).or_default().push(format!("{request:?}"));
@@ -399,7 +399,7 @@ mod transits {
         let mut app = App::new();
         app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_schedule(Sim);
-        app.add_message::<ProjectileSpawnRequest>()
+        app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>()
             .add_message::<ambition_combat::damage_box::DamageBoxRequest>()
             .add_message::<ambition_vfx::vfx::VfxInRoom>()
             .add_message::<ambition_combat::events::HitEvent>()

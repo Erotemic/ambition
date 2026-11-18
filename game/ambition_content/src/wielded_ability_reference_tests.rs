@@ -204,7 +204,8 @@ pub mod volley {
     use ambition_characters::control::ActorControl;
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_core::BodyKinematics;
-    use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+    use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 
     /// Held-item id of the volley gauntlet.
     pub const VOLLEY_ID: &str = "volley";
@@ -256,7 +257,7 @@ pub mod volley {
             &HeldItem,
             Option<&mut ambition_platformer2d_core::resources::ActorResources>,
         )>,
-        mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+        mut projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
         mut sfx: ambition_sfx::BodySfxWriter,
     ) {
         for subject in driven.entities() {
@@ -336,7 +337,8 @@ pub mod meteor {
     use ambition_characters::control::ActorControl;
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_core::BodyKinematics;
-    use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+    use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 
     /// Held-item id of the meteor gauntlet.
     pub const METEOR_ID: &str = "meteor";
@@ -405,7 +407,7 @@ pub mod meteor {
             &HeldItem,
             Option<&mut ambition_platformer2d_core::resources::ActorResources>,
         )>,
-        mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+        mut projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
         mut sfx: ambition_sfx::BodySfxWriter,
     ) {
         for subject in driven.entities() {
@@ -477,7 +479,8 @@ pub mod sentry {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
     };
-    use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+    use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
     use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
     use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
@@ -692,7 +695,7 @@ pub mod sentry {
             ),
             With<FeatureSimEntity>,
         >,
-        mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+        mut projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
         mut sfx: ambition_sfx::BodySfxWriter,
     ) {
         let dt = world_time.sim_dt();

@@ -23,9 +23,8 @@ use ambition_projectiles::ProjectileGameplay;
 use ambition_projectiles::diagnostics::log_press_diagnostics;
 use ambition_projectiles::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
 use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
-use ambition_projectiles::{
-    ProjectileSpawnRequest, ProjectileStart, WorldHitOutcome, query_world_collision,
-};
+use ambition_projectiles::{WorldHitOutcome, query_world_collision};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
 use ambition_vfx::vfx::VfxWriter;
@@ -100,7 +99,7 @@ pub fn charge_projectile_input(
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
     // Firing emits a next-tick `ProjectileSpawnRequest`; its materializer runs after this
     // system so newly-fired projectiles first tick next frame.
-    mut spawn_projectiles: MessageWriter<ProjectileSpawnRequest>,
+    mut spawn_projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
     // A refused press says why (`Q33`), as the action road's refusal does.
     mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
     // How the fireball flies in the firer's room: each game states its own.
@@ -306,7 +305,7 @@ pub fn charge_projectile_input(
 
 /// One charge body's firing on one tick: where its shots are born, which way
 /// they fly, and the two messages a press can end in.
-struct Firing<'a, 's, 'r> {
+struct Firing<'a, 'w, 's, 'r> {
     owner: Entity,
     origin_of: &'a dyn Fn(ambition_projectiles::ProjectileKind, u8) -> Result<ae::Vec2, ae::frame::NumericFault>,
     admit: &'a dyn Fn(ambition_projectiles::ProjectileBody) -> Result<ambition_projectiles::ProjectileBody, ae::frame::thread::Refusal>,
@@ -317,13 +316,13 @@ struct Firing<'a, 's, 'r> {
     to_world: &'a dyn Fn(ae::Vec2) -> ae::Vec2,
     direction: ae::Vec2,
     damage_mult: f32,
-    spawn: &'a mut MessageWriter<'s, ProjectileSpawnRequest>,
+    spawn: &'a mut ambition_combat::projectile_spawn::ProjectileWriter<'w, 's>,
     refused: &'a mut MessageWriter<'r, ambition_combat::RangedFireRefused>,
     /// Shots fired this tick: the shoot pose pulses on the firing tick.
     fired: u32,
 }
 
-impl Firing<'_, '_, '_> {
+impl Firing<'_, '_, '_, '_> {
     /// Run spawn checks for `kind`, apply the Fireball charge tier, and emit
     /// a next-tick [`ProjectileSpawnRequest`] on success.
     fn fire(
@@ -516,9 +515,9 @@ mod birth_tests {
     fn a_refused_birth_spends_no_meter_or_cooldown_and_emits_no_shot() {
         use bevy::ecs::system::SystemState;
         let mut app = App::new();
-        app.add_message::<ProjectileSpawnRequest>();
+        app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>();
         app.add_message::<ambition_combat::RangedFireRefused>();
-        let mut params = SystemState::<(MessageWriter<ProjectileSpawnRequest>, MessageWriter<ambition_combat::RangedFireRefused>)>::new(app.world_mut());
+        let mut params = SystemState::<(ambition_combat::projectile_spawn::ProjectileWriter, MessageWriter<ambition_combat::RangedFireRefused>)>::new(app.world_mut());
         let mut state = PlayerProjectileState::default();
         let before = state.spawner;
         let mut events = Vec::new();
@@ -546,7 +545,7 @@ mod birth_tests {
         }
         assert_eq!(state.spawner, before);
         assert!(events.is_empty());
-        assert!(app.world().resource::<Messages<ProjectileSpawnRequest>>().is_empty());
+        assert!(app.world().resource::<Messages<ambition_combat::projectile_spawn::ProjectileEmission>>().is_empty());
     }
 }
 

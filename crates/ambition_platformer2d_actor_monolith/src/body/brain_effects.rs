@@ -26,7 +26,8 @@ use ambition_characters::brain::{
 };
 #[cfg(test)]
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Projectile envelope shared by every ranged enemy. Future
@@ -93,7 +94,7 @@ pub fn muzzle_world_pos(
 pub fn spawn_projectiles_from_brain_actions(
     births: ambition_projectiles::ProjectileBirth,
     mut messages: ReplayMessageReader<ActorActionMessage>,
-    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+    mut projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
     mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
     mut sfx: SfxWriter,
     mut actors: Query<(

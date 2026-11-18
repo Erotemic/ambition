@@ -273,7 +273,7 @@ impl PreparedPlatformerSource {
         LiveRoomWorld {
             name: bevy::prelude::Name::new("live room"),
             root: RoomInstanceRoot,
-            id: RoomInstanceRoot::sim_id(),
+            id: RoomInstanceRoot::sim_id(LiveRoomInstance::ACTIVATION),
             live_room: LiveRoomInstance::ACTIVATION,
             definition: self.room_set.activation_definition(),
             geometry: self.geometry.clone(),

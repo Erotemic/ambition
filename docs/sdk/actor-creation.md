@@ -146,6 +146,10 @@ share the source's native identity counter. Within each request phase, the actor
 adapter runs before the breakable adapter. Use returned identities to coordinate
 objects; do not predict the counter.
 
+Each room instance has its own root identity and creation namespace. A new
+visit starts a new room counter. Bodies that travel keep their own identity
+and counter. Their descendants cannot reuse the new room root's namespace.
+
 The loaded `scripted_actor_creation` fixture composes independent behavior on a
 sandbag and a giant for controlled and autonomous creators. It checks actual
 births, state initialization, native projectiles, refusal without partial births

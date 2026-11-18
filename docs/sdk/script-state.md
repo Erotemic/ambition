@@ -4,6 +4,20 @@ Scripts can compose bounded values in host-owned records. The same schema works
 in Rhai and portable Rust. The host owns rollback, checksums and save policy.
 A VM table, closure or library environment is not persistent state.
 
+## State lifetime
+
+`attachment: "body"` stores a record on the invocation's native owner. A body
+keeps its records when it travels. A `story_tick` invocation uses its live room
+root as the owner. Each new room instance gets a new root and initial records,
+including when a visit returns to the same room definition. A crossing that
+joins an existing live room keeps that room's records. Room retirement removes
+its records and pending observer state together.
+
+Use `attachment: "session"` for state that must span room visits. Session state
+retains its values until session retirement. Durable save policy is a separate
+choice and needs an installed save road. Room-root records have no durable save
+road. All future-affecting records rewind with their native owner.
+
 ## Rhai values
 
 A library can return a reusable kind declaration:

@@ -104,9 +104,9 @@ pub struct InRoomInstance(pub LiveRoomInstance);
 pub struct RoomInstanceRoot;
 
 impl RoomInstanceRoot {
-    /// The peer-compared identity of the session's live room root.
-    pub fn sim_id() -> crate::sim_id::SimId {
-        crate::sim_id::SimId::singleton("session", "room_instance")
+    /// The root identity and creation namespace of one room instance.
+    pub fn sim_id(instance: LiveRoomInstance) -> crate::sim_id::SimId {
+        crate::sim_id::SimId::singleton("room_instance", &instance.ordinal().to_string())
     }
 }
 
@@ -458,11 +458,16 @@ pub fn live_room_root_for(
 
 /// The bundle a session's activation room root is spawned with.
 pub fn activation_room_root(scope: SessionScopeId) -> impl bevy::prelude::Bundle {
+    live_room_root(scope, LiveRoomInstance::ACTIVATION)
+}
+
+/// The bundle for a new room instance. Its state retires with its root.
+pub fn live_room_root(scope: SessionScopeId, instance: LiveRoomInstance) -> impl bevy::prelude::Bundle {
     (
         Name::new("live room"),
         RoomInstanceRoot,
-        RoomInstanceRoot::sim_id(),
-        LiveRoomInstance::ACTIVATION,
+        RoomInstanceRoot::sim_id(instance),
+        instance,
         SessionScopedEntity(scope),
     )
 }
@@ -483,8 +488,8 @@ pub fn spawn_live_room<T: Component>(
         .get::<SessionRoot>(session_root)
         .map_or(SessionScopeId(0), |root| root.0);
     world
-        .spawn(activation_room_root(scope))
-        .insert((instance, component))
+        .spawn(live_room_root(scope, instance))
+        .insert(component)
         .id()
 }
 

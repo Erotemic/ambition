@@ -417,9 +417,8 @@ pub(crate) struct PendingWorldReplacement {
     /// The bodies that arrive together if this publication succeeds.
     arrivals: Vec<StagedArrival>,
     /// The live room this publication mints, and what becomes of the room
-    /// the crossing leaves, both pinned when it was staged. A replaced room's
-    /// root is the sink for the geometry, and publication seats it as the
-    /// minted instance; an opened room's root is spawned. The staged
+    /// the crossing leaves, both pinned when it was staged. Each new instance
+    /// gets a new root. A replaced root retires with its state. The staged
     /// occupants carry the minted instance ([`Self::publishes_as`]).
     succession: Option<LiveRoomSuccession>,
     /// The other live rooms this publication retires whole, root and all,
@@ -446,7 +445,7 @@ pub(crate) struct PendingWorldReplacement {
 /// room's identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LiveRoomSuccession {
-    /// The publication re-seats live room `replaces` as `mints`. The room is
+    /// The publication replaces live room `replaces` with `mints`. The room is
     /// retired with its residents, and the crossing body and what it carries
     /// move into the new one.
     Replace {
@@ -537,7 +536,7 @@ impl LiveRoomSuccession {
         }
     }
 
-    /// The live room this publication retires and re-seats. `None` for a
+    /// The live room this publication retires and replaces. `None` for a
     /// publication that opens or joins a room.
     pub fn replaces(self) -> Option<ambition_platformer2d_world::rooms::LiveRoomInstance> {
         match self {
@@ -1136,7 +1135,7 @@ pub(crate) fn apply_world_replacement(
     }
     // Which definition the published room is, resolved against the set the
     // session holds now (a hot reload replaced it above). It is written onto
-    // the root this publication replaces, beside that root's geometry, and not
+    // the new room root, beside that root's geometry, and not
     // onto the session: two live rooms can be two rooms (OW1 cut 5e).
     let definition = match session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root) {
         Some(rooms) => {
@@ -1176,10 +1175,8 @@ pub(crate) fn apply_world_replacement(
     // precondition and it is minted HERE because this is the one road that
     // seats a session in a published room.
     //
-    // The instance lives on the root of the live room this publication
-    // replaces (OW1 cut 3). The verifier refused a publication whose room root
-    // is gone, so the advance mints exactly the value the staged occupants
-    // carry.
+    // Each instance owns a new root. The verifier checked the old root before
+    // retirement. The new root and staged occupants carry the same instance.
     // The minted identity is the session's next one, pinned at staging and
     // checked by the verifier (`StaleMint`); the counter moves past it here.
     // A crossing that joins a live room mints nothing.
@@ -1190,14 +1187,14 @@ pub(crate) fn apply_world_replacement(
         }
         None => true,
     });
-    // The minted room's root: the replaced room's, re-seated, or for a room
-    // this publication opens, a new root beside the rooms that stay live.
+    // A new instance needs a new owner. Reusing a root would retain records,
+    // pending events, and other state from the retired room.
     let scope = scope_of_root(world, root);
     let room_root = match minted {
-        Some(LiveRoomSuccession::Open { mints, .. }) => scope.map(|scope| {
+        Some(LiveRoomSuccession::Open { mints, .. } | LiveRoomSuccession::Replace { mints, .. }) => scope.map(|scope| {
             world
-                .spawn(ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope))
-                .insert((mints, ambition_platformer2d_core::RoomGeometry(pending.geometry.clone())))
+                .spawn(ambition_platformer2d_shared_tangle::lifecycle::live_room_root(scope, mints))
+                .insert(ambition_platformer2d_core::RoomGeometry(pending.geometry.clone()))
                 .id()
         }),
         Some(LiveRoomSuccession::Join { joins, .. }) => {
@@ -1208,17 +1205,7 @@ pub(crate) fn apply_world_replacement(
             .zip(scope)
             .and_then(|(replaces, scope)| live_room_root_for(world, scope, replaces)),
     };
-    let replaced = match minted {
-        Some(LiveRoomSuccession::Open { leaves, mints }) => room_root.map(|_| (leaves, mints)),
-        Some(LiveRoomSuccession::Join { leaves, joins, .. }) => room_root.map(|_| (leaves, joins)),
-        _ => room_root.zip(minted).and_then(|(room_root, succession)| {
-            let mut live_room =
-                world.get_mut::<ambition_platformer2d_world::rooms::LiveRoomInstance>(room_root)?;
-            let replaced = *live_room;
-            *live_room = succession.enters();
-            Some((replaced, *live_room))
-        }),
-    };
+    let replaced = room_root.zip(minted).map(|(_, succession)| (succession.leaves(), succession.enters()));
     // All arrivals and their custody move to the destination, including
     // members from other live rooms. Other residents of a retained room stay.
     let moving = {
@@ -1258,6 +1245,11 @@ pub(crate) fn apply_world_replacement(
             if ours && moves {
                 room.0 = minted;
             }
+        }
+    }
+    if let Some(LiveRoomSuccession::Replace { replaces, .. }) = minted {
+        if let Some(old_root) = scope.and_then(|scope| live_room_root_for(world, scope, replaces)) {
+            world.despawn(old_root);
         }
     }
     // A whole-session restart retires the other live rooms, root and all.

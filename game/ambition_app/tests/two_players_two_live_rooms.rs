@@ -3763,10 +3763,9 @@ fn two_rooms_under_a_sync_test(poison: bool) -> (bool, Result<(), String>) {
     )
 }
 
-/// Two live rooms hold under a sync test. Both live room roots carry
-/// `session:room_instance`, which is right under Q109: the live occurrence is
-/// (`LiveRoomInstance`, `SimId`), and the construction baseline is scoped to
-/// a transaction's rooms. This shows that both rooms' rollback state
+/// Two live rooms hold under a sync test. Each root has its own identity.
+/// Authored occupants remain qualified by their live room. The construction
+/// baseline is scoped to a transaction's rooms. Both rooms' rollback state
 /// resimulates to the same checksums. The control is the poison: a nudge of
 /// Bob's room from outside the timeline is a mismatch, so the checksum covers
 /// the room that is not the primary's. A single peer cannot show the order

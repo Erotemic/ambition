@@ -65,6 +65,38 @@ fn a_root_holding(world: &mut bevy::prelude::World, room: &str) -> bevy::prelude
     world.spawn((SessionRoot(scope), set)).id()
 }
 
+#[test]
+fn a_new_room_retires_its_old_observer_and_creation_namespace() {
+    use ambition_platformer2d_shared_tangle::{
+        lifecycle::{live_room_root_for, InRoomInstance, SessionRoot},
+        sim_id::{SimId, SimIdCounter},
+    };
+    #[derive(bevy::prelude::Component)]
+    struct ObserverState;
+
+    let mut world = bevy::prelude::World::new();
+    let session = a_root_holding(&mut world, "r");
+    let scope = world.get::<SessionRoot>(session).unwrap().0;
+    let first = LiveRoomInstance::ACTIVATION;
+    let old_root = live_room_root_for(&world, scope, first).unwrap();
+    let old_id = world.get::<SimId>(old_root).unwrap().clone();
+    world.entity_mut(old_root).insert((ObserverState, SimIdCounter(12)));
+    let carried_id = SimId::spawned(&old_id, 0);
+    let carried = world.spawn((carried_id.clone(), InRoomInstance(first))).id();
+    let pending = super::transaction::PendingWorldReplacement::new(
+        Vec::new(), None, 0, empty_world("r"), Vec::new(),
+    ).replacing(Some(super::transaction::LiveRoomSuccession::replacing(first, first.next())));
+    super::transaction::apply_world_replacement(&mut world, pending, Some(session));
+
+    assert!(world.get_entity(old_root).is_err());
+    let new_root = live_room_root_for(&world, scope, first.next()).unwrap();
+    assert!(world.get::<ObserverState>(new_root).is_none());
+    assert_eq!(world.get::<SimIdCounter>(new_root).unwrap().0, 0);
+    assert_eq!(world.get::<InRoomInstance>(carried), Some(&InRoomInstance(first.next())));
+    assert_ne!(SimId::spawned(world.get::<SimId>(new_root).unwrap(), 0), carried_id);
+    assert!(world.get::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>(new_root).is_some());
+}
+
 /// ⛔⛤ **A REFUSED APPLICATION MUST NOT HAVE DESTROYED THE OUTGOING WORLD
 /// FIRST.** `apply_world_replacement` despawned the whole outgoing roster and
 /// only THEN discovered whether the target still carried the sinks it needed,

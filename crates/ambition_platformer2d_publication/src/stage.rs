@@ -2241,15 +2241,15 @@ mod tests {
     /// OW1 cut 3a: a publication writes the live room it replaces, and no other.
     ///
     /// The session holds a second live room, #7, with its own geometry. The
-    /// control: replacing #0 advances that root to #1 and gives it the
-    /// candidate's geometry. The subject: #7 keeps its instance and its
+    /// control: replacing #0 creates root #1 with the candidate's geometry.
+    /// The subject: #7 keeps its instance and its
     /// geometry. With one geometry on the session root, as before this cut,
     /// the two rooms could not be told apart.
     #[test]
     fn a_publication_writes_only_the_live_room_it_replaces() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            RoomInstanceRoot, SessionRoot, activation_room_root, session_world_component,
+            RoomInstanceRoot, SessionRoot, live_room_root, session_world_component,
         };
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
@@ -2264,17 +2264,8 @@ mod tests {
         let elsewhere = (0..7).fold(LiveRoomInstance::ACTIVATION, |room, _| room.next());
         let mut other = empty_spec("n").world.clone();
         other.name = "elsewhere".into();
-        // ⚠ The second root needs its own identity: every live room root is
-        // `session:room_instance` today, and a baseline refuses two entities
-        // with one identity. An identity per live room is cut 5.
         app.world_mut()
-            .spawn((activation_room_root(scope), ambition_platformer2d_core::RoomGeometry(other),
-            ))
-            .insert((
-                elsewhere,
-                ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_7",
-                ),
-            ));
+            .spawn((live_room_root(scope, elsewhere), ambition_platformer2d_core::RoomGeometry(other)));
 
         stage_the_candidate_as(
             &mut app,
@@ -2326,7 +2317,7 @@ mod tests {
     /// live room the session has already minted.
     fn two_live_rooms() -> (bevy::prelude::App, Vec<Entity>) {
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            SessionRoot, activation_room_root, session_world_component, session_world_component_mut,
+            SessionRoot, live_room_root, session_world_component, session_world_component_mut,
         };
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
@@ -2351,14 +2342,7 @@ mod tests {
             .and_then(|rooms| rooms.definition_by_id("n"))
             .expect("the fixture's set has room `n`");
         app.world_mut()
-            .spawn((activation_room_root(scope), ambition_platformer2d_core::RoomGeometry(other),
-            ))
-            .insert((
-                second,
-                n,
-                ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1",
-                ),
-            ));
+            .spawn((live_room_root(scope, second), ambition_platformer2d_core::RoomGeometry(other), n));
         (app, outgoing)
     }
 
@@ -2476,18 +2460,17 @@ mod tests {
     /// OW1 cut 5b: a publication's world is the live room it replaces and the
     /// one it mints, not every live room of the session.
     ///
-    /// Live rooms #0 and #1 are both live, and #1's root wears the identity
-    /// every live room root wears. A body wearing the identity the candidate
+    /// Live rooms #0 and #1 are both live. A body with the identity the candidate
     /// authors stands in one of them, and the candidate replaces #0. The
     /// control puts the body in #0: the candidate supersedes it, and
     /// publication despawns it. The subject puts it in #1: it is another
     /// instance's occupant, and it stands. With the baseline and the verifier
-    /// scoped to the session, #1's root was a duplicate identity, and #1's
-    /// body was superseded by a candidate in another room.
+    /// scoped to the session, #1's body was superseded by a candidate in
+    /// another room.
     #[test]
     fn a_publication_leaves_the_other_live_rooms_occupants_standing() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, RoomInstanceRoot};
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
         let first = LiveRoomInstance::ACTIVATION;
         let second = first.next();
         let authored = candidate_plan(&sprite_content)
@@ -2499,13 +2482,6 @@ mod tests {
         let after_publication = |room: LiveRoomInstance| {
             let (mut app, outgoing) = two_live_rooms();
             let world = app.world_mut();
-            let roots: Vec<Entity> = world
-                .query_filtered::<(Entity, &LiveRoomInstance), bevy::prelude::With<RoomInstanceRoot>>()
-                .iter(world)
-                .filter(|(_, live)| **live == second)
-                .map(|(entity, _)| entity)
-                .collect();
-            world.entity_mut(roots[0]).insert(RoomInstanceRoot::sim_id());
             let body = world
                 .spawn((authored.clone(), RoomScopedEntity, InRoomInstance(room)))
                 .id();
@@ -2621,7 +2597,7 @@ mod tests {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use super::transaction::LiveRoomSuccession;
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            InRoomInstance, SessionRoot, activation_room_root, session_world_component, session_world_component_mut,
+            InRoomInstance, SessionRoot, live_room_root, session_world_component, session_world_component_mut,
         };
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
@@ -2657,12 +2633,10 @@ mod tests {
                 .expect("the fixture's set has room `candidate`");
             app.world_mut()
                 .spawn((
-                    activation_room_root(scope),
+                    live_room_root(scope, second),
                     ambition_platformer2d_core::RoomGeometry(candidate_spec().world.clone()),
                 ))
-                // The identity every live room root wears, as in the app: a
-                // join whose world held both roots was refused as a duplicate.
-                .insert((second, candidate));
+                .insert(candidate);
             app.world_mut().spawn((
                 ambition_platformer2d_shared_tangle::sim_id::SimId::placement("held"),
                 RoomScopedEntity,
@@ -2797,7 +2771,7 @@ mod tests {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use super::transaction::{LiveRoomSuccession, StagedWorldViolation};
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            InRoomInstance, SessionRoot, activation_room_root, session_world_component, session_world_component_mut,
+            InRoomInstance, SessionRoot, live_room_root, session_world_component, session_world_component_mut,
         };
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
@@ -2843,10 +2817,10 @@ mod tests {
                 .expect("the fixture's set has room `candidate`");
             app.world_mut()
                 .spawn((
-                    activation_room_root(scope),
+                    live_room_root(scope, second),
                     ambition_platformer2d_core::RoomGeometry(candidate_spec().world.clone()),
                 ))
-                .insert((second, candidate));
+                .insert(candidate);
             let next = RoomSet::from_parts_or_panic(room, next, Vec::new());
             let index = next.definition_by_id(room).expect("the reloaded set has the room").index();
             let plan = plan_of(index, next.spec(next.definition_by_id(room).expect("it is there")).clone(),

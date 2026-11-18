@@ -80,10 +80,19 @@ joins its pending work or repeats its retained terminal reply. It never applies
 the action again. Reusing a number for different work is rejected. An expired
 old number is also rejected.
 
-The ticket includes the submitting entry, native domain, request number, live
-room, caller generation, and occurrence. The room assigns caller generations.
-A recreated body with the same authored identity cannot complete an old body's
-work. A surviving body's replies follow that body through room travel.
+The ticket includes the submitting entry, native domain, request number,
+allocation room, object generation, and action occurrence. The native
+`ObjectOccurrence` stamp identifies one live object lifetime in its session.
+Its room is an allocation namespace. It does not change when the object travels.
+The room assigns a fresh sequence when an object first needs a reference.
+The stamp and counter rewind together. Retirement removes the stamp; rollback
+reconstruction restores it. A new object with the same authored identity gets
+a different stamp.
+
+Both native reply APIs resolve the session and occurrence stamp. An equal
+authored identity in another room, with or without a mailbox, cannot receive
+or block the reply. Room roots use the same occurrence path and retire with
+their live room. A surviving body's replies follow that body through travel.
 
 `cancel_action` takes a ticket and cancels pending work in the caller's scope
 and module. The native consumer checks the ticket before each change. A

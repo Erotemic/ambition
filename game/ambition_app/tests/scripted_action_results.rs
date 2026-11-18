@@ -54,6 +54,111 @@ fn result() {
 fn other() { this.state.results.wrong += 1; }
 "#;
 
+#[derive(Resource)]
+struct DelayedOccurrences {
+    first: ambition_platformer2d::platformer::action_results::ActionReply,
+    second: ambition_platformer2d::platformer::action_results::ActionReply,
+    applications: usize,
+}
+
+fn complete_occurrences_on_the_replayed_timeline(world: &mut World) {
+    use ambition_platformer2d::{platformer::{action_results::*, lifecycle::*, sim_id::SimId},
+        extension::sdk::action::{ActionStage, ReplyTo}};
+    let frame = world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0;
+    if ![5, 8, 10].contains(&frame) { return; }
+    let (first, second) = {
+        let pending = world.resource::<DelayedOccurrences>();
+        (pending.first.clone(), pending.second.clone())
+    };
+    if frame == 5 {
+        let body = first.recipient.resolve(world).unwrap();
+        world.entity_mut(body).insert(InRoomInstance(LiveRoomInstance::from_ordinal(3)));
+    }
+    if frame == 8 {
+        let body = second.recipient.resolve(world).unwrap();
+        let owner = *world.get::<SessionScopedEntity>(body).unwrap();
+        let room = *world.get::<InRoomInstance>(body).unwrap();
+        world.despawn(body);
+        let replacement = world.spawn((owner, room, SimId::placement("repeated_object"))).id();
+        let reply = begin_action(world, replacement, "occurrence_probe::actions/ask", "test.delay",
+            Some(&ReplyTo {request: 0, selector: "occurrence_probe::actions/result".into()}), 0).reply.unwrap();
+        assert!(publish_action_result(world, Some(&reply), ActionStage::Applied, true, "replacement", "", Vec::new()));
+    }
+    if frame == 10 {
+        let mut state = bevy::ecs::system::SystemState::<ActionReplies>::new(world);
+        let mut replies = state.get_mut(world).unwrap();
+        assert!(replies.publish(Some(&first), ActionStage::Applied, true, "traveled", "", Vec::new()));
+        assert!(!replies.publish(Some(&second), ActionStage::Applied, true, "retired", "", Vec::new()));
+        world.resource_mut::<DelayedOccurrences>().applications += 1;
+    }
+}
+
+#[test]
+fn equal_authored_object_ids_receive_independent_replies_after_travel_and_rollback() {
+    use ambition_platformer2d::{platformer::{action_results::*, lifecycle::*, sim_id::SimId},
+        extension::sdk::action::ReplyTo, engine_core::RoomGeometry, world::rooms::{LiveRoomDefinition, RoomSet}};
+    const SCRIPT: &str = r#"
+fn declare() {
+    #{provider: "occurrence_probe", key: "actions", schemas: [#{key: "memory", fields: [
+        #{tag: 1, name: "completed", kind: "u32"}, #{tag: 2, name: "code", kind: "text 32"}]}],
+      entries: [
+        #{key: "ask", phase: "actor_think", trigger: #{port: "story_tick", selector: "unused_occurrence_selector"}},
+        #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}, writes: ["memory"]}]}
+}
+fn ask() {}
+fn result() {
+    if !this.trigger.terminal { return; }
+    this.state.memory.completed += 1;
+    this.state.memory.code = this.trigger.code;
+}
+"#;
+    let file = std::env::temp_dir().join(format!("ambition_occurrence_replies_{}.rhai", std::process::id()));
+    std::fs::write(&file, SCRIPT).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab").with_extension_module_files(vec![file.clone()])
+            .with_sync_test_rollback_settings(4, 12)).unwrap();
+    sim.step_n(AgentAction::default(), 4);
+    let world = sim.world_mut();
+    let root = world.query_filtered::<Entity, With<RoomInstanceRoot>>().single(world).unwrap();
+    let owner = *world.get::<SessionScopedEntity>(root).unwrap();
+    let geometry = world.get::<RoomGeometry>(root).unwrap().clone();
+    let definition = *world.get::<LiveRoomDefinition>(root).unwrap();
+    for n in 1..4 {
+        let room = LiveRoomInstance::from_ordinal(n);
+        assert!(session_world_component_mut::<RoomSet>(world).unwrap().mint_live_room(room));
+        let extra = spawn_live_room(world, room, geometry.clone());
+        world.entity_mut(extra).insert(definition);
+    }
+    let a = world.spawn((owner, InRoomInstance(LiveRoomInstance::ACTIVATION), SimId::placement("repeated_object"))).id();
+    let b = world.spawn((owner, InRoomInstance(LiveRoomInstance::from_ordinal(1)), SimId::placement("repeated_object"))).id();
+    let untracked = world.spawn((owner, InRoomInstance(LiveRoomInstance::from_ordinal(2)), SimId::placement("repeated_object"))).id();
+    let ask = |world: &mut World, body| begin_action(world, body, "occurrence_probe::actions/ask", "test.delay",
+        Some(&ReplyTo {request: 0, selector: "occurrence_probe::actions/result".into()}), 0).reply.unwrap();
+    let first = ask(world, a);
+    let second = ask(world, b);
+    world.insert_resource(DelayedOccurrences {first: first.clone(), second: second.clone(), applications: 0});
+    sim.app_mut().add_systems(ambition_platformer2d::rollback::GgrsSchedule,
+        complete_occurrences_on_the_replayed_timeline.before(ambition_platformer2d::sim::Platformer2dSimulationPhase::CoreSimulation));
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 30);
+    sim.rollback_health().unwrap();
+    assert!(sim.world().resource::<DelayedOccurrences>().applications > 1);
+    assert_eq!(second.recipient.resolve(sim.world()), None);
+    assert!(sim.world().get::<ActionMailbox>(untracked).is_none());
+    let world = sim.world_mut();
+    let mut receivers = world.query::<(&ObjectOccurrence, &BodyRecords)>();
+    let rows: Vec<_> = receivers.iter(world).filter_map(|(occurrence, records)| {
+        let record = records.get(&SchemaKey::new("occurrence_probe", "memory", 1))?;
+        assert_eq!(record.get(FieldRef(0)).unwrap(), &Value::U32(1));
+        Some((*occurrence, record.get(FieldRef(1)).unwrap().as_text().unwrap().to_owned()))
+    }).collect();
+    assert_eq!(rows.len(), 2);
+    assert!(rows.contains(&(first.recipient.occurrence, "traveled".into())));
+    assert!(rows.iter().any(|(_, code)| code == "replacement"));
+    assert_eq!(world.resource::<ExtensionFaults>().total, 0);
+    let _ = std::fs::remove_file(file);
+}
+
 #[test]
 fn scripts_receive_native_application_and_refusal_in_the_asking_scope_after_rewind() {
     let dir = std::env::temp_dir().join(format!("ambition_action_results_{}", std::process::id()));

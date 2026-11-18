@@ -174,12 +174,7 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
             Ok((targets, truncated)) => {
                 let ticket = dispatch.reply.as_ref().unwrap().ticket.clone();
                 let result = BodyQueryResult {
-                    room: ambition_platformer2d_shared_tangle::action_results::ActionRecipient::of(
-                        world,
-                        submitted.scope,
-                    )
-                    .unwrap()
-                    .room,
+                    room: scope_room(world, submitted.scope).unwrap().ordinal(),
                     ticket,
                     observed_at: world
                         .get_resource::<ambition_time::SimTick>()
@@ -218,6 +213,12 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
 }
 
 
+fn scope_room(world: &World, scope: Entity) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    world.get::<InRoomInstance>(scope).map(|at| at.0)
+        .or_else(|| world.get::<RoomInstanceRoot>(scope).and(world.get::<LiveRoomInstance>(scope).copied()))
+}
+
 fn select(
     world: &mut World,
     scope: Entity,
@@ -250,15 +251,7 @@ fn select(
     let session = *world
         .get::<SessionScopedEntity>(scope)
         .ok_or("no_live_scope")?;
-    let room = world
-        .get::<InRoomInstance>(scope)
-        .map(|at| at.0)
-        .or_else(|| {
-            world
-                .get::<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>(scope)
-                .copied()
-        })
-        .ok_or("no_live_room")?;
+    let room = scope_room(world, scope).ok_or("no_live_room")?;
     let mut bodies = world.query::<(
         Entity,
         &SimId,

@@ -317,7 +317,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 492 -> 493: observer-local pending projectile outcomes rewind with their scope.
 // 493 -> 494: bag history includes quantities, room writes and retention authority.
 // 494 -> 495: a technique transit remains on its body for the next tick.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 495;
+// 495 -> 496: object occurrence stamps and their room counters replace mailbox
+// identities. Mailboxes receive the occurrence when an action starts.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 496;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

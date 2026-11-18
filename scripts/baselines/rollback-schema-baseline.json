@@ -1,9 +1,8 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v495",
+    "version": "ggrs-rollback-schema-v496",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
-      "actions.scope_sequence\tcomponent-canonical\tActionScopeSequence",
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
       "actor.attack_gesture_state\tcomponent-canonical\tAttackGestureState",
@@ -113,6 +112,8 @@
       "frame_env.force_zone\tcomponent-canonical\tForceZone",
       "item.bag_uses_in_rooms\tresource-clone-custom-checksum\tBagUsesInRooms\tbevy_ggrs clone snapshot + the cells bodies used from the shared bag, and what a room's conversation added to it or sold from it, within the rewind horizon, with the room and tick of each, which a room rewind takes back (ISL-2d)",
       "item.held_material_basis\tcomponent-canonical\tHeldMaterialBasis",
+      "objects.occurrence\tcomponent-canonical\tObjectOccurrence",
+      "objects.occurrence_sequence\tcomponent-canonical\tObjectOccurrenceSequence",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
       "portal.held_pairs\tcomponent-clone-cursor\tHeldPortalPairs",
@@ -288,6 +289,8 @@
     "ambition_platformer2d_core::reference_frame::GameplayFramePolicy",
     "ambition_platformer2d_core::resources::ActorResources",
     "ambition_platformer2d_session::SessionParticipants",
+    "ambition_platformer2d_shared_tangle::ObjectOccurrence",
+    "ambition_platformer2d_shared_tangle::ObjectOccurrenceSequence",
     "ambition_platformer2d_shared_tangle::construction::SpawnOrigin",
     "ambition_platformer2d_shared_tangle::construction::TransactionId",
     "ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration",

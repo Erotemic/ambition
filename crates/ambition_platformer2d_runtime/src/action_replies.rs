@@ -6,7 +6,7 @@ use ambition_extension_host::{
 use ambition_extension_sdk::{action::*, phases::*};
 use ambition_platformer2d_shared_tangle::{
     action_results::{self, ActionDispatch, ActionMailbox, ActionRecipient},
-    lifecycle::{LiveRoomInstance, RoomFreeze, SessionScopedEntity},
+    lifecycle::{ObjectOccurrence, RoomFreeze, SessionScopedEntity},
     sim_id::SimId,
 };
 use bevy::prelude::*;
@@ -107,7 +107,7 @@ fn queue_replies(
         Entity,
         &SessionScopedEntity,
         Option<&SimId>,
-        Option<&LiveRoomInstance>,
+        &ObjectOccurrence,
         &mut ActionMailbox,
     )>,
     mut invocations: ResMut<ExtensionInvocations>,
@@ -118,7 +118,7 @@ fn queue_replies(
             (
                 ActionRecipient {
                     session: session.0.0,
-                    room: room.map_or(0, |r| r.ordinal()),
+                    occurrence: *room,
                     subject: id.map(|id| id.as_str().to_owned()),
                 },
                 entity,

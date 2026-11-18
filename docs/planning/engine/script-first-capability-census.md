@@ -99,6 +99,27 @@ The program remains open. The maintainer permits capability work without a
 current consumer. Complete a useful semantic family through its domain owner;
 use a gameplay example or a focused host fixture as evidence.
 
+### Object and event substrate review
+
+The maintainer's 2026-11-18 review used `2c0438c4252d`. It was a static review.
+Fix this substrate before the general interaction and event model. Use focused
+behavioral witnesses. Do not migrate working demo gameplay for coverage.
+
+| Priority | Required contract |
+| --- | --- |
+| P1 | Recipient resolution must name one object occurrence through room travel, equal authored IDs, retirement, and rollback reconstruction. Both native publishing APIs must use the same rule. |
+| P1 | A callback acknowledges delivery only after its state and requests commit. Faults need bounded deterministic retry or an inspectable terminal diagnostic. Include unavailable subscribers and paused rooms. |
+| P1 | Each domain declares cancellation support and its suppression mechanism. Unsupported or late cancellation must be refused. A canceled operation cannot later mutate the world. |
+| P2 | Invalid callback wiring must be caught at preparation or reported through a guaranteed observation of the submitting scope. Reload must not leave silent orphan work. |
+| P2 | Completed object publication follows all native and script initialization. A creation listener must see wallet, statuses, records, relations, and the stable occurrence together. Refused preflight must create nothing. |
+| P2 | Measure native contact collection and frame cost with few and many subscribers in crowded rooms, including two live rooms. Use the native spatial broadphase or confirmed contact stream when the measurements justify a change. Preserve ordering and replay. |
+
+Then implement two distinct reusable object behaviors whose events cause each
+other's native domain actions. Include accepted and refused outcomes, competing
+actions, hot reload, room duplication, travel, and replay. Keep native collision
+and damage authority. Do not build an unbounded global event bus or a generic
+scene-node clone. The model remains open until these contracts have evidence.
+
 The remaining contracts need more than aliases: general world-object
 activation and composition, actor lifetime, equipment/custody outcomes,
 and accepted travel events. Their native authority,

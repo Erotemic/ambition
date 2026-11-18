@@ -39,5 +39,16 @@ records. Check operation budgets across imports, import cycles, and module
 initialization together. A loader that resets an operation budget at each
 import can evade the entry limit.
 
-This is evidence for the open library capability. It is not a defect in the
-current loader: the current Rhai backend disables imports.
+The original loader disabled imports. The captured-library compiler in
+`c12a4e89c` creates invocation-local environments and shares the caller's work
+budget. Its owner tests reproduce this case. Keep mutable gameplay state in
+host-owned records when changing the library cache.
+
+## Script-visible source names
+
+Rhai catch blocks expose source names and messages. A division error in a
+library included its installation path in the caught map. Equal code installed
+in two directories then produced different script values with the same code
+identity. The source compiler uses the canonical entry name and library IDs
+inside the VM. Physical paths stay in host diagnostics. The owner test covers
+caught errors in both an entry function and an imported function.

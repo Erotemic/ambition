@@ -29,6 +29,9 @@ pub enum Spot {
 pub enum ArtPart {
     /// A lit visor.
     Visor,
+    /// A hand (v5): its landmark is `hand_near` or `hand_far`. The art draws
+    /// no box for it, so a ray from it is the request's `width` wide.
+    Hand,
 }
 
 /// A named point on a part the body's art draws in a row. The part's box
@@ -66,6 +69,7 @@ impl Spot {
                 wire::put_u8(out, 2);
                 wire::put_u8(out, match spot.part {
                     ArtPart::Visor => 0,
+                    ArtPart::Hand => 1,
                 });
                 wire::put_u32(out, spot.rows.len() as u32);
                 for row in &spot.rows {
@@ -86,6 +90,7 @@ impl Spot {
             2 => {
                 let part = match r.u8()? {
                     0 => ArtPart::Visor,
+                    1 => ArtPart::Hand,
                     tag => return Err(WireError::BadTag(tag)),
                 };
                 let count = r.read_len()?;
@@ -117,7 +122,7 @@ impl Spot {
 ///   is the direction), as far as `reach` or the first wall, `width` wide,
 ///   through the portal pairs it enters. A ray from a [`Spot::Part`] the art
 ///   draws leaves the whole part: it is as wide as the part is tall, and
-///   `width` is its width when the art does not draw it. It hurts what it meets for
+///   `width` is its width when the art draws no box for the part (a hand). It hurts what it meets for
 ///   `damage`, launching by `knockback` (a multiplier over the victim's
 ///   feel-tuned launch). `launch_dir` selects the axes; absence launches away
 ///   from the source. It is drawn as `look`.
@@ -153,7 +158,8 @@ pub struct HeldRay {
 }
 
 impl Port for HeldRayPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 4);
+    /// Version 5 (2026-11-17): a ray from a hand (`ArtPart::Hand`).
+    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 5);
     const ROLE: PortRole = PortRole::Request;
     type Value = HeldRay;
 
@@ -211,17 +217,22 @@ mod tests {
 impl ambition_extension_sdk::structure::Field<ArtPart> for ArtPart {
     fn shape() -> ambition_extension_sdk::structure::Shape {
         use ambition_extension_sdk::structure::{CaseShape, Shape};
-        Shape::Choice(vec![CaseShape { name: "visor", payload: None, script: "\"visor\"" }])
+        Shape::Choice(vec![
+            CaseShape { name: "visor", payload: None, script: "\"visor\"" },
+            CaseShape { name: "hand", payload: None, script: "\"hand\"" },
+        ])
     }
-    fn put(_: &ArtPart, out: &mut Vec<u8>) { wire::put_u8(out, 0); }
+    fn put(v: &ArtPart, out: &mut Vec<u8>) {
+        wire::put_u8(out, match v { ArtPart::Visor => 0, ArtPart::Hand => 1 });
+    }
     fn read(r: &mut WireReader<'_>) -> Result<ArtPart, WireError> {
-        match r.u8()? { 0 => Ok(ArtPart::Visor), tag => Err(WireError::BadTag(tag)) }
+        match r.u8()? { 0 => Ok(ArtPart::Visor), 1 => Ok(ArtPart::Hand), tag => Err(WireError::BadTag(tag)) }
     }
-    fn to_script(_: &ArtPart) -> ambition_extension_sdk::script::ScriptValue {
-        ambition_extension_sdk::script::ScriptValue::Text("visor".into())
+    fn to_script(v: &ArtPart) -> ambition_extension_sdk::script::ScriptValue {
+        ambition_extension_sdk::script::ScriptValue::Text(match v { ArtPart::Visor => "visor", ArtPart::Hand => "hand" }.into())
     }
     fn from_script(v: &ambition_extension_sdk::script::ScriptValue) -> Result<ArtPart, String> {
-        match v.as_text()? { "visor" => Ok(ArtPart::Visor), _ => Err("unknown art part".into()) }
+        match v.as_text()? { "visor" => Ok(ArtPart::Visor), "hand" => Ok(ArtPart::Hand), _ => Err("unknown art part".into()) }
     }
 }
 

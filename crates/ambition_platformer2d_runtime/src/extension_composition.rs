@@ -545,6 +545,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_boss_special_port::BossSpecialCast>("boss_special")
         .add::<ambition_boss_special_port::BossConductPort>("boss_conduct")
         .add::<ambition_boss_special_port::MountViewPort>("mount")
+        .add::<ambition_boss_special_port::DrawnRowPort>("drawn_row")
         .add::<ambition_combat_port::HeldRayPort>("held_ray")
         .add::<ambition_combat_port::LightningPort>("lightning")
         .add::<ambition_combat_port::LightningAuraPort>("lightning_aura")

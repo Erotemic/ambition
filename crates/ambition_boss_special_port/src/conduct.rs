@@ -448,7 +448,27 @@ impl Port for DrawnRowPort {
     type Value = DrawnRow;
 
     fn encode(v: &DrawnRow, out: &mut Vec<u8>) {
-        match &v.on {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<DrawnRow, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+impl ambition_extension_sdk::structure::Field<DrawnPart> for DrawnPart {
+    fn shape() -> ambition_extension_sdk::structure::Shape {
+        use ambition_extension_sdk::structure::{CaseShape, Shape};
+        Shape::Choice(vec![
+            CaseShape { name: "body", payload: None, script: "\"body\"" },
+            CaseShape { name: "mount", payload: None, script: "\"mount\"" },
+            CaseShape { name: "limb", payload: Some(Shape::Text), script: "#{ limb: \"hand_left\" }: a limb of the mount's rig" },
+            CaseShape { name: "layer", payload: None, script: "\"layer\"" },
+            CaseShape { name: "upper_body", payload: None, script: "\"upper_body\": over the pose of the legs" },
+        ])
+    }
+    fn put(v: &DrawnPart, out: &mut Vec<u8>) {
+        match v {
             DrawnPart::Body => wire::put_u8(out, 0),
             DrawnPart::Mount => wire::put_u8(out, 1),
             DrawnPart::Limb(slot) => {
@@ -458,31 +478,58 @@ impl Port for DrawnRowPort {
             DrawnPart::Layer => wire::put_u8(out, 3),
             DrawnPart::UpperBody => wire::put_u8(out, 4),
         }
-        wire::put_u32(out, v.names.len() as u32);
-        for name in &v.names {
-            wire::put_str(out, name);
-        }
-        wire::put_f32(out, v.elapsed);
-        wire::put_bool(out, v.looping);
     }
-
-    fn decode(r: &mut WireReader<'_>) -> Result<DrawnRow, WireError> {
-        let on = match r.u8()? {
+    fn read(r: &mut WireReader<'_>) -> Result<DrawnPart, WireError> {
+        Ok(match r.u8()? {
             0 => DrawnPart::Body,
             1 => DrawnPart::Mount,
             2 => DrawnPart::Limb(r.str()?.to_owned()),
             3 => DrawnPart::Layer,
             4 => DrawnPart::UpperBody,
             other => return Err(WireError::BadTag(other)),
-        };
-        let count = r.read_len()?;
-        let mut names = Vec::new();
-        for _ in 0..count {
-            names.push(r.str()?.to_owned());
+        })
+    }
+    fn to_script(v: &DrawnPart) -> ambition_extension_sdk::script::ScriptValue {
+        use ambition_extension_sdk::script::ScriptValue;
+        match v {
+            DrawnPart::Body => ScriptValue::Text("body".into()),
+            DrawnPart::Mount => ScriptValue::Text("mount".into()),
+            DrawnPart::Limb(slot) => ScriptValue::map([("limb", ScriptValue::Text(slot.clone()))]),
+            DrawnPart::Layer => ScriptValue::Text("layer".into()),
+            DrawnPart::UpperBody => ScriptValue::Text("upper_body".into()),
         }
-        Ok(DrawnRow { on, names, elapsed: r.f32()?, looping: r.bool()? })
+    }
+    fn from_script(v: &ambition_extension_sdk::script::ScriptValue) -> Result<DrawnPart, String> {
+        if let Ok(name) = v.as_text() {
+            return match name {
+                "body" => Ok(DrawnPart::Body),
+                "mount" => Ok(DrawnPart::Mount),
+                "layer" => Ok(DrawnPart::Layer),
+                "upper_body" => Ok(DrawnPart::UpperBody),
+                other => Err(format!("unknown drawn part `{other}`")),
+            };
+        }
+        let fields = ambition_extension_sdk::structure::record_fields(v, &["limb"])?;
+        let [(_, slot)] = fields else { return Err("a drawn part is a name or #{ limb: .. }".into()); };
+        Ok(DrawnPart::Limb(slot.as_text()?.to_owned()))
     }
 }
+
+ambition_extension_sdk::port_record! {
+    DrawnRow {
+        /// The part drawn: the body, its mount, a limb of the mount, a layer
+        /// over the body's row, or the body above its hips.
+        on: DrawnPart,
+        /// Rows in order of preference: a sheet without the first is drawn
+        /// with the next. No names: drawn as the engine would.
+        names: Vec<String>,
+        /// Seconds into the row.
+        elapsed: f32 = 0.0,
+        /// Loop the row, or hold its last frame.
+        looping: bool = false,
+    }
+}
+ambition_extension_sdk::script_port!(DrawnRowPort);
 
 /// The observation port marker for the mount a conducted boss rides.
 ///

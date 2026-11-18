@@ -6,14 +6,7 @@ use ambition_extension_sdk::{
     action::{ActionTicket, ReplyTo},
 };
 
-ambition_extension_sdk::port_choices! {
-    /// The shared targeting relation, independent of friendly-fire policy.
-    pub enum TargetRelation {
-        Foe = 1 => "foe",
-        Ally = 2 => "ally",
-        Neutral = 3 => "neutral",
-    }
-}
+use crate::targets::TargetRelation;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BodyQuery {

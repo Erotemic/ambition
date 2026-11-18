@@ -84,7 +84,8 @@ request does not rerun the search at a later tick. Use a new request number
 for a new read.
 
 The portable types are in
-`ambition_platformer2d::extension::combat::body_query`. The assembled
+`ambition_platformer2d::extension::combat::body_query`; `TargetRelation` is in
+the sibling `targets` module. The assembled
 [headless fixture](../../game/ambition_app/tests/scripted_body_queries.rs)
 uses the loaded Rhai host for a controlled body and an NPC. It checks bounded
 selection, retained identities, relationship changes, refusal, and replay.

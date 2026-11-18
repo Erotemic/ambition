@@ -314,6 +314,40 @@ Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.
 | `members` | list of { id: text, form: text, position: [x, y], velocity: [x, y], size: [x, y], alive: bool, driven: bool, held: text or (), supporter: text or (), target: [x, y] or (), target_velocity: [x, y] or () } | The room's members, in the order of their identity. |
 | `items` | list of { id: text, kind: text, position: [x, y], at_rest: bool } | The items lying in the room (not held), in the order of their identity. |
 
+## `body_contact`
+
+Port `ambition.body.contact@2`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `observed_at` | text |  |
+| `room` | integer (u32) or () |  |
+| `body_id` | text |  |
+| `driven` | bool |  |
+| `body` | { position: [x, y], size: [x, y], velocity: [x, y] } |  |
+| `down` | [x, y] or () |  |
+| `touchers` | list of { id: text, body: { position: [x, y], size: [x, y], velocity: [x, y] }, driven: bool, relation: one of: foe \| ally \| neutral or (), surfaces: list of { point: [x, y], normal: [x, y], distance: number }, surfaces_truncated: bool } | Same-session and same-room touchers in simulation identity order. |
+| `truncated` | bool | More touching bodies existed than the game's contact budget. |
+| `incomplete` | bool | At least one same-scope body could not supply accepted geometry. |
+| `refusals` | list of { id: text, reason: text } |  |
+| `refusals_truncated` | bool |  |
+
+## `contact_bounce`
+
+Port `ambition.body.contact_bounce@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `toucher` | integer (u32) | required |  |
+| `speed` | number | required |  |
+| `pogo_cue` | bool | `false` |  |
+
+## `defeat_body`
+
+Port `ambition.body.defeat@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+No fields: `request("defeat_body", #{})`.
+
 ## `body_query`
 
 Port `ambition.combat.body_query@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

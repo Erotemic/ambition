@@ -9,7 +9,7 @@
 | [`attachments`](src/attachments.rs) | The named points of a body's rig: a jaw, a saddle, a grip, a muzzle, a hand. |
 | [`blast`](src/blast.rs) | A blast: damage where a body is, credited to another body. |
 | [`body_query`](src/body_query.rs) | Bounded body queries publish identified facts at a declared read cut. |
-| [`contact`](src/contact.rs) | The ports of a contact rule: what a touch on a body does, decided by a module in `body_contact` (`ambition_extension_sdk::phases::BODY_CONTACT`). |
+| [`contact`](src/contact.rs) | Physical contact facts and responses for a body's bound rules. |
 | [`custody`](src/custody.rs) | The custody requests: a body takes an item lying in its room, or lets go of the one it holds (runtime authoring audit P4: the coconut swallows). |
 | [`force`](src/force.rs) | A field of force a module holds over a region of its room: a wind, a tide, the low weight of space. |
 | [`group`](src/group.rs) | The ports of a coordinated group: the bodies of one room that share a tag decide together, in one invocation (runtime authoring audit P4, `docs/planning/engine/runtime-authoring-audit-2026-11-14/execution-plan.md`). |

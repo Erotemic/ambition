@@ -106,6 +106,8 @@ struct AuthoredRoomRules {
     /// Bounds for script-authored body queries in this game.
     #[serde(default)]
     body_queries: Option<crate::extension::body_query::BodyQueryLimits>,
+    #[serde(default)]
+    body_contact_events: Option<crate::extension::contact::ContactFactsLimits>,
 }
 
 /// One game's rules for its own rooms, lowered from its pack.
@@ -124,6 +126,7 @@ pub struct RoomRules {
     pub fireball: Option<FireballFlight>,
     pub body_contact: Option<BodyContact>,
     pub body_queries: Option<crate::extension::body_query::BodyQueryLimits>,
+    pub body_contact_events: Option<crate::extension::contact::ContactFactsLimits>,
 }
 
 impl AuthoredRoomRules {
@@ -196,6 +199,7 @@ impl AuthoredRoomRules {
             problems.extend(fireball.problems());
         }
         if let Some(limits) = self.body_queries { problems.extend(limits.problems()); }
+        if let Some(limits) = self.body_contact_events { problems.extend(limits.problems()); }
         problems
     }
 
@@ -220,6 +224,7 @@ impl AuthoredRoomRules {
             fireball: self.fireball,
             body_contact: self.body_contact,
             body_queries: self.body_queries,
+            body_contact_events: self.body_contact_events,
         }
     }
 }
@@ -358,6 +363,7 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
         app.declare_rules(scope, feel);
     }
     if let Some(limits) = rules.body_queries { app.declare_rules(scope, limits); }
+    if let Some(limits) = rules.body_contact_events { app.declare_rules(scope, limits); }
     if let Some(contact) = rules.body_contact {
         app.declare_rules(scope, contact);
     }
@@ -371,6 +377,8 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
 /// candidate means remove, as for every family a reload publishes.
 pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&RoomRules>) {
     let rules = rules.cloned().unwrap_or_default();
+    world.get_resource_or_insert_with(DeclaredRules::<crate::extension::contact::ContactFactsLimits>::default)
+        .restate(scope, rules.body_contact_events);
     world.get_resource_or_insert_with(DeclaredRules::<crate::extension::body_query::BodyQueryLimits>::default)
         .restate(scope, rules.body_queries);
     world.get_resource_or_insert_with(DeclaredRules::<BodyContact>::default)

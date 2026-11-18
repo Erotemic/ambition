@@ -124,7 +124,7 @@ language.
   when that many of its mobs remain, they `leave_through` a named zone (with
   what they carry), and the encounter is won. That is the raid's survivors
   running off with the case. With radiant objectives
-  ([RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning))
+  ([RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17))
   the same exit becomes an objective a goblin plans for. SS6 is the authored
   form that works before that. **Covered 2026-11-14 without a new field:**
   a retreat is a cutscene that starts on the count (`starts_when:

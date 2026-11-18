@@ -124,6 +124,13 @@ fn the_blink_carries_the_body_where_a_strike_does_not() {
 /// closed his end of the survey (`gated_by`).
 const RETURN_LOCK: &str = "alice_survey_line";
 
+/// Is a conversation or a cutscene holding the player?
+fn a_scene_holds_the_player(app: &App) -> bool {
+    let world = app.world();
+    world.get_resource::<ambition_platformer2d::dialog::DialogState>().is_some_and(|dialog| dialog.active())
+        || world.get_resource::<ambition_platformer2d::cutscene::ActiveCutscene>().is_some_and(|scene| scene.is_playing())
+}
+
 fn live_room(app: &mut App) -> String {
     let body = primary_body(app);
     room_of(app, body).expect("the player is in a live room")
@@ -137,8 +144,48 @@ fn go_through(app: &mut App, target: &str) {
     // The workshop's way out is shut until its raid is beaten. A save that
     // has the raid beaten already has the door down.
     if from == "intro_wake_room" && gate_stands(app, crate::common::walk::BARN_DOOR) {
+        // With the Blink in hand, Attack is a blink and strikes nothing, and
+        // the raid's brute has to be beaten: set it aside first (Shield and
+        // Attack throws what the hand holds), as a player does, and take it
+        // up again when the raid is won.
+        let blink = SimId::placement(BLINK);
+        let carried = the_player_holds(app, &blink);
+        if carried {
+            // The workshop's arrival is a scene, and a press while it holds
+            // the player is the scene's: take its beats first.
+            for _ in 0..240 {
+                if !a_scene_holds_the_player(app) {
+                    break;
+                }
+                crate::alices_reading_reaches_bob::tap(app, KeyCode::Enter);
+                for _ in 0..8 {
+                    app.update();
+                }
+            }
+            assert!(!a_scene_holds_the_player(app), "the workshop's arrival scene ended");
+            for _ in 0..3 {
+                if !the_player_holds(app, &blink) {
+                    break;
+                }
+                leafwing_input_manager::prelude::Buttonlike::press(&KeyCode::KeyE, app.world_mut());
+                app.update();
+                crate::alices_reading_reaches_bob::tap(app, KeyCode::KeyX);
+                leafwing_input_manager::prelude::Buttonlike::release(&KeyCode::KeyE, app.world_mut());
+                for _ in 0..10 {
+                    app.update();
+                }
+            }
+            assert!(
+                matches!(occurrences(app, &blink).as_slice(), [(_, Custody::InWorld)]),
+                "Shield and Attack throw the Blink down: {:?}",
+                occurrences(app, &blink)
+            );
+        }
         if let Err(why) = crate::common::walk::through_the_raid(&mut crate::common::walk::Keys::new(app), crate::common::walk::RaidStart::Talk) {
             panic!("the player did not get through the raid: {why}");
+        }
+        if carried {
+            take(app, &blink);
         }
     }
     if let Err(why) = crate::common::walk::walk_through(&mut crate::common::walk::Keys::new(app), target) {

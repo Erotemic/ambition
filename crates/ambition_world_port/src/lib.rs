@@ -7,3 +7,5 @@ pub mod inventory;
 pub mod creation;
 pub mod geometry;
 pub mod consumption;
+
+pub mod breakables;

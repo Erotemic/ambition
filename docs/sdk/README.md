@@ -29,7 +29,8 @@ ratchet instead of expanding the public API by accident.
 [Script libraries](script-libraries.md) provide captured imports, reusable behavior
 functions, and typed state factories. [Structured state](script-state.md) adds reusable
 nested records and bounded text. [Actor creation](actor-creation.md) composes native
-character bodies and initializes their behavior state. Scripts can receive native command outcomes through
+character bodies and initializes their behavior state. [Prop creation](breakable-creation.md)
+builds native room destructibles with collision, art, and optional respawn. Scripts can receive native command outcomes through
 [action results](action-results.md). This includes correlated replies, retries,
 cancellation, and rollback delivery. [Inventory exchanges](inventory-exchanges.md)
 apply exact item and wallet changes through the native owner.

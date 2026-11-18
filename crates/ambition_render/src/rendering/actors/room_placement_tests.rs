@@ -27,9 +27,11 @@ fn each_feature_visual_is_placed_in_its_own_live_room() {
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), room(big));
     let second = LiveRoomInstance::ACTIVATION.next();
     ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), second, room(small));
+    let mut in_big = view(); in_big.room = Some(LiveRoomInstance::ACTIVATION);
+    let mut in_small = view(); in_small.room = Some(second);
     app.insert_resource(FeatureViewIndex::from_rows([
-        ("in_big".to_string(), view()),
-        ("in_small".to_string(), view()),
+        ("shared".to_string(), in_big),
+        ("shared".to_string(), in_small),
     ]));
     app.init_resource::<ambition_sim_view::PresentedFeaturePoses>();
     app.add_systems(Update, sync_visuals);
@@ -44,8 +46,8 @@ fn each_feature_visual_is_placed_in_its_own_live_room() {
             ))
             .id()
     };
-    let in_big = spawn(&mut app, "in_big", LiveRoomInstance::ACTIVATION);
-    let in_small = spawn(&mut app, "in_small", second);
+    let in_big = spawn(&mut app, "shared", LiveRoomInstance::ACTIVATION);
+    let in_small = spawn(&mut app, "shared", second);
     app.update();
     let placed = |e: Entity| app.world().get::<Transform>(e).expect("a drawn feature").translation.truncate();
     assert_eq!(

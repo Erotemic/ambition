@@ -8,7 +8,7 @@
 |---|---|
 | [`mechanics`](src/mechanics.rs) | Mechanical inputs bound to one admitted content generation. |
 | [`placements`](src/placements.rs) | Actor construction's context for lowering authored placement records. |
-| [`runtime`](src/runtime.rs) | Checked character compositions in an existing live room. |
+| [`runtime`](src/runtime.rs) | Checked runtime construction in an existing live room. |
 | [`whereabouts`](src/whereabouts.rs) | Where an authored body is when it is not in the room that authored it (Q38, OW3): a persistent character's durable whereabouts, and the population occurrences that live away from home. |
 
 _4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._

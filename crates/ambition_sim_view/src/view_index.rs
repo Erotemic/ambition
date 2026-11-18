@@ -170,18 +170,22 @@ pub struct FeatureView {
 /// by [`FeatureId`].
 #[derive(Resource, Default, Clone, Debug)]
 pub struct FeatureViewIndex {
-    /// `(view, generation)` per id. The generation lets the per-frame rebuild
-    /// MARK-AND-SWEEP instead of clear()+reinsert: a surviving id keeps its
-    /// existing key allocation, so a `String` is allocated only for a genuinely
-    /// new feature id — not for every id every frame. This index rebuilds every
-    /// frame and RL steps the sim millions of times, so avoid per-id churn.
-    views: bevy::platform::collections::HashMap<String, (FeatureView, u64)>,
+    /// Each text ID has one row per live room. Rebuild generations retain
+    /// surviving keys and rows without allocating strings each frame.
+    views: bevy::platform::collections::HashMap<String, Vec<(FeatureView, u64)>>,
     generation: u64,
 }
 
 impl FeatureViewIndex {
+    /// Return the sole occurrence of this identity. Ambiguous identities have no result.
     pub fn get(&self, id: &str) -> Option<&FeatureView> {
-        self.views.get(id).map(|(view, _)| view)
+        let rows = self.views.get(id)?;
+        (rows.len() == 1).then(|| &rows[0].0)
+    }
+
+    /// Read this identity in its exact live room, including an unscoped occurrence.
+    pub fn get_in(&self, id: &str, room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> Option<&FeatureView> {
+        self.views.get(id)?.iter().find(|(view, _)| view.room == room).map(|(view, _)| view)
     }
 
     /// Iterate every `(id, view)` row. Presentation passes that render "one
@@ -193,7 +197,7 @@ impl FeatureViewIndex {
         // excluded from `SimSnapshot` and from the N0.4 state hash (netcode.md
         // §Excluded). Every consumer of this iterator is presentation. No sim state
         // reads it, so its order can never enter a trajectory.
-        self.views.iter().map(|(id, (view, _))| (id.as_str(), view))
+        self.views.iter().flat_map(|(id, rows)| rows.iter().map(move |(view, _)| (id.as_str(), view)))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -201,7 +205,7 @@ impl FeatureViewIndex {
     }
 
     pub fn len(&self) -> usize {
-        self.views.len()
+        self.views.values().map(Vec::len).sum()
     }
 
     /// Begin a rebuild pass: bump the generation so this frame's writes are
@@ -214,7 +218,10 @@ impl FeatureViewIndex {
     /// features that despawned. Surviving keys keep their allocations.
     fn end_rebuild(&mut self) {
         let gen = self.generation;
-        self.views.retain(|_, (_, g)| *g == gen);
+        self.views.retain(|_, rows| {
+            rows.retain(|(_, generation)| *generation == gen);
+            !rows.is_empty()
+        });
     }
 
     /// Insert `view` for `id` only if no view has been recorded yet THIS
@@ -243,19 +250,22 @@ impl FeatureViewIndex {
     pub fn from_rows(entries: impl IntoIterator<Item = (String, FeatureView)>) -> Self {
         let mut index = Self::default();
         for (id, view) in entries {
-            index.views.insert(id, (view, index.generation));
+            let rows = index.views.entry(id).or_default();
+            if let Some(row) = rows.iter_mut().find(|(row, _)| row.room == view.room) {
+                *row = (view, index.generation);
+            } else { rows.push((view, index.generation)); }
         }
         index
     }
 
     fn insert_if_absent(&mut self, id: &str, view: FeatureView) {
         let gen = self.generation;
-        if let Some(slot) = self.views.get_mut(id) {
-            if slot.1 != gen {
-                *slot = (view, gen);
-            }
+        if let Some(rows) = self.views.get_mut(id) {
+            if let Some(slot) = rows.iter_mut().find(|(row, _)| row.room == view.room) {
+                if slot.1 != gen { *slot = (view, gen); }
+            } else { rows.push((view, gen)); }
         } else {
-            self.views.insert(id.to_string(), (view, gen));
+            self.views.insert(id.to_string(), vec![(view, gen)]);
         }
     }
 }
@@ -1259,6 +1269,40 @@ mod view_index_tests {
             sprite_offset: None,
             room: None,
         }
+    }
+
+    #[test]
+    fn equal_ids_keep_independent_room_state_and_presentation_history() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        let (a, b) = (Some(LiveRoomInstance::ACTIVATION), Some(LiveRoomInstance::from_ordinal(27)));
+        let mut left = view(true); left.room = a; left.pos.x = 10.0;
+        let mut right = view(false); right.room = b; right.pos.x = 70.0;
+        let mut index = FeatureViewIndex::default();
+        index.begin_rebuild();
+        index.insert_if_absent("shared", left);
+        index.insert_if_absent("shared", right.clone());
+        index.end_rebuild();
+        assert_eq!(index.len(), 2);
+        assert!(index.get("shared").is_none());
+        assert!(index.get_in("shared", a).unwrap().visible);
+        assert!(!index.get_in("shared", b).unwrap().visible);
+        let mut app = bevy::prelude::App::new();
+        app.insert_resource(index).init_resource::<ambition_time::SimTick>()
+            .init_resource::<crate::PresentationPhase>().init_resource::<crate::PresentedFeaturePoses>()
+            .add_systems(bevy::prelude::Update, crate::presented_pose::advance_presented_feature_poses);
+        app.update();
+        let poses = app.world().resource::<crate::PresentedFeaturePoses>();
+        assert_eq!(poses.presented("shared", a, ae::Vec2::ZERO).x, 10.0);
+        assert_eq!(poses.presented("shared", b, ae::Vec2::ZERO).x, 70.0);
+        let mut index = app.world_mut().resource_mut::<FeatureViewIndex>();
+        index.begin_rebuild();index.insert_if_absent("shared", right);index.end_rebuild();
+        assert_eq!(index.len(), 1);
+        assert!(index.get_in("shared", a).is_none());
+        assert_eq!(index.get("shared").unwrap().room, b);
+        app.update();
+        let poses = app.world().resource::<crate::PresentedFeaturePoses>();
+        assert_eq!(poses.presented("shared", a, ae::Vec2::ZERO), ae::Vec2::ZERO);
+        assert_eq!(poses.presented("shared", b, ae::Vec2::ZERO).x, 70.0);
     }
 
     /// THE PUBLICATION SEAM for a parry, and the bug it is named for.

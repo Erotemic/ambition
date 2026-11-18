@@ -42,6 +42,7 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         gate_network_schema(),
         world_manifest_schema(),
         actor_creation_rules_schema(),
+        breakable_creation_rules_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
         ambition_items::content_schema::held_item_art::held_item_art_schema(),
@@ -127,4 +128,14 @@ pub fn actor_creation_rules_schema() -> ambition_content_pack::SchemaRegistratio
         "Bounds for actor batches, complete clusters, room population and initial behavior state. Zero disables that allowance.",
         |_| Vec::new(),
     )
+}
+
+
+/// Room-scoped bounds for native destructible creation.
+pub fn breakable_creation_rules_schema() -> ambition_content_pack::SchemaRegistration {
+    use ambition_platformer2d_world::creation::{BreakableCreationLimits, BREAKABLE_CREATION_RULES_SCHEMA};
+    ambition_content_pack::rules_schema::<BreakableCreationLimits>(BREAKABLE_CREATION_RULES_SCHEMA, 1,
+        ambition_platformer2d_world::rooms::WORLD_CAPABILITY,
+        "Bounds for breakable batches, room population and display labels. Zero disables that allowance.",
+        |_| Vec::new())
 }

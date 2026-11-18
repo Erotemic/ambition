@@ -13,12 +13,11 @@ use ambition_vfx::vfx::VfxInRoom;
 pub fn update_ecs_breakables(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    player_body_q: Query<
+    bodies: Query<
         (
             Entity,
             &ambition_platformer2d_core::BodyKinematics,
         ),
-        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<
@@ -35,7 +34,7 @@ pub fn update_ecs_breakables(
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     mut debris: MessageWriter<DebrisBurstMessage>,
-    // A player stands only on a breakable of its own live room: two live
+    // A body stands only on a breakable of its own live room: two live
     // rooms can hold one at the same position. The effects of a breakable are
     // drawn in its own live room.
     // At each breakable's room's pace (ISL-1b).
@@ -74,17 +73,10 @@ pub fn update_ecs_breakables(
         let Some(mut stand_timer) = stand_timer else {
             continue;
         };
-        // Iterate every player so any player standing on a
-        // collision-blocking breakable triggers the collapse. Single-
-        // player behavior preserved because there's one entity in the
-        // iterator today. OVERNIGHT-TODO #17.8 (iterate-all-players
-        // "no targeting" B-bucket).
-        let any_player_standing = breaks_on_stand
-            && player_body_q.iter().any(|(player, kin)| {
-                rooms.of(player) == room
-                    && player_is_standing_on(kin.aabb(), aabb.aabb())
-            });
-        if any_player_standing {
+        let supported = breaks_on_stand && bodies.iter().any(|(body, kin)| {
+            rooms.of(body) == room && player_is_standing_on(kin.aabb(), aabb.aabb())
+        });
+        if supported {
             stand_timer.0 += dt;
             if stand_timer.0 >= BREAK_ON_STAND_SECONDS {
                 let damage = feature.breakable.health.current.max(1);
@@ -171,6 +163,16 @@ mod breakable_tests {
             app.world().get::<BreakableFeature>(brk).unwrap().broken(),
             "standing past BREAK_ON_STAND_SECONDS collapses the platform"
         );
+    }
+
+    #[test]
+    fn an_autonomous_body_loads_the_same_breakable_support() {
+        let mut app = app();
+        let block = stand_breakable(&mut app, ae::Vec2::new(100.0, 100.0), THRESHOLD);
+        let body = player_at(&mut app, ae::Vec2::new(100.0, 65.0));
+        app.world_mut().entity_mut(body).remove::<PlayerEntity>();
+        app.update();
+        assert!(app.world().get::<BreakableFeature>(block).unwrap().broken());
     }
 
     #[test]

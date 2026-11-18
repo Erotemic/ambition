@@ -6,13 +6,14 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`breakables`](src/breakables.rs) | Create fresh room-owned destructibles through the native world owner. |
 | [`consumption`](src/consumption.rs) | Consume a destructible from this invocation's native world contacts. |
 | [`creation`](src/creation.rs) | Create a checked actor composition and initialize its declared behavior state. |
 | [`geometry`](src/geometry.rs) | World geometry identity and confirmed movement contacts. |
 | [`inventory`](src/inventory.rs) | Exact inventory exchanges and observations over native item authority. |
 | [`story`](src/story.rs) | Portable room story observations and action requests. |
 
-_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

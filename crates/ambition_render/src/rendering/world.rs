@@ -226,7 +226,7 @@ pub fn spawn_room_visuals(
         if let ambition_entity_catalog::placements::PlacementSchema::Chest(chest) = &record.schema {
             if let Some(look) = chest.look.as_deref() {
                 let fallback = game_assets::chest_state_sprite(chest.opened);
-                spawn_feature_look(commands, session_scope, world, record, FeatureVisualKind::Chest, look, fallback, assets);
+                spawn_feature_look(commands, session_scope, world, record.id.as_str(), &record.name, record.aabb, FeatureVisualKind::Chest, look, fallback, assets);
                 spawn_chest_label(commands, session_scope, world, record.id.as_str(), &record.name, record.aabb);
                 continue;
             }
@@ -237,29 +237,6 @@ pub fn spawn_room_visuals(
                 payload: chest.clone(),
             };
             spawn_authored_chest(commands, session_scope, world, &authored, assets);
-        }
-    }
-    // Breakables come through the `placements` channel.
-    for record in &spec.placements {
-        if let ambition_entity_catalog::placements::PlacementSchema::Breakable(breakable) =
-            &record.schema
-        {
-            if let Some(look) = breakable.look.as_deref() {
-                let fallback = game_assets::EntitySprite::BreakableIntact;
-                spawn_feature_look(commands, session_scope, world, record, FeatureVisualKind::Breakable, look, fallback, assets);
-                continue;
-            }
-            spawn_authored_basic(
-                commands,
-                session_scope,
-                world,
-                record.id.as_str(),
-                &record.name,
-                record.aabb,
-                FeatureVisualKind::Breakable,
-                game_assets::entity_sprite_for_breakable(breakable),
-                assets,
-            );
         }
     }
     for enemy in &spec.enemy_spawns {
@@ -1412,28 +1389,30 @@ fn spawn_authored_basic(
 /// again after a quality change. Until the sheet loads it is `fallback`, the
 /// generic sprite of its kind.
 #[allow(clippy::too_many_arguments)]
-fn spawn_feature_look(
+pub(super) fn spawn_feature_look(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
-    record: &ambition_platformer2d_world::placements::PlacementRecord,
+    id: &str,
+    name: &str,
+    aabb: ae::Aabb,
     kind: FeatureVisualKind,
     look: &str,
     fallback_sprite: game_assets::EntitySprite,
     assets: Option<&GameAssets>,
-) {
-    let size = record.aabb.half_size() * 2.0;
+) -> Entity {
+    let size = aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
     let mut entity = commands.spawn_session_scoped(
         session_scope,
         (
-            Transform::from_translation(world_to_bevy(world, record.aabb.center(), feature_z(kind))),
-            Name::new(format!("Room entity: {}", record.name)),
-            FeatureVisual { id: record.id.as_str().to_string() },
+            Transform::from_translation(world_to_bevy(world, aabb.center(), feature_z(kind))),
+            Name::new(format!("Room entity: {}", name)),
+            FeatureVisual { id: id.to_string() },
             PropVisual {
-                id: record.id.as_str().to_string(),
+                id: id.to_string(),
                 kind: look.to_string(),
-                name: record.name.clone(),
+                name: name.to_owned(),
                 size: render,
                 draw: PropDraw::Structure,
                 flip_y: false,
@@ -1454,6 +1433,7 @@ fn spawn_feature_look(
             });
         }
     }
+    entity.id()
 }
 
 /// Spawn a pickup whose visual is an animated character sheet (a spinning ring).

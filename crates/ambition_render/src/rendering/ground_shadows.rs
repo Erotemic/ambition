@@ -183,7 +183,7 @@ pub fn sync_ground_shadows(
         }
         if let Some(feature_views) = feature_views.as_deref() {
             for (entity, visual) in &visuals {
-                let Some(view) = feature_views.get(&visual.id) else {
+                let Some(view) = feature_views.get_in(&visual.id, rooms.room_of(entity)) else {
                     continue;
                 };
                 if view.kind != FeatureVisualKind::Actor || !view.visible || view.submerged {
@@ -194,7 +194,7 @@ pub fn sync_ground_shadows(
                     // the shadow does not lag it or lead it.
                     let pos = presented_features
                         .as_deref()
-                        .map_or(view.pos, |poses| poses.presented(&visual.id, view.pos));
+                        .map_or(view.pos, |poses| poses.presented(&visual.id, view.room, view.pos));
                     bodies.push((visual.id.clone(), room, pos, view.size));
                 }
             }

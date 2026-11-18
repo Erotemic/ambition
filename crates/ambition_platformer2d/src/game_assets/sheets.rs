@@ -57,7 +57,8 @@ pub fn scenery_prop_kinds(room: &ambition_platformer2d_world::rooms::RoomSpec) -
 /// a room in reach (a live room, a door's neighbour of one, or the far room of
 /// an open gate link), or when no room's scenery names its kind (a drop's
 /// look, a pickup, a platform's sheet: art that is not one room's). A wanted
-/// sheet that is not loaded is loaded; a loaded one stays, as character
+/// sheet that is not loaded is loaded; live feature art also demands its sheet.
+/// A loaded one stays, as character
 /// sheets do. It does the work only when the rooms in reach, the loaded art or
 /// the rows changed, so a session that stays in one room pays one comparison
 /// a frame.
@@ -79,7 +80,8 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
     ),
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut assets: ResMut<GameAssets>,
-    mut seen: Local<Option<(Vec<usize>, Vec<String>)>>,
+    dynamic: Option<Res<ambition_sim_view::DynamicFeatureViews>>,
+    mut seen: Local<Option<(Vec<usize>, Vec<String>, Vec<String>)>>,
 ) {
     let set = rooms.rooms();
     let index_of = |id: &str| set.rooms.iter().position(|room| room.id == id);
@@ -92,11 +94,16 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
         .collect();
     far.sort();
     far.dedup();
-    let signature = (reach, far);
+    let requested: std::collections::BTreeSet<&str> = dynamic.iter().flat_map(|rows| rows.0.iter())
+        .filter_map(|row| match &row.sheet {
+            Some(ambition_sim_view::FeatureSheet::Animated(kind) | ambition_sim_view::FeatureSheet::Structure(kind)) => Some(kind.as_str()),
+            None => None,
+        }).collect();
+    let signature = (reach, far, requested.iter().map(|kind| (*kind).to_owned()).collect());
     if seen.as_ref() == Some(&signature) && !assets.is_changed() && !sheets.is_changed() && !rooms.set_is_changed() {
         return;
     }
-    let (live, far) = signature.clone();
+    let (live, far, _) = signature.clone();
     *seen = Some(signature);
     let mut near: Vec<usize> = live.clone();
     for &room in &live {
@@ -108,7 +115,7 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
         near.iter().filter_map(|&room| set.rooms.get(room)).flat_map(scenery_prop_kinds).collect();
     let missing: Vec<(&str, &PropSheetSource)> = sheets
         .iter()
-        .filter(|(kind, _)| !scenery.contains(kind) || in_reach.contains(kind))
+        .filter(|(kind, _)| !scenery.contains(kind) || in_reach.contains(kind) || requested.contains(kind))
         .filter(|(kind, _)| !assets.characters.props.contains_key(*kind))
         .collect();
     if missing.is_empty() {

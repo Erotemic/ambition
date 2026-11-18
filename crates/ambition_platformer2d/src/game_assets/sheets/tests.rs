@@ -313,3 +313,48 @@ fn a_prop_row_draws_its_records_page_or_the_pack() {
     assert!(page("intro_cart_unpacked").ends_with("/intro_cart_spritesheet.png"), "control: an unpacked cart: {}", page("intro_cart_unpacked"));
     assert!(page("intro_cart").contains("sprite_packs/"), "the packed cart is not drawn from the pack: {}", page("intro_cart"));
 }
+
+#[test]
+fn live_feature_art_loads_a_sheet_even_when_its_scenery_is_in_a_distant_room() {
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_world::rooms::{insert_room_set, PropSpec, RoomSet, RoomSpec};
+    use ambition_sim_view::{DynamicFeatureFact, DynamicFeatureViews, FeatureSheet};
+    let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+    app.add_plugins((bevy::app::TaskPoolPlugin::default(), bevy::asset::AssetPlugin::default()));
+    app.init_asset::<Image>().init_asset::<TextureAtlasLayout>();
+    for kind in ["requested", "other_scenery"] {
+        app.register_prop_sheet(kind, PropSheetSource {
+            target: "intro_cart".into(), tuning: Default::default(), packed: false, backdrop: false,
+        });
+    }
+    let room = |id| RoomSpec::new(id, ae::World::new(id, ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, vec![]));
+    let here = room("here");
+    let mut far = room("far");
+    for kind in ["requested", "other_scenery"] {
+        far.props.push(PropSpec {id: kind.into(), name: kind.into(), kind: kind.into(),
+            pos: ae::Vec2::ZERO, size: ae::Vec2::new(32.0, 16.0), flip_y: false, draw: Default::default()});
+    }
+    insert_room_set(app.world_mut(), RoomSet::from_parts_or_panic("here", vec![here, far], vec![]));
+    let config = GameAssetConfig::default();
+    let catalog = ambition_platformer2d_assets::platformer_assets::build_platformer2d_asset_catalog(
+        &ambition_sprite_sheet::test_support::shared_libraries(), &config,
+        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        &ambition_boss_encounter::BossCatalog::default(),
+        &ambition_audio::spec::MusicRegistry {default_track: String::new(), tracks: vec![]},
+        &Default::default());
+    app.insert_resource(config).insert_resource(catalog).init_resource::<GameAssets>()
+        .init_resource::<DynamicFeatureViews>().add_systems(Update, load_the_prop_sheets_in_reach);
+    app.update();
+    assert!(app.world().resource::<GameAssets>().characters.props.is_empty());
+    app.world_mut().resource_mut::<DynamicFeatureViews>().0.push(DynamicFeatureFact {
+        id: "created".into(), label: "created".into(), family: "Breakable",
+        pos: ae::Vec2::ZERO, size: ae::Vec2::new(32.0, 16.0), visual_kind: FeatureVisualKind::Breakable,
+        fighting: false, sprite_key: None, sheet: Some(FeatureSheet::Structure("requested".into())),
+        room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
+    });
+    app.update();
+    let props = &app.world().resource::<GameAssets>().characters.props;
+    assert!(props.contains_key("requested"));
+    assert!(!props.contains_key("other_scenery"));
+}

@@ -385,24 +385,25 @@ pub fn advance_presented_body_poses(
     }
 }
 
-/// Id-keyed presented poses for the feature/actor visuals (enemies, NPCs,
+/// Room-qualified presented poses for feature and actor visuals (enemies, NPCs,
 /// bosses, moving props).
 ///
 /// A body's presented pose is a component because its sprite lives on the body
-/// entity; feature visuals join to the sim by string id instead, so their
+/// entity; feature visuals join by live room and semantic identity, so their
 /// history lives in one index beside the read-model it mirrors.
 #[derive(Resource, Default, Debug)]
 pub struct PresentedFeaturePoses {
-    poses: std::collections::HashMap<String, PresentedPose>,
+    poses: std::collections::HashMap<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        std::collections::HashMap<String, PresentedPose>>,
 }
 
 impl PresentedFeaturePoses {
     /// The position to draw feature `id` at, falling back to `authoritative`
     /// for a row with no history yet.
     #[inline]
-    pub fn presented(&self, id: &str, authoritative: Vec2) -> Vec2 {
+    pub fn presented(&self, id: &str, room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, authoritative: Vec2) -> Vec2 {
         self.poses
-            .get(id)
+            .get(&room).and_then(|rows| rows.get(id))
             .map_or(authoritative, |pose| pose.presented())
     }
 }
@@ -422,7 +423,8 @@ pub fn advance_presented_feature_poses(
     let phase = phase.get();
     let interpolate = framing.is_some_and(|framing| framing.interpolate_poses);
     for (id, view) in views.iter() {
-        match presented.poses.get_mut(id) {
+        let rows = presented.poses.entry(view.room).or_default();
+        match rows.get_mut(id) {
             Some(pose) => {
                 if pose.tick != tick.0 {
                     // Per TICK, times the ticks this frame actually spanned —
@@ -438,15 +440,16 @@ pub fn advance_presented_feature_poses(
                 pose.resample(phase, interpolate);
             }
             None => {
-                presented
-                    .poses
-                    .insert(id.to_string(), PresentedPose::new(view.pos, tick.0));
+                rows.insert(id.to_string(), PresentedPose::new(view.pos, tick.0));
             }
         }
     }
     // Drop history for rows the read-model no longer publishes, so a long
     // session does not retain one entry per feature ever spawned.
-    presented.poses.retain(|id, _| views.get(id).is_some());
+    presented.poses.retain(|room, rows| {
+        rows.retain(|id, _| views.get_in(id, *room).is_some());
+        !rows.is_empty()
+    });
 }
 
 /// Ordering handle for presented-pose resampling.

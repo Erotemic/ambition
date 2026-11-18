@@ -391,3 +391,4 @@ mod scripted_inventory_exchanges;
 
 mod scripted_libraries;
 mod scripted_actor_creation;
+mod scripted_breakable_creation;

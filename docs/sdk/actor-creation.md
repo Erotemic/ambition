@@ -141,11 +141,16 @@ ActorNode, ActorStateSeed, ActorLink}`. Native host code can use
 `extension::{create_actors, RuntimeActor, RuntimeLink, ActorCreationLimits}`.
 Both reach the same checked body and relation constructors.
 
+Room roots can also create actors. Actor and [prop creation](breakable-creation.md)
+share the source's native identity counter. Within each request phase, the actor
+adapter runs before the breakable adapter. Use returned identities to coordinate
+objects; do not predict the counter.
+
 The loaded `scripted_actor_creation` fixture composes independent behavior on a
 sandbag and a giant for controlled and autonomous creators. It checks actual
 births, state initialization, native projectiles, refusal without partial births
-or counter spending, limb identity reservation, and GGRS replay. Interactive
-props, cross-object event routing and general retirement results remain open.
+or counter spending, limb identity reservation, and GGRS replay. General prop activation, cross-object event routing and retirement results
+remain open.
 
 ## Measured cost
 

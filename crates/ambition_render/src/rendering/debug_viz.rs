@@ -1032,7 +1032,7 @@ pub fn draw_debug_viz(
                     // Same frame clock as the body box above, so an enemy's gizmo does not
                     // shake against the camera.
                     let aabb =
-                        ae::Aabb::new(presented_features.presented(id, view.pos), view.size * 0.5);
+                        ae::Aabb::new(presented_features.presented(id, view.room, view.pos), view.size * 0.5);
                     draw_aabb_styled(gizmos, world, aabb, color, &developer_tools);
                 }
             }

@@ -10,6 +10,7 @@
 | [`actor_creation`](src/actor_creation.rs) | Native character construction with declared script-state initialization. |
 | [`authored_verdict_timeline`](src/authored_verdict_timeline.rs) | Reconcile the authored-verdict ring with the host's rollback timeline. |
 | [`body_feedback`](src/body_feedback.rs) | Emit movement feedback for every integrated body. |
+| [`breakable_creation`](src/breakable_creation.rs) | Correlated native breakable creation in every body request phase. |
 | [`causal`](src/causal.rs) | Bevy host adapter for `ambition_causal` recording and frame stamps. |
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Host wiring for the reset/checkpoint horizon. |
 | [`combat_rules`](src/combat_rules.rs) | Project match rules into the live combat tuning. |
@@ -27,8 +28,8 @@
 | [`feature_interaction_order_tests`](src/feature_interaction_order_tests.rs) | The `FeatureInteraction` cross-domain order, asserted as the app composes it. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`input`](src/input.rs) | Device input, participant seating, context claims, and frame publication adapters. |
-| [`input_sampling`](src/input_sampling.rs) | Local input sources that sample the body before each new input tick. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
+| [`input_sampling`](src/input_sampling.rs) | Local input sources that read the body before each new input tick. |
 | [`input_stream`](src/input_stream.rs) | Input-stream capture (netcode N0.2) — the one place a session's input is recorded. |
 | [`ldtk_world`](src/ldtk_world.rs) | Opt-in host composition for games that use an LDtk world. |
 | [`mode_scope`](src/mode_scope.rs) | Scoped game-mode runtime for hosted demos/rulesets. |
@@ -62,7 +63,7 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_54 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_56 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

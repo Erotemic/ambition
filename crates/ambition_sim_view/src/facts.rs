@@ -949,6 +949,12 @@ pub fn rebuild_projectile_views(
 }
 
 #[derive(Clone, Debug)]
+pub enum FeatureSheet {
+    Animated(String),
+    Structure(String),
+}
+
+#[derive(Clone, Debug)]
 pub struct DynamicFeatureFact {
     pub id: String,
     /// Display label for the visual's debug `Name`.
@@ -963,10 +969,9 @@ pub struct DynamicFeatureFact {
     /// The placeholder entity-sprite the spawn resolves to (from the actor's
     /// brain / the NPC's interactable / the chest payload).
     pub sprite_key: Option<ambition_sprite_sheet::game_assets::EntitySprite>,
-    /// An ANIMATED prop-sheet id to draw instead of the placeholder (a spinning
-    /// ring, a pulsing gem) — the same `GameAssets.characters.props` key the
-    /// room-load pass resolves for an authored pickup. `None`  the placeholder.
-    pub prop_sheet: Option<String>,
+    /// Optional animated or structure art from the native feature.
+    /// Missing art uses the ordinary entity sprite or color fallback.
+    pub sheet: Option<FeatureSheet>,
     /// The live room of the body this fact draws, by the rule of
     /// `LiveRooms::of`. The visual is placed by that room's geometry and
     /// stamped with it. `None` when the room cannot be told.
@@ -1031,6 +1036,9 @@ pub fn rebuild_dynamic_feature_views(
             With<ambition_combat::components::BossRewardChest>,
         )>,
     >,
+    breakables: Query<(Entity, &ambition_combat::components::FeatureId,
+        &ambition_combat::components::FeatureName, &ambition_combat::components::CenteredAabb,
+        &ambition_breakables::BreakableFeature), With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>>,
     // Loot the running simulation MINTED — Sanic's scattered rings, and every
     // future drop. Selected by construction PROVENANCE (`SpawnOrigin::Dynamic`)
     // rather than a per-game marker: "this pickup was not in the room spec" is
@@ -1083,7 +1091,7 @@ pub fn rebuild_dynamic_feature_views(
             // encounter mob's art is its own either way — a shark that stops
             // hunting is still a shark.
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
-            prop_sheet: None,
+            sheet: None,
             room: live.of(entity),
         });
     }
@@ -1102,7 +1110,7 @@ pub fn rebuild_dynamic_feature_views(
             visual_kind: FeatureVisualKind::Actor,
             fighting: !disposition.is_peaceful(),
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
-            prop_sheet: None,
+            sheet: None,
             room: live.of(entity),
         });
     }
@@ -1130,7 +1138,7 @@ pub fn rebuild_dynamic_feature_views(
             visual_kind: FeatureVisualKind::Actor,
             fighting,
             sprite_key,
-            prop_sheet: None,
+            sheet: None,
             room: live.of(entity),
         });
     }
@@ -1144,8 +1152,16 @@ pub fn rebuild_dynamic_feature_views(
             visual_kind: FeatureVisualKind::Chest,
             fighting: false,
             sprite_key: game_assets::entity_sprite_for_runtime_chest(&chest.chest),
-            prop_sheet: None,
+            sheet: None,
             room: live.of(entity),
+        });
+    }
+    for (entity, id, name, aabb, feature) in &breakables {
+        view.0.push(DynamicFeatureFact {
+            id: id.as_str().into(), label: name.0.clone(), family: "Breakable",
+            pos: aabb.center, size: aabb.size(), visual_kind: FeatureVisualKind::Breakable,
+            fighting: false, sprite_key: Some(game_assets::breakable_state_sprite(feature.state().state)),
+            sheet: feature.look().map(|look| FeatureSheet::Structure(look.into())), room: live.of(entity),
         });
     }
     for (entity, id, name, aabb, pickup, origin, art) in &dropped_pickups {
@@ -1166,7 +1182,7 @@ pub fn rebuild_dynamic_feature_views(
             // The static per-kind fallback, used only when the drop names no animated sheet or
             // that sheet hasn't loaded.
             sprite_key: game_assets::entity_sprite_for_runtime_pickup(pickup.kind()),
-            prop_sheet: art.map(|art| art.0.clone()),
+            sheet: art.map(|art| FeatureSheet::Animated(art.0.clone())),
             room: live.of(entity),
         });
     }

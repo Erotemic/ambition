@@ -54,6 +54,7 @@ pub mod gravity;
 #[cfg(test)]
 mod host_invariant_tests;
 pub mod input;
+pub mod input_sampling;
 pub mod schedule;
 pub mod input_drive;
 pub mod input_stream;

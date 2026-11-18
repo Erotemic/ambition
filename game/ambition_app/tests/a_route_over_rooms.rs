@@ -187,3 +187,78 @@ fn autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail() {
             "autoplay never dialed {destination}: {network:?}; visits={visits:?}");
     }
 }
+
+#[test]
+#[ignore = "full Hall traversal at five rendered frames per second"]
+fn autoplay_returns_from_the_hall_with_slow_render_frames() {
+    use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
+    use ambition_platformer2d::scripted_input::install_autoplay;
+    use bevy::time::TimeUpdateStrategy;
+    use crate::common::fixed_60hz_room_options;
+
+    let options = fixed_60hz_room_options("central_hub_complex")
+        .with_sync_test_rollback_settings(0, 12);
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the hub builds");
+    install_autoplay(sim.app_mut(), ambition_content::autoplay::AUTOPLAY_GAME);
+    sim.app_mut().insert_resource(TimeUpdateStrategy::ManualDuration(std::time::Duration::from_millis(200)));
+    let mut visited_hall = false;
+    let mut visits = Vec::new();
+    for _ in 0..2000 {
+        sim.app_mut().update();
+        let seen = sim.observation();
+        if visits.last() != Some(&seen.active_room) {
+            eprintln!("[slow autoplay] room={}", seen.active_room);
+            visits.push(seen.active_room.clone());
+        }
+        visited_hall |= seen.active_room == "hall_of_characters";
+        if visited_hall && seen.active_room == "central_hub_complex" {
+            return;
+        }
+        std::thread::yield_now();
+    }
+    panic!("autoplay did not return from the Hall: {visits:?}; last={:?}", sim.observation());
+}
+
+#[test]
+fn autoplay_press_is_consumed_once_during_catchup() {
+    use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
+    use ambition_platformer2d::autopilot::AutopilotOrder;
+    use ambition_platformer2d::characters::control::SlotControls;
+    use ambition_platformer2d::scripted_input::install_autoplay;
+    use ambition_platformer2d::sim::{SimScheduleExt as _, Platformer2dSimulationPhase};
+    use bevy::prelude::*;
+    use bevy::time::TimeUpdateStrategy;
+    use crate::common::fixed_60hz_room_options;
+
+    #[derive(Resource, Default)]
+    struct Received(std::collections::BTreeMap<u64, ae::ControlFrame>);
+
+    for rollback in [false, true] {
+        let options = fixed_60hz_room_options("central_hub_complex");
+        let options = if rollback {
+            options.with_sync_test_rollback_settings(3, 12)
+        } else {
+            options.with_fixed_tick(true)
+        };
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the hub builds");
+        sim.step_n(base(), 60);
+        install_autoplay(sim.app_mut(), "input_sample_test");
+        let schedule = sim.app_mut().sim_schedule();
+        sim.app_mut().init_resource::<Received>().add_systems(schedule,
+            (|tick: Res<ambition_platformer2d::sim::SimTick>, slots: Res<SlotControls>, mut received: ResMut<Received>| {
+                received.0.insert(tick.0, slots.get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY));
+            }).after(Platformer2dSimulationPhase::PlayerInput));
+        sim.app_mut().insert_resource(AutopilotOrder::Press(ae::ControlFrame {
+            jump_pressed: true, jump_held: true, axis_x: 0.3, ..Default::default()
+        }));
+        sim.app_mut().insert_resource(TimeUpdateStrategy::ManualDuration(std::time::Duration::from_millis(200)));
+        sim.app_mut().update();
+        sim.app_mut().update();
+        let frames = &sim.world().resource::<Received>().0;
+        assert!(frames.len() >= 20, "the host did not catch up: rollback={rollback}, {frames:?}");
+        assert_eq!(frames.values().filter(|frame| frame.jump_pressed).count(), 1,
+            "one press must reach one new tick: rollback={rollback}, {frames:?}");
+        assert!(frames.values().filter(|frame| frame.jump_held).count() >= 15,
+            "the held input must reach later ticks: rollback={rollback}, {frames:?}");
+    }
+}

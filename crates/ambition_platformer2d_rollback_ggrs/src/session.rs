@@ -952,6 +952,10 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         )
         .add_systems(
             ReadInputs,
+            sample_local_navigation.before(capture_latched_local_input),
+        )
+        .add_systems(
+            ReadInputs,
             (
                 capture_latched_local_input,
                 crate::lifecycle_commit::decide_this_peers_verdict,
@@ -1059,6 +1063,30 @@ pub(crate) fn install_session_bridge(app: &mut App) {
 /// input. Draining the latch once per rendered frame is incorrect: several
 /// rendered frames may pass before a simulation tick, and a later level-only
 /// sample would overwrite a short press before GGRS observed it.
+fn sample_local_navigation(
+    world: &mut World,
+    mut last: Local<Option<(u64, i32)>>,
+) {
+    use ambition_platformer2d_runtime::input_sampling::{
+        SampledLocalInputs, sample_local_inputs, publish_sampled_local_inputs,
+    };
+    if !world.contains_resource::<SampledLocalInputs>() {
+        return;
+    }
+    let generation = world.get_resource::<ambition_platformer2d_runtime::ActiveRollbackAuthority>()
+        .map_or(0, |authority| authority.generation().0);
+    let frame = world.resource::<RollbackFrameCount>().0;
+    if frame == 0 && world.get_resource::<RollbackSessionOwnership>().is_some_and(|ownership| ownership.has_remote_peers()) {
+        return;
+    }
+    let stamp = (generation, frame);
+    if *last != Some(stamp) {
+        sample_local_inputs(world);
+        *last = Some(stamp);
+    }
+    publish_sampled_local_inputs(world);
+}
+
 fn capture_latched_local_input(
     // One table for every seat, zero included.
     latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
@@ -1074,12 +1102,12 @@ fn capture_latched_local_input(
     if latches.is_device_authority(primary) {
         pending.set(0, latches.take(primary));
     }
-    // Seats 1.. drain unconditionally; seat zero does not. Only seat zero has
-    // a second author: rollback harnesses drive `PendingLocalInput` directly.
-    // Nothing drives `PendingSeatInputs` behind this system.
+    // A seat with no device authority keeps its host-supplied input.
     for handle in 1..ambition_characters::control::SlotControls::MAX_SLOTS {
         let slot = ambition_characters::control::PlayerSlot(handle as u8);
-        pending.set(handle, latches.take(slot));
+        if latches.is_device_authority(slot) {
+            pending.set(handle, latches.take(slot));
+        }
     }
 }
 
@@ -2623,6 +2651,8 @@ mod tests {
             .init_resource::<PendingSeatInputs>()
             .init_resource::<LocalPlayers>();
         install_session_bridge(&mut app);
+        let secondary = ControlFrame { axis_x: -0.75, ..default() };
+        app.world_mut().resource_mut::<PendingSeatInputs>().set(1, secondary);
 
         {
             let primary = ambition_characters::control::PlayerSlot::PRIMARY;
@@ -2655,6 +2685,7 @@ mod tests {
             "the short press must reach the next GGRS tick"
         );
         assert!(!first.jump_held, "the latest button level is released");
+        assert_eq!(app.world().resource::<PendingSeatInputs>().get(1), secondary);
 
         app.world_mut().run_schedule(ReadInputs);
         assert!(
@@ -2664,6 +2695,42 @@ mod tests {
                 .jump_pressed,
             "the edge must be consumed exactly once"
         );
+    }
+
+    #[test]
+    fn a_repeated_input_request_keeps_the_same_sampled_command() {
+        use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControlLatches};
+        use ambition_platformer2d_runtime::input_sampling::{LocalInputClock, LocalInputSampling, SampledLocalInputs};
+
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<LocalInputClock>()
+            .init_resource::<SampledLocalInputs>()
+            .init_resource::<SeatRawFrames>()
+            .init_resource::<SlotControlLatches>()
+            .init_resource::<PendingSeatInputs>()
+            .init_resource::<LocalPlayers>()
+            .insert_resource(RollbackFrameCount(1))
+            .insert_resource(ambition_platformer2d_runtime::SimStepPeriod(1.0 / 60.0))
+            .add_systems(LocalInputSampling, |clock: Res<LocalInputClock>, mut samples: ResMut<SampledLocalInputs>| {
+                samples.set(PlayerSlot::PRIMARY, ControlFrame {
+                    axis_x: clock.now, jump_pressed: clock.now < 0.02, jump_held: true, ..default()
+                });
+            });
+        install_session_bridge(&mut app);
+
+        app.world_mut().run_schedule(ReadInputs);
+        let first = app.world().resource::<PendingSeatInputs>().get(0);
+        assert!(first.jump_pressed);
+        app.world_mut().run_schedule(ReadInputs);
+        assert_eq!(app.world().resource::<PendingSeatInputs>().get(0), first);
+
+        app.world_mut().resource_mut::<RollbackFrameCount>().0 = 2;
+        app.world_mut().run_schedule(ReadInputs);
+        let next = app.world().resource::<PendingSeatInputs>().get(0);
+        assert!(!next.jump_pressed);
+        assert!(next.jump_held);
+        assert!(next.axis_x > first.axis_x);
     }
 }
 

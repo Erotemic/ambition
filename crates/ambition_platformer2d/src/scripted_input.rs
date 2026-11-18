@@ -148,12 +148,51 @@ pub fn autoplay_is(game: &'static str) -> impl Fn(Option<Res<Autoplay>>) -> bool
 /// Let `game`'s autoplay policy drive the local participant. While it runs,
 /// the script owns the primary seat: device and touch input are not read.
 pub fn install_autoplay(app: &mut App, game: impl Into<String>) {
-    drive_the_local_participant(app);
+    use ambition_platformer2d_runtime::input_sampling::{
+        LocalInputClock, LocalInputSampling, LocalInputPublication, SampledLocalInputs,
+        sample_local_inputs, publish_sampled_local_inputs,
+    };
+    app.init_resource::<ScriptedControls>();
+    app.init_resource::<ScriptedControlsObserved>();
+    app.init_resource::<LocalInputClock>();
+    app.init_resource::<SampledLocalInputs>();
+    app.add_systems(Last, observe_delivered_controls);
     app.insert_resource(Autoplay(game.into()));
-    app.configure_sets(Update, AutoplayPolicy.before(write_scripted_controls));
-    // A policy gives a goal; the autopilot goes there by navigation.
     crate::autopilot::install(app);
-    app.configure_sets(Update, crate::autopilot::AutopilotDrive.before(write_scripted_controls));
+    app.add_systems(LocalInputSampling, write_sampled_controls.after(crate::autopilot::AutopilotDrive));
+    app.edit_schedule(LocalInputSampling, |schedule| {
+        schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+    });
+    match app.world().get_resource::<ambition_platformer2d_runtime::SimulationHost>().copied().unwrap_or_default() {
+        ambition_platformer2d_runtime::SimulationHost::Rollback => {
+            app.init_resource::<ambition_characters::control::SlotControlLatches>();
+        }
+        ambition_platformer2d_runtime::SimulationHost::Fixed60Hz => {
+            app.add_systems(FixedUpdate, (sample_local_inputs, publish_sampled_local_inputs).chain()
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerInput)
+                .before(LocalInputPublication)
+                .before(ambition_input::InputSet::Route)
+                .before(ambition_characters::control::PrimarySlotInputCommit));
+        }
+        ambition_platformer2d_runtime::SimulationHost::RenderFrame => {
+            app.add_systems(Update, (sample_local_inputs, publish_sampled_local_inputs).chain()
+                .after(AutoplayPolicy)
+                .after(ambition_input::InputSet::Route)
+                .before(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
+                .before(ambition_characters::control::PrimarySlotInputCommit));
+        }
+    }
+}
+
+fn write_sampled_controls(
+    script: Res<ScriptedControls>,
+    mut samples: ResMut<ambition_platformer2d_runtime::input_sampling::SampledLocalInputs>,
+    mut observed: ResMut<ScriptedControlsObserved>,
+) {
+    samples.set(PlayerSlot::PRIMARY, script.0);
+    if script.0 != ControlFrame::default() {
+        observed.requested = observed.requested.saturating_add(1);
+    }
 }
 
 /// Set what the local participant is holding from here on.

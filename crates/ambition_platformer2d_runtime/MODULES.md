@@ -25,6 +25,7 @@
 | [`feature_interaction_order_tests`](src/feature_interaction_order_tests.rs) | The `FeatureInteraction` cross-domain order, asserted as the app composes it. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`input`](src/input.rs) | Device input, participant seating, context claims, and frame publication adapters. |
+| [`input_sampling`](src/input_sampling.rs) | Local input sources that sample the body before each new input tick. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
 | [`input_stream`](src/input_stream.rs) | Input-stream capture (netcode N0.2) — the one place a session's input is recorded. |
 | [`ldtk_world`](src/ldtk_world.rs) | Opt-in host composition for games that use an LDtk world. |

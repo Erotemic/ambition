@@ -470,17 +470,22 @@ hail `enemy.pirate.notice` and the heavy's bellow `enemy.pirate_heavy.notice`
 are new recipes, levelled to -22 dBFS loudest 100 ms beside the oni's
 (rendered here; the SFX bank is a build product this VM has never had); the
 navigator took the lookout's telegraph rows (renderer `3441940`, published).
-Witness `the_pirate_skirmishers_are_seen_and_heard_noticing_before_they_aim`:
-each of the four is pinned in its `notice` row and plays its cue before it
-holds its windup to fire.
+Witness `the_crew_and_the_duelists_are_seen_and_heard_noticing_before_they_wind_up`:
+each is pinned in its `notice` row and plays its cue before it winds up.
 
-**Next action:** the crew's melee fighters have notice rows but brains with
-no beat: the quartermaster and the cutlass viper run `pirate_striker`, Bess
-and Salt Annet `pirate_brute` (both `Smash`), the duelists the catalog
-preset `melee_brute_striker`. Move them to a profile whose template carries
-the beat (brute or skirmisher) rather than adding a notice to `Smash` or
-`BrainPreset`, and give them cues; that changes how they fight, so judge it
-in play. The characters without rows wait on their art.
+**Done 2026-11-18 (melee):** `pirate_striker` (the quartermaster, the
+cutlass viper; 0.35 s) and `pirate_brute` (Bess, Salt Annet; 0.5 s) are
+`MeleeBrute` profiles with the beat and the crew's cues; the Shadow Duelist
+and the Blue Scarf run the new `ninja_duelist` profile (0.3 s, the shadow
+oni's alert). Their one-stroke kits gave `Smash` nothing to choose: from
+200 px the cadence is unchanged (a windup every 44 ticks) and the first
+windup comes sooner after the beat; sight is now the aggro radius. A
+`MeleeBrute` no longer notices again after each of its own swings or stuns
+(it read the AI's held intent as a lost foe).
+
+**Next action:** the characters without `notice` rows wait on their art:
+the axe heavy, the ninja heavies, Kagero and the admiral; the eye-band
+examiner keeps `medium_striker` (`Smash`) for the rank exam.
 
 **Acceptance:** first sight produces one authored pose and cue before attack;
 loss and reacquisition follow the declared policy. Hurt interruption and

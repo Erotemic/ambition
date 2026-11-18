@@ -307,3 +307,22 @@ check, WebAssembly owner check, Android app check, documentation links and 53
 absence contracts pass. Platform checks prove compilation, not device playback.
 Broad union and tooling sweeps were not run for this change. Do not use opaque
 VM values for persistent state. General object and event composition remain open.
+
+## Actor composition receipt
+
+Commits: `f4a5ec7cf`, `4691f085b`. Scripts could not create general native character
+compositions with typed state and confirmed identities. `create_actors` now uses
+the shared checked planner, body kits, limb clusters and relations. Initial
+records and status selectors make parameterized behavior factories usable from
+birth. Per-game creation bounds are authored and reloadable. Giant constructors
+reserve their limb identity range and keep the host's faction on unpiloted limbs.
+
+Guards: the loaded actor-factory fixture checks controlled and autonomous
+creators, native relations, confirmed projectile births, refusal without partial
+births or counter spending, GGRS, and edits on existing bodies. The native facade,
+18 SDK tests, 56 planner tests, rule reload, four rollback-schema checks, the Smash
+lane, default app warning check, WebAssembly and Android compilation, and 53
+absence contracts pass. Policy retains the same 11 baseline violations.
+Broad union and tooling sweeps were not run. Do not use the developer scene-setup
+message for gameplay creation. Interactive props, general retirement outcomes,
+durable dynamic actors and cross-object event routing keep the program open.

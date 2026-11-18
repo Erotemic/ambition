@@ -1,6 +1,6 @@
 # World detail run (24 h, 2026-10-30)
 
-**Tracking:** [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions)
+**Tracking:** [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions---done-2026-11-18)
 owns the next topology and room-detail selection. The counts below are a dated
 baseline. Recheck current generators before repeating any completed work.
 

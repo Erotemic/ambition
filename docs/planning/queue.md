@@ -69,7 +69,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ASSET-PREVIEW in that order.
    A9's completed profile proof is not an automatic invitation to rewrite the
    capability architecture. Continue AP14 ownership work before lower-priority
-   ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
+   ENEMY-NOTICE, WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
 4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
 5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
@@ -487,7 +487,7 @@ loss and reacquisition follow the declared policy. Hurt interruption and
 ranged volley timing still work. A body without notice data keeps its declared
 policy. Use the same beat projection for every controller.
 
-### WORLD-LAYERS — fold the remaining long dimensions into connected regions
+### WORLD-LAYERS — fold the remaining long dimensions into connected regions — ✅ DONE 2026-11-18
 
 **Failure:** the current Jungle world is 25792 by 1888 pixels; Magical is
 17408 by 2688. Both still have long horizontal layouts. Travel portal kinds,
@@ -519,8 +519,13 @@ door-sized stone arch; GIANTS (trailhead), TALLEST (treetops), LIANAS
 (canopy) and DIGSITE (tar pits), a chain at reach 6400
 ([JL-2](game/world-layers-and-travel.md#jl-2--jungle-arch-travel-done-2026-11-18)).
 
-**Next action:** Magical's arches still wear the round gate ring; give them
-their own dressing of the arch assembly (MG-2's "Left").
+**Magical's arches drawn 2026-11-18:** the `starlit_arch` dressing of the
+same assembly (pale stone, gold stars set in it, glints), standing where the
+round rings stood, so every reach is as it was.
+
+**Done.** Further arches in other planet-like worlds wait for a traversal
+distance that warrants them (the plan's closing rule); topological
+dimensions are not required to use the layer model.
 Then recheck the old room-detail counts and Art's remaining publication. Reuse the existing portal and
 gate machinery. Keep authored rooms editable in LDtk. Recheck old room-detail
 counts before selecting missing props, secrets or region links. Then recheck

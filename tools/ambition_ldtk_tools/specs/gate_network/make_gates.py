@@ -437,8 +437,8 @@ JUNGLE_ARCHES = [
 
 def jungle_arch_entities(label: str, zone: str, terminal_id: str, x: int, floor: int, name: str) -> list[tuple]:
     """One Jungle arch: its props, its zone, and its terminal 8 east of it."""
-    (w, _), _ = gates.SHAPE_BOXES["arch"]
-    return gates.ring(label, zone, x, floor, name, shape="arch") + gates.terminal(label, terminal_id, x + w + 8, floor, shape="arch")
+    (w, _), _ = gates.SHAPE_BOXES["jungle_arch"]
+    return gates.ring(label, zone, x, floor, name, shape="jungle_arch") + gates.terminal(label, terminal_id, x + w + 8, floor, shape="jungle_arch")
 
 
 #: The districts' arrival rooms (the `pirate_port`, `ninja_village` and `eureka` generators):

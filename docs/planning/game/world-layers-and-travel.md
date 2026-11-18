@@ -1,7 +1,7 @@
 # World layers and travel
 
-**State:** remaining topology is selected in
-[WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions).
+**State:** done 2026-11-18; the row was
+[WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions---done-2026-11-18).
 Travel portal mechanics are built (`c818c0801`); Magical's sky and arches
 are authored (MG-1, MG-2, 2026-11-14); the Jungle is folded (JL-1) and
 its arches are authored (JL-2, 2026-11-18). Their counts and bounds were
@@ -122,13 +122,14 @@ the fossil beds' and the amber vault's already were (a validator warning).
 
 ### JL-2 — Jungle arch travel (done 2026-11-18)
 
-The arch prop is `jungle_arch` (`targets/props/jungle_arch.py`, prop kinds
+The arch prop is `jungle_arch` (`targets/props/jungle_arch.py`, the
+assembly in `_portal_arch.py`; prop kinds
 `jungle_arch_ring` and `jungle_arch_portal`): a mossy stone arch with the
 network's Δ cut in its keystone, 144 x 174 world units, its 48 x 146 zone the
 opening down to the floor. Its `charge` row lights a seam up both jambs to
 the keystone as it opens; its wormhole is the gate's, clipped to the arch
 (`_gate_wormhole_triangles`, opening `arch`). The map helper's shape is
-`arch` (`specs/gate_network/gates.py`, `SHAPE_BOXES`); `make_gates.py`
+`jungle_arch` (`specs/gate_network/gates.py`, `SHAPE_BOXES`); `make_gates.py`
 places the four arches and their terminals (`JUNGLE_ARCHES`).
 
 Four portal rings, each its own facility: GIANTS on the trailhead's floor
@@ -191,9 +192,16 @@ home ring answers an arch; its way home is the walk to its world's gate).
 A void star that stood on the keep's arrival moved west: the press that
 carries a traveller through the arch started its conversation.
 
-Left: Magical's arches still use the round gate ring's art. The Jungle's
-arch drawing (JL-2) is mossy jungle stone; Magical's want their own
-dressing of the same assembly.
+Drawn 2026-11-18: Magical's arches are `starlit_arch`, the dressing of the
+Jungle's arch assembly (`_portal_arch.py`) in pale starlit stone with gold
+stars set in alternate voussoirs and its jambs, and glints about its head
+that brighten as it opens. The generator states each by its middle, where
+the round ring it replaced stood, so each zone's middle and every reach is
+as it was; the zones became the arch's opening, with `presentation:
+SceneArt`, which the round rings' zones had lacked (they drew a door marker
+over the ring). A crossing lands the traveller in front of an arch, outside
+its narrow zone, so the chain test holds the landing to the arch's half
+width.
 
 **Every geometry packet:** run
 `python tools/ambition_ldtk_tools/specs/check_flat_map.py <world.ldtk>`

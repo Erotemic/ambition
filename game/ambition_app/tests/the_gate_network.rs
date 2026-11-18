@@ -221,6 +221,15 @@ fn travel(sim: &mut Platformer2dSimHarness, terminal: &str, ring: &str, address:
     go_through(sim, ring)
 }
 
+/// Has the traveller come out of the arch `arch`? A crossing lands the body
+/// in front of the far ring (`GATE_LANDING`, 34 px), past the edge of an
+/// arch's narrow opening: in front of an arch is within its half width
+/// (66 px, the narrower arch's) of its middle.
+fn landed_at(sim: &mut Platformer2dSimHarness, arch: &str) -> bool {
+    let opening = zone(sim, arch);
+    (sim.observation().player_pos.0 - opening.center().x).abs() <= 66.0
+}
+
 fn standing_in(sim: &mut Platformer2dSimHarness, ring: &str) -> bool {
     let opening = zone(sim, ring);
     let at = sim.observation().player_pos;
@@ -676,7 +685,7 @@ fn magicals_arches_hop_within_their_reach_and_chain_past_it() {
     assert_eq!(dial(&mut sim, HEIGHTS_ARCH, "CANDLE"), "out_of_reach", "the heart is farther than the heights' arch reaches");
     ask(&mut sim, HEIGHTS_ARCH, GateTerminalAction::Close);
     assert_eq!(travel(&mut sim, "magical_heights_arch_terminal", HEIGHTS_ARCH, "CASTLE"), "magical_void_keep");
-    assert!(standing_in(&mut sim, KEEP_ARCH), "the traveller comes out of the keep's arch");
+    assert!(landed_at(&mut sim, KEEP_ARCH), "the traveller comes out of the keep's arch");
     // The keep's arch is still the open end of the link the traveller came
     // by, so this dial is a redial: the old wormhole closes before the new
     // one opens (GATE-REDIAL), longer than `travel` waits.
@@ -690,7 +699,7 @@ fn magicals_arches_hop_within_their_reach_and_chain_past_it() {
         sim.step(base());
     }
     assert_eq!(go_through(&mut sim, KEEP_ARCH), "magical_void_heart");
-    assert!(standing_in(&mut sim, "magical_heart_arch"), "and out of the heart's arch");
+    assert!(landed_at(&mut sim, "magical_heart_arch"), "and out of the heart's arch");
 }
 
 /// The Jungle's arches (WORLD-LAYERS JL-2), played from the trailhead.
@@ -706,13 +715,6 @@ fn the_jungles_arches_chain_along_the_trail() {
     const TREETOPS_ARCH: &str = "primeval_treetops_arch";
     const CANOPY_ARCH: &str = "primeval_canopy_arch";
     let knows = |sim: &mut Platformer2dSimHarness, address: &str| save(sim).flag(&gate_address_known_flag(address));
-    // A crossing lands the body in front of the far ring (`GATE_LANDING`,
-    // 34 px), past the edge of an arch's narrow opening: in front of an arch
-    // is within its half width (72 px) of its middle.
-    let landed_at = |sim: &mut Platformer2dSimHarness, arch: &str| {
-        let opening = zone(sim, arch);
-        (sim.observation().player_pos.0 - opening.center().x).abs() <= 72.0
-    };
     let mut sim = room("primeval_trailhead");
     open_terminal(&mut sim, "primeval_trailhead_arch_terminal", TRAILHEAD_ARCH);
     assert!(knows(&mut sim, "GIANTS"), "opening an arch's terminal attunes it");

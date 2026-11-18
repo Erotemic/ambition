@@ -52,7 +52,7 @@ impl MaterialCastCells<'_> {
             Refusal { path, link, reason: RefusalReason::Numeric(fault) }
         };
         let points = polygon_points(self.material.domain).map_err(|reason| Refusal { path: vec![], link: None, reason })?;
-        super::super::thread::map_volume(target.source(), &target.transform()).map_err(numeric)?;
+        super::super::thread::validate_volume_map(target.source(), &target.transform()).map_err(numeric)?;
         let inverse = target.transform().inverse().map_err(numeric)?;
         let bounds = target.world_volume().bounds();
         let mut first: Option<SampledPieceHit> = None;

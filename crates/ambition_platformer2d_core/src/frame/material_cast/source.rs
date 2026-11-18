@@ -97,6 +97,14 @@ mod tests {
     }
 
     #[test]
+    fn an_admitted_start_does_not_admit_an_unresolvable_endpoint() {
+        let body = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(4.0)));
+        let refusal = MaterialCast::new(MaterialPrimitive::world(&body), Vec2::ZERO,
+            Vec2::new(1.0e20, 0.0), 0.0..1.0).cells(None).err().expect("the endpoint loses the body width");
+        assert_eq!(refusal.reason, RefusalReason::Numeric(NumericFault::Precision));
+    }
+
+    #[test]
     fn a_source_full_turn_hits_a_wall_that_both_endpoint_poses_miss() {
         let body = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(5.0, 0.5)));
         let target = Aabb::new(Vec2::new(0.0, 4.0), Vec2::splat(0.25));

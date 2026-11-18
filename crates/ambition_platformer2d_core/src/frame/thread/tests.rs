@@ -1,6 +1,40 @@
 use super::*;
 
 #[test]
+fn cast_admission_and_projection_refuse_the_same_numeric_domains() {
+    use bevy_math::Mat2;
+    let center = Vec2::new(20.0, 30.0);
+    let volumes = [
+        CombatVolume::aabb(crate::Aabb::new(center, Vec2::splat(4.0))),
+        CombatVolume::obb(center, Vec2::new(3.0, 7.0), 0.4),
+        CombatVolume::circle(center, 4.0),
+        CombatVolume::circle(center, 0.0),
+        CombatVolume::Circle { center, radius: -1.0 },
+        CombatVolume::convex(vec![Vec2::ZERO, Vec2::new(8.0, 0.0), Vec2::new(2.0, 6.0)]),
+        CombatVolume::Convex {
+            points: vec![Vec2::ZERO, Vec2::splat(f32::NAN)],
+            bounds: crate::Aabb::new(Vec2::ZERO, Vec2::ONE),
+        },
+    ];
+    let maps = [
+        Sim2::IDENTITY,
+        Sim2::new(1.0, Mat2::from_angle(0.37), Vec2::new(50.0, -20.0)).unwrap(),
+        Sim2::new(1.0e-20, Mat2::IDENTITY, Vec2::ZERO).unwrap(),
+        Sim2::new(1.0, Mat2::IDENTITY, Vec2::splat(1.0e20)).unwrap(),
+        Sim2::new(1.0e20, Mat2::IDENTITY, Vec2::splat(1.0e20)).unwrap(),
+    ];
+    for volume in &volumes {
+        for map in &maps {
+            assert_eq!(validate_volume_map(volume, map), map_volume(volume, map).map(|_| ()),
+                "volume={volume:?}, map={map:?}");
+        }
+    }
+    assert_eq!(validate_volume_map(&volumes[0], &maps[3]), Err(NumericFault::Precision));
+    assert_eq!(validate_volume_map(&volumes[4], &maps[0]), Err(NumericFault::InvalidScale));
+    assert_eq!(validate_volume_map(&volumes[6], &maps[0]), Err(NumericFault::NonFinite));
+}
+
+#[test]
 fn sampled_portal_motion_preserves_a_common_frame_boost() {
     use bevy_math::Mat2;
     use crate::frame::ApertureStep;

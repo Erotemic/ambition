@@ -45,6 +45,43 @@
             post_clear_bridge_state: Some("cleared_bridge"),
         ),
         (
+            // Level 1 (Hobford): Hobford Goblins
+            // (scores/active/hobford_goblins.music.yaml), every section on
+            // the first goblin tune's motif. The valley rooms hold `lurking`
+            // (a fiddle tune with the motif under it, in place of "A possible
+            // morning") and the woods `shadowed` (the motif slowed over a
+            // drone); the workshop raid plays `break_in` one time at the
+            // knock, then `raid`, the brute's wave `brute`, and `aftermath`
+            // (a lament on a cello) when it is won. One mastered `full` file
+            // per section, slices of one composition master: the valley
+            // measures -27.1 dB RMS, the brute -17.9 dB, peak -3.3 dBFS.
+            id: "hobford_goblins",
+            asset_root: "audio/music/generated/hobford_goblins",
+            bpm: 120.0,
+            beats_per_bar: 4.0,
+            relative_volume: 1.0,
+            sections: [
+                (id: "lurking", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/lurking/lurking.full.ogg")]),
+                (id: "shadowed", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/shadowed/shadowed.full.ogg")]),
+                // Plays to its end (the door gives way on its last beat),
+                // then the march.
+                (id: "break_in", duration_beats: 32.0, looped: false, sources: [(layer_id: "full", path: "playback/break_in/break_in.full.ogg")]),
+                (id: "raid", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/raid/raid.full.ogg")]),
+                (id: "brute", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/brute/brute.full.ogg")]),
+                (id: "aftermath", duration_beats: 56.0, looped: false, sources: [(layer_id: "full", path: "playback/aftermath/aftermath.full.ogg")]),
+            ],
+            layers: [(id: "full", slot: 0)],
+            states: [
+                (id: "lurking", section_id: "lurking", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "shadowed", section_id: "shadowed", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "break_in", section_id: "break_in", next_state: Some("raid"), gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "raid", section_id: "raid", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "brute", section_id: "brute", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "aftermath", section_id: "aftermath", gains: [(layer_id: "full", gain: 1.0)]),
+            ],
+            outro_state: Some("aftermath"),
+        ),
+        (
             // The primeval trail. ONE loop, the whole song (verse, chorus and
             // the two solo sections), in six layers; a state is a set of layer
             // gains. So a walk from room to room, and the start of the T-rex
@@ -285,6 +322,15 @@
     ],
     encounter_bindings: [
         (
+            // Level 1's workshop raid: the knock, the three raiders, the
+            // brute's wave, and the lament when it is won.
+            encounter_id: "intro_workshop_raid",
+            cue_id: "hobford_goblins",
+            starting_state: "break_in",
+            wave_states: ["raid", "brute"],
+            cleared_state: "aftermath",
+        ),
+        (
             // The sandbox goblin lab.
             encounter_id: "goblin_encounter",
             cue_id: "first_goblin_tune_v2",
@@ -299,6 +345,14 @@
     // restarting the loop. The intro plays once at the trailhead and completes
     // even when the listener enters the next room before it ends.
     room_bindings: [
+        // Level 1's valley: the open rooms by day, and the woods, the gate
+        // clearing and the fell in the motif's shadow.
+        (room_id: "intro_hobford_lane", cue_id: "hobford_goblins", state: "lurking"),
+        (room_id: "intro_high_meadow", cue_id: "hobford_goblins", state: "lurking"),
+        (room_id: "intro_millstream", cue_id: "hobford_goblins", state: "lurking"),
+        (room_id: "intro_woods", cue_id: "hobford_goblins", state: "shadowed"),
+        (room_id: "intro_gate_clearing", cue_id: "hobford_goblins", state: "shadowed"),
+        (room_id: "intro_fell", cue_id: "hobford_goblins", state: "shadowed"),
         (room_id: "primeval_trailhead", cue_id: "dinosaur_liberators_adaptive", state: "soft", entry_state: Some("intro")),
         (room_id: "primeval_run", cue_id: "dinosaur_liberators_adaptive", state: "rolling"),
         (room_id: "primeval_treetops", cue_id: "dinosaur_liberators_adaptive", state: "rolling"),

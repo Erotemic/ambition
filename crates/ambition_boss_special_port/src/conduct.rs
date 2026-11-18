@@ -493,8 +493,10 @@ impl Port for BossStagePort {
 /// * **Owner** — `ambition_boss_encounter::conduct` (`PinnedRow`).
 /// * **Scope** — the body the invocation ran for, the mount it rides, or a
 ///   limb of that mount's rig ([`DrawnPart`]); or a layer over the body's
-///   row (v3: `PinnedRow::layer`, drawn by a body drawn from parts). A part
-///   that is not there is refused with a warning.
+///   row (v3: `PinnedRow::layer`, drawn by a body drawn from parts); or the
+///   body above its hips, over the pose of its legs (v4:
+///   `PinnedRow::over_legs`). A part that is not there is refused with a
+///   warning.
 /// * **Time** — `boss_conduct`.
 pub struct DrawnRowPort;
 
@@ -510,6 +512,11 @@ pub enum DrawnPart {
     /// A row drawn OVER the body's row, on its own clock: a ward that circles
     /// it through every row it is drawn in. No names: no layer. (v3)
     Layer,
+    /// The body the invocation ran for, above its hips: its legs keep the pose
+    /// it is in (it walks, runs, jumps or falls), as a held aim's do. A body
+    /// that stands is drawn whole in the row. No names: as the engine would.
+    /// (v4)
+    UpperBody,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -535,7 +542,7 @@ impl DrawnRow {
 }
 
 impl Port for DrawnRowPort {
-    const KEY: PortKey = PortKey::new("ambition.presentation.drawn_row", 3);
+    const KEY: PortKey = PortKey::new("ambition.presentation.drawn_row", 4);
     const ROLE: PortRole = PortRole::Request;
     type Value = DrawnRow;
 
@@ -548,6 +555,7 @@ impl Port for DrawnRowPort {
                 wire::put_str(out, slot);
             }
             DrawnPart::Layer => wire::put_u8(out, 3),
+            DrawnPart::UpperBody => wire::put_u8(out, 4),
         }
         wire::put_u32(out, v.names.len() as u32);
         for name in &v.names {
@@ -563,6 +571,7 @@ impl Port for DrawnRowPort {
             1 => DrawnPart::Mount,
             2 => DrawnPart::Limb(r.str()?.to_owned()),
             3 => DrawnPart::Layer,
+            4 => DrawnPart::UpperBody,
             other => return Err(WireError::BadTag(other)),
         };
         let count = r.read_len()?;

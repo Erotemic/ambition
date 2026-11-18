@@ -509,6 +509,11 @@ pub struct PinnedRow {
     /// A row drawn OVER the pinned one, on a clock of its own
     /// ([`PinnedLayer`]); kept when the row is pinned again or cleared.
     pub layer: Option<PinnedLayer>,
+    /// The pinned row is the body above its hips: its legs keep the pose the
+    /// body is in under it (it walks, runs, jumps or falls), as a held aim's
+    /// do. A body that fires its eye laser while it walks keeps walking.
+    /// `false`: the row is the whole body ([`Self::pin_over_legs`] sets it).
+    pub over_legs: bool,
 }
 
 /// A named row a part-drawn body wears over the row it is drawn in, with its
@@ -540,6 +545,14 @@ impl PinnedRow {
         self.elapsed = elapsed;
         self.looping = looping;
         self.writer = None;
+        self.over_legs = false;
+    }
+
+    /// [`Self::pin`], the row drawn above the hips over the pose the body's
+    /// legs are in ([`Self::over_legs`]).
+    pub fn pin_over_legs(&mut self, rows: &[&str], elapsed: f32, looping: bool) {
+        self.pin(rows, elapsed, looping);
+        self.over_legs = true;
     }
 
     /// [`Self::pin`], by `writer`, which [`Self::written_by`] then answers.
@@ -556,6 +569,7 @@ impl PinnedRow {
     pub fn clear(&mut self) {
         self.rows.clear();
         self.writer = None;
+        self.over_legs = false;
     }
 
     pub fn is_pinned(&self) -> bool {

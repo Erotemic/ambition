@@ -850,7 +850,7 @@ pub fn draw_rows(
             DrawnPart::Body => Some(submitted.scope),
             DrawnPart::Mount => riders.get(submitted.scope).ok().map(|riding| riding.mount),
             DrawnPart::Limb(slot) => ridden_limb(submitted.scope, slot, &riders, &rigs),
-            DrawnPart::Layer => Some(submitted.scope),
+            DrawnPart::Layer | DrawnPart::UpperBody => Some(submitted.scope),
         };
         let Some((part, Ok(row))) = part.map(|part| (part, rows.get_mut(part))) else {
             warn!(
@@ -873,12 +873,16 @@ pub fn draw_rows(
             }
             continue;
         }
+        let pin = |row: &mut ambition_sprite_sheet::character::PinnedRow| match drawn.on {
+            DrawnPart::UpperBody => row.pin_over_legs(&names, drawn.elapsed, drawn.looping),
+            _ => row.pin(&names, drawn.elapsed, drawn.looping),
+        };
         match (row, names.is_empty()) {
-            (Some(mut row), false) => row.pin(&names, drawn.elapsed, drawn.looping),
+            (Some(mut row), false) => pin(&mut row),
             (Some(mut row), true) => row.clear(),
             (None, false) => {
                 let mut row = ambition_sprite_sheet::character::PinnedRow::default();
-                row.pin(&names, drawn.elapsed, drawn.looping);
+                pin(&mut row);
                 commands.entity(part).try_insert(row);
             }
             (None, true) => {}

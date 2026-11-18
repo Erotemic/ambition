@@ -59,11 +59,12 @@ pub fn module() -> ModuleDescriptor {
 
 /// The first toucher (in identity order) that is on the mob's head, if any.
 pub fn stomper(contact: &BodyContact, band: f32) -> Option<usize> {
+    if contact.driven { return None; }
     let body = Bounds::of(contact.body.position, contact.body.size);
     contact
         .touchers
         .iter()
-        .position(|t| player_touch(body, Bounds::of(t.position, t.size), t.velocity, band) == Some(PlayerTouch::Top))
+        .position(|t| t.driven && player_touch(body, Bounds::of(t.body.position, t.body.size), t.body.velocity, band) == Some(PlayerTouch::Top))
 }
 
 fn squash(inv: &mut Invocation<'_>) -> Result<(), Fault> {
@@ -104,12 +105,22 @@ mod tests {
     /// damage's.
     #[test]
     fn a_falling_or_resting_player_on_the_head_stomps_and_a_rising_one_does_not() {
-        let contact = |touchers: Vec<ContactBody>| BodyContact { body: mob(), touchers };
+        let contact = |touchers: Vec<ContactBody>| BodyContact {
+            body: mob(), touchers: touchers.into_iter().map(|body| ambition_combat_port::ContactParticipant {
+                body, driven: true, ..Default::default()
+            }).collect(), ..Default::default()
+        };
         // A band wider than half the mob: the half rules.
         let stomper_of = |contact: &BodyContact| stomper(contact, 16.0);
         assert_eq!(stomper_of(&contact(vec![on_head(100.0, 120.0)])), Some(0), "falling onto it");
         assert_eq!(stomper_of(&contact(vec![on_head(100.0, 0.0)])), Some(0), "at rest on it");
         assert_eq!(stomper_of(&contact(vec![on_head(100.0, -80.0)])), None, "rising into it");
+        let mut controlled_recipient = contact(vec![on_head(100.0, 120.0)]);
+        controlled_recipient.driven = true;
+        assert_eq!(stomper_of(&controlled_recipient), None);
+        let mut autonomous = contact(vec![on_head(100.0, 120.0)]);
+        autonomous.touchers[0].driven = false;
+        assert_eq!(stomper_of(&autonomous), None);
         let beside = ContactBody { position: [120.0, 100.0], size: [28.0, 40.0], velocity: [0.0, 0.0] };
         assert_eq!(stomper_of(&contact(vec![beside])), None, "beside it");
         assert_eq!(stomper_of(&contact(vec![beside, on_head(95.0, 60.0)])), Some(1), "the toucher on the head, not the first");

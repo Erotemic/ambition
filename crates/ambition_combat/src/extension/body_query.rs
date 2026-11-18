@@ -217,30 +217,6 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
     }
 }
 
-fn relationship(world: &World, source: Entity, target: Entity) -> Option<TargetRelation> {
-    let combatant = |entity| {
-        Some(crate::targeting::Combatant {
-            faction: *world.get::<ActorFaction>(entity)?,
-            driver: world.get::<DrivingParticipant>(entity),
-            team: world.get::<crate::targeting::MatchTeam>(entity),
-        })
-    };
-    Some(
-        match crate::targeting::combat_relation(
-            world.get_resource(),
-            combatant(source)?,
-            world
-                .get::<crate::components::ActorAggression>(source)
-                .and_then(|state| state.grudge),
-            target,
-            combatant(target)?,
-        ) {
-            crate::targeting::CombatRelation::Foe => TargetRelation::Foe,
-            crate::targeting::CombatRelation::Ally => TargetRelation::Ally,
-            crate::targeting::CombatRelation::Neutral => TargetRelation::Neutral,
-        },
-    )
-}
 
 fn select(
     world: &mut World,
@@ -308,7 +284,7 @@ fn select(
         ) {
             continue;
         }
-        let relation = relationship(world, scope, entity);
+        let relation = crate::targeting::observed_relation(world, scope, entity);
         if request
             .relation
             .is_some_and(|wanted| Some(wanted) != relation)
@@ -352,6 +328,7 @@ mod tests {
     use super::*;
     use ambition_characters::control::PlayerSlot;
     use ambition_extension_sdk::action::ReplyTo;
+    use ambition_combat_port::targets::TargetRelation;
     use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, SessionScopeId};
 
     fn body(world: &mut World, name: &str, x: f32, team: &str, room: u32) -> Entity {

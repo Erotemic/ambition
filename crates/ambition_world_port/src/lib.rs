@@ -5,3 +5,4 @@ pub use story::*;
 
 pub mod inventory;
 pub mod creation;
+pub mod geometry;

@@ -240,6 +240,7 @@ fn contact_fact_budgets_reload_and_invalid_bounds_are_refused() {
     for (text, field) in [
         ("(body_contact_events: Some((max_touchers: 0)))", "max_touchers"),
         ("(body_contact_events: Some((max_surfaces: 0)))", "max_surfaces"),
+        ("(body_contact_events: Some((max_world_contacts: 0)))", "max_world_contacts"),
     ] {
         let out = check(text);
         assert!(lowered(&out).is_none());

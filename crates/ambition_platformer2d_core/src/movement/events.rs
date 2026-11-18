@@ -135,3 +135,19 @@ impl FrameEvents {
         self.constraint_conflicts.extend(other.constraint_conflicts);
     }
 }
+
+/// Movement facts from one body step. Downstream domains read this component.
+#[derive(bevy_ecs::prelude::Component, Default)]
+pub struct BodyFrameOutput {
+    pub events: FrameEvents,
+    pub reset: Option<BodyReset>,
+    /// The simulation tick that published this output. None means no dated step.
+    pub observed_at: Option<u64>,
+}
+
+/// A movement reset cause and the body position before reset policy runs.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyReset {
+    pub cause: ResetCause,
+    pub origin: Vec2,
+}

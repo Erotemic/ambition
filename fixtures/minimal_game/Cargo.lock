@@ -312,6 +312,7 @@ name = "ambition_combat_port"
 version = "0.1.0"
 dependencies = [
  "ambition_extension_sdk",
+ "ambition_world_port",
 ]
 
 [[package]]

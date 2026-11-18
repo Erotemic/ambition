@@ -17,12 +17,14 @@ use bevy::ecs::system::SystemState;
 pub struct ContactFactsLimits {
     pub max_touchers: u32,
     pub max_surfaces: u32,
+    pub max_world_contacts: u32,
 }
 impl Default for ContactFactsLimits {
     fn default() -> Self {
         Self {
             max_touchers: 32,
             max_surfaces: 8,
+            max_world_contacts: 32,
         }
     }
 }
@@ -34,6 +36,9 @@ impl ContactFactsLimits {
         }
         if self.max_surfaces == 0 {
             problems.push("body_contact_events.max_surfaces must be positive".into());
+        }
+        if self.max_world_contacts == 0 {
+            problems.push("body_contact_events.max_world_contacts must be positive".into());
         }
         problems
     }
@@ -205,6 +210,8 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
             });
             entities.push(toucher.entity);
         }
+        let step = world.get::<ae::BodyFrameOutput>(recipient.entity)
+            .filter(|step| step.observed_at == Some(tick));
         let contact = BodyContact {
             observed_at: tick,
             room: recipient.room.map(|room| room.ordinal()),
@@ -221,6 +228,14 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
             incomplete,
             refusals,
             refusals_truncated,
+            world: step.map_or_else(Vec::new, |step| step.events.contacts.iter()
+                .take(recipient.limits.max_world_contacts as usize)
+                .map(super::geometry::world_contact).collect()),
+            world_available: step.is_some(),
+            world_truncated: step.is_some_and(|step| step.events.contacts.len()
+                > recipient.limits.max_world_contacts as usize),
+            world_refusal: step.and_then(|step| step.events.motion_refusal.as_ref())
+                .map(|refusal| format!("{refusal:?}")),
         };
         for key in &recipient.keys {
             world

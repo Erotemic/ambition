@@ -58,7 +58,8 @@ pub use module_entity::{
     SpawnModuleItemPort, SpawnerBody, SpawnerBodyPort, ToucherCreditsPort,
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
-pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort, ContactParticipant, ContactSurface, ContactRefusal};
+pub use ambition_world_port::geometry as world_geometry;
+pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort, ContactParticipant, ContactSurface, ContactRefusal, WorldContact};
 pub use hold::{BodyHold, BodyHoldPort};
 pub use ledge::{BodyLine, BodyLinePort, LedgeAhead, LedgeAheadPort, LedgeSight, OnGroundPort, LEDGE_SEARCH_REACH};
 pub use special::{

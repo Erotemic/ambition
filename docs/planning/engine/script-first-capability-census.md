@@ -134,3 +134,21 @@ families must publish their own results. Mailboxes are live-session state. They
 do not replace durable consume/reward transactions. World objects, accepted combat outcomes, actor creation, inventory, and travel
 remain open. Bounded identified body queries now have a portable contract, a
 Rhai binding, game-authored budgets, and a loaded-host replay fixture.
+
+## Native hit reception
+
+Native damage receivers now publish a required decision with captured identity
+and scope. `hit_receptions` exposes bounded batches through portable and Rhai
+values. Held statuses bind body rules; authored room rules bind room observers.
+The same rules also set the batch budget. Commit: `70d3d62f5`.
+
+The guard is the loaded
+[`scripted_hit_receptions.rs`](../../../game/ambition_app/tests/scripted_hit_receptions.rs)
+fixture, with native retirement and isolation tests in the damage owner.
+The fixture checks both controller paths, defenses, refusal, room observation,
+a status response, bounds, and replay. Native damage and demo tests preserve
+existing gameplay.
+
+The P0 combat row stays open for per-shot identity, credit after reflection,
+and projectile interception and retirement outcomes. Physical contact, damage
+reception, move confirmation, and interception remain separate native facts.

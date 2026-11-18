@@ -70,6 +70,21 @@ pub struct PosedParts {
 /// A limb: the indices of its upper, lower and end joints in the body rig.
 pub type Limb = [u16; 3];
 
+/// One frame of a follow-through (POSE-CONTINUITY item 3): how far the arms
+/// and the head swing, in radians, and which way the hands go (sheet pixels,
+/// +y down). Each arm turns about its shoulder so its hand moves toward
+/// `hands_toward`, and its forearm lags a little further about the elbow;
+/// the head turns about its joint by `head` (clockwise positive).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Swing {
+    pub hands_toward: Vec2,
+    pub arms: f32,
+    pub head: f32,
+}
+
+/// How much further than the upper arm a forearm swings about its elbow.
+const FOREARM_LAG: f32 = 0.6;
+
 /// The rig whose poses plant a limb's end, and its limbs by the attachment
 /// that ends each one (`hand_near`).
 #[derive(Debug, Clone, PartialEq)]
@@ -302,6 +317,63 @@ impl PosedParts {
             rotation: angle_of(joint) + part.rotation,
             ..*draw
         })
+    }
+
+    /// Swing the arms (the limbs that end at a `hand_*` attachment) and the
+    /// head (the joint of the `head` attachment) of the pose `row`[`index`]
+    /// by `swing`, in `draws`: each draw that rides one of them turns rigidly
+    /// about its shoulder (then elbow) or neck. Returns how many it swung:
+    /// none without [`Self::with_limbs`] or for a row the rig does not author.
+    pub fn follow_through(&self, row: &str, index: usize, swing: Swing, draws: &mut [PartDraw]) -> usize {
+        let Some(held) = &self.limbs else { return 0 };
+        let mut joints = Vec::new();
+        if !held.rig.solve(row, index, &mut joints) {
+            return 0;
+        }
+        let rides = |draw: &PartDraw, joint: u16| draw.track.and_then(|track| self.binding(track)).is_some_and(|b| b.joint == joint);
+        let frame_of = |draws: &[PartDraw], joint: u16| {
+            let like = joints.get(usize::from(joint))?;
+            draws.iter().filter(|draw| rides(draw, joint)).find_map(|draw| self.joint_frame_of(draw, like))
+        };
+        let turn = |draw: &mut PartDraw, pivot: Vec2, angle: f32| {
+            draw.at = pivot + Vec2::from_angle(angle).rotate(draw.at - pivot);
+            draw.rotation += angle;
+        };
+        let mut count = 0;
+        for (_, [upper, lower, end]) in held.limbs.iter().filter(|(name, _)| name.starts_with("hand_")) {
+            let (Some(shoulder), Some(elbow), Some(hand)) = (frame_of(draws, *upper), frame_of(draws, *lower), frame_of(draws, *end)) else {
+                continue;
+            };
+            // Each turn goes the way that carries the hand toward the swing
+            // about its own pivot: a folded arm's forearm can turn the
+            // other way from its upper arm and still lower the hand.
+            let toward = |pivot: Vec2, point: Vec2, angle: f32| {
+                if (point - pivot).perp_dot(swing.hands_toward) < 0.0 { -angle } else { angle }
+            };
+            let (s, e, w) = (shoulder.translation, elbow.translation, hand.translation);
+            let angle = toward(s, w, swing.arms);
+            let swung_elbow = s + Vec2::from_angle(angle).rotate(e - s);
+            let swung_hand = s + Vec2::from_angle(angle).rotate(w - s);
+            let lag = toward(swung_elbow, swung_hand, FOREARM_LAG * swing.arms);
+            for draw in draws.iter_mut() {
+                if rides(draw, *upper) || rides(draw, *lower) || rides(draw, *end) {
+                    turn(draw, s, angle);
+                }
+                if rides(draw, *lower) || rides(draw, *end) {
+                    turn(draw, swung_elbow, lag);
+                }
+            }
+            count += 1;
+        }
+        if let Some(head) = held.rig.attachments().iter().find(|attachment| attachment.name == "head").map(|attachment| attachment.joint) {
+            if let Some(neck) = frame_of(draws, head) {
+                for draw in draws.iter_mut().filter(|draw| rides(draw, head)) {
+                    turn(draw, neck.translation, swing.head);
+                }
+                count += 1;
+            }
+        }
+        count
     }
 
     /// Hold the ends of the limbs named in `contacts` (`hand_near`) where the

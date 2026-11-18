@@ -17,7 +17,7 @@ pub mod landmarks_published;
 pub mod rigged;
 pub mod sheets;
 
-pub use anim::{non_looping, row_loops, stance_row, CROUCH_VARIANT_SUFFIX, ActorAnimOverride, CharacterAnim, PinnedLayer, PinnedRow};
+pub use anim::{non_looping, row_loops, stance_row, CROUCH_VARIANT_SUFFIX, ActorAnimOverride, CharacterAnim, FollowThrough, PinnedLayer, PinnedRow, SwingToward};
 pub use animator::{CharacterAnimator, RenderBasis};
 pub use color_shift::CharacterColorShift;
 pub use assets::{CharacterSheetState, CharacterSpriteAssets};

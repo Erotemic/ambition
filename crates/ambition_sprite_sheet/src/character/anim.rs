@@ -188,7 +188,46 @@ pub enum CharacterAnim {
     Teeter = 66,
 }
 
+/// Which way a follow-through carries the hands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SwingToward {
+    /// Down and forward: the arms keep falling after the body has landed, so
+    /// an arm held out drops and an arm hanging down swings forward (a pure
+    /// "down" turns two hanging arms apart, one each way).
+    DownAndForward,
+    /// The way the body faces: it stopped (a brake) or was knocked back (a
+    /// blow) and its arms keep going.
+    Forward,
+}
+
+/// What a pose sets swinging when the body comes into it (POSE-CONTINUITY
+/// item 3): the arms turn `arms_deg` at most toward `toward`, and the head
+/// nods `head_deg` (forward positive, back negative), over a short arc that
+/// starts and ends at the pose itself.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FollowThrough {
+    pub toward: SwingToward,
+    pub arms_deg: f32,
+    pub head_deg: f32,
+}
+
 impl CharacterAnim {
+    /// The follow-through this pose sets off when the body comes into it, or
+    /// `None`. A landing swings the arms down and forward and nods the head; a brake
+    /// swings them forward; a blow knocks the body back, so its arms swing
+    /// forward and its head snaps back. The swing starts at nothing, so the
+    /// pose's first frame (the impact) is drawn as authored.
+    pub const fn follow_through(self) -> Option<FollowThrough> {
+        let (toward, arms_deg, head_deg) = match self {
+            Self::LandHard => (SwingToward::DownAndForward, 14.0, 6.0),
+            Self::LandRecovery => (SwingToward::DownAndForward, 9.0, 4.0),
+            Self::Skid => (SwingToward::Forward, 9.0, 5.0),
+            Self::Hit => (SwingToward::Forward, 12.0, -8.0),
+            _ => return None,
+        };
+        Some(FollowThrough { toward, arms_deg, head_deg })
+    }
+
     /// The limb ends (body-rig attachments) this pose plants on the world:
     /// while a change into it blends, they are held where the pose draws them
     /// and the limb is solved to them (POSE-CONTINUITY's planted contacts).

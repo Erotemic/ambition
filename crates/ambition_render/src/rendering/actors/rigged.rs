@@ -116,7 +116,7 @@ use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 
 use crate::rendering::{impostor_compositing, ART_COMPOSITING};
 use ambition_sprite_sheet::character::rigged::{
-    BodyWarp, ComposedBodyDemand, FrameInSprite, PartDraw, PartPose, PartPresentation, PerformedBodyWarp, PosedParts,
+    BodyWarp, ComposedBodyDemand, FrameInSprite, PartDraw, PartPose, PartPresentation, PerformedBodyWarp, PosedParts, Swing,
     RiggedSpriteAdmission, RiggedSpriteAsset, RiggedSpritePages, BLINK_WARP_S,
 };
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
@@ -545,6 +545,9 @@ pub struct RiggedPresentation {
     pub blend_left: f32,
     pub last_row: Option<usize>,
     pub last_draws: Vec<PartDraw>,
+    /// POSE-CONTINUITY's follow-through: what the pose the body came into
+    /// set swinging, and the seconds since. See [`FOLLOW_THROUGH_SECONDS`].
+    pub swing: Option<(ambition_sprite_sheet::character::FollowThrough, f32)>,
 }
 
 /// How long a change between two of the body's carriage poses
@@ -555,6 +558,32 @@ pub struct RiggedPresentation {
 ///
 /// [`CharacterAnim::blends_in`]: ambition_sprite_sheet::character::CharacterAnim::blends_in
 pub const CLIP_BLEND_SECONDS: f32 = 0.07;
+
+/// How long a follow-through ([`CharacterAnim::follow_through`]) swings: one
+/// arc out and back, `sin(pi t / T)`, from and to the pose as authored.
+///
+/// [`CharacterAnim::follow_through`]: ambition_sprite_sheet::character::CharacterAnim::follow_through
+pub const FOLLOW_THROUGH_SECONDS: f32 = 0.18;
+
+/// This frame of a follow-through `seconds` in, for a body drawn facing the
+/// sheet's `forward` (+1 or -1 along x); `None` once it is over.
+fn swing_at(follow: ambition_sprite_sheet::character::FollowThrough, seconds: f32, forward: f32) -> Option<Swing> {
+    use ambition_sprite_sheet::character::SwingToward;
+    let u = seconds / FOLLOW_THROUGH_SECONDS;
+    if !(0.0..1.0).contains(&u) {
+        return None;
+    }
+    let arc = (std::f32::consts::PI * u).sin();
+    Some(Swing {
+        hands_toward: match follow.toward {
+            SwingToward::DownAndForward => Vec2::new(forward, 1.0).normalize(),
+            SwingToward::Forward => Vec2::new(forward, 0.0),
+        },
+        arms: follow.arms_deg.to_radians() * arc,
+        // Clockwise (+) turns the face of a body facing +x down: a nod.
+        head: follow.head_deg.to_radians() * arc * forward,
+    })
+}
 
 /// One reusable part sprite of a rigged presentation.
 #[derive(Component)]
@@ -1048,6 +1077,7 @@ fn spawn_presentation(
         blend_left: 0.0,
         last_row: None,
         last_draws: Vec::new(),
+        swing: None,
     });
     owner
 }
@@ -1264,6 +1294,7 @@ pub fn drive_rigged_presentations(
             // again is drawn as it is.
             presentation.last_row = None;
             presentation.blend_left = 0.0;
+            presentation.swing = None;
             // The root draws nothing on the direct road, hidden or not: a
             // writer that gives it a baked frame (`animate_bosses`) does not
             // draw it under no parts.
@@ -1293,6 +1324,20 @@ pub fn drive_rigged_presentations(
             blend_from.clone_from(last_draws);
             presentation.blend_left = CLIP_BLEND_SECONDS;
         }
+        // The follow-through: set off by coming into a pose that swings (a
+        // landing, a brake, a blow), carried on through the carriage poses
+        // after it, and dropped at once by a strike or any clip.
+        let row_changed = presentation.last_row.is_some_and(|last| last != authored_row);
+        let carriage = animator.drawn_clip().is_none()
+            && (animator.current.blends_in() || animator.current.follow_through().is_some());
+        if !carriage {
+            presentation.swing = None;
+        } else if let Some(follow) = animator.current.follow_through().filter(|_| row_changed) {
+            presentation.swing = Some((follow, 0.0));
+        }
+        // The sheet faces +x; a body drawing its mirror rows faces -x.
+        let forward = if animator.drawn_row() == Some(authored_row) { 1.0 } else { -1.0 };
+        let swing = presentation.swing.and_then(|(follow, seconds)| swing_at(follow, seconds, forward));
         let blend_t = 1.0 - presentation.blend_left / CLIP_BLEND_SECONDS;
         let blend_t = blend_t * blend_t * (3.0 - 2.0 * blend_t);
         let blend_from = std::mem::take(&mut presentation.blend_from);
@@ -1302,11 +1347,17 @@ pub fn drive_rigged_presentations(
             pose,
             presentation.posed.as_deref(),
             (presentation.blend_left > 0.0).then_some((blend_from.as_slice(), blend_t)),
+            swing,
             &mut drawn,
             &mut posed_draws,
         );
         presentation.blend_from = blend_from;
-        presentation.blend_left = (presentation.blend_left - time.as_ref().map_or(0.0, |time| time.delta_secs())).max(0.0);
+        let dt = time.as_ref().map_or(0.0, |time| time.delta_secs());
+        presentation.blend_left = (presentation.blend_left - dt).max(0.0);
+        presentation.swing = presentation
+            .swing
+            .map(|(follow, seconds)| (follow, seconds + dt))
+            .filter(|(_, seconds)| *seconds < FOLLOW_THROUGH_SECONDS);
         presentation.last_row = Some(authored_row);
         presentation.last_draws.clear();
         if let Some(draws) = draws {
@@ -1551,6 +1602,7 @@ fn frame_draws<'a>(
     pose: Option<&PartPose>,
     posed: Option<&PosedParts>,
     blend: Option<(&[PartDraw], f32)>,
+    swing: Option<Swing>,
     drawn: &'a mut Vec<PartDraw>,
     posed_draws: &'a mut Vec<PartDraw>,
 ) -> Option<&'a [PartDraw]> {
@@ -1588,6 +1640,10 @@ fn frame_draws<'a>(
             posed.hold(row, animator.frame, animator.current.planted_contacts(), drawn);
         }
     }
+    // The arms and head swinging on after a landing, a brake or a blow.
+    if let (Some(swing), Some(posed)) = (swing, posed) {
+        posed.follow_through(row, animator.frame, swing, drawn);
+    }
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {
             posed.place(drawn, &pose.joints, posed_draws);
@@ -1609,7 +1665,7 @@ fn posed_reach(presentation: &mut RiggedPresentation, animator: &CharacterAnimat
     let flipbook = presentation.pages.flipbook.clone();
     let mut drawn = std::mem::take(&mut presentation.drawn);
     let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
-    let reach = frame_draws(&flipbook, animator, Some(pose), Some(&posed), None, &mut drawn, &mut posed_draws)
+    let reach = frame_draws(&flipbook, animator, Some(pose), Some(&posed), None, None, &mut drawn, &mut posed_draws)
         .map(|draws| flipbook.reach_past_frame(draws));
     presentation.drawn = drawn;
     presentation.posed_draws = posed_draws;

@@ -742,6 +742,65 @@ fn a_ledge_catch_holds_scouts_hands_on_the_ledge_through_the_blend() {
     }
 }
 
+/// ⭐ A LANDING SWINGS THE ARMS ON (POSE-CONTINUITY's follow-through). On
+/// Scout's hard landing, a landing's swing turns each arm about its shoulder
+/// so its hand goes down and forward (his arms hang straight down there, so
+/// that is forward), the forearm lagging about the elbow, and nods the head; the shoulders, the torso and the legs stay as drawn, each arm keeps
+/// its lengths, and a swing of nothing changes nothing.
+#[test]
+fn a_landing_swings_scouts_arms_down_and_leaves_the_body_as_drawn() {
+    let content = &crate::test_support::shared_sprites();
+    let target = "player_robot_v3";
+    let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a published flipbook");
+    let text = crate::baked_body_rigs::baked_body_rig(&content, target).expect("a published body rig");
+    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text).unwrap().prepare().unwrap();
+    let named = ambition_characters::actor::published_part_bindings(text).unwrap();
+    let limbs = ambition_characters::actor::published_limbs(text).unwrap();
+    let posed = PosedParts::bind_named(&flipbook, &rig, &named, 1.0, 1.0_f32.to_radians()).with_limbs(&rig, &limbs);
+    let joint = |name: &str| rig.joint_names().iter().position(|joint| joint == name).unwrap() as u16;
+    let ride = |draw: &PartDraw| draw.track.and_then(|t| posed.binding(t)).map(|b| b.joint);
+    let follow = crate::character::CharacterAnim::LandHard.follow_through().expect("a hard landing swings");
+    assert_eq!(follow.toward, crate::character::SwingToward::DownAndForward);
+    for (row, forward) in [("land_hard", 1.0), ("land_hard~mirrored", -1.0)] {
+        let toward = Vec2::new(forward, 1.0).normalize();
+        let frame = flipbook.frame(row, 0).expect("a hard landing frame").to_vec();
+        let mut still = frame.clone();
+        assert_eq!(posed.follow_through(row, 0, Swing { hands_toward: toward, arms: 0.0, head: 0.0 }, &mut still), 3, "{row}: two arms and a head");
+        assert!(still.iter().zip(&frame).all(|(a, b)| a.at.distance(b.at) < 1e-3 && (a.rotation - b.rotation).abs() < 1e-4), "{row}: a swing of nothing moved a part");
+
+        let arms = follow.arms_deg.to_radians();
+        let head = follow.head_deg.to_radians();
+        let mut swung = frame.clone();
+        assert_eq!(posed.follow_through(row, 0, Swing { hands_toward: toward, arms, head }, &mut swung), 3);
+        let arm_joints: Vec<u16> = ["near", "far"].iter().flat_map(|side| ["arm_u", "arm_l", "arm_hand"].map(|j| joint(&format!("{side}_{j}")))).collect();
+        for (before, after) in frame.iter().zip(&swung) {
+            match ride(before) {
+                Some(j) if arm_joints.contains(&j) => {}
+                Some(j) if j == joint("head") => {
+                    assert!((after.rotation - before.rotation - head).abs() < 1e-4, "{row}: the head turned {} not {head}", after.rotation - before.rotation);
+                }
+                _ => assert!(after.at.distance(before.at) < 1e-3 && (after.rotation - before.rotation).abs() < 1e-4, "{row}: part {} moved", before.part),
+            }
+        }
+        for side in ["near", "far"] {
+            // The whole-part tracks, whose pivots sit on their joints (within
+            // a fraction of a pixel); a `~mirror` half is placed off its pivot.
+            let at = |draws: &[PartDraw], track: &str| {
+                let track = flipbook.tracks.iter().position(|name| name == track).unwrap() as u16;
+                draws.iter().find(|d| d.track == Some(track)).unwrap().at
+            };
+            let (u, l, h) = (format!("{side}_arm_u"), format!("{side}_arm_l"), format!("{side}_hand"));
+            assert!(at(&swung, &u).distance(at(&frame, &u)) < 0.2, "{row} {side}: the shoulder moved");
+            let moved = (at(&swung, &h) - at(&frame, &h)).dot(toward);
+            assert!(moved > 1.0, "{row} {side}: the hand went {moved} px down and forward ({:?} -> {:?})", at(&frame, &h), at(&swung, &h));
+            for (a, b) in [(&u, &l), (&l, &h)] {
+                let (was, now) = (at(&frame, a).distance(at(&frame, b)), at(&swung, a).distance(at(&swung, b)));
+                assert!((was - now).abs() < 0.2, "{row} {side}: {a}->{b} was {was} long, is {now}");
+            }
+        }
+    }
+}
+
 /// ⭐ POSE IS AN INPUT (the ragdoll seam). A pose no clip authored — Mary-O's
 /// idle with one joint turned, as a physics step would turn it — moves the
 /// parts that ride that joint, rigidly about it, and leaves every other part

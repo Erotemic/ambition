@@ -675,8 +675,13 @@ the limb ends it plants (`CharacterAnim::planted_contacts`: the ledge
 grab's two hands); while a change into it blends, those hands stay where it
 draws them and each arm is solved from its blended shoulder (the rig's
 `limbs`, `PosedParts::hold`), so a ledge catch no longer slides the hands
-24 to 31 px across the ledge. Next: follow-through on the joints
+24 to 31 px across the ledge. **Follow-through landed the same day:** a
+landing, a brake or a blow swings the arms (about the shoulders, the
+forearm lagging) and nods or snaps the head for 0.18 s, from and back to
+the authored pose; a strike or a clip cancels it
 ([Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish)).
+Left: watch the swing amplitudes in the game at 60 and 144 Hz, and give the
+campaign sheets the same rig (measure their gaps before authoring rows).
 Measure campaign sheet gaps before authoring more rows.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp

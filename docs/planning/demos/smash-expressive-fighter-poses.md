@@ -350,7 +350,24 @@ ledge from the first frame of a catch while his body comes up to it
 hands within a pixel of the ledge grab's at every point of the blend, each
 arm one piece, both facings; unheld, the blend moved them more than 10 px).
 Feet were not planted: at a natural clip end they are already down, and an
-interrupted step is a later question. Still open: follow-through (item 3).
+interrupted step is a later question.
+
+**Follow-through (2026-11-18), item 3.** A pose names what it sets
+swinging when the body comes into it (`CharacterAnim::follow_through`): a
+hard landing (arms 14 degrees down and forward, a 6 degree nod; a pure
+"down" turned Scout's two hanging arms apart, one each way), a soft landing
+(9 and 4), a brake (`Skid`: arms 9 forward, nod 5) and a blow (`Hit`: arms 12
+forward, the head snapping 8 back). The rigged presentation keeps a clock
+per body (`FOLLOW_THROUGH_SECONDS`, 0.18 s) and draws one arc out and back,
+`sin(pi t / T)`: it starts at nothing, so the impact frame is drawn as
+authored, and any clip or strike drops it at once; it carries on through
+the carriage poses after the landing. `PosedParts::follow_through` turns
+each arm rigidly about its shoulder so the hand goes the swing's way, the
+forearm lagging 0.6 as far again about the elbow, and the head about its
+joint (the rig's `head` attachment); the torso and the legs stay as drawn.
+Witness: `a_landing_swings_scouts_arms_down_and_leaves_the_body_as_drawn`.
+The amplitudes are first values, to be judged by watching the game at 60
+and 144 Hz.
 
 ## Phase 4 - Expand expressive coverage after the first playable pass
 

@@ -374,8 +374,8 @@ fn world_contacts_keep_solver_order_bounds_and_step_freshness() {
                 assert_eq!(sample.world[1].chain.as_ref().unwrap().segment, 7);
                 assert!(sample.world[1].block.is_none());
             }
-            1 => {
-                assert!(!sample.world_available, "an old body step is not an empty current step");
+            1 | 3 | 4 => {
+                assert!(!sample.world_available, "an old or foreign body step is not current");
                 assert!(sample.world.is_empty());
                 assert!(!sample.world_truncated);
             }
@@ -407,16 +407,17 @@ fn world_contacts_keep_solver_order_bounds_and_step_freshness() {
     let mut second = first.clone();
     second.source = ae::collision_semantics::ContactSource::Chain { chain: 3, segment: 7 };
     app.world_mut().entity_mut(recipient).insert(ae::BodyFrameOutput {
-        observed_at: Some(0), events: ae::FrameEvents {
+        stamp: Some(ae::BodyStepStamp { tick: 0, room: None, session: None }), events: ae::FrameEvents {
             contacts: vec![first.clone(), second, first], ..Default::default()
         }, ..Default::default()
     });
-    for tick in 0..3 {
+    for tick in 0..5 {
         app.world_mut().resource_mut::<ambition_time::SimTick>().0 = tick;
-        if tick == 2 {
+        if tick >= 2 {
             let mut frame = app.world_mut().get_mut::<ae::BodyFrameOutput>(recipient).unwrap();
             frame.events = Default::default();
-            frame.observed_at = Some(tick);
+            frame.stamp = Some(ae::BodyStepStamp { tick,
+                room: (tick == 3).then_some(21), session: (tick == 4).then_some(7) });
         }
         app.world_mut().run_schedule(Sim);
         assert!(app.world().get::<crate::extension::status::BodyStatuses>(recipient)

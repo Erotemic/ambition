@@ -32,7 +32,9 @@ nested records and bounded text. [Actor creation](actor-creation.md) composes na
 character bodies and initializes their behavior state. Scripts can receive native command outcomes through
 [action results](action-results.md). This includes correlated replies, retries,
 cancellation, and rollback delivery. [Inventory exchanges](inventory-exchanges.md)
-apply exact item and wallet changes through the native owner. [Body queries](body-queries.md) provide
+apply exact item and wallet changes through the native owner.
+[Contact consumption](contact-consumption.md) commits a contacted destructible
+and its exchange together. [Body queries](body-queries.md) provide
 bounded, identified same-room facts for scripts. [Hit receptions](hit-receptions.md)
 report native damage and defense decisions. [Body and world contacts](body-contacts.md)
 provide native physical contacts, geometry identities, and responses for any controller. The broader

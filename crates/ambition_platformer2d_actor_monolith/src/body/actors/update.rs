@@ -1256,7 +1256,7 @@ fn integrate_actor_body(
     if let Some(control) = control.as_deref_mut() {
         control.0 = frame;
     }
-    *frame_out = crate::body::BodyFrameOutput { events: move_events, reset: None, observed_at: None };
+    *frame_out = crate::body::BodyFrameOutput { events: move_events, reset: None, stamp: None };
 }
 
 /// Snapshot grounded solid-body contact boxes before any body integrates.
@@ -1396,7 +1396,11 @@ pub fn integrate_sim_bodies(
     mut contact_scratch: Local<Vec<ae::BodyContactBlocker>>,
     // The sim clock, and the pace of each body's room: a connect holds its
     // own room's bodies while another room plays on (ISL-1b).
-    (world_time, freeze, tick): (Res<WorldTime>, ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze, Option<Res<ambition_time::SimTick>>),
+    (world_time, freeze, tick, sessions): (
+        Res<WorldTime>, ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
+        Option<Res<ambition_time::SimTick>>,
+        Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
+    ),
     // The one composer of the collision world: the room, its moving platforms
     // and the feature overlay, as every other simulated collider reads it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
@@ -1587,7 +1591,11 @@ pub fn integrate_sim_bodies(
             contact.field_for(actor_entity, &mut contact_scratch),
             passages.as_deref().and_then(|p| p.motion_for(actor_entity, body_rooms.get(actor_entity).ok().map(|room| room.0))),
         );
-        frame_out.observed_at = tick.as_ref().map(|tick| tick.0);
+        frame_out.stamp = tick.as_ref().map(|tick| ae::BodyStepStamp {
+            tick: tick.0,
+            room: body_rooms.get(actor_entity).ok().map(|room| room.0.ordinal()),
+            session: sessions.get(actor_entity).ok().map(|session| session.0.0),
+        });
         // Publish the semantic movement facts this step produced (ADR 0024):
         // presentation/combat consumers read THESE, never policy internals.
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, em.effects);
@@ -1665,7 +1673,11 @@ pub fn integrate_sim_bodies(
             contact.field_for(player_entity, &mut contact_scratch),
             passages.as_deref().and_then(|p| p.motion_for(player_entity, body_rooms.get(player_entity).ok().map(|room| room.0))),
         );
-        frame_out.observed_at = tick.as_ref().map(|tick| tick.0);
+        frame_out.stamp = tick.as_ref().map(|tick| ae::BodyStepStamp {
+            tick: tick.0,
+            room: body_rooms.get(player_entity).ok().map(|room| room.0.ordinal()),
+            session: sessions.get(player_entity).ok().map(|session| session.0.0),
+        });
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, clusters.effects);
         // Input-relative facts the model projection can't know: republished
         // here, beside the ridden-surface fact (all are per-tick projections of

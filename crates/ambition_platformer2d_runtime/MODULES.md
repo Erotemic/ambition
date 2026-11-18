@@ -14,6 +14,7 @@
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Host wiring for the reset/checkpoint horizon. |
 | [`combat_rules`](src/combat_rules.rs) | Project match rules into the live combat tuning. |
 | [`combat_schedule`](src/combat_schedule.rs) | Combat-phase schedule plugin. |
+| [`contact_consumption`](src/contact_consumption.rs) | Correlated results for native world-contact consumption. |
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`death_fee`](src/death_fee.rs) | What a participant's death costs (PLAYER-DEATH, Q174's default): the gate network's insurance takes its fee ([`DeathFee`]) from the wallet, and the coins it took lie where the body was taken until someone fetches them. |
@@ -60,7 +61,7 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_53 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_54 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

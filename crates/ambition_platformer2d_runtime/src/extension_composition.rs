@@ -89,6 +89,7 @@ pub fn install_ports(app: &mut App) {
     crate::story_script::install(app);
     crate::action_replies::install(app);
     crate::actor_creation::install(app);
+    crate::contact_consumption::install(app);
     ambition_platformer2d_items::inventory::install(app);
     // Where the things a scope's records name are (P5 step 3).
     ambition_abilities::whereabouts::install(app);
@@ -366,6 +367,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::StoryTickPort>("story_tick")
         .add::<ambition_world_port::StoryCommandPort>("story_command")
         .add::<ambition_world_port::inventory::InventoryExchangePort>("inventory_exchange")
+        .add::<ambition_world_port::consumption::ConsumeContactPort>("consume_contact")
         .add::<ambition_world_port::inventory::InventoryViewPort>("inventory")
         .add::<ambition_world_port::PlayCutscenePort>("play_cutscene")
         .add::<ambition_combat_port::SteerPort>("steer")

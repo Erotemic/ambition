@@ -470,15 +470,22 @@ Port `ambition.story.command@2`, request: `this.requests.push(request("<alias>",
 
 ## `inventory_exchange`
 
-Port `ambition.world.inventory_exchange@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.world.inventory_exchange@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `reply` | { request: integer (u32), selector: text } | required |  |
-| `costs` | list of { id: text, count: integer (u32) } | `[]` |  |
-| `grants` | list of { id: text, count: integer (u32) } | `[]` |  |
-| `pay_coins` | integer (u32) | `0` |  |
-| `receive_coins` | integer (u32) | `0` |  |
+| `exchange` | { costs: list of { id: text, count: integer (u32) }, grants: list of { id: text, count: integer (u32) }, pay_coins: integer (u32), receive_coins: integer (u32) } | required |  |
+
+## `consume_contact`
+
+Port `ambition.world.consume_contact@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `contact` | integer (u32) | required | Index in this.trigger.world. Do not retain this index for another step. |
+| `exchange` | { costs: list of { id: text, count: integer (u32) }, grants: list of { id: text, count: integer (u32) }, pay_coins: integer (u32), receive_coins: integer (u32) } | `#{ costs: [], grants: [], pay_coins: 0, receive_coins: 0 }` |  |
 
 ## `inventory`
 

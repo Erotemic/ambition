@@ -11,9 +11,8 @@ pub struct ItemAmount {
     pub id: String,
     pub count: u32,
 }
-#[derive(Clone, Debug, PartialEq)]
-pub struct InventoryExchange {
-    pub reply: ReplyTo,
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct InventoryTerms {
     pub costs: Vec<ItemAmount>,
     pub grants: Vec<ItemAmount>,
     pub pay_coins: u32,
@@ -21,17 +20,24 @@ pub struct InventoryExchange {
 }
 ambition_extension_sdk::port_record! { ItemAmount { id: String, count: u32, } }
 ambition_extension_sdk::port_record! {
-    InventoryExchange {
-        reply: ReplyTo,
+    InventoryTerms {
         costs: Vec<ItemAmount> = Vec::new(),
         grants: Vec<ItemAmount> = Vec::new(),
         pay_coins: u32 = 0,
         receive_coins: u32 = 0,
     }
 }
+#[derive(Clone, Debug, PartialEq)]
+pub struct InventoryExchange {
+    pub reply: ReplyTo,
+    pub exchange: InventoryTerms,
+}
+ambition_extension_sdk::port_record! {
+    InventoryExchange { reply: ReplyTo, exchange: InventoryTerms }
+}
 pub struct InventoryExchangePort;
 impl Port for InventoryExchangePort {
-    const KEY: PortKey = PortKey::new("ambition.world.inventory_exchange", 1);
+    const KEY: PortKey = PortKey::new("ambition.world.inventory_exchange", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = InventoryExchange;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {

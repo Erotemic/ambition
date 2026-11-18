@@ -134,7 +134,7 @@ pub(super) fn integrate_home_body(
     *frame_out = BodyFrameOutput {
         reset,
         events: result.events,
-        observed_at: None,
+        stamp: None,
     };
 
     // A home body's collision box IS its footprint, so it passes no envelope.

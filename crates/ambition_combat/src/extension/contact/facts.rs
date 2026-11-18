@@ -211,7 +211,10 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
             entities.push(toucher.entity);
         }
         let step = world.get::<ae::BodyFrameOutput>(recipient.entity)
-            .filter(|step| step.observed_at == Some(tick));
+            .filter(|step| step.stamp == Some(ae::BodyStepStamp {
+                tick, room: recipient.room.map(|room| room.ordinal()),
+                session: recipient.session.map(|session| session.0),
+            }));
         let contact = BodyContact {
             observed_at: tick,
             room: recipient.room.map(|room| room.ordinal()),

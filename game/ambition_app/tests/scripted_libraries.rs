@@ -60,7 +60,7 @@ fn tick(ctx, cfg) {
     if pulse.ready {
         ctx.requests.push(request("inventory_exchange", #{
             reply: #{ request: pulse.state.sequence, selector: cfg.selector },
-            grants: [#{ id: cfg.item, count: 1 }], pay_coins: cfg.pay,
+            exchange: #{ grants: [#{ id: cfg.item, count: 1 }], pay_coins: cfg.pay },
         }));
     }
     ctx

@@ -380,6 +380,7 @@ mod scripted_action_results;
 mod scripted_body_queries;
 
 mod scripted_body_contacts;
+mod scripted_contact_consumption;
 
 mod scripted_hit_receptions;
 

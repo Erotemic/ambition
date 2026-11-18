@@ -141,8 +141,8 @@ impl FrameEvents {
 pub struct BodyFrameOutput {
     pub events: FrameEvents,
     pub reset: Option<BodyReset>,
-    /// The simulation tick that published this output. None means no dated step.
-    pub observed_at: Option<u64>,
+    /// The simulation context that published this output.
+    pub stamp: Option<BodyStepStamp>,
 }
 
 /// A movement reset cause and the body position before reset policy runs.
@@ -150,4 +150,12 @@ pub struct BodyFrameOutput {
 pub struct BodyReset {
     pub cause: ResetCause,
     pub origin: Vec2,
+}
+
+/// Source context for derived movement facts. Scope IDs stay inside the host.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BodyStepStamp {
+    pub tick: u64,
+    pub room: Option<u32>,
+    pub session: Option<u64>,
 }

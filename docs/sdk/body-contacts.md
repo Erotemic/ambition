@@ -167,3 +167,9 @@ actor creation, and replay.
 
 The [local cost measurement](../../dev/benchmark-candidates/scripted-world-contact-reaction-cost.md)
 separates loaded invocation cost from native physics and construction.
+
+For a destructible prop, [contact consumption](contact-consumption.md) commits
+its native state and inventory exchange together. A new request must use an
+index from the current sample. The native movement stamp includes the tick,
+room, and session. A step from another scope is unavailable, even at the same
+tick.

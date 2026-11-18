@@ -351,25 +351,39 @@ fn the_raptor_is_heard_noticing_then_striking() {
     assert!(notice < swing, "it is heard noticing ({notice}) before it strikes ({swing})");
 }
 
-/// The crew's skirmishers (ENEMY-NOTICE): the raider, Iron Mary and the two
-/// rangers, the lookout and the navigator, each stand a beat in their
-/// `notice` row on first sight, with the crew's hail (the heavy's bellow for
-/// Iron Mary), before they hold their windup to fire.
+/// The crew and the dojo's blades (ENEMY-NOTICE) each stand a beat in their
+/// `notice` row on first sight, with their cue, before they wind up: the
+/// skirmishers (the raider, Iron Mary, the lookout and the navigator) to
+/// fire, the melee crew (the quartermaster, the cutlass viper, Broadside Bess
+/// and Salt Annet), the duelists (the Shadow Duelist and the Blue Scarf) and
+/// the dojo's heavies (the Ninja Heavy, the Bruiser and the Wrestler) to cut
+/// or club. The pirates hail (their heavies bellow); the duelists' alert is
+/// the shadow oni's; the dojo heavies grunt. A melee body is placed nearer,
+/// inside its sight.
 #[test]
-fn the_pirate_skirmishers_are_seen_and_heard_noticing_before_they_aim() {
+fn the_crew_and_the_duelists_are_seen_and_heard_noticing_before_they_wind_up() {
     use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
     use bevy::ecs::message::Messages;
-    for (character, cue) in [
-        ("npc_pirate_raider", "enemy.pirate.notice"),
-        ("npc_pirate_heavy_iron_mary", "enemy.pirate_heavy.notice"),
-        ("npc_pirate_lookout", "enemy.pirate.notice"),
-        ("npc_pirate_navigator", "enemy.pirate.notice"),
+    for (character, cue, apart) in [
+        ("npc_pirate_raider", "enemy.pirate.notice", 200.0),
+        ("npc_pirate_heavy_iron_mary", "enemy.pirate_heavy.notice", 200.0),
+        ("npc_pirate_lookout", "enemy.pirate.notice", 200.0),
+        ("npc_pirate_navigator", "enemy.pirate.notice", 200.0),
+        ("npc_pirate_quartermaster", "enemy.pirate.notice", 150.0),
+        ("npc_pirate_cutlass_viper", "enemy.pirate.notice", 150.0),
+        ("npc_pirate_heavy_broadside_bess", "enemy.pirate_heavy.notice", 150.0),
+        ("npc_pirate_heavy_salt_annet", "enemy.pirate_heavy.notice", 150.0),
+        ("npc_ninja_shadow_duelist", "enemy.shadow_oni.alert", 150.0),
+        ("npc_ninja_shadow_duelist_blue_scarf", "enemy.shadow_oni.alert", 150.0),
+        ("npc_ninja_heavy", "enemy.ninja_heavy.notice", 150.0),
+        ("npc_ninja_heavy_eye_band", "enemy.ninja_heavy.notice", 150.0),
+        ("npc_ninja_heavy_bare_arms", "enemy.ninja_heavy.notice", 150.0),
     ] {
         let id = format!("noticing_{character}");
         let notice_cue = SfxId::new(cue);
         let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
         let p = player_pos(sim.world_mut());
-        sim.spawn_enemy_character_at(&id, character, (p.x + 200.0, p.y), (16.0, 32.0), CharacterBrain::Custom(character.to_string()), character);
+        sim.spawn_enemy_character_at(&id, character, (p.x + apart, p.y), (16.0, 32.0), CharacterBrain::Custom(character.to_string()), character);
         let mut cursor = sim.world().resource::<Messages<OwnedSfxMessage>>().get_cursor();
         let (mut seen, mut heard, mut aimed) = (None, None, None);
         for tick in 0..900 {
@@ -400,7 +414,7 @@ fn the_pirate_skirmishers_are_seen_and_heard_noticing_before_they_aim() {
         let seen = seen.unwrap_or_else(|| panic!("{character} never stood in its notice row"));
         let heard = heard.unwrap_or_else(|| panic!("{character}'s notice cue `{cue}` never played"));
         let aimed = aimed.unwrap_or_else(|| panic!("{character} never held its windup row"));
-        println!("[pirate notice] {character}: seen at {seen}, heard at {heard}, aimed at {aimed}");
+        println!("[notice] {character}: seen at {seen}, heard at {heard}, aimed at {aimed}");
         assert!(seen < aimed && heard < aimed, "{character} is seen ({seen}) and heard ({heard}) noticing before it aims ({aimed})");
     }
 }

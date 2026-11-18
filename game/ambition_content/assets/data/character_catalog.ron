@@ -35,19 +35,46 @@
     // absolute speeds could not be shared by a mite and a giant.
     autonomous_profiles: {
         // The pirate crew's three shapes, two pirates each.
+        // The strikers and brutes close and swing their one cutlass stroke
+        // (ENEMY-NOTICE): on first sight they stand a beat in their `notice`
+        // row, with the crew's hail, before they come on.
         "pirate_striker": (
-            template: Smash,
+            template: MeleeBrute,
             aggro_radius: 220.0,
             attack_range: 36.0,
             patrol_effort: 0.5,
             chase_effort: 1.0,
+            tactics: (notice_s: 0.35),
         ),
         "pirate_brute": (
-            template: Smash,
+            template: MeleeBrute,
             aggro_radius: 240.0,
             attack_range: 44.0,
             patrol_effort: 0.5,
             chase_effort: 1.0,
+            tactics: (notice_s: 0.5),
+        ),
+        // The dojo's duelists (the Shadow Duelist and the Blue Scarf): close
+        // and cut, as the striker preset they ran did, with a beat on first
+        // sight in their `notice` row.
+        "ninja_duelist": (
+            template: MeleeBrute,
+            aggro_radius: 220.0,
+            attack_range: 36.0,
+            patrol_effort: 0.5,
+            chase_effort: 1.0,
+            tactics: (notice_s: 0.3),
+        ),
+        // The dojo's heavies (the Ninja Heavy, the Bruiser, the Wrestler):
+        // close and bring the kanabo down, as the brute preset they ran did,
+        // with a beat on first sight in their `notice` row.
+        "ninja_heavy": (
+            template: MeleeBrute,
+            aggro_radius: 240.0,
+            attack_range: 44.0,
+            patrol_effort: 0.5,
+            chase_effort: 1.0,
+            tactics: (notice_s: 0.5),
         ),
         "pirate_ranger": (
             template: Skirmisher,
@@ -2192,7 +2219,7 @@
             named_autonomous_profile: Some("pirate_striker"),
             max_health: Some(4),
             tags: ["pirate", "enemy"],
-            cues: (tell: Some("enemy.pirate.tell"), swing: Some("enemy.pirate.cutlass_slash")),
+            cues: (notice: Some("enemy.pirate.notice"), tell: Some("enemy.pirate.tell"), swing: Some("enemy.pirate.cutlass_slash")),
         barks: (
             on_hit: ["Inventory says NO, ye dock-rat!", "Yarr! Every coin's a-counted!", "Tally that on yer hide, swabbie!"],
             provoked: ["Pay the toll in teeth, swab!"],
@@ -2453,7 +2480,7 @@
             named_autonomous_profile: Some("pirate_brute"),
             max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
-            cues: (tell: Some("enemy.pirate_heavy.tell"), swing: Some("enemy.pirate_heavy.swing")),
+            cues: (notice: Some("enemy.pirate_heavy.notice"), tell: Some("enemy.pirate_heavy.tell"), swing: Some("enemy.pirate_heavy.swing")),
         barks: (
             on_hit: ["Mind me cleaver, wee skipper!", "Aye, that smarts — but ye're worse off!", "Broadside Bess don't bend easy!", "Yarrrr! Take that an' a barrel more!"],
             provoked: ["Cleaver's thirsty — yarrrgh!"],
@@ -2534,7 +2561,7 @@
             named_autonomous_profile: Some("pirate_brute"),
             max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
-            cues: (tell: Some("enemy.pirate_heavy.tell"), swing: Some("enemy.pirate_heavy.swing")),
+            cues: (notice: Some("enemy.pirate_heavy.notice"), tell: Some("enemy.pirate_heavy.tell"), swing: Some("enemy.pirate_heavy.swing")),
         barks: (
             on_hit: ["Salt in the eye, blood in the bilge!", "Yargh! Watch yer manners on me deck!", "Wee skipper thinks he's bold, does he?", "Annet bites back, every time!"],
             provoked: ["Wee skipper picked the wrong deck!"],
@@ -3124,9 +3151,14 @@
             // 170 cm.
             standing_height: Some(65.8),
             composition: None,
-            default_brain: "melee_brute_striker",
+            default_brain: "",
             default_action_set: "striker_swipe",
+            // The striker preset's chase speed, so the duelist closes at the
+            // pace it always did.
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            named_autonomous_profile: Some("ninja_duelist"),
             tags: ["ninja", "enemy"],
+            cues: (notice: Some("enemy.shadow_oni.alert"), tell: Some("enemy.ninja_duelist.tell"), swing: Some("enemy.shadow_oni.slash")),
         barks: (
             on_hit: ["Tch. Sloppy opening.", "Again? Then draw properly.", "Now we duel."],
             provoked: ["Steel decides."],
@@ -3169,9 +3201,14 @@
             // 170 cm, as the Shadow Duelist.
             standing_height: Some(65.8),
             composition: None,
-            default_brain: "melee_brute_striker",
+            default_brain: "",
             default_action_set: "striker_swipe",
+            // The striker preset's chase speed, so the duelist closes at the
+            // pace it always did.
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            named_autonomous_profile: Some("ninja_duelist"),
             tags: ["ninja", "enemy"],
+            cues: (notice: Some("enemy.shadow_oni.alert"), tell: Some("enemy.ninja_duelist.tell"), swing: Some("enemy.shadow_oni.slash")),
         barks: (
             on_hit: ["The blue does not run.", "Straight blade, straight answer.", "You will remember the scarf."],
             provoked: ["The blue line holds."],
@@ -4163,9 +4200,14 @@
             // 55.3 when a person stood 48: one of the heavy crew is taller than the crew.
             standing_height: Some(76.6),
             composition: None,
-            default_brain: "melee_brute_brute",
+            default_brain: "",
             default_action_set: "brute_lunge",
+            // The brute preset's chase speed, so he closes at the pace he
+            // always did.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            named_autonomous_profile: Some("ninja_heavy"),
             tags: ["enemy", "heavy"],
+            cues: (notice: Some("enemy.ninja_heavy.notice")),
         barks: (
             on_hit: ["Silence.", "The heavy shadow falls.", "You have chosen poorly."],
             provoked: ["The dojo's patience has limits."],
@@ -4184,9 +4226,14 @@
             // 198 cm, as the Ninja Heavy.
             standing_height: Some(76.6),
             composition: None,
-            default_brain: "melee_brute_brute",
+            default_brain: "",
             default_action_set: "brute_lunge",
+            // The brute preset's chase speed, so he closes at the pace he
+            // always did.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            named_autonomous_profile: Some("ninja_heavy"),
             tags: ["ninja", "enemy", "heavy"],
+            cues: (notice: Some("enemy.ninja_heavy.notice")),
         barks: (
             on_hit: ["Oak bends. It does not break.", "Again. Harder.", "You found the headband. Now find me."],
             provoked: ["The dojo sends its bruiser."],
@@ -4202,9 +4249,14 @@
             // 198 cm, as the Ninja Heavy.
             standing_height: Some(76.6),
             composition: None,
-            default_brain: "melee_brute_brute",
+            default_brain: "",
             default_action_set: "brute_lunge",
+            // The brute preset's chase speed, so he closes at the pace he
+            // always did.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            named_autonomous_profile: Some("ninja_heavy"),
             tags: ["ninja", "enemy", "heavy"],
+            cues: (notice: Some("enemy.ninja_heavy.notice")),
         barks: (
             on_hit: ["Sleeves are for the cautious.", "A good push. Mine is better.", "Out of the ring with you."],
             provoked: ["Step into the ring."],
@@ -4269,7 +4321,7 @@
             named_autonomous_profile: Some("pirate_striker"),
             max_health: Some(4),
             tags: ["enemy"],
-            cues: (tell: Some("enemy.pirate_viper.tell"), swing: Some("enemy.pirate.cutlass_slash")),
+            cues: (notice: Some("enemy.pirate.notice"), tell: Some("enemy.pirate_viper.tell"), swing: Some("enemy.pirate.cutlass_slash")),
         barks: (
             on_hit: ["The Viper BITES!", "Cutlass out, landlubber!", "Ye danced into range!"],
             provoked: ["Draw against the Viper? Bold."],

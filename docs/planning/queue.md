@@ -69,7 +69,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ASSET-PREVIEW in that order.
    A9's completed profile proof is not an automatic invitation to rewrite the
    capability architecture. Continue AP14 ownership work before lower-priority
-   ENEMY-NOTICE, WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS and
+   ENEMY-NOTICE (done 2026-11-18), WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
 4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
 5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
@@ -440,7 +440,7 @@ followed by a real hit. Owner tests check exact portal caps and refusal states.
 Keep debug collection off during normal play. Do not replace effective geometry
 with an unlabelled authored or coarse outline.
 
-### ENEMY-NOTICE — complete first-sight beats on the existing brain paths
+### ENEMY-NOTICE — complete first-sight beats on the existing brain paths — ✅ DONE 2026-11-18
 
 **Failure:** the dilophosaurus and other skirmishers have authored notice art
 or sound but no notice interval in `SkirmisherCfg`. The enemy-pattern plan's
@@ -460,7 +460,7 @@ renderer gave the crew `notice` and `windup` rows on 2026-10-30 (`bdfb278`)
 and they are published: the raider, quartermaster, lookout, cutlass viper,
 the three named heavies (Broadside Bess, Iron Mary, Salt Annet), the shadow
 duelists (every look) and the oni leader. Without rows: the navigator (until
-2026-11-18), the axe heavy, the ninja heavies, Kagero and the admiral. Only
+2026-11-18), the ninja heavies (until 2026-11-18), Kagero (an ally) and the admiral. Only
 the oni leader had a `.notice` cue.
 
 **Done 2026-11-18:** the crew's `Skirmisher`s notice. The raider (0.4 s),
@@ -470,17 +470,37 @@ hail `enemy.pirate.notice` and the heavy's bellow `enemy.pirate_heavy.notice`
 are new recipes, levelled to -22 dBFS loudest 100 ms beside the oni's
 (rendered here; the SFX bank is a build product this VM has never had); the
 navigator took the lookout's telegraph rows (renderer `3441940`, published).
-Witness `the_pirate_skirmishers_are_seen_and_heard_noticing_before_they_aim`:
-each of the four is pinned in its `notice` row and plays its cue before it
-holds its windup to fire.
+Witness `the_crew_and_the_duelists_are_seen_and_heard_noticing_before_they_wind_up`:
+each is pinned in its `notice` row and plays its cue before it winds up.
 
-**Next action:** the crew's melee fighters have notice rows but brains with
-no beat: the quartermaster and the cutlass viper run `pirate_striker`, Bess
-and Salt Annet `pirate_brute` (both `Smash`), the duelists the catalog
-preset `melee_brute_striker`. Move them to a profile whose template carries
-the beat (brute or skirmisher) rather than adding a notice to `Smash` or
-`BrainPreset`, and give them cues; that changes how they fight, so judge it
-in play. The characters without rows wait on their art.
+**Done 2026-11-18 (melee):** `pirate_striker` (the quartermaster, the
+cutlass viper; 0.35 s) and `pirate_brute` (Bess, Salt Annet; 0.5 s) are
+`MeleeBrute` profiles with the beat and the crew's cues; the Shadow Duelist
+and the Blue Scarf run the new `ninja_duelist` profile (0.3 s, the shadow
+oni's alert). Their one-stroke kits gave `Smash` nothing to choose: from
+200 px the cadence is unchanged (a windup every 44 ticks) and the first
+windup comes sooner after the beat; sight is now the aggro radius. A
+`MeleeBrute` no longer notices again after each of its own swings or stuns
+(it read the AI's held intent as a lost foe).
+
+**Done 2026-11-18 (the dojo's heavies):** the Ninja Heavy, the Bruiser and
+the Wrestler got `notice` and `windup` rows (renderer `f70df11`, published),
+a shut-mouthed grunt `enemy.ninja_heavy.notice` (SFX `cf1742d`, -22.1 dBFS)
+and the `ninja_heavy` profile (`MeleeBrute`, 0.5 s) in place of the
+`melee_brute_brute` preset. The audit's "axe heavy" is no character (the
+axe is a held prop), and Kagero is an ally (`stand_still`), not a foe.
+
+**Closed 2026-11-18 (the admiral):** this row's earlier next action was
+wrong. The admiral has no `Skirmisher` profile (that was the raider's): it
+ships the `melee_brute_striker` preset, and both rooms that place it (the
+pirate cove's quest giver in `pvn.ldtk` and the hall exhibit) override its
+brain with `stand_still`. Provoked, it fights as `pirate_boarder`
+(`Smash`): a reaction to a blow, not a first sight. It never meets a foe
+on first sight, so `notice` and `windup` rows on its fighter sheet would be
+art no brain pins; none were drawn. The eye-band examiner keeps
+`medium_striker` (`Smash`) for the rank exam, and the skirmisher profiles
+without notice art or cue keep their declared policy (fight on first
+sight), as the acceptance allows.
 
 **Acceptance:** first sight produces one authored pose and cue before attack;
 loss and reacquisition follow the declared policy. Hurt interruption and

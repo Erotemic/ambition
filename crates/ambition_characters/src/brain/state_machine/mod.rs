@@ -593,15 +593,18 @@ fn tick_melee_brute(
     *out = crate::actor::control::ActorControlFrame::neutral();
     let tactics = cfg.tactics;
     // NOTICE: the first sight of a foe stops it a beat, facing the foe, before
-    // it chases; out of its sight again, it will notice again.
+    // it chases; out of its sight again, it will notice again. Its own swing
+    // and a stun hold its intent too: the foe is lost only when nothing is
+    // in sight to chase (idle or patrolling), not mid-swing.
     let sees = matches!(
         ai.intent,
         crate::actor::ai::CharacterAiIntent::Chase { .. } | crate::actor::ai::CharacterAiIntent::Attack { .. }
     );
-    if !sees {
+    let lost = matches!(ai.mode, crate::actor::ai::CharacterAiMode::Idle | crate::actor::ai::CharacterAiMode::Patrol);
+    if lost {
         state.noticed = false;
         state.noticing = 0.0;
-    } else if !state.noticed {
+    } else if sees && !state.noticed {
         state.noticed = true;
         state.noticing = tactics.notice_s;
     }

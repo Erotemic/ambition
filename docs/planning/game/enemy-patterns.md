@@ -47,7 +47,7 @@ The catalog row's `cues` (`CharacterCues`, `sfx_registry` ids), so a telegraph i
 
 The strike sounds are folded onto its moves when its kit is prepared (`moveset_prefabs::voice_moveset`), its moveset file's moves too. A move keeps a sound it authored. The beats are played by `body::play_beat_cues`, off the brain's beat edges (`Brain::beat`).
 
-The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/measure/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers, skirmishers and fighter engagement can emit notice beats. The remaining authored profiles are tracked by ENEMY-NOTICE.
+The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/measure/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers, skirmishers and fighter engagement can emit notice beats. ENEMY-NOTICE (done 2026-11-18) gave the crew and the dojo theirs; a profile with no notice art or cue fights on first sight.
 
 ## What the art gives a character
 
@@ -114,10 +114,27 @@ Test: `game/ambition_app/tests/the_gnu_ton_apples.rs`.
   beat were missing. Since 2026-11-18 the crew's skirmishers notice: the
   raider, Iron Mary, the lookout and the navigator (`notice_s` 0.4, 0.5 and
   the rangers' 0.35; the hail `enemy.pirate.notice` and the heavy's bellow
-  `enemy.pirate_heavy.notice`). Witness:
-  `the_pirate_skirmishers_are_seen_and_heard_noticing_before_they_aim`. The
-  crew's melee fighters have rows but run `Smash` profiles or the catalog
-  melee-brute presets, which carry no beat; the other skirmisher profiles
-  have no notice art or cue yet and keep fighting on first sight.
-  [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths).
+  `enemy.pirate_heavy.notice`). Since 2026-11-18 the melee crew notice too:
+  the strikers (the quartermaster and the cutlass viper, 0.35 s) and the
+  brutes (Broadside Bess and Salt Annet, 0.5 s) moved from `Smash` to
+  `MeleeBrute`, whose `MeleeTactics::notice_s` carries the beat. Their kit is
+  one cutlass stroke, so `Smash` chose among nothing: measured from 200 px,
+  the swing cadence is the same (a windup every 44 ticks) and the first
+  windup comes sooner (110 vs 139 ticks for a striker, 158 vs 191 for a
+  brute), after the beat. Their sight is now their aggro radius (`Smash`
+  ignored it). The dojo's Shadow Duelist and Blue Scarf left the
+  `melee_brute_striker` preset for the `ninja_duelist` profile (`MeleeBrute`,
+  0.3 s, the shadow oni's alert as their cue). Witness:
+  `the_crew_and_the_duelists_are_seen_and_heard_noticing_before_they_wind_up`.
+
+  A `MeleeBrute` used to notice again after every swing and every stun: the
+  shared AI holds its intent through a windup, strike, recovery or stun, and
+  the brute read that as losing its foe. It loses its foe now only when the
+  AI is idle or patrolling. The dojo's heavies (the Ninja Heavy, the Bruiser
+  and the Wrestler) followed the same day: `notice` and `windup` rows, a
+  grunt `enemy.ninja_heavy.notice`, and the `ninja_heavy` profile (0.5 s).
+  The admiral needs no beat: every room that places it stands it still, and
+  provoked it fights as `Smash`. The other skirmisher profiles have no
+  notice art or cue yet and keep fighting on first sight.
+  [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths---done-2026-11-18).
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

@@ -1030,7 +1030,7 @@ mod tests {
                 assert_eq!(round::<ConductedPosePort>(&v), v);
             }
         }
-        for on in [DrawnPart::Body, DrawnPart::Mount, DrawnPart::Limb("hand_left".into()), DrawnPart::Layer] {
+        for on in [DrawnPart::Body, DrawnPart::Mount, DrawnPart::Limb("hand_left".into()), DrawnPart::Layer, DrawnPart::UpperBody] {
             for names in [Vec::new(), vec!["hit".to_string(), "rest".to_string()]] {
                 let v = DrawnRow { on: on.clone(), names, elapsed: 0.25, looping: true };
                 assert_eq!(round::<DrawnRowPort>(&v), v);

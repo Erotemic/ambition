@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v488
+ggrs-rollback-schema-v489
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -492,6 +492,7 @@ portal.transit	component-clone	PortalTransit	bevy_ggrs clone snapshot; not in th
 portal.transit_cooldown	component-clone	PortalTransitCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 presentation.body_source	component-clone	BodyPresentationSource	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 presentation.body_source_derived	component-clone	DerivedPresentationSource	bevy_ggrs clone snapshot; not in the session checksum
+projectile.credit	component-canonical	ProjectileCredit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.fired_by_move_instance	component-canonical	FiredByMoveInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.gameplay	component-canonical	ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.hits	component-clone	ProjectileHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities

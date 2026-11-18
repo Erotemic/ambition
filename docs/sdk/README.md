@@ -33,7 +33,8 @@ bounded, identified same-room facts for scripts. [Hit receptions](hit-receptions
 report native damage and defense decisions. [Body contacts](body-contacts.md)
 provide native physical contact samples and responses for any controller. The broader
 [script capability program](../planning/engine/script-first-ambition-gameplay.md)
-remains open.
+remains open. [Projectile ownership](projectile-ownership.md) explains native
+credit, reflection, and script-authored parry windows.
 
 ## Before any of that: your `Cargo.toml`
 

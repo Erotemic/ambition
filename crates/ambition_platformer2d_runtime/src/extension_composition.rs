@@ -568,6 +568,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
         .add::<ambition_combat_port::BodyContactPort>("body_contact")
         .add::<ambition_combat_port::HitReceptionsPort>("hit_receptions")
+        .add::<ambition_combat_port::ParryWindowPort>("parry_window")
         .add::<ambition_combat_port::ContactBouncePort>("contact_bounce")
         .add::<ambition_combat_port::BodyDefeatPort>("defeat_body")
         .add::<ambition_combat_port::body_query::BodyQueryPort>("body_query")

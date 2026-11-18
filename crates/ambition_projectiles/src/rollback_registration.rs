@@ -26,6 +26,7 @@ where
             OWNER,
             "player.projectile_state",
         )
+        .rollback_component_canonical::<crate::ownership::ProjectileCredit>(OWNER, "projectile.credit")
         // The bolt itself.
         .rollback_component_canonical::<crate::ProjectileSeq>(OWNER, "projectile.seq")
         // The value is empty for a shot that no move fired. Most shots have

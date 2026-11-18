@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v488",
+    "version": "ggrs-rollback-schema-v489",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actions.scope_sequence\tcomponent-canonical\tActionScopeSequence",
@@ -114,6 +114,7 @@
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
       "portal.held_pairs\tcomponent-clone-cursor\tHeldPortalPairs",
+      "projectile.credit\tcomponent-canonical\tProjectileCredit",
       "projectile.fired_by_move_instance\tcomponent-canonical\tFiredByMoveInstance",
       "projectile.gameplay\tcomponent-canonical\tProjectileGameplay",
       "projectile.kind\tcomponent-canonical\tProjectileKind",
@@ -313,6 +314,7 @@
     "ambition_projectiles::ProjectileSeq",
     "ambition_projectiles::ProjectileSeqCounter",
     "ambition_projectiles::ProjectileVisualId",
+    "ambition_projectiles::ownership::ProjectileCredit",
     "ambition_relativity2d::LightEmitter2d",
     "ambition_relativity2d::LightReceiver2d",
     "ambition_relativity2d::LightSignal2d",

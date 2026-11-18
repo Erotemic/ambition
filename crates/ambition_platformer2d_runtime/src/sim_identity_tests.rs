@@ -24,6 +24,7 @@ fn world_with_a_shot() -> (World, Entity, Entity) {
 }
 
 fn mint(world: &mut World) {
+    world.run_system_cached(ambition_projectiles::ownership::capture_missing_projectile_credit).unwrap();
     world
         .run_system_cached(crate::sim_identity::mint_spawned_sim_ids)
         .expect("minting runs");
@@ -35,9 +36,7 @@ fn heal(world: &mut World) {
         .expect("healing runs");
 }
 
-/// Minting states the parent instead of spelling it. This is the fact the
-/// healer now depends on, so it is asserted directly rather than inferred from
-/// the healer working.
+/// Minting records creation provenance separately from current combat credit.
 #[test]
 fn minting_a_spawned_id_also_states_its_parent() {
     let (mut world, firer, shot) = world_with_a_shot();
@@ -64,13 +63,13 @@ fn minting_a_spawned_id_also_states_its_parent() {
 }
 
 /// The reconstruction case: a blob-rebuilt projectile has no `Entity` handle,
-/// because N3.1 forbids serializing one. It is re-derived from provenance.
+/// because N3.1 forbids serializing one. Current credit restores the link.
 #[test]
-fn a_projectile_that_lost_its_owner_handle_heals_from_its_provenance() {
+fn a_projectile_that_lost_its_owner_handle_heals_from_current_credit() {
     let (mut world, firer, shot) = world_with_a_shot();
     mint(&mut world);
 
-    // What a restore leaves behind: state, identity, provenance — no handle.
+    // A restored credit can recover a missing live link.
     world.entity_mut(shot).remove::<ProjectileOwner>();
     assert!(world.get::<ProjectileOwner>(shot).is_none());
 
@@ -79,30 +78,20 @@ fn a_projectile_that_lost_its_owner_handle_heals_from_its_provenance() {
     assert_eq!(
         world.get::<ProjectileOwner>(shot).map(|owner| owner.0),
         Some(firer),
-        "the owner handle came back from the declared parent"
+        "the owner handle came back from current credit"
     );
 }
 
-/// Poison test for the above: strip the provenance and healing must NOT happen.
+/// Creation provenance cannot supply missing current credit.
 #[test]
-fn without_provenance_the_owner_cannot_be_healed() {
+fn without_current_credit_the_owner_cannot_be_healed() {
     let (mut world, _firer, shot) = world_with_a_shot();
     mint(&mut world);
     world.entity_mut(shot).remove::<ProjectileOwner>();
-
-    // The id still SPELLS the parent (`placement:duel_pca/0`). Only the
-    // declared origin is gone.
-    assert!(world.get::<SimId>(shot).unwrap().as_str().contains('/'));
-    world.entity_mut(shot).remove::<SpawnOrigin>();
-
+    world.entity_mut(shot).remove::<ambition_projectiles::ownership::ProjectileCredit>();
+    assert!(world.get::<SpawnOrigin>(shot).is_some());
     heal(&mut world);
-
-    assert!(
-        world.get::<ProjectileOwner>(shot).is_none(),
-        "healing read the declared provenance, not the id's spelling — a shot \
-         whose origin is missing stays unhealed instead of being silently \
-         re-parented by string surgery"
-    );
+    assert!(world.get::<ProjectileOwner>(shot).is_none());
 }
 
 /// The case the whole mechanism exists for: the firer itself was rebuilt, so it
@@ -215,4 +204,95 @@ fn a_damageable_body_with_an_authored_feature_id_is_named_from_it() {
         Some("placement:victory_npc"),
         "a damageable body with an authored id was not named from it"
     );
+}
+
+fn reflect_to(world: &mut World, shot: Entity, defender: Entity) {
+    use ambition_projectile_combat::intercept::{ProjectileInterception, intercept_projectile};
+    let credit = ambition_projectiles::ownership::ProjectileCredit::capture(world.get::<SimId>(defender), None);
+    let mut kin = ambition_platformer2d_core::BodyKinematics {
+        vel: ambition_platformer2d_core::Vec2::new(100.0, 0.0), ..Default::default()
+    };
+    let response = ProjectileInterception::Reflect { speed_scale: 1.3 }.prepare(kin,
+        ambition_platformer2d_core::frame::material_cast::ContactVelocityFrame::IDENTITY).unwrap();
+    let allegiance = ambition_combat::allegiance::AttackAllegiance::from_body(
+        ambition_characters::actor::ActorFaction::Player, None, None);
+    assert!(intercept_projectile(&mut world.commands(), shot, &mut kin, defender, allegiance, credit, &response));
+    world.flush();
+}
+
+#[test]
+fn a_reflected_shot_never_returns_to_its_creator_when_the_deflector_retires() {
+    let (mut world, creator, shot) = world_with_a_shot();
+    mint(&mut world);
+    let id = world.get::<SimId>(shot).unwrap().clone();
+    let defender = world.spawn(SimId::placement("defender")).id();
+    reflect_to(&mut world, shot, defender);
+    world.despawn(defender);
+    heal(&mut world);
+    assert!(world.get::<ProjectileOwner>(shot).is_none());
+    assert_eq!(world.get::<ambition_projectiles::ownership::ProjectileCredit>(shot).unwrap().body,
+        Some(SimId::placement("defender")));
+    assert_eq!(world.get::<SpawnOrigin>(shot).unwrap().parent(), world.get::<SimId>(creator));
+    assert_eq!(world.get::<SimId>(shot), Some(&id));
+}
+
+#[test]
+fn a_reflected_shot_restores_its_current_credit_instead_of_its_creation_parent() {
+    use ambition_platformer2d_core::snapshot::{Reader, SnapshotState};
+    use ambition_projectiles::ownership::ProjectileCredit;
+    let (mut world, creator, shot) = world_with_a_shot();
+    mint(&mut world);
+    let defender = world.spawn(SimId::placement("defender")).id();
+    reflect_to(&mut world, shot, defender);
+    let mut bytes = Vec::new();
+    world.get::<ProjectileCredit>(shot).unwrap().encode(&mut bytes);
+    world.despawn(defender);
+    let rebuilt = world.spawn(SimId::placement("defender")).id();
+    world.entity_mut(shot).remove::<ProjectileOwner>();
+    world.entity_mut(shot).insert(ProjectileCredit::decode(&mut Reader::new(&bytes)).unwrap());
+    heal(&mut world);
+    assert_eq!(world.get::<ProjectileOwner>(shot).unwrap().0, rebuilt);
+    assert_ne!(rebuilt, creator);
+}
+
+#[test]
+fn an_owner_is_repaired_only_from_one_match_in_its_session_and_reference_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, SessionScopeId, SessionScopedEntity};
+    for exact_matches in 0..=2 {
+        let (mut world, original, shot) = world_with_a_shot();
+        let room = LiveRoomInstance::ACTIVATION;
+        for entity in [original, shot] {
+            world.entity_mut(entity).insert((SessionScopedEntity(SessionScopeId(1)), InRoomInstance(room)));
+        }
+        mint(&mut world);
+        world.despawn(original);
+        world.entity_mut(shot).remove::<ProjectileOwner>();
+        for (session, room) in [(1, room.next()), (2, room)] {
+            world.spawn((SimId::placement("duel_pca"), SessionScopedEntity(SessionScopeId(session)), InRoomInstance(room)));
+        }
+        let matches: Vec<_> = (0..exact_matches).map(|_| world.spawn((SimId::placement("duel_pca"),
+            SessionScopedEntity(SessionScopeId(1)), InRoomInstance(room))).id()).collect();
+        heal(&mut world);
+        assert_eq!(world.get::<ProjectileOwner>(shot).map(|owner| owner.0),
+            (exact_matches == 1).then(|| matches[0]));
+    }
+}
+
+#[test]
+fn a_live_owner_carries_its_credit_reference_through_travel_and_reconstruction() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use ambition_projectiles::ownership::ProjectileCredit;
+    let (mut world, original, shot) = world_with_a_shot();
+    let before = LiveRoomInstance::ACTIVATION;
+    let after = before.next();
+    world.entity_mut(original).insert(InRoomInstance(before));
+    mint(&mut world);
+    world.entity_mut(original).insert(InRoomInstance(after));
+    heal(&mut world);
+    assert_eq!(world.get::<ProjectileOwner>(shot).unwrap().0, original);
+    assert_eq!(world.get::<ProjectileCredit>(shot).unwrap().room, Some(after));
+    world.despawn(original);
+    let rebuilt = world.spawn((SimId::placement("duel_pca"), InRoomInstance(after))).id();
+    heal(&mut world);
+    assert_eq!(world.get::<ProjectileOwner>(shot).unwrap().0, rebuilt);
 }

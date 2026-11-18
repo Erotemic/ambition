@@ -381,3 +381,5 @@ mod scripted_body_queries;
 mod scripted_body_contacts;
 
 mod scripted_hit_receptions;
+
+mod scripted_projectile_credit;

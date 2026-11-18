@@ -82,6 +82,7 @@ pub fn intercept_projectile(
     kin: &mut BodyKinematics,
     interceptor: Entity,
     interceptor_allegiance: AttackAllegiance,
+    interceptor_credit: ambition_projectiles::ownership::ProjectileCredit,
     response: &PreparedInterception,
 ) -> bool {
     match response.reflects {
@@ -92,7 +93,7 @@ pub fn intercept_projectile(
             // damages the body that just saved itself.
             commands
                 .entity(projectile)
-                .insert((ProjectileOwner(interceptor), interceptor_allegiance))
+                .insert((ProjectileOwner(interceptor), interceptor_allegiance, interceptor_credit))
                 // ⛔⛤ AND THE OLD SHOOTER'S MOVE OCCURRENCE GOES WITH THE
                 // OWNERSHIP, because it is no longer TRUE of this shot. The
                 // interceptor did not make it with that move — nobody did.
@@ -183,6 +184,7 @@ mod tests {
                 &mut kin,
                 interceptor,
                 mine.clone(),
+                ambition_projectiles::ownership::ProjectileCredit::default(),
                 &response,
             );
             assert!(
@@ -254,6 +256,7 @@ mod tests {
                 &mut kin,
                 interceptor,
                 allegiance(ActorFaction::Player),
+                ambition_projectiles::ownership::ProjectileCredit::default(),
                 &response,
             );
         }
@@ -284,6 +287,7 @@ mod tests {
                 &mut kin,
                 interceptor,
                 allegiance(ActorFaction::Player),
+                ambition_projectiles::ownership::ProjectileCredit::default(),
                 &ProjectileInterception::Consume.prepare(BodyKinematics::default(),
                     ambition_platformer2d_core::frame::material_cast::ContactVelocityFrame::IDENTITY).unwrap(),
             )

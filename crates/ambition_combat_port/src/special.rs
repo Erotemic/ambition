@@ -367,20 +367,21 @@ pub struct ParryWindow {
     pub absorbs_projectiles: bool,
 }
 
+ambition_extension_sdk::port_record! {
+    ParryWindow {
+        /// The positive duration in simulation seconds.
+        window_s: f32,
+        absorbs_projectiles: bool = false,
+    }
+}
 impl Port for ParryWindowPort {
     const KEY: PortKey = PortKey::new("ambition.combat.parry_window", 1);
     const ROLE: PortRole = PortRole::Request;
     type Value = ParryWindow;
-
-    fn encode(v: &ParryWindow, out: &mut Vec<u8>) {
-        wire::put_f32(out, v.window_s);
-        wire::put_bool(out, v.absorbs_projectiles);
-    }
-
-    fn decode(r: &mut WireReader<'_>) -> Result<ParryWindow, WireError> {
-        Ok(ParryWindow { window_s: r.f32()?, absorbs_projectiles: r.bool()? })
-    }
+    fn encode(value: &ParryWindow, out: &mut Vec<u8>) { ambition_extension_sdk::structure::put(value, out); }
+    fn decode(reader: &mut WireReader<'_>) -> Result<ParryWindow, WireError> { ambition_extension_sdk::structure::read(reader) }
 }
+ambition_extension_sdk::script_port!(ParryWindowPort);
 
 /// The observation port marker for the stick a fighter's move aimed with.
 ///

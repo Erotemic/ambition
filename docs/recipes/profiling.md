@@ -920,6 +920,7 @@ New side rooms are not stops unless the itinerary names them.
 
 ```bash
 scripts/measure/profile_desktop.sh --autoplay --duration 120   # a bundle, scenario `ambition-autoplay`
+scripts/measure/profile_desktop.sh --autoplay --duration 300 --uncapped --tracy-and-no-tracy
 ./run_game.sh --autoplay profiling                     # just watch it
 ```
 
@@ -927,6 +928,20 @@ scripts/measure/profile_desktop.sh --autoplay --duration 120   # a bundle, scena
 `AMBITION_BOOT_ROUTE=ambition_gameplay` (an explicit value wins). The
 routes are validated content in `game/ambition_content/assets/data/autoplay.ron`.
 An unavailable route waits and retries; it does not count the stop as reached.
+
+`--tracy-and-no-tracy` runs Tracy first, then rebuilds and captures without
+Tracy. Both passes use the same launch options. `--duration` applies to each
+pass, so `--duration 300` records two five-minute runs, plus build and export
+time. With no duration, quit each game window to complete its pass. Builds
+finish before capture starts. The flag requires a launch mode and cannot be
+combined with `--no-tracy` or `--no-warm-build`.
+
+The native results stay at the bundle root. The first pass has its own
+metadata, logs, CSVs, and summary in `tracy_diagnostic/`. Both are in the same
+archive. Use native timings for runtime measurements and Tracy zones for
+attribution. The native pass runs second and can benefit from warm disk caches.
+The history row describes the native pass. Separate Tracy zone counts are not
+divided by the native run's frame count.
 
 Check `[autoplay]` room changes and `[autopilot]` status in the capture log.
 Repeated `NoRoute` at one position means that traversal stopped. Compare the

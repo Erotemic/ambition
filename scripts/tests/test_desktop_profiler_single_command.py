@@ -87,6 +87,10 @@ if [[ "${FAKE_BUILD_FAIL:-}" == "1" ]]; then
     echo 'simulated compiler error' >&2
     exit 17
 fi
+if [[ "${FAKE_TRACY_BUILD_FAIL:-}" == "1" && " $* " == *" --features profile "* ]]; then
+    echo 'simulated Tracy compiler error' >&2
+    exit 17
+fi
 mkdir -p "$FAKE_REPO/target/profiling"
 cat > "$FAKE_REPO/target/profiling/smash_match_profile" <<'EOF'
 #!/usr/bin/env bash
@@ -101,7 +105,7 @@ else
     echo '[census] visual_quality t=1 profile=High frame_cap=Auto present_mode=Fifo' >&2
 fi
 if [[ "${FAKE_PROFILE_SLOW_GAME:-}" == "1" ]]; then
-    sleep 0.7
+    sleep "${FAKE_PROFILE_DELAY:-0.7}"
     echo '[smash-profile] WARNING: the match ended -- later samples are results' >&2
     sleep 0.1
 fi
@@ -354,6 +358,78 @@ fi
             self.assertFalse(any(name.endswith("perf.data") for name in paths))
             self.assertTrue(any(name.endswith("tracy_summary.md") for name in paths))
             self.assertTrue(any(name.endswith("perf-report-active.txt") for name in paths))
+
+    def test_explicit_pair_runs_tracy_then_native_with_the_same_autoplay_arguments(self):
+        completed = self.capture_with_tracy("--autoplay", "--tracy-and-no-tracy",
+                                            "--duration", "3", "--uncapped",
+                                            "--", "--", "--start-room", "hall_of_characters")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-5500:])
+        calls = self.logfile.read_text().splitlines()
+        builds = [i for i, row in enumerate(calls) if row.startswith("cargo ")]
+        games = [i for i, row in enumerate(calls) if row.startswith("game ")]
+        self.assertEqual(len(builds), 2, calls)
+        self.assertEqual(len(games), 2, calls)
+        self.assertIn("--features profile", calls[builds[0]])
+        self.assertNotIn("--features profile", calls[builds[1]])
+        self.assertLess(builds[0], calls.index("tracy capture"))
+        self.assertLess(calls.index("tracy capture"), games[0])
+        self.assertLess(games[0], builds[1])
+        self.assertLess(max(i for i, row in enumerate(calls) if row.startswith("tracy export")), builds[1])
+        self.assertLess(builds[1], calls.index("perf record"))
+        self.assertLess(calls.index("perf record"), games[1])
+        self.assertEqual(calls.count("perf record"), 1)
+        self.assertEqual(calls[games[0]], calls[games[1]])
+        self.assertIn("--start-room hall_of_characters", calls[games[0]])
+        bundle = self.root / "profiles/desktop-unit"
+        native = (bundle / "metadata.txt").read_text()
+        tracy = (bundle / "tracy_diagnostic/metadata.txt").read_text()
+        self.assertIn("capture_strategy=split-tracy-then-native", native)
+        self.assertIn("cargo_features=\n", native)
+        self.assertIn("cargo_features=profile\n", tracy)
+        for metadata in [native, tracy]:
+            self.assertIn("duration_seconds=3", metadata)
+            self.assertIn("scenario_id=ambition-autoplay", metadata)
+        self.assertTrue((bundle / "perf.data").is_file())
+        self.assertTrue((bundle / "tracy.trace").is_symlink())
+        self.assertFalse((bundle / "tracy_diagnostic/perf.data").exists())
+        self.assertTrue((bundle / "tracy_diagnostic/summary.md").is_file())
+        self.assertIn("Tracy-first paired capture", (bundle / "summary.md").read_text())
+        self.assertNotIn("Tracy-first paired capture", (bundle / "tracy_diagnostic/summary.md").read_text())
+        with tarfile.open(self.root / "profiles/desktop-unit.tar.gz", "r:gz") as archive:
+            paths = archive.getnames()
+            self.assertIn("desktop-unit/tracy_diagnostic/summary.md", paths)
+            self.assertIn("desktop-unit/summary.md", paths)
+
+    def test_explicit_pair_bounds_the_tracy_pass_as_well_as_native(self):
+        with mock.patch.dict(os.environ, {"FAKE_PROFILE_DELAY": "2"}):
+            completed = self.capture_with_tracy("--tracy-and-no-tracy", "--duration", "1")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-5500:])
+        bundle = self.root / "profiles/desktop-unit"
+        self.assertEqual((bundle / "tracy_diagnostic/tracy-only.status").read_text().strip(), "124")
+        self.assertEqual((bundle / "tracy-diagnostic.status").read_text().strip(), "0")
+        self.assertEqual((bundle / "perf-record.status").read_text().strip(), "124")
+        self.assertEqual(self.logfile.read_text().count("game --window"), 2)
+
+    def test_explicit_pair_preserves_native_results_when_the_tracy_build_fails(self):
+        with mock.patch.dict(os.environ, {"FAKE_TRACY_BUILD_FAIL": "1"}):
+            completed = self.capture_with_tracy("--tracy-and-no-tracy")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-5500:])
+        bundle = self.root / "profiles/desktop-unit"
+        self.assertEqual((bundle / "tracy_diagnostic/warm-build.status").read_text().strip(), "17")
+        self.assertEqual((bundle / "perf-record.status").read_text().strip(), "0")
+        self.assertTrue((bundle / "perf.data").is_file())
+        self.assertIn("failed", (bundle / "tracy.skipped").read_text())
+        self.assertEqual(self.logfile.read_text().count("game --window"), 1)
+
+    def test_a_profile_feature_cannot_label_a_tracy_binary_as_clean_native(self):
+        completed = self.capture_with_tracy("--tracy-and-no-tracy", "--", "--features", "profile")
+        self.assertNotEqual(completed.returncode, 0, completed.stderr[-5500:])
+        calls = self.logfile.read_text().splitlines()
+        self.assertNotIn("perf record", calls)
+        self.assertEqual(sum(row.startswith("game ") for row in calls), 1)
+        bundle = self.root / "profiles/desktop-unit"
+        self.assertTrue((bundle / "tracy.trace").is_file())
+        self.assertIn("still contains a Tracy client", (bundle / "capture.skipped").read_text())
 
     def capture_with_tracy(self, *extra):
         # Preserve the default caller interface; drop only --no-tracy.

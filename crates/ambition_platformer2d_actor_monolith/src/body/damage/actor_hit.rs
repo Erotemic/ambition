@@ -271,6 +271,12 @@ pub(crate) fn apply_actor_hit(
         let victim_facing = em.kin.facing;
         let victim_pos = em.kin.pos;
         let victim_size = em.kin.size();
+        // A body beaten at a floor takes no more than brings it there; the
+        // blast zone is not a blow, and still ends it.
+        let damage = match caps.beaten_at {
+            Some(floor) if !left_the_world => event.damage.min((em.health.current() - floor).max(0)),
+            _ => event.damage,
+        };
         let resolution = ambition_damage::resolve_body_hit(
             combat,
             Some(&mut *em.health),
@@ -289,7 +295,7 @@ pub(crate) fn apply_actor_hit(
             victim_pos,
             event.volume.center(),
             gravity_dir,
-            event.damage,
+            damage,
             1.0,
             caps.never_dies,
             ambition_damage::BodyHitFeel {

@@ -77,6 +77,16 @@
                 (kind: "medium_striker", character: Some("npc_lab_raider"), spawn: (1450.0, 324.0), size: (22.0, 38.0), delay: 0.6),
             ],
         ),
+        // The brute comes in at the barn door when the three are down. He
+        // cannot be killed here: beaten, he takes the case
+        // (`intro_brute_takes_the_case`) and goes out the way he came, which
+        // ends the raid.
+        (
+            label: "the brute",
+            mobs: [
+                (kind: "npc_goblin_brute", character: Some("npc_raid_brute"), spawn: (1420.0, 306.0), size: (32.0, 56.0), delay: 0.8),
+            ],
+        ),
     ],
     // Level 1's freight siding (`intro_freight_yard`; floor y=512): the
     // goblins wait there for the freight window. The foreman is a brute: a

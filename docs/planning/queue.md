@@ -22,7 +22,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    are [story sequences](engine/story-sequences.md): SS1 (actor commands),
    SS2 (cutscene `Command`/`WaitFor` beats) and a first SS4 (`starts_when`)
    landed 2026-11-14 with the raid's last raider running out through the
-   lane with the case; SS3's first part (a death in a scene stays: the
+   lane with the case (since 2026-11-17 a brute, beaten, bombs the Creator
+   and takes it); SS3's first part (a death in a scene stays: the
    Creator lies where he fell on a later visit) landed the same day, and
    its `present_when` landed 2026-11-17 (the game show's goat and car are
    actors in their closets); SS5 (cutscene camera pans that

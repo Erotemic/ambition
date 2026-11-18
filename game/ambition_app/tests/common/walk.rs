@@ -811,10 +811,11 @@ pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<us
     if !raiders_called(walker.world()) {
         return Err(format!("the raid was not called ({start:?}): the barn door's cutscene did not play"));
     }
+    // The three raiders, and the brute of the second wave.
     let raider = |world: &World, entity: Entity| {
         world
             .get::<ambition_platformer2d::characters::actor::CharacterForm>(entity)
-            .is_some_and(|form| form.id() == "npc_lab_raider")
+            .is_some_and(|form| matches!(form.id(), "npc_lab_raider" | "npc_raid_brute"))
     };
     for _ in 0..FRAMES_FOR_A_ROOM {
         if raid_won(walker.world()) {

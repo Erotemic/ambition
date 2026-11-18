@@ -191,6 +191,8 @@ DENY_EXACT = {
     "static_map",
     # Served assets require a packaged or HTTP asset root.
     "served_content",
+    # Player presets select embedded assets and need a packaged asset root.
+    "desktop_player",
     "dev_hot_reload",
     # `headless` swaps in a windowless render path; the default `visible` graph
     # already runs headlessly in tests, and enabling both double-registers

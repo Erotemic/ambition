@@ -400,3 +400,21 @@ baseline violations. Broad union and tooling verification remain incomplete.
 Do not save a runtime prop's return timer without its reconstruction recipe.
 General activation, object state observations, durable dynamic objects, custody,
 and travel outcomes keep the program open.
+
+## Room observer lifetime receipt
+
+Commit: `1cf303415`. Room replacement retained script records and other observer
+state on a reused root. Each new room instance now gets a fresh root and
+creation namespace. Native retirement removes the old attached state. Joining
+an existing live room retains its owner. Traveling bodies retain their own
+records, identities, and counters. Session records span room visits.
+
+Guard: 181 publication tests and 348 shared-domain tests pass. The loaded
+`scripted_room_state_restarts_on_reentry_and_replays_with_its_root` test checks
+initialization and native creation replies once per visit, three visits of
+session state, a GGRS crossing, and native door re-entry. The shell identity
+test and all 53 absence contracts also pass. See [state lifetime](../../sdk/script-state.md#state-lifetime).
+
+Do not clear only script records when a native owner retires. All attached
+observer state must follow the same lifetime. General object activation,
+event routing, durable dynamic objects, custody, and travel outcomes remain open.

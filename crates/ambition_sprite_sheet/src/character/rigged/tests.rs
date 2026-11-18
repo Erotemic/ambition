@@ -20,6 +20,26 @@ const FIXTURE: &str = r#"(
 )"#;
 
 #[test]
+fn replacing_a_full_table_with_a_quality_table_retires_its_landmarks() {
+    use crate::baked_part_flipbooks::BakedPartFlipbook;
+    use crate::baked_sheet_rons::{publish_sheet_generation, SheetTexts};
+
+    let tracked = TURNING_BAR.replace("tracks: [\"bar\"]", "tracks: [\"near_hand\"]");
+    let mut content = crate::SpriteContent::from_texts(SheetTexts {
+        part_flipbooks: vec![("bar", BakedPartFlipbook::Ron(Arc::from(tracked)), "bar_parts.ron")],
+        ..Default::default()
+    }).unwrap();
+    let retained = content.clone();
+    assert_eq!(crate::baked_landmarks::landmarks(&content).len(), 1);
+    publish_sheet_generation(&mut content, SheetTexts {
+        part_flipbooks: vec![("bar.0_5x", BakedPartFlipbook::Ron(Arc::from(TURNING_BAR)), "bar_half_parts.ron")],
+        ..Default::default()
+    }).unwrap();
+    assert!(crate::baked_landmarks::landmarks(&content).is_empty());
+    assert_eq!(crate::baked_landmarks::landmarks(&retained).len(), 1);
+}
+
+#[test]
 fn a_quality_realization_uses_the_admitted_table_after_its_source_is_gone() {
     use crate::baked_part_flipbooks::BakedPartFlipbook;
 

@@ -165,7 +165,9 @@ impl PartTables {
         if !failed.is_empty() {
             return Err(failed);
         }
-        let same_files = all_kept && previous.rows.len() == tables.rows.len();
+        let full_count = |rows: &[PartFlipbookRow]| rows.iter()
+            .filter(|(key, ..)| crate::quality_variant_marker(key).is_none()).count();
+        let same_files = all_kept && full_count(&previous.rows) == full_count(&tables.rows);
         let landmarks = match previous.landmarks.get() {
             Some(landmarks) if same_files => landmarks.clone(),
             _ => crate::baked_landmarks::project_rows(&tables.rows),

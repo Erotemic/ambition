@@ -622,7 +622,8 @@ def build_summary(bundle: Bundle) -> str:
     children = sorted(
         name
         for name in os.listdir(bundle.path)
-        if os.path.isdir(os.path.join(bundle.path, name))
+        if name != "tracy_diagnostic"
+        and os.path.isdir(os.path.join(bundle.path, name))
         and os.path.exists(os.path.join(bundle.path, name, "summary.md"))
     )
     if children:

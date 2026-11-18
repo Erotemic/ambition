@@ -394,6 +394,7 @@ fi
         self.assertFalse((bundle / "tracy_diagnostic/perf.data").exists())
         self.assertTrue((bundle / "tracy_diagnostic/summary.md").is_file())
         self.assertIn("Tracy-first paired capture", (bundle / "summary.md").read_text())
+        self.assertNotIn("This run captured several modes", (bundle / "summary.md").read_text())
         self.assertNotIn("Tracy-first paired capture", (bundle / "tracy_diagnostic/summary.md").read_text())
         with tarfile.open(self.root / "profiles/desktop-unit.tar.gz", "r:gz") as archive:
             paths = archive.getnames()

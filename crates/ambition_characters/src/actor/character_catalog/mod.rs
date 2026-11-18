@@ -56,7 +56,17 @@ pub use registry::{
 /// Bevy resource holding the assembled catalog: every registered fragment,
 /// published by [`CharacterCatalogRegistry`] assembly.
 #[derive(Resource, Clone, Debug, PartialEq, serde::Serialize)]
-pub struct CharacterCatalog(CharacterCatalogData);
+pub struct CharacterCatalog(
+    #[serde(serialize_with = "serialize_catalog_data")]
+    ambition_platformer2d_core::snapshot::canonical::PreparedValue<CharacterCatalogData>,
+);
+
+fn serialize_catalog_data<S: serde::Serializer>(
+    data: &ambition_platformer2d_core::snapshot::canonical::PreparedValue<CharacterCatalogData>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serde::Serialize::serialize(&**data, serializer)
+}
 
 #[allow(
     dead_code,
@@ -67,13 +77,18 @@ impl CharacterCatalog {
     /// registration should normally use [`CharacterCatalogFragment`]; this
     /// constructor exists for focused tests and tools that already own the data.
     pub fn from_data(data: CharacterCatalogData) -> Self {
-        Self(data)
+        Self(data.into())
     }
 
     /// Read-only access to the complete catalog data. The field is private so
     /// callers cannot invalidate an assembled App resource after registration.
     pub fn data(&self) -> &CharacterCatalogData {
         &self.0
+    }
+
+    /// Identity of this immutable catalog, computed once and shared by its copies.
+    pub fn mechanics_digest(&self) -> Result<u64, ambition_platformer2d_core::snapshot::canonical::Error> {
+        self.0.digest()
     }
 
     /// An empty catalog (no characters/presets) for explicitly content-free
@@ -88,7 +103,7 @@ impl CharacterCatalog {
             brain_presets: Default::default(),
             action_set_presets: Default::default(),
             characters: Default::default(),
-        })
+        }.into())
     }
 
     /// Look up a character by id. Returns `None` if the id is not

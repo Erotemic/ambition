@@ -32,6 +32,7 @@ baked_pages:
   giant_gnu: "Boss art (boss_art_keys.ron): gnu_ton_boss's bespoke publish, a mount with hands."
   gnu_ton_scholar_boss: "Boss art (boss_art_keys.ron): publishes no part flipbook."
   gram_reaper: "Boss art (boss_art_keys.ron): publishes no part flipbook."
+  player_robot_v3: "Every LDtk world's PlayerStart tileset (`sprite_player_robot_v3`) is this page, and the runtime decodes it at boot; retarget it first (tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py)."
 
 static_props:
   shrine: shrine

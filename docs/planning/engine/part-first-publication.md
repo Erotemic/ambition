@@ -195,9 +195,35 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   frames, still page-less). Only a generator that publishes a flipbook
   (`publishes_part_flipbook`: the toon, robot, goblin, boss, Alice and
   sandbag sides) goes part-first; the others are PF5.
-- Not yet part-first: the bespoke publishers (`mary_o_v2` and its forms,
-  `noether`, `player_robot_v3`, `jeff_hinter_armored`, `sandbag`) and
-  `gnu_ton_boss`'s bespoke publish.
+- **The bespoke publishers (2026-11-18).** Noether, player_robot_v3 and
+  Mary-O v2's three forms painted their sheet and then painted every frame
+  again for their own flipbook; now `build_sheet(parts=True)` records the
+  flipbook and `part_flipbook.write_part_first` writes it (their tweened
+  rows, the robot's eye landmarks). Under the audit: player_robot_v3 2142 of
+  2142 frames, Noether 938/938 (recorded from its painted frames: it paints
+  outside the seams), Mary-O v2 25/25; Mary-O's strict test compares her
+  flipbook with a painted reference sheet. **player_robot_v3 keeps its page
+  for now** (`baked_pages`): every LDtk world's `PlayerStart` tileset
+  (`sprite_player_robot_v3`) is that page, and the runtime decodes it at
+  boot; the tileset must be retargeted first
+  (`tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py`, the worlds
+  in `game/ambition_map_assets`). Painted on purpose: Jeff Hinter armored
+  (87 draws in a frame, over the 64 budget) and Fukuzawa (66), the cosmic
+  Mary-O (a hybrid: her transformation rows carry light on the whole figure
+  that no part carries, so they stay baked clips).
+- Not yet part-first: `sandbag` (its own sheet writer, an adapter-shaped
+  record) and `gnu_ton_boss`'s layered publish (full, body, hands, fist,
+  GNU2 and rider sheets; the boss road reads its body and hands layers).
+- **PF4 is a format change, not a list.** A tweened clip interpolates its
+  last frame toward its first (`tween_draws`, and the runtime's
+  `tween_targets`), which is right for a loop and wrong for a one-shot clip
+  (an attack's last frame would slide back toward its windup while it is
+  shown). And a draw that keeps its part tweens however far it moves, so a
+  cut (the same part placed far away) would slide. Tweening every pairable
+  clip needs a tween that holds its last frame (a `LinearOnce` beside
+  `Linear`, in the flipbook RON and `ClipTween`) and a cut rule (no tween
+  past the picture's size, as `_same_picture_redrawn` already says for a
+  changed part), with the game's loop flags deciding which clips loop.
 - **PF3 done (2026-11-18).** `scripts/regen/sprites.sh --reference --target
   <name>` paints a part-first sheet's every frame into
   `.agent/sprite_reference/<name>/` (`PAINT_REFERENCE_ENV`; Hypatia in 16 s)

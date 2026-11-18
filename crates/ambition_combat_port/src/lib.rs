@@ -29,6 +29,7 @@ pub mod motion;
 pub mod ray;
 pub mod reaction;
 pub mod reception;
+pub mod projectile_outcome;
 pub use reception::{HitReception, HitReceptions, HitReceptionsPort, ReceptionBody, ReceptionProjectile, ReceptionDecision, ReceptionSource};
 pub mod ride;
 pub mod riding;

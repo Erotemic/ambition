@@ -49,6 +49,7 @@
 | [`moveset`](src/moveset/mod.rs) | Data-driven move playback — the runtime half of the Smash model. |
 | [`on_hit`](src/on_hit.rs) | On-hit techniques — conditional effects driven by resolved strike facts. |
 | [`path_motion`](src/path_motion.rs) | `PathMotion`: waypoint-following used by moving hazards/platforms. |
+| [`projectile_outcomes`](src/projectile_outcomes.rs) | Native facts from committed projectile operations, before entity removal. |
 | [`projectile_spawn`](src/projectile_spawn/mod.rs) | Projectile emission captures source facts before deferred construction. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_combat`. |
 | [`room_rules`](src/room_rules.rs) | The `room_rules` authored-content schema: the per-game rules of a game's own rooms, as data in its pack. |
@@ -66,7 +67,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_59 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_60 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

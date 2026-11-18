@@ -93,6 +93,8 @@ fn materialize_matching(
                 ));
             }
         }
+        let shot = entity.id();
+        crate::projectile_outcomes::record(&mut commands, shot, ambition_combat_port::projectile_outcome::ProjectileOutcomeKind::Created, None, None);
         if let Some(reply) = request.reply.clone() {
             let subjects = source
                 .identity

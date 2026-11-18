@@ -314,7 +314,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 489 -> 490: captured projectile emissions cross ticks in a cloned, remapped queue.
 // 490 -> 491: native hits and detached strikes retain source identity and credit.
 // 491 -> 492: pending projectile emissions retain their creation reply tickets.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 492;
+// 492 -> 493: observer-local pending projectile outcomes rewind with their scope.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 493;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

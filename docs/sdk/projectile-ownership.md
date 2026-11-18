@@ -112,9 +112,9 @@ decisions, including the actual applied damage. Native hit publication uses
 reception. Detached strikes retain `HitOrigin`; this also covers non-projectile
 sources whose owners retire.
 
-The projectile outcome API remains open for interception and retirement
-outcomes. Accepted hit batches identify the shot and its current
-credit. Request submission is not proof of creation or damage.
+[Projectile outcomes](projectile-outcomes.md) report native interception and
+retirement. Accepted hit batches identify the shot and its current credit.
+Request submission is not proof of creation or damage.
 
 Native tests in
 [`projectile_spawn/materialize.rs`](../../crates/ambition_combat/src/projectile_spawn/materialize.rs)

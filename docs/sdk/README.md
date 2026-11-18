@@ -35,6 +35,8 @@ provide native physical contact samples and responses for any controller. The br
 [script capability program](../planning/engine/script-first-ambition-gameplay.md)
 remains open. [Projectile ownership](projectile-ownership.md) explains native
 credit, reflection, and script-authored parry windows.
+[Projectile outcomes](projectile-outcomes.md) report native creation,
+interception, clash spending, and retirement through bounded observer queues.
 
 ## Before any of that: your `Cargo.toml`
 

@@ -197,7 +197,8 @@ fn arbitrate_attack_clashes(
             // road, this tick, unchanged. It also does not MOVE first, which is
             // what losing a contest should look like.
             ClashAttack::Shot(entity) => {
-                if let Ok((_, _, mut game, _, _, _)) = shots.get_mut(entity) {
+                if let Ok((_, kin, mut game, _, _, _)) = shots.get_mut(entity) {
+                    ambition_combat::projectile_outcomes::record(&mut commands, entity, ambition_combat::projectile_outcomes::ProjectileOutcomeKind::SpentByClash, None, Some(kin.pos));
                     game.age = game.max_lifetime;
                 }
             }

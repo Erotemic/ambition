@@ -16,6 +16,12 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    registrar.rollback_component_clone_checksum::<crate::projectile_outcomes::extension::PendingProjectileOutcomes>(
+        OWNER, "combat.pending_projectile_outcomes", "bounded pending projectile facts on their observer", crate::projectile_outcomes::extension::PendingProjectileOutcomes::checksum,
+    );
+    registrar.clear_message_on_rollback::<crate::projectile_outcomes::ProjectileOutcome>(
+        OWNER, "message.projectile_outcome",
+    );
     registrar.rollback_component_clone_checksum::<crate::HitOrigin>(
         OWNER, "combat.hit_origin", "source identity and credit without host session counters", crate::HitOrigin::checksum,
     );

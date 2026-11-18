@@ -12,7 +12,7 @@
 //! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, after the rider sync, gameplay-gated | trigger `ambition.boss.conduct`; observations `ambition.body.attachments` and `ambition.boss.mount`; requests `ambition.boss.conducted_pose`, `ambition.boss.limb_pose`, `ambition.boss.limb_opening`, `ambition.boss.limb_blow`, `ambition.boss.mount_launch`, `ambition.boss.mount_walk`, `ambition.boss.foe_launch`, `ambition.boss.wear`, `ambition.feedback.speech_bubble`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.feedback.lightning`, `ambition.feedback.lightning_aura`, `ambition.boss.summon`, `ambition.boss.dismiss_summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.held_ray`, `ambition.combat.riding_hitbox` (combat), `ambition.world.held_force` (`ambition_abilities`), `ambition.projectiles.spawn`, `ambition.feedback.body_sound`, `ambition.portal.held_pair` (portal, with the `portal` feature) |
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; observations `ambition.world.item_state`, `ambition.world.spawner_body` and `ambition.world.toucher_credits` (`ambition_abilities`); requests `ambition.feedback.body_sound`, `ambition.feedback.effect`, `ambition.world.move_module_entity`, `ambition.world.launch_toucher`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn`, `ambition.combat.blast` and observation `ambition.combat.credit` (`ambition_combat`) |
 //! | `actor_think` | after `ActorDecisionSet::Publish`, before `PlayerInputSet::ControlGate`, gameplay-gated | trigger `ambition.actor.think`; requests `ambition.actor.fire` (`ambition_combat`) and `ambition.motion.velocity` (`ambition_abilities`); trigger `ambition.actor.group_think`, requests `ambition.actor.steer`, `ambition.item.take` and `ambition.item.release`, observation `ambition.world.whereabouts` (`ambition_abilities`) |
-//! | `hit_reaction` | `CombatSet::ContentFlavor`, gameplay-gated | triggers `ambition.combat.parried`, `ambition.combat.struck`, and `ambition.combat.hit_receptions` (damage domain); requests `ambition.combat.answer_parry`, `ambition.body.hold_status`, and captured projectile emission (`ambition_combat`) |
+//! | `hit_reaction` | `CombatSet::ContentFlavor`, gameplay-gated | triggers `ambition.combat.parried`, `ambition.combat.struck`, `ambition.combat.hit_receptions` (damage domain), and `ambition.combat.projectile_outcomes` (combat domain); requests `ambition.combat.answer_parry`, `ambition.body.hold_status`, and captured projectile emission (`ambition_combat`) |
 //! | `body_contact` | `WorldPrepSet::AfterIntegrate`, after `boss_conduct`, before `WorldPrepSet::ContactDamage`, gameplay-gated | trigger `ambition.body.contact`; requests `ambition.body.contact_bounce` and `ambition.body.defeat` (`ambition_combat`) |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
@@ -83,6 +83,7 @@ pub fn install_ports(app: &mut App) {
     ambition_combat::projectile_spawn::extension::install_for_hit_reaction(app);
     ambition_combat::extension::install_for_hit_reaction(app);
     ambition_damage::extension::install(app);
+    ambition_combat::projectile_outcomes::extension::install(app);
 }
 
 /// Order the phases that depend on each other: an entity spawned in
@@ -569,6 +570,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
         .add::<ambition_combat_port::BodyContactPort>("body_contact")
         .add::<ambition_combat_port::HitReceptionsPort>("hit_receptions")
+        .add::<ambition_combat_port::projectile_outcome::ProjectileOutcomesPort>("projectile_outcomes")
         .add::<ambition_combat_port::ParryWindowPort>("parry_window")
         .add::<ambition_combat_port::ContactBouncePort>("contact_bounce")
         .add::<ambition_combat_port::BodyDefeatPort>("defeat_body")

@@ -85,6 +85,10 @@ pub fn intercept_projectile(
     interceptor_credit: ambition_projectiles::ownership::ProjectileCredit,
     response: &PreparedInterception,
 ) -> bool {
+    ambition_combat::projectile_outcomes::record(commands, projectile,
+        if response.reflects { ambition_combat::projectile_outcomes::ProjectileOutcomeKind::Reflected }
+        else { ambition_combat::projectile_outcomes::ProjectileOutcomeKind::Absorbed },
+        Some((interceptor, interceptor_credit.clone())), Some(response.body.pos));
     match response.reflects {
         true => {
             // ⭐ OWNER AND ALLEGIANCE CHANGE TOGETHER, always. They answer two
@@ -302,5 +306,41 @@ mod tests {
             app.world().get_entity(shot).is_err(),
             "a consumed shot is still in the world"
         );
+    }
+}
+
+#[cfg(test)]
+mod outcome_tests {
+    use super::*;
+    use ambition_combat::projectile_outcomes::{ProjectileOutcome, ProjectileOutcomeKind};
+    use ambition_platformer2d_shared_tangle::{sim_id::SimId, lifecycle::{SessionScopeId, SessionScopedEntity, InRoomInstance, LiveRoomInstance}};
+    use ambition_projectiles::{LiveProjectile, ProjectileSeq, ownership::ProjectileCredit};
+    #[test]
+    fn absorption_reports_the_caught_shot_and_both_credits_before_removal() {
+        let mut app = App::new();
+        app.add_message::<ProjectileOutcome>();
+        let source = app.world_mut().spawn_empty().id();
+        let interceptor = app.world_mut().spawn_empty().id();
+        let room = Some(LiveRoomInstance::ACTIVATION);
+        let source_credit = ProjectileCredit { body: Some(SimId::placement("source")), room };
+        let new_credit = ProjectileCredit { body: Some(SimId::placement("interceptor")), room };
+        let mut kin = BodyKinematics::default();
+        let id = SimId::placement("shot");
+        let shot = app.world_mut().spawn((LiveProjectile, ProjectileSeq(0), id.clone(), ProjectileOwner(source), source_credit.clone(), kin,
+            SessionScopedEntity(SessionScopeId(1)), InRoomInstance(room.unwrap()))).id();
+        let response = ProjectileInterception::Consume.prepare(kin, ambition_platformer2d_core::frame::material_cast::ContactVelocityFrame::IDENTITY).unwrap();
+        assert!(!intercept_projectile(&mut app.world_mut().commands(), shot, &mut kin, interceptor,
+            AttackAllegiance { driver: None, faction: ambition_characters::actor::ActorFaction::Enemy, team: None }, new_credit.clone(), &response));
+        app.world_mut().flush();
+        assert!(app.world().get_entity(shot).is_err());
+        let facts = app.world_mut().resource_mut::<Messages<ProjectileOutcome>>().drain().collect::<Vec<_>>();
+        assert_eq!(facts.len(), 1);
+        let fact = &facts[0];
+        assert_eq!(fact.kind, ProjectileOutcomeKind::Absorbed);
+        assert!(fact.terminal);
+        assert_eq!(fact.projectile.id.as_ref(), Some(&id));
+        assert_eq!(fact.credit.as_ref().unwrap().id, source_credit.body);
+        assert_eq!(fact.interceptor.as_ref().unwrap().id, new_credit.body);
+        assert!(fact.previous_credit.is_none());
     }
 }

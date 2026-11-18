@@ -76,7 +76,7 @@ impl RoomTransitionCombatReset<'_, '_> {
             let left_behind = !scope.other_rooms_stay
                 || stamp.is_some_and(|stamp| scope.retiring.contains(&stamp.0));
             if left_behind {
-                self.commands.entity(entity).despawn();
+                ambition_combat::projectile_outcomes::retire(&mut self.commands, entity, ambition_combat::projectile_outcomes::ProjectileOutcomeKind::RoomRetired, None);
             }
         }
         // Resetting the AMBIENT is the real gravity reset; the presentation

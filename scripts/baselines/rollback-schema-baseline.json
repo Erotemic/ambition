@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v492",
+    "version": "ggrs-rollback-schema-v493",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actions.scope_sequence\tcomponent-canonical\tActionScopeSequence",
@@ -77,6 +77,7 @@
       "combat.held_damage_boxes\tcomponent-clone-cursor\tHeldDamageBoxes",
       "combat.hit_origin\tcomponent-clone-custom-checksum\tHitOrigin\tbevy_ggrs clone snapshot + source identity and credit without host session counters",
       "combat.hitbox_on_hit\tcomponent-clone-custom-checksum\tHitboxOnHit\tbevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection",
+      "combat.pending_projectile_outcomes\tcomponent-clone-custom-checksum\tPendingProjectileOutcomes\tbevy_ggrs clone snapshot + bounded pending projectile facts on their observer",
       "combat.room_pace\tcomponent-clone-custom-checksum\tRoomPace\tbevy_ggrs clone snapshot + a live room's impact hold expiry and eased clock scale",
       "combat.stale_moves\tcomponent-canonical\tBodyStaleMoves",
       "combat.strike_cause\tcomponent-canonical\tHitSource",

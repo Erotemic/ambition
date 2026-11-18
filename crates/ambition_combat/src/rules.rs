@@ -1440,3 +1440,24 @@ impl HitReceptionRules {
         problems
     }
 }
+
+/// A game's bounds and room observers for native projectile outcomes.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ProjectileOutcomeRules {
+    pub max_events: u32,
+    pub room_observers: Vec<String>,
+}
+impl Default for ProjectileOutcomeRules {
+    fn default() -> Self { Self { max_events: 64, room_observers: Vec::new() } }
+}
+impl ProjectileOutcomeRules {
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        if self.max_events == 0 { problems.push("projectile_outcomes.max_events must be positive".into()); }
+        if self.room_observers.iter().any(|key| key.trim().is_empty()) {
+            problems.push("projectile_outcomes.room_observers must have nonempty selectors".into());
+        }
+        problems
+    }
+}

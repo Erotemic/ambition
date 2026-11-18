@@ -342,6 +342,15 @@ Port `ambition.combat.hit_receptions@3`, trigger: read as `this.trigger`.
 | `events` | list of { projectile: { id: text or (), room: integer (u32) or () } or (), observed_at: text, victim: { id: text or (), room: integer (u32) or () }, attacker: { id: text or (), room: integer (u32) or () } or (), source: one of: melee \| projectile \| contact \| hazard \| left_the_world \| pogo, decision: one of: ignored \| protected \| blocked \| armored \| wallet_shielded \| damaged, raw_damage: integer (i32), damage: integer (i32), wallet_spent: integer (i32), health_depleted: bool, move_instance: integer (u32) or (), incoming: bool, outgoing: bool } |  |
 | `truncated` | bool | More decisions matched the scope than its game-authored budget. |
 
+## `projectile_outcomes`
+
+Port `ambition.combat.projectile_outcomes@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `events` | list of { observed_at: text, projectile: { id: text or (), room: integer (u32) or () }, credit: { id: text or (), room: integer (u32) or () } or (), previous_credit: { id: text or (), room: integer (u32) or () } or (), interceptor: { id: text or (), room: integer (u32) or () } or (), kind: one of: created \| reflected \| absorbed \| spent_by_clash \| expired \| body_contact \| feature_contact \| world_contact \| room_retired \| attempt_reset, terminal: bool, position: [x, y] } |  |
+| `truncated` | bool |  |
+
 ## `parry_window`
 
 Port `ambition.combat.parry_window@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

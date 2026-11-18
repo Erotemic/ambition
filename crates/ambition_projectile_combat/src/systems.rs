@@ -916,7 +916,7 @@ pub fn step_projectiles(
             if let Some(burst)=expiry_burst {
                 outcome_fx.write(said_by(burst.request(shot_room,kin.pos),bolt_source.as_ref()));
             } else {trace.push_event(ProjectileTraceEvent::Expired {kind}.into_trace_event(tick));}
-            commands.entity(proj_entity).despawn();
+            ambition_combat::projectile_outcomes::retire(&mut commands, proj_entity, ambition_combat::projectile_outcomes::ProjectileOutcomeKind::Expired, Some(kin.pos));
             continue 'projectiles;
         }
         #[cfg(feature="portal")]
@@ -1493,7 +1493,7 @@ pub fn step_projectiles(
                             &mut vfx,
                         );
                     }
-                    commands.entity(proj_entity).despawn();
+                    ambition_combat::projectile_outcomes::retire(&mut commands, proj_entity, ambition_combat::projectile_outcomes::ProjectileOutcomeKind::BodyContact, Some(kin.pos));
                     continue 'projectiles;
                 }
             } else if let Some(contact) = feature_contact.as_ref() {
@@ -1590,7 +1590,7 @@ pub fn step_projectiles(
                 #[cfg(feature="portal")]
                 {hit_this_tick=true;}
                 if !game.returns(*acceleration) {
-                    commands.entity(proj_entity).despawn();
+                    ambition_combat::projectile_outcomes::retire(&mut commands, proj_entity, ambition_combat::projectile_outcomes::ProjectileOutcomeKind::FeatureContact, Some(kin.pos));
                     continue 'projectiles;
                 }
             }
@@ -1642,7 +1642,7 @@ pub fn step_projectiles(
                         vfx.write_in(shot_room, VfxMessage::Impact { pos, blow: ambition_vfx::ImpactBlow::PLAIN });
                     }
                 }
-                commands.entity(proj_entity).despawn();
+                ambition_combat::projectile_outcomes::retire(&mut commands, proj_entity, ambition_combat::projectile_outcomes::ProjectileOutcomeKind::WorldContact, Some(kin.pos));
                 continue 'projectiles;
             }
             WorldHitOutcome::Continue => {

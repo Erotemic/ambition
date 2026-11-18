@@ -87,7 +87,7 @@ type AttemptResidue = (
 pub fn retire_the_previous_attempt(
     mut admitted: ambition_combat::events::AdmittedReplays,
     mut commands: Commands,
-    residue: Query<Entity, AttemptResidue>,
+    residue: Query<(Entity, Has<ambition_projectiles::LiveProjectile>), AttemptResidue>,
 ) {
     let reasons: Vec<RoomResetReason> = admitted.read().map(|admitted| admitted.reason).collect();
     if reasons.is_empty() {
@@ -97,7 +97,9 @@ pub fn retire_the_previous_attempt(
         target: "ambition_platformer2d::room_reset",
         "retiring the previous attempt's residue: reasons={reasons:?}",
     );
-    for entity in &residue {
-        commands.entity(entity).despawn();
+    for (entity, projectile) in &residue {
+        if projectile {
+            ambition_combat::projectile_outcomes::retire(&mut commands, entity, ambition_combat::projectile_outcomes::ProjectileOutcomeKind::AttemptReset, None);
+        } else { commands.entity(entity).despawn(); }
     }
 }

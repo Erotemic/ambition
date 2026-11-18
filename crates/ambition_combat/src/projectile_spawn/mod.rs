@@ -169,6 +169,7 @@ pub const SPAWN_DOMAIN: &str = "projectiles.spawn";
 
 /// Install native emission state and cancellation before any producer runs.
 pub fn install_emission(app: &mut bevy::prelude::App) {
+    app.add_message::<crate::projectile_outcomes::ProjectileOutcome>();
     app.init_resource::<PendingProjectileEmissions>()
         .add_message::<ProjectileEmission>();
     ambition_platformer2d_shared_tangle::action_results::register_action_cancellation(

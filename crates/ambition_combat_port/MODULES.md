@@ -19,6 +19,7 @@
 | [`lightning`](src/lightning.rs) | Lightning a module shows, not one it strikes with: a bolt between two ends, and an aura on its own body. |
 | [`module_entity`](src/module_entity.rs) | Module-owned entities: a module asks the world for an entity of a kind it names (a turret, a well), and the world ticks each such entity through the module, until the entity's lifetime ends. |
 | [`motion`](src/motion.rs) | The body-motion ports of a wielded item: a body moves itself or sets its velocity, arms the shared movement cooldown, strikes where it is, and shows an effect or a hit mark. |
+| [`projectile_outcome`](src/projectile_outcome.rs) | Bounded facts from native projectile creation, interception and retirement. |
 | [`ray`](src/ray.rs) | A ray: a strike along a line. |
 | [`reaction`](src/reaction.rs) | The ports of a reaction to a hit: what a body does about how this tick's hits came out, decided by a module in `hit_reaction` (`ambition_extension_sdk::phases::HIT_REACTION`). |
 | [`reception`](src/reception.rs) | Bounded batches of decisions from native hit reception. |
@@ -33,7 +34,7 @@
 | [`whereabouts`](src/whereabouts.rs) | Where the things a scope's records name are (runtime authoring audit P5 step 3). |
 | [`wielded`](src/wielded.rs) | The held-item domain's extension ports: a body uses the item it holds, pays for it from its resource bank, and is heard doing it. |
 
-_26 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_27 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v492
+ggrs-rollback-schema-v493
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -143,6 +143,7 @@ combat.hitbox_exclusions	component-clone	HitboxExclusions	bevy_ggrs clone snapsh
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.hitbox_on_hit	component-clone-custom-checksum	HitboxOnHit	bevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection
+combat.pending_projectile_outcomes	component-clone-custom-checksum	PendingProjectileOutcomes	bevy_ggrs clone snapshot + bounded pending projectile facts on their observer
 combat.ray_strike	component-clone	RayStrike	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.room_pace	component-clone-custom-checksum	RoomPace	bevy_ggrs clone snapshot + a live room's impact hold expiry and eased clock scale
 combat.stale_moves	component-canonical	BodyStaleMoves	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -438,6 +439,7 @@ message.portal_body_entered	message-clear	PortalBodyEntered	clear abandoned-futu
 message.portal_body_transited	message-clear	PortalBodyTransited	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_fire_intent	message-clear	PortalFireIntent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
+message.projectile_outcome	message-clear	ProjectileOutcome	clear abandoned-future message buffer in LoadWorld::Mapping
 message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.ranged_fire_refused	message-clear	RangedFireRefused	clear abandoned-future message buffer in LoadWorld::Mapping
 message.recover_at_checkpoint	message-clear	RecoverAtCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping

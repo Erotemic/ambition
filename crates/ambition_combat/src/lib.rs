@@ -739,3 +739,5 @@ pub fn install_settle_presentation_systems(
 }
 
 pub mod projectile_spawn;
+
+pub mod projectile_outcomes;

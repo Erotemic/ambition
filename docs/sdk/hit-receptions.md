@@ -127,3 +127,6 @@ bodies, held clocks, and session and room isolation.
 A `hit_reaction` entry can also request `projectile`. The native writer captures
 the caller's source facts. Late requests wait in rollback state until the next
 early materializer. See [projectile ownership](projectile-ownership.md).
+
+Use [projectile outcomes](projectile-outcomes.md) for creation, interception,
+clash spending and retirement. Damage reception does not supply those facts.

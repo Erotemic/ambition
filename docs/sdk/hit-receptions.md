@@ -33,8 +33,9 @@ is declared in its game's combat rules. Portable Rust modules use
 The trigger contains `events` and `truncated`. Each event contains:
 
 - `observed_at`: the simulation tick when the native receiver made its decision.
-- `victim` and optional `attacker`: captured semantic identity, session, and live
-  room. A missing identity remains absent. A native entity handle is not exposed.
+- `victim` and optional `attacker`: captured semantic identity and live room
+  within the invocation's session. An identity outside that session is absent.
+  A native entity handle is not exposed.
 - `source`: `melee`, `projectile`, `contact`, `hazard`, `left_the_world`, or `pogo`.
 - `decision`: `ignored`, `protected`, `blocked`, `armored`, `wallet_shielded`, or
   `damaged`.
@@ -64,6 +65,9 @@ Events use tick, session, room, and recipient identity order. A recipient's
 native decision order is preserved within that group. Selectors are unique
 within a scope, even if a held status repeats the key.
 
+Session activation counters belong to the host. Native routing checks the
+session without exposing that local counter to the script.
+
 ## Bounds, lifetime, and replay
 
 A game's reloadable `room_rules` content can set:
@@ -88,7 +92,7 @@ read cut does not receive the old scope's decision.
 The native decision messages are transient. Rollback clears abandoned messages,
 and replay produces decisions from the restored native state. Script records
 use the normal canonical state store. A retained body name must use a declared
-`body` or `opt body` field; the captured session and room remain event context,
+`body` or `opt body` field; the captured room remains event context,
 not permission to act on a later body.
 
 This is the damage receiver's stream. It does not supply per-shot identity,

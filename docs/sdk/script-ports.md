@@ -334,12 +334,21 @@ Port `ambition.body.contact@2`, trigger: read as `this.trigger`.
 
 ## `hit_receptions`
 
-Port `ambition.combat.hit_receptions@1`, trigger: read as `this.trigger`.
+Port `ambition.combat.hit_receptions@2`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
-| `events` | list of { observed_at: text, victim: { id: text or (), session: text or (), room: integer (u32) or () }, attacker: { id: text or (), session: text or (), room: integer (u32) or () } or (), source: one of: melee \| projectile \| contact \| hazard \| left_the_world \| pogo, decision: one of: ignored \| protected \| blocked \| armored \| wallet_shielded \| damaged, raw_damage: integer (i32), damage: integer (i32), wallet_spent: integer (i32), health_depleted: bool, move_instance: integer (u32) or (), incoming: bool, outgoing: bool } |  |
+| `events` | list of { observed_at: text, victim: { id: text or (), room: integer (u32) or () }, attacker: { id: text or (), room: integer (u32) or () } or (), source: one of: melee \| projectile \| contact \| hazard \| left_the_world \| pogo, decision: one of: ignored \| protected \| blocked \| armored \| wallet_shielded \| damaged, raw_damage: integer (i32), damage: integer (i32), wallet_spent: integer (i32), health_depleted: bool, move_instance: integer (u32) or (), incoming: bool, outgoing: bool } |  |
 | `truncated` | bool | More decisions matched the scope than its game-authored budget. |
+
+## `parry_window`
+
+Port `ambition.combat.parry_window@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `window_s` | number | required | The positive duration in simulation seconds. |
+| `absorbs_projectiles` | bool | `false` |  |
 
 ## `contact_bounce`
 

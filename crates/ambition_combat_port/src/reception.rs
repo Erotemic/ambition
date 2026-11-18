@@ -29,7 +29,6 @@ ambition_extension_sdk::port_choices! {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReceptionBody {
     pub id: Option<String>,
-    pub session: Option<u64>,
     pub room: Option<u32>,
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -56,7 +55,6 @@ ambition_extension_sdk::port_record! {
     ReceptionBody {
         /// Absent when the native source has no semantic identity.
         id: Option<String>,
-        session: Option<u64>,
         room: Option<u32>,
     }
 }
@@ -98,7 +96,7 @@ ambition_extension_sdk::port_record! {
 /// have their own owners.
 pub struct HitReceptionsPort;
 impl Port for HitReceptionsPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.hit_receptions", 1);
+    const KEY: PortKey = PortKey::new("ambition.combat.hit_receptions", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = HitReceptions;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
@@ -122,13 +120,11 @@ mod tests {
                 observed_at: u64::MAX - 1,
                 victim: ReceptionBody {
                     id: Some("receiver".into()),
-                    session: Some(u64::MAX),
-                    room: Some(2),
+                        room: Some(2),
                 },
                 attacker: Some(ReceptionBody {
                     id: None,
-                    session: None,
-                    room: None,
+                        room: None,
                 }),
                 source: ReceptionSource::Projectile,
                 decision: ReceptionDecision::WalletShielded,

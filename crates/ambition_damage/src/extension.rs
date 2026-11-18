@@ -25,15 +25,27 @@ pub fn install(app: &mut App) {
     );
 }
 
-fn identity(value: &HitReceiverIdentity) -> ReceptionBody {
+fn identity(
+    value: &HitReceiverIdentity,
+    session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+) -> ReceptionBody {
+    if value.session != session {
+        return ReceptionBody {
+            id: None,
+            room: None,
+        };
+    }
     ReceptionBody {
         id: value.id.as_ref().map(|id| id.as_str().into()),
-        session: value.session.map(|session| session.0),
         room: value.room.map(|room| room.ordinal()),
     }
 }
 
-fn fact(hit: &BodyHitResolved, scope: Entity) -> HitReception {
+fn fact(
+    hit: &BodyHitResolved,
+    scope: Entity,
+    session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+) -> HitReception {
     let decision = match hit.resolution {
         BodyHitResolution::Ignored => ReceptionDecision::Ignored,
         BodyHitResolution::Protected => ReceptionDecision::Protected,
@@ -44,8 +56,11 @@ fn fact(hit: &BodyHitResolved, scope: Entity) -> HitReception {
     };
     HitReception {
         observed_at: hit.observed_at,
-        victim: identity(&hit.identity),
-        attacker: hit.attacker_identity.as_ref().map(identity),
+        victim: identity(&hit.identity, session),
+        attacker: hit
+            .attacker_identity
+            .as_ref()
+            .map(|value| identity(value, session)),
         source: match hit.source {
             ambition_combat::HitSource::Melee => ReceptionSource::Melee,
             ambition_combat::HitSource::Projectile => ReceptionSource::Projectile,
@@ -154,7 +169,7 @@ fn queue_receptions(
         let events: Vec<_> = matching
             .by_ref()
             .take(limits.max_events as usize)
-            .map(|hit| fact(hit, scope))
+            .map(|hit| fact(hit, scope, session))
             .collect();
         if events.is_empty() {
             continue;

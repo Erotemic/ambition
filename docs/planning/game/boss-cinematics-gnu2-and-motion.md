@@ -90,11 +90,17 @@ wake. Captures: `/tmp/ambition-boss-card-two-views-up.png` (cards up) and
 
 ## GNU2's finale (GNUTON-GNU2-FINALE)
 
-**Not started.** The finale summons GNU2 through a real live portal in the
-same active area. Its portal staging belongs with the portals work owned by
-the portals agent; the parts that are not portal work are: publishing GNU2's
-character and combat geometry (its art is an unpublished prototype), a
-two-boss victory policy (either defeat order; doors gated on both; no
+**Step 1 done 2026-11-18: GNU2 is published and catalogued.** The renderer's
+`gnu_ton_boss` target publishes `giant_gnu2` beside the giant: the giant's own
+drawing, pose and rows in the psychic containment harness (`gnu2_art`), with
+the giant's seams, standing surfaces and body box per frame, its part
+flipbook, actor contract and portrait. The catalog entry `npc_giant_gnu2` has
+the body of `npc_giant_gnu_whole` (same rows, scale and mount surfaces), so a
+body rides it as it rides the giant.
+
+The finale summons GNU2 through a real live portal in the same active area.
+Its portal staging belongs with the portals work; the parts that are not
+portal work are: a two-boss victory policy (either defeat order; doors gated on both; no
 duplicate spawn on retries; both cleaned on teardown), and readable counters
 for two giants. Keep phases 1 and 2 as they are until the replacement passes
 replay, reset and exit gating.

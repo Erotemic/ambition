@@ -309,6 +309,10 @@ struct PublishedBodyRig {
     /// definition a body carries does not hold it.
     #[serde(default)]
     part_bindings: BTreeMap<String, String>,
+    /// Attachment name -> the three joints of the limb that ends at it
+    /// (upper, lower, end). A presentation concern (`published_limbs`).
+    #[serde(default)]
+    limbs: BTreeMap<String, Vec<String>>,
     clips: BTreeMap<String, RigClip>,
 }
 
@@ -327,6 +331,28 @@ pub fn published_part_bindings(text: &str) -> Result<BTreeMap<String, String>, S
         }
     }
     Ok(published.part_bindings)
+}
+
+/// The limbs a published rig states (empty when it states none): for each
+/// attachment that ends a limb, its upper, lower and end joints, each checked
+/// against the rig's joints. A renderer solves them to keep a hand or a foot
+/// where a pose plants it while the rest of the body moves.
+pub fn published_limbs(text: &str) -> Result<BTreeMap<String, [String; 3]>, String> {
+    let published: PublishedBodyRig =
+        ron::from_str(text).map_err(|error| format!("body rig does not parse: {error}"))?;
+    let mut limbs = BTreeMap::new();
+    for (name, chain) in published.limbs {
+        let chain: [String; 3] = chain
+            .try_into()
+            .map_err(|chain: Vec<String>| format!("limb `{name}` names {} joints, not 3", chain.len()))?;
+        for joint in &chain {
+            if !published.joints.iter().any(|known| &known.name == joint) {
+                return Err(format!("limb `{name}` names joint `{joint}`, which is not a joint"));
+            }
+        }
+        limbs.insert(name, chain);
+    }
+    Ok(limbs)
 }
 
 impl BodyRigDefinition {

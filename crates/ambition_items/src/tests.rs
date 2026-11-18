@@ -319,10 +319,10 @@ fn the_starter_bag_unlocks_every_real_item() {
             assert_eq!(catalog.is_real(item), catalog.wears(item).is_some(), "{item:?}");
         }
     }
-    for item in [Item::EyeLaser, Item::Lightning, Item::PortalGun, Item::GunSword, Item::Grapple] {
+    for item in [Item::EyeLaser, Item::Lightning, Item::ContextualBlink, Item::PortalGun, Item::GunSword, Item::Grapple] {
         assert!(owned.has(item), "{item:?} is unlocked");
     }
-    for placeholder in [Item::AxeStance, Item::WhipStance, Item::DashTwo, Item::ContextualBlink] {
+    for placeholder in [Item::AxeStance, Item::WhipStance, Item::DashTwo] {
         assert!(!owned.has(placeholder), "{placeholder:?} is a placeholder");
     }
     for quest_item in [Item::FieldSurvey] {

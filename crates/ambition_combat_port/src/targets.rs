@@ -21,7 +21,8 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Scope** — the body the invocation ran for.
 /// * **Time** — offered in `technique_execution`; read when the entry runs.
 /// * **Read model** — world units, +Y down; each foe's `position` is its
-///   centre. Foes are in the order of their simulation identity (a body with
+///   centre, and its `size` the full size of the axis-aligned box it
+///   collides with (a move that lands beside or behind a foe clears it). Foes are in the order of their simulation identity (a body with
 ///   none after every body with one, by entity), so a module that keeps the
 ///   first of equals breaks a tie the same way on every peer and across a
 ///   rewind.
@@ -37,10 +38,11 @@ pub struct Foes {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Foe {
     pub position: [f32; 2],
+    pub size: [f32; 2],
 }
 
 impl Port for FoesPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.foes", 1);
+    const KEY: PortKey = PortKey::new("ambition.combat.foes", 2);
     const ROLE: PortRole = PortRole::Observation;
     type Value = Foes;
 
@@ -49,13 +51,15 @@ impl Port for FoesPort {
         for foe in &v.foes {
             wire::put_f32(out, foe.position[0]);
             wire::put_f32(out, foe.position[1]);
+            wire::put_f32(out, foe.size[0]);
+            wire::put_f32(out, foe.size[1]);
         }
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Foes, WireError> {
         let count = r.u32()?;
         let foes = (0..count)
-            .map(|_| Ok(Foe { position: [r.f32()?, r.f32()?] }))
+            .map(|_| Ok(Foe { position: [r.f32()?, r.f32()?], size: [r.f32()?, r.f32()?] }))
             .collect::<Result<_, WireError>>()?;
         Ok(Foes { foes })
     }
@@ -68,7 +72,9 @@ mod tests {
     /// Foes decode to what was encoded, in order.
     #[test]
     fn foes_cross_the_wire_unchanged() {
-        let foes = Foes { foes: vec![Foe { position: [1.0, -2.0] }, Foe { position: [30.5, 4.0] }] };
+        let foes = Foes {
+            foes: vec![Foe { position: [1.0, -2.0], size: [28.0, 46.0] }, Foe { position: [30.5, 4.0], size: [90.0, 120.0] }],
+        };
         let mut bytes = Vec::new();
         FoesPort::encode(&foes, &mut bytes);
         assert_eq!(FoesPort::decode(&mut WireReader::new(&bytes)).unwrap(), foes);

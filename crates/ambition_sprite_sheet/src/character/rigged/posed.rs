@@ -62,6 +62,35 @@ pub struct PosedParts {
     parts: BTreeMap<(u16, u16, bool, bool), PartBinding>,
     /// The frames both files share that the measurement read.
     frames: usize,
+    /// The rig and its limbs, for [`Self::hold`]; `None` until
+    /// [`Self::with_limbs`].
+    limbs: Option<HeldLimbs>,
+}
+
+/// A limb: the indices of its upper, lower and end joints in the body rig.
+pub type Limb = [u16; 3];
+
+/// One frame of a follow-through (POSE-CONTINUITY item 3): how far the arms
+/// and the head swing, in radians, and which way the hands go (sheet pixels,
+/// +y down). Each arm turns about its shoulder so its hand moves toward
+/// `hands_toward`, and its forearm lags a little further about the elbow;
+/// the head turns about its joint by `head` (clockwise positive).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Swing {
+    pub hands_toward: Vec2,
+    pub arms: f32,
+    pub head: f32,
+}
+
+/// How much further than the upper arm a forearm swings about its elbow.
+const FOREARM_LAG: f32 = 0.6;
+
+/// The rig whose poses plant a limb's end, and its limbs by the attachment
+/// that ends each one (`hand_near`).
+#[derive(Debug, Clone, PartialEq)]
+struct HeldLimbs {
+    rig: PreparedBodyRig,
+    limbs: Vec<(String, Limb)>,
 }
 
 #[derive(Clone, Copy)]
@@ -251,7 +280,168 @@ impl PosedParts {
                 bindings.push(None);
             }
         }
-        Self { bindings, parts, frames }
+        Self { bindings, parts, frames, limbs: None }
+    }
+
+    /// These bindings with `rig`'s `limbs` (attachment name -> its upper,
+    /// lower and end joint names, the rig's `limbs`), for [`Self::hold`]. A
+    /// limb that names a joint the rig does not have is left out.
+    pub fn with_limbs(mut self, rig: &PreparedBodyRig, limbs: &BTreeMap<String, [String; 3]>) -> Self {
+        let index = |name: &String| rig.joint_names().iter().position(|joint| joint == name).map(|at| at as u16);
+        let limbs: Vec<(String, Limb)> = limbs
+            .iter()
+            .filter_map(|(name, [upper, lower, end])| Some((name.clone(), [index(upper)?, index(lower)?, index(end)?])))
+            .collect();
+        self.limbs = (!limbs.is_empty()).then(|| HeldLimbs { rig: rig.clone(), limbs });
+        self
+    }
+
+    /// The frame of the joint `draw` rides, as the draw puts it: the turn and
+    /// pivot from the draw through its binding, the scale and handedness of
+    /// `like` (that joint in the pose the draw belongs to).
+    fn joint_frame_of(&self, draw: &PartDraw, like: &Affine2) -> Option<Affine2> {
+        let track = draw.track?;
+        let part = self.parts.get(&(track, draw.part, mirrored(like), draw.scale.x < 0.0))?;
+        let shape = Mat2::from_angle(-angle_of(like)) * like.matrix2;
+        let linear = Mat2::from_angle(draw.rotation - part.rotation) * shape;
+        Some(Affine2::from_mat2_translation(linear, draw.at - linear * part.at))
+    }
+
+    /// `draw` placed by `joint`, the frame of the joint its track rides; `None`
+    /// for a draw no binding places.
+    fn placed(&self, draw: &PartDraw, joint: &Affine2) -> Option<PartDraw> {
+        let track = draw.track?;
+        let part = self.parts.get(&(track, draw.part, mirrored(joint), draw.scale.x < 0.0))?;
+        Some(PartDraw {
+            at: joint.transform_point2(part.at),
+            rotation: angle_of(joint) + part.rotation,
+            ..*draw
+        })
+    }
+
+    /// Swing the arms (the limbs that end at a `hand_*` attachment) and the
+    /// head (the joint of the `head` attachment) of the pose `row`[`index`]
+    /// by `swing`, in `draws`: each draw that rides one of them turns rigidly
+    /// about its shoulder (then elbow) or neck. Returns how many it swung:
+    /// none without [`Self::with_limbs`] or for a row the rig does not author.
+    pub fn follow_through(&self, row: &str, index: usize, swing: Swing, draws: &mut [PartDraw]) -> usize {
+        let Some(held) = &self.limbs else { return 0 };
+        let mut joints = Vec::new();
+        if !held.rig.solve(row, index, &mut joints) {
+            return 0;
+        }
+        let rides = |draw: &PartDraw, joint: u16| draw.track.and_then(|track| self.binding(track)).is_some_and(|b| b.joint == joint);
+        let frame_of = |draws: &[PartDraw], joint: u16| {
+            let like = joints.get(usize::from(joint))?;
+            draws.iter().filter(|draw| rides(draw, joint)).find_map(|draw| self.joint_frame_of(draw, like))
+        };
+        let turn = |draw: &mut PartDraw, pivot: Vec2, angle: f32| {
+            draw.at = pivot + Vec2::from_angle(angle).rotate(draw.at - pivot);
+            draw.rotation += angle;
+        };
+        let mut count = 0;
+        for (_, [upper, lower, end]) in held.limbs.iter().filter(|(name, _)| name.starts_with("hand_")) {
+            let (Some(shoulder), Some(elbow), Some(hand)) = (frame_of(draws, *upper), frame_of(draws, *lower), frame_of(draws, *end)) else {
+                continue;
+            };
+            // Each turn goes the way that carries the hand toward the swing
+            // about its own pivot: a folded arm's forearm can turn the
+            // other way from its upper arm and still lower the hand.
+            let toward = |pivot: Vec2, point: Vec2, angle: f32| {
+                if (point - pivot).perp_dot(swing.hands_toward) < 0.0 { -angle } else { angle }
+            };
+            let (s, e, w) = (shoulder.translation, elbow.translation, hand.translation);
+            let angle = toward(s, w, swing.arms);
+            let swung_elbow = s + Vec2::from_angle(angle).rotate(e - s);
+            let swung_hand = s + Vec2::from_angle(angle).rotate(w - s);
+            let lag = toward(swung_elbow, swung_hand, FOREARM_LAG * swing.arms);
+            for draw in draws.iter_mut() {
+                if rides(draw, *upper) || rides(draw, *lower) || rides(draw, *end) {
+                    turn(draw, s, angle);
+                }
+                if rides(draw, *lower) || rides(draw, *end) {
+                    turn(draw, swung_elbow, lag);
+                }
+            }
+            count += 1;
+        }
+        if let Some(head) = held.rig.attachments().iter().find(|attachment| attachment.name == "head").map(|attachment| attachment.joint) {
+            if let Some(neck) = frame_of(draws, head) {
+                for draw in draws.iter_mut().filter(|draw| rides(draw, head)) {
+                    turn(draw, neck.translation, swing.head);
+                }
+                count += 1;
+            }
+        }
+        count
+    }
+
+    /// Hold the ends of the limbs named in `contacts` (`hand_near`) where the
+    /// pose `row`[`index`] of the rig plants them, in `draws`: that pose's
+    /// draws, moved part of the way from an earlier pose by a clip blend.
+    ///
+    /// Each end joint's parts go where the pose draws them, and the upper and
+    /// lower bones are solved between the root of the limb (a shoulder, a
+    /// hip), where the blended draws now put it, and that end, bent to the
+    /// side the pose bends them. So a hand that catches a ledge is on the
+    /// ledge from the first frame while the body is still coming up to it.
+    /// Returns how many limbs it held: none without [`Self::with_limbs`], for
+    /// a row the rig does not author, or for a limb no draw roots.
+    pub fn hold(&self, row: &str, index: usize, contacts: &[&str], draws: &mut [PartDraw]) -> usize {
+        let Some(held) = &self.limbs else { return 0 };
+        let mut joints = Vec::new();
+        if contacts.is_empty() || !held.rig.solve(row, index, &mut joints) {
+            return 0;
+        }
+        let angle = |v: Vec2| v.y.atan2(v.x);
+        let mut count = 0;
+        for (_, [upper, lower, end]) in held.limbs.iter().filter(|(name, _)| contacts.contains(&name.as_str())) {
+            let (Some(&fu), Some(&fl), Some(&fe)) =
+                (joints.get(usize::from(*upper)), joints.get(usize::from(*lower)), joints.get(usize::from(*end)))
+            else {
+                continue;
+            };
+            let rides = |draw: &&PartDraw, joint: u16| draw.track.and_then(|track| self.binding(track)).is_some_and(|b| b.joint == joint);
+            let Some(root) = draws.iter().filter(|draw| rides(draw, *upper)).find_map(|draw| self.joint_frame_of(draw, &fu)) else {
+                continue;
+            };
+            let (s, e, w) = (fu.translation, fl.translation, fe.translation);
+            let (a, b) = (s.distance(e), e.distance(w));
+            if a <= 1e-3 || b <= 1e-3 {
+                continue;
+            }
+            // The elbow (knee): a from the root, b from the held end, on the
+            // side of the line root -> end that the pose puts it.
+            let s2 = root.translation;
+            let to_end = w - s2;
+            let toward = to_end.try_normalize().unwrap_or_else(|| (e - s).normalize_or(Vec2::X));
+            let reach = to_end.length().clamp((a - b).abs() + 1e-3, a + b - 1e-3);
+            let opening = ((a * a + reach * reach - b * b) / (2.0 * a * reach)).clamp(-1.0, 1.0).acos();
+            let side = if (w - s).perp_dot(e - s) < 0.0 { -1.0 } else { 1.0 };
+            let elbow = s2 + Vec2::from_angle(side * opening).rotate(toward) * a;
+            let upper_frame = Affine2::from_translation(s2)
+                * Affine2::from_angle(angle(elbow - s2) - angle(e - s))
+                * Affine2::from_translation(-s)
+                * fu;
+            let lower_frame = Affine2::from_translation(elbow)
+                * Affine2::from_angle(angle(w - elbow) - angle(w - e))
+                * Affine2::from_translation(-e)
+                * fl;
+            for draw in draws.iter_mut() {
+                let Some(binding) = draw.track.and_then(|track| self.binding(track)) else { continue };
+                let frame = match binding.joint {
+                    joint if joint == *upper => upper_frame,
+                    joint if joint == *lower => lower_frame,
+                    joint if joint == *end => fe,
+                    _ => continue,
+                };
+                if let Some(placed) = self.placed(draw, &frame) {
+                    *draw = placed;
+                }
+            }
+            count += 1;
+        }
+        count
     }
 
     /// The joint track `track` rides, if one holds it.
@@ -277,22 +467,13 @@ impl PosedParts {
     pub fn place(&self, frame: &[PartDraw], joints: &[Affine2], out: &mut Vec<PartDraw>) {
         out.clear();
         out.extend(frame.iter().map(|draw| {
-            let Some((track, binding)) = draw.track.and_then(|track| Some((track, self.binding(track)?))) else {
-                return *draw;
-            };
-            let Some(joint) = joints.get(usize::from(binding.joint)) else {
-                return *draw;
-            };
             // A raster no shared frame drew under this handedness and flip
             // has no measured place: it stays where the frame put it.
-            let Some(part) = self.parts.get(&(track, draw.part, mirrored(joint), draw.scale.x < 0.0)) else {
-                return *draw;
-            };
-            PartDraw {
-                at: joint.transform_point2(part.at),
-                rotation: angle_of(joint) + part.rotation,
-                ..*draw
-            }
+            draw.track
+                .and_then(|track| self.binding(track))
+                .and_then(|binding| joints.get(usize::from(binding.joint)))
+                .and_then(|joint| self.placed(draw, joint))
+                .unwrap_or(*draw)
         }));
     }
 }

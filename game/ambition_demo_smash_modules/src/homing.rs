@@ -185,7 +185,7 @@ mod tests {
     /// leave the committed direction; of two at one distance the first wins.
     #[test]
     fn the_heading_bends_to_the_nearest_foe_in_the_cone() {
-        let foe = |x: f32, y: f32| Foe { position: [x, y] };
+        let foe = |x: f32, y: f32| Foe { position: [x, y], size: [28.0, 46.0] };
         let up = heading([0.0, 0.0], &dash(), &[foe(300.0, 0.0), foe(100.0, -100.0)]);
         assert!(up[1] < -0.5, "the nearer foe in the cone did not win: {up:?}");
         assert_eq!(heading([0.0, 0.0], &dash(), &[foe(-100.0, 0.0)]), [1.0, 0.0], "a foe behind bent it");

@@ -255,3 +255,33 @@ cards.
 **Owner:** `ambition_touch_input` (visibility and placement) and each menu's
 layout. Engineering follows the ruling, screen by screen (queue row
 SMALL-VIEWPORT-UI).
+
+## Q179 — What does a quick press of Precision Blink do, if two quick presses are the directional blink?
+
+**Context (2026-11-18, ABILITY-VARIANTS, [loadout open 2](game/ability-loadout.md#open)).**
+Jon's notes: "a quick press does the intuitive thing, and two quick presses
+give the directional blink". Today a quick press (released before
+`BLINK_HOLD_THRESHOLD`) already is a directional blink: 190 px along the
+movement stick, or forward along the facing with no stick
+(`movement::control::handle_blink_clusters`). A hold aims (levels 2 and 3).
+So the notes ask for a NEW single-press behaviour, and what "intuitive"
+means is not in the notes. Contextual Blink (behind the nearest foe) is its
+own row of the grid, so it is not the answer here.
+
+**Options:**
+
+* **(a) The quick press keeps the body's travel** (recommended default): it
+  blinks 190 px along the body's current velocity when it moves, else along
+  the facing, ignoring the stick; a double press within 0.25 s is the
+  stick-directed blink of today. A running or falling body goes on the way
+  it was going, and a deliberate direction takes a double press.
+* **(b) The quick press finds a footing**: it blinks forward to the nearest
+  place the body can stand within 190 px (a ledge ahead, the floor below a
+  gap), else forward; the double press is the stick-directed blink.
+* **(c) Keep the quick press as it is** (stick-directed) and give the double
+  press a different meaning (for example the full 430 px precision distance
+  along the stick, with no aim).
+
+**Owner:** the movement kernel's blink control (`ambition_platformer2d_core`)
+and the loadout plan. Engineering adds the double-press window as body
+maneuver state (rollback, codec) whichever option is chosen.

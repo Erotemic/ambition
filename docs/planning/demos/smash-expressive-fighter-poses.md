@@ -335,8 +335,39 @@ is placed from the rig's pose, 41707 exactly and 35 half a turn away on the
 same raster (`scouts_named_parts_are_placed_by_his_body_rigs_pose`). Mary-O
 and the pirates name no joints and bind as before.
 `scripts/measure/measure_track_joints.py` still measures one place per
-track, so it reports Scout's limbs as loose. Next: plant a contact by
-solving its limb to the held point, and follow-through, on these joints.
+track, so it reports Scout's limbs as loose.
+
+**Planted hands (2026-11-18), item 2.** A pose names the limb ends it
+plants on the world (`CharacterAnim::planted_contacts`, body-rig
+attachment names); the ledge grab plants both hands. The rig states each
+limb's upper, lower and end joints (`limbs`, read by `published_limbs`).
+While a change into a planting pose blends, `PosedParts::hold` puts each
+planted end's parts where the pose draws them and solves its upper and
+lower bones between the root (a shoulder), where the blend now draws it, and
+that end, bent to the side the pose bends them. So Scout's hands are on the
+ledge from the first frame of a catch while his body comes up to it
+(`a_ledge_catch_holds_scouts_hands_on_the_ledge_through_the_blend`: both
+hands within a pixel of the ledge grab's at every point of the blend, each
+arm one piece, both facings; unheld, the blend moved them more than 10 px).
+Feet were not planted: at a natural clip end they are already down, and an
+interrupted step is a later question.
+
+**Follow-through (2026-11-18), item 3.** A pose names what it sets
+swinging when the body comes into it (`CharacterAnim::follow_through`): a
+hard landing (arms 14 degrees down and forward, a 6 degree nod; a pure
+"down" turned Scout's two hanging arms apart, one each way), a soft landing
+(9 and 4), a brake (`Skid`: arms 9 forward, nod 5) and a blow (`Hit`: arms 12
+forward, the head snapping 8 back). The rigged presentation keeps a clock
+per body (`FOLLOW_THROUGH_SECONDS`, 0.18 s) and draws one arc out and back,
+`sin(pi t / T)`: it starts at nothing, so the impact frame is drawn as
+authored, and any clip or strike drops it at once; it carries on through
+the carriage poses after the landing. `PosedParts::follow_through` turns
+each arm rigidly about its shoulder so the hand goes the swing's way, the
+forearm lagging 0.6 as far again about the elbow, and the head about its
+joint (the rig's `head` attachment); the torso and the legs stay as drawn.
+Witness: `a_landing_swings_scouts_arms_down_and_leaves_the_body_as_drawn`.
+The amplitudes are first values, to be judged by watching the game at 60
+and 144 Hz.
 
 ## Phase 4 - Expand expressive coverage after the first playable pass
 

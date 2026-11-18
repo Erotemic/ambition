@@ -280,10 +280,17 @@ then the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
 slow is a verb of its own (`blink_slow`), level 2 withholds it and level 3
 is the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
 
+**Done 2026-11-18:** Contextual Blink, levels 1 and 2: a module on the
+Blink slot puts the body behind the nearest foe, facing it. A technique's
+transit is held on the body and made in the next tick's carry, so every
+reader of the travelled path sees it ([loadout, open 1](game/ability-loadout.md#open)).
+
 **Next action:** the laser's own sound waits for an SFX bank republish.
-Then Blink and stance replacement through the existing
-technique/equipment seam. Author Contextual Blink, Precision Blink
-tiers and the remaining variants in that model, not named engine branches.
+Then Precision Blink's quick press and double press (open 2; what the
+single press does is [Q179](awaiting-maintainer-decision.md#q179--what-does-a-quick-press-of-precision-blink-do-if-two-quick-presses-are-the-directional-blink)), Contextual
+Blink's level 3 (a double tap that slows time to choose the foe), and the
+stance and Dash II placeholders through the same technique/equipment seam,
+not named engine branches.
 
 **Acceptance:** each real variant changes its declared slot on any supported
 body. Replacing or removing equipment restores the prepared intrinsic kit.
@@ -326,10 +333,25 @@ alligator defaults. A redone resident check (the old one loaded 239 of 243
 residents as errors) finds all 243 drawings identical to the renderer
 before the cat, and only Mina's and Nagisa's records gain their pins.
 
-**Next action:** every listed species has its knobs. What is left is the
-acceptance at game scale: posed clips per species with the new knobs, and
-left cells for a one-sided detail when one is first wanted (none is yet).
-Nothing published changed, so nothing is republished.
+**Game scale checked 2026-11-18:** each species (dog twice, pigeon, cat,
+horse twice, bird twice, sea lion, alligator, finch), generated with its
+knobs at the ends of their ranges, rigged and drawn in eight clips (idle,
+walk, run, jump, attack, hurt, talk, crouch) from the views the sheet
+publishes. Every head stays on its neck in every frame, and the knobs read:
+the dog's low folded ears, saddle and mask, the cat's big ears and stripes,
+the horse's long and short faces, the bird's fan and swept crests, the
+alligator's wide snout and four scute rows. At this scale the pigeon's cere
+and eye ring and the sea lion's whisker pads are barely there; they are
+head-crop details, not silhouette. ([knobs](game/chargen-species-knobs-and-2d-overlays.md#game-scale-check-2026-11-18))
+
+**Next action:** asymmetric details keep their side. Every species marking
+is the same on both sides, but three overlays are not (Nikobolt's and André
+Rebouças's watch chains, Coulomba's plume and roses), and three generated
+features are not (the nihongami's ornaments, the kimono's wrap). A left
+cell alone changes nothing in the game: the runtime draws a body that faces
+left by flipping its right row. The fix is a left-facing row set for a
+target that has a one-sided detail (the flipbook's `<row>~mirrored`, which
+the runtime already selects), drawn with the left cells, and published.
 
 **Acceptance:** head crops and posed clips show distinct valid shapes in every
 view; heads stay attached and asymmetric features keep their side. Existing
@@ -670,9 +692,18 @@ were measured the same day: natural clip ends already plant the feet (0 to
 gameplay off as for every rig), which names each part track's joint
 (`part_bindings`); `PosedParts::bind_named` places every named draw of the
 2028 shared frames from the rig's pose (41707 exactly, 35 half a turn away
-on the same raster). Next: planted contacts (solve a held foot's or hand's
-limb on the joints) and follow-through
+on the same raster). **Planted hands landed the same day:** a pose names
+the limb ends it plants (`CharacterAnim::planted_contacts`: the ledge
+grab's two hands); while a change into it blends, those hands stay where it
+draws them and each arm is solved from its blended shoulder (the rig's
+`limbs`, `PosedParts::hold`), so a ledge catch no longer slides the hands
+24 to 31 px across the ledge. **Follow-through landed the same day:** a
+landing, a brake or a blow swings the arms (about the shoulders, the
+forearm lagging) and nods or snaps the head for 0.18 s, from and back to
+the authored pose; a strike or a clip cancels it
 ([Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish)).
+Left: watch the swing amplitudes in the game at 60 and 144 Hz, and give the
+campaign sheets the same rig (measure their gaps before authoring rows).
 Measure campaign sheet gaps before authoring more rows.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp

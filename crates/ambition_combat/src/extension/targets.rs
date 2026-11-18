@@ -40,7 +40,7 @@ pub fn foes_of(world: &World, scope: Entity) -> Option<Foes> {
     let faction = world.get::<ambition_characters::actor::ActorFaction>(scope).copied().unwrap_or_default();
     let team = world.get::<crate::targeting::MatchTeam>(scope);
     let relations = world.get_resource::<crate::targeting::FactionRelations>();
-    let mut foes: Vec<(Option<&SimId>, Entity, ae::Vec2)> = world
+    let mut foes: Vec<(Option<&SimId>, Entity, ae::Vec2, ae::Vec2)> = world
         .iter_entities()
         .filter(|other| other.id() != scope)
         .filter_map(|other| Some((other, other.get::<ae::BodyKinematics>()?)))
@@ -70,7 +70,7 @@ pub fn foes_of(world: &World, scope: Entity) -> Option<Foes> {
             )
             .is_target()
         })
-        .map(|(other, kin)| (other.get::<SimId>(), other.id(), kin.pos))
+        .map(|(other, kin)| (other.get::<SimId>(), other.id(), kin.pos, kin.half_extent() * 2.0))
         .collect();
     // Identity order; a body with no identity after every body with one.
     foes.sort_by(|a, b| match (a.0, b.0) {
@@ -79,7 +79,9 @@ pub fn foes_of(world: &World, scope: Entity) -> Option<Foes> {
         (None, Some(_)) => std::cmp::Ordering::Greater,
         (None, None) => a.1.cmp(&b.1),
     });
-    Some(Foes { foes: foes.into_iter().map(|(_, _, at)| Foe { position: [at.x, at.y] }).collect() })
+    Some(Foes {
+        foes: foes.into_iter().map(|(_, _, at, size)| Foe { position: [at.x, at.y], size: [size.x, size.y] }).collect(),
+    })
 }
 
 #[cfg(test)]

@@ -45,7 +45,7 @@ demo, every ability is unlocked.
 | Row | Cells |
 |---|---|
 | 1 | Fireball, Eye Laser, Lightning°, Sword Stance, Axe Stance°, Whip Stance° |
-| 2 | Precision Blink, Contextual Blink°, Dash, Dash II°, Grapple, Mark / Recall |
+| 2 | Precision Blink, Contextual Blink, Dash, Dash II°, Grapple, Mark / Recall |
 | 3 | Portal Gun, (empty), Gun-Sword, Puppy-Slug Gun, Bomb, (empty) |
 | 4 | Health Cell, Mana Cell, (Spare Battery\*), (empty), (Field Survey\*), (empty) |
 
@@ -148,22 +148,42 @@ tests (bounce, one-way landing, strike rules).
    to choose the enemy. The Blink slot routes a technique (2026-11-10): a
    technique on `Blink` takes the whole edge (pressed, held, released) and the
    kernel then sees no blink (`a_blink_technique_takes_the_blink_edge_from_the_kernel`).
-   What remains is the technique and a way for it to move its body. The
-   foes observation (`FoesPort`) is offered in `technique_execution`, but the
-   transit (`TransitPort`) is installed only in `wielded_use`. Its lowering is
-   a body-path carry (`BodyPathSet::Carry`, in the player phase), so this
-   tick's contacts and crossings see the arrival. `technique_execution` runs
-   later, in the combat phase (`CombatSet::ContentSpecials`). A transit
-   lowered there would arrive after the crossing readers, including the
-   portal crossings. The proposed shape is a technique transit that becomes a
-   rollback-registered pending transit on the body, applied in the next
-   tick's carry: a one-tick delay, and crossings see the move like any other.
-   It touches the body-path and portal ordering, so build it with the portal
-   owner's review.
+   **Levels 1 and 2 built 2026-11-18.** The `contextual_blink` module
+   (`game/ambition_content_modules/src/contextual_blink.rs`) binds the
+   techniques `contextual_blink` (a foe within 170 px, centre to centre) and
+   `contextual_blink_2` (320 px). A press puts the body past the nearest foe
+   along its own side axis, its box 6 px clear of the foe's, its feet level
+   with the foe's, facing the foe; with no foe in reach it blinks 150 px
+   along the aim, so the slot is never dead. It stops the body, plays the
+   blink sound and a burst where it leaves, and the burst where it arrives on
+   the next tick, at the body, so walls are counted. A 0.45 s cooldown is
+   module state. The foes observation now states each foe's size
+   (`ambition.combat.foes` v2), which "behind" needs.
+   **The move.** `technique_execution` runs in the combat phase, after the
+   readers of the travelled path (contacts, portal and room crossings). A
+   technique's transit (`ambition.motion.transit`, now offered there) is held
+   on the body as `PendingTransit` (`ambition_abilities::pending_transit`,
+   rollback state `ability.pending_transit`, schema 494) and made in the next
+   tick's `BodyPathSet::Carry` by the same mover as a wielded transit: one
+   tick later, and every reader of the path sees it. A body that left its
+   live room in between does not take it. Reviewed as the portals owner: the
+   held move crosses a portal plane like any other carry, because the
+   crossings read it in the tick it is made. The items row wears level 1 and
+   lists level 2 (`stack: 2`); the demo bag starts at level 2. Witness
+   `a_contextual_blink_lands_behind_the_foe_a_tick_after_the_press` (app_it,
+   under a GGRS sync-test session) and the module's unit tests.
+   **Open:** level 3, the double tap that slows time to choose the foe.
+   The module cannot see walls: a wall right behind the foe stops the body
+   short of the far side (never inside the wall).
 2. **Precision Blink tiers** (Jon's notes): level 1 directional instant;
    level 2 adds a controlled blink; level 3 adds a time-slow control. Also:
    a quick press does "the intuitive thing", and two quick presses give the
    directional blink.
+   A quick press already is the directional blink (along the stick, or
+   forward), so "the intuitive thing" is a new single-press behaviour the
+   notes do not define: filed as
+   [Q179](../awaiting-maintainer-decision.md#q179--what-does-a-quick-press-of-precision-blink-do-if-two-quick-presses-are-the-directional-blink)
+   with a recommended default.
 3. **Tiers (the fact done 2026-11-14).** The level is the bag's count of the
    ability: an item's `levels` (in `items.ron`) are the rows worn at levels
    2 and up, each in the `wears` row's exclusive slot, and `stack` holds the

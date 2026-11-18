@@ -149,6 +149,7 @@ pub fn install_for_technique_execution(app: &mut App) {
         lower_body_sounds::<InTechniqueExecution>,
     );
     crate::ride::install_for_technique_execution(app);
+    crate::pending_transit::install_for_technique_execution(app);
 }
 
 /// Install the module-entity trigger port and its ports in
@@ -613,49 +614,67 @@ fn lower_set_marks(
     }
 }
 
+/// The bodies a transit moves, and what it needs to move them.
+pub type TransitBodies<'w, 's> = Query<
+    'w,
+    's,
+    (
+        ambition_platformer2d_core::BodyClusterQueryData,
+        &'static mut ambition_platformer2d_core::movement::MotionModel,
+        Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    ),
+>;
+
 /// Move each body along its line, walls of its own live room permitting, by
 /// the discrete-transit authority (ADR 0024): its velocity is kept, and its
 /// departure contacts and attachment are reconciled.
 pub fn lower_transits(
     mut outbox: ResMut<ExtensionOutbox>,
     world: ambition_platformer2d_world::collision::CollisionWorld,
-    mut bodies: Query<(
-        ambition_platformer2d_core::BodyClusterQueryData,
-        &mut ambition_platformer2d_core::movement::MotionModel,
-        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-    )>,
+    mut bodies: TransitBodies,
     // Optional diagnostic Class-B ledger, so a minimal test app still moves.
     mut class_b: Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
 ) {
-    use ambition_platformer2d_core as ae;
     for submitted in outbox.drain::<TransitPort>(&WIELDED_USE) {
-        let Ok((mut cluster_item, mut model, room)) = bodies.get_mut(submitted.scope) else {
-            continue;
-        };
-        let transit = submitted.value;
-        let mut clusters = cluster_item.as_clusters_mut();
-        let from = clusters.kinematics.pos;
-        let target = match transit.to {
-            ambition_combat_port::Destination::To(at) => ae::Vec2::from(at),
-            ambition_combat_port::Destination::Along { direction, distance } => {
-                let dir = ae::Vec2::from(direction);
-                let half = clusters.kinematics.half_extent();
-                match world.room(room).and_then(|room| room.solids()).as_ref() {
-                    Some(w) => crate::traversal::blink::blink_target(&**w, from, dir, distance, half),
-                    // No collision world (a minimal test app): the full distance.
-                    None => from + dir * distance,
-                }
+        transit(&world, &mut bodies, class_b.as_deref_mut(), submitted.scope, &submitted.value);
+    }
+}
+
+/// Move `scope` as `transit` asks: the one movement of a transit, now
+/// (`wielded_use`) or a tick later (a technique's, [`crate::pending_transit`]).
+pub(crate) fn transit(
+    world: &ambition_platformer2d_world::collision::CollisionWorld,
+    bodies: &mut TransitBodies,
+    class_b: Option<&mut ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>,
+    scope: Entity,
+    transit: &ambition_combat_port::Transit,
+) {
+    use ambition_platformer2d_core as ae;
+    let Ok((mut cluster_item, mut model, room)) = bodies.get_mut(scope) else {
+        return;
+    };
+    let mut clusters = cluster_item.as_clusters_mut();
+    let from = clusters.kinematics.pos;
+    let target = match transit.to {
+        ambition_combat_port::Destination::To(at) => ae::Vec2::from(at),
+        ambition_combat_port::Destination::Along { direction, distance } => {
+            let dir = ae::Vec2::from(direction);
+            let half = clusters.kinematics.half_extent();
+            match world.room(room).and_then(|room| room.solids()).as_ref() {
+                Some(w) => crate::traversal::blink::blink_target(&**w, from, dir, distance, half),
+                // No collision world (a minimal test app): the full distance.
+                None => from + dir * distance,
             }
-        };
-        ae::movement::transit_body(&mut model, &mut clusters, target, ae::movement::TransitVelocity::Keep);
-        if let Some(facing) = transit.facing {
-            clusters.kinematics.facing = facing;
         }
-        // A transit is a scripted teleport, ranked weakest
-        // (`docs/concepts/movement-collision.md`): dying in one is a death.
-        if let Some(log) = class_b.as_mut() {
-            log.record(submitted.scope, ambition_platformer2d_shared_tangle::class_b::ClassBRemap::ScriptedTeleport);
-        }
+    };
+    ae::movement::transit_body(&mut model, &mut clusters, target, ae::movement::TransitVelocity::Keep);
+    if let Some(facing) = transit.facing {
+        clusters.kinematics.facing = facing;
+    }
+    // A transit is a scripted teleport, ranked weakest
+    // (`docs/concepts/movement-collision.md`): dying in one is a death.
+    if let Some(log) = class_b {
+        log.record(scope, ambition_platformer2d_shared_tangle::class_b::ClassBRemap::ScriptedTeleport);
     }
 }
 

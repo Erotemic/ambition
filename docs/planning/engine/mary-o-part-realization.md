@@ -23,7 +23,7 @@ renderer/engine test suites, not the October census.
 | P4 authored interpolation | DONE | schema 2 track IDs and per-clip `tween`; `RiggedSpriteAsset::tween_into` |
 | P5a part-based body effects | DONE | shared impostor atlas; effects must follow the whole body |
 | P5b runtime baked residency | DONE | `NO_BAKED_IMAGE` / `parts_only`; room cover waits for part pages |
-| **P5c baked-file packaging** | **OPEN** | Exclude parts-only `_spritesheet.png` from shipped packages, but keep the offline oracle |
+| **P5c baked-file packaging** | **REPLACED 2026-11-18** | By [part-first publication](part-first-publication.md): no baked pages for a parts-only character, and the oracle is a sampled replay plus a reference sheet on request |
 | P6a robot v3 | DONE | schema 3 placement/draw/opacity; 1,888-frame parity gate |
 | P6b rigs and smaller characters | DONE | `publish_rig_flipbook`; check `measure_published_flipbooks.py` |
 | **P6c procedural painters** | **PUBLISHED OFFLINE; VERIFY TARGET** | Recorder + `publish_generator_flipbook`; confirm final packaged coverage and measured CPU/GPU draw cost before declaring all characters production-complete |

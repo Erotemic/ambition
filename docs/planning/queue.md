@@ -11,6 +11,14 @@ carries closed campaigns. Unselected or customer-gated plans live in
 
 ## Current order and selection
 
+00. **Part-first publication (Jon, 2026-11-18: the top task).** A character
+   the game draws from parts is still painted whole, frame by frame, at
+   every publish: 472 sheets, 73,531 frames and 1.22 GB of baked pages the
+   game never loads. Publish characters as parts only, paint full frames
+   only on request (the reference sheet, not `regen/assets.sh`), and let the
+   asset inspector play animations from parts:
+   [PART-FIRST](#part-first--publish-characters-as-parts-not-frames) and its
+   [plan](engine/part-first-publication.md). Every row below waits on it.
 0. **Getting the intro right (Jon, 2026-11-14: the top task).** World polish
    of level 1 (Hobford) comes before every row below: make the world rich and
    believable, natural vertical movement from the hills, doors only into
@@ -95,6 +103,16 @@ or updating their source. Check with
 `python3 scripts/checks/check_planning_anchors_resolve.py`.
 
 ## P0 — architecture and correctness
+
+### PART-FIRST — publish characters as parts, not frames
+
+**Defect (measured 2026-11-18):** the publisher paints every frame of a part-drawn character whole, packs and tiers the sheets, and paints each frame again to check its draws, though the game never loads those pages: 472 sheets, 73,531 frames, 1.22 GB. `gnu_ton_boss` alone takes 93 minutes; a GNU2 frame costs 2.5 s, nearly all rotation onto a frame no player sees.
+
+**Owner:** [part-first publication](engine/part-first-publication.md).
+
+**Next action:** PF0 (per-target build seconds in the publish log; the profile of `gnu_ton_boss`), then PF1 record-only on `gnu_ton_boss` with the sampled replay guard.
+
+**Acceptance:** the plan's PF1–PF6: no baked pages for a part-drawn character, full reference sheets only on request, the asset inspector animating from parts, and a full regeneration's time and bytes measured before and after.
 
 ### NET-AUTHORITY-EXPERIMENT — compare hosted-world replication with GGRS
 

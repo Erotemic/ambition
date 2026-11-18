@@ -167,6 +167,30 @@ per-actor cost materially.
 Report both total step time and the responsible phase/domain. Do not infer
 superlinear behavior from a single before/after population point.
 
+### Completed — desktop preparation work (2026-11-18)
+
+- File access restarted sprite scans. `e90558386e` filters access reports
+  before the scan queue. The published-library reload test checks idle reads
+  and publication replacement.
+- Room plans copied and hashed the complete character catalog.
+  `6a338f31ef` shares the immutable catalog and its digest. Retained-service
+  identity tests cover content replacement.
+- Animation bounds sampled total travel. `810cba0e0b` uses a conservative
+  acceleration bound. Combined-motion and published-corpus tests check clipping.
+- Camera targets allocated and uploaded blank CPU images. `4154964107` uses
+  Bevy's uninitialized target images. The capture path retains GPU readback access.
+- Quality realization decoded tables that publication had already checked.
+  `e86ee7b4b0` retains those tables in the immutable generation and removes the
+  mutable decode cache and warm-up workers. A realization test removes the
+  source file before selecting a quality tier. `0772afb205` keys landmark reuse
+  by the full-resolution set; its test removes a full table while adding a tier.
+
+Measurements and verification:
+[`desktop preparation evidence`](../../../dev/ambition_dev_measurements/journal/2026-11-18-desktop-preparation-efficiency.md).
+Keep generation data immutable. Do not restore frame-time metadata decoding
+or background warm-up after admission. Desktop frame-time gains still require
+a comparable capture. A capped spike log cannot prove that later play had no spikes.
+
 ### P1 — Android CPU (Mary O, measured 2026-10-13)
 
 Three device profiles (`dev/ambition_dev_measurements/profiles/android-*`,

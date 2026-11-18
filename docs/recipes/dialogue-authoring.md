@@ -94,14 +94,19 @@ Cutscene settings select `skip_hold_seconds`. The engine default is 0.9
 seconds. Zero skips on a cancel press. Values must be finite and nonnegative.
 Reveal rates must be finite and positive.
 
+Triggered cutscene dialogue and activated conversations use the same text
+reveal and confirm rules. With `RevealOnly`, F completes the current text;
+the next F advances it. Both use the simulation clock. A completed manual
+cutscene line holds its clock until a confirm arrives.
+
 A game registers the schemas and declares the lowered values through
 `DeclareRulesExt::declare_rules` for its own `RulesScope`. The runtime selects
 the rules of the conversation or cutscene's room. An undeclared room uses the
 engine defaults. A standalone game can declare `RulesScope::EveryRoom`.
 
-The settings are copied when playback starts. Content reload updates only
-that game's declarations; a running conversation or cutscene keeps its
-selected settings. Cutscene snapshots retain the selected skip duration.
+Conversation settings are copied when playback starts. Cutscene text reads
+the room's current dialogue rules. Content reload updates only that game's
+declarations. Cutscene snapshots retain the selected skip duration.
 Input hints use the runtime's next confirm action, so they distinguish text
 reveal, advance, choice selection and close.
 

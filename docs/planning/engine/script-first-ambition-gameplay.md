@@ -2,13 +2,15 @@
 
 **Direction:** Maintainer, 2026-11-17. **Scope:** new gameplay authoring, not migration of existing games. **Execution selection:** [`queue.md`](../queue.md), scripting priority 0b.
 
+**Current status:** The first slice below is complete. **The full script-first SDK program is NOT complete.** A request to "complete this plan" means completing the follow-on authoring and engine work below. Do not close priority 0b on the strength of the 2026-11-17 receipt, a port list, or another single scripted attack.
+
 ## Product goal
 
 Rhai should be an effective way to **invent, implement, and iterate on new gameplay in Ambition**, using a prebuilt engine and authored content. Mary-O and Sanic may reveal missing general engine capabilities; neither is a porting target. The same domain contracts must be usable by portable Rust modules built as WASM or linked natively, so successful prototypes may be promoted selectively without changing their content bindings or state semantics.
 
 The completed [first-class procedural authoring acceptance](first-class-procedural-game-authoring.md) proves the three-backend promotion, parity, and desktop packaging workflow for Pulse Forge. It does **not** establish that the SDK is expressive enough to author an arbitrary new Ambition mechanic. Treat A1-A10 as a retained capability and closed receipt, not work to repeat.
 
-The measure of progress is *new playable Ambition gameplay* and fewer engine changes required for subsequent ideas. Port count, Rhai lines of code, and the number of existing systems converted from Rust are not success metrics.
+Measure progress by the gameplay that authors can express and the engine changes that subsequent ideas no longer require. Playable examples can show this progress. Port counts, script size, and native migrations do not establish capability completeness.
 
 ## Non-goals and performance rule
 
@@ -36,34 +38,54 @@ Keep the inventory short, evidence-linked, and prioritized; do not exhaustively 
 
 **Candidate families to audit (not an implementation checklist):** scoped spatial/world observations; body and geometry contact facts/results; actor/control intent; interactive authored world-object state and collision changes; object and item creation/lifetime; equipment/form/grant transitions; accepted travel and room transitions; character/room/session state and gameplay events; progression and reward transactions; audio, camera, cutscene and HUD presentation requests; game-defined content/LDtk schema and bindings. Distinguish already data-authorable cases from missing scripting capabilities.
 
-## How SDK work is selected
+## Capability work
 
-1. Select a **genuinely desirable new Ambition gameplay feature** from the actual flagship plans or a maintainer-requested idea. Secondary games can provide additional counterexamples, but do not replace the flagship as the primary customer. Do not fabricate a feature only to justify a port.
-2. Attempt the feature with the installed Rhai aliases and authored data first. Note the first blocking missing capability, the relevant native domain owner, and the game-visible effect that is blocked.
-3. Decide whether existing data, composition, or a described typed port already solves it. If not, add the *smallest reusable semantic interface* through the domain owner; describe authority, observation scope, read/consume phase, result/refusal, rollback, lifetime, bounds, cost, and availability.
-4. Expose that same contract through Rhai and the portable Rust SDK. Do not create script-only domain authority or game-specific extension-host branches. Prefer a normal domain request over a series of private component setters.
-5. Complete the selected gameplay feature *in the real Ambition game*, including authored content, in-game interaction and focused validation. Preserve the native implementations elsewhere.
-6. Show that the new interface is general, with a second independent use case when it is not obvious from the semantic contract. A focused fixture is enough; do not require a second large game feature or ship a placeholder mechanic.
+The maintainer clarified the scope on 2026-11-17: a current game consumer is
+not required. Implement capabilities that have clear semantics and plausible
+expressive value. A mechanic can supply an example. It does not limit the
+capability program to the smallest interface needed for that example.
 
-When an idea genuinely requires a new physics, rendering, or engine subsystem, implement that service natively and provide an appropriate optional scripting API. A script is not required to replace core engine implementation.
+1. Use the census to select a coherent capability family. Describe what an
+   author can express with it and which native domain owns its authority.
+2. Check existing data, composition, and typed ports. Complete the shared
+   contract instead of adding a special adapter for each game idea.
+3. Define scope, identity, read and consume phases, admission and results,
+   state lifetime, rollback, bounds, cost, and optional availability.
+4. Supply the same contract to Rhai and portable Rust. Keep physics, combat,
+   inventory, travel, and world changes in their domain services.
+5. Validate composition through a supported host. A focused fixture is valid
+   when no game uses the capability yet. Use real gameplay when a suitable
+   feature exists. Do not migrate working native mechanics to create demand.
+6. Document the authoring interface and measured cost. Check that an author
+   can combine it with other capabilities using a prebuilt host.
 
-## First implementation slice: finite handoff
+A new native service is in scope when a portable adapter cannot supply the
+semantics. Implement that service once and expose its supported operations.
+Do not offer private component setters as a substitute.
 
-The initial agent deliverable has three parts:
+## Acceptance and open work
 
-1. **Coverage census:** identify existing Rhai aliases, existing typed native/WASM ports not yet available to Rhai, and missing cross-game capabilities. Link each proposed high-value gap to its real domain owner and one or more concrete gameplay situations. Mark a category as data-only when scripting is not needed. Do not start with a target number of ports.
-2. **One new flagship mechanic:** choose a useful, not-yet-implemented Ambition gameplay mechanic from current product work and implement it primarily in Rhai + authored data. The host's existing Rust gameplay remains intact. If the SDK blocks it, add only the reusable domain capability needed and include a small reuse witness.
-3. **Playback and cost proof:** run the mechanic through the supported session path, test its relevant rollback/state and admission/refusal behavior, demonstrate no-Cargo script iteration, and record the script's runtime cost in the scenario that actually uses it. Note whether staying in Rhai or promoting it to portable Rust makes sense; no promotion is required merely for acceptance.
+The first slice below is a closed receipt. The capability program remains
+open. Success means that an author can implement substantial new gameplay
+without first adding game-specific Rust or a special engine adapter.
 
-If an intended feature requires a fundamental new service, report it as such rather than disguising a subsystem rewrite as a scripting adapter. Use existing domain tests and a small number of high-value behavior witnesses; no full-suite or test-count quota.
+Use these capability groups to assess coverage:
 
-## Acceptance and exit
+- Scoped, bounded world and target observations with stable identities.
+- Controller-neutral contacts and accepted combat outcomes.
+- Authored world-object state and consume/reward transactions.
+- Creation, custody, equipment, form, travel, and lifetime operations.
+- Body, room, and session records plus accepted gameplay events.
+- Composable combat, motion intent, status, camera, audio, and HUD services.
+- Game content schemas, bindings, diagnostics, and a complete edit loop.
 
-**The program's first slice is complete when** a new, useful mechanic has actually been added to Ambition from Rhai and authored data; any new SDK interfaces are general, domain-owned, and available to portable Rust; tests/replay establish real behavior; and the author can iterate on the script using a prebuilt host. The coverage census identifies the next most useful capability gap. Retain a concise report of the edit loop and measured gameplay costs.
+For each group, distinguish existing data, described native services,
+services that need an adapter, and missing native authority. An available
+request does not prove that its trigger or result is available. Preserve
+explicit refusals and unsupported cases in the census.
 
-**The longer-term product goal is achieved when** typical new Ambition gameplay ideas can be implemented without first modifying game-specific Rust code or seeking a new special-purpose engine adapter. This is an ongoing usability outcome, not an instruction to port existing games or expose every engine function.
-
-No fixed count of Rhai modules, ports, or demonstration mechanics is required. The flagship feature and its evidence are the deliverables, not the size of the scripting surface.
+There is no required port count or demonstration count. A feature slice
+proves its own composition. It does not prove that these groups are complete.
 
 ## First-slice receipt (2026-11-17)
 
@@ -84,6 +106,76 @@ No fixed count of Rhai modules, ports, or demonstration mechanics is required. T
   records the scenario and cost: keep this bounded stage sequence in Rhai.
 - The longer-term usability goal remains open. Do not infer a migration
   mandate or complete engine API coverage from this first slice.
+
+## Active follow-on: finish the gameplay authoring capability (2026-11-17)
+
+**Maintainer clarification:** This is a gameplay and engine capability task, not a documentation-only audit or a Rhai-alias-count task. **Native engine work, including structural refactoring, is in scope and is preferred when it creates a cleaner general capability.** The engine is pre-release. Do not preserve an awkward boundary or create game-specific glue to avoid changing it. Keep Bevy, physics, collision arbitration, inventory, travel and rollback authority in their domain owners. Rhai, WASM and linked Rust must use the same semantic contracts where procedural access is appropriate.
+
+The finite first slice and Pulse Forge receipts are historical milestones. They are **not** the exit criteria for this active follow-on. The next agent should implement the missing capability families, exercise them in real new Ambition gameplay, and leave a source-grounded list of any limitations. Do not stop after identifying a blocker, adding a descriptor, or writing a proposal for future engine work when the blocker is within this task's engineering scope.
+
+### Required authoring experiences
+
+These are the user-facing capabilities the completion review must cover. A capability can be supplied by existing authored data instead of a Rhai call **if an actual authored example demonstrates that path**; otherwise it needs a general domain-owned procedural seam. Never claim a capability from a plausible API name alone.
+
+| Authoring need | Minimum observable behavior | What does not count |
+| --- | --- | --- |
+| React to gameplay, not just poll every tick | A new scripted rule reacts to a domain-confirmed event or contact, with scoped subject and stable provenance; it works for the relevant body/controller kinds | Polling every entity every frame to guess an event; presentation effects as event evidence |
+| Know whether a requested action happened | The script can correlate a submission with a typed accepted/refused/applied outcome at the domain's defined read cut, including eventual completion when needed | Logging a refusal only in Rust; treating submission or queueing as success |
+| Interact with authored world objects | New content can define an interactive or breakable object, detect legitimate interaction, consume/alter it through the world owner, update collision/art as appropriate, and grant a reward once | Game-named engine callbacks, raw collider setters, a second inventory or room-state store |
+| Select relevant targets and respond to combat | Bounded, room-scoped observations with stable identities; accepted hit/contact results, not guesses from overlaps; no cross-controller special cases | Unbounded ECS scans or spatial coordinates without identities where a later action needs a target |
+| Change gameplay inventory, entities and progression | Reusable authoring can request spawn/despawn or item/equipment/progression changes through existing domain owners and observe their outcomes, with correct lifetime | A script mutating health, ECS entities, save flags and inventory as an uncoordinated sequence |
+| Follow travel and room lifecycles | A script can react to confirmed arrival/exit, failed travel or owner/room retirement when a selected mechanic needs them; gate-specific mechanics stay with the gate owner | Treating a requested portal as actual arrival or retaining references to an unloaded room |
+| Iterate without rebuilding the host | An author can add or modify the new game's script and its declared content bindings in a running/prebuilt Ambition host and see valid changes or actionable rejection | A test-only script that needs a new hand-edited Rust game adapter for every use |
+
+The first four rows are **immediate high-priority gaps** in the census; the next two must receive an end-to-end coverage decision and working proof rather than being silently declared out of scope. Presentation is a supporting capability: use current sound/effect/cutscene/data paths, and add a typed camera/HUD contract only for a real new gameplay customer. Do not turn this into an instruction to expose every Bevy or rendering API.
+
+### Engine work is allowed and sometimes required
+
+Use the **domain owner** as the place to improve mechanics, then give it script and portable-Rust bindings as needed. Examples of legitimate native work:
+
+- Add a small typed gameplay event/result service, or improve existing domain event publication, so occurrences and outcomes are replay-safe and available at declared phases. A universal unbounded event bus is **not** a requirement. Prefer a few coherent typed streams over duplicative per-game bridges.
+- Refactor contact, authored-object consumption and room collision overlays to share identity, first-winner admission and rollback semantics. If a new common domain service is simpler than another adapter around Mary-O bricks or Sanic monitors, build that service. Keep their existing gameplay working; do not migrate those implementations for a port-count target.
+- Improve target observation, actor creation, item grant or travel services when their current shapes prevent a reusable, safe script contract. Use authored schemas/selectors for named content, not embedded game-specific Rust branches.
+- Remove provisional duplicate paths or incompatible APIs when a unified pre-release design is better. Do not add compatibility scaffolding for consumers that do not exist.
+
+An agent must not report "requires engine changes" as the final answer for a necessary capability. Identify the owner, make the architectural change, wire the common port, and prove the feature. Escalate only an actual product decision (for example, whether gate authorization is a shipped rule), not ordinary engineering ownership decisions. Work in the assigned checkout; do not create or switch worktrees.
+
+### Build the missing seams in a useful order
+
+These are dependency stages, **not** permission to declare the whole program complete after any one stage.
+
+1. **Trace the full action path.** Recheck the source head for `script_ports()`, phase installs, the native contact/hit ports, `story_script.rs`, authored room commands, item collection, actor spawn and gate travel. Mark each need as `Rhai`, `portable-only`, `native/data-only`, or `absent`. Confirm trigger *and* request availability in the same authorized phase; a descriptor in the registry is not enough. Update the [census](script-first-capability-census.md) as work lands, not instead of doing it.
+2. **Unify outcomes and important event triggers.** Supply reusable scoped facts and request correlation. Keep `submitted`, `admitted`, `applied`, `rejected`, `canceled` and terminal outcomes distinct where the owner distinguishes them; do not fabricate a same-tick result if arbitration happens later. Specify stable occurrence keys, identity, scope, ordering, read cut, bounded delivery, state/retirement, rollback replay, and conflict resolution. A shielded shot must not appear as a successful damaging hit. Ensure the feature is usable from Rhai and the portable typed contract, rather than only a Bevy event.
+3. **Complete world-object interaction.** Select a real, desirable new Ambition interaction and author it in data plus Rhai. It must use authoritative contact/activation, an atomic first-successful-consumer or equivalent domain rule, appropriate art/collision changes, and an actual pickup/grant/other result. Try competing interactions, rejection, room reload, save/rollback and replay where applicable. Prefer improving world-item/room-object services to introducing an unrelated script-owned collision model.
+4. **Complete identified targeting and combat reaction.** Use a real new combat/interaction request to motivate bounded queries and an accepted contact/damage outcome. Preserve provenance after reflection, shielding and delay. Expose controller-neutral contact/hit trigger behavior where appropriate. Native physics/combat continues to decide hits; scripts decide new policy and timing. A small independent reuse witness is sufficient if a second complete game feature would be artificial.
+5. **Close creation, progression and travel seams.** For each row in the active [gap register](script-first-capability-census.md), either demonstrate a real data-authoring path or implement the reusable domain contract needed by a plausible new Ambition mechanic. In particular, verify that scripts can observe success/failure for item grants, actor creation and relevant travel, even if the principal action stays entirely native. The illicit traveler's one-use gate key is a **candidate** cross-domain acceptance feature, not a fixed lore or gate-authorization requirement: only implement it if the gameplay rule is selected. Do not invent gate restriction policy as part of SDK work.
+6. **Prove a practical authoring loop and review the shape of the engine.** Run the assembled Ambition gameplay rather than relying only on port unit tests. Edit the new scripts and content in a prebuilt host; validate load/reload, error reporting, supported platform builds and relevant runtime cost. Demonstrate at least one independent reuse of newly added semantic interfaces. Remove feature-specific glue and record remaining performance and platform limitations accurately.
+
+### Failure cases the witnesses must distinguish
+
+Choose a small set of **high-value** focused tests/recorded replays; do not manufacture a broad testing program. Reuse existing domain and game tests where possible. Cover these cases when the corresponding domain is part of the new gameplay:
+
+- Two simultaneous consumers compete for the same world object: exactly one domain grant succeeds; the object, collision and rendering agree.
+- A script requests an invalid command, nonexistent entity or inactive room: it receives the correct refusal or terminal outcome, not a silent log-only failure; its own state does not advance as if the action applied.
+- A projectile is blocked, reflected or misses: contact and actual damage outcomes differ correctly; source credit follows the resolved hit.
+- A spawn request is accepted for processing but construction fails or its owner expires: the script does not receive a phantom body ID and cleans its pending state.
+- A room unload, interrupted cutscene or canceled crossing removes or finalizes pending operations; no orphan callback changes later gameplay.
+- Rollback/replay does not duplicate an item, payout, actor, cue or result consumption; phase and identity ordering are deterministic.
+- A script/content edit can be applied or rejected without rebuilding the game executable or corrupting the last valid generation.
+
+### Completion gate and handoff
+
+**Do not mark script-first gameplay complete merely because** Pulse Forge parity passed, the encore/Lightning examples run, a census was written, all easy port descriptions were added, or one cross-domain feature was demonstrated. These are valid receipts but not general gameplay authoring readiness.
+
+The active program can be marked complete only when:
+
+1. The required authoring experiences above have **real implementation evidence**, or a justified, demonstrated data/native-authoring equivalent. A high-priority family cannot remain a known blocker with no working path.
+2. New Ambition gameplay exercises **multiple independent domain families**, including an interaction with an authoritative outcome; the demonstrated contracts are reusable outside that mechanic. Recheck expressiveness by attempting a meaningfully different feature, not a reskin of the stage attack.
+3. Engine changes, if needed for those semantics, are implemented cleanly in owning domains and used by Rhai and portable Rust; no gameplay-specific SDK hacks, raw ECS exposure, parallel simulators or unbounded scans are left as the normal authoring path.
+4. A prebuilt-host editing cycle, relevant replay/state/cancellation evidence, and measured cost are documented with commands and observed results. Verification claims distinguish executed checks from static reasoning; do not require a full four-hour suite for a local scripting change.
+5. The census marks each high-priority gap as `implemented`, `data-authorable with witness`, or `still blocked`, with links to code and proof. **Any remaining high-priority `still blocked` entry means the program remains open.** A deliberate reduction of this scope requires an explicit maintainer decision, not unilateral agent deferral.
+
+When time or dependencies prevent full completion, commit the finished coherent improvements and report **partial progress**, the remaining blocking capability, its owner, and the next executable step. Never call the full plan finished while a gate above remains unsatisfied. A request to "complete these plans" authorizes the necessary engine work; it is not an instruction to ask for permission at each ordinary engine refactor.
 
 ## Existing owners and references
 

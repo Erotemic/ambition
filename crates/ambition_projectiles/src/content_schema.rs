@@ -42,6 +42,12 @@ fn out_of_range(id: &str, field: &str, value: f32, zero_allowed: bool) -> Option
 fn problems(looks: &ProjectileLooks) -> Vec<String> {
     let mut problems = Vec::new();
     for (id, art) in looks {
+        if let ProjectileArtSource::Line { look, length } = &art.source {
+            problems.extend(out_of_range(id, "source.length", *length, false));
+            if ambition_vfx::line::LineLook::named(look).is_none() {
+                problems.push(format!("{}: `source.look` is unknown: {look:?}", named(id)));
+            }
+        }
         let sizes: Vec<(&str, f32, bool)> = match art.size {
             // `min` 0 is no clamp.
             ProjectileRenderSize::Body { min, scale } => vec![("size.min", min, true), ("size.scale", scale, false)],
@@ -71,6 +77,7 @@ fn problems(looks: &ProjectileLooks) -> Vec<String> {
             }
         }
         let names_a_file = match &art.source {
+            ProjectileArtSource::Line { look, .. } => !look.trim().is_empty(),
             ProjectileArtSource::Image { path } => !path.trim().is_empty(),
             ProjectileArtSource::Sheet { target, animation, .. } => !target.trim().is_empty() && !animation.trim().is_empty(),
             _ => true,
@@ -150,6 +157,18 @@ pub fn lowered_motion_techniques(pack: &PreparedContentPack) -> Option<&MotionTe
 mod motion_technique_tests {
     use super::*;
     use crate::MotionDirection::{Down, DownRight, Right};
+
+    #[test]
+    fn a_line_look_is_validated_before_publication() {
+        let mut art = ProjectileArt::generic();
+        art.source = ProjectileArtSource::Line { look: "force".into(), length: 96.0 };
+        let mut looks = ProjectileLooks::from([("bolt".into(), art)]);
+        assert!(problems(&looks).is_empty());
+        looks.get_mut("bolt").unwrap().source = ProjectileArtSource::Line { look: "missing".into(), length: f32::NAN };
+        let errors = problems(&looks);
+        assert!(errors.iter().any(|error| error.contains("source.look")));
+        assert!(errors.iter().any(|error| error.contains("source.length")));
+    }
 
     #[test]
     fn a_technique_no_input_can_fire_is_named_by_its_id() {

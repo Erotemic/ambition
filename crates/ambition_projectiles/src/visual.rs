@@ -43,6 +43,8 @@ impl ProjectileVisualId {
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum ProjectileArtSource {
+    /// A moving stroke drawn by the shared line renderer, behind the shot's head.
+    Line { look: String, length: f32 },
     /// The shared "energy ball" texture, tinted `rgba`. Falls back to a flat
     /// colored quad of the same tint when the texture is missing. (Player kit.)
     EnergyTinted { rgba: [f32; 4] },

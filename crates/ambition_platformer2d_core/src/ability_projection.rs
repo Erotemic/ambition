@@ -1,7 +1,7 @@
 //! The body's effective verbs, projected from its base and what live situations
 //! contribute.
 //!
-//! `BodyAbilities = (AbilityBase ∪ every lend) ∩ every ceiling`, recomputed by
+//! Body abilities combine the base, grants, and limits, recomputed by
 //! [`project_body_abilities`] for each body carrying contributions. A source (a
 //! room that forces swimming, a portal crossing that forbids wall verbs, the
 //! developer ability mask) owns exactly one keyed entry in
@@ -24,6 +24,10 @@ pub enum AbilityContribution {
     Lend(AbilitySet),
     /// Verbs the source permits; everything else is withheld.
     Ceiling(AbilitySet),
+    /// An authored access limit that a permission grant can lift.
+    AccessCeiling(AbilitySet),
+    /// Permission to use verbs beyond authored access limits.
+    AccessGrant(AbilitySet),
 }
 
 /// Every live contribution to this body's verbs, keyed by source.
@@ -56,18 +60,24 @@ impl AbilityContributions {
             .map(|(_, contribution)| *contribution)
     }
 
-    /// `(base ∪ lends) ∩ ceilings`. Order-free: union and intersection are each
-    /// commutative, and every lend is applied before any ceiling.
+    /// Access grants lift authored access limits. Physical ceilings still apply.
     pub fn apply(&self, base: AbilitySet) -> AbilitySet {
         let mut lent = base;
         let mut ceiling = AbilitySet::ALL;
+        let mut access = AbilitySet::ALL;
+        let mut permissions = AbilitySet::NONE;
         for (_, contribution) in &self.entries {
             match *contribution {
                 AbilityContribution::Lend(set) => lent = lent.union(set),
                 AbilityContribution::Ceiling(set) => ceiling = ceiling.intersect(set),
+                AbilityContribution::AccessCeiling(set) => access = access.intersect(set),
+                AbilityContribution::AccessGrant(set) => {
+                    lent = lent.union(set);
+                    permissions = permissions.union(set);
+                },
             }
         }
-        lent.intersect(ceiling)
+        lent.intersect(ceiling).intersect(access.union(permissions))
     }
 }
 
@@ -141,6 +151,21 @@ fn follow_count(available: u8, previous: u8, desired: u8) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn access_permissions_keep_physical_limits_in_both_orders() {
+        let base = AbilitySet::ALL;
+        let access = AbilityContribution::AccessCeiling(AbilitySet::NONE);
+        let grant = AbilityContribution::AccessGrant(base);
+        let physical = AbilityContribution::Ceiling(AbilitySet { ledge_grab: false, ..base });
+        for entries in [[access, grant, physical], [physical, grant, access]] {
+            let mut contributions = AbilityContributions::default();
+            for (key, value) in ["a", "b", "c"].into_iter().zip(entries) { contributions.set(key, value); }
+            let effective = contributions.apply(base);
+            assert!(effective.fly && effective.blink && effective.double_jump);
+            assert!(!effective.ledge_grab);
+        }
+    }
 
     fn swim_only() -> AbilitySet {
         AbilitySet { swim: true, ..AbilitySet::NONE }

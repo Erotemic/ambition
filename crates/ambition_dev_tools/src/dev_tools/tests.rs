@@ -119,7 +119,7 @@ fn a_debug_view_preset_draws_its_geometry_observers_by_namespace() {
     assert!(tools.show_observed_geometry, "the combat preset draws observed geometry");
     assert!(tools.draws_observer("combat.volumes"));
     assert!(tools.draws_observer("combat.a_later_observer"), "a later observer in the namespace joins the preset");
-    assert!(!tools.draws_observer("collision.composed"), "the combat preset does not draw the walls");
+    assert!(tools.draws_observer("collision.for_subject"), "combat includes the surfaces the body meets");
 
     tools.apply_debug_view_mode(DebugViewMode::Triggers, false);
     for provider in ["world.regions", "interaction.reach", "portal.apertures"] {

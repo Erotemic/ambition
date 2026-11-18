@@ -269,6 +269,8 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
         ledges,
         hall,
         limbs,
+        slope: back_ledge.and_then(|back| back.slope_line(kin, unmirrored))
+            .unwrap_or_default().into_iter().map(|point| point.to_array()).collect(),
     })
 }
 
@@ -1072,6 +1074,7 @@ mod mount_view_tests {
                 unmirrored: true,
                 back: Some([drawn.min.x, drawn.min.y, drawn.max.x, drawn.max.y]),
                 ledges: Vec::new(),
+                slope: Vec::new(),
                 hall: Some(RoomHall { floor: 1250.0, left: 48.0, right: 1800.0 }),
                 limbs: vec![
                     ambition_boss_special_port::MountLimb {

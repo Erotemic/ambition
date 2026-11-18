@@ -289,3 +289,45 @@ fn f1_collects_geometry_through_the_visible_apps_schedule() {
     app.update();
     assert!(app.world().resource::<ObservedGeometryFrame>().views.is_empty());
 }
+
+#[test]
+fn f1_shows_the_guitars_actual_carried_surface_with_default_settings() {
+    use ambition_app::app::{build_visible_app_with, StartRoomMustResolve, StartRoomOverride, VisibleRenderMode};
+    use ambition_platformer2d::{characters::actor::CharacterForm, engine_core as ae, mount::BackLedge};
+    use bevy::prelude::*;
+    use leafwing_input_manager::prelude::Buttonlike;
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
+        app.insert_resource(StartRoomOverride("boss_main_stage".into()));
+        app.insert_resource(StartRoomMustResolve);
+    });
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
+    for _ in 0..120 { app.update(); }
+    Buttonlike::press(&KeyCode::F1, app.world_mut());
+    app.update();
+    Buttonlike::release(&KeyCode::F1, app.world_mut());
+    app.update();
+    let world = app.world_mut();
+    let guitar = world.query::<(&CharacterForm, &ae::BodyKinematics, &BackLedge, Has<ae::Unmirrored>)>()
+        .iter(world).find(|(form, ..)| form.id() == "npc_full_stack")
+        .and_then(|(_, kin, back, unmirrored)| back.slope_line(kin, unmirrored))
+        .expect("the guitar has a walkable surface");
+    let feed = world.resource::<ObservedGeometryFrame>();
+    assert!(!feed.views.is_empty(), "F1 collects with the shipped settings");
+    let pieces: Vec<_> = feed.views.iter().flat_map(|view| &view.report.as_ref().unwrap().layers)
+        .filter(|layer| layer.provider == "collision.for_subject")
+        .flat_map(|layer| match &layer.answer { ObserverAnswer::Observed { geometry } => geometry.as_slice(), _ => &[] })
+        .filter(|piece| piece.key == "mount_slope").collect();
+    assert!(!pieces.is_empty(), "F1 reports the guitar: {feed:?}");
+    assert!(pieces.iter().any(|piece| matches!(&piece.shape, ObservedShape::Polyline { points }
+        if points.len() == guitar.len() && points.iter().zip(&guitar).all(|(a, b)|
+            (ae::Vec2::from_array(*a) - *b).length() < 2.0))), "the outline follows the real guitar: {pieces:?}");
+    assert!(pieces.iter().all(|piece| piece.roles.iter().any(|role| role == "drawn_by_art")));
+    world.resource_mut::<DeveloperTools>().apply_debug_view_mode(
+        ambition_platformer2d::dev_tools::dev_tools::DebugViewMode::Combat, false);
+    app.update();
+    let feed = app.world().resource::<ObservedGeometryFrame>();
+    assert!(feed.views.iter().flat_map(|view| &view.report.as_ref().unwrap().layers)
+        .any(|layer| matches!(&layer.answer, ObserverAnswer::Observed { geometry }
+            if layer.provider == "collision.for_subject" && geometry.iter().any(|piece| piece.key == "mount_slope"))),
+        "combat keeps the real climbing surfaces: {feed:?}");
+}

@@ -178,6 +178,36 @@ impl Field<[f32; 2]> for [f32; 2] {
     }
 }
 
+/// Exact unsigned values use decimal text in scripts.
+impl Field<u64> for u64 {
+    fn shape() -> Shape { Shape::Text }
+    fn put(value: &u64, out: &mut Vec<u8>) { wire::put_u64(out, *value); }
+    fn read(r: &mut WireReader<'_>) -> Result<u64, WireError> { r.u64() }
+    fn to_script(value: &u64) -> ScriptValue { ScriptValue::Text(value.to_string()) }
+    fn from_script(value: &ScriptValue) -> Result<u64, String> {
+        value.as_text()?.parse().map_err(|_| "expected an unsigned decimal u64 value".into())
+    }
+}
+
+/// Four finite coordinates, such as a box or an RGBA colour.
+impl Field<[f32; 4]> for [f32; 4] {
+    fn shape() -> Shape { Shape::List(Box::new(Shape::F32)) }
+    fn put(value: &[f32; 4], out: &mut Vec<u8>) {
+        for value in value { wire::put_f32(out, *value); }
+    }
+    fn read(r: &mut WireReader<'_>) -> Result<[f32; 4], WireError> {
+        Ok([r.f32()?, r.f32()?, r.f32()?, r.f32()?])
+    }
+    fn to_script(value: &[f32; 4]) -> ScriptValue {
+        ScriptValue::List(value.iter().copied().map(ScriptValue::Num).collect())
+    }
+    fn from_script(value: &ScriptValue) -> Result<[f32; 4], String> {
+        let values = value.as_list()?;
+        let [a, b, c, d] = values else { return Err("expected four coordinates".into()); };
+        Ok([finite(a.as_num()?)?, finite(b.as_num()?)?, finite(c.as_num()?)?, finite(d.as_num()?)?])
+    }
+}
+
 impl Field<String> for String {
     fn shape() -> Shape {
         Shape::Text
@@ -390,18 +420,22 @@ macro_rules! port_record {
 
 /// Make port `$port` reachable from scripts through its value's codec
 /// ([`Field`]): the script form and the shape are the codec's.
+/// Use `Port as Codec` when the port's value needs a separate codec type.
 #[macro_export]
 macro_rules! script_port {
     ($port:ty) => {
+        $crate::script_port!($port as <$port as $crate::Port>::Value);
+    };
+    ($port:ty as $codec:ty) => {
         impl $crate::script::ScriptPort for $port {
             fn to_script(value: &<$port as $crate::Port>::Value) -> $crate::script::ScriptValue {
-                <<$port as $crate::Port>::Value as $crate::structure::Field<<$port as $crate::Port>::Value>>::to_script(value)
+                <$codec as $crate::structure::Field<<$port as $crate::Port>::Value>>::to_script(value)
             }
             fn from_script(value: &$crate::script::ScriptValue) -> Result<<$port as $crate::Port>::Value, String> {
-                <<$port as $crate::Port>::Value as $crate::structure::Field<<$port as $crate::Port>::Value>>::from_script(value)
+                <$codec as $crate::structure::Field<<$port as $crate::Port>::Value>>::from_script(value)
             }
             fn shape() -> Option<$crate::structure::Shape> {
-                Some(<<$port as $crate::Port>::Value as $crate::structure::Field<<$port as $crate::Port>::Value>>::shape())
+                Some(<$codec as $crate::structure::Field<<$port as $crate::Port>::Value>>::shape())
             }
         }
     };

@@ -14,7 +14,7 @@
         expiry_vfx: Some((fx: "ember_wisp", scale: 0.6)),
     ),
     "lightning": (
-        source: Sheet(target: "generic_world_fx", animation: "electric_arc", animate: false),
+        source: Line(look: "force", length: 96.0),
         size: FixedWidth(48.0),
         rotation: VelocityAligned,
         debug_tint: (0.45, 0.8, 1.0, 1.0),

@@ -19,6 +19,8 @@ pub enum GeometrySubjectSelection {
 #[reflect(Resource)]
 #[serde(default)]
 pub struct DeveloperTools {
+    /// Keep authored ability access limits open during playtesting.
+    pub unlock_all_abilities: bool,
     /// Experiences that keep God Blink enabled between sessions.
     pub god_blink_experiences: std::collections::BTreeSet<String>,
     /// Show the reflected resource inspector windows.
@@ -124,6 +126,7 @@ impl Default for DeveloperTools {
             debug_view_mode.recommended_art_mode()
         };
         let mut tools = Self {
+            unlock_all_abilities: true,
             god_blink_experiences: Default::default(),
             inspector_visible: false,
             world_inspector_visible: false,
@@ -316,7 +319,7 @@ impl DeveloperTools {
                 self.fill_debug_boxes = true;
             }
             DebugViewMode::Combat => {
-                self.set_observed_geometry_preset(true, &["combat."]);
+                self.set_observed_geometry_preset(true, &["collision.for_subject", "body.", "combat."]);
                 self.show_room_bounds = false;
                 self.show_world_blocks = false;
                 self.show_loading_zones = false;
@@ -384,6 +387,13 @@ impl DeveloperTools {
     /// Repair stale persisted states from the older independent
     /// hide/placeholder toggles so `DebugArtMode` remains the sole owner.
     pub fn normalize_debug_modes(&mut self) {
+        if self.debug_view_mode != DebugViewMode::Custom {
+            let selection = self.observed_geometry_only.take();
+            let subject = self.observed_geometry_subject.clone();
+            self.apply_debug_view_mode(self.debug_view_mode, false);
+            self.observed_geometry_only = selection;
+            self.observed_geometry_subject = subject;
+        }
         let mode = match (
             self.debug_art_mode,
             self.placeholder_sprites,

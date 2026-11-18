@@ -26,6 +26,96 @@ Port `ambition.boss.special_cast@4`, trigger: read as `this.trigger`.
 | `target` | [x, y] or () | Tracked target position, or unit when absent. |
 | `room_size` | [x, y] or () | The scope's live room size, or unit when absent. |
 
+## `boss_conduct`
+
+Port `ambition.boss.conduct@10`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `position` | [x, y] | World centre, in world units with +Y down. |
+| `velocity` | [x, y] | World velocity, in world units per second. |
+| `facing` | number | Body facing sign. |
+| `side` | number | Facing sign selected by the conductor. |
+| `alive` | bool | The body has health left. |
+| `telegraph` | { key: text, remaining: number } or () | The move whose warning is active. |
+| `active` | { key: text, remaining: number } or () | The move whose strike is active. |
+| `target` | [x, y] or () | Last observed target position. |
+| `hall` | { floor: number, left: number, right: number } or () | Floor and side walls in this live room, when available. |
+| `driven` | bool | A participant controls this body. |
+| `enraged` | bool | The encounter is in its enrage phase. |
+| `holding` | bool | The boss holds a body. |
+| `minions` | integer (u32) | Living non-boss summons in this encounter and live room. |
+| `between_phases` | bool | The encounter holds a transition between phases. |
+| `room` | [x, y] or () | Live room width and height, when available. |
+| `health` | integer (i32) | Current body health. |
+| `invulnerable` | bool | The encounter currently refuses damage to the boss. |
+| `target_body` | { position: [x, y], size: [x, y], swing: { since: number, hurts_in: number, live: bool, ends_in: number } or () } or () | Current target body geometry and move, when available. |
+| `size` | [x, y] | Full body width and height. |
+| `awake` | bool | The encounter has left its dormant phase. |
+| `predecessor` | { position: [x, y], size: [x, y], side: number, alive: bool } or () | The predecessor boss in this live room, when available. |
+| `reach` | list of number or () | Free movement distances [left, right, up, down], each capped at REACH_CAP. |
+
+## `mount`
+
+Port `ambition.boss.mount@5`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `position` | [x, y] | World centre, in world units with +Y down. |
+| `velocity` | [x, y] | World velocity, in world units per second. |
+| `size` | [x, y] | Full body width and height. |
+| `facing` | number | Body facing sign. |
+| `unmirrored` | bool | The art keeps its authored facing. |
+| `back` | list of number or () | Back box [min x, min y, max x, max y], when available. |
+| `ledges` | list of list of number | Standing ledges as [left x, left y, right x, right y]. |
+| `hall` | { floor: number, left: number, right: number } or () | Floor and side walls in this live room, when available. |
+| `limbs` | list of { slot: text, position: [x, y], size: [x, y], home_offset: [x, y], lost_health: integer (i32), held: bool, contact: [x, y] or (), struck: integer (u32) } | Live limbs in rig slot order. |
+| `slope` | list of [x, y] | Walkable slope points in segment order; empty when absent. |
+
+## `held_ray`
+
+Port `ambition.combat.held_ray@4`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `slot` | integer (u32) | `0` |  |
+| `generation` | integer (u32) | required |  |
+| `from` | one of: #{ world: [x, y] } \| #{ body: [x, y] }: offset from the body \| #{ part: #{ .. } }: a named point on drawn art | required |  |
+| `toward` | [x, y] | required |  |
+| `reach` | number | required |  |
+| `width` | number | required |  |
+| `damage` | integer (i32) | required |  |
+| `knockback` | number | `1.0` |  |
+| `launch_dir` | one of: #{ world: [x, y] } \| #{ away: [x, y] }: x points away from the source or () | `()` |  |
+| `lifetime_s` | number | required |  |
+| `look` | text | required |  |
+
+## `lightning`
+
+Port `ambition.feedback.lightning@3`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `key` | text | required |  |
+| `from` | one of: #{ world: [x, y] } \| #{ body: [x, y] }: offset from the body \| #{ part: #{ .. } }: a named point on drawn art | required |  |
+| `to` | one of: #{ world: [x, y] } \| #{ body: [x, y] }: offset from the body \| #{ part: #{ .. } }: a named point on drawn art | required |  |
+| `look` | text | required |  |
+| `glow` | list of number or () | `()` |  |
+| `hold_s` | number | required |  |
+
+## `lightning_aura`
+
+Port `ambition.feedback.lightning_aura@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `key` | text | required |  |
+| `center` | [x, y] | required |  |
+| `half` | [x, y] | required |  |
+| `look` | text | required |  |
+| `glow` | list of number or () | `()` |  |
+| `hold_s` | number | required |  |
+
 ## `technique_use`
 
 Port `ambition.body.technique@1`, trigger: read as `this.trigger`.
@@ -276,6 +366,79 @@ Port `ambition.world.whereabouts@1`, observation: read as `this.observe.<alias>`
 | field | value | meaning |
 |---|---|---|
 | `of` | table of text to text | Identity → `here` (live, this room), `away` (live, another room), `carried` (in a body's hands), `dormant` (built again with its room), `ended` (remembered gone: eaten, opened, killed) or `gone` (nothing builds it again). |
+
+## `parried`
+
+Port `ambition.combat.parried@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `parry` | integer (u32) | Phase-local parry index for answer_parry. |
+| `contact` | [x, y] |  |
+| `params` | table of text to one of: a number \| text \| a bool |  |
+
+## `answer_parry`
+
+Port `ambition.combat.answer_parry@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `parry` | integer (u32) | required |  |
+| `key` | text | required |  |
+| `params_at` | text | `""` |  |
+| `on_attacker` | bool | `false` |  |
+
+## `struck`
+
+Port `ambition.combat.struck@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `contact` | [x, y] |  |
+| `striker` | text | Opaque credit token of the striker, or "0" when absent. |
+| `params` | table of text to one of: a number \| text \| a bool |  |
+
+## `credit`
+
+Port `ambition.combat.credit@1`, observation: read as `this.observe.<alias>`.
+
+Value: text
+
+## `blast`
+
+Port `ambition.combat.blast@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `center` | [x, y] | required | World centre, +Y down. |
+| `half_extent` | [x, y] | required |  |
+| `damage` | integer (i32) | required |  |
+| `knockback` | number | `1.0` |  |
+| `lifetime_s` | number | required |  |
+| `credit` | text | `"0"` | The token from credit or struck.striker. Zero means no credit. |
+
+## `time_scale`
+
+Port `ambition.body.time_scale@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `scale` | number | required | The body's clock rate from the next tick. It must be finite and positive. |
+
+## `status_clock`
+
+Port `ambition.body.status_clock@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `kind` | text | required |  |
+| `remaining` | number | required | The remaining fraction, clamped to 0 through 1. |
+
+## `in_play`
+
+Port `ambition.body.in_play@1`, observation: read as `this.observe.<alias>`.
+
+Value: bool
 
 ## `hold_status`
 

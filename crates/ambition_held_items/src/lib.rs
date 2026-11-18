@@ -111,6 +111,7 @@ impl Plugin for HeldItemSimulationPlugin {
                 .chain()
                 .in_set(ItemPickupSet::CoreHeldItems),
         );
+        // Portal carves need settled custody; residency needs this tick's hand changes.
         let prepare_presence = project_item_body_presence
             .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep);
         #[cfg(feature = "portal")]

@@ -177,12 +177,10 @@ fn no_system_is_registered_twice_in_one_schedule() {
         ("GgrsSchedule", "sim_identity::ensure_sim_id", "head and tail of the frame"),
         ("GgrsSchedule", "sim_identity::mint_spawned_sim_ids", "head and tail of the frame"),
         ("GgrsSchedule", "sim_identity::heal_projectile_owners", "head and tail of the frame"),
-        // `combat_schedule.rs` — the second stamp catches a bolt that materialized
-        // THIS tick, whose firer can still be eliminated later in `Settle`.
         (
             "GgrsSchedule",
-            "allegiance::stamp_attack_allegiance",
-            "delayed bolts take their side inside Materialize, not next frame",
+            "ambition_held_items::project_item_body_presence",
+            "project custody before portal carves and after pickup or throw changes it",
         ),
         // `body/mod.rs` — once in `WorldPrep` for the pogo derivation and the
         // collision overlay, once between `Playback` and `Resolve` for the damage

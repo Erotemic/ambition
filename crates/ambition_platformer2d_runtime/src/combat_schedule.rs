@@ -420,23 +420,7 @@ impl Plugin for CombatSchedulePlugin {
                 // authoritative spawning through the VFX effect enum.
                 crate::projectile_schedule::materialize_projectiles_for_this_tick
                     .in_set(GameplayGated),
-                // TWICE, and the second one is not redundant. The first
-                // draft put this here alone, reasoning that a player bolt
-                // materializes after the step below and so first ticks next frame,
-                // when this has already run. That is true about STEPPING and false
-                // about the window: `take_eliminated_fighters_out_of_play` runs in
-                // `CombatSet::Settle`, and `Materialize` is BEFORE `Settle` — so a
-                // delayed bolt fired on the tick its owner is eliminated materializes
-                // at the end of this chain, loses its firer later in the same tick,
-                // and reaches this system next frame with nothing to read. The
-                // window is bounded by the DESPAWN, not by the step.
-                //
-                // not `run_if(gameplay_allowed)` — a bolt that materialized
-                // before a pause must not lose its side by being skipped, and
-                // stamping is not gameplay progress.
-                ambition_projectiles::ownership::capture_missing_projectile_credit,
-                crate::sim_identity::mint_spawned_sim_ids,
-                ambition_combat::allegiance::stamp_attack_allegiance,
+                // Emission supplies identity, credit, and allegiance before construction.
                 // ⭐⭐ TWO ATTACKS MEETING IS RESOLVED FIRST, AND "FIRST" MEANS
                 // BEFORE BOTH DAMAGE ROADS. This used to sit down in the melee
                 // damage chain, which is before `apply_hitbox_damage` and AFTER
@@ -470,13 +454,6 @@ impl Plugin for CombatSchedulePlugin {
                 // preserving the existing fire latency through the same entity
                 // constructor used by immediate actor/item/boss shots.
                 crate::projectile_schedule::materialize_projectiles_for_next_tick,
-                // The second stamp: the delayed bolt that just materialized takes
-                // its side HERE, inside `Materialize`, rather than next frame —
-                // because its firer can be eliminated later this same tick, in
-                // `Settle`. See the note beside the first placement.
-                ambition_projectiles::ownership::capture_missing_projectile_credit,
-                crate::sim_identity::mint_spawned_sim_ids,
-                ambition_combat::allegiance::stamp_attack_allegiance,
             )
                 .chain()
                 .in_set(CombatSet::Materialize),

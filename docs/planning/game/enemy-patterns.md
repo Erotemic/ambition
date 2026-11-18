@@ -130,7 +130,11 @@ Test: `game/ambition_app/tests/the_gnu_ton_apples.rs`.
   A `MeleeBrute` used to notice again after every swing and every stun: the
   shared AI holds its intent through a windup, strike, recovery or stun, and
   the brute read that as losing its foe. It loses its foe now only when the
-  AI is idle or patrolling. The other skirmisher profiles have no notice art
-  or cue yet and keep fighting on first sight.
+  AI is idle or patrolling. The dojo's heavies (the Ninja Heavy, the Bruiser
+  and the Wrestler) followed the same day: `notice` and `windup` rows, a
+  grunt `enemy.ninja_heavy.notice`, and the `ninja_heavy` profile (0.5 s).
+  The admiral's beat draws its idle until its fighter sheet has the rows;
+  the other skirmisher profiles have no notice art or cue yet and keep
+  fighting on first sight.
   [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths).
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

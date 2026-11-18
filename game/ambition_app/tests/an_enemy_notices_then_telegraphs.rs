@@ -355,9 +355,11 @@ fn the_raptor_is_heard_noticing_then_striking() {
 /// `notice` row on first sight, with their cue, before they wind up: the
 /// skirmishers (the raider, Iron Mary, the lookout and the navigator) to
 /// fire, the melee crew (the quartermaster, the cutlass viper, Broadside Bess
-/// and Salt Annet) and the duelists (the Shadow Duelist and the Blue Scarf)
-/// to cut. The pirates hail (the heavies bellow); the duelists' alert is the
-/// shadow oni's. A melee body is placed nearer, inside its sight.
+/// and Salt Annet), the duelists (the Shadow Duelist and the Blue Scarf) and
+/// the dojo's heavies (the Ninja Heavy, the Bruiser and the Wrestler) to cut
+/// or club. The pirates hail (their heavies bellow); the duelists' alert is
+/// the shadow oni's; the dojo heavies grunt. A melee body is placed nearer,
+/// inside its sight.
 #[test]
 fn the_crew_and_the_duelists_are_seen_and_heard_noticing_before_they_wind_up() {
     use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
@@ -373,6 +375,9 @@ fn the_crew_and_the_duelists_are_seen_and_heard_noticing_before_they_wind_up() {
         ("npc_pirate_heavy_salt_annet", "enemy.pirate_heavy.notice", 150.0),
         ("npc_ninja_shadow_duelist", "enemy.shadow_oni.alert", 150.0),
         ("npc_ninja_shadow_duelist_blue_scarf", "enemy.shadow_oni.alert", 150.0),
+        ("npc_ninja_heavy", "enemy.ninja_heavy.notice", 150.0),
+        ("npc_ninja_heavy_eye_band", "enemy.ninja_heavy.notice", 150.0),
+        ("npc_ninja_heavy_bare_arms", "enemy.ninja_heavy.notice", 150.0),
     ] {
         let id = format!("noticing_{character}");
         let notice_cue = SfxId::new(cue);

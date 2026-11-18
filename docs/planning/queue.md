@@ -460,7 +460,7 @@ renderer gave the crew `notice` and `windup` rows on 2026-10-30 (`bdfb278`)
 and they are published: the raider, quartermaster, lookout, cutlass viper,
 the three named heavies (Broadside Bess, Iron Mary, Salt Annet), the shadow
 duelists (every look) and the oni leader. Without rows: the navigator (until
-2026-11-18), the axe heavy, the ninja heavies, Kagero and the admiral. Only
+2026-11-18), the ninja heavies (until 2026-11-18), Kagero (an ally) and the admiral. Only
 the oni leader had a `.notice` cue.
 
 **Done 2026-11-18:** the crew's `Skirmisher`s notice. The raider (0.4 s),
@@ -483,9 +483,18 @@ windup comes sooner after the beat; sight is now the aggro radius. A
 `MeleeBrute` no longer notices again after each of its own swings or stuns
 (it read the AI's held intent as a lost foe).
 
-**Next action:** the characters without `notice` rows wait on their art:
-the axe heavy, the ninja heavies, Kagero and the admiral; the eye-band
-examiner keeps `medium_striker` (`Smash`) for the rank exam.
+**Done 2026-11-18 (the dojo's heavies):** the Ninja Heavy, the Bruiser and
+the Wrestler got `notice` and `windup` rows (renderer `f70df11`, published),
+a shut-mouthed grunt `enemy.ninja_heavy.notice` (SFX `cf1742d`, -22.1 dBFS)
+and the `ninja_heavy` profile (`MeleeBrute`, 0.5 s) in place of the
+`melee_brute_brute` preset. The audit's "axe heavy" is no character (the
+axe is a held prop), and Kagero is an ally (`stand_still`), not a foe.
+
+**Next action:** the admiral already notices (its `Skirmisher` profile has
+`notice_s: 0.4`) but its fighter sheet has no `notice` or `windup` row, so
+the beat draws its idle; draw both in its fighter rig
+(`_pirate_admiral_fighter.py`). The eye-band examiner keeps `medium_striker`
+(`Smash`) for the rank exam.
 
 **Acceptance:** first sight produces one authored pose and cue before attack;
 loss and reacquisition follow the declared policy. Hurt interruption and

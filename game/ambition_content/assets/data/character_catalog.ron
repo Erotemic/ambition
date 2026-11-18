@@ -65,6 +65,17 @@
             chase_effort: 1.0,
             tactics: (notice_s: 0.3),
         ),
+        // The dojo's heavies (the Ninja Heavy, the Bruiser, the Wrestler):
+        // close and bring the kanabo down, as the brute preset they ran did,
+        // with a beat on first sight in their `notice` row.
+        "ninja_heavy": (
+            template: MeleeBrute,
+            aggro_radius: 240.0,
+            attack_range: 44.0,
+            patrol_effort: 0.5,
+            chase_effort: 1.0,
+            tactics: (notice_s: 0.5),
+        ),
         "pirate_ranger": (
             template: Skirmisher,
             aggro_radius: 320.0,
@@ -4189,9 +4200,14 @@
             // 55.3 when a person stood 48: one of the heavy crew is taller than the crew.
             standing_height: Some(76.6),
             composition: None,
-            default_brain: "melee_brute_brute",
+            default_brain: "",
             default_action_set: "brute_lunge",
+            // The brute preset's chase speed, so he closes at the pace he
+            // always did.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            named_autonomous_profile: Some("ninja_heavy"),
             tags: ["enemy", "heavy"],
+            cues: (notice: Some("enemy.ninja_heavy.notice")),
         barks: (
             on_hit: ["Silence.", "The heavy shadow falls.", "You have chosen poorly."],
             provoked: ["The dojo's patience has limits."],
@@ -4210,9 +4226,14 @@
             // 198 cm, as the Ninja Heavy.
             standing_height: Some(76.6),
             composition: None,
-            default_brain: "melee_brute_brute",
+            default_brain: "",
             default_action_set: "brute_lunge",
+            // The brute preset's chase speed, so he closes at the pace he
+            // always did.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            named_autonomous_profile: Some("ninja_heavy"),
             tags: ["ninja", "enemy", "heavy"],
+            cues: (notice: Some("enemy.ninja_heavy.notice")),
         barks: (
             on_hit: ["Oak bends. It does not break.", "Again. Harder.", "You found the headband. Now find me."],
             provoked: ["The dojo sends its bruiser."],
@@ -4228,9 +4249,14 @@
             // 198 cm, as the Ninja Heavy.
             standing_height: Some(76.6),
             composition: None,
-            default_brain: "melee_brute_brute",
+            default_brain: "",
             default_action_set: "brute_lunge",
+            // The brute preset's chase speed, so he closes at the pace he
+            // always did.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            named_autonomous_profile: Some("ninja_heavy"),
             tags: ["ninja", "enemy", "heavy"],
+            cues: (notice: Some("enemy.ninja_heavy.notice")),
         barks: (
             on_hit: ["Sleeves are for the cautious.", "A good push. Mine is better.", "Out of the ring with you."],
             provoked: ["Step into the ring."],

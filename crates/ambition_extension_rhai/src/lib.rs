@@ -564,6 +564,38 @@ mod tests {
     }
 
     #[test]
+    #[allow(dead_code)]
+    fn nested_declarations_match_portable_values_and_check_initials() {
+        record_value! { struct Task; 1 title: String [max 32], 2 progress: u32 }
+        record! { struct Tasks = SchemaKey::new("test", "count", 1);
+            1 active: Option<Task>, 2 queue: Vec<Task> [max 4] }
+        let declaration = r#"
+            #{tag: 1, name: "active", kind: #{opt: task}},
+            #{tag: 2, name: "queue", kind: #{seq: 4, of: task}}
+        "#;
+        let task = r#"let task = #{record: [
+            #{tag: 1, name: "title", kind: "text 32"},
+            #{tag: 2, name: "progress", kind: "u32"}
+        ]};"#;
+        let source = CLOCK.replace("fn declare() {", &format!("fn declare() {{ {task}"))
+            .replace("#{tag: 1, name: \"ticks\", kind: \"u32\"}", declaration);
+        let mut native = native_clock();
+        native.schemas = vec![Tasks::schema()];
+        let declared = declared_clock(&source);
+        assert!(native.semantic_differences(&declared).is_empty());
+        let initialized = declared_clock(&source.replace(
+            "kind: #{seq: 4, of: task}", "kind: #{seq: 4, of: task}, initial: [#{title: \"build\"}]"));
+        let value = Tasks::from_record(&initialized.schemas[0].initial_record()).unwrap();
+        assert_eq!(value.queue, vec![Task { title: "build".into(), progress: 0 }]);
+        let bad = source.replace("name: \"progress\"", "name: \"title\"");
+        let mut ports = script::ScriptPorts::default();
+        ports.add::<Tick>("tick");
+        let error = super::RhaiModules::load_declared("bad.rhai", &bad, ports, super::DEFAULT_MAX_OPERATIONS)
+            .err().unwrap();
+        assert!(error.contains("DuplicateName"), "{error}");
+    }
+
+    #[test]
     fn invalid_source_reports_its_position_before_native_lookup() {
         let error = super::RhaiModules::load_file(
             "new_mechanic.rhai",

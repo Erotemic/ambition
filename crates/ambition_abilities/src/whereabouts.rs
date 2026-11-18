@@ -65,7 +65,7 @@ pub fn whereabouts_of(world: &World, scope: Entity) -> Option<Whereabouts> {
     Some(Whereabouts { of })
 }
 
-/// The identities a value names, in any option or sequence.
+/// The identities a value names, in any option, sequence or record.
 fn collect_refs(value: &Value, out: &mut BTreeSet<String>) {
     match value {
         Value::Ref(id) => {
@@ -73,6 +73,7 @@ fn collect_refs(value: &Value, out: &mut BTreeSet<String>) {
         }
         Value::Opt(Some(inner)) => collect_refs(inner, out),
         Value::Seq(items) => items.iter().for_each(|item| collect_refs(item, out)),
+        Value::Record(record) => record.values().iter().for_each(|item| collect_refs(item, out)),
         _ => {}
     }
 }
@@ -155,11 +156,17 @@ mod tests {
             key: SchemaKey::new("test", "claims", 1),
             attachment: Attachment::Body,
             save: SaveEligibility::Transient,
-            fields: vec![FieldDecl::new(1, "goals", FieldKind::seq(FieldKind::opt(FieldKind::Ref(RefKind::Item)), 16))],
+            fields: vec![FieldDecl::new(1, "memory", FieldKind::Record(vec![
+                FieldDecl::new(1, "goals", FieldKind::seq(FieldKind::opt(FieldKind::Ref(RefKind::Item)), 16)),
+                FieldDecl::new(2, "label", FieldKind::Text { max_bytes: 128 }),
+            ]))],
         };
         let mut record = schema.initial_record();
         record
-            .set(FieldRef(0), Value::Seq(ids.iter().map(|id| Value::some(Value::Ref((*id).into()))).collect()))
+            .set(FieldRef(0), Value::Record(ambition_extension_sdk::Record::from_values(vec![
+                Value::Seq(ids.iter().map(|id| Value::some(Value::Ref((*id).into()))).collect()),
+                Value::Text("placement:only_a_label".into()),
+            ])))
             .unwrap();
         let mut records = BodyRecords::default();
         records.put(schema.key.clone(), schema.shape_digest(), record);

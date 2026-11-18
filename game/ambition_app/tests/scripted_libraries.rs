@@ -23,6 +23,13 @@ fn schema(key) {
         #{ tag: 2, name: "sequence", kind: "u32" },
         #{ tag: 3, name: "applied", kind: "u32" },
         #{ tag: 4, name: "refused", kind: "u32" },
+        #{ tag: 5, name: "report", kind: #{ record: [
+            #{ tag: 1, name: "message", kind: "text 32" },
+            #{ tag: 2, name: "log", kind: #{ seq: 4, of: #{ record: [
+                #{ tag: 1, name: "nonce", kind: "u32" },
+                #{ tag: 2, name: "verdict", kind: "text 16" },
+            ] } } },
+        ] } },
     ] }
 }
 fn pulse(state, dt, period) {
@@ -33,6 +40,14 @@ fn pulse(state, dt, period) {
         state.sequence += 1;
     }
     #{ state: state, ready: ready }
+}
+fn remember(ctx, cfg) {
+    let report = ctx.state[cfg.slot].report;
+    report.message = ctx.trigger.code;
+    if report.log.len() == 4 { report.log.remove(0); }
+    report.log.push(#{nonce: ctx.trigger.ticket.request, verdict: ctx.trigger.stage});
+    ctx.state[cfg.slot].report = report;
+    ctx
 }
 "#;
 
@@ -58,7 +73,7 @@ fn result(ctx, cfg) {
     } else if ctx.trigger.stage == "rejected" {
         ctx.state[cfg.slot].refused += 1;
     } else { throw "unexpected trade outcome"; }
-    ctx
+    clock::remember(ctx, cfg)
 }
 "#;
 
@@ -83,7 +98,7 @@ fn result(ctx, cfg) {
     if ctx.trigger.stage != "applied" || ctx.trigger.code != "projectile_created"
         || ctx.trigger.subjects.len() != 1 { throw "a shot was not created"; }
     ctx.state[cfg.slot].applied += 1;
-    ctx
+    clock::remember(ctx, cfg)
 }
 "#;
 
@@ -138,8 +153,9 @@ fn root(name: &str) -> String {
 struct Sources(std::path::PathBuf);
 impl Sources {
     fn new() -> Self {
-        let dir =
-            std::env::temp_dir().join(format!("ambition_script_libraries_{}", std::process::id()));
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let serial = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("ambition_script_libraries_{}_{serial}", std::process::id()));
         std::fs::create_dir_all(dir.join("lib")).unwrap();
         for (name, text) in [
             ("lib/clock.rhai", CLOCK),
@@ -255,6 +271,65 @@ fn check_actions(sim: &Platformer2dSimHarness, bodies: [Entity; 2]) -> Vec<u32> 
     assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
     sim.rollback_health().unwrap();
     counts
+}
+
+fn reports(sim: &Platformer2dSimHarness, bodies: [Entity; 2]) -> Vec<Value> {
+    bodies.into_iter().flat_map(|body| ["alpha", "beta"].into_iter().flat_map(move |module| {
+        ["craft", "turret"].into_iter().map(move |component| {
+            sim.world().get::<BodyRecords>(body).unwrap().get(&SchemaKey {
+                provider: "library_probe".into(), key: format!("{module}.{component}").into(), revision: 1,
+            }).unwrap().get(FieldRef(4)).unwrap().clone()
+        })
+    })).collect()
+}
+
+#[test]
+fn editing_nested_state_preserves_live_instances_and_refuses_narrower_fields() {
+    let sources = Sources::new();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        options().with_extension_module_files(vec![sources.0.clone()]),
+    ).unwrap();
+    let bodies = setup(&mut sim);
+    sim.step_n(AgentAction::default(), 20);
+    pause(&mut sim, bodies);
+    check_actions(&sim, bodies);
+    let before = reports(&sim, bodies);
+    for value in &before {
+        let fields = value.as_record().unwrap().values();
+        assert!(!fields[0].as_text().unwrap().is_empty());
+        assert!(matches!(&fields[1], Value::Seq(log) if !log.is_empty() && log.len() <= 4));
+    }
+    let generation = sim.world().resource::<ExtensionGeneration>().clone();
+    let changed = CLOCK.replace(
+        "#{ tag: 1, name: \"message\", kind: \"text 32\" },", ""
+    ).replace(
+        "name: \"log\", kind:", "name: \"history\", kind:"
+    ).replace(
+        "        ] } },", "            #{ tag: 1, name: \"label\", kind: \"text 64\" },\n            #{ tag: 3, name: \"ready\", kind: \"bool\", initial: true },\n        ] } },"
+    ).replace("report.message", "report.label").replace("report.log", "report.history");
+    sources.edit("lib/clock.rhai", &changed);
+    sim.step_n(AgentAction::default(), 50);
+    assert_ne!(*sim.world().resource::<ExtensionGeneration>(), generation);
+    let expected: Vec<_> = before.into_iter().map(|value| {
+        let fields = value.as_record().unwrap().values();
+        Value::Record(extension::sdk::Record::from_values(vec![
+            fields[1].clone(), fields[0].clone(), Value::Bool(true),
+        ]))
+    }).collect();
+    assert_eq!(reports(&sim, bodies), expected);
+    let generation = sim.world().resource::<ExtensionGeneration>().clone();
+    for invalid in [changed.replace("text 64", "text 31"), changed.replace("\"nonce\", kind: \"u32\"", "\"nonce\", kind: \"i32\"")] {
+        sources.edit("lib/clock.rhai", &invalid);
+        sim.step_n(AgentAction::default(), 50);
+        assert_eq!(*sim.world().resource::<ExtensionGeneration>(), generation);
+        assert_eq!(reports(&sim, bodies), expected);
+    }
+    sources.edit("lib/clock.rhai", &changed);
+    sim.step_n(AgentAction::default(), 50);
+    resume(&mut sim, bodies);
+    sim.step_n(AgentAction::default(), 20);
+    pause(&mut sim, bodies);
+    check_actions(&sim, bodies);
 }
 
 #[test]

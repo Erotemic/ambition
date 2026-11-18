@@ -27,7 +27,8 @@ so adding a raw implementation-crate import there fails the architecture
 ratchet instead of expanding the public API by accident.
 
 [Script libraries](script-libraries.md) provide captured imports, reusable behavior
-functions, and typed state factories. Scripts can receive native command outcomes through
+functions, and typed state factories. [Structured state](script-state.md) adds reusable
+nested records and bounded text. Scripts can receive native command outcomes through
 [action results](action-results.md). This includes correlated replies, retries,
 cancellation, and rollback delivery. [Inventory exchanges](inventory-exchanges.md)
 apply exact item and wallet changes through the native owner. [Body queries](body-queries.md) provide

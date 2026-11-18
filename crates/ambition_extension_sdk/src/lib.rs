@@ -43,7 +43,7 @@ pub use module::{
 pub use port::{decode_erased, encode_erased, DecodeFn, EncodeFn, Port, PortKey, PortRole};
 pub use schema::{
     Attachment, FieldDecl, FieldKind, FieldRef, Record, RefKind, SaveEligibility, SchemaKey, StateSchema,
-    Value, MAX_REF_LEN,
+    Value, MAX_REF_LEN, MAX_SCHEMA_DEPTH,
 };
 
 /// A semantic API version. The host supports one major version and a range of
@@ -56,7 +56,7 @@ pub struct ApiVersion {
 
 /// The API version of this SDK. A module records the version it was built
 /// against in its descriptor.
-pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 1 };
+pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 2 };
 
 /// A name in a descriptor. Static modules use `&'static str`; a loaded module
 /// can own its strings.

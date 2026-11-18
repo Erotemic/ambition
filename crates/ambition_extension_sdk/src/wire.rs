@@ -19,6 +19,8 @@ pub enum WireError {
     Trailing(usize),
     /// A length is larger than the limit for that place.
     TooLong(u64),
+    /// A schema has more nesting than the SDK permits.
+    TooDeep,
 }
 
 impl std::fmt::Display for WireError {

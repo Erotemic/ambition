@@ -54,7 +54,7 @@
     ),
     (
         display_name: "Lightning",
-        description: "Fire three lightning bolts in a narrow fan. Hold to repeat. Each volley costs 9 mana.",
+        description: "Hold out your hand and lightning crackles from it in a short cone. Hold to keep it crackling; it spends mana while it does.",
         category: Ability,
         held_item_id: None,
         dialog_id: "lightning",

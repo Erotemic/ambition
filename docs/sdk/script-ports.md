@@ -72,9 +72,20 @@ Port `ambition.boss.mount@5`, observation: read as `this.observe.<alias>`.
 | `limbs` | list of { slot: text, position: [x, y], size: [x, y], home_offset: [x, y], lost_health: integer (i32), held: bool, contact: [x, y] or (), struck: integer (u32) } | Live limbs in rig slot order. |
 | `slope` | list of [x, y] | Walkable slope points in segment order; empty when absent. |
 
+## `drawn_row`
+
+Port `ambition.presentation.drawn_row@4`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `on` | one of: "body" \| "mount" \| #{ limb: "hand_left" }: a limb of the mount's rig \| "layer" \| "upper_body": over the pose of the legs | required | The part drawn: the body, its mount, a limb of the mount, a layer over the body's row, or the body above its hips. |
+| `names` | list of text | required | Rows in order of preference: a sheet without the first is drawn with the next. No names: drawn as the engine would. |
+| `elapsed` | number | `0.0` | Seconds into the row. |
+| `looping` | bool | `false` | Loop the row, or hold its last frame. |
+
 ## `held_ray`
 
-Port `ambition.combat.held_ray@4`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.combat.held_ray@5`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|

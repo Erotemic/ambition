@@ -1,4 +1,5 @@
-//! Lightning uses the inventory, technique, projectile, and rollback paths.
+//! Lightning uses the inventory, technique, held ray, drawn row, and rollback
+//! paths: a short cone of arcs from the outstretched hand.
 
 #![cfg(feature = "rl_sim")]
 
@@ -52,35 +53,42 @@ fn mana(sim: &Platformer2dSimHarness, body: Entity) -> f32 {
         .level_of(&ambition_platformer2d::abilities::mana::MANA).unwrap().current
 }
 
-fn cooldown(sim: &Platformer2dSimHarness, body: Entity) -> f32 {
+/// The arcs the body holds now: the rays of its lightning entry.
+fn arcs(sim: &mut Platformer2dSimHarness, body: Entity) -> Vec<ambition_platformer2d::combat::strike::RayStrike> {
+    let records: Vec<Entity> = sim.world().get::<ambition_platformer2d::combat::extension::HeldDamageBoxes>(body)
+        .map(|held| held.0.iter().filter(|r| r.entry.contains("lightning")).map(|r| r.entity).collect())
+        .unwrap_or_default();
+    records.into_iter().filter_map(|e| sim.world().get::<ambition_platformer2d::combat::strike::RayStrike>(e).cloned()).collect()
+}
+
+fn crackling(sim: &Platformer2dSimHarness, body: Entity) -> bool {
     match sim.world().get::<BodyRecords>(body).and_then(|r| r.get(&CADENCE)).and_then(|r| r.get(FieldRef(0)).ok()) {
-        Some(Value::F32(value)) => *value,
-        None => 0.0,
+        Some(Value::Bool(value)) => *value,
+        None => false,
         other => panic!("unexpected cadence: {other:?}"),
     }
 }
 
 #[test]
-fn the_menu_equips_a_fan_that_repeats_and_returns_the_slot() {
+fn the_menu_equips_a_cone_that_crackles_while_held_and_returns_the_slot() {
     let mut sim = sandbox(vec![], false);
     let body = primary(&mut sim);
     let before = mana(&sim, body);
     sim.step(held(true));
-    let bolts = shots(&sim, body);
-    assert_eq!(bolts.len(), 3);
-    assert!(bolts.iter().all(|b| b.projectile.body.kin.vel.x > 0.0));
-    assert!(bolts.iter().any(|b| b.projectile.body.kin.vel.y < 0.0));
-    assert!(bolts.iter().any(|b| b.projectile.body.kin.vel.y > 0.0));
-    assert!(mana(&sim, body) < before - 8.0);
-    assert!(cooldown(&sim, body) > 0.0);
-    let mut repeated = false;
-    for _ in 0..30 { sim.step(held(false)); repeated |= !shots(&sim, body).is_empty(); }
-    assert!(repeated, "holding repeats the volley");
-    sim.step(AgentAction { projectile_released: true, ..AgentAction::default() });
-    let before = cooldown(&sim, body);
-    sim.step(held(true));
-    assert!(shots(&sim, body).is_empty(), "a new press cannot bypass the cadence");
-    assert!(cooldown(&sim, body) < before);
+    let cone = arcs(&mut sim, body);
+    assert_eq!(cone.len(), 5, "five arcs leave the hand");
+    assert!(cone.iter().all(|arc| arc.dir.x > 0.0), "toward the aim: {cone:?}");
+    assert!(cone.iter().any(|arc| arc.dir.y < -0.2) && cone.iter().any(|arc| arc.dir.y > 0.2), "a cone, not a line: {cone:?}");
+    assert!(cone.iter().all(|arc| arc.length <= 130.0), "short range: {cone:?}");
+    assert!(mana(&sim, body) < before, "it spends mana");
+    assert!(crackling(&sim, body));
+    for _ in 0..30 {
+        sim.step(held(false));
+        assert_eq!(arcs(&mut sim, body).len(), 5, "holding keeps it crackling");
+    }
+    for _ in 0..10 { sim.step(AgentAction { projectile_released: true, ..AgentAction::default() }); }
+    assert!(arcs(&mut sim, body).is_empty(), "letting go stops it");
+    assert!(!crackling(&sim, body));
     equip(&mut sim, Item::Fireball);
     sim.step(held(true));
     sim.step(AgentAction { projectile_released: true, ..AgentAction::default() });
@@ -99,7 +107,7 @@ fn damage_trace(rollback: bool) -> Vec<i32> {
         world.query::<(Entity, &CharacterForm, &BodyKinematics)>().iter(world)
             .find(|(_, form, _)| form.id() == "sandbag").map(|(e, _, kin)| (e, kin.pos)).unwrap()
     };
-    sim.teleport_player((at.x - 95.0, at.y));
+    sim.teleport_player((at.x - 80.0, at.y));
     sim.rebase_rollback_history().unwrap();
     sim.step_n(AgentAction::default(), 30);
     sim.world_mut().insert_resource(ExtensionProfile::default());
@@ -111,7 +119,7 @@ fn damage_trace(rollback: bool) -> Vec<i32> {
     }
     let elapsed = started.elapsed();
     let profile = sim.world().resource::<ExtensionProfile>();
-    let row = &profile.0["ambition::lightning/volley"];
+    let row = &profile.0["ambition::lightning/zap"];
     println!("LIGHTNING_COST rollback={rollback} ticks=180 calls={} faults={} total_us={} backend_us={} session_us={}",
         row.calls, row.faults, row.total.as_micros(), row.backend.as_micros(), elapsed.as_micros());
     sim.rollback_health().unwrap();
@@ -123,7 +131,7 @@ fn damage_trace(rollback: bool) -> Vec<i32> {
 #[test]
 fn lightning_hits_match_the_first_run_through_rewinds() {
     let first = damage_trace(false);
-    assert!(first.windows(2).filter(|p| p[1] < p[0]).count() >= 3, "repeated volleys hit: {first:?}");
+    assert!(first.windows(2).filter(|p| p[1] < p[0]).count() >= 3, "the held arcs hit again and again: {first:?}");
     assert_eq!(damage_trace(true), first);
 }
 
@@ -149,55 +157,60 @@ fn a_fault_or_missing_mana_fires_nothing() {
     sim.world_mut().get_mut::<ActorResources>(body).unwrap()
         .level_of_mut(&ambition_platformer2d::abilities::mana::MANA).unwrap().current = 0.0;
     sim.step(held(true));
-    assert!(shots(&sim, body).is_empty());
-    assert_eq!(cooldown(&sim, body), 0.0);
+    assert!(arcs(&mut sim, body).is_empty());
+    assert!(!crackling(&sim, body));
 
-    let throwing = SOURCE.replace("    this.state.cadence = c;",
-        "    this.state.cadence = c; if user.pressed { throw \"volley fault\"; }");
+    let throwing = SOURCE.replace("    this.state.cadence = c;\n}",
+        "    this.state.cadence = c; if user.pressed { throw \"zap fault\"; }\n}");
     let file = ScriptFile::new("fault", &throwing);
     let mut sim = sandbox(vec![file.0.clone()], true);
     let body = primary(&mut sim);
     let before = mana(&sim, body);
     sim.step(held(true));
-    assert!(shots(&sim, body).is_empty());
+    assert!(arcs(&mut sim, body).is_empty());
     assert!(mana(&sim, body) >= before);
-    assert_eq!(cooldown(&sim, body), 0.0);
+    assert!(!crackling(&sim, body));
     let faults = sim.world().resource::<ExtensionFaults>();
-    assert!(faults.recent.iter().any(|f| format!("{:?}", f.fault).contains("volley fault")));
+    assert!(faults.recent.iter().any(|f| format!("{:?}", f.fault).contains("zap fault")));
     sim.rollback_health().unwrap();
 
-    let competing = SOURCE.replace("entries: [#{ key: \"volley\"", "entries: [#{ key: \"drain\", phase: \"technique_execution\", trigger: #{ port: \"technique_use\", selector: \"lightning\" }, requests: [\"spend_mana\"], limit: 1 }, #{ key: \"volley\"")
-        + "\nfn drain() { if this.trigger.user.pressed { this.requests.push(request(\"spend_mana\", #{ amount: 99.0 })); } }\n";
+    let competing = SOURCE.replace("entries: [#{ key: \"zap\"", "entries: [#{ key: \"drain\", phase: \"technique_execution\", trigger: #{ port: \"technique_use\", selector: \"lightning\" }, requests: [\"spend_mana\"], limit: 1 }, #{ key: \"zap\"")
+        + "\nfn drain() { if this.trigger.user.pressed { this.requests.push(request(\"spend_mana\", #{ amount: this.trigger.user.mana })); } }\n";
     let file = ScriptFile::new("cost", &competing);
     let mut sim = sandbox(vec![file.0.clone()], true);
     let body = primary(&mut sim);
     sim.step(held(true));
-    assert!(mana(&sim, body) < 2.0, "the earlier entry paid from the shared bank");
-    assert!(shots(&sim, body).is_empty(), "the later volley cannot spend the same mana");
+    let left = mana(&sim, body);
+    assert!(left < 1.0, "the earlier entry paid from the shared bank: {left}");
+    assert!(arcs(&mut sim, body).is_empty(), "the later zap cannot spend the same mana");
     assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
     sim.rollback_health().unwrap();
 }
 
 #[test]
-fn an_edit_changes_live_bolts_without_cargo_and_bad_code_keeps_the_last_program() {
+fn an_edit_changes_live_arcs_without_cargo_and_bad_code_keeps_the_last_program() {
     let file = ScriptFile::new("edit", SOURCE);
     let mut sim = sandbox(vec![file.0.clone()], false);
     let body = primary(&mut sim);
     sim.step(held(true));
-    let initial = shots(&sim, body)[0].projectile.body.kin.vel.length();
+    let longest = |arcs: &[ambition_platformer2d::combat::strike::RayStrike]| arcs.iter().map(|a| a.length).fold(0.0, f32::max);
+    // The arcs take new paths each pulse; the shipped reach is their cap.
+    let initial = longest(&arcs(&mut sim, body));
+    assert!(initial > 60.0 && initial <= 130.0, "the shipped arcs: {initial}");
     let generation = sim.world().resource::<ExtensionGeneration>().clone();
     file.edit("fn declare() { bad source");
     sim.step_n(AgentAction::default(), 50);
     assert_eq!(*sim.world().resource::<ExtensionGeneration>(), generation);
     sim.step(held(true));
-    assert_eq!(shots(&sim, body)[0].projectile.body.kin.vel.length(), initial);
+    let kept = longest(&arcs(&mut sim, body));
+    assert!(kept > 60.0 && kept <= 130.0, "bad code keeps the last program: {kept}");
     let started = std::time::Instant::now();
-    file.edit(&SOURCE.replace("const BOLT_SPEED = 680.0;", "const BOLT_SPEED = 420.0;"));
+    file.edit(&SOURCE.replace("const REACH = 118.0;", "const REACH = 50.0;"));
     sim.step_n(AgentAction::default(), 50);
     assert_ne!(*sim.world().resource::<ExtensionGeneration>(), generation);
     sim.step(held(true));
-    let bolts = shots(&sim, body);
-    assert_eq!(bolts.len(), 3);
-    assert!(bolts.iter().all(|b| (b.projectile.body.kin.vel.length() - 420.0).abs() < 0.01));
-    println!("LIGHTNING_EDIT edited_source_to_live_bolts_us={}", started.elapsed().as_micros());
+    let cone = arcs(&mut sim, body);
+    assert_eq!(cone.len(), 5);
+    assert!(longest(&cone) <= 55.0, "the edited reach: {cone:?}");
+    println!("LIGHTNING_EDIT edited_source_to_live_arcs_us={}", started.elapsed().as_micros());
 }

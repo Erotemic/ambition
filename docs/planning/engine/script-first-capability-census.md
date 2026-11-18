@@ -326,3 +326,21 @@ absence contracts pass. Policy retains the same 11 baseline violations.
 Broad union and tooling sweeps were not run. Do not use the developer scene-setup
 message for gameplay creation. Interactive props, general retirement outcomes,
 durable dynamic actors and cross-object event routing keep the program open.
+
+## Native world contact receipt
+
+Commit: `ab563c917`. Script contact rules could read bodies but not the world
+contacts already known to the movement solver. `body_contact` version 3 now
+publishes bounded world contacts with geometry identity, solver role, impact,
+and explicit step freshness. The shared core owns the dated movement output.
+
+The guard is the loaded `scripted_body_contacts` fixture: real head contacts
+start native actor creation for controlled and autonomous bodies, with actual
+replies and GGRS replay. Native tests check order, bounds, and stale output.
+See [body and world contacts](../../sdk/body-contacts.md) and the
+[local cost measurement](../../../dev/benchmark-candidates/scripted-world-contact-reaction-cost.md).
+
+These facts do not authorize geometry writes or reward payment. Atomic prop
+transitions, collision/art changes, and durable claims remain open. Do not
+synthesize movement contacts from a second envelope query. A display name
+does not identify geometry.

@@ -41,6 +41,12 @@ constexpr int Patch = 3;
 
 def print_version_with(header: str, tmp_path: Path) -> subprocess.CompletedProcess:
     """Run the real script against a fixture cargo registry."""
+    script = tmp_path / "repo/scripts/setup/install_profiling_tools.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text(SCRIPT.read_text())
+    (tmp_path / "repo/Cargo.lock").write_text(
+        'version = 4\n\n[[package]]\nname = "tracy-client-sys"\nversion = "0.29.0"\n'
+    )
     vendored = (
         tmp_path
         / "registry/src/index.crates.io-abc/tracy-client-sys-0.29.0/tracy/common"
@@ -48,7 +54,7 @@ def print_version_with(header: str, tmp_path: Path) -> subprocess.CompletedProce
     vendored.mkdir(parents=True)
     (vendored / "TracyVersion.hpp").write_text(header)
     return subprocess.run(
-        ["bash", str(SCRIPT), "--print-version"],
+        ["bash", str(script), "--print-version"],
         capture_output=True,
         text=True,
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "CARGO_HOME": str(tmp_path)},
@@ -62,6 +68,15 @@ def test_the_version_comes_out_of_the_header(tmp_path):
         f"the installer clones `v<this>` and the checker compares against it; "
         f"it produced {proc.stdout.strip()!r}"
     )
+
+
+def test_cached_older_clients_do_not_select_the_tool_version(tmp_path):
+    stale = tmp_path / "registry/src/index.crates.io-abc/tracy-client-sys-0.28.0/tracy/common"
+    stale.mkdir(parents=True)
+    (stale / "TracyVersion.hpp").write_text(HEADER.replace("Minor = 14", "Minor = 13"))
+    proc = print_version_with(HEADER, tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == "0.14.3"
 
 
 def test_a_header_it_cannot_parse_fails_loudly_instead_of_inventing_a_version(tmp_path):

@@ -40,9 +40,21 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # a real version (which never matched, so it reported MISMATCH on every machine
 # and taught readers to ignore it). Take the LAST field and strip non-digits.
 tracy_required_version() {
-    local header major minor patch
+    local header major minor patch sys_version
+    sys_version="$(python3 - "$repo_root/Cargo.lock" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as handle:
+    lock = tomllib.load(handle)
+versions = {p["version"] for p in lock["package"] if p["name"] == "tracy-client-sys"}
+if len(versions) != 1:
+    sys.exit("Cargo.lock must select one tracy-client-sys version")
+print(versions.pop())
+PY
+)" || return 1
     header="$(find "${CARGO_HOME:-$HOME/.cargo}/registry/src" -maxdepth 6 \
-        -path '*tracy-client-sys-*/tracy/common/TracyVersion.hpp' -print -quit 2>/dev/null || true)"
+        -path "*/tracy-client-sys-$sys_version/tracy/common/TracyVersion.hpp" -print -quit 2>/dev/null || true)"
     if [ -z "$header" ] || [ ! -f "$header" ]; then
         return 1
     fi

@@ -455,22 +455,32 @@ and authored character profiles. Design: [enemy patterns](game/enemy-patterns.md
 the shared `Brain::is_noticing` projection). The dilophosaurus is authored
 (0.4 s and its notice cue).
 
-**Audit 2026-11-10 (pirates and ninjas):** nothing to author yet. The oni
-leader is the one authored (0.5 s, `enemy.oni_leader.notice`). Every other
-pirate and ninja has no `notice` sheet row and no `.notice` cue recipe, so a
-`notice_s` would be a pause with no pose and no sound, which the acceptance
-below does not allow. Their brains: pirate strikers, brutes and the cutlass
-viper run the `Smash` template (no notice beat; it is the match-seat
-controller); the rangers, the raider and Iron Mary run `Skirmisher` (notice
-ready, data missing); the shadow duelists and heavies run the catalog presets
-`melee_brute_striker` / `melee_brute_brute` (`BrainPreset` carries no notice
-field; it is pinned to 0). None uses fighter engagement.
+**Audit 2026-11-10 (pirates and ninjas), corrected 2026-11-18:** the
+renderer gave the crew `notice` and `windup` rows on 2026-10-30 (`bdfb278`)
+and they are published: the raider, quartermaster, lookout, cutlass viper,
+the three named heavies (Broadside Bess, Iron Mary, Salt Annet), the shadow
+duelists (every look) and the oni leader. Without rows: the navigator (until
+2026-11-18), the axe heavy, the ninja heavies, Kagero and the admiral. Only
+the oni leader had a `.notice` cue.
 
-**Next action:** when a pirate or ninja sheet gains a `notice` row and its cue
-recipe is published (a publishing machine), author `tactics.notice_s` on its
-`Skirmisher` profile; for a `Smash` or catalog-preset enemy, move it to a
-profile whose template already carries the beat (brute or skirmisher) rather
-than adding a notice to `Smash` or `BrainPreset`.
+**Done 2026-11-18:** the crew's `Skirmisher`s notice. The raider (0.4 s),
+Iron Mary (0.5 s) and the rangers' shared `pirate_ranger` profile (the
+lookout and the navigator, 0.35 s) author `tactics.notice_s`; the crew's
+hail `enemy.pirate.notice` and the heavy's bellow `enemy.pirate_heavy.notice`
+are new recipes, levelled to -22 dBFS loudest 100 ms beside the oni's
+(rendered here; the SFX bank is a build product this VM has never had); the
+navigator took the lookout's telegraph rows (renderer `3441940`, published).
+Witness `the_pirate_skirmishers_are_seen_and_heard_noticing_before_they_aim`:
+each of the four is pinned in its `notice` row and plays its cue before it
+holds its windup to fire.
+
+**Next action:** the crew's melee fighters have notice rows but brains with
+no beat: the quartermaster and the cutlass viper run `pirate_striker`, Bess
+and Salt Annet `pirate_brute` (both `Smash`), the duelists the catalog
+preset `melee_brute_striker`. Move them to a profile whose template carries
+the beat (brute or skirmisher) rather than adding a notice to `Smash` or
+`BrainPreset`, and give them cues; that changes how they fight, so judge it
+in play. The characters without rows wait on their art.
 
 **Acceptance:** first sight produces one authored pose and cue before attack;
 loss and reacquisition follow the declared policy. Hurt interruption and

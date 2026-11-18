@@ -57,6 +57,9 @@
             chase_effort: 1.0,
             // The telegraph (Jon 2026-10-30: "notice, space, telegraph, attack"): it plants and aims (its windup row) before it fires.
             ranged_volley: Some((windup_s: 0.45, firing_s: 0.2, recovery_s: 1.0)),
+            // First sight (the lookout's and the navigator's `notice` rows): the
+            // cutlass up, the free hand pointing you out, a hail.
+            tactics: (notice_s: 0.35),
         ),
         // HOW AN AMBITION CHARACTER FIGHTS ONCE PROVOKED, when it names no
         // policy of its own: the provider's declared default
@@ -2155,10 +2158,13 @@
                 shares_sightings: true,
                 // It plants and aims (its windup row) before each volley: the telegraph.
                 ranged_volley: Some((windup_s: 0.5, firing_s: 0.3, recovery_s: 1.2)),
+                // First sight (its `notice` row): drawn up, pointing you out, a hail.
+                tactics: (notice_s: 0.4),
             )),
             provoked_profile: Some("pirate_boarder"),
             max_health: Some(4),
             tags: ["pirate", "enemy"],
+            cues: (notice: Some("enemy.pirate.notice")),
         barks: (
             on_hit: ["Yarrrgh!", "Quit pokin' me loot hand!", "I'll swab the floor with ye!", "Yo-ho-NO, ye landlubber!"],
             provoked: ["Board 'em, lads — yo-ho!"],
@@ -2214,7 +2220,7 @@
             named_autonomous_profile: Some("pirate_ranger"),
             max_health: Some(4),
             tags: ["pirate", "enemy"],
-            cues: (tell: Some("enemy.pirate_lookout.tell")),
+            cues: (notice: Some("enemy.pirate.notice"), tell: Some("enemy.pirate_lookout.tell")),
         barks: (
             on_hit: ["Land ho — an' I see YE comin'!", "Spyglass to me eye, boots to yer head!", "Crow's nest don't sit empty, savvy?"],
             provoked: ["Sound the alarm — all hands!"],
@@ -2242,6 +2248,7 @@
             named_autonomous_profile: Some("pirate_ranger"),
             max_health: Some(4),
             tags: ["pirate", "enemy"],
+            cues: (notice: Some("enemy.pirate.notice")),
         barks: (
             on_hit: ["Wrong heading, ye chartless dog!", "I'll plot ye a course straight to Davy Jones!", "Compass says: punch back!"],
             provoked: ["Heading set: yer skull!"],
@@ -2488,10 +2495,13 @@
                 shares_sightings: true,
                 // It plants and aims (its windup row) before each volley: the telegraph.
                 ranged_volley: Some((windup_s: 0.65, firing_s: 0.4, recovery_s: 1.5)),
+                // First sight (its `notice` row): the gun-sword up off the shoulder, a bellow.
+                tactics: (notice_s: 0.5),
             )),
             provoked_profile: Some("pirate_boarder_heavy"),
             max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
+            cues: (notice: Some("enemy.pirate_heavy.notice")),
         barks: (
             on_hit: ["Iron don't flinch, ye gull!", "Pry harder, swab — I'll rust ye flat!", "Yo-ho, an' a clout to the noggin!", "Try me on a calmer sea, landlubber!"],
             provoked: ["Iron Mary breaks ye in half!"],

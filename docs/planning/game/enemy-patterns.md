@@ -109,10 +109,15 @@ Test: `game/ambition_app/tests/the_gnu_ton_apples.rs`.
   its `enemy.dilophosaurus.notice` cue, a recipe it already had. Witness:
   `a_skirmisher_notices_its_foe_before_it_moves_or_shoots`.
 
-  The other eighteen skirmisher profiles have no notice cue or row yet, so
-  they keep fighting on first sight. The pirate and ninja audit (2026-11-10)
-  found the same: apart from the oni leader, none has a notice row or cue,
-  and none runs fighter engagement (pirates run `Smash` or `Skirmisher`,
-  ninjas the catalog melee-brute presets). Each waits for its art and cue.
+  The pirate and ninja audit (2026-11-10) missed that the crew's sheets had
+  had `notice` and `windup` rows since 2026-10-30; only the cues and the
+  beat were missing. Since 2026-11-18 the crew's skirmishers notice: the
+  raider, Iron Mary, the lookout and the navigator (`notice_s` 0.4, 0.5 and
+  the rangers' 0.35; the hail `enemy.pirate.notice` and the heavy's bellow
+  `enemy.pirate_heavy.notice`). Witness:
+  `the_pirate_skirmishers_are_seen_and_heard_noticing_before_they_aim`. The
+  crew's melee fighters have rows but run `Smash` profiles or the catalog
+  melee-brute presets, which carry no beat; the other skirmisher profiles
+  have no notice art or cue yet and keep fighting on first sight.
   [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths).
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

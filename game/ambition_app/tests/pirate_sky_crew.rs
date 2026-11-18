@@ -266,18 +266,37 @@ fn a_ride_holds_its_rider_without_writing_its_gravity() {
 /// that asked the rider about itself would think the pair walks. A Skirmisher
 /// that thinks it walks stands still while it has nobody to fight; one on a
 /// shark sweeps. MEASURED with the rider asked about itself: one raider hung
-/// still for 60 of its first 120 ticks.
+/// still for 60 of its first 120 ticks. A raider that has just seen its foe
+/// hangs a beat on purpose (its notice, as a flyer's is): those ticks are its
+/// look, not a rider that thinks it walks. The beat's last tick reads as over
+/// once the brain has counted it down, so a tick after one that was noticing
+/// is the look too.
 #[test]
 fn a_rider_on_a_flying_mount_steers_in_flight_from_the_first_tick() {
     let mut sim = fixed_60hz_room_sim(ROOM);
     let mut still: BTreeMap<Entity, (String, usize)> = BTreeMap::new();
+    let mut was_noticing: std::collections::BTreeSet<Entity> = Default::default();
     for _ in 0..2 * 60 {
         sim.step(ambition_app::AgentAction::default());
         let world = sim.world_mut();
-        let mut riders = world.query::<(Entity, &CharacterForm, &ActorControl, &RidingOn, &BodyHealth)>();
-        for (entity, worn, control, _, health) in riders.iter(world) {
+        let mut riders = world.query::<(
+            Entity,
+            &CharacterForm,
+            &ActorControl,
+            &RidingOn,
+            &BodyHealth,
+            Option<&ambition_platformer2d::characters::brain::Brain>,
+        )>();
+        for (entity, worn, control, _, health, brain) in riders.iter(world) {
             let row = still.entry(entity).or_insert_with(|| (worn.0.to_string(), 0));
-            if health.alive() && control.0.velocity_target.vec().length() <= 1e-3 {
+            let noticing = brain.is_some_and(ambition_platformer2d::characters::brain::Brain::is_noticing);
+            let looking = noticing || was_noticing.contains(&entity);
+            if noticing {
+                was_noticing.insert(entity);
+            } else {
+                was_noticing.remove(&entity);
+            }
+            if health.alive() && !looking && control.0.velocity_target.vec().length() <= 1e-3 {
                 row.1 += 1;
             }
         }

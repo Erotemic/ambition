@@ -350,3 +350,57 @@ fn the_raptor_is_heard_noticing_then_striking() {
     let swing = heard_swing.expect("the raptor's swing cue never played");
     assert!(notice < swing, "it is heard noticing ({notice}) before it strikes ({swing})");
 }
+
+/// The crew's skirmishers (ENEMY-NOTICE): the raider, Iron Mary and the two
+/// rangers, the lookout and the navigator, each stand a beat in their
+/// `notice` row on first sight, with the crew's hail (the heavy's bellow for
+/// Iron Mary), before they hold their windup to fire.
+#[test]
+fn the_pirate_skirmishers_are_seen_and_heard_noticing_before_they_aim() {
+    use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
+    use bevy::ecs::message::Messages;
+    for (character, cue) in [
+        ("npc_pirate_raider", "enemy.pirate.notice"),
+        ("npc_pirate_heavy_iron_mary", "enemy.pirate_heavy.notice"),
+        ("npc_pirate_lookout", "enemy.pirate.notice"),
+        ("npc_pirate_navigator", "enemy.pirate.notice"),
+    ] {
+        let id = format!("noticing_{character}");
+        let notice_cue = SfxId::new(cue);
+        let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz())).expect("sandbox sim builds");
+        let p = player_pos(sim.world_mut());
+        sim.spawn_enemy_character_at(&id, character, (p.x + 200.0, p.y), (16.0, 32.0), CharacterBrain::Custom(character.to_string()), character);
+        let mut cursor = sim.world().resource::<Messages<OwnedSfxMessage>>().get_cursor();
+        let (mut seen, mut heard, mut aimed) = (None, None, None);
+        for tick in 0..900 {
+            sim.step(AgentAction::default());
+            let messages = sim.world().resource::<Messages<OwnedSfxMessage>>();
+            for message in cursor.read(messages) {
+                if matches!(&message.request, SfxMessage::Play { id, .. } if *id == notice_cue) {
+                    heard.get_or_insert(tick);
+                }
+            }
+            let world = sim.world_mut();
+            let mut q = world.query::<(&FeatureId, Option<&PinnedRow>)>();
+            let row = q
+                .iter(world)
+                .find(|(feature, _)| feature.as_str() == id)
+                .and_then(|(_, pin)| pin.filter(|pin| pin.is_pinned()).and_then(|pin| pin.rows.first().cloned()));
+            match row.as_deref() {
+                Some("notice") => {
+                    seen.get_or_insert(tick);
+                }
+                Some("windup") => {
+                    aimed.get_or_insert(tick);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        let seen = seen.unwrap_or_else(|| panic!("{character} never stood in its notice row"));
+        let heard = heard.unwrap_or_else(|| panic!("{character}'s notice cue `{cue}` never played"));
+        let aimed = aimed.unwrap_or_else(|| panic!("{character} never held its windup row"));
+        println!("[pirate notice] {character}: seen at {seen}, heard at {heard}, aimed at {aimed}");
+        assert!(seen < aimed && heard < aimed, "{character} is seen ({seen}) and heard ({heard}) noticing before it aims ({aimed})");
+    }
+}

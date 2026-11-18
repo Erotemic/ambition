@@ -174,11 +174,12 @@ fn build_visual(sprite_content: &ambition_sprite_sheet::SpriteContent,
     asset_server: &AssetServer,
     sheets: &SheetRegistry,
     energy: Option<&Handle<Image>>,
-) -> BuiltVisual {
+) -> Option<BuiltVisual> {
     let body = Vec2::new(view.size.x, view.size.y);
     let rgba = |c: [f32; 4]| Color::srgba(c[0], c[1], c[2], c[3]);
 
-    match &art.source {
+    Some(match &art.source {
+        ProjectileArtSource::Line { .. } => return None,
         ProjectileArtSource::EnergyTinted { rgba: c } => {
             let size = render_size(art.size, body, 1.0);
             let mut sprite = match energy.cloned() {
@@ -237,7 +238,7 @@ fn build_visual(sprite_content: &ambition_sprite_sheet::SpriteContent,
             asset_server,
             sheets,
         ),
-    }
+    })
 }
 
 /// Build a spritesheet-backed visual: clip to the row's first frame (static) or
@@ -374,7 +375,7 @@ pub fn sync_projectile_visuals(sprite_content: bevy::prelude::Res<ambition_sprit
             continue;
         };
         let art = visual_catalog.resolve(&view.visual_id);
-        let built = build_visual(&sprite_content, view, &art, &asset_server, &sheets, energy);
+        let Some(built) = build_visual(&sprite_content, view, &art, &asset_server, &sheets, energy) else { continue; };
         let translation =
             ambition_platformer2d_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
         let mut visual = commands.spawn_session_scoped(
@@ -410,6 +411,11 @@ pub fn sync_projectile_visuals(sprite_content: bevy::prelude::Res<ambition_sprit
             commands.entity(visual_entity).despawn();
             continue;
         };
+        if matches!(visual_catalog.resolve(&view.visual_id).source, ProjectileArtSource::Line { .. }) {
+            commands.entity(visual_entity).despawn();
+            commands.entity(link.0).remove::<ProjectileVisualLink>();
+            continue;
+        }
         let Some(world) = rooms.of(link.0) else {
             continue;
         };

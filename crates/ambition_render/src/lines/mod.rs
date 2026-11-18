@@ -1,7 +1,7 @@
 //! Line effects: lightning, lasers, any look drawn along a line or round a
 //! body. One road for all of them.
 //!
-//! Two kinds of source, one visual:
+//! Each source uses the same visual:
 //!
 //! * a RAY STRIKE (`CombatGeometryView`'s strikes with a `ray`): an attack,
 //!   drawn as its named look from the ray's own published geometry. The
@@ -10,6 +10,8 @@
 //! * a DECORATION (`VfxMessage::Lightning`, `VfxMessage::LightningAura`): a
 //!   look with no attack under it (a neck bolt's crackle, a powered-up aura),
 //!   LEASED by its key (`ambition_vfx::lightning`).
+//! * a PROJECTILE (`ProjectileView`): a moving stroke selected by its
+//!   authored visual, with its head at the projectile's live position.
 //!
 //! Each frame each visual lays its strands out as triangles in the world,
 //! unfolded, and hands them to a [`FoldedMesh`]: the folded-mesh writer is
@@ -53,54 +55,7 @@ const FADE_S: f32 = 0.12;
 const RAY_HOLD_S: f32 = 0.05;
 
 /// A laser: one straight beam, its width breathing.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct LaserLook {
-    pub glow: [f32; 4],
-    pub core: [f32; 4],
-    /// The core's width over the ray's.
-    pub core_of_width: f32,
-    /// The halo's width over the core's.
-    pub glow_scale: f32,
-    /// Breaths a second.
-    pub pulse_hz: f32,
-    /// The light where it lands.
-    pub contact_glow: f32,
-}
-
-impl LaserLook {
-    pub const RED: LaserLook = LaserLook {
-        glow: [1.0, 0.15, 0.1, 0.55],
-        core: [1.0, 0.92, 0.86, 1.0],
-        core_of_width: 0.3,
-        glow_scale: 3.5,
-        pulse_hz: 14.0,
-        contact_glow: 22.0,
-    };
-}
-
-/// How a line is drawn. A ray names one ([`LineLook::named`]).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum LineLook {
-    Lightning(LightningLook),
-    Laser(LaserLook),
-}
-
-impl LineLook {
-    /// The look a ray strike names, or `None`.
-    pub fn named(name: &str) -> Option<LineLook> {
-        match name {
-            "laser" => Some(LineLook::Laser(LaserLook::RED)),
-            other => LightningLook::named(other).map(LineLook::Lightning),
-        }
-    }
-
-    fn flicker_s(&self) -> f32 {
-        match self {
-            LineLook::Lightning(look) => look.flicker_s,
-            LineLook::Laser(_) => f32::INFINITY,
-        }
-    }
-}
+pub use ambition_vfx::line::{LaserLook, LineLook};
 
 /// What this device draws of a line.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -128,6 +83,7 @@ impl Detail {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Source {
     Ray(Entity),
+    Projectile(Entity),
     Lease(LightningKey),
 }
 
@@ -201,6 +157,7 @@ impl Plugin for LinesPlugin {
                 follow_ray_strikes.run_if(|view: Option<bevy::prelude::Res<CombatGeometryView>>| {
                     view.is_some_and(|view| !view.strikes.is_empty())
                 }),
+                follow_projectile_lines,
                 lay_out_lines,
             )
                 .chain()
@@ -297,6 +254,46 @@ fn follow_ray_strikes(
         };
         let visual = LineVisual::new(Source::Ray(strike.strike), strike.strike.to_bits(), shape, look, RAY_HOLD_S);
         spawn_line(&mut commands, session.in_room(Some(room)), visual);
+    }
+}
+
+/// Moving strokes use the same paths, forks, glow, and portal mesh as ray effects.
+fn follow_projectile_lines(
+    mut commands: Commands,
+    projectiles: Query<(Entity, &ambition_sim_view::ProjectileView)>,
+    catalog: Res<ambition_projectiles::ProjectileVisualCatalog>,
+    rooms: LiveRooms,
+    active_session: Option<Res<ActiveSessionScope>>,
+    mut live: Query<(Entity, &mut LineVisual)>,
+) {
+    let session = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
+    for (entity, visual) in &live {
+        if let Source::Projectile(projectile) = visual.source {
+            let keep = projectiles.get(projectile).is_ok_and(|(_, view)| {
+                matches!(catalog.resolve(&view.visual_id).source, ambition_projectiles::ProjectileArtSource::Line { .. })
+            });
+            if !keep { commands.entity(entity).despawn(); }
+        }
+    }
+    for (entity, view) in &projectiles {
+        let art = catalog.resolve(&view.visual_id);
+        let ambition_projectiles::ProjectileArtSource::Line { look, length } = &art.source else { continue; };
+        let Some(mut look) = LineLook::named(look) else { continue; };
+        if let LineLook::Lightning(lightning) = &mut look { lightning.grow_s = 0.0; }
+        let direction = view.vel.normalize_or(Vec2::X);
+        let shape = Shape::Line {
+            from: LightningEnd::World(view.pos - direction * *length),
+            to: LightningEnd::World(view.pos),
+            band: None,
+            source: PartSource::World { owner: Some(entity) },
+        };
+        if let Some((_, mut visual)) = live.iter_mut().find(|(_, v)| v.source == Source::Projectile(entity)) {
+            visual.renew(shape, look, RAY_HOLD_S);
+            continue;
+        }
+        let (Some(session), Some(room)) = (session, rooms.of(entity)) else { continue; };
+        spawn_line(&mut commands, session.in_room(Some(room)),
+            LineVisual::new(Source::Projectile(entity), entity.to_bits(), shape, look, RAY_HOLD_S));
     }
 }
 

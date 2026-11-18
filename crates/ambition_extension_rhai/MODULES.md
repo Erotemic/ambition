@@ -7,8 +7,9 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`declare`](src/declare.rs) | A module a script declares itself (scripting audit P3, step 3): a module the game does not link, with its whole declaration in the script. |
+| [`source`](src/source.rs) | Prepared script libraries and invocation-local module environments. |
 
-_1 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

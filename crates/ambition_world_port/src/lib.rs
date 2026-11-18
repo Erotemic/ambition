@@ -2,3 +2,5 @@
 
 pub mod story;
 pub use story::*;
+
+pub mod inventory;

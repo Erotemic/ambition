@@ -48,7 +48,7 @@ pub fn apply_item_grants(
         Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<Res<ambition_time::SimTick>>,
         Option<ResMut<BagUsesInRooms>>,
-        Option<ResMut<crate::pickup::ConversationBagSinceCheckpoint>>,
+        Option<ResMut<crate::pickup::BagChangesSinceCheckpoint>>,
     ),
 ) {
     for request in requests.read() {
@@ -60,13 +60,14 @@ pub fn apply_item_grants(
             log.record_gain(written, request.item, gained);
         }
         if let Some(since) = since.as_deref_mut() {
-            since.record(crate::pickup::ConversationBagMove {
-                item: request.item,
+            since.record(crate::pickup::BagChange {
+                item: Some(request.item),
                 gained,
                 gave: 0,
                 payer: None,
                 coins: 0,
                 written,
+                retention: crate::pickup::minted_horizon::BagChangeRetention::NarrativeFacts,
             });
         }
         info!(
@@ -94,7 +95,7 @@ pub fn apply_shop_transactions(
         Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<Res<ambition_time::SimTick>>,
         Option<ResMut<BagUsesInRooms>>,
-        Option<ResMut<crate::pickup::ConversationBagSinceCheckpoint>>,
+        Option<ResMut<crate::pickup::BagChangesSinceCheckpoint>>,
         Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     ),
 ) {
@@ -111,13 +112,14 @@ pub fn apply_shop_transactions(
         let after = owned.count(request.item);
         let written = narrative_write(request.participant, &drivers, &rooms, tick.as_deref());
         if let Some(since) = since.as_deref_mut() {
-            since.record(crate::pickup::ConversationBagMove {
-                item: request.item,
+            since.record(crate::pickup::BagChange {
+                item: Some(request.item),
                 gained: after.saturating_sub(before),
                 gave: before.saturating_sub(after),
                 payer: payer.and_then(|payer| ids.get(payer).ok()).cloned(),
                 coins: wallet.balance - balance,
                 written,
+                retention: crate::pickup::minted_horizon::BagChangeRetention::NarrativeFacts,
             });
         }
         if let (Some(written), Some(log)) = (written, log.as_deref_mut()) {
@@ -152,15 +154,18 @@ pub const MANA_CELL_RESTORE: f32 = 40.0;
 /// Rollback state with a real value: a use writes it on a tick.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct BagUsesInRooms {
-    uses: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, ambition_items::Item)>,
+    uses: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, ambition_items::Item, u32)>,
     gains: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, ambition_items::Item, u32)>,
 }
 
 impl BagUsesInRooms {
     /// Remember a use of one `item` from a room.
     pub fn record(&mut self, at: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, item: ambition_items::Item) {
-        self.uses.retain(|(written, _)| !written.beyond_the_horizon(at.tick));
-        self.uses.push((at, item));
+        self.record_spend(at, item, 1);
+    }
+    pub fn record_spend(&mut self, at: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, item: ambition_items::Item, count: u32) {
+        self.uses.retain(|(written, ..)| !written.beyond_the_horizon(at.tick));
+        if count > 0 { self.uses.push((at, item, count)); }
     }
 
     /// Remember `count` of `item` a room's conversation added to the bag.
@@ -178,18 +183,18 @@ impl BagUsesInRooms {
 
     /// `room` rewinds to `saved_at`: take out the uses it made after that tick
     /// and return their items, so they go back in the bag.
-    pub fn retract_room(
+    pub fn retract_room_spends(
         &mut self,
         room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         saved_at: u64,
-    ) -> Vec<ambition_items::Item> {
-        if !self.uses.iter().any(|(written, _)| written.retracted_by(room, saved_at)) {
+    ) -> Vec<(ambition_items::Item, u32)> {
+        if !self.uses.iter().any(|(written, ..)| written.retracted_by(room, saved_at)) {
             return Vec::new();
         }
         let (taken, kept): (Vec<_>, Vec<_>) =
-            std::mem::take(&mut self.uses).into_iter().partition(|(written, _)| written.retracted_by(room, saved_at));
+            std::mem::take(&mut self.uses).into_iter().partition(|(written, ..)| written.retracted_by(room, saved_at));
         self.uses = kept;
-        taken.into_iter().map(|(_, item)| item).collect()
+        taken.into_iter().map(|(_, item, count)| (item, count)).collect()
     }
 
     /// `room` rewinds to `saved_at`: take out what its conversations added
@@ -213,10 +218,11 @@ impl BagUsesInRooms {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_u64};
         let mut bytes = Vec::new();
         put_u64(&mut bytes, self.uses.len() as u64);
-        for (written, item) in &self.uses {
+        for (written, item, count) in &self.uses {
             put_u64(&mut bytes, u64::from(written.room.ordinal()));
             put_u64(&mut bytes, written.tick);
             put_u64(&mut bytes, item.index() as u64);
+            put_u64(&mut bytes, u64::from(*count));
         }
         put_u64(&mut bytes, self.gains.len() as u64);
         for (written, item, count) in &self.gains {
@@ -504,8 +510,8 @@ mod tests {
         assert_eq!(bag(&app), (1, 0), "premise: the purchase and the sale moved the bag");
 
         let mut log = app.world_mut().resource_mut::<BagUsesInRooms>();
-        assert!(log.retract_room(alices, 6).is_empty() && log.retract_room_gains(alices, 6).is_empty(), "Alice's room took Bob's deal back");
-        assert_eq!(log.retract_room(bobs, 6), [Item::ManaCell], "Bob's room did not put back the item he sold");
+        assert!(log.retract_room_spends(alices, 6).is_empty() && log.retract_room_gains(alices, 6).is_empty(), "Alice's room took Bob's deal back");
+        assert_eq!(log.retract_room_spends(bobs, 6), [(Item::ManaCell, 1)], "Bob's room did not put back the item he sold");
         assert_eq!(log.retract_room_gains(bobs, 6), [(Item::HealthCell, 1)], "Bob's room did not take back what he bought");
     }
 

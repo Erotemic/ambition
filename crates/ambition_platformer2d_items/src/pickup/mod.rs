@@ -5,7 +5,7 @@
 
 pub mod minted_horizon;
 pub use minted_horizon::{
-    ConversationBagMove, ConversationBagSinceCheckpoint, GrantSource, PickupGranted, RewardGrant, RewardGrantsSinceCheckpoint,
+    BagChange, BagChangeRetention, BagChangesSinceCheckpoint, GrantSource, PickupGranted, RewardGrant, RewardGrantsSinceCheckpoint,
 };
 
 use bevy::prelude::*;

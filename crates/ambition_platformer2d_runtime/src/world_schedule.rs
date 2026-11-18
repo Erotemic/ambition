@@ -399,10 +399,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             |world, room, saved_at| {
                 // Installed above, with this retractor.
                 let mut log = world.resource_mut::<ambition_platformer2d_items::narrative::BagUsesInRooms>();
-                let (items, gains) = (log.retract_room(room, saved_at), log.retract_room_gains(room, saved_at));
+                let (items, gains) = (log.retract_room_spends(room, saved_at), log.retract_room_gains(room, saved_at));
                 if let Some(mut bag) = world.get_resource_mut::<ambition_items::OwnedItems>() {
-                    for item in items {
-                        bag.put_back(item, 1);
+                    for (item, count) in items {
+                        bag.put_back(item, count);
                     }
                     // What a conversation in the room added leaves again.
                     for (item, count) in gains {

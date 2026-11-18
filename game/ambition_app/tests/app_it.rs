@@ -385,3 +385,5 @@ mod scripted_hit_receptions;
 
 mod scripted_projectile_credit;
 mod scripted_projectile_results;
+
+mod scripted_inventory_exchanges;

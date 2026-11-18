@@ -318,9 +318,8 @@ pub struct ItemCheckpointRestoreInputs {
     /// `owned`, for the same reason. A spend the restore forgets is a
     /// quantity the next death puts back while its object stays.
     pub spends: ambition_held_items::BagSpendsSinceCheckpoint,
-    /// The conversations' moves the restore keeps in `owned`: all of them
-    /// when it keeps the facts, none when it pins them (Q164).
-    pub conversations: ConversationBagSinceCheckpoint,
+    /// Inventory changes whose retention authority survives the restore.
+    pub changes: BagChangesSinceCheckpoint,
 }
 
 /// ⛔⛔ IT RUNS ONLY FROM THE COMMIT, AND READS ONLY WHAT THE COMMIT INSTALLED.
@@ -616,95 +615,83 @@ impl RewardGrantsSinceCheckpoint {
     }
 }
 
-/// One bag change a conversation made: what it gave, what it took, and the
-/// coins its payer paid (a negative price) or was paid.
+/// What must survive for a bag change to survive checkpoint restoration.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ConversationBagMove {
-    pub item: ambition_items::Item,
+pub enum BagChangeRetention {
+    NarrativeFacts,
+    RoomOwners(Vec<ambition_characters::control::PlayerSlot>),
+}
+
+/// One applied bag and wallet change, with its lifetime authority.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BagChange {
+    pub item: Option<ambition_items::Item>,
     pub gained: u32,
     pub gave: u32,
-    /// The body whose wallet the coins moved, and how many came in.
     pub payer: Option<SimId>,
     pub coins: i32,
-    /// The room it was said in and the tick: a rewind of that room drops the
-    /// move from this record (the bag's own rewind is `BagUsesInRooms`'s).
     pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+    pub retention: BagChangeRetention,
 }
 
-/// What conversations gave and took from the shared bag since the last
-/// committed checkpoint (Q164). They come with the facts the same lines set,
-/// so a restore that keeps the facts (a co-op death that spares a
-/// participant) keeps these too, and one that pins the facts drops them: a
-/// fact never stays while its object is lost, nor an object while its fact
-/// goes.
-///
-/// Rollback state with a real value: a conversation writes it on a tick.
+/// Applied inventory changes since the last committed checkpoint.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
-pub struct ConversationBagSinceCheckpoint {
-    moves: Vec<ConversationBagMove>,
+pub struct BagChangesSinceCheckpoint {
+    moves: Vec<BagChange>,
 }
-
-impl ConversationBagSinceCheckpoint {
-    /// Record a move. One that changed nothing is not recorded.
-    pub fn record(&mut self, change: ConversationBagMove) {
-        if change.gained > 0 || change.gave > 0 || change.coins != 0 {
-            self.moves.push(change);
-        }
+impl BagChangesSinceCheckpoint {
+    pub fn record(&mut self, change: BagChange) {
+        if change.gained > 0 || change.gave > 0 || change.coins != 0 { self.moves.push(change); }
     }
-
-    /// `room` rewinds to `saved_at`: drop the moves it made after that tick.
-    /// Its replay records again what it says again.
-    pub fn retract_room(
-        &mut self,
-        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
-        saved_at: u64,
-    ) {
-        let retracted =
-            |change: &ConversationBagMove| change.written.is_some_and(|written| written.retracted_by(room, saved_at));
-        if self.moves.iter().any(retracted) {
-            self.moves.retain(|change| !retracted(change));
-        }
+    pub fn retract_room(&mut self, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, saved_at: u64) {
+        self.moves.retain(|change| !change.written.is_some_and(|written| written.retracted_by(room, saved_at)));
     }
-
-    /// Every move, in the order they were made.
-    pub fn moves(&self) -> &[ConversationBagMove] {
-        &self.moves
+    pub fn moves(&self) -> &[BagChange] { &self.moves }
+    pub fn after_restore(&self, spared: &[ambition_characters::control::PlayerSlot], keep_facts: bool) -> Self {
+        let moves = self.moves.iter().filter_map(|change| {
+            let mut change = change.clone();
+            match &mut change.retention {
+                BagChangeRetention::NarrativeFacts if !keep_facts => return None,
+                BagChangeRetention::RoomOwners(owners) => {
+                    owners.retain(|owner| spared.contains(owner));
+                    if owners.is_empty() { return None; }
+                }
+                _ => {}
+            }
+            Some(change)
+        }).collect();
+        Self { moves }
     }
-
-    /// Put the moves on `bag`, in order, and the coins `subject` moved on
-    /// `purse`.
     pub fn apply_to(&self, bag: &mut ambition_items::OwnedItems, purse: &mut i32, subject: &SimId, items: &ambition_items::ItemCatalog) {
         for change in &self.moves {
-            if change.gained > 0 {
-                bag.grant(items, change.item, change.gained);
+            if let Some(item) = change.item {
+                if change.gave > 0 { bag.take(item, change.gave); }
+                if change.gained > 0 { bag.grant(items, item, change.gained); }
             }
-            if change.gave > 0 {
-                bag.take(change.item, change.gave);
-            }
-            if change.payer.as_ref() == Some(subject) {
-                *purse += change.coins;
-            }
+            if change.payer.as_ref() == Some(subject) { *purse = purse.saturating_add(change.coins); }
         }
     }
-
-    /// Forget every move: a checkpoint commit makes them part of the baseline.
-    pub fn forget_all(&mut self) {
-        if !self.moves.is_empty() {
-            self.moves.clear();
-        }
-    }
-
-    /// Entity-free value projection.
+    pub fn forget_all(&mut self) { self.moves.clear(); }
     pub fn checksum(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64, put_bool};
         let mut bytes = Vec::new();
         put_u64(&mut bytes, self.moves.len() as u64);
         for change in &self.moves {
-            put_u64(&mut bytes, change.item.index() as u64);
+            put_bool(&mut bytes, change.item.is_some());
+            if let Some(item) = change.item { put_u64(&mut bytes, item.index() as u64); }
             put_u64(&mut bytes, u64::from(change.gained));
             put_u64(&mut bytes, u64::from(change.gave));
             put_str(&mut bytes, change.payer.as_ref().map_or("", |payer| payer.as_str()));
             put_u64(&mut bytes, u64::from(change.coins as u32));
+            put_bool(&mut bytes, change.written.is_some());
+            if let Some(written) = change.written { put_u64(&mut bytes, u64::from(written.room.ordinal())); put_u64(&mut bytes, written.tick); }
+            match &change.retention {
+                BagChangeRetention::NarrativeFacts => put_bool(&mut bytes, false),
+                BagChangeRetention::RoomOwners(owners) => {
+                    put_bool(&mut bytes, true); put_u64(&mut bytes, owners.len() as u64);
+                    for owner in owners { put_u64(&mut bytes, u64::from(owner.0)); }
+                }
+            }
         }
         checksum_bytes(&bytes)
     }
@@ -716,7 +703,7 @@ pub fn forget_bag_records_at_checkpoint(
     mut commits: ReplayMessageReader<CheckpointCommitted>,
     mut grants: ResMut<RewardGrantsSinceCheckpoint>,
     mut spends: ResMut<ambition_held_items::BagSpendsSinceCheckpoint>,
-    mut conversations: ResMut<ConversationBagSinceCheckpoint>,
+    mut conversations: ResMut<BagChangesSinceCheckpoint>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
     if commits.read().count() > 0 {
@@ -734,7 +721,7 @@ pub fn keep_the_bag_records_the_restore_keeps(
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
     mut grants: ResMut<RewardGrantsSinceCheckpoint>,
     mut spends: ResMut<ambition_held_items::BagSpendsSinceCheckpoint>,
-    mut conversations: ResMut<ConversationBagSinceCheckpoint>,
+    mut conversations: ResMut<BagChangesSinceCheckpoint>,
 ) {
     let Some(inputs) = inputs else {
         return;
@@ -745,8 +732,8 @@ pub fn keep_the_bag_records_the_restore_keeps(
     if *spends != inputs.spends {
         *spends = inputs.spends.clone();
     }
-    if *conversations != inputs.conversations {
-        *conversations = inputs.conversations.clone();
+    if *conversations != inputs.changes {
+        *conversations = inputs.changes.clone();
     }
 }
 
@@ -863,10 +850,10 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         // this drops only the record.
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
-            "resource.conversation_bag_since_checkpoint",
+            "resource.bag_changes_since_checkpoint",
             // This plugin installs the record (below), so it is always there.
             |world, room, saved_at| {
-                world.resource_mut::<ConversationBagSinceCheckpoint>().retract_room(room, saved_at);
+                world.resource_mut::<BagChangesSinceCheckpoint>().retract_room(room, saved_at);
             },
         );
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
@@ -927,7 +914,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         )
         .init_resource::<RewardGrantsSinceCheckpoint>()
         .init_resource::<ambition_held_items::BagSpendsSinceCheckpoint>()
-        .init_resource::<ConversationBagSinceCheckpoint>()
+        .init_resource::<BagChangesSinceCheckpoint>()
         // All checkpoint readers must consume the commit in its simulation frame.
         // LoadWorld clears messages before a replay of the next frame.
         .add_systems(sim, forget_bag_records_at_checkpoint
@@ -1137,11 +1124,11 @@ where
         RewardGrantsSinceCheckpoint::checksum,
     );
     // A conversation writes it on a tick.
-    registrar.rollback_resource_clone_checksum::<ConversationBagSinceCheckpoint>(
+    registrar.rollback_resource_clone_checksum::<BagChangesSinceCheckpoint>(
         OWNER,
-        "resource.conversation_bag_since_checkpoint",
-        "what conversations gave and took from the shared bag since the last checkpoint: a death that keeps the facts keeps them",
-        ConversationBagSinceCheckpoint::checksum,
+        "resource.bag_changes_since_checkpoint",
+        "applied inventory changes and their room, payer and checkpoint retention authority",
+        BagChangesSinceCheckpoint::checksum,
     );
     // A throw writes it on a tick, so a rewind across that tick takes the
     // spend back out of the record with the quantity back into the bag.
@@ -1442,5 +1429,33 @@ mod tests {
              record can describe what the simulation invented",
         );
         assert_eq!(dropped_row.held_item, "cinder_beacon");
+    }
+}
+
+#[cfg(test)]
+mod bag_change_tests {
+    use super::*;
+    use ambition_characters::control::PlayerSlot;
+    #[test]
+    fn retained_inventory_changes_follow_their_own_authority_and_preserve_currency_only_changes() {
+        let payer = SimId::placement("collector");
+        let mut history = BagChangesSinceCheckpoint::default();
+        for (coins, retention) in [
+            (1, BagChangeRetention::NarrativeFacts),
+            (2, BagChangeRetention::RoomOwners(vec![PlayerSlot(0)])),
+            (4, BagChangeRetention::RoomOwners(vec![PlayerSlot(1)])),
+        ] {
+            history.record(BagChange { item: None, gained: 0, gave: 0, payer: Some(payer.clone()), coins, written: None, retention });
+        }
+        let mut bag = ambition_items::OwnedItems::default();
+        let mut purse = 0;
+        let retained = history.after_restore(&[PlayerSlot(1)], false);
+        retained.apply_to(&mut bag, &mut purse, &payer, ambition_items::test_item_catalog());
+        assert_eq!(purse, 4);
+        assert_eq!(retained.moves().len(), 1);
+        let mut purse = 0;
+        history.after_restore(&[PlayerSlot(1)], true).apply_to(&mut bag, &mut purse, &payer, ambition_items::test_item_catalog());
+        assert_eq!(purse, 5);
+        assert!(history.after_restore(&[], false).moves().is_empty());
     }
 }

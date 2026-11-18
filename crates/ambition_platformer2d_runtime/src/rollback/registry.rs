@@ -276,7 +276,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 465 -> 466: an authored checkpoint asked from dialogue
 // (`CheckpointEstablishRequested`, `PendingAuthoredCheckpoint`).
 // 466 -> 467: what conversations moved in the bag since the checkpoint
-// (`ConversationBagSinceCheckpoint`).
+// (`BagChangesSinceCheckpoint`).
 // 467 -> 468: a save's dialogue visit names its seat (Q134), in the save's
 // serde checksum.
 // 468 -> 469: the cutscene trigger queue rewinds with the playback
@@ -315,8 +315,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 490 -> 491: native hits and detached strikes retain source identity and credit.
 // 491 -> 492: pending projectile emissions retain their creation reply tickets.
 // 492 -> 493: observer-local pending projectile outcomes rewind with their scope.
-// 493 -> 494: a technique's transit is held on its body for the next tick's carry.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 494;
+// 493 -> 494: bag history includes quantities, room writes and retention authority.
+// 494 -> 495: a technique transit remains on its body for the next tick.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 495;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

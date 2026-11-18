@@ -200,7 +200,9 @@ or updating their source. Check with
 
 **Republished 2026-11-17** (on this VM, which may render art since 2026-11-11): the published `giant_gnu_parts.ron` carries the four tweened walking clips (`tween: Linear`); the bundle before it had none.
 
-**Next action:** watch the walk in the fight at 60 and 144 Hz (Jon's displays); turning, buck and rider remain as measured (smooth).
+**Measured at 60 and 144 Hz and fixed 2026-11-18 ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)):** sampled through the runtime's tween, the tweened walk still moved a hoof 26.2 sheet pixels at once every frame: each hoof is redrawn as another raster of itself, and a track tweened only to the same part. A track now also moves to the same picture redrawn (its size, angle and scale, within its own size); the worst move a sample is 5.5 px at 60 Hz and 5.1 at 144 Hz.
+
+**Next action:** watch the walk in the fight on Jon's displays; turning, buck and rider remain as measured (smooth).
 
 **Acceptance:** walking, turning, buck, rider movement and portal strikes are visually continuous and align with collision, footholds, hits and camera, across fixed ticks, relevant render rates, reset/replay and quality levels.
 

@@ -78,7 +78,7 @@ pub struct SessionScopedResources<'w> {
     bag_spends: Option<ResMut<'w, ambition_held_items::BagSpendsSinceCheckpoint>>,
     /// What conversations moved in the bag since the last checkpoint, for
     /// the same reason.
-    conversation_bag: Option<ResMut<'w, ambition_platformer2d_items::pickup::ConversationBagSinceCheckpoint>>,
+    conversation_bag: Option<ResMut<'w, ambition_platformer2d_items::pickup::BagChangesSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Slot-level buffered gestures belong to the retired control session.

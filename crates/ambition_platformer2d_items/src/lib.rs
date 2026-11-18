@@ -29,3 +29,5 @@ pub mod regrowth;
 pub mod construction;
 
 mod rollback_registration;
+
+pub mod inventory;

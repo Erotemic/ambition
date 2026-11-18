@@ -315,13 +315,38 @@ fn shorter_turn(from: f32, to: f32) -> f32 {
 }
 
 /// The draw of the next frame that `draw` tweens to: the draw of its track,
-/// when that draw is the same part. `None` for a draw that holds still.
-fn tween_target_index(draw: &PartDraw, following: &[PartDraw]) -> Option<usize> {
+/// when that draw is the same part or the same picture redrawn
+/// ([`same_picture_redrawn`]). `None` for a draw that holds still.
+fn tween_target_index(parts: &[RigPart], draw: &PartDraw, following: &[PartDraw]) -> Option<usize> {
     let track = draw.track?;
     following
         .iter()
         .position(|next| next.track == Some(track))
-        .filter(|index| following[*index].part == draw.part)
+        .filter(|index| {
+            let next = &following[*index];
+            next.part == draw.part || same_picture_redrawn(parts, draw, next)
+        })
+}
+
+/// Two parts within a pixel of one size, drawn at one angle and one scale,
+/// a step apart no longer than the picture: one picture rasterized again as
+/// it moves (the giant's 63 px hoof as it lifts, 20-26 px a frame). The draw
+/// moves to the next one's place, keeping its own part until the frame
+/// changes; held still, the hoof moved its whole step at once every 0.08 s.
+///
+/// A part change that turns or flips (a hand drawn mirrored) is another
+/// picture. A step longer than the picture is a cut, not a motion: an 8 px
+/// swim bubble that starts again 38 px below, a ring node that goes round
+/// behind. Both hold.
+fn same_picture_redrawn(parts: &[RigPart], a: &PartDraw, b: &PartDraw) -> bool {
+    const EPSILON: f32 = 1.0e-4;
+    let (Some(pa), Some(pb)) = (parts.get(usize::from(a.part)), parts.get(usize::from(b.part))) else {
+        return false;
+    };
+    (pa.size - pb.size).abs().max_element() <= 1.0
+        && shorter_turn(a.rotation, b.rotation).abs() <= EPSILON
+        && (a.scale - b.scale).abs().max_element() <= EPSILON
+        && a.at.distance(b.at) <= (pa.size * a.scale.abs()).max_element()
 }
 
 /// Maximum error of a sampled motion bound, in sheet pixels.
@@ -580,7 +605,7 @@ impl RiggedSpriteAsset {
                 let (next, next_len) = clip.frames[(index + 1) % clip.frames.len()];
                 let following = &draws[next as usize..(next + next_len) as usize];
                 for at in start as usize..(start + len) as usize {
-                    tween_targets[at] = tween_target_index(&draws[at], following).and_then(|index| std::num::NonZeroU32::new(next + index as u32 + 1));
+                    tween_targets[at] = tween_target_index(&parts, &draws[at], following).and_then(|index| std::num::NonZeroU32::new(next + index as u32 + 1));
                 }
             }
         }
@@ -721,8 +746,12 @@ impl RiggedSpriteAsset {
     /// states it the same way): a clip that steps, or `t <= 0`, is the frame
     /// itself. Otherwise the current frame's draws, in its order; a draw whose
     /// track is in the next frame (the first after the last: a tweened clip
-    /// loops) WITH THE SAME PART moves linearly to it, turning the shorter way;
-    /// any other draw holds still. A moving draw's opacity moves linearly too.
+    /// loops) WITH THE SAME PART, or with the same picture redrawn (a part
+    /// within a pixel of its size, at its angle and scale, no further than its
+    /// own size away), moves linearly to
+    /// it, turning the shorter way, and keeps its own part until the frame
+    /// changes; any other draw holds still. A moving draw's opacity moves
+    /// linearly too.
     /// The frame's opacity is the current frame's ([`Self::frame_opacity`]).
     pub fn tween_into(&self, row: &str, index: usize, t: f32, out: &mut Vec<PartDraw>) -> Option<()> {
         let clip = self.clips.get(row)?;

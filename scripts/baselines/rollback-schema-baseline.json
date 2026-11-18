@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v494",
+    "version": "ggrs-rollback-schema-v495",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actions.scope_sequence\tcomponent-canonical\tActionScopeSequence",
@@ -128,11 +128,11 @@
       "resource.accepted_checkpoint_restore\tcomponent-clone-custom-checksum\tAcceptedCheckpointRestore\tbevy_ggrs clone snapshot + which operation was accepted, the occurrence population it reconstructs, and the replay whose consequences run at its publication",
       "resource.active_match\tresource-canonical-custom-checksum\tActiveMatch\tbevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match ordinal, excluding the host-local session and activation-tick stamps",
       "resource.active_round_scope\tresource-canonical\tActiveRoundScope\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
+      "resource.bag_changes_since_checkpoint\tresource-clone-custom-checksum\tBagChangesSinceCheckpoint\tbevy_ggrs clone snapshot + applied inventory changes and their room, payer and checkpoint retention authority",
       "resource.bag_spends_since_checkpoint\tresource-clone-custom-checksum\tBagSpendsSinceCheckpoint\tbevy_ggrs clone snapshot + the quantities of the shared bag that throws made into objects since the last checkpoint: a death keeps the spend of each object it keeps",
       "resource.base_gravity\tresource-canonical\tBaseGravity\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.clock_regime_policy\tresource-canonical\tRegimePolicy\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.clock_state\tresource-canonical\tClockState\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
-      "resource.conversation_bag_since_checkpoint\tresource-clone-custom-checksum\tConversationBagSinceCheckpoint\tbevy_ggrs clone snapshot + what conversations gave and took from the shared bag since the last checkpoint: a death that keeps the facts keeps them",
       "resource.custody_baseline\tcomponent-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
       "resource.day_clock\tresource-canonical\tDayClock\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.encounter_clears_in_rooms\tresource-clone-custom-checksum\tEncounterClearsInRooms\tbevy_ggrs clone snapshot + the wave encounters rooms cleared within the rewind horizon, with the switches each greened and what they were, which a room rewind puts back (ISL-2d)",

@@ -292,3 +292,18 @@ pass. Workspace policy retains its 11 baseline violations. Broad union and
 tooling verification remain incomplete. Do not retain mutable library
 environments as a substitute for host-owned records. The remaining object and event capabilities
 keep the program open.
+
+## Structured state receipt
+
+Commit: `a5a7fde08`. Reusable behaviors had only flat scalar, option and sequence
+fields. SDK API 0.2 adds nested tagged records and bounded UTF-8 text. Rhai
+factories and portable `record_value!` types use the same schema. Reload and
+durable save adoption migrate retained children by tag. Smaller bounds and
+incompatible retained kinds refuse the candidate and keep current state.
+
+Guards: 74 SDK, host and Rhai owner tests, the nested reference observation,
+and seven loaded-library and rollback-schema tests pass. The default app warning
+check, WebAssembly owner check, Android app check, documentation links and 53
+absence contracts pass. Platform checks prove compilation, not device playback.
+Broad union and tooling sweeps were not run for this change. Do not use opaque
+VM values for persistent state. General object and event composition remain open.

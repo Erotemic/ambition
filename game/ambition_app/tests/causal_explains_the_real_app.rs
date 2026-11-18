@@ -21,7 +21,7 @@
 #![cfg(all(feature = "rl_sim", feature = "causal"))]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode,
 };
 use ambition_platformer2d::causal::{CausalRecording, RecordingPolicy};
 

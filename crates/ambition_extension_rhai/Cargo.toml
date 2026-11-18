@@ -14,4 +14,4 @@ description = "The Rhai backend of the extension host: a module's entries run fr
 [dependencies]
 ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
-rhai = { version = "1.23", default-features = false, features = ["std", "sync", "f32_float", "no_time"] }
+rhai = { version = "1.23", default-features = false, features = ["std", "sync", "f32_float", "no_time", "internals"] }

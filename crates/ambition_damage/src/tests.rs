@@ -348,11 +348,9 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
     );
     assert_eq!(
         res,
-        BodyHitResolution::Damaged {
-            damage: 5,
-            died: false
-        }
+        BodyHitResolution::Protected
     );
+    assert_eq!(res.damage_applied(), 0);
     assert_eq!(health.current(), 2);
     // A headless body with no health component is damaged-but-undying.
     let mut combat = BodyCombat::default();
@@ -1504,10 +1502,7 @@ fn the_blast_zone_kills_a_body_that_cannot_be_damaged_to_death() {
     );
     assert_eq!(
         ordinary,
-        BodyHitResolution::Damaged {
-            damage: 99,
-            died: false
-        },
+        BodyHitResolution::Protected,
         "fixture: a never_dies body survives an ordinary lethal hit"
     );
     assert!(health.alive());

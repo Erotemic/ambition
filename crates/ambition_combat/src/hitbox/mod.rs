@@ -58,11 +58,8 @@ pub struct LandedBodyHit {
 /// WORLD FOR A CPU DID NOT STOP IT FOR THE HUMAN — measured 2026-08-25 in the
 /// real schedule: 0.036s of player hitlag, zero frozen frames.
 ///
-/// ⛔ NOT `BodyHitResolved`, which is the INSPECTOR's message: that one is
-/// `#[cfg(feature = "causal")]` behind an optional writer and its own doc
-/// guarantees nothing in the simulation reads it. Depending on it would turn an
-/// optional instrument into required gameplay authority. This reuses the
-/// resolution VOCABULARY and not the channel.
+/// `ambition_damage::BodyHitResolved` reports all reception decisions. This
+/// channel reports the connect and reaction used by hitstop and move confirms.
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
 pub struct ResolvedBodyHit {
     /// The body that took it.

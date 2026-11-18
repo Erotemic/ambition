@@ -28,6 +28,8 @@ pub mod module_entity;
 pub mod motion;
 pub mod ray;
 pub mod reaction;
+pub mod reception;
+pub use reception::{HitReception, HitReceptions, HitReceptionsPort, ReceptionBody, ReceptionDecision, ReceptionSource};
 pub mod ride;
 pub mod riding;
 pub mod slow;

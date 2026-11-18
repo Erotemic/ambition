@@ -288,6 +288,7 @@ pub fn record_hit_resolutions(
     for hit in hits.read() {
         let (outcome, damage, died) = match hit.resolution {
             BodyHitResolution::Ignored => ("ignored", 0, false),
+            BodyHitResolution::Protected => ("protected", 0, false),
             BodyHitResolution::Blocked => ("blocked", 0, false),
             BodyHitResolution::Armored => ("armored", 0, false),
             BodyHitResolution::WalletShielded { spent } => ("wallet_shielded", spent, false),
@@ -302,6 +303,7 @@ pub fn record_hit_resolutions(
                     BodyHitResolution::Ignored => {
                         "hit ignored — invulnerable, or already dead".to_string()
                     }
+                    BodyHitResolution::Protected => "receiver policy prevents health loss".to_string(),
                     BodyHitResolution::Blocked => "hit blocked by a raised shield".to_string(),
                     BodyHitResolution::Armored => "hit absorbed by worn armor".to_string(),
                     BodyHitResolution::WalletShielded { spent } => {
@@ -322,7 +324,10 @@ pub fn record_hit_resolutions(
         .field("raw_damage", i64::from(hit.raw_damage))
         .field("died", died)
         .field("source", format!("{:?}", hit.source));
-        let (subject, seat) = body_subject(&bodies, &identities, hit.body);
+        let (mut subject, seat) = body_subject(&bodies, &identities, hit.body);
+        if matches!(subject, SubjectKey::Unstable(_)) {
+            if let Some(id) = &hit.identity.id { subject = SubjectKey::Sim(id.as_str().into()); }
+        }
         fact = fact.about(subject);
         if let Some(seat) = seat {
             fact = fact.by_participant(seat);
@@ -500,6 +505,11 @@ mod damage_tests {
     fn announce(app: &mut App, body: Entity, resolution: BodyHitResolution, raw: i32) {
         app.world_mut().write_message(BodyHitResolved {
             body,
+            attacker: None,
+            identity: ambition_damage::reception::HitReceiverIdentity { id: None, session: None, room: None },
+            attacker_identity: None,
+            observed_at: 0,
+            attacker_move_instance: None,
             resolution,
             source: ambition_combat::HitSource::Projectile,
             raw_damage: raw,
@@ -525,6 +535,7 @@ mod damage_tests {
 
         for (resolution, expected) in [
             (BodyHitResolution::Ignored, "ignored"),
+            (BodyHitResolution::Protected, "protected"),
             (BodyHitResolution::Blocked, "blocked"),
             (BodyHitResolution::Armored, "armored"),
             (

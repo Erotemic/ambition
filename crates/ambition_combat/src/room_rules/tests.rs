@@ -246,3 +246,21 @@ fn contact_fact_budgets_reload_and_invalid_bounds_are_refused() {
         assert!(format!("{:?}", out.diagnostics).contains(field));
     }
 }
+
+#[test]
+fn reception_budgets_reload_and_refuse_an_empty_capacity() {
+    use crate::rules::HitReceptionRules;
+    use ambition_platformer2d_world::scoped_rules::ActiveRoom;
+    let out = check("(hit_receptions: Some((max_events: 6)))");
+    assert!(out.diagnostics.is_empty(), "{:?}", out.diagnostics);
+    let rules = lowered(&out).unwrap();
+    let scope = RulesScope::Mode("receptions");
+    let mut app = App::new();
+    declare_room_rules(&mut app, scope, rules.clone());
+    assert_eq!(app.world().resource::<DeclaredRules<HitReceptionRules>>().governing(ActiveRoom::Mode("receptions")), rules.hit_receptions.as_ref());
+    restate_room_rules(app.world_mut(), scope, None);
+    assert!(app.world().resource::<DeclaredRules<HitReceptionRules>>().governing(ActiveRoom::Mode("receptions")).is_none());
+    let out = check("(hit_receptions: Some((max_events: 0)))");
+    assert!(lowered(&out).is_none());
+    assert!(format!("{:?}", out.diagnostics).contains("max_events"));
+}

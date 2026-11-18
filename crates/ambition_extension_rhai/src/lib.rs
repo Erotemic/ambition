@@ -34,7 +34,7 @@
 //!   `f32::EPSILON`, which fired the sentry a tick early in the bake-off.
 //! - **No hidden state or input.** A Rhai function cannot see a mutable
 //!   global, each invocation gets a fresh scope and a fresh `this`, there is
-//!   no clock (`no_time`) and no import from files.
+//!   no clock (`no_time`). Libraries use captured source, with no file input at runtime.
 //! - **Bounded work.** An operation budget, call depth, expression depth and
 //!   data sizes; a script that exceeds one faults.
 //! - **Early refusal.** A syntax error or an undeclared variable refuses the
@@ -44,6 +44,8 @@
 use std::sync::Arc;
 
 pub mod declare;
+mod source;
+pub use source::{LibraryLimits, LibrarySource};
 
 use ambition_extension_host::ModuleBackend;
 use ambition_extension_sdk::script::{ScriptPorts, ScriptValue, invoke_script};
@@ -53,7 +55,7 @@ use rhai::{AST, Dynamic, Engine, FLOAT, INT};
 /// The code identity's ABI: the language and the engine configuration that
 /// gives a script its meaning. A change to the configuration (the number
 /// type, the comparisons, the binding) is a new ABI name.
-pub const ABI: &str = "rhai-f32-exact/1";
+pub const ABI: &str = "rhai-f32-exact/2";
 
 /// The operations one invocation may spend.
 pub const DEFAULT_MAX_OPERATIONS: u64 = 200_000;
@@ -67,9 +69,9 @@ struct ScriptedModule {
     scripted: Vec<bool>,
 }
 
-/// One script file's modules, ready to run.
+/// One prepared script's modules, ready to run.
 pub struct RhaiModules {
-    engine: Engine,
+    engine: Arc<Engine>,
     modules: Vec<ScriptedModule>,
     keys: Vec<ModuleKey>,
     ports: Arc<ScriptPorts>,
@@ -149,34 +151,74 @@ pub fn exact_float_comparisons(engine: &mut Engine) {
     exact!("<=", |a: FLOAT, b: FLOAT| a <= b);
 }
 
-/// A compiled source and the bindings used to compile it.
-struct CompiledScript {
-    engine: Engine,
+/// Captured script and library code, ready for module binding.
+pub struct PreparedScript {
+    engine: Arc<Engine>,
     ast: AST,
     ports: Arc<ScriptPorts>,
     source: Arc<str>,
     digest: u64,
+    libraries: Vec<String>,
 }
 
-impl CompiledScript {
-    fn new(
+impl PreparedScript {
+    /// Prepare a source file with no external libraries.
+    pub fn new(
         source: &str,
         text: &str,
         ports: ScriptPorts,
         max_operations: u64,
     ) -> Result<Self, String> {
+        Self::with_libraries(source, text, ports, max_operations, LibraryLimits::default(), |id| {
+            Err(format!("no source provider supplies {id:?}"))
+        })
+    }
+
+    /// Capture and compile every imported library before binding or invocation.
+    /// IDs are bundle-relative paths. The reader is used only during preparation.
+    pub fn with_libraries(
+        source: &str,
+        text: &str,
+        ports: ScriptPorts,
+        max_operations: u64,
+        limits: LibraryLimits,
+        mut read: impl FnMut(&str) -> Result<LibrarySource, String>,
+    ) -> Result<Self, String> {
         let ports = Arc::new(ports);
         let mut engine = engine(max_operations);
         register_request(&mut engine, ports.clone());
-        let mut ast = engine.compile(text).map_err(|e| format!("{source}: {e}"))?;
-        ast.set_source(source);
+        let compiled = source::compile(&mut engine, source, text, limits, &mut read)?;
         Ok(Self {
-            engine,
-            ast,
+            engine: Arc::new(engine),
+            ast: compiled.entry,
             ports,
             source: Arc::from(source),
-            digest: ambition_extension_sdk::digest::digest_bytes(text.as_bytes()),
+            digest: compiled.digest,
+            libraries: compiled.libraries,
         })
+    }
+
+    /// The captured library IDs, in stable order.
+    pub fn libraries(&self) -> &[String] { &self.libraries }
+
+    /// Bind a declared source module. Every entry must be defined in the source.
+    pub fn bind_declared(&self) -> Result<(Arc<RhaiModules>, Vec<ModuleDescriptor>), String> {
+        self.bind(self.declaration()?, true)
+    }
+
+    /// Bind the source declaration, or select a linked module by file stem.
+    pub fn bind_file(
+        &self,
+        stem: &str,
+        linked: &[ambition_extension_host::DeclaredModule],
+    ) -> Result<(Arc<RhaiModules>, Vec<ModuleDescriptor>), String> {
+        let own_declaration = declares_a_module(&self.ast);
+        let declared = if own_declaration {
+            self.declaration()?
+        } else {
+            module_for_file(stem, linked)?.clone()
+        };
+        self.bind(declared, own_declaration)
     }
 
     fn declaration(&self) -> Result<ModuleDescriptor, String> {
@@ -194,7 +236,7 @@ impl CompiledScript {
     }
 
     fn bind(
-        self,
+        &self,
         native: ModuleDescriptor,
         require_all: bool,
     ) -> Result<(Arc<RhaiModules>, Vec<ModuleDescriptor>), String> {
@@ -239,14 +281,14 @@ impl CompiledScript {
         }
         let keys = vec![native.key.clone()];
         let backend = Arc::new(RhaiModules {
-            engine: self.engine,
+            engine: self.engine.clone(),
             modules: vec![ScriptedModule {
                 native,
-                ast: self.ast,
+                ast: self.ast.clone(),
                 scripted,
             }],
             keys,
-            ports: self.ports,
+            ports: self.ports.clone(),
             source: Arc::from(format!("{} (generation {:016x})", self.source, self.digest)),
         });
         Ok((backend, vec![declared]))
@@ -263,7 +305,7 @@ impl RhaiModules {
         ports: ScriptPorts,
         max_operations: u64,
     ) -> Result<(Arc<Self>, Vec<ModuleDescriptor>), String> {
-        CompiledScript::new(source, text, ports, max_operations)?.bind(native, false)
+        PreparedScript::new(source, text, ports, max_operations)?.bind(native, false)
     }
 
     /// Compile a script that declares its own module through `fn declare()`.
@@ -274,9 +316,7 @@ impl RhaiModules {
         ports: ScriptPorts,
         max_operations: u64,
     ) -> Result<(Arc<Self>, Vec<ModuleDescriptor>), String> {
-        let compiled = CompiledScript::new(source, text, ports, max_operations)?;
-        let declared = compiled.declaration()?;
-        compiled.bind(declared, true)
+        PreparedScript::new(source, text, ports, max_operations)?.bind_declared()
     }
 
     /// Compile one file. Its declaration supplies the module when present.
@@ -290,14 +330,7 @@ impl RhaiModules {
         ports: ScriptPorts,
         max_operations: u64,
     ) -> Result<(Arc<Self>, Vec<ModuleDescriptor>), String> {
-        let compiled = CompiledScript::new(source, text, ports, max_operations)?;
-        let own_declaration = declares_a_module(&compiled.ast);
-        let declared = if own_declaration {
-            compiled.declaration()?
-        } else {
-            module_for_file(stem, linked)?.clone()
-        };
-        compiled.bind(declared, own_declaration)
+        PreparedScript::new(source, text, ports, max_operations)?.bind_file(stem, linked)
     }
 
     /// Whether entry `entry` of module `module` runs from the script.

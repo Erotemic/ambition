@@ -12,6 +12,42 @@ The completed [first-class procedural authoring acceptance](first-class-procedur
 
 Measure progress by the gameplay that authors can express and the engine changes that subsequent ideas no longer require. Playable examples can show this progress. Port counts, script size, and native migrations do not establish capability completeness.
 
+## Gameplay expressiveness requirements
+
+Maintainer direction, 2026-11-18: use GDScript gameplay expressiveness as a
+reference. Keep Ambition's domain model, authoritative simulation, rollback,
+movement rules, and native performance. API count does not measure success.
+
+1. **Address meaningful objects.** Scripts can identify important bodies,
+   props, items, and room objects, inspect relevant state, and use their domain
+   operations. References have explicit scope, validity, and retirement rules.
+2. **React to important events.** Damage, death, pickup, interaction, entry,
+   exit, animation completion, and state changes can start authored behavior.
+   Native owners publish confirmed facts. Delivery has defined ordering,
+   bounds, lifetime, and replay behavior.
+3. **Create and compose objects.** Authors can create enemies, interactive
+   props, and systems of several objects from reusable building blocks.
+   Creation reports actual outcomes and identities. A predefined weapon
+   request alone does not establish this capability.
+4. **Define reusable script abstractions.** Authors can define, parameterize,
+   and combine gameplay components, object behaviors, and systems in the
+   scripting environment. A new variation must not require a Rust adapter.
+   Shared behavior and persistent instance state must remain distinct.
+
+The fourth requirement guides the other three. A set of unrelated operations
+is insufficient if authors cannot build and reuse higher-level behavior with
+it. Check shared functions or libraries, behavior parameters, independent
+instances, object references, event routing, and state ownership together.
+Use a prebuilt host to change an abstraction and a separate use of it, with
+clear load errors and replay-safe state. Record missing mechanisms in the
+[census](script-first-capability-census.md); do not infer support from the
+scripting language alone.
+
+This direction does not require raw ECS access, a Node tree, inheritance, or
+a universal prefab format. The separate
+[world composition plan](reusable-authored-world-composition.md) records open
+structural choices. Those choices must not block reusable script behavior.
+
 ## Non-goals and performance rule
 
 - Do **not** migrate working Mary-O, Sanic, or Ambition gameplay to Rhai to demonstrate API coverage. A migration needs its own concrete product/iteration benefit, a separately selected customer, and acceptable measured cost.
@@ -111,7 +147,7 @@ proves its own composition. It does not prove that these groups are complete.
 
 **Maintainer clarification:** This is a gameplay and engine capability task, not a documentation-only audit or a Rhai-alias-count task. **Native engine work, including structural refactoring, is in scope and is preferred when it creates a cleaner general capability.** The engine is pre-release. Do not preserve an awkward boundary or create game-specific glue to avoid changing it. Keep Bevy, physics, collision arbitration, inventory, travel and rollback authority in their domain owners. Rhai, WASM and linked Rust must use the same semantic contracts where procedural access is appropriate.
 
-The finite first slice and Pulse Forge receipts are historical milestones. They are **not** the exit criteria for this active follow-on. The next agent should implement the missing capability families, exercise them in real new Ambition gameplay, and leave a source-grounded list of any limitations. Do not stop after identifying a blocker, adding a descriptor, or writing a proposal for future engine work when the blocker is within this task's engineering scope.
+The finite first slice and Pulse Forge receipts are historical milestones. They are **not** the exit criteria for this active follow-on. The next agent should implement the missing capability families, exercise them through loaded authored fixtures or new Ambition gameplay, and record limitations from source and runtime evidence. A shipped consumer is not required. Do not stop after identifying a blocker, adding a descriptor, or writing a proposal for future engine work when the blocker is within this task's engineering scope.
 
 ### Required authoring experiences
 
@@ -169,8 +205,8 @@ Choose a small set of **high-value** focused tests/recorded replays; do not manu
 
 The active program can be marked complete only when:
 
-1. The required authoring experiences above have **real implementation evidence**, or a justified, demonstrated data/native-authoring equivalent. A high-priority family cannot remain a known blocker with no working path.
-2. New Ambition gameplay exercises **multiple independent domain families**, including an interaction with an authoritative outcome; the demonstrated contracts are reusable outside that mechanic. Recheck expressiveness by attempting a meaningfully different feature, not a reskin of the stage attack.
+1. All four gameplay expressiveness requirements and the required authoring experiences above have **real implementation evidence**, or a justified, demonstrated data/native-authoring equivalent. A high-priority family cannot remain a known blocker with no working path.
+2. Loaded authored fixtures or new Ambition gameplay exercise **multiple independent domain families**, including an interaction with an authoritative outcome. The contracts are reusable outside that mechanic. Check a materially different use of the abstraction; a change of attack art is insufficient. No shipped consumer is required.
 3. Engine changes, if needed for those semantics, are implemented cleanly in owning domains and used by Rhai and portable Rust; no gameplay-specific SDK hacks, raw ECS exposure, parallel simulators or unbounded scans are left as the normal authoring path.
 4. A prebuilt-host editing cycle, relevant replay/state/cancellation evidence, and measured cost are documented with commands and observed results. Verification claims distinguish executed checks from static reasoning; do not require a full four-hour suite for a local scripting change.
 5. The census marks each high-priority gap as `implemented`, `data-authorable with witness`, or `still blocked`, with links to code and proof. **Any remaining high-priority `still blocked` entry means the program remains open.** A deliberate reduction of this scope requires an explicit maintainer decision, not unilateral agent deferral.

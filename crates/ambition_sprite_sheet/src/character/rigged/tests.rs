@@ -622,6 +622,70 @@ fn mary_os_parts_are_placed_by_her_body_rigs_pose() {
     }
 }
 
+/// ⭐ THE ART NAMES THE JOINT. Scout's (`player_robot_v3`) visual body rig
+/// names the joint of every part track (`part_bindings`), and through those
+/// names his rig's own pose puts each named draw of every frame the two files
+/// share where his flipbook drew it. The flipbook draws one raster for each
+/// raster that is a half turn of it (an oval visor, a capsule shin), so a
+/// draw may come back half a turn from its flipbook place: the same picture.
+/// Any other difference is a part the pose does not carry.
+#[test]
+fn scouts_named_parts_are_placed_by_his_body_rigs_pose() {
+    let content = &crate::test_support::shared_sprites();
+    let target = "player_robot_v3";
+    let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a published flipbook");
+    let text = crate::baked_body_rigs::baked_body_rig(&content, target).expect("a published body rig");
+    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
+        .expect("the rig parses")
+        .prepare()
+        .expect("the rig prepares");
+    let named = ambition_characters::actor::published_part_bindings(text).expect("its part bindings read");
+    // ⛔ Premise: the rig names joints, or this measures the unnamed road.
+    assert!(!named.is_empty(), "the rig names no part's joint");
+    let posed = PosedParts::bind_named(&flipbook, &rig, &named, 1.0, 1.0_f32.to_radians());
+    assert!(posed.frames_measured() > 1000, "only {} shared frames", posed.frames_measured());
+    let (mut joints, mut placed) = (Vec::new(), Vec::new());
+    let (mut exact, mut half_turned) = (0, 0);
+    for row in flipbook.clip_names() {
+        let Some(rig_clip) = rig.clip(row) else { continue };
+        let clip = flipbook.clip(row).unwrap();
+        if rig_clip.frames.len() != clip.frame_count() {
+            continue;
+        }
+        for index in 0..clip.frame_count() {
+            assert!(rig.solve(row, index, &mut joints));
+            let frame = flipbook.frame(row, index).unwrap();
+            // Wiped first: the pose alone must put each part back.
+            let unplaced: Vec<PartDraw> = frame.iter().map(|draw| PartDraw { at: Vec2::ZERO, rotation: 0.0, ..*draw }).collect();
+            posed.place(&unplaced, &joints, &mut placed);
+            for (drawn, from_pose) in frame.iter().zip(&placed) {
+                let Some(name) = drawn.track.map(|track| flipbook.tracks[usize::from(track)].as_str()) else { continue };
+                if !named.contains_key(name) {
+                    continue;
+                }
+                assert!(
+                    drawn.track.and_then(|track| posed.binding(track)).is_some(),
+                    "{row}[{index}]: the named part `{name}` rides no joint"
+                );
+                let turn = (drawn.rotation - from_pose.rotation + std::f32::consts::PI)
+                    .rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI;
+                if drawn.at.distance(from_pose.at) <= 1.0 && turn.abs() <= 1.0_f32.to_radians() {
+                    exact += 1;
+                } else {
+                    assert!(
+                        (turn.abs() - std::f32::consts::PI).abs() <= 1.0_f32.to_radians(),
+                        "{row}[{index}]: the pose puts `{name}` (part {}) at {:?} turned {}, the flipbook at {:?} turned {}",
+                        drawn.part, from_pose.at, from_pose.rotation, drawn.at, drawn.rotation
+                    );
+                    half_turned += 1;
+                }
+            }
+        }
+    }
+    eprintln!("[scout rig] {exact} named draws placed exactly, {half_turned} half a turn away (one raster)");
+    assert!(exact > 10_000, "only {exact} draws compared");
+}
+
 /// ⭐ POSE IS AN INPUT (the ragdoll seam). A pose no clip authored — Mary-O's
 /// idle with one joint turned, as a physics step would turn it — moves the
 /// parts that ride that joint, rigidly about it, and leaves every other part

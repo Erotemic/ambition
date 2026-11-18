@@ -665,9 +665,13 @@ carriage poses slides from the pose last drawn over 0.07 s on the shared
 rigged path; strikes, move clips and the hard landing stay sharp. Contacts
 were measured the same day: natural clip ends already plant the feet (0 to
 2 px), a foot glides only on an interrupt, and a ledge catch's hands slide
-24 to 31 px. Next, on a publishing machine: a visual body rig for the
-reference fighter (it publishes none), because a foot or hand held alone
-parts from its limb; then planted contacts and follow-through on the joints
+24 to 31 px. **The visual rig landed 2026-11-18:** Scout publishes
+`player_robot_v3_body_rig.ron` (side rows and their mirrors; no hurt parts,
+gameplay off as for every rig), which names each part track's joint
+(`part_bindings`); `PosedParts::bind_named` places every named draw of the
+2028 shared frames from the rig's pose (41707 exactly, 35 half a turn away
+on the same raster). Next: planted contacts (solve a held foot's or hand's
+limb on the joints) and follow-through
 ([Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish)).
 Measure campaign sheet gaps before authoring more rows.
 

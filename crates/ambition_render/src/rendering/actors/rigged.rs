@@ -1053,12 +1053,15 @@ fn spawn_presentation(
 }
 
 /// `target`'s tracks bound to the joints of the body rig its sheet publishes,
-/// or `None` when it publishes none. Within a pixel and a degree: a part that
-/// rides its joint less tightly than that draws where its frame puts it.
+/// or `None` when it publishes none. A track the rig names rides that joint
+/// (`part_bindings`); any other, the joint that holds it stillest. Within a
+/// pixel and a degree: a part that rides its joint less tightly than that
+/// draws where its frame puts it.
 fn bind_posed_parts(sprite_content: &ambition_sprite_sheet::SpriteContent, pages: &RiggedSpritePages, target: &str) -> Option<Arc<PosedParts>> {
     let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, target)?;
     let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text).ok()?.prepare().ok()?;
-    let posed = PosedParts::bind(&pages.flipbook, &rig, 1.0, 1.0_f32.to_radians());
+    let named = ambition_characters::actor::published_part_bindings(text).ok()?;
+    let posed = PosedParts::bind_named(&pages.flipbook, &rig, &named, 1.0, 1.0_f32.to_radians());
     (posed.bound().0 > 0).then(|| Arc::new(posed))
 }
 

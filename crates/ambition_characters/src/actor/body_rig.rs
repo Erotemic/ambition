@@ -304,7 +304,29 @@ struct PublishedBodyRig {
     attachments: Vec<RigAttachment>,
     #[serde(default)]
     hurt_parts: Vec<RigHurtPart>,
+    /// Part-flipbook track name -> the joint that part rides, where the art
+    /// knows it. A presentation concern (`published_part_bindings`): the
+    /// definition a body carries does not hold it.
+    #[serde(default)]
+    part_bindings: BTreeMap<String, String>,
     clips: BTreeMap<String, RigClip>,
+}
+
+/// The track -> joint names a published rig states for its sheet's part
+/// flipbook (empty when it states none), each joint checked against the rig's
+/// joints. A renderer that places parts from joint frames binds each named
+/// track to its joint instead of guessing the joint from the frames: a
+/// flipbook that bakes a limb's turn into its rasters records no angle to
+/// guess from.
+pub fn published_part_bindings(text: &str) -> Result<BTreeMap<String, String>, String> {
+    let published: PublishedBodyRig =
+        ron::from_str(text).map_err(|error| format!("body rig does not parse: {error}"))?;
+    for (track, joint) in &published.part_bindings {
+        if !published.joints.iter().any(|known| &known.name == joint) {
+            return Err(format!("part track `{track}` names joint `{joint}`, which is not a joint"));
+        }
+    }
+    Ok(published.part_bindings)
 }
 
 impl BodyRigDefinition {

@@ -686,6 +686,62 @@ fn scouts_named_parts_are_placed_by_his_body_rigs_pose() {
     assert!(exact > 10_000, "only {exact} draws compared");
 }
 
+/// ⭐ A CAUGHT LEDGE HOLDS THE HANDS (POSE-CONTINUITY's planted contacts).
+/// Scout falls into a ledge catch: the clip blend slides each part from the
+/// fall toward `ledge_grab`, which carried his raised hands 24 to 31 px
+/// across the ledge. Held, both hands are where `ledge_grab` draws them at
+/// every point of the blend, and each arm is one piece: the forearm starts an
+/// upper arm's length from the shoulder (where the blend put the shoulder)
+/// and the hand a forearm's length from the elbow.
+#[test]
+fn a_ledge_catch_holds_scouts_hands_on_the_ledge_through_the_blend() {
+    let content = &crate::test_support::shared_sprites();
+    let target = "player_robot_v3";
+    let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a published flipbook");
+    let text = crate::baked_body_rigs::baked_body_rig(&content, target).expect("a published body rig");
+    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text).unwrap().prepare().unwrap();
+    let named = ambition_characters::actor::published_part_bindings(text).unwrap();
+    let limbs = ambition_characters::actor::published_limbs(text).unwrap();
+    let posed = PosedParts::bind_named(&flipbook, &rig, &named, 1.0, 1.0_f32.to_radians()).with_limbs(&rig, &limbs);
+    let joint = |name: &str| rig.joint_names().iter().position(|joint| joint == name).unwrap() as u16;
+    let contacts = crate::character::CharacterAnim::LedgeGrab.planted_contacts();
+    assert_eq!(contacts, ["hand_near", "hand_far"]);
+    let riding = |draws: &[PartDraw], name: &str| -> Vec<PartDraw> {
+        let j = joint(name);
+        draws.iter().filter(|d| d.track.and_then(|t| posed.binding(t)).is_some_and(|b| b.joint == j)).copied().collect()
+    };
+    for (fall, grab) in [("fall", "ledge_grab"), ("fall~mirrored", "ledge_grab~mirrored")] {
+        let from = flipbook.frame(fall, 0).expect("a fall frame").to_vec();
+        let target_frame = flipbook.frame(grab, 0).expect("a ledge grab frame").to_vec();
+        let mut joints = Vec::new();
+        assert!(rig.solve(grab, 0, &mut joints));
+        let length = |a: &str, b: &str| joints[usize::from(joint(a))].translation.distance(joints[usize::from(joint(b))].translation);
+        for side in ["near", "far"] {
+            let (upper, lower, end) = (format!("{side}_arm_u"), format!("{side}_arm_l"), format!("{side}_arm_hand"));
+            // ⛔ Premise: unheld, the blend slides this hand well off the ledge.
+            let mut slid = target_frame.clone();
+            blend_from(&from, 0.0, &mut slid);
+            let off = riding(&slid, &end).iter().zip(riding(&target_frame, &end)).map(|(a, b)| a.at.distance(b.at)).fold(0.0, f32::max);
+            assert!(off > 10.0, "{grab} {side}: the plain blend moves the hand only {off} px");
+            for t in [0.0, 0.25, 0.5, 0.75] {
+                let mut drawn = target_frame.clone();
+                blend_from(&from, t, &mut drawn);
+                let shoulder = riding(&drawn, &upper)[0].at;
+                assert_eq!(posed.hold(grab, 0, contacts, &mut drawn), 2, "{grab}: both hands held");
+                for (now, there) in riding(&drawn, &end).iter().zip(riding(&target_frame, &end)) {
+                    assert!(now.at.distance(there.at) <= 1.0, "{grab} {side} t={t}: the hand is at {:?}, the ledge grab draws it at {:?}", now.at, there.at);
+                }
+                // Scout's limb parts hang on their joint origins (a binding at
+                // the pivot), so a part's pivot is its joint.
+                let (s, e, w) = (riding(&drawn, &upper)[0].at, riding(&drawn, &lower)[0].at, riding(&drawn, &end)[0].at);
+                assert!(s.distance(shoulder) <= 1.0, "{grab} {side} t={t}: the shoulder moved from where the blend put it");
+                assert!((s.distance(e) - length(&upper, &lower)).abs() <= 1.0, "{grab} {side} t={t}: the upper arm is {} long, not {}", s.distance(e), length(&upper, &lower));
+                assert!((e.distance(w) - length(&lower, &end)).abs() <= 1.0, "{grab} {side} t={t}: the forearm is {} long, not {}", e.distance(w), length(&lower, &end));
+            }
+        }
+    }
+}
+
 /// ⭐ POSE IS AN INPUT (the ragdoll seam). A pose no clip authored — Mary-O's
 /// idle with one joint turned, as a physics step would turn it — moves the
 /// parts that ride that joint, rigidly about it, and leaves every other part

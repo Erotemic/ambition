@@ -1061,7 +1061,9 @@ fn bind_posed_parts(sprite_content: &ambition_sprite_sheet::SpriteContent, pages
     let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, target)?;
     let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text).ok()?.prepare().ok()?;
     let named = ambition_characters::actor::published_part_bindings(text).ok()?;
-    let posed = PosedParts::bind_named(&pages.flipbook, &rig, &named, 1.0, 1.0_f32.to_radians());
+    // The limbs whose ends a pose can plant (`CharacterAnim::planted_contacts`).
+    let limbs = ambition_characters::actor::published_limbs(text).ok()?;
+    let posed = PosedParts::bind_named(&pages.flipbook, &rig, &named, 1.0, 1.0_f32.to_radians()).with_limbs(&rig, &limbs);
     (posed.bound().0 > 0).then(|| Arc::new(posed))
 }
 
@@ -1577,9 +1579,14 @@ fn frame_draws<'a>(
     }
     // Its wounds, as much as it is hurt (eyes that go bloodshot).
     flipbook.wounded_by(animator.wounds, drawn);
-    // Sliding from the pose before a change of row, when it blends.
+    // Sliding from the pose before a change of row, when it blends; the
+    // limb ends the new pose plants (a ledge catch's hands) stay where it
+    // draws them, their limbs solved to them.
     if let Some((from, t)) = blend {
         ambition_sprite_sheet::character::rigged::blend_from(from, t, drawn);
+        if let Some(posed) = posed {
+            posed.hold(row, animator.frame, animator.current.planted_contacts(), drawn);
+        }
     }
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {

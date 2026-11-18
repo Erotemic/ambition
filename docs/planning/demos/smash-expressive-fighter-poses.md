@@ -335,8 +335,22 @@ is placed from the rig's pose, 41707 exactly and 35 half a turn away on the
 same raster (`scouts_named_parts_are_placed_by_his_body_rigs_pose`). Mary-O
 and the pirates name no joints and bind as before.
 `scripts/measure/measure_track_joints.py` still measures one place per
-track, so it reports Scout's limbs as loose. Next: plant a contact by
-solving its limb to the held point, and follow-through, on these joints.
+track, so it reports Scout's limbs as loose.
+
+**Planted hands (2026-11-18), item 2.** A pose names the limb ends it
+plants on the world (`CharacterAnim::planted_contacts`, body-rig
+attachment names); the ledge grab plants both hands. The rig states each
+limb's upper, lower and end joints (`limbs`, read by `published_limbs`).
+While a change into a planting pose blends, `PosedParts::hold` puts each
+planted end's parts where the pose draws them and solves its upper and
+lower bones between the root (a shoulder), where the blend now draws it, and
+that end, bent to the side the pose bends them. So Scout's hands are on the
+ledge from the first frame of a catch while his body comes up to it
+(`a_ledge_catch_holds_scouts_hands_on_the_ledge_through_the_blend`: both
+hands within a pixel of the ledge grab's at every point of the blend, each
+arm one piece, both facings; unheld, the blend moved them more than 10 px).
+Feet were not planted: at a natural clip end they are already down, and an
+interrupted step is a later question. Still open: follow-through (item 3).
 
 ## Phase 4 - Expand expressive coverage after the first playable pass
 

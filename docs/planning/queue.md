@@ -670,8 +670,12 @@ were measured the same day: natural clip ends already plant the feet (0 to
 gameplay off as for every rig), which names each part track's joint
 (`part_bindings`); `PosedParts::bind_named` places every named draw of the
 2028 shared frames from the rig's pose (41707 exactly, 35 half a turn away
-on the same raster). Next: planted contacts (solve a held foot's or hand's
-limb on the joints) and follow-through
+on the same raster). **Planted hands landed the same day:** a pose names
+the limb ends it plants (`CharacterAnim::planted_contacts`: the ledge
+grab's two hands); while a change into it blends, those hands stay where it
+draws them and each arm is solved from its blended shoulder (the rig's
+`limbs`, `PosedParts::hold`), so a ledge catch no longer slides the hands
+24 to 31 px across the ledge. Next: follow-through on the joints
 ([Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish)).
 Measure campaign sheet gaps before authoring more rows.
 

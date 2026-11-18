@@ -189,6 +189,18 @@ pub enum CharacterAnim {
 }
 
 impl CharacterAnim {
+    /// The limb ends (body-rig attachments) this pose plants on the world:
+    /// while a change into it blends, they are held where the pose draws them
+    /// and the limb is solved to them (POSE-CONTINUITY's planted contacts).
+    /// A ledge catch's hands are on the ledge from its first frame; they do
+    /// not slide there from where the fall held them.
+    pub const fn planted_contacts(self) -> &'static [&'static str] {
+        match self {
+            Self::LedgeGrab => &["hand_near", "hand_far"],
+            _ => &[],
+        }
+    }
+
     /// May a change INTO this pose be drawn as a short blend from the pose
     /// before it (POSE-CONTINUITY)? Yes for the body's carriage between
     /// actions: standing, moving, airborne, on a wall or a ledge, reeling.

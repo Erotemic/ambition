@@ -584,7 +584,9 @@ fn cutscene_beat(sim: &Platformer2dSimHarness) -> Option<(usize, bool)> {
 }
 
 fn sim_playing_a_cutscene() -> Platformer2dSimHarness {
+    use ambition_platformer2d::dialog::{DialogSettings, TextReveal};
     use ambition_platformer2d::sim::SimScheduleExt;
+    use ambition_platformer2d::world::scoped_rules::{DeclaredRules, RulesScope};
     Platformer2dSimHarness::build(
         crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
@@ -592,6 +594,11 @@ fn sim_playing_a_cutscene() -> Platformer2dSimHarness {
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            // This fixture measures dismiss replay for a cutscene with no room.
+            app.world_mut().resource_mut::<DeclaredRules<DialogSettings>>().declare(
+                RulesScope::EveryRoom,
+                DialogSettings { text_reveal: TextReveal::Instant, ..Default::default() },
+            );
             let label = app.sim_schedule();
             app.add_systems(label, trigger_a_cutscene_from_inside_the_sim);
             Ok(())

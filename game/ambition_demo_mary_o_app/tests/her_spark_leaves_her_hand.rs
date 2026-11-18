@@ -31,7 +31,6 @@ use ambition_platformer2d::combat::body_rig::BodyRig;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_platformer2d::projectiles::ProjectileSpawnRequest;
 
 /// The row a firing body shows, and the part of it the shot leaves the hand
 /// in: the rule of the engine's own hand muzzle (`SHOOT_CLIPS`,

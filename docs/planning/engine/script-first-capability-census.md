@@ -264,8 +264,11 @@ checks checkpoint restoration. Item, integration, and session owner tests,
 app checks, Smash, warning checks, and absence contracts pass before the
 upstream merge. The merged app compiles; nine focused tests pass, including
 inventory, checkpoint, schema, resource coverage, and Contextual Blink replay.
-Workspace policy retains its 11 baseline violations. Broad
-union/tooling checks and global asset freshness remain incomplete.
+Focused union checks also cover inventory, schema, real causal recording,
+cutscene input replay, and the four Mary-O spark checks. Workspace policy
+retains its 11 baseline violations. The broad union and tooling sweeps remain
+incomplete. The partial tooling run had 684 passes and 15 skips, with missing
+regeneration targets for three existing character sheets.
 
 The fixed 24-slot catalog, equipment/custody results, and durable world-object
 claims remain open. Session action tickets cannot replace an atomic durable

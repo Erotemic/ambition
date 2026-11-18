@@ -362,6 +362,38 @@ pub fn drop_held_weapon(
     );
 }
 
+/// Spawn the item a body throws when no world object stands behind its hand
+/// (a scene put the item there, `actor.throw`): a `GroundItem` leaving `pos` at
+/// `vel`, released as a throw, so what arms on a throw arms (a bomb's fuse).
+///
+/// An occurrence named under the thrower (`SimId::spawned(thrower, sequence)`,
+/// `sequence` from the thrower's own counter), as an inventory throw's mint
+/// is: it rewinds, and it is swept with the room.
+#[allow(clippy::too_many_arguments)]
+pub fn throw_minted_item(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    thrower: &SimId,
+    sequence: u64,
+    spec: ambition_characters::brain::HeldItemSpec,
+    pos: ae::Vec2,
+    vel: ae::Vec2,
+    half_extent: ae::Vec2,
+) -> bevy::prelude::Entity {
+    spawn_death_drop(
+        commands,
+        session_scope,
+        thrower,
+        sequence,
+        DropIdentity::Occurrence(SimId::spawned(thrower, sequence)),
+        (
+            ambition_held_items::GroundItem::released(spec, pos, vel, half_extent),
+            ambition_held_items::ReleasedAs(ambition_held_items::Release::Throw),
+            bevy::prelude::Name::new("Ground item: thrown in a scene"),
+        ),
+    )
+}
+
 /// Spawn the item an authored placement grew again (a palm's coconut) as a
 /// `GroundItem` at rest at `pos`.
 ///

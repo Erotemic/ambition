@@ -26,7 +26,7 @@
     // grid the seam lab throws through portals.
     "seam_gauge": (path: "sprites/props/seam_gauge.png", size: (40.0, 40.0)),
     // The Creator's case (renderer target `creator_case`): level 1's raid
-    // came for it, and its last raider runs off with it by the handle.
+    // came for it, and its brute runs off with it by the handle.
     "creator_case": (path: "sprites/props/creator_case.png", size: (30.0, 24.0)),
     // The pool noodle (renderer target `pool_noodle`): a long foam tube to hit
     // with. It lies by the pools of the Noodly Temple. The hand holds it near

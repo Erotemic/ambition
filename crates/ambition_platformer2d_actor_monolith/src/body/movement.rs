@@ -331,6 +331,13 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
                 playing_a_move,
             ),
         );
+        // A press while a move plays starts nothing, so it owes no slash
+        // recoil. The kernel shoves a body back on every tick its attack is
+        // pressed, and a brain holds the press through its swing: the shoves
+        // added up to a run three times the body's own.
+        if playing_a_move.is_some() {
+            input.attack_pressed = false;
+        }
         // What stays here is what legitimately differs: WHICH tuning this body moves under (its
         // character's authored feel, else its config's).
         let resolved_tuning = authored_tuning.unwrap_or(tuning);

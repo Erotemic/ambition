@@ -141,6 +141,8 @@ pub fn rally_allies_to_the_fight(
             .map(|(_, faction, driver, _)| effective_faction(*faction, driver))
     };
 
+    // Each foe a rallied body fights, and that body: the foe turns on it.
+    let mut answered: Vec<(Entity, Entity)> = Vec::new();
     for (
         entity,
         sim_id,
@@ -188,7 +190,13 @@ pub fn rally_allies_to_the_fight(
             )));
             continue;
         }
-        if rallied || !disposition.is_peaceful() {
+        if rallied {
+            if let Some(foe) = aggression.grudge.and_then(Grudge::body) {
+                answered.push((foe, entity));
+            }
+            continue;
+        }
+        if !disposition.is_peaceful() {
             continue;
         }
 
@@ -250,6 +258,7 @@ pub fn rally_allies_to_the_fight(
 
         aggression.target = Some(foe);
         aggression.grudge = Some(Grudge::Body(foe));
+        answered.push((foe, entity));
         crate::body::actors::provoke_actor_in_place(
             &mut commands,
             entity,
@@ -258,5 +267,18 @@ pub fn rally_allies_to_the_fight(
             repertoire,
             Some(policy),
         );
+    }
+
+    // A foe fights back. Its own side's foes are the player's side, so without
+    // a grudge it hunts only the player and never answers the body that came
+    // to blows with it: it now takes the nearer of the two. A foe that already
+    // holds a grudge keeps it.
+    let mut bodies = sets.p1();
+    for (foe, ally) in answered {
+        if let Ok((_, _, _, mut aggression, ..)) = bodies.get_mut(foe) {
+            if aggression.grudge.is_none() && matches!(aggression.mode, AggressionMode::Hostile) {
+                aggression.grudge = Some(Grudge::Body(ally));
+            }
+        }
     }
 }

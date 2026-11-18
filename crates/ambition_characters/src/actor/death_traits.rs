@@ -31,6 +31,10 @@ pub struct CharacterDeathTraits {
     /// fact and has the same one consumer family; if this struct ever grows a
     /// second mortality knob, that is the moment to split them.
     pub never_dies: bool,
+    /// Damage stops at this much health: the body is beaten, not killed, and
+    /// a scene decides what a beaten body does next (`actor.beaten`). `None`
+    /// lets damage kill it.
+    pub beaten_at: Option<i32>,
     /// Whether the body drops its live held item on death.
     pub drops_held_item: bool,
     /// The cue this body plays when it dies, as an SFX bank id. `None` plays

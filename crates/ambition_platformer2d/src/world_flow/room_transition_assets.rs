@@ -240,6 +240,11 @@ fn add_image_handle(
     if handle == &Handle::default() {
         return;
     }
+    // Nor is the page a part-drawn realization holds in place of a baked one:
+    // no load ever starts for it.
+    if handle == &crate::sprite_sheet::character::NO_BAKED_IMAGE {
+        return;
+    }
     draft.by_label.insert(label.into(), handle.id());
 }
 
@@ -664,6 +669,10 @@ pub(crate) fn build_room_asset_manifest(sprite_content: &crate::sprite_sheet::Sp
     // first time such a room is prepared — not at boot for every room (asset
     // open work 2: 30 MP resident in the hall for bosses it does not have).
     // The manifest below then lists them and the reveal waits on them.
+    // The characters the room's bosses are drawn from (`BossSheetSpec::parts`)
+    // are demanded and waited on with the room's own: a boss sheet drawn from
+    // parts has no page of its own to wait on.
+    let mut characters: Vec<String> = staged_actor_names.to_vec();
     if !room.boss_spawns.is_empty() {
         if let Some(boss_catalog) = boss_catalog {
             let keys = crate::game_assets::boss_sheet_keys_for_room(
@@ -679,8 +688,16 @@ pub(crate) fn build_room_asset_manifest(sprite_content: &crate::sprite_sheet::Sp
                 layouts,
                 Some(&quality.budget),
             );
+            for key in &keys {
+                if let Some(id) = assets.boss_sprites.get(key).and_then(|boss| boss.spec.parts.clone()) {
+                    if !characters.contains(&id) {
+                        characters.push(id);
+                    }
+                }
+            }
         }
     }
+    let staged_actor_names = characters.as_slice();
     demand_room_character_sheets(&sprite_content,
         room,
         staged_actor_names,

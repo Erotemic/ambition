@@ -308,6 +308,7 @@ impl SpritePackCatalog {
             tuning: None,
             authored_faces_left: false,
             column_tile: None,
+            drawn_from_parts: false,
             fx: None,
             rows,
         })

@@ -155,6 +155,29 @@ mod tests {
     }
 
     #[test]
+    fn restored_presets_include_current_collision_surfaces_and_keep_custom_choices() {
+        use crate::dev_tools::{DebugViewMode, GeometrySubjectSelection};
+        let root = temp_root("geometry_preset");
+        let path = root.join("developer.ron");
+        let mut developer = DeveloperTools::default();
+        developer.debug_view_mode = DebugViewMode::Combat;
+        developer.show_observed_geometry = false;
+        developer.observed_geometry_preset = vec!["combat.".into()];
+        developer.observed_geometry_subject = GeometrySubjectSelection::Room;
+        developer.unlock_all_abilities = false;
+        save_developer(&path, &developer).unwrap();
+        let restored = load_developer(&path);
+        assert!(restored.show_observed_geometry && restored.draws_observer("collision.for_subject"));
+        assert_eq!(restored.observed_geometry_subject, GeometrySubjectSelection::Room);
+        assert!(!restored.unlock_all_abilities);
+        developer.mark_debug_view_custom();
+        save_developer(&path, &developer).unwrap();
+        let restored = load_developer(&path);
+        assert!(!restored.show_observed_geometry && !restored.draws_observer("collision.for_subject"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn developer_load_normalizes_legacy_art_toggles() {
         let root = temp_root("legacy_art");
         let path = root.join("developer.ron");
@@ -237,7 +260,7 @@ mod tests {
             restarted
                 .world()
                 .resource::<ActiveEditableAbilityMask>()
-                .0
+                .mask
                 .unwrap()
                 .unrestricted_blink
         );
@@ -258,7 +281,7 @@ mod tests {
             !refused
                 .world()
                 .resource::<ActiveEditableAbilityMask>()
-                .0
+                .mask
                 .unwrap()
                 .unrestricted_blink
         );

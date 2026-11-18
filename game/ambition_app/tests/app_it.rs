@@ -11,6 +11,7 @@
 //! Shared fixtures live in `mod common`, referenced as `crate::common::*`.
 
 mod common;
+mod playtest_ability_access;
 mod lightning_is_authored_in_rhai;
 mod the_boss_stage_has_scripted_pyro;
 mod smash_hit_properties;

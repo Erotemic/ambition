@@ -8,6 +8,12 @@ last_verified: 2026-11-17
 Developer tools inspect runtime state or request simulation changes through
 explicit commands. They are not a second gameplay authority.
 
+The developer menu has **Unlock all abilities**, enabled by default. It lifts
+authored room and equipment access limits for each controlled body's own kit.
+It does not replace that body's kit. Physical limits, portal transit guards,
+and individual developer ability switches still apply. The setting persists
+and uses the normal mechanical-edit admission path.
+
 ## Controls and ownership
 
 [Developer hotkeys](developer-hotkeys.md) lists the current bindings: `F1`
@@ -109,6 +115,11 @@ shape limit or silent truncation.
 
 `capture_scene --geometry-overlay A,B,prefix.` selects the same providers;
 `all` selects every provider. `--geometry-subject view|room|SIM_ID` sets its query context.
+
+The Combat preset includes effective collision surfaces and body geometry.
+This includes carried surfaces such as a mount's guitar, even when its art
+draws the surface. A saved preset uses its current provider selection after
+load. Manual layer edits use the Custom mode.
 Captures are presentation evidence. The structured report is the geometry
 record. Inactive splash previews predict the burst shape at the shot's current
 position; the live impact strike appears in `combat.volumes` after impact.

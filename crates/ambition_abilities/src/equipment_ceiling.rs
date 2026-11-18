@@ -35,7 +35,7 @@ pub fn worn_ceiling(worn: &WornEquipment) -> Option<AbilitySet> {
 /// Each wearer's body takes the ceiling of what it wears.
 pub fn withhold_the_worn_verbs(mut bodies: Query<(&WornEquipment, &mut AbilityContributions)>) {
     for (worn, mut contributions) in &mut bodies {
-        let wanted = worn_ceiling(worn).map(AbilityContribution::Ceiling);
+        let wanted = worn_ceiling(worn).map(AbilityContribution::AccessCeiling);
         if contributions.get(EQUIPMENT_WITHHELD_VERBS) == wanted {
             continue;
         }

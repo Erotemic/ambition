@@ -18,7 +18,7 @@ to touch, and a little danger outside town. No quest chains.
 - Scenery is district props drawn in room coordinates by the sprite renderer
   (`targets/props/<district>_props.py`, `_district_props`), placed by the
   room's generator (`specs/<district>/props.py`), registered in
-  `authored/sprites.yaml` and `assets/data/prop_sheets.ron`. Batch small
+  `assets/data/prop_sheets.ron` (the renderer's discovery publishes the target). Batch small
   shapes into one mask per colour (`eureka_props.Batch`, `ashlar`): a mask per
   shape made one room's art a 13-minute render.
 - Residents are chargen townsfolk (`data/townsfolk/*.chargen.yaml`), the

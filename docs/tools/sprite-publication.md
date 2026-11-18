@@ -23,9 +23,14 @@ Use `--check --target <name>` to check only the requested targets. Repeat
 atlases. A full collection check also reports the shared atlas products.
 
 The default scope is the selected library's collection in
-`game/ambition_content_library/authored/sprites.yaml`. `--scope all` includes other
-registered targets. Registration, publication selection, and known game use are
-separate facts. A target outside the collection is not a missing runtime asset.
+`game/ambition_content_library/authored/sprites.yaml`. The `runtime` collection
+is every registered target except the ones its `except` map names, each with a
+reason (review sheets, a retired rig). A new target is published by the next
+full build without being listed anywhere. `--scope all` includes the excepted
+targets too. A full build publishes the collection in place of the store's
+targets, so it drops a target the collection does not name. A target published
+by hand that is then excepted is reported by the renderer test
+`tests/test_runtime_collection.py`.
 
 A plan lists known logical paths and unresolved membership. The number of
 packed pages can depend on rendered pixels. `--list-outputs` lists declared
@@ -78,6 +83,12 @@ Publication does not refuse concurrent work:
   under `stale` in `published.json`.
 
 Accepted bundles can be reused by a later build if their recipes and files are current.
+A target's recipe records the files its render read, the directories it listed
+(a glob of a data folder) and its own row of the sprite policy (its static
+prop). A file added elsewhere in the renderer, or an edit to the collections,
+leaves it current. Recipes recorded before 2026-11-18 key the name of every
+source file and the whole policy file instead, and so read as stale (shared)
+after any such change until they are rebuilt once.
 
 A focused request includes the target's named static props and quality products.
 Full collection requests rebuild shared atlases when their parent bundles change.

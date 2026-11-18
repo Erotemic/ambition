@@ -164,8 +164,8 @@ impl NavGraph {
         let envelope = TraversalEnvelope::measure(body, frame, EnvelopeProbe::default())?;
         let nav = NavFrame { side: frame.side(), down: frame.down() };
         let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
-        let surfaces = standing_surfaces(world, nav, half * 2.0);
         let slope_pieces = chain_walks(world, nav).pieces;
+        let surfaces = split_at_touchdowns(standing_surfaces(world, nav, half * 2.0), &slope_pieces, nav, half.x);
         let jump_reach = envelope.jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let drop_reach = envelope.drop.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let apex = envelope.apex_rise();
@@ -686,6 +686,19 @@ fn slope_proposals(pieces: &[(Vec2, Vec2)], frame: NavFrame, a: &StandSurface, b
                 continue;
             }
             let direction = (frame.along(to) - frame.along(from)).signum();
+            // A slope is walked onto from behind its start and off ahead of
+            // its end: where it touches down inside a floor, the part of the
+            // floor under it is not where it starts or lands
+            // ([`split_at_touchdowns`]).
+            let behind = |surface: &StandSurface, along: f32| {
+                if direction > 0.0 { surface.left < along } else { surface.right > along }
+            };
+            let ahead = |surface: &StandSurface, along: f32| {
+                if direction > 0.0 { surface.right > along } else { surface.left < along }
+            };
+            if !(behind(a, frame.along(from)) && ahead(b, frame.along(to))) {
+                continue;
+            }
             let start = Vec2::new(a.clamp(frame.along(from)), a.top);
             let onto = (half_width + 4.0).min(b.width() * 0.5);
             legs.push(NavLeg {
@@ -698,6 +711,41 @@ fn slope_proposals(pieces: &[(Vec2, Vec2)], frame: NavFrame, a: &StandSurface, b
         }
     }
     legs
+}
+
+/// Each surface cut where a slope piece touches down inside it from above. A
+/// walking body that reaches the touchdown leaves the floor up the slope (the
+/// charging cart's ramp comes down onto the middle of the workshop's floor),
+/// so the floor on the two sides of it is two surfaces: the body's feet stop
+/// half a body short of the touchdown on each.
+fn split_at_touchdowns(surfaces: Vec<StandSurface>, pieces: &[(Vec2, Vec2)], frame: NavFrame, half_width: f32) -> Vec<StandSurface> {
+    let mut out = Vec::with_capacity(surfaces.len());
+    for surface in surfaces {
+        let mut cuts: Vec<f32> = pieces
+            .iter()
+            .flat_map(|&(p, q)| [(p, q), (q, p)])
+            .filter(|(touch, other)| {
+                let along = frame.along(*touch);
+                (frame.below(*touch) - surface.top).abs() <= SLOPE_END_REACH / 2.0
+                    && frame.below(*other) < surface.top - SLOPE_END_REACH
+                    && along - half_width > surface.left
+                    && along + half_width < surface.right
+            })
+            .map(|(touch, _)| frame.along(touch))
+            .collect();
+        cuts.sort_by(f32::total_cmp);
+        let mut left = surface.left;
+        for cut in cuts {
+            if cut - half_width > left {
+                out.push(StandSurface { left, right: cut - half_width, ..surface.clone() });
+            }
+            left = left.max(cut + half_width);
+        }
+        if left <= surface.right {
+            out.push(StandSurface { left, ..surface });
+        }
+    }
+    out
 }
 
 fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, drop: bool) -> Vec<NavLeg> {

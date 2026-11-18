@@ -99,6 +99,8 @@ impl<'a> WireReader<'a> {
         Self { bytes, pos: 0 }
     }
 
+    pub(crate) fn position(&self) -> usize { self.pos }
+
     fn take(&mut self, n: usize) -> Result<&'a [u8], WireError> {
         let end = self.pos.checked_add(n).ok_or(WireError::Truncated)?;
         let slice = self.bytes.get(self.pos..end).ok_or(WireError::Truncated)?;

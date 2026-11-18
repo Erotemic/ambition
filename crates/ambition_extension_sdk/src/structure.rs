@@ -34,6 +34,8 @@ pub enum Shape {
     /// `[x, y]`, two finite `f32`s.
     Vec2,
     Text,
+    /// A finite logical value. Its consumer supplies the record schema.
+    Data,
     /// The inner value, or `()` (in a record: the field may be absent).
     Opt(Box<Shape>),
     List(Box<Shape>),
@@ -453,6 +455,7 @@ impl Shape {
             Shape::F32 => "number".into(),
             Shape::Vec2 => "[x, y]".into(),
             Shape::Text => "text".into(),
+            Shape::Data => "schema-selected data".into(),
             Shape::Opt(inner) => format!("{} or ()", inner.summary()),
             Shape::List(inner) => format!("list of {}", inner.summary()),
             Shape::Map(inner) => format!("table of text to {}", inner.summary()),
@@ -484,6 +487,7 @@ impl Shape {
             Shape::F32 => simple(out, "f32"),
             Shape::Vec2 => simple(out, "vec2"),
             Shape::Text => simple(out, "text"),
+            Shape::Data => simple(out, "data"),
             Shape::Opt(inner) | Shape::List(inner) | Shape::Map(inner) => {
                 let kind = match self {
                     Shape::Opt(_) => "opt",

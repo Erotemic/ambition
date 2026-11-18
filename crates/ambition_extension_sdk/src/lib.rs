@@ -21,6 +21,7 @@
 //! * [`invoke`] — the [`invoke::Invocation`] that an entry receives.
 
 pub mod digest;
+mod data;
 pub mod action;
 mod choices;
 pub mod contract;

@@ -14,7 +14,7 @@
 //! followed on the next frame by matching visuals.
 
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_DUMMY};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, LiveRoomInstance, RoomInstanceRoot, RoomVisual, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -45,9 +45,22 @@ fn look_layer(look: &PlatformLook, front: bool) -> Option<(&str, f32)> {
 /// under it was hidden (2026-10-30: the Eureka tether's car vanished in its
 /// station's hall).
 const BACK_LAYER_Z: f32 = super::world::SCENERY_Z_FRONT + 0.01;
-/// Where the front row of a platform's sheet is drawn: in front of each body,
-/// behind what is drawn over a body (its name and its health).
-const FRONT_LAYER_Z: f32 = WORLD_Z_PLAYER + 6.0;
+/// Where the front row of a platform's sheet is drawn: over the room's
+/// furniture (a chest, a switch, a pickup) and behind each body, so a body
+/// that walks past the cart is in front of it. A body IN the thing is drawn
+/// behind it ([`IN_VESSEL_Z`], [`seat_bodies_in_vessels`]).
+///
+/// It was in front of each body (`WORLD_Z_PLAYER + 6`), and the cart's near
+/// rail was drawn over the Creator and the robot standing on the floor beside
+/// it (Jon, 2026-11-17).
+const FRONT_LAYER_Z: f32 = WORLD_Z_DUMMY + 4.5;
+/// Where a body in a thing it stands in (a cart's bed, inside its near rail)
+/// is drawn: just behind that thing's front row, so the rail hides its legs,
+/// and over everything else behind the bodies.
+pub(crate) const IN_VESSEL_Z: f32 = FRONT_LAYER_Z - 0.05;
+/// How far under a vessel's top a body's feet may be and still stand in it:
+/// the rounding of a body standing on a platform.
+const VESSEL_FLOOR_SLACK: f32 = 4.0;
 
 /// The looks a game registers for its platform sheets, by kind.
 #[derive(Resource, Default, Clone, Debug)]
@@ -182,6 +195,97 @@ pub struct MovingPlatformVisual {
     pub sheet: Option<String>,
     /// This is the front layer of its sheet ([`PlatformLook::front_row`]).
     pub front: bool,
+}
+
+/// The box a body stands IN on a platform whose sheet has a near side
+/// ([`PlatformLook::front_row`]): over the platform's width, from its top up
+/// to the top of the near side ([`PlatformLook::rim_px`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Vessel {
+    room: LiveRoomInstance,
+    left: f32,
+    right: f32,
+    top: f32,
+    rim: f32,
+}
+
+impl Vessel {
+    fn of(room: LiveRoomInstance, platform: &MovingPlatformState, look: &PlatformLook) -> Option<Self> {
+        look.front_row.as_ref()?;
+        let span = (look.span_px[1] - look.span_px[0]).max(1.0);
+        let k = platform.size.x / span;
+        let half = platform.size * 0.5;
+        Some(Self {
+            room,
+            left: platform.pos.x - half.x,
+            right: platform.pos.x + half.x,
+            top: platform.pos.y - half.y,
+            rim: look.rim_px.unwrap_or(0.0).max(0.0) * k,
+        })
+    }
+
+    /// Whether a body of this box, in this room, stands in the vessel: its
+    /// middle over the bed, and its feet on the bed or over it below the top
+    /// of the near side. (World y runs down.)
+    fn holds(&self, room: Option<LiveRoomInstance>, pos: ae::Vec2, size: ae::Vec2) -> bool {
+        let feet = pos.y + size.y * 0.5;
+        room == Some(self.room)
+            && (self.left..=self.right).contains(&pos.x)
+            && (self.top - self.rim..=self.top + VESSEL_FLOOR_SLACK).contains(&feet)
+    }
+}
+
+/// Draw each body that stands IN a thing (the cart's bed) behind that thing's
+/// near side, and leave every other body in front of it: the near side is
+/// drawn behind the bodies ([`FRONT_LAYER_Z`]), and a body in the vessel is
+/// put just behind it ([`IN_VESSEL_Z`]). One picture of the cart serves a body
+/// in it and a body beside it at once.
+///
+/// After the bodies are placed (`actors::sync_visuals` writes each body's z
+/// every frame), so a body that climbs out is drawn in front again on the
+/// next frame without anything to undo.
+pub fn seat_bodies_in_vessels(
+    platforms: Query<(&LiveRoomInstance, &MovingPlatformSet), With<RoomInstanceRoot>>,
+    looks: Option<Res<PlatformLooks>>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    features: Res<ambition_sim_view::FeatureViewIndex>,
+    mut players: Query<
+        (Entity, &mut Transform, &ambition_sim_view::BodyPoseView),
+        (With<super::primitives::PlayerVisual>, Without<super::primitives::FeatureVisual>),
+    >,
+    mut actors: Query<
+        (Entity, &super::primitives::FeatureVisual, &mut Transform),
+        Without<super::primitives::PlayerVisual>,
+    >,
+) {
+    let Some(looks) = looks else { return };
+    let vessels: Vec<Vessel> = platforms
+        .iter()
+        .flat_map(|(room, set)| {
+            set.0.iter().filter_map(|platform| {
+                let look = looks.0.get(platform.visual.as_deref()?)?;
+                Vessel::of(*room, platform, look)
+            })
+        })
+        .collect();
+    if vessels.is_empty() {
+        return;
+    }
+    let held = |room, pos, size| vessels.iter().any(|vessel| vessel.holds(room, pos, size));
+    for (entity, mut transform, pose) in &mut players {
+        if transform.translation.z != IN_VESSEL_Z && held(live.of(entity), pose.pos, pose.size) {
+            transform.translation.z = IN_VESSEL_Z;
+        }
+    }
+    for (entity, visual, mut transform) in &mut actors {
+        let Some(view) = features.get(&visual.id) else { continue };
+        if view.kind != ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor {
+            continue;
+        }
+        if transform.translation.z != IN_VESSEL_Z && held(live.of(entity), view.pos, view.size) {
+            transform.translation.z = IN_VESSEL_Z;
+        }
+    }
 }
 
 /// Run condition of [`sync_moving_platform_visuals`]: a live room has a
@@ -582,6 +686,7 @@ mod tests {
             top_px: 60.0,
             faces_right: true,
             front_row: None,
+            rim_px: None,
         }
     }
 
@@ -755,9 +860,12 @@ mod tests {
         assert_eq!(layers.len(), 2, "one platform with a front row is two pictures, and no more: {layers:?}");
         let ((_, back_z, back_row), (_, front_z, front_row)) = (layers[0], layers[1]);
         assert_eq!((back_row, front_row), (Some(back), Some(front)), "each layer draws its own row");
+        // A body beside the cart is in front of both layers; a body in it is
+        // between them (`seat_bodies_in_vessels`).
+        let (player, actor) = (ambition_platformer2d_core::config::WORLD_Z_PLAYER, WORLD_Z_DUMMY + 5.0);
         assert!(
-            back_z < WORLD_Z_PLAYER && WORLD_Z_PLAYER < front_z,
-            "a body (z {WORLD_Z_PLAYER}) is between the two layers: back {back_z}, front {front_z}"
+            back_z < IN_VESSEL_Z && IN_VESSEL_Z < front_z && front_z < actor && actor < player,
+            "back {back_z} < in the vessel {IN_VESSEL_Z} < front {front_z} < an actor {actor} < the player {player}"
         );
     }
 

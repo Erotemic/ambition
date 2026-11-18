@@ -6,10 +6,11 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`creation`](src/creation.rs) | Create a checked actor composition and initialize its declared behavior state. |
 | [`inventory`](src/inventory.rs) | Exact inventory exchanges and observations over native item authority. |
 | [`story`](src/story.rs) | Portable room story observations and action requests. |
 
-_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

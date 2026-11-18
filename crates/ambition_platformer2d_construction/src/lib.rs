@@ -9,6 +9,7 @@
 pub mod mechanics;
 pub mod placements;
 pub mod whereabouts;
+pub mod runtime;
 
 use ambition_characters::actor::limb::{Limb, LimbRig, LimbSlot};
 use ambition_platformer2d_shared_tangle::construction::{
@@ -33,9 +34,8 @@ pub const RECIPE_SUMMONED_MINION: &str = "ambition.summoned-minion";
 pub const RECIPE_GIANT_HOST: &str = "ambition.giant-host";
 /// One hand of a giant host.
 pub const RECIPE_GIANT_HAND: &str = "ambition.giant-hand";
-/// An ordinary authored enemy pulled into the planner because a relation
-/// (today: an authored mount link) names it.
-pub const RECIPE_AUTHORED_ENEMY: &str = "ambition.authored-enemy";
+/// A character body, for authored and runtime origins.
+pub const RECIPE_CHARACTER_BODY: &str = "ambition.character-body";
 /// One authored placement record, lowered through its frozen interpreter.
 pub const RECIPE_AUTHORED_PLACEMENT: &str = "ambition.authored-placement";
 /// An authored heal/save shrine.
@@ -55,9 +55,8 @@ pub const RELATION_MOUNT: &str = "ambition.mount";
 pub const ACTOR_CONSTRUCTION_DOMAIN: &str = "actor";
 
 const OWNER: &str = "ambition_platformer2d_actor_monolith";
-// v2: relation wiring and postconditions changed — the rig became slot-keyed, and limb/mount
-// verification now checks home offset, `Mounted`, and mount capabilities.
-const SCHEMA: &str = "actor-construction-v2";
+// v3: character bodies carry faction; hosts reserve their limb identity range.
+const SCHEMA: &str = "actor-construction-v3";
 
 pub fn recipe_authored_ground_item() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_GROUND_ITEM)
@@ -74,8 +73,8 @@ pub fn recipe_giant_host() -> RecipeId {
 pub fn recipe_giant_hand() -> RecipeId {
     RecipeId::new(RECIPE_GIANT_HAND)
 }
-pub fn recipe_authored_enemy() -> RecipeId {
-    RecipeId::new(RECIPE_AUTHORED_ENEMY)
+pub fn recipe_character_body() -> RecipeId {
+    RecipeId::new(RECIPE_CHARACTER_BODY)
 }
 pub fn recipe_authored_boss() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_BOSS)
@@ -151,10 +150,12 @@ pub enum ActorConstructionParams {
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
         /// A rider the room seats on it conducts it (`CharacterMount::rider_conducts`).
         conducted: bool,
+        reserved_descendants: u64,
     },
     /// One hand of a giant host. The body is built here; its `Limb` component and
     /// the host's rig entry are installed by the `ambition.limb` relation.
     GiantHand {
+        faction: ambition_characters::actor::ActorFaction,
         authored: ambition_platformer2d_world::rooms::Authored<
             ambition_platformer2d_world::rooms::EnemySpawnSpec,
         >,
@@ -162,9 +163,9 @@ pub enum ActorConstructionParams {
         /// the rider's. `None`: the hand is its host's own.
         conductor: Option<ambition_characters::actor::ActorFaction>,
     },
-    /// An ordinary authored enemy. Every authored enemy is a plan row, built by
-    /// the same populate function the former family loop used.
-    AuthoredEnemy {
+    /// A character body built from its prepared definition and occurrence facts.
+    CharacterBody {
+        faction: ambition_characters::actor::ActorFaction,
         authored: ambition_platformer2d_world::rooms::Authored<
             ambition_platformer2d_world::rooms::EnemySpawnSpec,
         >,
@@ -453,9 +454,9 @@ impl ConstructionDomain for ActorConstruction {
                 recipe: recipe_giant_hand(),
                 construct: construct_giant_hand,
             },
-            ActorConstructionParams::AuthoredEnemy { .. } => RecipeDispatch {
-                recipe: recipe_authored_enemy(),
-                construct: construct_authored_enemy,
+            ActorConstructionParams::CharacterBody { .. } => RecipeDispatch {
+                recipe: recipe_character_body(),
+                construct: construct_character_body,
             },
             ActorConstructionParams::AuthoredBoss { .. } => RecipeDispatch {
                 recipe: recipe_authored_boss(),
@@ -526,8 +527,8 @@ impl ConstructionDomain for ActorConstruction {
             ActorConstructionParams::GiantHand { authored, .. } => {
                 format!("giant-hand {}", authored.id)
             }
-            ActorConstructionParams::AuthoredEnemy { authored, .. } => {
-                format!("authored-enemy {} {}", authored.id, authored.name)
+            ActorConstructionParams::CharacterBody { authored, .. } => {
+                format!("character-body {} {}", authored.id, authored.name)
             }
             ActorConstructionParams::AuthoredBoss { authored, practice, .. } => {
                 let practice = if *practice { " practice" } else { "" };
@@ -854,6 +855,7 @@ fn construct_giant_host(
         faction,
         paths,
         conducted,
+        reserved_descendants,
     } = parameters
     else {
         unreachable!("dispatch pairs this fn with GiantHost parameters")
@@ -880,6 +882,7 @@ fn construct_giant_host(
     ctx.insert((
         ambition_characters::actor::limb::LimbIntents::default(),
         ambition_characters::actor::limb::LimbRouteState::default(),
+        ambition_platformer2d_shared_tangle::sim_id::SimIdCounter(*reserved_descendants),
     ));
     // Its conductor chooses the row it is drawn with.
     if *conducted {
@@ -893,7 +896,7 @@ fn construct_giant_hand(
 ) {
     let sprite_content = &ctx.services.context.sprite_content;
     let services = ctx.services;
-    let ActorConstructionParams::GiantHand { authored, conductor } = parameters else {
+    let ActorConstructionParams::GiantHand { authored, conductor, faction } = parameters else {
         unreachable!("dispatch pairs this fn with GiantHand parameters")
     };
     let fate = ctx.facts.enemy_fate(authored);
@@ -911,7 +914,7 @@ fn construct_giant_hand(
         &services.context.brain_profiles,
         authored,
         &[],
-        conductor.unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
+        conductor.unwrap_or(*faction),
         fate,
     );
     // A conducted hand is the rider's: its blows are the rider's side's and
@@ -935,14 +938,14 @@ fn construct_giant_hand(
     ctx.insert(ambition_combat::components::RuntimeStagedActor);
 }
 
-fn construct_authored_enemy(
+fn construct_character_body(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
     let sprite_content = &ctx.services.context.sprite_content;
     let services = ctx.services;
-    let ActorConstructionParams::AuthoredEnemy { authored, paths } = parameters else {
-        unreachable!("dispatch pairs this fn with AuthoredEnemy parameters")
+    let ActorConstructionParams::CharacterBody { authored, paths, faction } = parameters else {
+        unreachable!("dispatch pairs this fn with CharacterBody parameters")
     };
     let fate = ctx.facts.enemy_fate(authored);
     ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
@@ -953,7 +956,7 @@ fn construct_authored_enemy(
         &services.context.brain_profiles,
         authored,
         paths,
-        ambition_characters::actor::ActorFaction::Enemy,
+        *faction,
         fate,
     );
 }
@@ -1388,7 +1391,7 @@ pub fn install_actor_construction_recipes(
     registry.try_register_recipe(recipe_summoned_minion(), OWNER, "summon-effect", SCHEMA)?;
     registry.try_register_recipe(recipe_giant_host(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_giant_hand(), OWNER, "authored-room", SCHEMA)?;
-    registry.try_register_recipe(recipe_authored_enemy(), OWNER, "authored-room", SCHEMA)?;
+    registry.try_register_recipe(recipe_character_body(), OWNER, "character-body", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_boss(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_placement(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_shrine(), OWNER, "authored-room", SCHEMA)?;
@@ -1462,7 +1465,7 @@ pub fn mount_capabilities_of(
         // A giant host may be a mount when its prepared character authors that
         // capability; its hands are neither mount nor pilot.
         ActorConstructionParams::GiantHost { authored, .. }
-        | ActorConstructionParams::AuthoredEnemy { authored, .. } => authored_mount_capabilities(
+        | ActorConstructionParams::CharacterBody { authored, .. } => authored_mount_capabilities(
             resolve_planned_character(prepared, &authored.payload.character_id),
         ),
         ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
@@ -1564,7 +1567,7 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         ActorConstructionParams::SummonedMinion(_) => "summoned-minion",
         ActorConstructionParams::GiantHost { .. } => "giant-host",
         ActorConstructionParams::GiantHand { .. } => "giant-hand",
-        ActorConstructionParams::AuthoredEnemy { .. } => "authored-enemy",
+        ActorConstructionParams::CharacterBody { .. } => "character-body",
         ActorConstructionParams::AuthoredBoss { .. } => "authored-boss",
         ActorConstructionParams::Placement { .. } => "placement",
         ActorConstructionParams::Shrine { .. } => "shrine",
@@ -1583,7 +1586,7 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
 /// The struct's last field is the return value.
 fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> {
     match parameters {
-        ActorConstructionParams::AuthoredEnemy { authored, .. }
+        ActorConstructionParams::CharacterBody { authored, .. }
         | ActorConstructionParams::GiantHost { authored, .. }
         | ActorConstructionParams::GiantHand { authored, .. } => {
             Some(authored.payload.character_id.as_str())
@@ -2122,7 +2125,7 @@ pub fn staged_actor_requests(
 /// Turn EVERY authored enemy and boss into construction rows — the Phase-4
 /// family migration for the two actor families.
 ///
-/// An ordinary enemy is one [`ActorConstructionParams::AuthoredEnemy`] row; a limbed host
+/// An ordinary enemy is one [`ActorConstructionParams::CharacterBody`] row; a limbed host
 /// (a character with hands) expands to one host row plus two hand rows joined by `ambition.limb` relations; a
 /// boss is one [`ActorConstructionParams::AuthoredBoss`] row. Each row is built by the SAME
 /// populate function the deleted family loop called, so being planned changes who allocates the
@@ -2174,7 +2177,8 @@ pub fn authored_actor_requests(
                     source: room.id.clone(),
                     instance: enemy.id.clone(),
                 },
-                parameters: ActorConstructionParams::AuthoredEnemy {
+                parameters: ActorConstructionParams::CharacterBody {
+                    faction: ambition_characters::actor::ActorFaction::Enemy,
                     authored: enemy.clone(),
                     paths: paths.to_vec(),
                 },
@@ -2276,6 +2280,7 @@ fn giant_cluster_rows(
             faction,
             paths,
             conducted: conductor.is_some(),
+            reserved_descendants: hands.iter().map(|hand| hand.ordinal + 1).max().unwrap_or(0),
         },
         relations: Vec::new(),
     }];
@@ -2284,6 +2289,7 @@ fn giant_cluster_rows(
             sim_id: SimId::spawned(&host_sim, hand.ordinal),
             origin: hand_origin(hand),
             parameters: ActorConstructionParams::GiantHand {
+                faction,
                 authored: {
                     let mut authored: ambition_platformer2d_world::rooms::Authored<
                         ambition_platformer2d_world::rooms::EnemySpawnSpec,

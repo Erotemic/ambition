@@ -389,3 +389,4 @@ mod scripted_projectile_results;
 mod scripted_inventory_exchanges;
 
 mod scripted_libraries;
+mod scripted_actor_creation;

@@ -1317,6 +1317,7 @@ dependencies = [
  "ambition_combat",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_extension_sdk",
  "ambition_held_items",
  "ambition_mount",
  "ambition_persistence",

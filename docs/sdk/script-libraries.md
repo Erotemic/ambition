@@ -149,5 +149,6 @@ check with its declared Android features and API 31 NDK wrapper. These checks
 prove compilation; they do not prove browser or device playback.
 
 Libraries and structured state support source reuse, behavior factories, nested
-records and bounded text. General actor and prop creation, cross-object event
-routing, and the remaining domain lifecycle contracts stay open in the [capability census](../planning/engine/script-first-capability-census.md).
+records and bounded text. [Actor creation](actor-creation.md) now supplies native character compositions.
+Interactive props, cross-object event routing, and the remaining domain lifecycle
+contracts stay open in the [capability census](../planning/engine/script-first-capability-census.md).

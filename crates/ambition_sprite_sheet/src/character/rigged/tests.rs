@@ -319,8 +319,11 @@ fn the_flipbooks_are_on_unless_the_environment_turns_them_off() {
 
 /// Schema 2's tween rule (`RiggedSpriteAsset::tween_into`): a tracked draw
 /// with the same part in the next frame moves linearly and turns the shorter
-/// way; a draw whose part changes, or that has no track, holds; a clip that
-/// steps is the frame itself; the last frame tweens to the first.
+/// way; a draw whose part changes to another picture, or that has no track,
+/// holds, and one whose part is the same picture redrawn (a part of its size,
+/// at its angle and scale, a step no longer than itself) moves, keeping its
+/// own part; a longer step is a cut and holds; a clip that steps is
+/// the frame itself; the last frame tweens to the first.
 #[test]
 fn a_tweened_clip_moves_each_track_to_its_next_place() {
     let text = r#"(
@@ -333,15 +336,22 @@ fn a_tweened_clip_moves_each_track_to_its_next_place() {
             (name: "a", page: 0, rect: (0, 0, 4, 4), pivot: (2.0, 2.0)),
             (name: "b", page: 0, rect: (4, 0, 4, 4), pivot: (2.0, 2.0)),
             (name: "c", page: 0, rect: (8, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "d", page: 0, rect: (12, 0, 6, 4), pivot: (3.0, 2.0)),
         ],
-        tracks: ["arm", "head"],
+        tracks: ["arm", "head", "foot", "hand", "bubble"],
         clips: {
             "walk": (frame_duration_s: 0.1, tween: Linear, frames: [
                 [(part: 0, at: (0.0, 0.0), rotation: 3.0, scale: (1.0, 1.0), track: 0),
                  (part: 1, at: (5.0, 5.0), rotation: 0.0, scale: (1.0, 1.0), track: 1),
-                 (part: 2, at: (7.0, 7.0), rotation: 0.0, scale: (1.0, 1.0))],
+                 (part: 2, at: (7.0, 7.0), rotation: 0.0, scale: (1.0, 1.0)),
+                 (part: 1, at: (20.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 2),
+                 (part: 1, at: (30.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 3),
+                 (part: 1, at: (40.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 4)],
                 [(part: 0, at: (10.0, -4.0), rotation: -3.0, scale: (1.0, 1.0), track: 0),
-                 (part: 2, at: (9.0, 9.0), rotation: 0.0, scale: (1.0, 1.0), track: 1)],
+                 (part: 3, at: (9.0, 9.0), rotation: 0.0, scale: (1.0, 1.0), track: 1),
+                 (part: 2, at: (24.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 2),
+                 (part: 2, at: (34.0, 0.0), rotation: 0.0, scale: (1.0, -1.0), track: 3),
+                 (part: 2, at: (40.0, 9.0), rotation: 0.0, scale: (1.0, 1.0), track: 4)],
             ]),
             "idle": (frame_duration_s: 0.1, frames: [
                 [(part: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 0)],
@@ -356,7 +366,10 @@ fn a_tweened_clip_moves_each_track_to_its_next_place() {
     // 3.0 to -3.0 is 0.28 rad the short way, through pi; not 6 rad back.
     let turned = 3.0 + (std::f32::consts::TAU - 6.0) * 0.5;
     assert!((out[0].rotation - turned).abs() < 1.0e-5, "{}", out[0].rotation);
-    assert_eq!(out[1].at, Vec2::new(5.0, 5.0), "a track whose part changes holds");
+    assert_eq!(out[1].at, Vec2::new(5.0, 5.0), "a track whose part changes to another size holds");
+    assert_eq!((out[3].at, out[3].part), (Vec2::new(22.0, 0.0), 1), "the same picture redrawn moves, as its own part");
+    assert_eq!(out[4].at, Vec2::new(30.0, 0.0), "a part change that flips holds");
+    assert_eq!(out[5].at, Vec2::new(40.0, 0.0), "a redrawn picture further than its own size away is a cut and holds");
     assert_eq!(out[2].at, Vec2::new(7.0, 7.0), "an untracked draw holds");
     asset.tween_into("walk", 1, 0.5, &mut out).unwrap();
     assert_eq!(out[0].at, Vec2::new(5.0, -2.0), "the last frame tweens to the first");

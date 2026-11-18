@@ -147,6 +147,29 @@ every jump.
    rate; the root's own interpolation is `PresentedPose`, measured smooth
    in the 2026-11-10 probe.
 
+4. **The tweened walk still snapped its hooves (measured 2026-11-18).** The
+   published walk was sampled at 60 and 144 Hz through the runtime's own
+   `tween_into` (a temporary probe over the published `giant_gnu`
+   flipbook): the worst move of any draw between two samples was 26.2 sheet
+   pixels at both rates, tweened or not. Every such jump was a hoof: its
+   track draws another raster of the same hoof in the next frame (63 x 50
+   and 62 x 51 px, pivots in the middle, drawn at one angle and scale), and
+   the tween rule moved a track only to the same part, so the hoof held and
+   then jumped its whole step every 0.08 s. **Fixed (rule):** a track whose
+   next draw is the same picture redrawn (a part within a pixel of its size,
+   at its angle and scale, a step no longer than the picture) moves to it,
+   keeping its own part until the frame changes
+   (`rigged::same_picture_redrawn`, with the renderer's oracle
+   `part_flipbook.tween_draws` stating it the same way). A part change that
+   turns or flips (a hand drawn mirrored) holds, and so does a longer step,
+   which is a cut: an 8 px swim bubble that starts again 38 px below, a ring
+   node going round behind. After: the walk's worst move is 5.5 px a sample
+   at 60 Hz and 5.1 at 144 Hz (10.2 in `armed_walk_back`). Across the cast
+   the rule pairs 6410 more draws in 411 flipbooks, none further than its
+   own picture (the most is 29.6 px, a 41 px part); a census before the size
+   and step conditions showed why each is needed (the architect's mirrored
+   hands, Scout's swim bubbles, Vera Ruin's ring nodes).
+
 **Measured and not changed.**
 
 - **Windups play slower than real time** (their clock steps 0.010–0.014 a

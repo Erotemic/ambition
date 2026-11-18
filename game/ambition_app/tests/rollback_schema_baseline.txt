@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v486
+ggrs-rollback-schema-v487
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -267,6 +267,7 @@ entity:fighter_eliminated	component-canonical	FighterEliminated	bevy_ggrs canoni
 entity:fighter_stocks	component-canonical	FighterStocks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:force_zone	required-rollback	ForceZone	component presence automatically installs bevy_ggrs::Rollback
 entity:ground_item	required-rollback	GroundItem	component presence automatically installs bevy_ggrs::Rollback
+entity:hanging_item	required-rollback	HangingItem	component presence automatically installs bevy_ggrs::Rollback
 entity:heal_shrine	required-rollback	HealShrine	component presence automatically installs bevy_ggrs::Rollback
 entity:held_material_basis	required-rollback	HeldMaterialBasis	component presence automatically installs bevy_ggrs::Rollback
 entity:hitbox	required-rollback	Hitbox	component presence automatically installs bevy_ggrs::Rollback
@@ -316,6 +317,7 @@ gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; v
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.bag_uses_in_rooms	resource-clone-custom-checksum	BagUsesInRooms	bevy_ggrs clone snapshot + the cells bodies used from the shared bag, and what a room's conversation added to it or sold from it, within the rewind horizon, with the room and tick of each, which a room rewind takes back (ISL-2d)
 item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; not in the session checksum
+item.hanging_item	component-clone	HangingItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.held_material_basis	component-canonical	HeldMaterialBasis	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

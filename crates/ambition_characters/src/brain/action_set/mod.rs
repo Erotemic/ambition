@@ -560,6 +560,17 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::ThrowOnUse,
             },
         );
+        // An apple off the gravity works' orchard trees: thrown as the
+        // coconut is.
+        items.insert(
+            "apple",
+            HeldItemSpec {
+                id: "apple".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::ThrowOnUse,
+            },
+        );
         // The seam gauge: a plate of a measured grid, thrown through portals
         // to measure how seamless they are (`scripts/measure/portal_seam_lab.py`).
         items.insert(

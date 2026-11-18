@@ -306,8 +306,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 484 -> 485: `AbilitySet` encodes `blink_slow`, the aim's time slow a worn
 // row can withhold (Precision Blink's level 2).
 // 485 -> 486: action mailboxes and room caller sequences join the canonical
-// simulation state. Flag requests use native batches.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 486;
+// simulation state. Flag requests use native batches. The orchard branch adds
+// the hanging-item countdown at the same version.
+// 486 -> 487: the merged schema contains both sets of state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 487;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

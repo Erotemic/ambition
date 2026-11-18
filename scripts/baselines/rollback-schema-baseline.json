@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v486",
+    "version": "ggrs-rollback-schema-v487",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actions.scope_sequence\tcomponent-canonical\tActionScopeSequence",

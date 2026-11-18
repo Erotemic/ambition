@@ -86,8 +86,9 @@ impl PreparedItemRelease {
         // hand this way does not arm.
         commands.entity(item).remove::<ReleasedAs>();
         // Let go at whatever height that body is at: the object is back under
-        // gravity until it lands on something.
-        commands.entity(item).remove::<SettledItem>();
+        // gravity until it lands on something. An apple picked off its tree
+        // does not hang again.
+        commands.entity(item).remove::<(SettledItem, crate::HangingItem)>();
     }
 }
 

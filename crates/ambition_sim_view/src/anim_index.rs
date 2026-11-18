@@ -183,10 +183,15 @@ impl ClipRequest {
     /// be drawn feet-first on the crouched box, at full height. The variants
     /// use the pin's clock. A missing variant keeps the base request's clock,
     /// so a fallback crouch is not looped by the content pin.
+    ///
+    /// A pin made [`PinnedRow::pin_over_legs`](ambition_sprite_sheet::character::PinnedRow::pin_over_legs)
+    /// draws only the upper body: over a body that walks, runs or falls
+    /// (`legs`, when [`legs_go_on_under`]) the legs keep that pose.
     pub fn with_pin(
         base: Option<Self>,
         pin: Option<&ambition_sprite_sheet::character::PinnedRow>,
         crouched: bool,
+        legs: Option<ambition_sprite_sheet::character::CharacterAnim>,
     ) -> Option<Self> {
         let Some(pin) = pin.filter(|pin| pin.is_pinned()) else { return base; };
         let rows: Vec<String> = pin.rows.iter().map(|row| ambition_sprite_sheet::character::stance_row(row, crouched)).collect();
@@ -197,6 +202,7 @@ impl ClipRequest {
         };
         request.time = base_time;
         request.row_clock = Some((rows, ClipTime::Seconds { elapsed: pin.elapsed, looping: pin.looping }));
+        request.legs = legs.filter(|legs| pin.over_legs && legs_go_on_under(*legs));
         Some(request)
     }
 
@@ -567,7 +573,7 @@ pub fn rebuild_actor_anim_index(
                     })
                     .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP)))
                     .or_else(|| aim_over_legs(a.anim.is_some_and(|f| f.aim_anim_active) && free, anim))
-                    , a.pinned, crate::pose_view::crouched(anim)),
+                    , a.pinned, crate::pose_view::crouched(anim), Some(anim)),
             },
         );
     }
@@ -770,13 +776,30 @@ mod pin_tests {
         let mut crouch = ClipRequest::only("crouch");
         crouch.time = Some(ClipTime::Phase(0.75));
 
-        let crouched = ClipRequest::with_pin(Some(crouch.clone()), Some(&pin), true).expect("a request");
+        let crouched = ClipRequest::with_pin(Some(crouch.clone()), Some(&pin), true, None).expect("a request");
         assert_eq!(rows(&crouched), ["eye_laser_crouch", "shoot_crouch", "crouch"]);
         assert_eq!(crouched.time_for_row("eye_laser_crouch"), Some(ClipTime::Seconds { elapsed: 0.4, looping: true }));
         assert_eq!(crouched.time_for_row("crouch"), Some(ClipTime::Phase(0.75)), "a missing variant keeps the crouch clock");
 
-        let standing = ClipRequest::with_pin(Some(crouch), Some(&pin), false).expect("a request");
+        let standing = ClipRequest::with_pin(Some(crouch), Some(&pin), false, None).expect("a request");
         assert_eq!(rows(&standing), ["eye_laser", "shoot", "crouch"]);
         assert_eq!(standing.time_for_row("eye_laser"), Some(ClipTime::Seconds { elapsed: 0.4, looping: true }));
+    }
+
+    /// An upper-body pin keeps a walking body's legs; a whole-body pin and a
+    /// standing body draw the pinned row alone.
+    #[test]
+    fn an_upper_body_pin_keeps_the_legs_that_move() {
+        use ambition_sprite_sheet::character::CharacterAnim;
+        let mut pin = PinnedRow::default();
+        pin.pin_over_legs(&["eye_laser"], 0.2, true);
+        let walk = ClipRequest::only("walk");
+        let over = ClipRequest::with_pin(Some(walk.clone()), Some(&pin), false, Some(CharacterAnim::Walk)).expect("a request");
+        assert_eq!((over.clip.as_str(), over.legs), ("eye_laser", Some(CharacterAnim::Walk)));
+        let still = ClipRequest::with_pin(Some(walk.clone()), Some(&pin), false, Some(CharacterAnim::Idle)).expect("a request");
+        assert_eq!(still.legs, None, "a body that stands is drawn in the pinned row whole");
+        pin.pin(&["eye_laser"], 0.2, true);
+        let whole = ClipRequest::with_pin(Some(walk), Some(&pin), false, Some(CharacterAnim::Walk)).expect("a request");
+        assert_eq!(whole.legs, None, "a whole-body pin covers the legs");
     }
 }

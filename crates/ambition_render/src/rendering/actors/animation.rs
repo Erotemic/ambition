@@ -263,8 +263,15 @@ pub fn animate_player(
         // Presentation dt, scaled by the world clock and proper time.
         let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // A body that looks up while it moves: its head turns up over the row
-        // it walks or runs in.
-        animator.head_turn = (pose.head_up > 0.0).then_some((ambition_sim_view::LOOK_UP_CLIP, pose.head_up));
+        // it walks or runs in. One that holds its crouch until the camera
+        // looks down: its head turns down over its crouch.
+        animator.head_turn = if pose.head_up > 0.0 {
+            Some((ambition_sim_view::LOOK_UP_CLIP, pose.head_up))
+        } else if pose.head_down > 0.0 {
+            Some((ambition_sim_view::LOOK_DOWN_CLIP, pose.head_down))
+        } else {
+            None
+        };
         // Hit feedback is the white-silhouette overlay in `rendering::hit_flash`.
         // The source sprite stays `WHITE`.
         let mut anchor = anchor;

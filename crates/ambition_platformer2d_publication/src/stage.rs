@@ -3195,6 +3195,8 @@ mod tests {
         home.ground_items
             .push(ambition_platformer2d_world::rooms::GroundItemSpec {
                 regrow_seconds: None,
+                regrow_limit: None,
+                hang_seconds: None,
                 id: "axe".into(),
                 name: "Axe".into(),
                 held_item: "gun_sword".into(),
@@ -3281,6 +3283,8 @@ mod tests {
         let mut spec = empty_spec("east");
         spec.ground_items.push(ambition_platformer2d_world::rooms::GroundItemSpec {
             regrow_seconds: None,
+            regrow_limit: None,
+            hang_seconds: None,
             id: "axe".into(), name: "Axe".into(), held_item: "gun_sword".into(),
             pos: ae::Vec2::new(80.0, 80.0), half_extent: ae::Vec2::splat(8.0),
         });
@@ -3314,6 +3318,8 @@ mod tests {
         let mut home = empty_spec("west");
         home.ground_items.push(ambition_platformer2d_world::rooms::GroundItemSpec {
             regrow_seconds: None,
+            regrow_limit: None,
+            hang_seconds: None,
             id: "axe".into(), name: "Axe".into(), held_item: "gun_sword".into(),
             pos: ae::Vec2::splat(80.0), half_extent: ae::Vec2::splat(8.0),
         });

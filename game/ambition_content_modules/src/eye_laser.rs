@@ -161,7 +161,8 @@ pub fn burn_tick_of(s: &mut Burn, used: &TechniqueUse, dt: f32) -> BurnTick {
         look: LOOK.into(),
     });
     out.row = Some(DrawnRow {
-        on: ambition_boss_special_port::DrawnPart::Body,
+        // Above the hips: a body that fires while it walks keeps walking.
+        on: ambition_boss_special_port::DrawnPart::UpperBody,
         names: ROWS.iter().map(|name| (*name).to_owned()).collect(),
         elapsed: s.burnt,
         looping: true,

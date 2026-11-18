@@ -179,6 +179,11 @@ tests (bounce, one-way landing, strike rules).
    level 2 adds a controlled blink; level 3 adds a time-slow control. Also:
    a quick press does "the intuitive thing", and two quick presses give the
    directional blink.
+   A quick press already is the directional blink (along the stick, or
+   forward), so "the intuitive thing" is a new single-press behaviour the
+   notes do not define: filed as
+   [Q179](../awaiting-maintainer-decision.md#q179--what-does-a-quick-press-of-precision-blink-do-if-two-quick-presses-are-the-directional-blink)
+   with a recommended default.
 3. **Tiers (the fact done 2026-11-14).** The level is the bag's count of the
    ability: an item's `levels` (in `items.ron`) are the rows worn at levels
    2 and up, each in the `wears` row's exclusive slot, and `stack` holds the

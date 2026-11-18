@@ -286,7 +286,8 @@ transit is held on the body and made in the next tick's carry, so every
 reader of the travelled path sees it ([loadout, open 1](game/ability-loadout.md#open)).
 
 **Next action:** the laser's own sound waits for an SFX bank republish.
-Then Precision Blink's quick press and double press (open 2), Contextual
+Then Precision Blink's quick press and double press (open 2; what the
+single press does is [Q179](awaiting-maintainer-decision.md#q179--what-does-a-quick-press-of-precision-blink-do-if-two-quick-presses-are-the-directional-blink)), Contextual
 Blink's level 3 (a double tap that slows time to choose the foe), and the
 stance and Dash II placeholders through the same technique/equipment seam,
 not named engine branches.

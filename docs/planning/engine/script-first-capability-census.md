@@ -49,7 +49,7 @@ The Boss of the Game's [plan](../game/final-boss.md) calls for encore pyrotechni
 
 Lightning now uses `technique_use`, `spend_mana`, `held_ray`, `drawn_row`, and `sound`. Its [script](../../../game/ambition_content/rhai/lightning.rhai) holds a short cone from the body's hand and owns pulse cadence and spread. The engine owns resources, ray casts, guard response, damage, and the leased lightning look. The earlier projectile fan used the same native spawn contract as Pulse Forge and the sentry.
 
-A chain-lightning variant can now request bounded, identified body facts. Confirmed projectile outcomes remain open; the current cone does not supply them. Contact is not accepted damage: a shield, invulnerability, or a wall can change the result. Do not fire follow-up damage from a guessed overlap or a presentation event.
+A chain-lightning variant can now request bounded, identified body facts. Native hit receptions and projectile outcomes now supply confirmed combat facts; the current cone does not. Contact is not accepted damage: a shield, invulnerability, or a wall can change the result. Do not fire follow-up damage from a guessed overlap or a presentation event.
 
 The next broad candidate is a room-scoped authored world-object contact and consume/result contract. Bricks, power blocks, and monitors show independent add/remove/reward uses. A current game consumer is not required. Define its domain authority and validate composition with a focused fixture when needed. Keep each native game mechanic unless a separately selected product benefit justifies migration.
 
@@ -61,11 +61,11 @@ This register is ordered by likely leverage, not by the number of names in `scri
 
 | Priority and capability | Observed limitation in this snapshot | Owner / place to inspect | Required evidence to close |
 | --- | --- | --- | --- |
-| **P0: authoritative event triggers — contact samples implemented** | `body_contact` now supplies bounded native samples for held-status and brain bindings, for every controller. Empty samples, identities, native surfaces, room holds, and replay are covered. Accepted combat outcome streams remain open in the separate P0 row below. | `crates/ambition_platformer2d_runtime/src/story_script.rs`; `crates/ambition_combat_port/src/contact.rs` and `reaction.rs`; `extension_composition.rs` | [Loaded contact fixture](../../../game/ambition_app/tests/scripted_body_contacts.rs) activates a contact rule with `hold_status`, reads bounded native facts, keeps a body reference, and requests native bounce for a controlled body and an NPC through replay. Owning tests cover controller pairs, status/brain deduplication, room/session isolation, holds, and response bounds. Contact samples are implemented (`b4e9e7fe0`); a game-wide event log is not implied. Geometry refusals remain explicit incomplete reads. |
+| **P0: authoritative event triggers — contact samples implemented** | `body_contact` now supplies bounded native samples for held-status and brain bindings, for every controller. Empty samples, identities, native surfaces, room holds, and replay are covered. Native hit receptions and projectile outcomes supply the separate combat facts below. | `crates/ambition_platformer2d_runtime/src/story_script.rs`; `crates/ambition_combat_port/src/contact.rs` and `reaction.rs`; `extension_composition.rs` | [Loaded contact fixture](../../../game/ambition_app/tests/scripted_body_contacts.rs) activates a contact rule with `hold_status`, reads bounded native facts, keeps a body reference, and requests native bounce for a controlled body and an NPC through replay. Owning tests cover controller pairs, status/brain deduplication, room/session isolation, holds, and response bounds. Contact samples are implemented (`b4e9e7fe0`); a game-wide event log is not implied. Geometry refusals remain explicit incomplete reads. |
 | **P0: domain action outcome** | `story_command` has correlated `action_result` replies, `action_history`, and `cancel_action`. Flag batches and encounter commands publish from their native consumers. Projectile requests now report actual creation or refusal through the same action contract. Actor spawn, grant, cutscene, and portal requests still need downstream results. | `story_script.rs`; `extension-domain-contracts.md`; the actual domain reducers and extension outbox | Correlate an invocation/request occurrence with typed domain verdicts at a defined read cut, including later application or cancellation. A rejected action cannot advance script-owned success state; rollback does not double-consume results. |
 | **P0: authored object interaction / collision** | Mary-O bricks and Sanic monitors have native object/contact/consumption mechanics. There is no general Rhai-facing authored-object contact + atomic consume + collision/art update path. | `game/ambition_demo_mary_o/src/bricks.rs`; `game/ambition_demo_sanic/src/monitors.rs`; `crates/ambition_world_items`; per-room geometry/collision overlay owner | One new Ambition object reacts to legitimate contact, pays out/changes state once across competing consumers, and updates simulation and presentation consistently. A second small use proves the interface is not named for the first object. |
 | **P0: bounded, identified spatial facts — implemented** | `body_query` returns native facts for a bounded same-room and same-session selection. Exact-ID follow-up can require every target to remain valid. | [Native owner](../../../crates/ambition_combat/src/extension/body_query.rs); [portable contract](../../../crates/ambition_combat_port/src/body_query.rs); [guide](../../sdk/body-queries.md) | [Loaded Rhai fixture](../../../game/ambition_app/tests/scripted_body_queries.rs) checks controlled and autonomous callers, retained body references, bounded selection, stale relationship refusal, and replay. Owning tests cover room/session isolation, identity order, truncation, grudges, and target removal. Commit: `83ae5b219`. |
-| **P0: accepted combat contact / damage** | Projectile spawning and `module_entity_tick` are scriptable. `hit_receptions` supplies bounded native reception decisions to held-status bodies and authored room observers, including actual damage and defenses. It has Rhai and portable values, game budgets, identity capture, and replay delivery. Native emission captures source facts and reserves IDs. Late requests survive rollback, including hit-reaction counter shots. Accepted batches now identify direct and splash shots after source retirement. The common native hit writer retains credit for every hit kind. Creation replies identify actual births. Per-shot interception and retirement outcomes remain open. Contact is not synonymous with damage. See [hit receptions](../../sdk/hit-receptions.md). | [Native receiver adapter](../../../crates/ambition_damage/src/extension.rs); [portable contract](../../../crates/ambition_combat_port/src/reception.rs); `HitEvent`; projectile materialization and interception | A new script reacts to confirmed hit/defense/damage with correct striker credit after shield, reflection, invulnerability, lifetime change and replay. Do not calculate damage from animation or overlap. |
+| **P0: accepted combat contact / damage — implemented** | Projectile spawning and `module_entity_tick` are scriptable. `hit_receptions` supplies bounded native reception decisions to held-status bodies and authored room observers, including actual damage and defenses. It has Rhai and portable values, game budgets, identity capture, and replay delivery. Native emission captures source facts and reserves IDs. Late requests survive rollback, including hit-reaction counter shots. Accepted batches now identify direct and splash shots after source retirement. The common native hit writer retains credit for every hit kind. Creation replies identify actual births. Native `projectile_outcomes` supplies bounded creation, interception, clash spending and retirement facts through portable/Rhai bindings. The loaded reflection fixture observes credit and retirement across deflector loss and GGRS replay. Contact is not synonymous with damage. See [hit receptions](../../sdk/hit-receptions.md). | [Native receiver adapter](../../../crates/ambition_damage/src/extension.rs); [portable contract](../../../crates/ambition_combat_port/src/reception.rs); `HitEvent`; projectile materialization and interception | A new script reacts to confirmed hit/defense/damage with correct striker credit after shield, reflection, invulnerability, lifetime change and replay. Do not calculate damage from animation or overlap. |
 | **P1: entity and actor creation/lifetime** | `spawn_module_entity` makes limited script-owned entities; it is not a general content-described actor spawn. The typed actor construction path exists outside the Rhai API. | `crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs`; module entity and actor ownership paths | A selected rule can request a content-described actor through the existing constructor and receive created/refused plus stable identity, or show a working data-only equivalent. Retirement and pending spawn are handled. Do not invent a second actor hierarchy. |
 | **P1: inventory, equipment, durable progression** | Catalog items and native pickups grant items; `story_command` can ask for authored commands but is not a transactional result API. | `crates/ambition_world_items`; equipment/item custody; authored commands; persistence | A scriptable new interaction uses the existing grant/consume owner, observes success/refusal, and survives room reset, saving and rollback without duplicate rewards. Existing declarative grants may be enough if shown working. |
 | **P1: travel, portal and gate lifecycle** | Held portal-pair ports are typed-only; confirmed arrival/exit and request outcomes are not a general Rhai surface. Current gates have no faction authorization rule. | `crates/ambition_portal_port`; room transition lifecycle; gate network domain | A selected new rule can react to confirmed crossing, failed admission and retirement using the existing travel owner. If the illicit one-use gate key is selected, consume it on **successful** authorized connection, not request submission. Do not implement speculative gate lore as SDK policy. |
@@ -97,9 +97,9 @@ The program remains open. The maintainer permits capability work without a
 current consumer. Complete a useful semantic family through its domain owner;
 use a gameplay example or a focused host fixture as evidence.
 
-The remaining contracts need more than aliases: accepted projectile outcomes,
-world-object
-consume/reward results, and accepted travel events. Their native authority,
+The remaining contracts need more than aliases: world-object
+consume/reward results, actor creation and lifetime, inventory transactions,
+and accepted travel events. Their native authority,
 identity, lifetime, and replay rules must be explicit. Existing commands and
 visual events do not supply these results.
 
@@ -131,8 +131,7 @@ removal, and a recreated body with the same identity.
 
 The P0 domain-action row is still blocked for the full program: other action
 families must publish their own results. Mailboxes are live-session state. They
-do not replace durable consume/reward transactions. World objects, accepted combat outcomes, actor creation, inventory, and travel
-remain open. Bounded identified body queries now have a portable contract, a
+do not replace durable consume/reward transactions. World objects, actor creation, inventory, and travel remain open. Bounded identified body queries now have a portable contract, a
 Rhai binding, game-authored budgets, and a loaded-host replay fixture.
 
 ## Native hit reception
@@ -149,9 +148,10 @@ The fixture checks both controller paths, defenses, refusal, room observation,
 a status response, bounds, and replay. Native damage and demo tests preserve
 existing gameplay.
 
-The P0 combat row stays open for per-shot identity, credit after reflection,
-and projectile interception and retirement outcomes. Physical contact, damage
-reception, move confirmation, and interception remain separate native facts.
+Per-shot identity, retained credit, interception, and retirement now use the
+common native services. See [projectile outcomes](../../sdk/projectile-outcomes.md).
+Physical contact, damage reception, move confirmation, and interception remain
+separate native facts.
 
 ## Projectile credit and portable session context
 
@@ -228,3 +228,24 @@ Global asset freshness and broad union/tooling verification remain incomplete.
 
 Interception and retirement outcomes remain open. This receipt does not close
 the projectile family or the script-first program.
+
+## Native projectile outcome receipt
+
+Commits: `43545d2c5`, `9d19fd15f`. Native owners publish creation,
+reflection, absorption, clash spending and retirement. The installed
+`projectile_outcomes` trigger has portable and Rhai values. Pending script
+facts are bounded components on their observers. They rewind, follow a live
+body through travel, and end with that observer. Hidden work cannot write
+into live script observers.
+
+The loaded `scripted_projectile_credit` fixtures check retained credit,
+retirement, separate damage results, and pending creation through GGRS replay
+for both controllers. Native tests check absorption, bounds, replacement
+refusal, visibility, and room/session isolation. Owner libraries, app checks,
+Smash, warning checks, absence contracts, documentation links and module maps
+pass. Workspace policy retains the same 11 baseline violations. Global asset
+freshness and broad union/tooling verification remain incomplete.
+
+Do not infer damage or the absence of pending damage from projectile removal.
+The P0 combat row is implemented. The other high-priority rows keep the
+script-first program open.

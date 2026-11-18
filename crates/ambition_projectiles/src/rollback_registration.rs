@@ -68,11 +68,5 @@ where
         "component.projectile_owner",
         |owner| owner.0,
     )
-    .rollback_map_entities::<crate::ProjectileOwner>(OWNER, "map.projectile_owner")
-    // The authoritative projectile request buffer: a request written on a tick
-    // that gets rewound must not materialize on the abandoned future.
-    .clear_message_on_rollback::<crate::ProjectileSpawnRequest>(
-        OWNER,
-        "message.spawn_projectile",
-    );
+    .rollback_map_entities::<crate::ProjectileOwner>(OWNER, "map.projectile_owner");
 }

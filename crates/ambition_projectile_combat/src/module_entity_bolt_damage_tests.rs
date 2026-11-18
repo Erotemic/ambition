@@ -20,11 +20,12 @@
 //! covered where it lives.
 
 use ambition_abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
-use ambition_projectiles::{ProjectileSpawn, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileStart};
 use ambition_characters::actor::ActorFaction;
 use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
-use ambition_projectiles::ProjectileSpawnRequest;
+use ambition_combat::projectile_spawn::ProjectileSpawnRequest;
 use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::*;
 
@@ -38,7 +39,7 @@ const BOLT_DAMAGE: i32 = 2;
 fn fire_once(
     entities: Query<(Entity, &ModuleEntity)>,
     mut fired: Local<bool>,
-    mut requests: MessageWriter<ProjectileSpawnRequest>,
+    mut requests: ambition_combat::projectile_spawn::ProjectileWriter,
 ) {
     if *fired {
         return;
@@ -105,7 +106,7 @@ fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<ProjectileSpawnRequest>();
+    app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>();
     app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
@@ -115,7 +116,7 @@ fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
         Update,
         (
             fire_once,
-            ambition_projectiles::materialize_projectiles_for_this_tick,
+            ambition_combat::projectile_spawn::materialize_projectiles_for_this_tick,
             ambition_combat::allegiance::stamp_attack_allegiance,
             crate::step_projectiles,
             capture_hits,

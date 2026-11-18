@@ -38,7 +38,8 @@ use ambition_platformer2d::vfx::{ParticleKind, VfxMessage};
 use ambition_platformer2d::vfx::VfxWriter;
 use ambition_characters::control::DrivingParticipant;
 use ambition_combat::components::ActorTarget;
-use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 use ambition_vfx::HitSide;
 
 use crate::bosses::hall::{measure_hall, Hall};
@@ -346,7 +347,7 @@ pub fn conduct_fsm(
         With<BossConfig>,
     >,
     mut hitboxes: Query<&mut Hitbox>,
-    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+    mut projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
     mut effects: MessageWriter<ambition_characters::summon::SummonRequest>,
     mut vfx: VfxWriter,
     mut sfx: BodySfxWriter,

@@ -44,8 +44,8 @@ fn held(pressed: bool) -> AgentAction {
 }
 
 fn shots(sim: &Platformer2dSimHarness, owner: Entity) -> Vec<&ProjectileSpawnRequest> {
-    sim.world().resource::<Messages<ProjectileSpawnRequest>>()
-        .iter_current_update_messages().filter(|shot| shot.owner == owner).collect()
+    sim.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>()
+        .iter_current_update_messages().filter(|shot| shot.owner == owner).map(|emission| &emission.request).collect()
 }
 
 fn mana(sim: &Platformer2dSimHarness, body: Entity) -> f32 {

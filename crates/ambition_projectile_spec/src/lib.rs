@@ -58,12 +58,14 @@ pub struct ProjectileSpawn {
 /// Port card (`docs/planning/engine/extension-domain-contracts.md`):
 ///
 /// * **Operation** — spawn one in-flight projectile.
-/// * **Owner** — `ambition_projectiles::extension`, which lowers the value
+/// * **Owner** — `ambition_combat::projectile_spawn::extension`, which lowers the value
 ///   through `ProjectileSpawnRequest::open`, the one spawn-request seam.
 /// * **Scope and grant** — the projectile's owner is the body the invocation
 ///   ran for. The module cannot name another owner.
-/// * **Time** — offered in `technique_execution`. The request materializes
-///   before this tick's projectile step (`ProjectileStart::StepThisTick`).
+/// * **Time** — offered in `technique_execution`, `wielded_use`,
+///   `module_entity_tick`, `boss_conduct`, and `hit_reaction`. Early requests
+///   materialize before the projectile step. Late reactions wait in rollback
+///   state for the next early materializer.
 /// * **Provenance** — the host attaches the invocation's move use; the damage
 ///   result names that use, not the move playing at impact (A12).
 /// * **Result** — submitted is not applied: the projectile domain can still

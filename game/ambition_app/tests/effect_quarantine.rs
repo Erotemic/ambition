@@ -180,7 +180,7 @@ fn the_journal_drains_once_every_frame_confirms() {
 /// Construction requests change simulation state:
 /// their readers run in simulation (`materialize_damage_boxes` spawns hitboxes
 /// and `apply_summon_effects` spawns minions), as is the projectile domain's
-/// `ProjectileSpawnRequest`. Deferring one of those to the confirmed boundary would
+/// `ProjectileEmission`. Deferring one of those to the confirmed boundary would
 /// not quarantine an external effect — it would change what the simulation
 /// computes, because the consumer would miss the message on the pass that
 /// produced it and see it again on a frame it does not belong to.
@@ -234,6 +234,6 @@ fn only_presentation_facing_effects_are_quarantined() {
     assert_not_quarantined!(
         SummonRequest,
         DamageBoxRequest,
-        ambition_platformer2d::projectiles::ProjectileSpawnRequest,
+        ambition_platformer2d::projectiles::ProjectileEmission,
     );
 }

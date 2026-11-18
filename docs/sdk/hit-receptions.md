@@ -106,3 +106,7 @@ It loads a Rhai module and checks native wallet absorption, damage, repeated-hit
 refusal, incoming and outgoing delivery, room observation, a held-status
 response, game bounds, and rollback. Owning tests check retirement, replacement
 bodies, held clocks, and session and room isolation.
+
+A `hit_reaction` entry can also request `projectile`. The native writer captures
+the caller's source facts. Late requests wait in rollback state until the next
+early materializer. See [projectile ownership](projectile-ownership.md).

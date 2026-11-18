@@ -31,6 +31,8 @@
 //! using medians across deterministic seeds. Unregistered levels are invalid for
 //! this measurement because their generic fallback does not represent a ladder rung.
 
+use bevy::ecs::system::RunSystemOnce;
+
 use crate::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
 use ambition_platformer2d::engine_core as ae;
@@ -1591,7 +1593,7 @@ fn place_at(
     // positions. Do not build a `ProjectileSpawn` from the fixture's numbers:
     // they describe the fixture's own 800x600 stage.
     if !shots.is_empty() {
-        use ambition_platformer2d::projectiles::spawn_request::{
+        use ambition_platformer2d::projectiles::{
             ProjectileSpawnRequest, ProjectileStart,
         };
         let world = app.world_mut();
@@ -1612,11 +1614,11 @@ fn place_at(
             if let Some(owner) = owner {
                 for (offset, dir) in shots {
                     let origin = subject_pos + *offset;
-                    world.write_message(ProjectileSpawnRequest::open(
+                    world.run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
                         owner,
                         ambition_content_modules::volley::authored_bolt(origin, *dir),
                         ProjectileStart::StepThisTick,
-                    ));
+                    )).unwrap();
                 }
             }
         }

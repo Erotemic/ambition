@@ -1,7 +1,9 @@
 //! Attack clashes settle before projectile damage in the composed runtime.
 
+
 #![cfg(feature = "rl_sim")]
 
+use bevy::ecs::system::RunSystemOnce;
 use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::actor::{ActorFaction, BodyHealth};
 use ambition_platformer2d::combat::clank::AttacksClanked;
@@ -65,7 +67,7 @@ fn a_pair_at_the_victim(window: f32) -> (i32, usize, usize) {
         .unwrap()
         .damage_taken();
     for owner in [victim, enemy] {
-        sim.world_mut().write_message(ProjectileSpawnRequest::open(
+        sim.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
             owner,
             ProjectileSpawn {
                 properties: Default::default(),
@@ -84,7 +86,7 @@ fn a_pair_at_the_victim(window: f32) -> (i32, usize, usize) {
                 splash_half_extent: 0.0,
             },
             ProjectileStart::StepThisTick,
-        ));
+        )).unwrap();
     }
     sim.step(AgentAction::default());
     let clanks = sim

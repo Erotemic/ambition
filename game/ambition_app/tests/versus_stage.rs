@@ -6,6 +6,7 @@
 //! plus the startup sequence), because a versus route that only a hand-built app
 //! can reach is the same defect one layer up.
 
+use bevy::ecs::system::RunSystemOnce;
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -1680,8 +1681,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
         .insert(MovePlayback::new(smash, 1.0));
     // FIRED, not hand-spawned. That was invisible while `begin_round` despawned
     // `With<LiveProjectile>`, because a marker was all the boundary looked at.
-    app.world_mut().write_message(
-        ambition_platformer2d::projectiles::ProjectileSpawnRequest::named(
+    app.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), ambition_platformer2d::projectiles::ProjectileSpawnRequest::named(
             seat_zero,
             ambition_platformer2d::projectiles::InFlightProjectile {
                 body: ambition_platformer2d::projectiles::ProjectileBody::from_spec(
@@ -1708,8 +1708,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
             },
             ambition_platformer2d::projectiles::ProjectileKind::Fireball,
             ambition_platformer2d::projectiles::ProjectileStart::StepNextTick,
-        ),
-    );
+        )).unwrap();
     app.update();
     let shot = {
         let world = app.world_mut();

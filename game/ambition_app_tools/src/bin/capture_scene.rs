@@ -1320,7 +1320,7 @@ fn fire_shots(
     config: Res<SceneCaptureConfig>,
     tick: Res<ambition_platformer2d::time::SimTick>,
     players: Query<Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>,
-    mut requests: MessageWriter<ambition_platformer2d::projectiles::ProjectileSpawnRequest>,
+    mut requests: ambition_platformer2d::projectiles::ProjectileWriter,
 ) {
     use ambition_platformer2d::projectiles::{
         InFlightProjectile, ProjectileBody, ProjectileKind, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart,

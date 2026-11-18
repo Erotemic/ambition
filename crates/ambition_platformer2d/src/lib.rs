@@ -998,7 +998,10 @@ pub use ambition_camera_presentation as camera_presentation;
 pub use ambition_portal2d as portal;
 #[cfg(feature = "ambition_portal2d_presentation")]
 pub use ambition_portal2d_presentation as portal_presentation;
-pub use ambition_projectiles as projectiles;
+pub mod projectiles {
+    pub use ambition_projectiles::*;
+    pub use ambition_combat::projectile_spawn::{PendingProjectileEmissions, ProjectileEmission, ProjectileSpawnRequest, ProjectileStart, ProjectilePresentation, ProjectileWriter, materialize_projectiles_for_this_tick, materialize_projectiles_for_next_tick};
+}
     #[cfg(feature = "relativity")]
     pub use ambition_relativity as relativity;
 #[cfg(feature = "relativity")]

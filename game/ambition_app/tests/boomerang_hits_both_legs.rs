@@ -1,6 +1,7 @@
 //! D255/R9: the ponytail hits you going out and hits you coming back, and does
 //! not machine-gun you in between.
 
+use bevy::ecs::system::RunSystemOnce;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 
 /// ⭐⭐ A RETURNING SHOT IS TWO CHANCES, AND EACH VICTIM GETS ONE OF EACH.
@@ -118,8 +119,7 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
     const OUT_S: f32 = 0.34;
     let victim_pos = at(&app, victim);
     let origin = victim_pos - ambition_platformer2d::engine_core::Vec2::new(110.0, 0.0);
-    app.world_mut().write_message(
-        ambition_platformer2d::projectiles::ProjectileSpawnRequest::open(
+    app.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), ambition_platformer2d::projectiles::ProjectileSpawnRequest::open(
             // ⛔ OWNERLESS, AND THAT IS NOT A SHORTCUT. Both seats carry faction
             // `Player` in a free-for-all, so a shot owned by the other seat reads
             // as friendly fire and is refused — the same rule the shark test
@@ -145,8 +145,7 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
                 boomerang_return_s: Some(OUT_S),
             },
             ambition_platformer2d::projectiles::ProjectileStart::StepThisTick,
-        ),
-    );
+        )).unwrap();
 
     app.update();
     assert_eq!(

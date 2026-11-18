@@ -58,7 +58,7 @@ impl FighterHarness {
         app.add_message::<ActorActionMessage>();
         app.add_message::<ambition_combat::RangedFireRefused>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
+        app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>();
         app.init_resource::<ProjectileSeqCounter>();
         // The real pipeline, in order: tick body cooldowns, resolve the seam,
         // enforce + emit fire effects, then materialize the projectiles.
@@ -68,7 +68,7 @@ impl FighterHarness {
                 tick_body_cooldowns,
                 ambition_combat::action_emission::emit_brain_action_messages,
                 spawn_projectiles_from_brain_actions,
-                ambition_projectiles::materialize_projectiles_for_this_tick,
+                ambition_combat::projectile_spawn::materialize_projectiles_for_this_tick,
             )
                 .chain(),
         );

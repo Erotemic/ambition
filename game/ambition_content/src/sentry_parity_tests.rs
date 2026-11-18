@@ -32,7 +32,7 @@ use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use ambition_projectiles::ProjectileSpawnRequest;
+
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
@@ -94,7 +94,7 @@ fn world(road: Road, reversed: bool) -> (App, Vec<Entity>) {
     let mut app = App::new();
     app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.init_schedule(Sim);
-    app.add_message::<ProjectileSpawnRequest>()
+    app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>()
         .add_message::<ambition_characters::summon::SummonRequest>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .add_message::<ambition_characters::brain::ActorActionMessage>()
@@ -222,7 +222,7 @@ fn run_spawned(road: Road, reversed: bool) -> Trace {
         }
         app.world_mut().run_schedule(Sim);
         let mut out = Vec::new();
-        let requests: Vec<_> = app.world_mut().resource_mut::<Messages<ProjectileSpawnRequest>>().drain().collect();
+        let requests: Vec<_> = app.world_mut().resource_mut::<Messages<ambition_combat::projectile_spawn::ProjectileEmission>>().drain().map(|emission| emission.request).collect();
         for mut request in requests {
             let owner = app.world().get::<SimId>(request.owner).cloned();
             request.owner = Entity::PLACEHOLDER;
@@ -327,7 +327,7 @@ fn a_turret_is_in_its_deployers_live_room_and_shoots_only_there() {
     for tick in 0..40 {
         app.world_mut().get_mut::<ActorControl>(deployers[0]).unwrap().0.melee_pressed = tick == 0;
         app.world_mut().run_schedule(Sim);
-        let requests: Vec<_> = app.world_mut().resource_mut::<Messages<ProjectileSpawnRequest>>().drain().collect();
+        let requests: Vec<_> = app.world_mut().resource_mut::<Messages<ambition_combat::projectile_spawn::ProjectileEmission>>().drain().map(|emission| emission.request).collect();
         shots.extend(requests.into_iter().map(|r| r.projectile.body.kin.vel));
         app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
     }

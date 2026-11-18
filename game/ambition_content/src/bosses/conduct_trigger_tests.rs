@@ -69,7 +69,7 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
         schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
     });
     app.add_message::<ambition_characters::brain::ActorActionMessage>()
-        .add_message::<ambition_projectiles::ProjectileSpawnRequest>()
+        .init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>()
         .add_message::<ambition_characters::summon::SummonRequest>()
         .add_message::<ambition_vfx::vfx::VfxInRoom>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()

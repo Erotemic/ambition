@@ -124,6 +124,7 @@ pub struct SessionScopedResources<'w> {
     /// save family, unlike a `SimId`, which is why the per-spawner `SimIdCounter`
     /// (a COMPONENT, not a resource) is deliberately not here.
     projectile_seq: ResMut<'w, ambition_projectiles::ProjectileSeqCounter>,
+    pending_projectiles: Option<ResMut<'w, ambition_combat::projectile_spawn::PendingProjectileEmissions>>,
     /// ⭐ THE ONE-SLOT, EARLIEST-STICKY LIFECYCLE INTENT. `take()` clears it when
     /// the host commits and `retract_transition_for_subject` clears a matching
     /// transition, but a session that RETIRES with an intent still pending
@@ -409,6 +410,7 @@ fn reset(resources: SessionScopedResources) {
         mut save_restored,
         mut occurrences,
         mut projectile_seq,
+        pending_projectiles,
         mut pending_lifecycle,
         mut base_gravity,
         mut active_cutscene,
@@ -454,6 +456,9 @@ fn reset(resources: SessionScopedResources) {
     *save_restored = ambition_platformer2d_shared_tangle::lifecycle::SaveRestored::default();
     *occurrences = ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
+    if let Some(mut pending) = pending_projectiles {
+        *pending = ambition_combat::projectile_spawn::PendingProjectileEmissions::default();
+    }
     *pending_lifecycle = crate::lifecycle_commit::PendingLifecycleCommit::default();
     *base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
     if let Some(active_cutscene) = active_cutscene.as_deref_mut() {

@@ -38,7 +38,7 @@ fn declare() {
        ] }],
        entries: [#{ key: "observe", phase: "hit_reaction",
            trigger: #{ port: "hit_receptions", selector: "reception_probe.observe" },
-           writes: ["hits"], requests: ["hold_status"], limit: 1 }],
+           writes: ["hits"], requests: ["hold_status", "projectile"], limit: 2 }],
     }
 }
 fn observe() {
@@ -65,7 +65,13 @@ fn observe() {
             this.state.hits.ignored += 1;
         } else { throw "unexpected native decision"; }
     }
-    if owned { this.requests.push(request("hold_status", #{ kind: "reception_probe.received", held: true })); }
+    if owned {
+        this.requests.push(request("hold_status", #{ kind: "reception_probe.received", held: true }));
+        this.requests.push(request("projectile", #{
+            origin: [200.0, 80.0], dir: [1.0, 0.0], speed: 100.0,
+            damage: 1, max_lifetime: 3.0, half_extent: [2.0, 2.0],
+        }));
+    }
 }
 "#;
 
@@ -174,6 +180,7 @@ fn loaded_rules_receive_bounded_native_decisions_on_either_controller_and_replay
         .in_set(CombatSet::Resolve)
         .before(ambition_platformer2d::actors::body::apply_feature_hit_events),
     );
+    let before_shots = sim.world().resource::<ambition_platformer2d::projectiles::ProjectileSeqCounter>().0;
     sim.rebase_rollback_history().unwrap();
     sim.step_n(AgentAction::default(), 105);
     assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
@@ -217,6 +224,8 @@ fn loaded_rules_receive_bounded_native_decisions_on_either_controller_and_replay
             .iter()
             .any(|key| key == "reception_probe.received"));
     }
+    assert!(sim.world().resource::<ambition_platformer2d::projectiles::ProjectileSeqCounter>().0 > before_shots,
+        "late reaction requests reached the native materializer");
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_dir_all(dir);
 }

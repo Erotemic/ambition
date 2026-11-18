@@ -40,6 +40,16 @@ where
                     ^ (u64::from(clock.gait_elapsed_s.to_bits()) << 8)
             },
         );
+    registrar.rollback_resource_clone_checksum::<crate::projectile_spawn::PendingProjectileEmissions>(
+        OWNER, "resource.pending_projectile_emissions", "captured emission data with semantic owner identity and local session counters excluded",
+        crate::projectile_spawn::PendingProjectileEmissions::checksum,
+    );
+    registrar.rollback_resource_map_entities::<crate::projectile_spawn::PendingProjectileEmissions>(
+        OWNER, "map.resource.pending_projectile_emissions",
+    );
+    registrar.clear_message_on_rollback::<crate::projectile_spawn::ProjectileEmission>(
+        OWNER, "message.spawn_projectile",
+    );
     registrar.clear_message_on_rollback::<crate::damage_box::DamageBoxRequest>(
         OWNER, "message.damage_box_request",
     );

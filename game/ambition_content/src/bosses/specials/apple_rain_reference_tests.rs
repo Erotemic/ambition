@@ -10,7 +10,8 @@ use ambition_characters::brain::{
 };
 use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core as ae;
-use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 use ambition_time::WorldTime;
 
 const APPLE_RAIN_KEY: &str = "apple_rain";
@@ -90,7 +91,7 @@ pub fn spawn_apple_rain_from_special_messages(
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut messages: MessageReader<ActorActionMessage>,
-    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+    mut projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
     mut bosses: Query<
         (
             Entity,

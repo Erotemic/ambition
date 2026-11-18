@@ -14,7 +14,7 @@ use ambition_app::Platformer2dSimHarness;
 use ambition_platformer2d::combat::strike::{Hitbox, RayStrike};
 use ambition_platformer2d::engine_core::resources::ActorResources;
 use ambition_platformer2d::items::{Item, ItemEquipRequested};
-use ambition_platformer2d::projectiles::ProjectileSpawnRequest;
+
 use ambition_platformer2d::sprite_sheet::character::PinnedRow;
 use bevy::prelude::{Entity, Messages, With};
 
@@ -42,7 +42,7 @@ fn rays(sim: &mut Platformer2dSimHarness, owner: Entity) -> Vec<(bevy::math::Vec
 
 fn shots(sim: &Platformer2dSimHarness, owner: Entity) -> usize {
     sim.world()
-        .resource::<Messages<ProjectileSpawnRequest>>()
+        .resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>()
         .iter_current_update_messages()
         .filter(|request| request.owner == owner)
         .count()

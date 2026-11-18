@@ -1928,23 +1928,25 @@
       "id": "ROAD-DYNAMIC-SPAWN",
       "category": "construction_road",
       "name": "Summons and projectiles with runtime identity",
-      "owner": "projectiles + actor construction",
+      "owner": "combat emission + actor construction",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Runtime summons/projectiles use deterministic SimId minting and domain spawn requests. They are construction participants but do not represent a room/session replacement transaction. \u2b50\u26e4 ENUMERATED 2026-09-18 \u2014 this row was SOURCE_INFERRED because it named no entry point, and there are exactly TWO in the tree: `ProjectileSpawnRequest` (`crates/ambition_projectiles/src/spawn_request.rs:57`) and `SpawnActorRequest` (`crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:98`). A workspace sweep for `*Spawn*Request` type declarations returns those two and nothing else. \u26e4 IT WAS THREE UNTIL 2026-09-18; the third was `SpawnPlayerCloneRequest`, deleted with the player-clone hotkey in `89d78a4a5`. \u21d2 THE MECHANISM SPLITS THEM, AND THE SPLIT PREDICTS WHICH ONE WAS BROKEN: both survivors are `#[derive(Message)]` raised INSIDE the simulation and read inside it, so a resimulation re-raises them and nothing crosses the rewind boundary. The deleted third was a `Resource` flag raised OUTSIDE it, and was `Q136`'s first landed specimen. \u21d2 The split this row describes is now EXCEPTIONLESS, which is a stronger claim than the one it was making.",
+      "current_truth": "Combat captures projectile source facts in ProjectileWriter and queues ProjectileEmission. Materialization uses the captured scope, side, presentation, and reserved descendant identity. Actor construction uses SpawnActorRequest. Both queues run inside simulation. Pending projectile emissions are cloned and remapped on rollback; observation messages are cleared.",
       "source_paths": [
-        "crates/ambition_projectiles/src/spawn_request.rs",
+        "crates/ambition_combat/src/projectile_spawn/emission.rs",
+        "crates/ambition_combat/src/projectile_spawn/materialize.rs",
         "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs",
-        "crates/ambition_projectiles/src/spawn.rs",
         "crates/ambition_platformer2d_shared_tangle/src/sim_id.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "Runtime summons/projectiles use deterministic SimId minting and domain spawn requests. They are construction participants but do not represent a room/session replacement transaction. \u2b50\u26e4 ENUMERATED 2026-09-18 \u2014 this row was SOURCE_INFERRED because it named no entry point, and there are exactly TWO in the tree: `ProjectileSpawnRequest` (`crates/ambition_projectiles/src/spawn_request.rs:57`) and `SpawnActorRequest` (`crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:98`). A workspace sweep for `*Spawn*Request` type declarations returns those two and nothing else. \u26e4 IT WAS THREE UNTIL 2026-09-18; the third was `SpawnPlayerCloneRequest`, deleted with the player-clone hotkey in `89d78a4a5`. \u21d2 THE MECHANISM SPLITS THEM, AND THE SPLIT PREDICTS WHICH ONE WAS BROKEN: both survivors are `#[derive(Message)]` raised INSIDE the simulation and read inside it, so a resimulation re-raises them and nothing crosses the rewind boundary. The deleted third was a `Resource` flag raised OUTSIDE it, and was `Q136`'s first landed specimen. \u21d2 The split this row describes is now EXCEPTIONLESS, which is a stronger claim than the one it was making.",
+          "claim": "Combat captures projectile source facts in ProjectileWriter and queues ProjectileEmission. Materialization uses the captured scope, side, presentation, and reserved descendant identity. Actor construction uses SpawnActorRequest. Both queues run inside simulation. Pending projectile emissions are cloned and remapped on rollback; observation messages are cleared.",
           "sources": [
-            "crates/ambition_projectiles/src/spawn_request.rs",
-            "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs"
+            "crates/ambition_combat/src/projectile_spawn/emission.rs",
+            "crates/ambition_combat/src/projectile_spawn/materialize.rs",
+            "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs",
+            "crates/ambition_platformer2d_shared_tangle/src/sim_id.rs"
           ]
         }
       ],

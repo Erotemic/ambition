@@ -13,5 +13,5 @@ pub use ambition_projectile_combat::{
     ProjectileStepSet,
 };
 pub use ambition_projectiles::collision_world::ProjectileCollisionWorld;
-pub use ambition_projectiles::materialize_projectiles_for_next_tick;
-pub use ambition_projectiles::materialize_projectiles_for_this_tick;
+pub use ambition_combat::projectile_spawn::materialize_projectiles_for_next_tick;
+pub use ambition_combat::projectile_spawn::materialize_projectiles_for_this_tick;

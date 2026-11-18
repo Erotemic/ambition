@@ -19,7 +19,7 @@ use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::combat::events::{HitEvent, HitSource, HitTarget};
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
-use ambition_platformer2d::projectiles::spawn_request::{ProjectilePresentation, ProjectileSpawnRequest};
+use ambition_platformer2d::projectiles::{ProjectilePresentation};
 use ambition_platformer2d::projectiles::ProjectileVisualCatalog;
 use bevy::ecs::message::Messages;
 use bevy::prelude::{Entity, With};
@@ -71,13 +71,13 @@ fn arena() -> (Platformer2dSimHarness, Entity, Entity) {
 /// Run the fight with a player that keeps away from the boss and does not
 /// dodge. The strikes the boss made, and how many of its bolts hit the player.
 fn fight(sim: &mut Platformer2dSimHarness, boss: Entity, player: Entity) -> (Vec<Strike>, usize) {
-    let mut requests = sim.world().resource::<Messages<ProjectileSpawnRequest>>().get_cursor();
+    let mut requests = sim.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>().get_cursor();
     let mut hits = sim.world().resource::<Messages<HitEvent>>().get_cursor();
     let (mut strikes, mut landed) = (Vec::new(), 0);
     for _ in 0..TICKS {
         sim.step(AgentAction::default());
         let made: Vec<(bevy::math::Vec2, String)> = requests
-            .read(sim.world().resource::<Messages<ProjectileSpawnRequest>>())
+            .read(sim.world().resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>())
             .filter(|request| request.owner == boss)
             .map(|request| {
                 let look = match &request.presentation {

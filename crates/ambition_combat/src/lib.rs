@@ -735,3 +735,5 @@ pub fn install_settle_presentation_systems(
             .in_set(CombatSet::Settle),
     );
 }
+
+pub mod projectile_spawn;

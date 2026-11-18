@@ -236,7 +236,7 @@ fn charge_and_birth(material: ambition_platformer2d::engine_core::frame::BodyMat
     sim.step(AgentAction { projectile_released: true, ..base() });
     let born = sim
         .world()
-        .resource::<bevy::ecs::message::Messages<ambition_platformer2d::projectiles::ProjectileSpawnRequest>>()
+        .resource::<bevy::ecs::message::Messages<ambition_platformer2d::projectiles::ProjectileEmission>>()
         .iter_current_update_messages()
         .find(|request| request.owner == owner)
         .map(|request| request.projectile.body.kin.pos - body.pos)

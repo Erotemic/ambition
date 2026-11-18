@@ -1,3 +1,4 @@
+use bevy::ecs::system::RunSystemOnce;
 use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::VfxInRoom;
@@ -5,11 +6,8 @@ use bevy::prelude::*;
 
 use crate::enemy_projectile::test_support::{live_projectile_bodies, spawn_test_projectile};
 use ambition_characters::actor::ActorFaction;
-use ambition_projectiles::{
-    ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest,
-    ProjectileStart,
-    build_in_flight_projectile,
-};
+use ambition_projectiles::{ProjectileSeqCounter, ProjectileSpawn, build_in_flight_projectile};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
@@ -1177,7 +1175,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<ProjectileSpawnRequest>();
+    app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>();
     app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
@@ -1187,7 +1185,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.add_systems(
         Update,
         (
-            ambition_projectiles::materialize_projectiles_for_this_tick,
+            ambition_combat::projectile_spawn::materialize_projectiles_for_this_tick,
             ambition_projectile_combat::step_projectiles,
             capture_hits,
         )
@@ -1222,7 +1220,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     ));
 
     // Fire an enemy-faction shot owned by `attacker`, overlapping the player.
-    app.world_mut().write_message(ProjectileSpawnRequest::open(
+    app.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_combat::projectile_spawn::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
         attacker,
         ProjectileSpawn {
             properties: Default::default(),
@@ -1242,7 +1240,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
             boomerang_return_s: None,
         },
         ProjectileStart::StepThisTick,
-    ));
+    )).unwrap();
 
     app.update();
 
@@ -1403,13 +1401,13 @@ fn spawn_executor_attaches_visual_id() {
     use ambition_projectiles::ProjectileVisualId;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
-    app.add_message::<ProjectileSpawnRequest>();
+    app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>();
     app.init_resource::<ProjectileSeqCounter>();
     app.add_systems(
         Update,
-        ambition_projectiles::materialize_projectiles_for_this_tick,
+        ambition_combat::projectile_spawn::materialize_projectiles_for_this_tick,
     );
-    app.world_mut().write_message(ProjectileSpawnRequest::open(
+    app.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_combat::projectile_spawn::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
         Entity::PLACEHOLDER,
         ProjectileSpawn {
             properties: Default::default(),
@@ -1429,7 +1427,7 @@ fn spawn_executor_attaches_visual_id() {
             boomerang_return_s: None,
         },
         ProjectileStart::StepThisTick,
-    ));
+    )).unwrap();
     app.update();
     let mut q = app.world_mut().query::<&ProjectileVisualId>();
     let ids: Vec<_> = q.iter(app.world()).map(|v| v.0.clone()).collect();

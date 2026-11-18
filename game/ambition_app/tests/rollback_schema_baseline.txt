@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v489
+ggrs-rollback-schema-v490
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -359,6 +359,7 @@ map.projectile_owner	entity-mapping	ProjectileOwner	bevy_ggrs LoadWorld entity-r
 map.resource.active_conversation	resource-entity-mapping	ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.conversations_in_rooms	resource-entity-mapping	ConversationsInRooms	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.pending_player_hit_events	resource-entity-mapping	PendingPlayerHitEvents	bevy_ggrs LoadWorld resource entity-reference remapping
+map.resource.pending_projectile_emissions	resource-entity-mapping	PendingProjectileEmissions	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.possession_state	resource-entity-mapping	PossessionState	bevy_ggrs LoadWorld resource entity-reference remapping
 map.riding_on	entity-mapping	RidingOn	bevy_ggrs LoadWorld entity-reference remapping
 map.strike_volume	entity-mapping	StrikeVolume	bevy_ggrs LoadWorld entity-reference remapping
@@ -451,7 +452,7 @@ message.run_authored_command	message-clear	RunAuthoredCommand	clear abandoned-fu
 message.set_flags_requested	message-clear	SetFlagsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.shop_transaction_requested	message-clear	ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
-message.spawn_projectile	message-clear	ProjectileSpawnRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.spawn_projectile	message-clear	ProjectileEmission	clear abandoned-future message buffer in LoadWorld::Mapping
 message.stocks_match_decided	message-clear	StocksMatchDecided	clear abandoned-future message buffer in LoadWorld::Mapping
 message.sudden_death_began	message-clear	SuddenDeathBegan	clear abandoned-future message buffer in LoadWorld::Mapping
 message.summon_request	message-clear	SummonRequest	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -534,6 +535,7 @@ resource.owned_items	resource-clone-custom-checksum	OwnedItems	bevy_ggrs clone s
 resource.owned_items_baseline	component-clone-custom-checksum	OwnedItemsBaseline	bevy_ggrs clone snapshot + entity-free stored-quantity and checkpoint purse checksum projection
 resource.pending_lifecycle_commit	resource-clone-custom-checksum	PendingLifecycleCommit	bevy_ggrs clone snapshot + the pending, withdrawn, and applied intents with their restore admissions
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection
+resource.pending_projectile_emissions	resource-clone-custom-checksum	PendingProjectileEmissions	bevy_ggrs clone snapshot + captured emission data with semantic owner identity and local session counters excluded
 resource.placement_continuity	resource-clone-custom-checksum	AuthoredOccurrences	bevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; not in the session checksum
 resource.portal_frames_in_rooms	resource-clone	PortalFramesInRooms	bevy_ggrs clone snapshot; not in the session checksum

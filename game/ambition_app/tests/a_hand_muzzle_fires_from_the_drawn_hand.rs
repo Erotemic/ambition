@@ -18,7 +18,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::combat::components::{ActorRenderSize, FeatureId};
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-use ambition_platformer2d::projectiles::ProjectileSpawnRequest;
+
 use ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAsset;
 use bevy::math::Vec2;
 use bevy::prelude::{Entity, Messages, With};
@@ -69,7 +69,7 @@ pub(crate) fn drawn_hand_this_tick(
 /// and its unit direction.
 fn shot_of(sim: &ambition_app::Platformer2dSimHarness, owner: Entity) -> Option<(Vec2, Vec2, Vec2)> {
     sim.world()
-        .resource::<Messages<ProjectileSpawnRequest>>()
+        .resource::<Messages<ambition_platformer2d::projectiles::ProjectileEmission>>()
         .iter_current_update_messages()
         .find(|request| request.owner == owner)
         .map(|request| {

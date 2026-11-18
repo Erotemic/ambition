@@ -296,6 +296,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
+ "ambition_projectile_spec",
  "ambition_projectiles",
  "ambition_resource_spec",
  "ambition_sfx",
@@ -1139,8 +1140,6 @@ dependencies = [
 name = "ambition_projectiles"
 version = "0.1.0"
 dependencies = [
- "ambition_extension_host",
- "ambition_extension_sdk",
  "ambition_gameplay_trace",
  "ambition_input",
  "ambition_platformer2d_core",

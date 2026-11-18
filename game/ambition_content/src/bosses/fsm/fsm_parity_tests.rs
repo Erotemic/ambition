@@ -29,7 +29,7 @@ use ambition_extension_host::{ExtensionAppExt, ExtensionHostPlugin, ExtensionSet
 use ambition_platformer2d_core::{self as ae, BodyKinematics};
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
-use ambition_projectiles::ProjectileSpawnRequest;
+
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
@@ -122,7 +122,7 @@ fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ro
     app.insert_resource(sprite_content.clone());
     app.init_schedule(Sim);
     app.add_message::<ambition_characters::brain::ActorActionMessage>()
-        .add_message::<ProjectileSpawnRequest>()
+        .init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>()
         .add_message::<ambition_characters::summon::SummonRequest>()
         .add_message::<ambition_vfx::vfx::VfxInRoom>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
@@ -281,7 +281,7 @@ fn observe(app: &mut App, god: Entity, arm: Arm) -> Vec<String> {
         .collect();
     hitboxes.sort();
     out.extend(hitboxes);
-    for mut request in world.resource_mut::<Messages<ProjectileSpawnRequest>>().drain() {
+    for mut request in world.resource_mut::<Messages<ambition_combat::projectile_spawn::ProjectileEmission>>().drain().map(|emission| emission.request) {
         request.owner = Entity::PLACEHOLDER;
         out.push(format!("{request:?}"));
     }

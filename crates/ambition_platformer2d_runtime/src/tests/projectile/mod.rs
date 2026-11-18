@@ -128,7 +128,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<ambition_damage::BodyHitResolved>();
     app.add_message::<ambition_damage::WalletShieldSpent>();
-    app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
+    app.init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>();
     app.add_message::<ambition_combat::RangedFireRefused>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.
@@ -148,7 +148,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             // shot fired this frame first ticks next frame), then feature hits.
             step_projectiles,
             charge_projectile_input,
-            ambition_projectiles::materialize_projectiles_for_next_tick,
+            ambition_combat::projectile_spawn::materialize_projectiles_for_next_tick,
             ambition_platformer2d_actor_monolith::body::apply_feature_hit_events,
         )
             .chain(),

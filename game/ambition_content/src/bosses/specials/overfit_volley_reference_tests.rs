@@ -10,7 +10,8 @@ use ambition_characters::brain::{
 };
 use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn};
+use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 use ambition_time::WorldTime;
 
 const OVERFIT_VOLLEY_KEY: &str = "overfit_volley";
@@ -59,7 +60,7 @@ const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
 /// from zero.
 pub fn spawn_overfit_volley_from_special_messages(
     world_time: Res<WorldTime>,
-    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+    mut projectiles: ambition_combat::projectile_spawn::ProjectileWriter,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-actor target: each boss carries an `ActorTarget` populated
     // upstream by `select_actor_targets` (nearest-player resolution).

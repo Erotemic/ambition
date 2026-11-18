@@ -22,5 +22,4 @@ bevy = { version = "0.19.1", default-features = false }
 ambition_combat_port = { path = "../../../../crates/ambition_combat_port" }
 ambition_extension_host = { path = "../../../../crates/ambition_extension_host" }
 ambition_projectile_spec = { path = "../../../../crates/ambition_projectile_spec" }
-serde = { workspace = true }
 serde_json = "1"

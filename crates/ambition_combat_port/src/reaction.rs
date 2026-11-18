@@ -7,10 +7,10 @@
 //! that carries an effect is the second ([`StruckPort`]): the module of the
 //! effect decides what it leaves on the body it struck.
 
-use ambition_extension_sdk::wire::{self, WireError, WireReader};
+use ambition_extension_sdk::wire::{WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
 
-use crate::special::{put_params, read_params, SpecialParam};
+use crate::special::SpecialParam;
 
 /// The trigger port marker for a parry a body caught.
 ///
@@ -61,13 +61,11 @@ impl Port for ParriedPort {
     type Value = Parried;
 
     fn encode(v: &Parried, out: &mut Vec<u8>) {
-        wire::put_u32(out, v.parry);
-        wire::put_vec2(out, v.contact);
-        put_params(out, &v.params);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Parried, WireError> {
-        Ok(Parried { parry: r.u32()?, contact: r.vec2()?, params: read_params(r)? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -104,14 +102,11 @@ impl Port for AnswerParryPort {
     type Value = AnswerParry;
 
     fn encode(v: &AnswerParry, out: &mut Vec<u8>) {
-        wire::put_u32(out, v.parry);
-        wire::put_str(out, &v.key);
-        wire::put_str(out, &v.params_at);
-        wire::put_bool(out, v.on_attacker);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<AnswerParry, WireError> {
-        Ok(AnswerParry { parry: r.u32()?, key: r.str()?.to_owned(), params_at: r.str()?.to_owned(), on_attacker: r.bool()? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -166,13 +161,11 @@ impl Port for StruckPort {
     type Value = Struck;
 
     fn encode(v: &Struck, out: &mut Vec<u8>) {
-        wire::put_vec2(out, v.contact);
-        wire::put_u64(out, v.striker);
-        put_params(out, &v.params);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Struck, WireError> {
-        Ok(Struck { contact: r.vec2()?, striker: r.u64()?, params: read_params(r)? })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -180,9 +173,13 @@ impl Port for StruckPort {
 mod tests {
     use super::*;
 
-    fn round_trip<P: Port>(value: P::Value) -> P::Value {
+    fn round_trip<P: Port + ambition_extension_sdk::script::ScriptPort>(value: P::Value) -> P::Value {
         let mut bytes = Vec::new();
         P::encode(&value, &mut bytes);
+        let scripted = P::from_script(&P::to_script(&value)).unwrap();
+        let mut script_bytes = Vec::new();
+        P::encode(&scripted, &mut script_bytes);
+        assert_eq!(script_bytes, bytes);
         P::decode(&mut WireReader::new(&bytes)).unwrap()
     }
 
@@ -210,3 +207,31 @@ mod tests {
         assert_eq!(round_trip::<StruckPort>(struck.clone()), struck);
     }
 }
+
+ambition_extension_sdk::port_record! {
+    Parried {
+        /// Phase-local parry index for answer_parry.
+        parry: u32,
+        contact: [f32; 2],
+        params: Vec<(String, SpecialParam)> as ambition_extension_sdk::structure::TextMap<SpecialParam>,
+    }
+}
+ambition_extension_sdk::port_record! {
+    AnswerParry {
+        parry: u32,
+        key: String,
+        params_at: String = String::new(),
+        on_attacker: bool = false,
+    }
+}
+ambition_extension_sdk::port_record! {
+    Struck {
+        contact: [f32; 2],
+        /// Opaque credit token of the striker, or "0" when absent.
+        striker: u64 as crate::blast::CreditToken,
+        params: Vec<(String, SpecialParam)> as ambition_extension_sdk::structure::TextMap<SpecialParam>,
+    }
+}
+ambition_extension_sdk::script_port!(ParriedPort);
+ambition_extension_sdk::script_port!(AnswerParryPort);
+ambition_extension_sdk::script_port!(StruckPort);

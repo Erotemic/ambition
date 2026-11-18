@@ -57,3 +57,32 @@ After the test executable is built, it can repeat the edit witness directly. Use
 ```
 
 That witness writes a new script while the real game session runs, rejects bad source, and checks the speed of the next live jet. Its output measures edit-to-live time. The damage witness reports `PYRO_COST` for the encounter with and without rewinds. These development-profile results are iteration measurements; they do not establish release, browser, or mobile frame budgets.
+
+## Reactive stage rules
+
+The [guitar feedback script](../../game/ambition_content/rhai/boss_stage_feedback.rhai)
+uses `boss_conduct` to read the live encounter and tracked body. Its `mount`
+observation supplies standing ledges and the walkable slope in world units,
+with +Y down. It uses the actual slope points for both the warning and the
+strike. A climb starts a 1.1-second warning, a 0.25-second pulse, and a
+4-second recovery. The script owns these durations.
+
+`lightning` is a leased visual. It causes no damage. `held_ray` requests a
+shared combat volume; its published geometry supplies the same procedural
+renderer that Wolfenstein uses. Native combat owns walls, portals, damage,
+and hit history. The script stores its phase, timer, and ray generation in
+body records. A dead or inactive boss cancels the sequence.
+
+These contracts are also available to native and portable Rust modules.
+`Spot` accepts `#{ world: [x, y] }`, `#{ body: [x, y] }`, or a named art part.
+An invalid endpoint or an unavailable phase is refused by its domain or by
+module admission. This is not a general component mutation interface.
+
+The status and hit-response aliases can support future mechanics without a
+current game consumer. `status_tick`, `time_scale`, `status_clock`, and
+`in_play` share the body status service. `struck` reports an accepted on-hit
+effect and `parried` reports a caught parry. `answer_parry` uses that phase's
+parry index. `credit` and `struck.striker` supply opaque decimal tokens for
+`blast.credit`. A script can retain a token in a `u64` record field. All
+`u64` values use decimal strings in scripts, including initial values such
+as `initial: "18446744073709551615"`. Use `u32` for small arithmetic counters.

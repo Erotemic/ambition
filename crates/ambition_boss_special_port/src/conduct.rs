@@ -155,24 +155,6 @@ pub struct BodySwing {
     pub ends_in: f32,
 }
 
-fn put_move(out: &mut Vec<u8>, m: Option<&LiveMove>) {
-    wire::put_bool(out, m.is_some());
-    if let Some(m) = m {
-        wire::put_str(out, &m.key);
-        wire::put_f32(out, m.remaining);
-    }
-}
-
-fn move_of(r: &mut WireReader<'_>) -> Result<Option<LiveMove>, WireError> {
-    if !r.bool()? {
-        return Ok(None);
-    }
-    Ok(Some(LiveMove {
-        key: r.str()?.to_owned(),
-        remaining: r.f32()?,
-    }))
-}
-
 impl Port for BossConductPort {
     /// Version 2 (2026-10-06): `holding` and `minions`. Version 3
     /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
@@ -185,92 +167,11 @@ impl Port for BossConductPort {
     type Value = BossConduct;
 
     fn encode(v: &BossConduct, out: &mut Vec<u8>) {
-        wire::put_vec2(out, v.position);
-        wire::put_vec2(out, v.velocity);
-        wire::put_f32(out, v.facing);
-        wire::put_f32(out, v.side);
-        wire::put_bool(out, v.alive);
-        put_move(out, v.telegraph.as_ref());
-        put_move(out, v.active.as_ref());
-        wire::put_opt(out, v.target, wire::put_vec2);
-        wire::put_bool(out, v.hall.is_some());
-        if let Some(h) = v.hall {
-            wire::put_f32(out, h.floor);
-            wire::put_f32(out, h.left);
-            wire::put_f32(out, h.right);
-        }
-        wire::put_bool(out, v.driven);
-        wire::put_bool(out, v.enraged);
-        wire::put_bool(out, v.holding);
-        wire::put_u32(out, v.minions);
-        wire::put_bool(out, v.between_phases);
-        wire::put_opt(out, v.room, wire::put_vec2);
-        wire::put_i32(out, v.health);
-        wire::put_bool(out, v.invulnerable);
-        wire::put_opt(out, v.target_body, |out, b| {
-            wire::put_vec2(out, b.position);
-            wire::put_vec2(out, b.size);
-            wire::put_opt(out, b.swing, |out, s| {
-                wire::put_f32(out, s.since);
-                wire::put_f32(out, s.hurts_in);
-                wire::put_bool(out, s.live);
-                wire::put_f32(out, s.ends_in);
-            });
-        });
-        wire::put_vec2(out, v.size);
-        wire::put_bool(out, v.awake);
-        wire::put_opt(out, v.predecessor, |out, p| {
-            wire::put_vec2(out, p.position);
-            wire::put_vec2(out, p.size);
-            wire::put_f32(out, p.side);
-            wire::put_bool(out, p.alive);
-        });
-        wire::put_opt(out, v.reach, |out, reach| {
-            for way in reach {
-                wire::put_f32(out, way);
-            }
-        });
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
-        Ok(BossConduct {
-            position: r.vec2()?,
-            velocity: r.vec2()?,
-            facing: r.f32()?,
-            side: r.f32()?,
-            alive: r.bool()?,
-            telegraph: move_of(r)?,
-            active: move_of(r)?,
-            target: r.opt(WireReader::vec2)?,
-            hall: if r.bool()? {
-                Some(RoomHall {
-                    floor: r.f32()?,
-                    left: r.f32()?,
-                    right: r.f32()?,
-                })
-            } else {
-                None
-            },
-            driven: r.bool()?,
-            enraged: r.bool()?,
-            holding: r.bool()?,
-            minions: r.u32()?,
-            between_phases: r.bool()?,
-            room: r.opt(WireReader::vec2)?,
-            health: r.i32()?,
-            invulnerable: r.bool()?,
-            target_body: r.opt(|r| {
-                Ok(BodyBox {
-                    position: r.vec2()?,
-                    size: r.vec2()?,
-                    swing: r.opt(|r| Ok(BodySwing { since: r.f32()?, hurts_in: r.f32()?, live: r.bool()?, ends_in: r.f32()? }))?,
-                })
-            })?,
-            size: r.vec2()?,
-            awake: r.bool()?,
-            predecessor: r.opt(|r| Ok(Predecessor { position: r.vec2()?, size: r.vec2()?, side: r.f32()?, alive: r.bool()? }))?,
-            reach: r.opt(|r| Ok([r.f32()?, r.f32()?, r.f32()?, r.f32()?]))?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -574,18 +475,6 @@ impl Port for DrawnRowPort {
     }
 }
 
-fn put_hall(out: &mut Vec<u8>, hall: Option<RoomHall>) {
-    wire::put_opt(out, hall, |out, h| {
-        wire::put_f32(out, h.floor);
-        wire::put_f32(out, h.left);
-        wire::put_f32(out, h.right);
-    });
-}
-
-fn hall_of(r: &mut WireReader<'_>) -> Result<Option<RoomHall>, WireError> {
-    r.opt(|r| Ok(RoomHall { floor: r.f32()?, left: r.f32()?, right: r.f32()? }))
-}
-
 /// The observation port marker for the mount a conducted boss rides.
 ///
 /// Port card:
@@ -654,72 +543,21 @@ pub struct MountView {
     pub ledges: Vec<[f32; 4]>,
     pub hall: Option<RoomHall>,
     pub limbs: Vec<MountLimb>,
+    /// The walkable slope in world coordinates, in segment order. Empty when absent.
+    pub slope: Vec<[f32; 2]>,
 }
 
 impl Port for MountViewPort {
-    const KEY: PortKey = PortKey::new("ambition.boss.mount", 4);
+    const KEY: PortKey = PortKey::new("ambition.boss.mount", 5);
     const ROLE: PortRole = PortRole::Observation;
     type Value = MountView;
 
     fn encode(v: &MountView, out: &mut Vec<u8>) {
-        wire::put_vec2(out, v.position);
-        wire::put_vec2(out, v.velocity);
-        wire::put_vec2(out, v.size);
-        wire::put_f32(out, v.facing);
-        wire::put_bool(out, v.unmirrored);
-        wire::put_opt(out, v.back, |out, b| {
-            for c in b {
-                wire::put_f32(out, c);
-            }
-        });
-        wire::put_u32(out, v.ledges.len() as u32);
-        for ledge in &v.ledges {
-            for c in ledge {
-                wire::put_f32(out, *c);
-            }
-        }
-        put_hall(out, v.hall);
-        wire::put_u32(out, v.limbs.len() as u32);
-        for limb in &v.limbs {
-            wire::put_str(out, &limb.slot);
-            wire::put_vec2(out, limb.position);
-            wire::put_vec2(out, limb.size);
-            wire::put_vec2(out, limb.home_offset);
-            wire::put_i32(out, limb.lost_health);
-            wire::put_bool(out, limb.held);
-            wire::put_opt(out, limb.contact, wire::put_vec2);
-            wire::put_u32(out, limb.struck);
-        }
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<MountView, WireError> {
-        let position = r.vec2()?;
-        let velocity = r.vec2()?;
-        let size = r.vec2()?;
-        let facing = r.f32()?;
-        let unmirrored = r.bool()?;
-        let back = r.opt(|r| Ok([r.f32()?, r.f32()?, r.f32()?, r.f32()?]))?;
-        let ledge_count = r.u32()?;
-        let mut ledges = Vec::new();
-        for _ in 0..ledge_count {
-            ledges.push([r.f32()?, r.f32()?, r.f32()?, r.f32()?]);
-        }
-        let hall = hall_of(r)?;
-        let count = r.u32()?;
-        let mut limbs = Vec::new();
-        for _ in 0..count {
-            limbs.push(MountLimb {
-                slot: r.str()?.to_owned(),
-                position: r.vec2()?,
-                size: r.vec2()?,
-                home_offset: r.vec2()?,
-                lost_health: r.i32()?,
-                held: r.bool()?,
-                contact: r.opt(|r| r.vec2())?,
-                struck: r.u32()?,
-            });
-        }
-        Ok(MountView { position, velocity, size, facing, unmirrored, back, ledges, hall, limbs })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -1168,6 +1006,8 @@ mod tests {
             reach: Some([12.0, REACH_CAP, 0.0, 33.5]),
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
+        use ambition_extension_sdk::script::ScriptPort;
+        assert_eq!(BossConductPort::from_script(&BossConductPort::to_script(&conduct)).unwrap(), conduct);
         let at_rest = BossConduct { target_body: Some(BodyBox { position: [1.0, 2.0], size: [3.0, 4.0], swing: None }), ..conduct.clone() };
         assert_eq!(round::<BossConductPort>(&at_rest), at_rest);
         let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, predecessor: None, reach: None, ..conduct };
@@ -1211,8 +1051,11 @@ mod tests {
             ledges: vec![[692.0, 1030.25, 800.0, 1030.25], [960.0, 1028.0, 1069.0, 1032.0]],
             hall: Some(RoomHall { floor: 1250.0, left: 48.0, right: 1800.0 }),
             limbs: vec![fist.clone(), MountLimb { slot: "hand_right".into(), held: false, lost_health: 0, contact: None, struck: 0, ..fist }],
+            slope: vec![[10.0, 20.0], [30.0, 40.0]],
         };
         assert_eq!(round::<MountViewPort>(&view), view);
+        use ambition_extension_sdk::script::ScriptPort;
+        assert_eq!(MountViewPort::from_script(&MountViewPort::to_script(&view)).unwrap(), view);
         let bare = MountView { back: None, ledges: Vec::new(), hall: None, limbs: Vec::new(), ..view };
         assert_eq!(round::<MountViewPort>(&bare), bare);
         for flinchless in [false, true] {
@@ -1249,3 +1092,5 @@ mod tests {
         }
     }
 }
+
+mod script;

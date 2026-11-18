@@ -542,6 +542,11 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
     let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
     ports
         .add::<ambition_boss_special_port::BossSpecialCast>("boss_special")
+        .add::<ambition_boss_special_port::BossConductPort>("boss_conduct")
+        .add::<ambition_boss_special_port::MountViewPort>("mount")
+        .add::<ambition_combat_port::HeldRayPort>("held_ray")
+        .add::<ambition_combat_port::LightningPort>("lightning")
+        .add::<ambition_combat_port::LightningAuraPort>("lightning_aura")
         .add::<ambition_combat_port::TechniqueUsePort>("technique_use")
         .add::<ambition_combat_port::WieldedUsePort>("wielded_use")
         .add::<ambition_combat_port::WieldedAlternatePort>("wielded_alternate")
@@ -565,6 +570,14 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::TakeItemPort>("take")
         .add::<ambition_combat_port::ReleaseItemPort>("release")
         .add::<ambition_combat_port::WhereaboutsPort>("whereabouts")
+        .add::<ambition_combat_port::ParriedPort>("parried")
+        .add::<ambition_combat_port::AnswerParryPort>("answer_parry")
+        .add::<ambition_combat_port::StruckPort>("struck")
+        .add::<ambition_combat_port::CreditPort>("credit")
+        .add::<ambition_combat_port::BlastPort>("blast")
+        .add::<ambition_combat_port::TimeScalePort>("time_scale")
+        .add::<ambition_combat_port::StatusClockPort>("status_clock")
+        .add::<ambition_combat_port::InPlayPort>("in_play")
         .add::<ambition_combat_port::HoldStatusPort>("hold_status")
         .add::<ambition_combat_port::StatusTickPort>("status_tick");
     ports

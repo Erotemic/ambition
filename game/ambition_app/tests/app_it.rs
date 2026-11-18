@@ -78,6 +78,8 @@ mod a_hosted_guest_shows_the_hosts_bodies;
 mod a_guests_room_rewinds_on_the_host;
 mod f1_blocks_against_collision;
 mod observed_geometry;
+mod the_guitar_answers_a_climb;
+mod scripted_status_capabilities;
 mod grounded_attack_momentum;
 mod room_rollback_host;
 mod one_body_two_tickers;

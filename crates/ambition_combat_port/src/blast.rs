@@ -44,23 +44,11 @@ impl Port for BlastPort {
     type Value = Blast;
 
     fn encode(v: &Blast, out: &mut Vec<u8>) {
-        wire::put_vec2(out, v.center);
-        wire::put_vec2(out, v.half_extent);
-        wire::put_i32(out, v.damage);
-        wire::put_f32(out, v.knockback);
-        wire::put_f32(out, v.lifetime_s);
-        wire::put_u64(out, v.credit);
+        ambition_extension_sdk::structure::put(v, out)
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Blast, WireError> {
-        Ok(Blast {
-            center: r.vec2()?,
-            half_extent: r.vec2()?,
-            damage: r.i32()?,
-            knockback: r.f32()?,
-            lifetime_s: r.f32()?,
-            credit: r.u64()?,
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
 
@@ -77,6 +65,9 @@ impl Port for BlastPort {
 /// * **Absence** — absent for a scope with no simulation identity.
 pub struct CreditPort;
 
+/// An opaque decimal token. Scripts can retain it without numeric precision loss.
+pub type CreditToken = u64;
+
 impl Port for CreditPort {
     const KEY: PortKey = PortKey::new("ambition.combat.credit", 1);
     const ROLE: PortRole = PortRole::Observation;
@@ -91,6 +82,21 @@ impl Port for CreditPort {
     }
 }
 
+ambition_extension_sdk::script_port!(CreditPort as CreditToken);
+ambition_extension_sdk::port_record! {
+    Blast {
+        /// World centre, +Y down.
+        center: [f32; 2],
+        half_extent: [f32; 2],
+        damage: i32,
+        knockback: f32 = 1.0,
+        lifetime_s: f32,
+        /// The token from credit or struck.striker. Zero means no credit.
+        credit: u64 as CreditToken = 0,
+    }
+}
+ambition_extension_sdk::script_port!(BlastPort);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,5 +108,10 @@ mod tests {
         let mut bytes = Vec::new();
         BlastPort::encode(&blast, &mut bytes);
         assert_eq!(BlastPort::decode(&mut WireReader::new(&bytes)).unwrap(), blast);
+        use ambition_extension_sdk::script::ScriptPort;
+        assert_eq!(BlastPort::from_script(&BlastPort::to_script(&blast)).unwrap(), blast);
+        for credit in [0, i64::MAX as u64 + 1, u64::MAX] {
+            assert_eq!(CreditPort::from_script(&CreditPort::to_script(&credit)).unwrap(), credit);
+        }
     }
 }

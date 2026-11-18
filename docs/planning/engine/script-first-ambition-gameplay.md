@@ -10,7 +10,7 @@ Rhai should be an effective way to **invent, implement, and iterate on new gamep
 
 The completed [first-class procedural authoring acceptance](first-class-procedural-game-authoring.md) proves the three-backend promotion, parity, and desktop packaging workflow for Pulse Forge. It does **not** establish that the SDK is expressive enough to author an arbitrary new Ambition mechanic. Treat A1-A10 as a retained capability and closed receipt, not work to repeat.
 
-The measure of progress is *new playable Ambition gameplay* and fewer engine changes required for subsequent ideas. Port count, Rhai lines of code, and the number of existing systems converted from Rust are not success metrics.
+Measure progress by the gameplay that authors can express and the engine changes that subsequent ideas no longer require. Playable examples can show this progress. Port counts, script size, and native migrations do not establish capability completeness.
 
 ## Non-goals and performance rule
 
@@ -38,34 +38,54 @@ Keep the inventory short, evidence-linked, and prioritized; do not exhaustively 
 
 **Candidate families to audit (not an implementation checklist):** scoped spatial/world observations; body and geometry contact facts/results; actor/control intent; interactive authored world-object state and collision changes; object and item creation/lifetime; equipment/form/grant transitions; accepted travel and room transitions; character/room/session state and gameplay events; progression and reward transactions; audio, camera, cutscene and HUD presentation requests; game-defined content/LDtk schema and bindings. Distinguish already data-authorable cases from missing scripting capabilities.
 
-## How SDK work is selected
+## Capability work
 
-1. Select a **genuinely desirable new Ambition gameplay feature** from the actual flagship plans or a maintainer-requested idea. Secondary games can provide additional counterexamples, but do not replace the flagship as the primary customer. Do not fabricate a feature only to justify a port.
-2. Attempt the feature with the installed Rhai aliases and authored data first. Note the first blocking missing capability, the relevant native domain owner, and the game-visible effect that is blocked.
-3. Decide whether existing data, composition, or a described typed port already solves it. If not, add the *smallest reusable semantic interface* through the domain owner; describe authority, observation scope, read/consume phase, result/refusal, rollback, lifetime, bounds, cost, and availability.
-4. Expose that same contract through Rhai and the portable Rust SDK. Do not create script-only domain authority or game-specific extension-host branches. Prefer a normal domain request over a series of private component setters.
-5. Complete the selected gameplay feature *in the real Ambition game*, including authored content, in-game interaction and focused validation. Preserve the native implementations elsewhere.
-6. Show that the new interface is general, with a second independent use case when it is not obvious from the semantic contract. A focused fixture is enough; do not require a second large game feature or ship a placeholder mechanic.
+The maintainer clarified the scope on 2026-11-17: a current game consumer is
+not required. Implement capabilities that have clear semantics and plausible
+expressive value. A mechanic can supply an example. It does not limit the
+capability program to the smallest interface needed for that example.
 
-When an idea genuinely requires a new physics, rendering, or engine subsystem, implement that service natively and provide an appropriate optional scripting API. A script is not required to replace core engine implementation.
+1. Use the census to select a coherent capability family. Describe what an
+   author can express with it and which native domain owns its authority.
+2. Check existing data, composition, and typed ports. Complete the shared
+   contract instead of adding a special adapter for each game idea.
+3. Define scope, identity, read and consume phases, admission and results,
+   state lifetime, rollback, bounds, cost, and optional availability.
+4. Supply the same contract to Rhai and portable Rust. Keep physics, combat,
+   inventory, travel, and world changes in their domain services.
+5. Validate composition through a supported host. A focused fixture is valid
+   when no game uses the capability yet. Use real gameplay when a suitable
+   feature exists. Do not migrate working native mechanics to create demand.
+6. Document the authoring interface and measured cost. Check that an author
+   can combine it with other capabilities using a prebuilt host.
 
-## First implementation slice: finite handoff
+A new native service is in scope when a portable adapter cannot supply the
+semantics. Implement that service once and expose its supported operations.
+Do not offer private component setters as a substitute.
 
-The initial agent deliverable has three parts:
+## Acceptance and open work
 
-1. **Coverage census:** identify existing Rhai aliases, existing typed native/WASM ports not yet available to Rhai, and missing cross-game capabilities. Link each proposed high-value gap to its real domain owner and one or more concrete gameplay situations. Mark a category as data-only when scripting is not needed. Do not start with a target number of ports.
-2. **One new flagship mechanic:** choose a useful, not-yet-implemented Ambition gameplay mechanic from current product work and implement it primarily in Rhai + authored data. The host's existing Rust gameplay remains intact. If the SDK blocks it, add only the reusable domain capability needed and include a small reuse witness.
-3. **Playback and cost proof:** run the mechanic through the supported session path, test its relevant rollback/state and admission/refusal behavior, demonstrate no-Cargo script iteration, and record the script's runtime cost in the scenario that actually uses it. Note whether staying in Rhai or promoting it to portable Rust makes sense; no promotion is required merely for acceptance.
+The first slice below is a closed receipt. The capability program remains
+open. Success means that an author can implement substantial new gameplay
+without first adding game-specific Rust or a special engine adapter.
 
-If an intended feature requires a fundamental new service, report it as such rather than disguising a subsystem rewrite as a scripting adapter. Use existing domain tests and a small number of high-value behavior witnesses; no full-suite or test-count quota.
+Use these capability groups to assess coverage:
 
-## Acceptance and exit
+- Scoped, bounded world and target observations with stable identities.
+- Controller-neutral contacts and accepted combat outcomes.
+- Authored world-object state and consume/reward transactions.
+- Creation, custody, equipment, form, travel, and lifetime operations.
+- Body, room, and session records plus accepted gameplay events.
+- Composable combat, motion intent, status, camera, audio, and HUD services.
+- Game content schemas, bindings, diagnostics, and a complete edit loop.
 
-**The program's first slice is complete when** a new, useful mechanic has actually been added to Ambition from Rhai and authored data; any new SDK interfaces are general, domain-owned, and available to portable Rust; tests/replay establish real behavior; and the author can iterate on the script using a prebuilt host. The coverage census identifies the next most useful capability gap. Retain a concise report of the edit loop and measured gameplay costs.
+For each group, distinguish existing data, described native services,
+services that need an adapter, and missing native authority. An available
+request does not prove that its trigger or result is available. Preserve
+explicit refusals and unsupported cases in the census.
 
-**The longer-term product goal is achieved when** typical new Ambition gameplay ideas can be implemented without first modifying game-specific Rust code or seeking a new special-purpose engine adapter. This is an ongoing usability outcome, not an instruction to port existing games or expose every engine function.
-
-No fixed count of Rhai modules, ports, or demonstration mechanics is required. The flagship feature and its evidence are the deliverables, not the size of the scripting surface.
+There is no required port count or demonstration count. A feature slice
+proves its own composition. It does not prove that these groups are complete.
 
 ## First-slice receipt (2026-11-17)
 

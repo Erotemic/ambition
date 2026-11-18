@@ -379,3 +379,24 @@ future balances while existing actors keep spent money and identity. Native
 catalog, replacement, and full-range arithmetic tests also pass. Do not refill
 a wallet on character replacement. Durable NPC wallets and dynamic actors
 remain open with the wider object, lifetime, event, inventory, and travel work.
+
+## Native room prop factory receipt
+
+Commit: `23b46d8bd`. Room and body scripts can create checked destructible
+batches through the common native planner. Replies name actual objects.
+Creation bounds reload from game data. Room lifetime, timed respawn, collision,
+stand collapse, visual discovery, and live sheet demand use their native owners.
+Feature views and pose history distinguish equal IDs in different live rooms.
+
+Guard: five loaded `scripted_breakable_creation` tests cover both controllers,
+retries, refusal, bounds, contacts, rewards, respawn, room retirement, independent
+room creators, GGRS, and library edits without a host rebuild. Native owner,
+view, render, actor, contact, return, rule reload, Smash, and portable WebAssembly
+checks pass. After the upstream sprite merge, the app warning check and seven
+loaded prop/actor factory tests pass. A production GPU capture resolves both
+requested prop sheets. The policy run before that merge retained the exact 11
+baseline violations. Broad union and tooling verification remain incomplete.
+
+Do not save a runtime prop's return timer without its reconstruction recipe.
+General activation, object state observations, room-instance records, durable
+dynamic objects, custody, and travel outcomes keep the program open.

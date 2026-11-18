@@ -1112,6 +1112,7 @@ dependencies = [
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
+ "ambition_combat_port",
  "ambition_content_cli",
  "ambition_content_pack",
  "ambition_conversation",

@@ -309,7 +309,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // simulation state. Flag requests use native batches. The orchard branch adds
 // the hanging-item countdown at the same version.
 // 486 -> 487: the merged schema contains both sets of state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 487;
+// 487 -> 488: bounded body-query facts remain available for their replies.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 488;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

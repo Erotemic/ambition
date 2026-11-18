@@ -211,6 +211,7 @@ ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physic
 ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_world_port = { path = "../ambition_world_port" }
+ambition_combat_port = { path = "../ambition_combat_port" }
 ambition_extension_wasm = { path = "../ambition_extension_wasm", optional = true }
 ambition_damage = { path = "../ambition_damage" }
 ambition_mount = { path = "../ambition_mount" }

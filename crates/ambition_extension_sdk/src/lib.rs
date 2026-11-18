@@ -22,6 +22,7 @@
 
 pub mod digest;
 pub mod action;
+mod choices;
 pub mod contract;
 pub mod invoke;
 pub mod module;

@@ -8,6 +8,7 @@
 |---|---|
 | [`attachments`](src/attachments.rs) | The named points of a body's rig: a jaw, a saddle, a grip, a muzzle, a hand. |
 | [`blast`](src/blast.rs) | A blast: damage where a body is, credited to another body. |
+| [`body_query`](src/body_query.rs) | Bounded body queries publish identified facts at a declared read cut. |
 | [`contact`](src/contact.rs) | The ports of a contact rule: what a touch on a body does, decided by a module in `body_contact` (`ambition_extension_sdk::phases::BODY_CONTACT`). |
 | [`custody`](src/custody.rs) | The custody requests: a body takes an item lying in its room, or lets go of the one it holds (runtime authoring audit P4: the coconut swallows). |
 | [`force`](src/force.rs) | A field of force a module holds over a region of its room: a wind, a tide, the low weight of space. |
@@ -28,9 +29,10 @@
 | [`targets`](src/targets.rs) | What a body may aim at: the facts a module's targeting reads. |
 | [`technique`](src/technique.rs) | The trigger port of a technique a body's action scheme puts on a control slot: what pressing that slot does, decided by a module. |
 | [`think`](src/think.rs) | The ports of a custom brain: a body whose brain is a `CharacterBrain::Custom` key that a module binds decides through `actor_think` (`ambition_extension_sdk::phases::ACTOR_THINK`). |
+| [`whereabouts`](src/whereabouts.rs) | Where the things a scope's records name are (runtime authoring audit P5 step 3). |
 | [`wielded`](src/wielded.rs) | The held-item domain's extension ports: a body uses the item it holds, pays for it from its resource bank, and is heard doing it. |
 
-_23 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_25 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

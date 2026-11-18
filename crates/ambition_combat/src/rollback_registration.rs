@@ -16,6 +16,7 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    registrar.rollback_component_canonical::<crate::extension::body_query::BodyQueryHistory>(OWNER, "combat.body_query_history");
     registrar.rollback_resource_clone_checksum::<crate::events::FlagWritesInRooms>(
         OWNER,
         "resource.flag_writes_in_rooms",

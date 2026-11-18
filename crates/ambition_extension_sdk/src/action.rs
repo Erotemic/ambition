@@ -1,8 +1,6 @@
 //! Scoped replies from domain actions. Submission does not prove application.
 
-use crate::script::ScriptValue;
-use crate::structure::{CaseShape, Field, Shape};
-use crate::wire::{self, WireError, WireReader};
+use crate::wire::{WireError, WireReader};
 use crate::{Port, PortKey, PortRole};
 
 /// A caller supplies a new request number for each action in one producer.
@@ -24,87 +22,16 @@ pub struct ActionTicket {
     pub generation: u64,
 }
 
-/// The domain reports the stage it actually reached.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
-pub enum ActionStage {
-    Submitted,
-    Admitted,
-    Applied,
-    Completed,
-    Rejected,
-    Canceled,
-    Failed,
-}
-
-impl ActionStage {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Submitted => "submitted",
-            Self::Admitted => "admitted",
-            Self::Applied => "applied",
-            Self::Completed => "completed",
-            Self::Rejected => "rejected",
-            Self::Canceled => "canceled",
-            Self::Failed => "failed",
-        }
-    }
-
-    pub fn parse(value: &str) -> Result<Self, String> {
-        match value {
-            "submitted" => Ok(Self::Submitted),
-            "admitted" => Ok(Self::Admitted),
-            "applied" => Ok(Self::Applied),
-            "completed" => Ok(Self::Completed),
-            "rejected" => Ok(Self::Rejected),
-            "canceled" => Ok(Self::Canceled),
-            "failed" => Ok(Self::Failed),
-            _ => Err(format!("unknown action stage {value:?}")),
-        }
-    }
-}
-
-impl Field<ActionStage> for ActionStage {
-    fn shape() -> Shape {
-        Shape::Choice(
-            [
-                "submitted",
-                "admitted",
-                "applied",
-                "completed",
-                "rejected",
-                "canceled",
-                "failed",
-            ]
-            .into_iter()
-            .map(|name| CaseShape {
-                name,
-                payload: None,
-                script: name,
-            })
-            .collect(),
-        )
-    }
-    fn put(value: &ActionStage, out: &mut Vec<u8>) {
-        wire::put_u8(out, *value as u8);
-    }
-    fn read(r: &mut WireReader<'_>) -> Result<ActionStage, WireError> {
-        match r.u8()? {
-            0 => Ok(Self::Submitted),
-            1 => Ok(Self::Admitted),
-            2 => Ok(Self::Applied),
-            3 => Ok(Self::Completed),
-            4 => Ok(Self::Rejected),
-            5 => Ok(Self::Canceled),
-            6 => Ok(Self::Failed),
-            tag => Err(WireError::BadTag(tag)),
-        }
-    }
-    fn to_script(value: &ActionStage) -> ScriptValue {
-        ScriptValue::Text(value.as_str().into())
-    }
-    fn from_script(value: &ScriptValue) -> Result<ActionStage, String> {
-        Self::parse(value.as_text()?)
+crate::port_choices! {
+    /// The domain reports the stage it actually reached.
+    pub enum ActionStage {
+        Submitted = 0 => "submitted",
+        Admitted = 1 => "admitted",
+        Applied = 2 => "applied",
+        Completed = 3 => "completed",
+        Rejected = 4 => "rejected",
+        Canceled = 5 => "canceled",
+        Failed = 6 => "failed",
     }
 }
 

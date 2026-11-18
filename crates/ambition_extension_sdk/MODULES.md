@@ -7,6 +7,8 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abi`](src/abi.rs) | The loaded-module ABI, `ambition-ext-1`: the bytes a host and a guest exchange, and the guest half that runs an entry from them. |
+| [`action`](src/action.rs) | Scoped replies from domain actions. |
+| [`choices`](src/choices.rs) | One declaration for an enum's native, wire, and script choices. |
 | [`contract`](src/contract.rs) | Compare module declarations across code backends. |
 | [`digest`](src/digest.rs) | A small deterministic 64-bit digest (FNV-1a). |
 | [`invoke`](src/invoke.rs) | The invocation an entry receives. |
@@ -18,7 +20,7 @@
 | [`typed`](src/typed.rs) | Typed records: a Rust struct for a state schema, with no handwritten codec. |
 | [`wire`](src/wire.rs) | The portable wire encoding: little-endian, length-prefixed, no type tags. |
 
-_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

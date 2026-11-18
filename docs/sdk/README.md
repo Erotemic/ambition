@@ -28,7 +28,8 @@ ratchet instead of expanding the public API by accident.
 
 Scripts can receive native command outcomes through
 [action results](action-results.md). This includes correlated replies, retries,
-cancellation, and rollback delivery. The broader
+cancellation, and rollback delivery. [Body queries](body-queries.md) provide
+bounded, identified same-room facts for scripts. The broader
 [script capability program](../planning/engine/script-first-ambition-gameplay.md)
 remains open.
 

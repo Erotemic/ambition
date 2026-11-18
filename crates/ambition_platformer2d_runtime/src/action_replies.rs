@@ -3,7 +3,7 @@
 use ambition_extension_host::{
     AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, ExtensionSet,
 };
-use ambition_extension_sdk::{Port, action::*, phases::*};
+use ambition_extension_sdk::{action::*, phases::*};
 use ambition_platformer2d_shared_tangle::{
     action_results::{self, ActionDispatch, ActionMailbox, ActionRecipient},
     lifecycle::{LiveRoomInstance, RoomFreeze, SessionScopedEntity},
@@ -71,19 +71,13 @@ pub fn begin(
         return dispatch;
     }
     if let Some(reply) = reply {
-        let module = entry.rsplit_once('/').map(|(module, _)| module);
-        let valid = module.is_some()
-            && world
-                .resource::<AdmittedExtensions>()
-                .0
-                .entries
-                .iter()
-                .any(|target| {
-                    target.path == reply.selector
-                        && target.path.rsplit_once('/').map(|(module, _)| module) == module
-                        && target.descriptor.phase == ACTOR_THINK
-                        && target.descriptor.trigger.port == ActionResultPort::KEY
-                });
+        let valid = ambition_extension_host::reply_entry::<ActionResultPort>(
+            &world.resource::<AdmittedExtensions>().0,
+            entry,
+            &reply.selector,
+            &ACTOR_THINK,
+        )
+        .is_some();
         if !valid {
             action_results::publish_action_result(
                 world,
@@ -140,13 +134,13 @@ fn queue_replies(
             continue;
         }
         for (path, result) in mailbox.take_ready(tick.0, |ticket, path| {
-            admitted.0.entries.iter().any(|entry| {
-                entry.path == path
-                    && entry.descriptor.phase == ACTOR_THINK
-                    && entry.descriptor.trigger.port == ActionResultPort::KEY
-                    && entry.path.rsplit_once('/').map(|(module, _)| module)
-                        == ticket.entry.rsplit_once('/').map(|(module, _)| module)
-            })
+            ambition_extension_host::reply_entry::<ActionResultPort>(
+                &admitted.0,
+                &ticket.entry,
+                path,
+                &ACTOR_THINK,
+            )
+            .is_some()
         }) {
             let entry = admitted
                 .0

@@ -14,6 +14,7 @@ use bevy::prelude::*;
 
 /// Offer the foes of a body in `technique_execution`.
 pub fn install(app: &mut App) {
+    super::body_query::install(app);
     app.install_extension_observation::<FoesPort>(TECHNIQUE_EXECUTION, "ambition_combat", foes_of);
 }
 

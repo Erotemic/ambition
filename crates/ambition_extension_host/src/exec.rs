@@ -289,9 +289,26 @@ impl ExtensionFaults {
     }
 }
 
-/// A domain's projection for one observation port: the value for one scope at
-/// the read cut, or `None` when the domain has no value for that scope.
-pub type Supplier = Arc<dyn Fn(&World, Entity) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
+/// The current entry and its trigger at the host's read cut.
+#[derive(Clone, Copy)]
+pub struct ObservationContext<'a> {
+    pub scope: Entity,
+    pub entry: &'a str,
+    invocation: &'a PendingInvocation,
+}
+
+impl ObservationContext<'_> {
+    /// Read a trigger only when its port and native value type match.
+    pub fn trigger<P: Port>(&self) -> Option<&P::Value> {
+        (self.invocation.port == P::KEY)
+            .then(|| self.invocation.value.downcast_ref())
+            .flatten()
+    }
+}
+
+/// A domain projects one observation for this invocation's read cut.
+pub type Supplier =
+    Arc<dyn Fn(&World, ObservationContext<'_>) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
 
 /// What the installed ports need at invocation time, frozen at admission:
 /// each observation port's projection and encoder, and each request port's
@@ -484,7 +501,7 @@ fn run_native(
         .iter()
         .filter_map(|port| {
             let (supply, _) = codecs.suppliers.get(port)?;
-            supply(world, invocation.scope).map(|value| Observation {
+            supply(world, ObservationContext { scope: invocation.scope, entry: &entry.path, invocation }).map(|value| Observation {
                 port: port.clone(),
                 value: OwnedPayload::Native(value),
             })
@@ -535,7 +552,7 @@ fn run_loaded(
         .iter()
         .filter_map(|port| {
             let (supply, encode) = codecs.suppliers.get(port)?;
-            let value = supply(world, invocation.scope)?;
+            let value = supply(world, ObservationContext { scope: invocation.scope, entry: &entry.path, invocation })?;
             let mut bytes = Vec::new();
             encode(value.as_ref(), &mut bytes);
             Some((port.clone(), bytes))

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v487
+ggrs-rollback-schema-v488
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -132,6 +132,7 @@ boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + id
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 checkpoint.authored_pending	resource-clone-custom-checksum	PendingAuthoredCheckpoint	bevy_ggrs clone snapshot + the seat of an authored checkpoint asked and not yet committed
 combat.attack_allegiance	component-canonical	AttackAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+combat.body_query_history	component-canonical	BodyQueryHistory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
 combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapshot; not in the session checksum
 combat.fixed_strike_feature_pulse	component-canonical	FixedStrikeFeaturePulse	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

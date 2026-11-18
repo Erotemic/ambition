@@ -34,6 +34,7 @@ pub mod slow;
 pub mod special;
 pub mod status;
 pub mod targets;
+pub mod body_query;
 pub mod technique;
 pub mod think;
 pub mod whereabouts;

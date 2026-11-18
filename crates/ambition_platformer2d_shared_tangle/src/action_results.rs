@@ -364,6 +364,7 @@ impl ActionReplies<'_, '_> {
 }
 
 impl ActionMailbox {
+    pub const HISTORY_CAPACITY: usize = HISTORY_LIMIT;
     fn new(room: u32, generation: u64) -> Self {
         Self {
             room,

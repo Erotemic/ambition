@@ -565,6 +565,8 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ActorFirePort>("fire")
         .add::<ambition_combat_port::SetVelocityPort>("velocity")
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
+        .add::<ambition_combat_port::body_query::BodyQueryPort>("body_query")
+        .add::<ambition_combat_port::body_query::BodyQueryResultPort>("body_query_result")
         .add::<ambition_extension_sdk::action::CancelActionPort>("cancel_action")
         .add::<ambition_extension_sdk::action::ActionResultPort>("action_result")
         .add::<ambition_extension_sdk::action::ActionResultsPort>("action_history")

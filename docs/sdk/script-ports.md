@@ -314,6 +314,27 @@ Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.
 | `members` | list of { id: text, form: text, position: [x, y], velocity: [x, y], size: [x, y], alive: bool, driven: bool, held: text or (), supporter: text or (), target: [x, y] or (), target_velocity: [x, y] or () } | The room's members, in the order of their identity. |
 | `items` | list of { id: text, kind: text, position: [x, y], at_rest: bool } | The items lying in the room (not held), in the order of their identity. |
 
+## `body_query`
+
+Port `ambition.combat.body_query@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `origin` | [x, y] | required | A point in the caller's live room, in world units with +Y down. |
+| `radius` | number | required | A finite radius around body centres, in world units. |
+| `limit` | integer (u32) | required | Maximum returned bodies. The domain also enforces its own ceiling. |
+| `relation` | one of: foe \| ally \| neutral or () | `()` |  |
+| `include_self` | bool | `false` |  |
+| `identities` | list of text | `[]` | Optional exact identities from an earlier read. Empty searches the area. |
+| `require_all` | bool | `false` | Reject if an exact identity is absent, out of play, or outside the filters. |
+
+## `body_query_result`
+
+Port `ambition.combat.body_query_result@1`, observation: read as `this.observe.<alias>`.
+
+Value: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text }, observed_at: text, room: integer (u32), phase: text, truncated: bool, targets: list of { id: text, position: [x, y], size: [x, y], velocity: [x, y], driven: bool, relation: one of: foe | ally | neutral or (), distance: number } } or ()
+
 ## `cancel_action`
 
 Port `ambition.actions.cancel@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

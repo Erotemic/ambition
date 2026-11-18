@@ -232,6 +232,29 @@ pub struct HostTick(pub u64);
 #[derive(Message, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct SeatAssigned(pub u8);
 
+/// From the host to one guest: of the guest's inputs that arrived over the
+/// last [`MARGIN_REPORT_TICKS`], the one that arrived latest, by its
+/// sequence, and how many ticks before the tick it named ran it arrived
+/// (negative: after). The guest moves the lead of its stamps by it
+/// (run-ahead, `input_clock`).
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InputMargin {
+    pub sequence: u64,
+    pub margin: i64,
+}
+
+/// The host ticks an [`InputMargin`] report covers: four reports a second.
+pub const MARGIN_REPORT_TICKS: u64 = 15;
+
+/// On the host, a guest's client entity: the latest-arriving input of the
+/// current report window (its margin and sequence), and the tick the window
+/// began.
+#[derive(Component, Clone, Copy, Debug, Default)]
+struct InputArrivals {
+    latest: Option<(i64, u64)>,
+    since: u64,
+}
+
 /// On a host: give each guest that connects the lowest seat after the host's
 /// own (seat 0) that no other guest holds, and tell it which. Without it the
 /// caller names each guest's seat ([`GuestSeat`]) itself.
@@ -265,7 +288,8 @@ impl Plugin for HostedWorldPlugin {
             .replicate::<HostTick>()
             .add_client_message::<GuestInput>(Channel::Ordered)
             .add_client_message::<GuestRoom>(Channel::Ordered)
-            .add_server_message::<SeatAssigned>(Channel::Ordered);
+            .add_server_message::<SeatAssigned>(Channel::Ordered)
+            .add_server_message::<InputMargin>(Channel::Unordered);
         match self.role {
             HostedRole::Host => {
                 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
@@ -305,7 +329,7 @@ impl Plugin for HostedWorldPlugin {
                 app.add_systems(PostUpdate, (send_local_input, report_own_room).before(ClientSystems::Send));
                 app.add_systems(
                     PreUpdate,
-                    (take_assigned_seat, follow_own_crossing, view_own_seat).chain().after(ClientSystems::Receive),
+                    (take_assigned_seat, take_input_margins, follow_own_crossing, view_own_seat).chain().after(ClientSystems::Receive),
                 );
                 app.add_systems(
                     PreUpdate,
@@ -686,6 +710,19 @@ fn view_own_seat(
     }
 }
 
+/// On a guest: the ticks past its estimate of the host tick it stamps its
+/// input (run-ahead). `None` on an App that is no guest.
+pub fn guest_run_ahead(world: &World) -> Option<u64> {
+    world.get_resource::<input_clock::GuestInputClock>().map(input_clock::GuestInputClock::lead)
+}
+
+/// Move this guest's run-ahead by the host's reports of its inputs' arrival.
+fn take_input_margins(mut reports: MessageReader<InputMargin>, mut clock: ResMut<input_clock::GuestInputClock>) {
+    for report in reports.read() {
+        clock.arrived(report.sequence, report.margin);
+    }
+}
+
 /// Take the seat the host gave this guest as the one it drives.
 fn take_assigned_seat(mut commands: Commands, mut assigned: MessageReader<SeatAssigned>, mut clock: ResMut<input_clock::GuestInputClock>) {
     if let Some(seat) = assigned.read().last() {
@@ -847,12 +884,20 @@ fn watched<T>(bodies: impl Iterator<Item = (T, PlayerSlot)>, seat: PlayerSlot) -
 fn apply_guest_inputs(world: &mut World) {
     let received: Vec<FromClient<GuestInput>> = world.resource_mut::<Messages<FromClient<GuestInput>>>().drain().collect();
     let rewinds = world.contains_resource::<room_rollback::RewindsGuestRooms>();
+    let now = world.resource::<ambition_time::SimTick>().0;
     let mut stamped = Vec::new();
     for input in received {
-        let Some(seat) = input.client_id.entity().and_then(|client| world.get::<GuestSeat>(client)).copied() else {
+        let Some(client) = input.client_id.entity() else { continue };
+        let Some(seat) = world.get::<GuestSeat>(client).copied() else {
             continue;
         };
-        let now = world.resource::<ambition_time::SimTick>().0;
+        // How early it arrived: the next tick to run is `now + 1`.
+        let margin = input.message.tick as i64 - (now as i64 + 1);
+        let mut arrivals = world.get::<InputArrivals>(client).copied().unwrap_or(InputArrivals { latest: None, since: now });
+        if arrivals.latest.is_none_or(|(latest, _)| margin <= latest) {
+            arrivals.latest = Some((margin, input.message.sequence));
+        }
+        world.entity_mut(client).insert(arrivals);
         if let Some((tick, frame)) = world.resource_mut::<room_rollback::GuestInputs>().record(seat.0, input.message, now) {
             // Replay needs the whole tick. Live delivery needs only this
             // sample's edges; earlier samples have already reached the seat.
@@ -860,6 +905,7 @@ fn apply_guest_inputs(world: &mut World) {
             stamped.push((seat.0, tick, frame));
         }
     }
+    report_input_margins(world, now);
     if rewinds {
         room_rollback::take_arrived_inputs(world, stamped);
     } else {
@@ -871,6 +917,21 @@ fn apply_guest_inputs(world: &mut World) {
         for (seat, frame) in samples {
             ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, seat, frame);
         }
+    }
+}
+
+/// Tell each guest how its latest-arriving input of the window arrived, once a
+/// window of [`MARGIN_REPORT_TICKS`] has passed.
+fn report_input_margins(world: &mut World, now: u64) {
+    let due: Vec<(Entity, i64, u64)> = world
+        .query::<(Entity, &InputArrivals)>()
+        .iter(world)
+        .filter(|(_, arrivals)| now.saturating_sub(arrivals.since) >= MARGIN_REPORT_TICKS)
+        .filter_map(|(client, arrivals)| arrivals.latest.map(|(margin, sequence)| (client, margin, sequence)))
+        .collect();
+    for (client, margin, sequence) in due {
+        world.entity_mut(client).insert(InputArrivals { latest: None, since: now });
+        world.write_message(ToClients { targets: SendTargets::Single(client.into()), message: InputMargin { sequence, margin } });
     }
 }
 

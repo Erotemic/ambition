@@ -970,6 +970,46 @@ not on an internet one: a guest that stamps its input ahead of the host
 (NA-3's run-ahead) removes the rewinds of a guest that does not predict
 itself, and is also what the confirmed-frame observers above wait on.
 
+## Run-ahead: a guest's input arrives before its tick (2026-11-18)
+
+A guest now stamps its input `lead` ticks past its estimate of the host tick
+(`ambition_hosted_world::input_clock`). The host notes how early each
+admitted input arrived (its stamped tick less the next tick to run) and
+every `MARGIN_REPORT_TICKS` (15) sends each guest its latest-arriving input
+of the window, by sequence (`InputMargin`, unordered). The guest reads the
+report against the lead that sample was stamped with, so a report that
+crossed a change of lead does not move it twice, and sets its lead so its
+inputs arrive `ARRIVAL_SLACK` (1) tick early, up to `MAX_RUN_AHEAD` (30
+ticks, about a 500 ms round trip). A stamp never goes back: a lead that
+shrinks waits for the estimate to catch up. The host admits stamps up to
+38 ticks ahead and already buffered inputs for ticks it has not run, so
+nothing else changed on the host. A guest that sleeps sees its input's
+result a round trip and the slack after the press either way: with
+rewinds the input lands in the past and is seen a round trip later; with
+run-ahead it lands on time and is seen a round trip and one tick later.
+
+Unit test `the_lead_settles_where_inputs_arrive_with_the_slack`: a simulated
+link of 0 to 12 ticks each way settles every input one tick early, with
+stamps that never go back.
+
+The real-link measurement again (release, 600 frames, Bob turning every 13
+frames):
+
+| Scene | Each way | Lead settled | Rewinds (before → now) | Host update without a rewind (mean, p95) |
+|---|---|---|---|---|
+| Alice in the hub | 0 ms | 3 | 84 → 3 | 4.4, 5.1 ms |
+| Alice in the hub | 25 ms | 5 | 85 → 3 | 4.3, 5.7 ms |
+| Alice in the hub | 50 ms | 9 | 83 → 4 | 4.7, 5.8 ms |
+| Alice beside Bob | 0 ms | 3 | 83 → 3 | 3.9, 5.0 ms |
+| Alice beside Bob | 25 ms | 5 | 85 → 3 | 4.0, 5.3 ms |
+| Alice beside Bob | 50 ms | 8 | 84 → 4 | 4.4, 5.5 ms |
+
+The 3 or 4 rewinds left are the same count at every delay, as the window
+before the first report (15 ticks and a round trip) would leave; a link
+with jitter beyond the slack would add more, and the rewind stays as the
+correction for them. The confirmed-frame observers can now be given a
+boundary that keeps up while a guest plays: that is the next step.
+
 ## Review fixes, 2026-11-16
 
 `74e86f475` keeps other rooms' saved history during replay, isolates message

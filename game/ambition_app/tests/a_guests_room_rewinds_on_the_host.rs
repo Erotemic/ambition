@@ -451,6 +451,8 @@ struct LinkRun {
     plain: Vec<f64>,
     rewound: Vec<f64>,
     bob_moved: bool,
+    /// The guest's run-ahead at the end, in ticks.
+    lead: Option<u64>,
 }
 
 /// The guest drives Bob over UDP through a relay of `delay` each way, both
@@ -527,8 +529,9 @@ fn over_a_real_link(alice: Alice, delay: std::time::Duration) -> LinkRun {
     }
     let stats = host.world().get_resource::<RoomRollbackStats>().copied().unwrap_or_default();
     let bob_moved = bob_at(&mut host) != start;
+    let lead = ambition_hosted_world::guest_run_ahead(guest.world());
     drop(relay);
-    LinkRun { stats, plain, rewound, bob_moved }
+    LinkRun { stats, plain, rewound, bob_moved, lead }
 }
 
 fn spread(times: &[f64]) -> String {
@@ -546,9 +549,12 @@ fn spread(times: &[f64]) -> String {
 /// drives Bob over UDP through a relay that delays each datagram, both Apps
 /// paced at 60 Hz of wall time, and the host's update is timed on the frames
 /// that rewind and on the frames that do not. Run it in release for the
-/// cost a player pays; a debug build measures the debug build. The lateness
-/// is read from the ticks a rewind replays: renet's own round trip is timed
-/// on the App's clock, which the harness steps, not on the wall.
+/// cost a player pays; a debug build measures the debug build. The guest
+/// runs ahead (`input_clock`): once its lead settles its inputs arrive
+/// before the ticks they name, so the rewinds left are the ones before it
+/// settled and the link's jitter. The lateness is read from the ticks a
+/// rewind replays: renet's own round trip is timed on the App's clock, which
+/// the harness steps, not on the wall.
 #[test]
 #[ignore = "a measurement over wall-clock time: run with --ignored --nocapture, in release for the cost"]
 fn a_guests_room_rewinds_over_a_real_link() {
@@ -558,8 +564,9 @@ fn a_guests_room_rewinds_over_a_real_link() {
             let run = over_a_real_link(alice, std::time::Duration::from_millis(one_way));
             let per_rewind = f64::from(run.stats.replayed) / f64::from(run.stats.rewinds.max(1));
             println!(
-                "[room rewind over udp] {profile}, {}, {one_way} ms each way: rewinds {}, ticks replayed {} ({per_rewind:.1} a rewind), not rewound {}; host update without a rewind: {}; with one: {}",
+                "[room rewind over udp] {profile}, {}, {one_way} ms each way: guest run-ahead {:?} ticks; rewinds {}, ticks replayed {} ({per_rewind:.1} a rewind), not rewound {}; host update without a rewind: {}; with one: {}",
                 if alice == Alice::Apart { "Alice in the hub" } else { "Alice beside Bob" },
+                run.lead,
                 run.stats.rewinds,
                 run.stats.replayed,
                 run.stats.not_rewound,
@@ -567,7 +574,6 @@ fn a_guests_room_rewinds_over_a_real_link() {
                 spread(&run.rewound),
             );
             assert!(run.bob_moved, "premise: the guest's input moved Bob on the host");
-            assert!(run.stats.rewinds > 0, "premise: the guest's late input was rewound for");
         }
     }
 }

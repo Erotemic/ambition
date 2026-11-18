@@ -141,7 +141,7 @@ pub(crate) struct GuestInputs {
 
 impl GuestInputs {
     pub(crate) fn record(&mut self, seat: PlayerSlot, input: crate::GuestInput, now: u64) -> Option<(u64, ControlFrame)> {
-        if input.tick > now.saturating_add(crate::input_clock::MAX_INPUT_LEAD)
+        if input.tick > now.saturating_add(crate::input_clock::MAX_INPUT_LEAD + crate::input_clock::MAX_RUN_AHEAD)
             || now.saturating_sub(input.tick) > REWIND_HORIZON
             || self.last_sequence.get(&seat).is_some_and(|last| input.sequence <= *last)
         { return None; }

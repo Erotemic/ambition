@@ -661,8 +661,8 @@ pub fn register_strike_outcome_messages(app: &mut bevy::prelude::App) {
 /// combat change that touched no curve. The error names nothing that appears in
 /// the edit that caused it.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct StrikeOutcomeWriters<'w> {
-    pub hit_events: MessageWriter<'w, HitEvent>,
+pub struct StrikeOutcomeWriters<'w, 's> {
+    pub hit_events: crate::HitWriter<'w, 's>,
     /// Overlap.
     pub landed: MessageWriter<'w, LandedBodyHit>,
     /// A perfect shield caught it.
@@ -845,6 +845,7 @@ pub fn apply_hitbox_damage(
         Option<&crate::allegiance::AttackAllegiance>,
         &mut crate::strike::FixedStrikeFeaturePulse,
         Option<&crate::strike::HitboxExclusions>,
+        Option<&crate::HitOrigin>,
     )>,
     // Owner-position fallback when the owner carries no `CenteredAabb`
     // (bare test bodies); every real body — player included — publishes one.
@@ -962,7 +963,7 @@ pub fn apply_hitbox_damage(
             })
         })
         .collect();
-    for (hitbox_entity, hitbox, cause, mut hits, move_instance, captured, mut feature_pulse, exclusions) in &mut hitboxes {
+    for (hitbox_entity, hitbox, cause, mut hits, move_instance, captured, mut feature_pulse, exclusions, origin) in &mut hitboxes {
         let Some(owner_pos) = owner_position(hitbox) else {
             continue;
         };
@@ -1406,6 +1407,7 @@ pub fn apply_hitbox_damage(
                     follow,
                 });
                 out.hit_events.write(HitEvent {
+                    origin: origin.cloned(),
                     properties: hitbox.properties,
                     contact: None,
                     pieces: Vec::new(),
@@ -1465,6 +1467,7 @@ pub fn apply_hitbox_damage(
             if !fixed || !feature_pulse.emitted {
                 if fixed { feature_pulse.emitted = true; }
                 out.hit_events.write(HitEvent {
+                    origin: origin.cloned(),
                     properties: hitbox.properties,
                     contact: None,
                     pieces: feature_pieces(),
@@ -1506,7 +1509,7 @@ pub fn apply_hitbox_damage(
             if *sibling_owner != owner || *sibling == striker {
                 continue;
             }
-            if let Ok((_, _, _, mut hits, _, _, _, _)) = hitboxes.get_mut(*sibling) {
+            if let Ok((_, _, _, mut hits, _, _, _, _, _)) = hitboxes.get_mut(*sibling) {
                 hits.hit.insert(victim);
             }
         }

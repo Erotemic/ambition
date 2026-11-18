@@ -8,10 +8,11 @@
 |---|---|
 | [`fx`](src/fx.rs) | Authored visual effects are named rows. |
 | [`lightning`](src/lightning.rs) | The vocabulary of procedural lightning: what a producer asks for, with no renderer attached. |
+| [`line`](src/line.rs) | Shared line looks for content validation and rendering. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_vfx`. |
 | [`vfx`](src/vfx.rs) | The visual-effects MESSAGE vocabulary — the presentation-neutral data a simulation system emits to ask for a cue, with NO renderer attached. |
 
-_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -63,7 +63,7 @@ fn body_touches(
 
 /// Publish hazard damage for every body the hazard touched.
 pub fn apply_hazard_contacts(
-    mut hit_events: MessageWriter<HitEvent>,
+    mut hit_events: crate::HitWriter<'_, '_>,
     player: Query<
         (
             Entity,
@@ -141,6 +141,7 @@ pub fn apply_hazard_contacts(
             let side = resolved_frame.basis().side;
             let knockback_dir = (pos - hazard.pos).dot(side).signum();
             hit_events.write(HitEvent {
+                origin: None,
                 properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),
@@ -188,6 +189,7 @@ pub fn apply_hazard_contacts(
             // CM8: same hazard strike sound, carried to the victim-side reaction;
             // the actor's knockback + feedback position derive from the event.
             hit_events.write(HitEvent {
+                origin: None,
                 properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),

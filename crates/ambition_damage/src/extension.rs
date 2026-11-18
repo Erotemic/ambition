@@ -1,10 +1,11 @@
 //! Script delivery of native reception decisions after damage resolution.
 
-use crate::{reception::HitReceiverIdentity, BodyHitResolution, BodyHitResolved};
+use crate::{BodyHitResolution, BodyHitResolved};
+use ambition_combat::HitIdentity;
 use ambition_combat::{extension::status::BodyStatuses, rules::HitReceptionRules};
 use ambition_combat_port::{
     HitReception, HitReceptions, HitReceptionsPort, ReceptionBody, ReceptionDecision,
-    ReceptionSource,
+    ReceptionSource, ReceptionProjectile,
 };
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations};
 use ambition_extension_sdk::{phases::HIT_REACTION, Port};
@@ -26,7 +27,7 @@ pub fn install(app: &mut App) {
 }
 
 fn identity(
-    value: &HitReceiverIdentity,
+    value: &HitIdentity,
     session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
 ) -> ReceptionBody {
     if value.session != session {
@@ -55,6 +56,13 @@ fn fact(
         BodyHitResolution::Damaged { .. } => ReceptionDecision::Damaged,
     };
     HitReception {
+        projectile: hit.projectile.as_ref().map(|origin| {
+            let local = origin.session == session;
+            ReceptionProjectile {
+                id: origin.id.as_ref().filter(|_| local).map(|id| id.as_str().into()),
+                room: origin.room.filter(|_| local).map(|room| room.ordinal()),
+            }
+        }),
         observed_at: hit.observed_at,
         victim: identity(&hit.identity, session),
         attacker: hit

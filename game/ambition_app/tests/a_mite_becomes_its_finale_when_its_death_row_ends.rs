@@ -33,6 +33,7 @@ fn blasts(sim: &mut Platformer2dSimHarness) -> usize {
 fn kill(sim: &mut Platformer2dSimHarness, body: Entity, kin: &BodyKinematics) {
     use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
     sim.world_mut().write_message(HitEvent {
+        origin: None,
         properties: Default::default(),
         contact: None,
         pieces: Vec::new(),

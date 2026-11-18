@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`action_results`](src/action_results.rs) | Scoped action replies. |
 | [`app_finalization`](src/app_finalization.rs) | Finish a manually driven `App` the way a runner would. |
 | [`authored_logic`](src/authored_logic/mod.rs) | Extensible authored condition and command contracts. |
 | [`binding`](src/binding.rs) | THE BINDING BOUNDARY MOVED OUT OF THIS CRATE — this is only the door. |
@@ -44,7 +45,7 @@
 | [`world_log`](src/world_log.rs) | Coarse `[game-mode]` / `[world-event]` logging. |
 | [`worn_gear`](src/worn_gear.rs) | Provider-contributed declarations of worn gear: an item a body wears on an anchor of its art (a space helmet on its head). |
 
-_37 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_38 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

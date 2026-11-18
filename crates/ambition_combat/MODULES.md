@@ -39,6 +39,7 @@
 | [`held_items`](src/held_items.rs) | ECS-owned held item capability for actors. |
 | [`hit_camera_shake`](src/hit_camera_shake.rs) | Camera-shake intents derived from landed hits. |
 | [`hit_feel`](src/hit_feel.rs) | How a landed hit answers in one game's rooms: how long both bodies freeze and how far a strike pushes back the body that landed it (HIT-FEEL). |
+| [`hit_origin`](src/hit_origin.rs) | Capture combat source identity before deferred reception or retirement. |
 | [`hit_reaction`](src/hit_reaction.rs) | Body-generic hit reaction: knockback, directional influence, and reaction timers. |
 | [`hitbox`](src/hitbox/mod.rs) | Hitbox-entity lifecycle: spawn, resolve overlaps, then despawn. |
 | [`hurtbox_resolution`](src/hurtbox_resolution.rs) | Hurtboxes resolved from simulation state and clocks, independent of rendering. |
@@ -65,7 +66,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_58 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_59 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

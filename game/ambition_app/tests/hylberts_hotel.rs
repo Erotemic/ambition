@@ -102,6 +102,7 @@ fn defeating_the_gram_reaper_opens_the_treasury_and_keeps_it_open() {
         };
         if let Some(at) = target {
             app.world_mut().write_message(HitEvent {
+                origin: None,
                 properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(), volume: ae::Aabb::new(at, ae::Vec2::splat(200.0)).into(),

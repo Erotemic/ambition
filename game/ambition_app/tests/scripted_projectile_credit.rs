@@ -21,7 +21,13 @@ const RECORD: SchemaKey = SchemaKey::new("credit_probe", "flight", 1);
 const SOURCE: &str = r#"
 fn declare() {
     #{ provider: "credit_probe", key: "flight",
-       schemas: [#{ key: "flight", fields: [#{ tag: 1, name: "fired", kind: "bool" }] }],
+       schemas: [#{ key: "flight", fields: [
+           #{ tag: 1, name: "fired", kind: "bool" },
+           #{ tag: 2, name: "receptions", kind: "u32" },
+           #{ tag: 3, name: "shot", kind: "opt body" },
+           #{ tag: 4, name: "credit", kind: "opt body" },
+           #{ tag: 5, name: "damage", kind: "u32" },
+       ] }],
        entries: [
            #{ key: "fire", phase: "technique_execution",
               trigger: #{ port: "status_tick", selector: "credit_probe.fire" },
@@ -32,6 +38,9 @@ fn declare() {
            #{ key: "retire", phase: "body_contact",
               trigger: #{ port: "body_contact", selector: "credit_probe.retire" },
               requests: ["defeat_body"], limit: 1 },
+           #{ key: "observe", phase: "hit_reaction",
+              trigger: #{ port: "hit_receptions", selector: "credit_probe.observe" },
+              writes: ["flight"] },
        ],
     }
 }
@@ -40,13 +49,25 @@ fn fire() {
     this.state.flight.fired = true;
     this.requests.push(request("projectile", #{ origin: this.trigger.position,
         dir: [-1.0, 0.0], speed: 200.0, damage: 1, max_lifetime: 3.0,
-        half_extent: [4.0, 4.0], visual_id: "" }));
+        half_extent: [4.0, 4.0], splash_half_extent: 16.0, visual_id: "" }));
 }
 fn guard() {
     this.requests.push(request("parry_window", #{ window_s: 0.2 }));
 }
 fn retire() {
     this.requests.push(request("defeat_body", #{}));
+}
+fn observe() {
+    for hit in this.trigger.events {
+        if hit.source != "projectile" || !hit.incoming { continue; }
+        if hit.projectile == () || hit.projectile.id == () || hit.attacker == () || hit.attacker.id == () {
+            throw "an accepted projectile hit lost its captured provenance";
+        }
+        this.state.flight.receptions += 1;
+        this.state.flight.shot = hit.projectile.id;
+        this.state.flight.credit = hit.attacker.id;
+        this.state.flight.damage += hit.damage;
+    }
 }
 "#;
 
@@ -81,15 +102,22 @@ fn a_scripted_reflection_keeps_current_credit_when_the_deflector_retires_and_rep
     let source_id = world.get::<SimId>(player).unwrap().clone();
     let defender_id = world.get::<SimId>(defender).unwrap().clone();
     let target = world.get::<BodyKinematics>(defender).unwrap().pos;
+    sim.teleport_player((target.x + 100.0, target.y));
+    sim.rebase_rollback_history().unwrap();
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+        if sim.world().get::<ambition_platformer2d::engine_core::BodyGroundState>(player).unwrap().on_ground { break; }
+    }
+    assert!(sim.world().get::<ambition_platformer2d::engine_core::BodyGroundState>(player).unwrap().on_ground);
+    let world = sim.world_mut();
     world.entity_mut(player).insert((
         MatchTeam::new("source"),
-        BodyStatuses(vec!["credit_probe.fire".into()]),
+        BodyStatuses(vec!["credit_probe.fire".into(), "credit_probe.observe".into()]),
     ));
     world.entity_mut(defender).insert((
         MatchTeam::new("defender"),
         BodyStatuses(vec!["credit_probe.guard".into()]),
     ));
-    sim.teleport_player((target.x + 100.0, target.y));
     sim.rebase_rollback_history().unwrap();
     let mut reflected = None;
     for _ in 0..60 {
@@ -155,8 +183,18 @@ fn a_scripted_reflection_keeps_current_credit_when_the_deflector_retires_and_rep
         world.get::<ProjectileCredit>(shot).unwrap().body.as_ref(),
         Some(&defender_id)
     );
-    sim.step_n(AgentAction::default(), 30);
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+        let records = sim.world().get::<BodyRecords>(player).unwrap();
+        if records.get(&RECORD).unwrap().get(FieldRef(1)).unwrap() == &Value::U32(2) { break; }
+    }
+    sim.step_n(AgentAction::default(), CHECK_DISTANCE as u32);
     sim.rollback_health().unwrap();
     assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
+    let record = sim.world().get::<BodyRecords>(player).unwrap().get(&RECORD).unwrap();
+    assert_eq!(record.get(FieldRef(1)).unwrap(), &Value::U32(2));
+    assert_eq!(record.get(FieldRef(2)).unwrap(), &Value::Opt(Some(Box::new(Value::Ref(shot_id.as_str().into())))));
+    assert_eq!(record.get(FieldRef(3)).unwrap(), &Value::Opt(Some(Box::new(Value::Ref(defender_id.as_str().into())))));
+    assert!(matches!(record.get(FieldRef(4)).unwrap(), Value::U32(damage) if *damage > 0));
     let _ = std::fs::remove_dir_all(dir);
 }

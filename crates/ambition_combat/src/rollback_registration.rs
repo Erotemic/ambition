@@ -16,6 +16,9 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    registrar.rollback_component_clone_checksum::<crate::HitOrigin>(
+        OWNER, "combat.hit_origin", "source identity and credit without host session counters", crate::HitOrigin::checksum,
+    );
     registrar.rollback_component_canonical::<crate::extension::body_query::BodyQueryHistory>(OWNER, "combat.body_query_history");
     registrar.rollback_resource_clone_checksum::<crate::events::FlagWritesInRooms>(
         OWNER,
@@ -719,6 +722,8 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
             }
         }
         let event = &staged.event;
+        put_bool(&mut bytes, event.origin.is_some());
+        if let Some(origin) = &event.origin { origin.encode_semantics(&mut bytes); }
         match &event.contact {
             None => put_bool(&mut bytes, false),
             Some(contact) => {
@@ -855,6 +860,35 @@ mod pending_hit_checksum_tests {
         staged_between(reaction, Some("alpha"), Some("xavier"))
     }
 
+    #[test]
+    fn deferred_hits_keep_shot_and_credit_facts_without_host_session_counters() {
+        use ambition_platformer2d_shared_tangle::{lifecycle::{LiveRoomInstance, SessionScopeId}, sim_id::SimId};
+        use crate::{HitIdentity, HitOrigin};
+        let mut pending = staged(HitReaction::Strike);
+        pending.0[0].event.origin = Some(HitOrigin {
+            projectile: Some(HitIdentity { id: Some(SimId::placement("shot")), room: Some(LiveRoomInstance::ACTIVATION), session: Some(SessionScopeId(1)) }),
+            attacker: Some(HitIdentity { id: Some(SimId::placement("deflector")), room: Some(LiveRoomInstance::ACTIVATION), session: Some(SessionScopeId(1)) }),
+        });
+        let baseline = pending_player_hits_checksum(&pending);
+        let mut changed = pending.clone();
+        let origin = changed.0[0].event.origin.as_mut().unwrap();
+        origin.projectile.as_mut().unwrap().session = Some(SessionScopeId(99));
+        origin.attacker.as_mut().unwrap().session = Some(SessionScopeId(99));
+        assert_eq!(baseline, pending_player_hits_checksum(&changed));
+        for variant in 0..5 {
+            let mut changed = pending.clone();
+            let origin = changed.0[0].event.origin.as_mut().unwrap();
+            match variant {
+                0 => origin.projectile.as_mut().unwrap().id = Some(SimId::placement("other shot")),
+                1 => origin.attacker.as_mut().unwrap().id = Some(SimId::placement("other deflector")),
+                2 => origin.attacker.as_mut().unwrap().room = Some(LiveRoomInstance::from_ordinal(1)),
+                3 => origin.projectile.as_mut().unwrap().room = Some(LiveRoomInstance::from_ordinal(1)),
+                _ => origin.projectile.as_mut().unwrap().session = None,
+            }
+            assert_ne!(baseline, pending_player_hits_checksum(&changed));
+        }
+    }
+
     fn staged_between(
         reaction: HitReaction,
         attacker: Option<&str>,
@@ -865,6 +899,7 @@ mod pending_hit_checksum_tests {
             attacker_id: attacker.map(SimId::placement),
             victim_id: victim.map(SimId::placement),
             event: HitEvent {
+                origin: None,
                 properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),

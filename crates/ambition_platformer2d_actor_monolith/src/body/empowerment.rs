@@ -178,7 +178,7 @@ pub fn run_empowerments(
 /// A game that wants it and wants the frame an empowerment ends not to also be a frame it flattens
 /// something orders it `.after(EmpowermentExpiry)`.
 pub fn apply_contact_harm(
-    mut hit_events: MessageWriter<HitEvent>,
+    mut hit_events: ambition_combat::HitWriter<'_, '_>,
     cast: ambition_characters::prepared::SessionCast,
     empowered: Query<
         (
@@ -281,6 +281,7 @@ pub fn apply_contact_harm(
                 -1.0
             };
             hit_events.write(HitEvent {
+                origin: None,
                 properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),

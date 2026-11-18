@@ -34,7 +34,7 @@ use bevy::prelude::*;
 /// so a coconut does not hurt one yet.
 pub fn thrown_items_strike(
     tuning: Res<crate::tuning::AmbitionTuning>,
-    mut hits: MessageWriter<HitEvent>,
+    mut hits: ambition_combat::HitWriter<'_, '_>,
     mut items: Query<(Entity, &GroundItem, &mut ae::BodyKinematics, &ItemCustody, &ItemStruckBody)>,
     bodies: Query<&BodyHealth>,
     rooms: LiveRooms,
@@ -57,6 +57,7 @@ pub fn thrown_items_strike(
             }
             struck_any = true;
             hits.write(HitEvent {
+                origin: None,
                 properties: Default::default(),
                 contact: None,
                 pieces: Vec::new(),

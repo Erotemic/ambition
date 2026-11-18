@@ -146,7 +146,7 @@ fn loaded_rules_receive_bounded_native_decisions_on_either_controller_and_replay
     sim.app_mut().add_systems(
         schedule,
         (move |tick: Res<ambition_platformer2d::time::SimTick>,
-               mut hits: MessageWriter<ambition_platformer2d::combat::HitEvent>,
+               mut hits: ambition_platformer2d::combat::HitWriter<'_, '_>,
                bodies: Query<(Entity, &SimId, &ae::BodyKinematics)>,
                rooms: LiveRooms| {
             if tick.0 != first && tick.0 != first + 90 {
@@ -159,6 +159,7 @@ fn loaded_rules_receive_bounded_native_decisions_on_either_controller_and_replay
                 let (_, _, kin) = bodies.get(victim).unwrap();
                 for _ in 0..count {
                     hits.write(ambition_platformer2d::combat::HitEvent {
+                        origin: None,
                         properties: Default::default(),
                         contact: None,
                         pieces: Vec::new(),

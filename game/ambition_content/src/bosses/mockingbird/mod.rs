@@ -73,7 +73,7 @@ pub fn strike_it_with_the_moon(
         &ambition_extension_host::BodyRecords,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
-    mut hits: MessageWriter<ambition_combat::HitEvent>,
+    mut hits: ambition_combat::HitWriter<'_, '_>,
 ) {
     use ambition_combat::events::{HitMode, HitSource, HitTarget};
     use ambition_content_modules::mockingbird::Conductor;
@@ -89,6 +89,7 @@ pub fn strike_it_with_the_moon(
             continue;
         }
         hits.write(ambition_combat::HitEvent {
+            origin: None,
             properties: Default::default(),
             contact: None,
             pieces: Vec::new(),

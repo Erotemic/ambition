@@ -312,7 +312,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 487 -> 488: bounded body-query facts remain available for their replies.
 // 488 -> 489: current projectile credit survives ownership transfer and reconstruction.
 // 489 -> 490: captured projectile emissions cross ticks in a cloned, remapped queue.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 490;
+// 490 -> 491: native hits and detached strikes retain source identity and credit.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 491;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

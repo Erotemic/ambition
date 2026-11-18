@@ -1076,7 +1076,7 @@ fn integrate_actor_body(
     // function takes clusters, not a `World`.
     authored_tuning: Option<ae::MovementTuning>,
     frame_out: &mut crate::body::BodyFrameOutput,
-    hit_events: &mut MessageWriter<HitEvent>,
+    hit_events: &mut ambition_combat::HitWriter<'_, '_>,
     // The kernel's own operation list, for the causal instrument only. `Option`
     // for the reason the damage path documents: an instrument that can take
     // down a composition is worse than no instrument. See
@@ -1176,6 +1176,7 @@ fn integrate_actor_body(
             em.health.current().max(1),
         );
         hit_events.write(HitEvent {
+            origin: None,
             properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
@@ -1211,6 +1212,7 @@ fn integrate_actor_body(
     // past the margin.
     if em.health.alive() && move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
         hit_events.write(HitEvent {
+            origin: None,
             properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
@@ -1370,8 +1372,8 @@ pub struct AuthoredCoverageSource<'w> {
 }
 
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct BodyIntegrationMessages<'w> {
-    pub hit_events: MessageWriter<'w, HitEvent>,
+pub struct BodyIntegrationMessages<'w, 's> {
+    pub hit_events: ambition_combat::HitWriter<'w, 's>,
     /// The kernel's operation list, for the causal instrument. `Option` so a
     /// composition with no inspector registers nothing and publishes nothing —
     /// the rule the damage path already documents.
@@ -1682,7 +1684,7 @@ pub fn integrate_sim_bodies(
 /// strike + boss damage use).
 pub fn apply_actor_contact_damage(
     contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
-    mut hit_events: MessageWriter<HitEvent>,
+    mut hit_events: ambition_combat::HitWriter<'_, '_>,
     attackers: Query<
         (
             Entity,

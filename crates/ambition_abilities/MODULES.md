@@ -20,8 +20,9 @@
 | [`test_support`](src/test_support.rs) | Test-only fixtures for ability modules. |
 | [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade and the puppy-slug gun. |
 | [`traversal`](src/traversal/mod.rs) | Traversal rules a held item uses through its ports: the blink rule and the mark, which the blink, dive and mark/recall modules use. |
+| [`whereabouts`](src/whereabouts.rs) | The whereabouts of what a scope's records name (P5 step 3): the supplier of `ambition.world.whereabouts`. |
 
-_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_15 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

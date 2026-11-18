@@ -106,16 +106,17 @@ fn a_room_observes_a_retired_victim_but_a_replacement_cannot_receive_its_hit() {
             .entity_mut(entity)
             .insert((RoomInstanceRoot, room));
     }
-    let receiver = HitReceiverIdentity {
+    let receiver = HitIdentity {
         id: app.world().get::<SimId>(original).cloned(),
         session: Some(SessionScopeId(1)),
         room: Some(LiveRoomInstance::ACTIVATION),
     };
-    let source = HitReceiverIdentity {
+    let source = HitIdentity {
         id: app.world().get::<SimId>(attacker).cloned(),
         ..receiver.clone()
     };
     app.world_mut().write_message(BodyHitResolved {
+            projectile: None,
         body: original,
         attacker: Some(attacker),
         identity: receiver,
@@ -155,12 +156,13 @@ fn mechanically_equal_receptions_have_equal_gameplay_payloads_after_different_ho
     use ambition_extension_sdk::Port;
     fn payload(session: u64) -> Vec<u8> {
         let body = Entity::PLACEHOLDER;
-        let identity = HitReceiverIdentity {
+        let identity = HitIdentity {
             id: Some(SimId::placement("recipient")),
             session: Some(SessionScopeId(session)),
             room: Some(LiveRoomInstance::ACTIVATION),
         };
         let hit = BodyHitResolved {
+            projectile: Some(HitIdentity { id: Some(SimId::placement("shot")), room: identity.room, session: identity.session }),
             body,
             attacker: Some(body),
             identity: identity.clone(),
@@ -182,6 +184,10 @@ fn mechanically_equal_receptions_have_equal_gameplay_payloads_after_different_ho
             },
             &mut bytes,
         );
+        let foreign = fact(&hit, body, Some(SessionScopeId(session + 1)));
+        let shot = foreign.projectile.unwrap();
+        assert!(shot.id.is_none());
+        assert!(shot.room.is_none());
         bytes
     }
     assert_eq!(payload(1), payload(99));
@@ -189,7 +195,7 @@ fn mechanically_equal_receptions_have_equal_gameplay_payloads_after_different_ho
 
 #[test]
 fn a_foreign_body_is_not_exposed_as_an_identity_in_the_invocations_session() {
-    let foreign = HitReceiverIdentity {
+    let foreign = HitIdentity {
         id: Some(SimId::placement("same_name")),
         session: Some(SessionScopeId(2)),
         room: Some(LiveRoomInstance::ACTIVATION),

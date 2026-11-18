@@ -21,7 +21,7 @@ pub fn apply_authored_detonations(
         &ambition_characters::actor::body::BodyHealth,
         &ambition_platformer2d_core::BodyKinematics,
     )>,
-    mut hits: MessageWriter<HitEvent>,
+    mut hits: crate::HitWriter<'_, '_>,
 ) {
     for message in actions.read() {
         let ActionRequest::Special { spec: SpecialActionSpec::Special(key), .. } = &message.request else {
@@ -37,6 +37,7 @@ pub fn apply_authored_detonations(
             continue;
         }
         hits.write(HitEvent {
+            origin: None,
             properties: Default::default(),
             contact: None,
             pieces: Vec::new(),

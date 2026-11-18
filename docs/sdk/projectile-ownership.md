@@ -77,9 +77,16 @@ loads one Rhai module. It fires a projectile, arms an NPC's parry, and retires
 the deflector through native requests. The fixture checks original lineage,
 current credit, and GGRS replay across reflection and retirement.
 
-This does not complete the projectile outcome API. Per-shot callbacks and
-accepted damage correlation remain open. Spawn requests still need downstream replies. Request submission is not proof
-of creation or damage.
+It also checks direct and splash reception after the deflector retires. The
+loaded rule receives the same shot ID and retained credit for both native
+decisions, including the actual applied damage. Native hit publication uses
+`ambition_combat::HitWriter`. It captures source identity before deferred
+reception. Detached strikes retain `HitOrigin`; this also covers non-projectile
+sources whose owners retire.
+
+The projectile outcome API remains open for spawn replies and interception and
+retirement outcomes. Accepted hit batches identify the shot and its current
+credit. Request submission is not proof of creation or damage.
 
 Native tests in
 [`projectile_spawn/materialize.rs`](../../crates/ambition_combat/src/projectile_spawn/materialize.rs)

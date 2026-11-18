@@ -2,18 +2,10 @@
 
 use crate::{BodyHitResolution, BodyHitResolved};
 use ambition_platformer2d_shared_tangle::{
-    lifecycle::{LiveRoomInstance, LiveRooms, SessionScopeId, SessionScopedEntity},
+    lifecycle::{LiveRooms, SessionScopedEntity},
     sim_id::SimId,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-
-/// A semantic name in the session and room where the decision was made.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HitReceiverIdentity {
-    pub id: Option<SimId>,
-    pub session: Option<SessionScopeId>,
-    pub room: Option<LiveRoomInstance>,
-}
 
 /// The shared publication seam for every native damage receiver.
 #[derive(SystemParam)]
@@ -25,15 +17,15 @@ pub struct BodyHitReporter<'w, 's> {
 }
 
 impl BodyHitReporter<'_, '_> {
-    fn identity(&self, entity: Entity) -> HitReceiverIdentity {
+    fn identity(&self, entity: Entity) -> ambition_combat::HitIdentity {
         let Ok((id, session)) = self.identities.get(entity) else {
-            return HitReceiverIdentity {
+            return ambition_combat::HitIdentity {
                 id: None,
                 session: None,
                 room: None,
             };
         };
-        HitReceiverIdentity {
+        ambition_combat::HitIdentity {
             id: id.cloned(),
             session: session.map(|session| session.0),
             room: self.rooms.of(entity),
@@ -48,8 +40,15 @@ impl BodyHitReporter<'_, '_> {
         resolution: BodyHitResolution,
     ) {
         let identity = self.identity(body);
-        let attacker_identity = hit.attacker.map(|attacker| self.identity(attacker));
+        let attacker_identity = match &hit.origin {
+            Some(origin) => origin.attacker.clone(),
+            None => hit.attacker.map(|attacker| self.identity(attacker)),
+        };
         self.messages.write(BodyHitResolved {
+            projectile: hit
+                .origin
+                .as_ref()
+                .and_then(|origin| origin.projectile.clone()),
             body,
             attacker: hit.attacker,
             identity,

@@ -815,7 +815,7 @@ fn bob_strikes_during_room_preparation(
         Option<&ambition_platformer2d::characters::control::DrivingParticipant>,
         &ambition_platformer2d::engine_core::BodyKinematics,
         &ambition_platformer2d::platformer::lifecycle::InRoomInstance)>,
-    mut hits: MessageWriter<ambition_platformer2d::combat::events::HitEvent>,
+    mut hits: ambition_platformer2d::combat::HitWriter<'_, '_>,
 ) {
     use ambition_platformer2d::{characters::control::PlayerSlot, combat::events::{HitEvent, HitSource, HitTarget, HitMode}};
     if !controls.get(PlayerSlot(1)).attack_pressed || pending.peek().is_none() { return; }
@@ -825,6 +825,7 @@ fn bob_strikes_during_room_preparation(
         **id == target.0) else { return };
     if room != target_room { return; }
     hits.write(HitEvent {
+        origin: None,
         properties: Default::default(),
         contact: None,
         pieces: Vec::new(), volume: ambition_platformer2d::engine_core::Aabb::new(body.pos, body.size() * 0.5).into(),

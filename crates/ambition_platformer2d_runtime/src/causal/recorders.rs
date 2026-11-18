@@ -504,9 +504,10 @@ mod damage_tests {
 
     fn announce(app: &mut App, body: Entity, resolution: BodyHitResolution, raw: i32) {
         app.world_mut().write_message(BodyHitResolved {
+            projectile: None,
             body,
             attacker: None,
-            identity: ambition_damage::reception::HitReceiverIdentity { id: None, session: None, room: None },
+            identity: ambition_combat::HitIdentity { id: None, session: None, room: None },
             attacker_identity: None,
             observed_at: 0,
             attacker_move_instance: None,

@@ -181,10 +181,11 @@ impl BodyHitResolution {
 /// imply a knockout: health policy and the lifecycle owner decide that.
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
 pub struct BodyHitResolved {
+    pub projectile: Option<ambition_combat::HitIdentity>,
     pub body: Entity,
     pub attacker: Option<Entity>,
-    pub identity: reception::HitReceiverIdentity,
-    pub attacker_identity: Option<reception::HitReceiverIdentity>,
+    pub identity: ambition_combat::HitIdentity,
+    pub attacker_identity: Option<ambition_combat::HitIdentity>,
     pub observed_at: u64,
     pub resolution: BodyHitResolution,
     pub source: ambition_combat::HitSource,

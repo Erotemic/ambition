@@ -713,6 +713,11 @@ pub fn step_projectiles(
             Option<&ambition_projectiles::ProjectileLaunch>,
             // Whom this shot has already hit on the leg it is flying.
             &mut ambition_platformer2d_shared_tangle::projectile::ProjectileHits,
+            (
+                Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+                Option<&ambition_projectiles::ownership::ProjectileCredit>,
+                Option<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
+            ),
         ),
         (
             With<LiveProjectile>,
@@ -732,7 +737,7 @@ pub fn step_projectiles(
     // shield for this reason — see its own note — so this is the system's only
     // access to the component.
     mut guards: Query<&mut ae::BodyShieldState, Without<LiveProjectile>>,
-    mut feature_damage: MessageWriter<HitEvent>,
+    mut feature_damage: ambition_combat::HitWriter<'_, '_>,
     ecs_breakables: Query<
         (Entity, &FeatureId, &CenteredAabb, &BreakableFeature),
         With<FeatureSimEntity>,
@@ -801,7 +806,7 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, _, seq, _, _, _, _, _, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, _, seq, _, _, _, _, _, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
@@ -820,6 +825,7 @@ pub fn step_projectiles(
             fired_by_move,
             launch,
             mut already_hit,
+            (shot_id, shot_credit, shot_session),
         )) = projectiles.get_mut(proj_entity)
         else {
             continue;
@@ -848,6 +854,9 @@ pub fn step_projectiles(
         // and reaches only that room's bodies (OW1 cut 4). A shot whose room
         // is not live is not stepped.
         let shot_room = collision.shot_room(proj_entity, owner_entity);
+        let hit_origin = shot_credit.map(|credit| ambition_combat::HitOrigin::projectile(
+            shot_id, credit, shot_session.map(|scope| scope.0), shot_room,
+        ));
         let friendly_fire = tuning.in_room(shot_room).map(|t| t.damage_policy()).unwrap_or_default();
         let dt = dt * freeze.scale_in(shot_room);
         let room_index = match composed.iter().position(|(room, _)| *room == shot_room) {
@@ -1409,6 +1418,7 @@ pub fn step_projectiles(
                 let knock_dir = if knock_dir == 0.0 { 1.0 } else { knock_dir };
                 let impact_pos = contact.hit.point;
                 feature_damage.write(HitEvent {
+                    origin: hit_origin.clone(),
                     properties: game.properties,
                     contact: Some(ambition_combat::events::HitContact::from(&contact.hit)),
                     pieces: Vec::new(),
@@ -1419,7 +1429,7 @@ pub fn step_projectiles(
                     // The firing actor (enemy / boss), when the shot was spawned
                     // with a real owner — `None` for ownerless shots.
                     attacker: owner_entity,
-                    room: None,
+                    room: shot_room,
                     // The victim, named — no producer-side classification.
                     target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
@@ -1488,6 +1498,7 @@ pub fn step_projectiles(
                 }
             } else if let Some(contact) = feature_contact.as_ref() {
                 let direct = HitEvent {
+                    origin: hit_origin.clone(),
                     properties: game.properties,
                     contact: Some(ambition_combat::events::HitContact::from(&contact.contact.hit)),
                     pieces: Vec::new(),
@@ -1496,7 +1507,7 @@ pub fn step_projectiles(
                     damage: game.damage.max(1),
                     source: HitSource::Projectile,
                     attacker: owner_entity,
-                    room: None,
+                    room: shot_room,
                     // ⭐ NAMED, and the sweep above is what names it. Sent as
                     // `UnresolvedFeatures` the applier took the VOLUME and damaged
                     // every breakable it overlapped, so one shot whose contact box

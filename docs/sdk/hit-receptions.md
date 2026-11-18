@@ -36,6 +36,9 @@ The trigger contains `events` and `truncated`. Each event contains:
 - `victim` and optional `attacker`: captured semantic identity and live room
   within the invocation's session. An identity outside that session is absent.
   A native entity handle is not exposed.
+- optional `projectile`: the shot's semantic `id` and contact `room`. Direct
+  hits and splash hits retain the same shot identity. An unidentified native
+  source has no ID. A shot from another session exposes no identity or room.
 - `source`: `melee`, `projectile`, `contact`, `hazard`, `left_the_world`, or `pogo`.
 - `decision`: `ignored`, `protected`, `blocked`, `armored`, `wallet_shielded`, or
   `damaged`.
@@ -67,6 +70,20 @@ within a scope, even if a held status repeats the key.
 
 Session activation counters belong to the host. Native routing checks the
 session without exposing that local counter to the script.
+
+Native producers use `ambition_combat::HitWriter`. It captures the source before
+publication. Detached volumes retain the same `HitOrigin`. This applies to
+melee, projectiles, hazards, and other native hit kinds. A retired source does
+not erase the credit of a pending hit.
+
+For a projectile, `attacker` is the credited body at contact. Reflection changes
+that credit. Direct hits and splash volumes retain it before the shot or its
+credited body retires. Deferred reception uses these captured facts. It does
+not look up a replacement body or restore credit to the original shooter.
+
+A shot can retire before deferred damage resolves. Retirement does not mean
+that no later damage decision can arrive. Accepted damage, interception, and
+retirement are separate native facts.
 
 ## Bounds, lifetime, and replay
 

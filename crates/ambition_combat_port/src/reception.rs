@@ -32,7 +32,13 @@ pub struct ReceptionBody {
     pub room: Option<u32>,
 }
 #[derive(Clone, Debug, PartialEq)]
+pub struct ReceptionProjectile {
+    pub id: Option<String>,
+    pub room: Option<u32>,
+}
+#[derive(Clone, Debug, PartialEq)]
 pub struct HitReception {
+    pub projectile: Option<ReceptionProjectile>,
     pub observed_at: u64,
     pub victim: ReceptionBody,
     pub attacker: Option<ReceptionBody>,
@@ -59,7 +65,16 @@ ambition_extension_sdk::port_record! {
     }
 }
 ambition_extension_sdk::port_record! {
+    ReceptionProjectile {
+        /// The shot's identity at contact. It can outlive the shot.
+        id: Option<String>,
+        room: Option<u32>,
+    }
+}
+ambition_extension_sdk::port_record! {
     HitReception {
+        /// Captured projectile identity for direct and splash hits.
+        projectile: Option<ReceptionProjectile>,
         observed_at: u64,
         victim: ReceptionBody,
         attacker: Option<ReceptionBody>,
@@ -96,7 +111,7 @@ ambition_extension_sdk::port_record! {
 /// have their own owners.
 pub struct HitReceptionsPort;
 impl Port for HitReceptionsPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.hit_receptions", 2);
+    const KEY: PortKey = PortKey::new("ambition.combat.hit_receptions", 3);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = HitReceptions;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
@@ -117,14 +132,18 @@ mod tests {
         let value = HitReceptions {
             truncated: true,
             events: vec![HitReception {
+                projectile: Some(ReceptionProjectile {
+                    id: Some("shot".into()),
+                    room: Some(2),
+                }),
                 observed_at: u64::MAX - 1,
                 victim: ReceptionBody {
                     id: Some("receiver".into()),
-                        room: Some(2),
+                    room: Some(2),
                 },
                 attacker: Some(ReceptionBody {
                     id: None,
-                        room: None,
+                    room: None,
                 }),
                 source: ReceptionSource::Projectile,
                 decision: ReceptionDecision::WalletShielded,

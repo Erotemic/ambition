@@ -55,6 +55,8 @@ pub mod held_items;
 pub mod hit_camera_shake;
 pub mod hit_reaction;
 pub mod hitbox;
+pub mod hit_origin;
+pub use hit_origin::{HitIdentity, HitOrigin, HitWriter};
 pub mod hurtbox_resolution;
 pub mod impact_hitstop;
 pub mod landing_lag;

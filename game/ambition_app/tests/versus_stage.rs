@@ -724,6 +724,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
         .into();
     app.world_mut()
         .write_message(ambition_platformer2d::combat::events::HitEvent {
+            origin: None,
             properties: Default::default(),
             contact: None,
             pieces: Vec::new(),
@@ -2483,6 +2484,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
         .into();
     app.world_mut()
         .write_message(ambition_platformer2d::combat::events::HitEvent {
+            origin: None,
             properties: Default::default(),
             contact: None,
             pieces: Vec::new(),

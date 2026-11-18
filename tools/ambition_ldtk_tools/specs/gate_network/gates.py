@@ -11,7 +11,10 @@ terminal is a `GateTerminal` switch on the face of a dialer pedestal (the
 round one): a press opens the terminal panel.
 
 Sizes, in world units: the ring and its portal are 288 x 288 and stand on the
-floor; the zone is the middle 144 x 288 of the ring. The dialer is 64 x 56;
+floor; the zone is the middle 144 x 288 of the ring. An arch (a travel portal
+drawn at a door's size: `jungle_arch`, `starlit_arch`) is 144 or 132 x 174
+and its zone the 48 x 146 of its opening (`SHAPE_BOXES`). The dialer is
+64 x 56;
 its switch is 24 x 32 on its face, low enough that a standing body touches
 it.
 """
@@ -27,6 +30,20 @@ RING = 288
 RING_SHAPES = {
     "triangle": ("triangle_gate_ring", "triangle_gate_portal"),
     "round": ("gate_ring", "gate_portal"),
+    # Travel portals at a door's size (WORLD-LAYERS JL-2, MG-2): the
+    # Jungle's mossy stone, Magical's starlit stone.
+    "jungle_arch": ("jungle_arch_ring", "jungle_arch_portal"),
+    "starlit_arch": ("starlit_arch_ring", "starlit_arch_portal"),
+}
+#: A ring's shape: its prop box (width, height) and its zone in that box
+#: (x, y, width, height). An arch's box is its art's body at 1.45 px a
+#: unit (the Jungle's fern makes its body wider); its zone is its opening,
+#: down to the floor.
+SHAPE_BOXES = {
+    "triangle": ((288, 288), (72, 0, 144, 288)),
+    "round": ((288, 288), (72, 0, 144, 288)),
+    "jungle_arch": ((144, 174), (42, 28, 48, 146)),
+    "starlit_arch": ((132, 174), (42, 28, 48, 146)),
 }
 #: A ring's shape: the prop kind of its dialer, whose dial has the ring's
 #: shape (Jon, 2026-11-11: "the dial devices need a corresponding version
@@ -34,6 +51,9 @@ RING_SHAPES = {
 DIALER_KINDS = {
     "triangle": "gate_dialer_triangle",
     "round": "gate_dialer",
+    # An arch's keystone carries the network's Δ.
+    "jungle_arch": "gate_dialer_triangle",
+    "starlit_arch": "gate_dialer_triangle",
 }
 ZONE_W = 144
 DIALER_W, DIALER_H = 64, 56
@@ -68,12 +88,13 @@ def ring(label: str, zone: str, x: int, floor: int, name: str, shape: str = "tri
     portal owns alone ("<label> Ring", "<label> Portal"); `shape` is a key of
     `RING_SHAPES`. The ring's props are its picture, so the zone draws no
     door marker over them (`presentation: SceneArt`)."""
-    top = floor - RING
+    (w, h), (zx, zy, zw, zh) = SHAPE_BOXES[shape]
+    top = floor - h
     ring_kind, portal_kind = RING_SHAPES[shape]
     return [
-        ("Prop", x, top, RING, RING, dict(name=f"{label} Ring", kind=ring_kind)),
-        ("Prop", x, top, RING, RING, dict(name=f"{label} Portal", kind=portal_kind)),
-        ("LoadingZone", x + (RING - ZONE_W) // 2, top, ZONE_W, RING,
+        ("Prop", x, top, w, h, dict(name=f"{label} Ring", kind=ring_kind)),
+        ("Prop", x, top, w, h, dict(name=f"{label} Portal", kind=portal_kind)),
+        ("LoadingZone", x + zx, top + zy, zw, zh,
          dict(id=zone, name=name, activation="Door", target_room="", target_zone="", bidirectional=False,
               presentation="SceneArt")),
     ]

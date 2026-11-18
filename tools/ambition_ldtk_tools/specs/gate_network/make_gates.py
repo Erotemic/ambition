@@ -420,6 +420,27 @@ RECEIVER_TERMINALS = [
 ]
 
 
+#: The Jungle's arches (WORLD-LAYERS JL-2): travel portals at a door's size,
+#: clear of the rooms' branch platforms, each with its terminal east of it:
+#: (level, label, zone, terminal id, arch x, floor, shown name). The trailhead's
+#: stands on the floor between the trail's two low branches, the treetops' on
+#: the branch over the station's sign, the canopy's at its west end and the
+#: tar pits' in front of the dig camp. They reach along the region in a
+#: chain (`gate_network.ron`).
+JUNGLE_ARCHES = [
+    ("primeval_trailhead", "Trailhead Arch", "primeval_trailhead_arch", "primeval_trailhead_arch_terminal", 800, 480, "the trailhead's arch"),
+    ("primeval_treetops", "Treetops Arch", "primeval_treetops_arch", "primeval_treetops_arch_terminal", 728, 336, "the treetops' arch"),
+    ("primeval_canopy", "Canopy Arch", "primeval_canopy_arch", "primeval_canopy_arch_terminal", 24, 672, "the canopy's arch"),
+    ("primeval_tar_pits", "Tar Pits Arch", "primeval_tar_pits_arch", "primeval_tar_pits_arch_terminal", 1760, 576, "the dig camp's arch"),
+]
+
+
+def jungle_arch_entities(label: str, zone: str, terminal_id: str, x: int, floor: int, name: str) -> list[tuple]:
+    """One Jungle arch: its props, its zone, and its terminal 8 east of it."""
+    (w, _), _ = gates.SHAPE_BOXES["jungle_arch"]
+    return gates.ring(label, zone, x, floor, name, shape="jungle_arch") + gates.terminal(label, terminal_id, x + w + 8, floor, shape="jungle_arch")
+
+
 #: The districts' arrival rooms (the `pirate_port`, `ninja_village` and `eureka` generators):
 #: each generator adds its `gate_interface.yaml` after it makes its rooms.
 #: The ring's zone is the arrival; the floor is clear from x 112 to 512.
@@ -478,9 +499,11 @@ def main(argv) -> int:
                  target_room="square_arena", target_zone="east_exit", bidirectional=False))]
         if apply_yaml(gates.as_yaml(HUB, west, "The hub's west exit, back where it was."), "hub_west.yaml", ["entity", "add"], SANDBOX):
             return 1
+    # The rooms in the wing's place move out once, before the wing is made.
+    # After that their places are Jon's (he moved the annex entry by hand).
     for level_id, place in (("pulse_voyager_outpost", PULSE_VOYAGER_AT), ("overfit_annex_entry", OVERFIT_ENTRY_TO)):
         level = level_of(SANDBOX, level_id)
-        if level and (level["worldX"], level["worldY"]) != place:
+        if level_of(SANDBOX, WING) is None and level and (level["worldX"], level["worldY"]) != place:
             code, _ = run("world", "repack", str(SANDBOX), "--order", level_id,
                           "--start-x", str(place[0]), "--start-y", str(place[1]), "--in-place")
             if code:
@@ -496,12 +519,15 @@ def main(argv) -> int:
         if apply_yaml(gates.as_yaml(HUB, public_gate_entities(), "The public gate of the central hub."),
                       "hub_public_gate.yaml", ["entity", "add"], SANDBOX):
             return 1
+        # The first layout of the gate's neighbours. After that their places
+        # are Jon's (he moved the stack door and the signs by hand): a second
+        # run must not move them back.
+        if apply_yaml(hub_move_yaml(), "hub_move.yaml", ["entity", "move"], SANDBOX):
+            return 1
     if "hub_gate_power_cabinet" not in json.dumps(level_of(SANDBOX, HUB)):
         if apply_yaml(gates.as_yaml(HUB, hub_upkeep_entities(), "The public gate's upkeep, in view."),
                       "hub_upkeep.yaml", ["entity", "add"], SANDBOX):
             return 1
-    if apply_yaml(hub_move_yaml(), "hub_move.yaml", ["entity", "move"], SANDBOX):
-        return 1
     if apply_yaml(hub_edit_yaml(), "hub_edit.yaml", ["entity", "set-field"], SANDBOX):
         return 1
     if apply_yaml(intro_edit_yaml(), "intro_edit.yaml", ["entity", "set-field"], INTRO):
@@ -521,6 +547,12 @@ def main(argv) -> int:
             if apply_yaml(gates.as_yaml(level_id, gates.terminal(label, terminal_id, x, floor, shape), f"{label}'s terminal."),
                           f"{terminal_id}.yaml", ["entity", "add"], world):
                 return 1
+    for level_id, label, zone, terminal_id, x, floor, name in JUNGLE_ARCHES:
+        if zone not in json.dumps(level_of(DINOSAUR, level_id)):
+            entities = jungle_arch_entities(label, zone, terminal_id, x, floor, name)
+            if apply_yaml(gates.as_yaml(level_id, entities, f"{label}, a Jungle arch, and its terminal."),
+                          f"{zone}.yaml", ["entity", "add"], DINOSAUR):
+                return 1
     if level_of(SANDBOX, ANNEX) is None:
         code, out = run("area", "create", str(annex), "--ldtk", str(SANDBOX))
         if code and "wrote new level" not in out:
@@ -529,7 +561,7 @@ def main(argv) -> int:
         if apply_yaml(gates.as_yaml(TOWER, tower_door_entities(), "The tower's door to its gate annex."),
                       "tower_annex_door.yaml", ["entity", "add"], SANDBOX):
             return 1
-    for checked in (SANDBOX, INTRO, SCIENCE):
+    for checked in (SANDBOX, INTRO, SCIENCE, DINOSAUR):
         code, _ = run("validate", str(checked))
         if code:
             return code

@@ -46,6 +46,12 @@
         (id: "math_town_gate_hall", name: "Math Town Gate Hall", dimension: "math"),
         (id: "primeval_trailhead_ring", name: "Primeval Trailhead Ring", dimension: "jungle"),
         (id: "primeval_rookery_ring", name: "Rookery Survey Ring", dimension: "jungle"),
+        // The Jungle's local arches (WORLD-LAYERS JL-2): each its own
+        // facility, so one arch can reach another.
+        (id: "primeval_trailhead_arch", name: "Trailhead Arch", dimension: "jungle"),
+        (id: "primeval_treetops_arch", name: "Treetops Arch", dimension: "jungle"),
+        (id: "primeval_canopy_arch", name: "Canopy Arch", dimension: "jungle"),
+        (id: "primeval_tar_pits_arch", name: "Tar Pits Arch", dimension: "jungle"),
         (id: "godwin_forest_ring", name: "Godwin Forest Ring", dimension: "evil"),
         (id: "gravity_trail_ring", name: "Gravity Trail Ring", dimension: "science"),
         (id: "gravity_trail_survey_ring", name: "Trail Survey Ring", dimension: "science"),
@@ -170,6 +176,59 @@
             terminal: Some("rookery_gate_terminal"),
             posted: ["LEGAL", "GENESIS"],
             note: "A survey ring. The birds roost on its dialer.",
+        ),
+        // The Jungle's arches: portals, a chain along the trail. Each reaches
+        // 6400, not the default 8000, so each link is plainly in reach and
+        // each skip plainly out of it: the trailhead's arch is about 2400
+        // from the treetops' and 8100 from the canopy's; the treetops' 5700
+        // from the canopy's and 8700 from the tar pits'; the canopy's 3100
+        // from the tar pits'. Each posts the way back down the chain.
+        (
+            zone: "primeval_trailhead_arch",
+            name: "Trailhead arch",
+            facility: "primeval_trailhead_arch",
+            room: "primeval_trailhead",
+            address: Some("GIANTS"),
+            terminal: Some("primeval_trailhead_arch_terminal"),
+            note: "Trail arch. Whatever built it was tall; the rangers only keep it swept.",
+            kind: Portal,
+            reach: Some(6400),
+        ),
+        (
+            zone: "primeval_treetops_arch",
+            name: "Treetops arch",
+            facility: "primeval_treetops_arch",
+            room: "primeval_treetops",
+            address: Some("TALLEST"),
+            terminal: Some("primeval_treetops_arch_terminal"),
+            posted: ["GIANTS"],
+            note: "Branch arch. Step out slowly; the branch is narrower than the arch.",
+            kind: Portal,
+            reach: Some(6400),
+        ),
+        (
+            zone: "primeval_canopy_arch",
+            name: "Canopy arch",
+            facility: "primeval_canopy_arch",
+            room: "primeval_canopy",
+            address: Some("LIANAS"),
+            terminal: Some("primeval_canopy_arch_terminal"),
+            posted: ["TALLEST"],
+            note: "Canopy arch. The vines grew through it before anyone dialed it.",
+            kind: Portal,
+            reach: Some(6400),
+        ),
+        (
+            zone: "primeval_tar_pits_arch",
+            name: "Dig camp arch",
+            facility: "primeval_tar_pits_arch",
+            room: "primeval_tar_pits",
+            address: Some("DIGSITE"),
+            terminal: Some("primeval_tar_pits_arch_terminal"),
+            posted: ["LIANAS"],
+            note: "The dig found it. Do not label it as a find.",
+            kind: Portal,
+            reach: Some(6400),
         ),
         // ── Evil (Castle Godwin) ──────────────────────────────────────────
         (

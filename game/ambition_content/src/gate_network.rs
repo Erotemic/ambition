@@ -120,6 +120,38 @@ mod tests {
         assert_eq!(words(&catalog, "magical_keep_arch", &["CANDLE"]), ["STEADY", "CANDLE"]);
     }
 
+    /// The Jungle's arches (WORLD-LAYERS JL-2) list only what they reach,
+    /// a chain along the trail: each lists its neighbours and no arch two
+    /// links away, nor any gate. When the catalog lists only what was
+    /// discovered, an arch lists what its terminal posts (the way back down
+    /// the chain) and an arch up the chain only once its address is learned.
+    #[test]
+    fn the_jungles_arches_list_only_their_neighbours_on_the_trail() {
+        use ambition_platformer2d::world::rooms::GateStartKnowledge;
+        let mut catalog = lowered_gate_network(crate::pack::shipped());
+        let manifest = crate::worlds::world_manifest();
+        let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let positions = ring_positions(&catalog, &project);
+        let words = |catalog: &GateNetworkCatalog, ring: &str, learned: &[&str]| -> Vec<String> {
+            let learned: Vec<String> = learned.iter().map(|word| ambition_platformer2d::world::rooms::gate_address_known_flag(word)).collect();
+            let mut words: Vec<String> = crate::gate_terminal::known_addresses(catalog, &positions, ring, |flag| learned.iter().any(|known| known == flag))
+                .into_iter()
+                .filter_map(|address| catalog.ring_at(&address).and_then(|ring| ring.address.clone()))
+                .collect();
+            words.sort();
+            words
+        };
+        assert_eq!(words(&catalog, "primeval_trailhead_arch", &[]), ["TALLEST"]);
+        assert_eq!(words(&catalog, "primeval_treetops_arch", &[]), ["GIANTS", "LIANAS"]);
+        assert_eq!(words(&catalog, "primeval_canopy_arch", &[]), ["DIGSITE", "TALLEST"]);
+        assert_eq!(words(&catalog, "primeval_tar_pits_arch", &[]), ["LIANAS"]);
+        catalog.start_known = GateStartKnowledge::Discovered;
+        assert_eq!(words(&catalog, "primeval_trailhead_arch", &[]), Vec::<String>::new(), "an arch nobody attuned is not listed");
+        assert_eq!(words(&catalog, "primeval_trailhead_arch", &["TALLEST"]), ["TALLEST"]);
+        assert_eq!(words(&catalog, "primeval_canopy_arch", &[]), ["TALLEST"], "the canopy's terminal posts the way back");
+        assert_eq!(words(&catalog, "primeval_canopy_arch", &["DIGSITE"]), ["DIGSITE", "TALLEST"]);
+    }
+
     /// The working addresses of the network are stable: a save, a sign and a
     /// speedrun route all name them. Each reaches the ring of its place.
     #[test]

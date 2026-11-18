@@ -145,7 +145,7 @@ pub fn capture_minted_item_baseline(
 /// Start each spawner's counter past every sequence a remembered mint of it
 /// holds: the mints the checkpoint or the loaded save describes.
 ///
-/// A spawner's [`SimIdCounter`] is a component and no save family carries it,
+/// A spawner's [`SimIdCounter`](ambition_platformer2d_shared_tangle::sim_id::SimIdCounter) is a component and no save family carries it,
 /// so a body built by a load (or built again in the session) counts from zero.
 /// A gun-sword the save rebuilt as `slot:0/0` was then followed by a second
 /// `slot:0/0` at the next throw: two live occurrences behind one identity, and

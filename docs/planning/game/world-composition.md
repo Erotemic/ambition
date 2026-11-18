@@ -1,6 +1,6 @@
 # Composing regions (dense, interconnected, LDtk-tweakable)
 
-**Execution:** [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions)
+**Execution:** [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions---done-2026-11-18)
 selects the remaining layout work. Recheck existing secrets and connections
 before adding them; the region descriptions below include completed work.
 

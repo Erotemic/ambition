@@ -378,6 +378,7 @@ fn resolve_variant_pair(sprite_content: &ambition_sprite_sheet::SpriteContent,
     base_spec: &CharacterSheetSpec,
     variant: Option<(&str, &sheets::SheetTuning)>,
     quality: Option<&VisualQualityBudget>,
+    parts_admitted: bool,
 ) -> (CharacterSheetSpec, AssetId, TextureResolutionScale) {
     if let (Some((target, tuning)), Some(q)) = (variant, quality) {
         let scale = q.sprites.effective_scale();
@@ -385,12 +386,15 @@ fn resolve_variant_pair(sprite_content: &ambition_sprite_sheet::SpriteContent,
             if let Some(variant_id) =
                 ambition_asset_manager::platformer_assets::scaled_asset_id(base_id, scale.asset_id_suffix())
             {
-                if catalog.try_path_for_load(&variant_id).is_some() {
-                    if let Some(spec) = sheets::try_load_spec_for_target_scaled(&sprite_content,
-                        target,
-                        tuning,
-                        sprite_texture_scale(scale),
-                    ) {
+                if let Some(spec) = sheets::try_load_spec_for_target_scaled(&sprite_content,
+                    target,
+                    tuning,
+                    sprite_texture_scale(scale),
+                ) {
+                    // A tier drawn from its parts alone publishes no sheet
+                    // page to load (part-first publication).
+                    let from_parts = parts_admitted && super::rigged::drawn_from_parts_alone(sprite_content, &spec, scale);
+                    if from_parts || catalog.try_path_for_load(&variant_id).is_some() {
                         return (spec, variant_id, scale);
                     }
                 }
@@ -441,19 +445,13 @@ fn build_optional_via_catalog(sprite_content: &ambition_sprite_sheet::SpriteCont
     parts_admitted: bool,
 ) -> Option<CharacterSpriteAsset> {
     // Pick base-or-variant atomically so the spec rects match the loaded PNG.
-    let (spec, id, resolved) = resolve_variant_pair(&sprite_content, catalog, base_id, base_spec, variant, quality);
+    let (spec, id, resolved) = resolve_variant_pair(&sprite_content, catalog, base_id, base_spec, variant, quality, parts_admitted);
     let (spec, id) = (&spec, &id);
     let requested = character_sprite_tier(quality);
-    let Some(path) = catalog.try_path_for_load(id) else {
-        if let Some(label) = log_label {
-            eprintln!(
-                "[character_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to colored rectangle",
-                catalog.profile().label(),
-            );
-        }
-        return None;
-    };
+    // Parts first: a sheet drawn from its parts alone is realized without its
+    // sheet page, which a part-first publish does not write.
     let rigged = if parts_admitted {
+        let path = catalog.path_for(id).unwrap_or_default();
         let directory = path.rsplit_once('/').map_or("", |(directory, _)| directory);
         super::rigged::rigged_pages_in(&sprite_content, spec, resolved, directory, asset_server)
     } else {
@@ -464,6 +462,15 @@ fn build_optional_via_catalog(sprite_content: &ambition_sprite_sheet::SpriteCont
             return Some(parts_only_realization(layouts, spec, requested, resolved, rigged.clone()));
         }
     }
+    let Some(path) = catalog.try_path_for_load(id) else {
+        if let Some(label) = log_label {
+            eprintln!(
+                "[character_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to colored rectangle",
+                catalog.profile().label(),
+            );
+        }
+        return None;
+    };
     Some(load_sprite_pages(&sprite_content,
         asset_server,
         layouts,

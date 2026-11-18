@@ -100,6 +100,21 @@ pub fn rigged_pages_for(sprite_content: &ambition_sprite_sheet::SpriteContent, a
     rigged_pages_in(&sprite_content, &asset.spec, asset.resolved_tier, directory, asset_server)
 }
 
+/// Whether `spec`'s sheet at `tier` is drawn from its parts alone: its
+/// flipbook is realized from parts, leaves no row to the baked sheet, and
+/// publishes a table for that tier. Such a tier needs no sheet page.
+pub fn drawn_from_parts_alone(sprite_content: &ambition_sprite_sheet::SpriteContent,
+    spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
+    tier: TextureResolutionScale,
+) -> bool {
+    let Some(full) = RiggedSpriteAsset::baked(sprite_content, spec.base_sheet_key()) else {
+        return false;
+    };
+    full.realize != ambition_sprite_sheet::character::rigged::Realize::Baked
+        && full.baked_clip_names().next().is_none()
+        && matches!(full.for_tier(sprite_content, tier), Some(Ok(_)))
+}
+
 /// The flipbook pages of `spec`'s sheet at `tier`, loaded from `directory`
 /// (where that tier's sheet pages are), or `None` when that tier publishes no
 /// flipbook, or its tier table is of another publish than its full table (a

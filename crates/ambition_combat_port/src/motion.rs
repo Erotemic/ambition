@@ -98,7 +98,12 @@ impl ambition_extension_sdk::structure::Field<Place> for Place {
 /// * **Scope** — the body the invocation ran for.
 /// * **Time** — `wielded_use`, lowered first of the phase's request ports
 ///   and as a carry of the travelled path (`BodyPathSet::Carry`): the readers
-///   of the path see the arrival this tick.
+///   of the path see the arrival this tick. `technique_execution` (after the
+///   path's readers): held on the body and made in the NEXT tick's carry
+///   (`ambition_abilities::pending_transit`), so the readers see it then; a
+///   body that has left its live room by then does not take it. A
+///   `Place::Body` asked beside it is still the departure; the arrival is
+///   the body on the next tick.
 /// * **Result** — every body with a movement law transits: the transit
 ///   authority moves each kind. A rule about which bodies an item moves is
 ///   the module's (blink asks [`crate::Wielder::swept`]).

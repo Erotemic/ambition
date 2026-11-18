@@ -110,10 +110,31 @@
     ),
     (
         display_name: "Contextual Blink",
-        description: "Blink behind a nearby enemy. Not yet found.",
+        description: "Blink behind the nearest enemy, facing it. With no enemy near, a short blink the way you aim.",
         category: Ability,
         held_item_id: None,
         dialog_id: "contextualblink",
+        // The Blink slot is the `contextual_blink` module's technique.
+        // Level 1: an enemy that is near. Level 2: one further away.
+        wears: Some((
+            id: "contextual_blink",
+            exclusive_slot: Some("blink"),
+            grants: [Technique((
+                id: ("contextual_blink"), slot: Blink,
+                display_name: Some("Contextual Blink"), gate: Technique("contextual_blink"),
+            ))],
+        )),
+        levels: [
+            (
+                id: "contextual_blink_2",
+                exclusive_slot: Some("blink"),
+                grants: [Technique((
+                    id: ("contextual_blink_2"), slot: Blink,
+                    display_name: Some("Contextual Blink"), gate: Technique("contextual_blink_2"),
+                ))],
+            ),
+        ],
+        stack: 2,
     ),
     (
         display_name: "Dash",

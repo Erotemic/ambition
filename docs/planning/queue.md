@@ -280,10 +280,16 @@ then the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
 slow is a verb of its own (`blink_slow`), level 2 withholds it and level 3
 is the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
 
+**Done 2026-11-18:** Contextual Blink, levels 1 and 2: a module on the
+Blink slot puts the body behind the nearest foe, facing it. A technique's
+transit is held on the body and made in the next tick's carry, so every
+reader of the travelled path sees it ([loadout, open 1](game/ability-loadout.md#open)).
+
 **Next action:** the laser's own sound waits for an SFX bank republish.
-Then Blink and stance replacement through the existing
-technique/equipment seam. Author Contextual Blink, Precision Blink
-tiers and the remaining variants in that model, not named engine branches.
+Then Precision Blink's quick press and double press (open 2), Contextual
+Blink's level 3 (a double tap that slows time to choose the foe), and the
+stance and Dash II placeholders through the same technique/equipment seam,
+not named engine branches.
 
 **Acceptance:** each real variant changes its declared slot on any supported
 body. Replacing or removing equipment restores the prepared intrinsic kit.

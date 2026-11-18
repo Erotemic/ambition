@@ -32,6 +32,7 @@ pub mod extension;
 pub mod group;
 pub mod mana;
 pub mod module_entity;
+pub mod pending_transit;
 pub mod ranged;
 pub mod ride;
 pub mod thrown;

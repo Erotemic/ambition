@@ -53,6 +53,13 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {    // 
         "ability.held_course",
         crate::ride::held_course_probe,
     );
+    // A technique's transit, held for the next tick's carry: where the body
+    // is next tick. Every destination is in the value.
+    registrar.rollback_component_clone_probed::<crate::pending_transit::PendingTransit>(
+        OWNER,
+        "ability.pending_transit",
+        crate::pending_transit::pending_transit_probe,
+    );
     registrar.declare_rollback_derived_resource::<crate::module_entity::ModuleEntityTouchers>(
         OWNER,
         "derived.module_entity_touchers",

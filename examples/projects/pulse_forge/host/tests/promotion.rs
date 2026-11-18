@@ -83,7 +83,7 @@ fn facts(sim: &mut Platformer2dSimHarness) -> Value {
     let mut records = BTreeMap::new();
     for (id, stored) in world.query::<(&SimId, &BodyRecords)>().iter(world) {
         for row in stored.0.records().iter().filter(|row| row.key.provider == "pulse_forge") {
-            records.insert(format!("{id}/{}", row.key), json_value(record_to_script(&schemas[&row.key].schema, &row.record)));
+            records.insert(format!("{id}/{}", row.key), json_value(record_to_script(&schemas[&row.key].schema, &row.record).expect("a stored Pulse Forge record converts to a script value")));
         }
     }
     let mut entities: Vec<_> = world.query::<(&SimId, &ModuleEntity)>().iter(world)

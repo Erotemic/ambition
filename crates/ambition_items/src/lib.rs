@@ -1,6 +1,7 @@
 //! Canonical 24-slot item catalog and owned-item state.
 
 pub mod shop;
+pub mod transaction;
 
 /// The `item_catalog` authored-content schema this capability owns. Behind the
 /// `content_pack` feature: a game that never validates its content must not
@@ -289,11 +290,14 @@ impl ItemCatalog {
         self.meta(item).map(|meta| meta.dialog_id.as_str())
     }
 
-    /// Normalize a raw authoring string the way the Yarn bindings do
-    /// (lowercase, drop non-alphanumerics), so `"PortalGun"`, `"portal_gun"`
-    /// and `"portal gun"` all resolve, then look it up. Also accepts the legacy
-    /// `"healthpotion"` alias for [`Item::HealthCell`].
+    /// Resolve a catalog identity without dialogue spelling rules.
+    pub fn item_by_id(&self, id: &str) -> Option<Item> {
+        Item::ALL.into_iter().find(|item| self.dialog_id(*item) == Some(id))
+    }
+
+    /// Resolve an exact identity, then try dialogue spelling rules.
     pub fn item_by_dialog_id(&self, raw: &str) -> Option<Item> {
+        if let Some(item) = self.item_by_id(raw) { return Some(item); }
         let key: String = raw
             .chars()
             .filter(|c| c.is_alphanumeric())

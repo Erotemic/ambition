@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`inventory`](src/inventory.rs) | Exact inventory exchanges and observations over native item authority. |
 | [`story`](src/story.rs) | Portable room story observations and action requests. |
 
-_1 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

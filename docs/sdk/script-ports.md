@@ -454,6 +454,27 @@ Port `ambition.story.command@2`, request: `this.requests.push(request("<alias>",
 | `line` | text | required | A command line from the authored command catalog. It runs in this room. |
 | `reply` | { request: integer (u32), selector: text } or () | `()` | Optional correlated replies from the command owner. |
 
+## `inventory_exchange`
+
+Port `ambition.world.inventory_exchange@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `costs` | list of { id: text, count: integer (u32) } | `[]` |  |
+| `grants` | list of { id: text, count: integer (u32) } | `[]` |  |
+| `pay_coins` | integer (u32) | `0` |  |
+| `receive_coins` | integer (u32) | `0` |  |
+
+## `inventory`
+
+Port `ambition.world.inventory@1`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `items` | list of { id: text, count: integer (u32), capacity: integer (u32) } |  |
+| `wallet` | integer (i32) or () |  |
+
 ## `play_cutscene`
 
 Port `ambition.story.play_cutscene@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

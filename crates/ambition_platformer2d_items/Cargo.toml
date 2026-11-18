@@ -7,6 +7,9 @@ authors.workspace = true
 description = "Item custody restoration, inventory persistence, and item simulation integration."
 
 [dependencies]
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_world_port = { path = "../ambition_world_port" }
 ambition_world_items = { path = "../ambition_world_items" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_platformer2d_interaction = { path = "../ambition_platformer2d_interaction" }

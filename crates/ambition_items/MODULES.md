@@ -9,8 +9,9 @@
 | [`content_schema`](src/content_schema.rs) | The items capability's authored-content SCHEMA registration. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_items`. |
 | [`shop`](src/shop.rs) | Merchant economy primitives: buy/sell transactions over the player's [`BodyWallet`] and the 24-item [`OwnedItems`] catalog. |
+| [`transaction`](src/transaction.rs) | Atomic exchanges over stored item quantities and one body's wallet. |
 
-_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

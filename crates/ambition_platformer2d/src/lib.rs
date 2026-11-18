@@ -922,7 +922,14 @@ pub use ambition_input as input;
 pub use ambition_interaction as interaction;
 #[cfg(feature = "ambition_inventory_ui")]
 pub use ambition_inventory_ui as inventory_ui;
-pub use ambition_items as items;
+/// Stored items and inventory operations through their native owners.
+pub mod items {
+    pub use ambition_items::*;
+    pub mod transaction {
+        pub use ambition_items::transaction::*;
+        pub use ambition_platformer2d_items::inventory::apply as apply_in_world;
+    }
+}
 pub use ambition_load as load;
 #[cfg(feature = "load_presentation")]
 pub use ambition_load_presentation as load_presentation;

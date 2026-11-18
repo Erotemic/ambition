@@ -28,7 +28,8 @@ ratchet instead of expanding the public API by accident.
 
 Scripts can receive native command outcomes through
 [action results](action-results.md). This includes correlated replies, retries,
-cancellation, and rollback delivery. [Body queries](body-queries.md) provide
+cancellation, and rollback delivery. [Inventory exchanges](inventory-exchanges.md)
+apply exact item and wallet changes through the native owner. [Body queries](body-queries.md) provide
 bounded, identified same-room facts for scripts. [Hit receptions](hit-receptions.md)
 report native damage and defense decisions. [Body contacts](body-contacts.md)
 provide native physical contact samples and responses for any controller. The broader

@@ -45,6 +45,10 @@ Each domain must publish its own actual result.
 
 ## Installed command results
 
+- [`inventory_exchange`](inventory-exchanges.md) reports terminal
+  `inventory_exchanged` after the exact native bag and wallet exchange applies.
+  A refused cost or reward leaves both owners unchanged.
+
 - `projectile` reports `projectile_queued` at native admission and terminal
   `projectile_created` after actual construction. `subjects` contains the shot
   ID. Invalid shape, callback, or source context is refused. Explicit

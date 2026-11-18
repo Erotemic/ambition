@@ -864,6 +864,8 @@ dependencies = [
  "ambition_damage",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_held_items",
  "ambition_interaction",
  "ambition_items",
@@ -880,6 +882,7 @@ dependencies = [
  "ambition_time",
  "ambition_vfx",
  "ambition_world_items",
+ "ambition_world_port",
  "ambition_world_returns",
  "bevy",
 ]

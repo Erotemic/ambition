@@ -14,6 +14,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
 mod body_feedback;
 mod actor_creation;
+mod breakable_creation;
 mod contact_consumption;
 pub mod authored_verdict_timeline;
 pub mod checkpoint_horizon;

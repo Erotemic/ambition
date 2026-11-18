@@ -547,7 +547,7 @@ pub fn sync_visuals(
     for (entity, visual, mut transform, mut sprite, mut visibility, look_tint) in &mut feature_query {
         // Each write below is of a change only: a written component is marked
         // changed, and a changed `Transform` is propagated and extracted again.
-        let Some(view) = feature_views.get(&visual.id) else {
+        let Some(view) = feature_views.get_in(&visual.id, rooms.room_of(entity)) else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
@@ -558,7 +558,7 @@ pub fn sync_visuals(
         };
         // Moving features use the frame clock, like the player. The quad centre
         // is the body centre plus the sheet's per-pose art offset, if any.
-        let draw_pos = presented_features.presented(&visual.id, view.pos)
+        let draw_pos = presented_features.presented(&visual.id, view.room, view.pos)
             + view.sprite_offset.unwrap_or(ae::Vec2::ZERO);
         let mut placed = *transform;
         placed.translation = world_to_bevy(&world.0, draw_pos, feature_z_in_plane(view.kind, view.depth_plane));

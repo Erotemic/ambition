@@ -398,7 +398,7 @@ impl<C: LoweringContext> PlacementLoweringRegistry<C> {
         self.plan_room(room_id, &[], records).map(|_| ())
     }
 
-    fn try_interpreter_for(
+    pub fn try_interpreter_for(
         &self,
         record: &PlacementRecord,
         room_id: &str,

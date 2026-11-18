@@ -8,7 +8,7 @@
 |---|---|
 | [`authored_room_commands`](src/authored_room_commands.rs) | Runs the command line a room authors in its `while_live` level field. |
 | [`collision`](src/collision.rs) | The composited collision world: the authored room folded together with the per-frame dynamic contributions a running sim adds to it. |
-| [`creation`](src/creation.rs) | Authored bounds for character compositions in each live room. |
+| [`creation`](src/creation.rs) | Authored bounds for native runtime construction in each live room. |
 | [`debug_label`](src/debug_label.rs) | Generic room-object label for debug overlays and editor selection. |
 | [`gated_lock_walls`](src/gated_lock_walls.rs) | Authored condition-gated lock walls. |
 | [`geometry_observers`](src/geometry_observers.rs) | The collision world's geometry, for observation (GOBS-1, `docs/planning/engine/geometry-observability-and-f1.md`). |

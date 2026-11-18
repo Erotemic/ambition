@@ -18,17 +18,25 @@ const BREAK_ON_STAND_SECONDS: f32 = 0.85;
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BreakableFeature {
     breakable: ambition_interaction::Breakable,
+    look: Option<String>,
 }
 
 impl BreakableFeature {
     pub fn new(breakable: ambition_interaction::Breakable) -> Self {
-        Self { breakable }
+        Self { breakable, look: None }
     }
 
     /// The current destructible state.
     pub fn state(&self) -> &ambition_interaction::Breakable {
         &self.breakable
     }
+
+    pub fn with_look(mut self, look: Option<String>) -> Self {
+        self.look = look;
+        self
+    }
+
+    pub fn look(&self) -> Option<&str> { self.look.as_deref() }
 
     pub fn broken(&self) -> bool {
         self.breakable.state == ambition_interaction::BreakableState::Broken
@@ -45,6 +53,7 @@ mod returns;
 pub use returns::{mirror_breakable_respawns, record_spent_breakables};
 
 pub mod construction;
+pub mod creation;
 pub mod consumption;
 
 mod rollback_registration;

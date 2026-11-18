@@ -1,7 +1,6 @@
 //! Per-frame discovery system that spawns Bevy `FeatureVisual` entities for
-//! dynamically introduced features (encounter mobs, staged duel actors,
-//! post-boss NPCs, and reward chests). Static LDtk-derived features are
-//! handled by [`super::world::spawn_room_visuals`] at room load.
+//! live breakables and dynamically introduced features. Other authored visuals
+//! are handled by [`super::world::spawn_room_visuals`] at room load.
 //!
 //! A pure consumer of the sim-built [`ambition_sim_view::DynamicFeatureViews`]
 //! rows. The sim resolves identity, geometry, and placeholder-sprite facts;
@@ -15,13 +14,12 @@ use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_sim_view::DynamicFeatureViews;
+use ambition_sim_view::{DynamicFeatureViews, FeatureSheet};
 use ambition_sprite_sheet::game_assets::{entity_sprite_or_color, GameAssets};
 
-/// Spawn `FeatureVisual` entities for dynamically introduced ECS features
-/// that don't have one yet. Static LDtk-derived features get their visuals
-/// from `spawn_room_visuals` at room load; the sim's `DynamicFeatureViews`
-/// carries everything introduced after that point.
+/// Spawn missing visuals for the live feature discovery feed.
+/// Authored and runtime breakables share this path. Other authored features
+/// receive their initial visuals from `spawn_room_visuals`.
 ///
 /// `sync_visuals` reads the matching `FeatureView` and
 /// `upgrade_actor_sprites` swaps in the character spritesheet on the
@@ -35,7 +33,7 @@ pub fn spawn_dynamic_feature_visuals(
     >,
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    existing: Query<(Entity, &FeatureVisual, Has<UnclaimedBodyPlaceholder>)>,
+    existing: Query<(Entity, &FeatureVisual, Has<UnclaimedBodyPlaceholder>, Option<&super::primitives::PropVisual>)>,
     dynamic: Res<DynamicFeatureViews>,
 ) {
     let Some(session_scope) =
@@ -44,20 +42,28 @@ pub fn spawn_dynamic_feature_visuals(
         return;
     };
     // A diagnostic placeholder does not count as a claim.
-    let mut known: std::collections::HashSet<&str> = std::collections::HashSet::new();
-    let mut placeholders: std::collections::HashMap<&str, Entity> =
-        std::collections::HashMap::new();
-    for (entity, visual, is_placeholder) in &existing {
+    let mut known = std::collections::HashSet::new();
+    let mut placeholders = std::collections::HashMap::new();
+    let mut looks = std::collections::HashMap::new();
+    for (entity, visual, is_placeholder, prop) in &existing {
+        let key = (rooms.room_of(entity), visual.id.as_str());
         if is_placeholder {
-            placeholders.insert(visual.id.as_str(), entity);
+            placeholders.insert(key, entity);
         } else {
-            known.insert(visual.id.as_str());
+            known.insert(key);
+            looks.insert(key, (entity, prop.map(|prop| prop.kind.as_str())));
         }
     }
     let assets_ref = assets.as_deref();
     for fact in &dynamic.0 {
-        if known.contains(fact.id.as_str()) {
-            continue;
+        let key = (fact.room, fact.id.as_str());
+        if known.contains(&key) {
+            let requested = match &fact.sheet {Some(FeatureSheet::Structure(look)) => Some(look.as_str()), _ => None};
+            let replace = fact.visual_kind == ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Breakable
+                && looks.get(&key).is_some_and(|(_, current)| *current != requested);
+            if !replace { continue; }
+            commands.entity(looks.remove(&key).unwrap().0).try_despawn();
+            known.remove(&key);
         }
         // A body whose live room cannot be told is not drawn: there is no
         // geometry to place it by.
@@ -70,18 +76,27 @@ pub fn spawn_dynamic_feature_visuals(
         let scope = session_scope.in_room(Some(room));
         // The real visual arrives: despawn the stand-in in the same flush, so the
         // frame never shows both.
-        if let Some(placeholder) = placeholders.get(fact.id.as_str()) {
+        if let Some(placeholder) = placeholders.get(&key) {
             commands.entity(*placeholder).try_despawn();
+        }
+        known.insert(key);
+        if let Some(FeatureSheet::Structure(look)) = &fact.sheet {
+            let entity = super::world::spawn_feature_look(&mut commands, scope, &world.0,
+                &fact.id, &fact.label, ambition_platformer2d_core::Aabb::new(fact.pos, fact.size * 0.5),
+                fact.visual_kind, look, fact.sprite_key.unwrap_or(ambition_sprite_sheet::game_assets::EntitySprite::BreakableIntact),
+                assets_ref);
+            commands.entity(entity).insert(DynamicFeatureVisual);
+            continue;
         }
         let render = BVec2::new(fact.size.x, fact.size.y);
         let fallback = feature_color(fact.visual_kind, fact.fighting, false);
         // A drop can name an animated sheet (a spinning ring). Bind it like the
         // room-load pass binds an authored pickup, so a dropped ring looks the
         // same as one placed in the level.
-        let animated = fact
-            .prop_sheet
-            .as_deref()
-            .and_then(|kind| assets_ref.and_then(|a| a.characters.prop_asset_for_kind(kind)));
+        let animated = match &fact.sheet {
+            Some(FeatureSheet::Animated(kind)) => assets_ref.and_then(|assets| assets.characters.prop_asset_for_kind(kind)),
+            _ => None,
+        };
         let transform = Transform::from_translation(world_to_bevy(
             &world.0,
             fact.pos,
@@ -157,16 +172,18 @@ pub fn despawn_dead_dynamic_feature_visuals(
     mut commands: Commands,
     dynamic: Res<DynamicFeatureViews>,
     features: Res<ambition_sim_view::FeatureViewIndex>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     visuals: Query<(Entity, &FeatureVisual), With<DynamicFeatureVisual>>,
 ) {
     if visuals.is_empty() {
         return;
     }
-    let discovered: std::collections::HashSet<&str> =
-        dynamic.0.iter().map(|fact| fact.id.as_str()).collect();
+    let discovered: std::collections::HashSet<_> =
+        dynamic.0.iter().map(|fact| (fact.room, fact.id.as_str())).collect();
     for (entity, visual) in &visuals {
         let id = visual.id.as_str();
-        if !discovered.contains(id) && features.get(id).is_none() {
+        let room = rooms.of(entity);
+        if !discovered.contains(&(room, id)) && features.get_in(id, room).is_none() {
             commands.entity(entity).despawn();
         }
     }
@@ -192,24 +209,24 @@ pub fn draw_unclaimed_feature_views(
     mut unsettled: ResMut<UnclaimedFeatureViews>,
     // Consecutive unclaimed frames per id. See
     // `UNCLAIMED_STAND_IN_GRACE_FRAMES`.
-    mut unclaimed_streak: Local<std::collections::HashMap<String, u32>>,
+    mut unclaimed_streak: Local<std::collections::HashMap<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String), u32>>,
 ) {
     // Split drawn ids into real visuals and this system's own stand-ins.
     // "Claimed" and "standing in for a claim" are different answers.
-    let mut known: std::collections::HashSet<&str> = std::collections::HashSet::new();
-    let mut stand_ins: Vec<(Entity, &str)> = Vec::new();
+    let mut known = std::collections::HashSet::new();
+    let mut stand_ins = Vec::new();
     for (entity, visual, is_stand_in) in &existing {
         if is_stand_in {
-            stand_ins.push((entity, visual.id.as_str()));
+            stand_ins.push((entity, rooms.room_of(entity), visual.id.as_str()));
         } else {
-            known.insert(visual.id.as_str());
+            known.insert((rooms.room_of(entity), visual.id.as_str()));
         }
     }
     // The real visual arrived: despawn the stand-in. Do this before the
     // session-scope guard, because despawn needs no scope, and a stale
     // placeholder would hold the cover open.
-    for (entity, id) in &stand_ins {
-        if known.contains(id) {
+    for (entity, room, id) in &stand_ins {
+        if known.contains(&(*room, *id)) {
             commands.entity(*entity).try_despawn();
         }
     }
@@ -221,7 +238,7 @@ pub fn draw_unclaimed_feature_views(
         .filter(|(id, view)| {
             // Zero-sized views have no body (for example trigger state).
             // Nothing will draw them.
-            !known.contains(id) && view.size.x > 0.0 && view.size.y > 0.0
+            !known.contains(&(view.room, *id)) && view.size.x > 0.0 && view.size.y > 0.0
         })
         .collect();
     // `FeatureViewIndex::iter` is hash-ordered. Sort so reports and spawn
@@ -234,23 +251,25 @@ pub fn draw_unclaimed_feature_views(
 
     // A claimed or removed id restarts its grace. This also keeps the map
     // from growing forever.
-    unclaimed_streak.retain(|id, _| unsettled.ids.binary_search(id).is_ok());
+    unclaimed_streak.retain(|(room, id), _| views.get_in(id, *room)
+        .is_some_and(|view| view.size.x > 0.0 && view.size.y > 0.0)
+        && !known.contains(&(*room, id.as_str())));
 
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         return;
     };
-    let already_standing: std::collections::HashSet<&str> =
-        stand_ins.iter().map(|(_, id)| *id).collect();
+    let already_standing: std::collections::HashSet<_> =
+        stand_ins.iter().map(|(_, room, id)| (*room, *id)).collect();
     for (id, view) in unclaimed_now {
-        if already_standing.contains(id) {
+        if already_standing.contains(&(view.room, id)) {
             continue;
         }
         // Diagnosis, which is allowed to be late. Drawing the stand-in at once
         // gave only false positives on the happy path. Guarded by
         // `a_permanently_unclaimed_view_still_gets_its_stand_in`.
-        let streak = unclaimed_streak.entry(id.to_string()).or_insert(0);
+        let streak = unclaimed_streak.entry((view.room, id.to_string())).or_insert(0);
         *streak = streak.saturating_add(1);
         if *streak < UNCLAIMED_STAND_IN_GRACE_FRAMES {
             continue;
@@ -394,7 +413,7 @@ mod tests {
                 ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
             fighting: false,
             sprite_key: None,
-            prop_sheet: None,
+            sheet: None,
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
         }
     }
@@ -792,4 +811,66 @@ mod tests {
             1
         );
     }
+
+    #[test]
+    fn breakable_looks_converge_without_duplicate_or_stale_visuals() {
+        use super::super::primitives::PropVisual;
+        use ambition_platformer2d_world::rooms::PropDraw;
+        use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+        let mut app = app_with_a_room();
+        let mut fact = a_fact("created_block");
+        fact.visual_kind = FeatureVisualKind::Breakable;
+        fact.sheet = Some(FeatureSheet::Structure("first_look".into()));
+        app.world_mut().resource_mut::<DynamicFeatureViews>().0 = vec![fact.clone(), fact];
+        app.add_systems(Update, spawn_dynamic_feature_visuals);
+        app.update();
+        let mut visuals = app.world_mut().query::<(Entity, &FeatureVisual, Option<&PropVisual>, &Sprite)>();
+        let rows: Vec<_> = visuals.iter(app.world()).collect();
+        assert_eq!(rows.len(), 1);
+        let original = rows[0].0;
+        assert_eq!(rows[0].2.unwrap().kind, "first_look");
+        assert_eq!(rows[0].2.unwrap().draw, PropDraw::Structure);
+        assert!(rows[0].3.custom_size.is_some());
+        for fact in &mut app.world_mut().resource_mut::<DynamicFeatureViews>().0 {
+            fact.sheet = Some(FeatureSheet::Structure("second_look".into()));
+        }
+        app.update();
+        assert!(app.world().get_entity(original).is_err());
+        let rows: Vec<_> = visuals.iter(app.world()).collect();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].2.unwrap().kind, "second_look");
+        for fact in &mut app.world_mut().resource_mut::<DynamicFeatureViews>().0 { fact.sheet = None; }
+        app.update();
+        let rows: Vec<_> = visuals.iter(app.world()).collect();
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].2.is_none());
+    }
+
+    #[test]
+    fn equal_feature_ids_in_distinct_rooms_get_distinct_visuals() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let mut app = app_with_a_room();
+        let world = app.world_mut();
+        let geometry = world.query::<&ambition_platformer2d_core::RoomGeometry>().single(world).unwrap().clone();
+        let second = LiveRoomInstance::from_ordinal(27);
+        world.spawn((RoomInstanceRoot, second, geometry));
+        let a = a_fact("same_identity");
+        let mut b = a.clone();b.room = Some(second);
+        world.resource_mut::<DynamicFeatureViews>().0 = vec![a, b];
+        app.init_resource::<ambition_sim_view::FeatureViewIndex>();
+        app.add_systems(Update, (spawn_dynamic_feature_visuals, despawn_dead_dynamic_feature_visuals).chain());
+        app.update();app.update();
+        let world = app.world_mut();
+        let mut rooms: Vec<_> = world.query::<(&FeatureVisual, &InRoomInstance)>().iter(world)
+            .filter(|(visual, _)| visual.id == "same_identity").map(|(_, room)| room.0).collect();
+        rooms.sort();
+        assert_eq!(rooms, vec![LiveRoomInstance::ACTIVATION, second]);
+        app.world_mut().resource_mut::<DynamicFeatureViews>().0.retain(|row| row.room == Some(second));
+        app.update();
+        let world = app.world_mut();
+        let rooms: Vec<_> = world.query::<(&FeatureVisual, &InRoomInstance)>().iter(world)
+            .filter(|(visual, _)| visual.id == "same_identity").map(|(_, room)| room.0).collect();
+        assert_eq!(rooms, vec![second]);
+    }
+
 }

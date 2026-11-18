@@ -121,7 +121,7 @@ pub fn spawn_breakable_into(
         FeatureId::new(authored.id.clone()),
         FeatureName::new(authored.name.clone()),
         feature_aabb,
-        BreakableFeature::new(breakable.clone()),
+        BreakableFeature::new(breakable.clone()).with_look(authored.payload.look.clone()),
         DamageableVolumes::default(),
         PogoPolicy::FromDamageable,
         PogoTargetVolumes::default(),

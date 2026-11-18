@@ -15,7 +15,8 @@ pub fn mirror_breakable_respawns(
     elapsed: SessionWorldRef<GameplayElapsed>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     breakables: Query<
-        (Entity, &FeatureId, &BreakableFeature, Option<&RespawnTimer>),
+        (Entity, &FeatureId, &BreakableFeature, Option<&RespawnTimer>,
+            &ambition_platformer2d_shared_tangle::construction::SpawnOrigin),
         With<FeatureSimEntity>,
     >,
     participants: Query<(Entity, &DrivingParticipant)>,
@@ -24,7 +25,11 @@ pub fn mirror_breakable_respawns(
     // back (ISL-2d).
     tick: Option<Res<ambition_time::SimTick>>,
 ) {
-    for (entity, feature, breakable, timer) in &breakables {
+    for (entity, feature, breakable, timer, origin) in &breakables {
+        // Only authored placements have a reconstruction recipe after room retirement.
+        if !matches!(origin, ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { .. }) {
+            continue;
+        }
         let Some(definition) = rooms.definition_of(entity) else {
             continue;
         };

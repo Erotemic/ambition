@@ -61,9 +61,14 @@ fn drawn_z(giant: ae::DepthPlane) -> (f32, f32) {
             Vec::new(),
         )),
     );
+    let scoped = |depth| {
+        let mut row = view(depth);
+        row.room = Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION);
+        row
+    };
     app.insert_resource(FeatureViewIndex::from_rows([
-        ("rider".to_string(), view(ae::DepthPlane::PLAYABLE)),
-        ("giant".to_string(), view(giant)),
+        ("rider".to_string(), scoped(ae::DepthPlane::PLAYABLE)),
+        ("giant".to_string(), scoped(giant)),
     ]));
     app.init_resource::<ambition_sim_view::PresentedFeaturePoses>();
     app.add_systems(Update, sync_visuals);

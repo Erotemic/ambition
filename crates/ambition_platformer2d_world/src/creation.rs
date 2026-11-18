@@ -1,4 +1,4 @@
-//! Authored bounds for character compositions in each live room.
+//! Authored bounds for native runtime construction in each live room.
 
 /// Games can declare this rule for their own rooms.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -22,3 +22,17 @@ impl Default for ActorCreationLimits {
 
 /// Content schema for these room rules.
 pub const ACTOR_CREATION_RULES_SCHEMA: &str = "actor_creation_rules";
+
+
+/// Room-owned destructible creation bounds, shared by all controller kinds.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct BreakableCreationLimits {
+    pub max_breakables: u32,
+    pub max_room_breakables: u32,
+    pub max_label_bytes: u32,
+}
+impl Default for BreakableCreationLimits {
+    fn default() -> Self { Self {max_breakables: 32, max_room_breakables: 512, max_label_bytes: 128} }
+}
+pub const BREAKABLE_CREATION_RULES_SCHEMA: &str = "breakable_creation_rules";

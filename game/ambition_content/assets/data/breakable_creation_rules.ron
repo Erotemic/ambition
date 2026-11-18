@@ -1,0 +1,5 @@
+(
+    max_breakables: 32,
+    max_room_breakables: 512,
+    max_label_bytes: 128,
+)

@@ -424,6 +424,15 @@ Port `ambition.world.create_actors@2`, request: `this.requests.push(request("<al
 | `actors` | list of { key: text, character: text, at: [x, y], half_extents: [x, y], allegiance: one of: inherit \| player \| enemy \| npc \| boss \| neutral, face_left: bool, starting_wallet: integer (i32) or (), holds: list of text, state: list of { schema: text, value: schema-selected data } } | required | Build these roots and each character's required internal cluster. |
 | `links` | list of { from: text, to: text, kind: one of: grudge \| mount } | `[]` | Native relations between actor keys in this batch. |
 
+## `create_breakables`
+
+Port `ambition.world.create_breakables@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `objects` | list of { key: text, label: text or (), at: [x, y], size: [x, y], health: integer (i32), collision: one of: none \| solid \| one_way, trigger: one of: hit \| stand \| either, respawn_after: number or (), pogo_refresh: bool, look: text or () } | required |  |
+
 ## `action_result`
 
 Port `ambition.actions.result@1`, trigger: read as `this.trigger`.

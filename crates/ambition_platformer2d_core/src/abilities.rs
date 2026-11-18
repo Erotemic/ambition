@@ -182,6 +182,16 @@ pub struct AbilitySet {
     /// shot it had.
     #[serde(default = "yes")]
     pub ranged: bool,
+    /// The aim's time slow: the world slows while the body aims a precision
+    /// blink ([`Self::precision_blink`]). A PERMISSION EVERY KIT HAS, as
+    /// [`Self::ranged`] is: the slow is already gated by the aim, so no kit
+    /// grants it and none lacks it. It exists to be WITHHELD (Precision
+    /// Blink's level 2 aims at full speed; level 3 slows the world).
+    ///
+    /// `serde` default TRUE: authored data that predates the field keeps the
+    /// slow it had.
+    #[serde(default = "yes")]
+    pub blink_slow: bool,
 }
 
 /// Can this body STAY WHERE IT IS, without being carried off?
@@ -251,6 +261,7 @@ impl AbilitySet {
             climb,
             morph,
             ranged,
+            blink_slow,
         } = self;
         Some(match verb {
             "move_horizontal" => move_horizontal,
@@ -287,6 +298,7 @@ impl AbilitySet {
             "climb" => climb,
             "morph" => morph,
             "ranged" => ranged,
+            "blink_slow" => blink_slow,
             _ => return None,
         })
     }
@@ -373,6 +385,8 @@ impl AbilitySet {
             morph: _,
             // A rider still fires, as it still swings.
             ranged,
+            // A rider blinks not at all.
+            blink_slow: _,
         } = *self;
         Self {
             move_horizontal,
@@ -409,6 +423,8 @@ impl AbilitySet {
             climb: false,
             morph: false,
             ranged,
+            // The permission every kit has; the rider has no blink to slow.
+            blink_slow: true,
         }
     }
 
@@ -449,6 +465,7 @@ impl AbilitySet {
             climb: true,
             morph: false,
             ranged: true,
+            blink_slow: true,
         }
     }
 
@@ -503,6 +520,7 @@ impl AbilitySet {
             climb: true,
             morph: true,
             ranged: true,
+            blink_slow: true,
         }
     }
 
@@ -550,11 +568,12 @@ impl AbilitySet {
             climb: true,
             morph: false,
             ranged: true,
+            blink_slow: true,
         }
     }
 
-    /// The empty set: every verb denied but [`ranged`](Self::ranged), the
-    /// permission every kit has. Identity element for [`union`] over kits.
+    /// The empty set: every verb denied but [`ranged`](Self::ranged) and
+    /// [`blink_slow`](Self::blink_slow), the permissions every kit has. Identity element for [`union`] over kits.
     ///
     /// Composition of a character's grant bundles is a fold of `union` starting
     /// here, so a character with no grants can do nothing until something is
@@ -595,8 +614,9 @@ impl AbilitySet {
         crouch: false,
         climb: false,
         morph: false,
-        // A permission every kit has (see the field).
+        // Permissions every kit has (see the fields).
         ranged: true,
+        blink_slow: true,
     };
 
     /// Every verb granted. Identity element for [`intersect`], so a ceiling
@@ -638,6 +658,7 @@ impl AbilitySet {
         climb: true,
         morph: true,
         ranged: true,
+        blink_slow: true,
     };
 
     /// Field-wise OR: a verb is granted if *either* set grants it.
@@ -686,6 +707,7 @@ impl AbilitySet {
             climb: self.climb || other.climb,
             morph: self.morph || other.morph,
             ranged: self.ranged || other.ranged,
+            blink_slow: self.blink_slow || other.blink_slow,
         }
     }
 
@@ -733,6 +755,7 @@ impl AbilitySet {
             climb: self.climb && mask.climb,
             morph: self.morph && mask.morph,
             ranged: self.ranged && mask.ranged,
+            blink_slow: self.blink_slow && mask.blink_slow,
         }
     }
 

@@ -98,10 +98,14 @@
         held_item_id: None,
         dialog_id: "precisionblink",
         // Level 1: the quick directional blink, without the aimed one.
-        // Level 2: the robot's whole blink (aimed, under the aim's time slow).
+        // Level 2: the aimed blink, at full speed (no time slow).
+        // Level 3: the robot's whole blink (aimed, under the aim's time slow).
         wears: Some((id: "precision_blink", exclusive_slot: Some("blink"), withholds: ["precision_blink"])),
-        levels: [(id: "precision_blink_2", exclusive_slot: Some("blink"))],
-        stack: 2,
+        levels: [
+            (id: "precision_blink_2", exclusive_slot: Some("blink"), withholds: ["blink_slow"]),
+            (id: "precision_blink_3", exclusive_slot: Some("blink")),
+        ],
+        stack: 3,
         icon: Some("sprites/props/gauntlet_blink.png"),
     ),
     (

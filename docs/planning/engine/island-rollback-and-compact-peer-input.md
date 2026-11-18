@@ -926,17 +926,127 @@ the live rooms, and a replay would hide them. Late, Bob now joins Alice's hub
 at frame 34 and ends where the on-time run ends (2 rewinds; 4 late inputs
 applied from the next tick during the crossing).
 
-Not yet: the other confirmed-frame observers. Outside a replay the hosted
-host publishes no boundary, so checkpoints, deaths, passages, the
-conversation ledger and host intents treat each tick as confirmed when it
-first runs: an act on a tick a rewind replays is not taken back, and a host
-intent is pruned before a replay of its tick could release it again. A
-boundary published every tick would never be fully confirmed while a guest
-plays (its inputs arrive a round trip late), and the sandbox autosave waits
-for that; a guest whose stamps lead the host tick (NA-3's run-ahead) would
-let confirmation keep up. Also not yet: the cost of a rewind on a release
-build over a real link; and an edge exit walked by a mispredicted guest
-commits at once and cannot be taken back.
+The other confirmed-frame observers (checkpoints, deaths, passages, the
+conversation ledger, host intents) treated each live tick as confirmed when
+it first ran, because outside a replay the hosted host published no
+boundary: an act on a tick a rewind replayed was not taken back. A boundary
+published every tick would never have been fully confirmed while a guest
+played (its inputs arrived a round trip late), and the sandbox autosave
+waits for that. Both are answered below (2026-11-18): the guest runs ahead,
+and the host publishes a live boundary. Still open: an edge exit walked by
+a mispredicted guest commits at once and cannot be taken back.
+
+## A rewind's cost on a release build over a real link (2026-11-18)
+
+Measurement `a_guests_room_rewinds_over_a_real_link` (ignored; run with
+`--release --ignored --nocapture`): the guest drives Bob over renet's
+netcode on loopback, through a relay that holds each datagram a fixed delay
+each way (`udp::host_on` names the relay as the host's public address, as a
+host behind a router names its router). Both Apps are paced at 60 Hz of wall
+time for 600 frames; Bob turns every 13 frames and jumps every 29, so about
+one frame in seven brings an input that differs from the prediction. The
+guest stamps its input with its own estimate of the host tick, so the
+lateness is the ticks a rewind replays (renet's round trip is timed on the
+App clock the harness steps, and reads 0.1 ms whatever the relay holds).
+
+| Scene | Each way | Ticks a rewind | Host update, no rewind (mean, p95) | With a rewind (mean, p95, max) |
+|---|---|---|---|---|
+| Alice in the hub | 0 ms | 1.2 | 4.1, 5.0 ms | 8.8, 10.6, 20.9 ms |
+| Alice in the hub | 25 ms | 4.0 | 4.2, 5.5 ms | 13.9, 16.3, 31.8 ms |
+| Alice in the hub | 50 ms | 7.0 | 3.9, 5.0 ms | 18.6, 22.1, 29.0 ms |
+| Alice beside Bob | 0 ms | 1.4 | 3.5, 4.6 ms | 8.9, 11.9, 19.6 ms |
+| Alice beside Bob | 25 ms | 4.0 | 3.8, 5.2 ms | 16.7, 18.9, 26.2 ms |
+| Alice beside Bob | 50 ms | 6.7 | 3.8, 5.2 ms | 21.9, 31.0, 33.2 ms |
+
+A rewind costs about 2–2.6 ms of restore and bookkeeping plus 1.7 ms a
+replayed tick when the room holds only the guest, 2.4 ms when the host's
+player fights in it (the debug build: about 9 ms a tick). Every late input
+that differed was rewound (none refused). At a 100 ms round trip a rewind
+frame costs 19–22 ms on average and up to 31 ms at the 95th percentile,
+more than a 60 Hz frame's 16.7 ms, on about one frame in seven while the
+guest plays. So the late-input rewind is affordable on a LAN-like link and
+not on an internet one: a guest that stamps its input ahead of the host
+(NA-3's run-ahead) removes the rewinds of a guest that does not predict
+itself, and is also what the confirmed-frame observers above wait on.
+
+## Run-ahead: a guest's input arrives before its tick (2026-11-18)
+
+A guest now stamps its input `lead` ticks past its estimate of the host tick
+(`ambition_hosted_world::input_clock`). The host notes how early each
+admitted input arrived (its stamped tick less the next tick to run) and
+every `MARGIN_REPORT_TICKS` (15) sends each guest its latest-arriving input
+of the window, by sequence (`InputMargin`, unordered). The guest reads the
+report against the lead that sample was stamped with, so a report that
+crossed a change of lead does not move it twice, and sets its lead so its
+inputs arrive `ARRIVAL_SLACK` (1) tick early, up to `MAX_RUN_AHEAD` (30
+ticks, about a 500 ms round trip). A stamp never goes back: a lead that
+shrinks waits for the estimate to catch up. The host admits stamps up to
+38 ticks ahead and already buffered inputs for ticks it has not run, so
+nothing else changed on the host. A guest that sleeps sees its input's
+result a round trip and the slack after the press either way: with
+rewinds the input lands in the past and is seen a round trip later; with
+run-ahead it lands on time and is seen a round trip and one tick later.
+
+Unit test `the_lead_settles_where_inputs_arrive_with_the_slack`: a simulated
+link of 0 to 12 ticks each way settles every input one tick early, with
+stamps that never go back.
+
+The real-link measurement again (release, 600 frames, Bob turning every 13
+frames):
+
+| Scene | Each way | Lead settled | Rewinds (before → now) | Host update without a rewind (mean, p95) |
+|---|---|---|---|---|
+| Alice in the hub | 0 ms | 3 | 84 → 3 | 4.4, 5.1 ms |
+| Alice in the hub | 25 ms | 5 | 85 → 3 | 4.3, 5.7 ms |
+| Alice in the hub | 50 ms | 9 | 83 → 4 | 4.7, 5.8 ms |
+| Alice beside Bob | 0 ms | 3 | 83 → 3 | 3.9, 5.0 ms |
+| Alice beside Bob | 25 ms | 5 | 85 → 3 | 4.0, 5.3 ms |
+| Alice beside Bob | 50 ms | 8 | 84 → 4 | 4.4, 5.5 ms |
+
+The 3 or 4 rewinds left are the same count at every delay, as the window
+before the first report (15 ticks and a round trip) would leave; a link
+with jitter beyond the slack would add more, and the rewind stays as the
+correction for them. The confirmed-frame observers can now be given a
+boundary that keeps up while a guest plays: that is the next step.
+
+## The live confirmed-frame boundary on a hosted host (2026-11-18)
+
+A host that rewinds guest rooms now publishes `ConfirmedFrameBoundary` at
+the head of every live tick (`publish_live_boundary`, in
+`ConfirmedFrameBoundaryPublished`, before `GameplaySimulationRoot`), so the
+irreversible observers that already read it for GGRS (checkpoints, deaths,
+passages, the conversation ledger, host intents, persistence's
+`world_state_is_confirmed`) act on a tick only once no late input can make
+the host replay it. A tick is confirmed for a guest seat once an input
+stamped after it has arrived: the host clamps a stamp that goes back to the
+seat's latest, as it clamps one before the seat's ownership, so nothing for
+an earlier tick can come after it. A seat with no input yet holds the line
+before its ownership began; a tick past the rewind horizon is final
+whatever arrives. The line is the least over the guest seats.
+
+A replay keeps its own boundary: the ticks it runs are unconfirmed (a
+crossing it records waits for the first live tick, as before), and so is
+anything the live boundary had not confirmed, since another guest's input
+can still be late. The live boundary stands again after the replay.
+
+An input stamped for the very next tick leaves that tick unconfirmed while
+it runs (a second sample for it could still arrive after it), so a guest is
+fully confirmed only when its inputs arrive a tick early, which is the
+run-ahead's slack. Witnessed in both late-input scenes
+(`a_guests_late_input_rewinds_only_its_room_on_the_host`,
+`..._a_room_the_host_shares`): on time, the boundary trails the live tick
+by 1; three frames late, by up to 4; no rewind in either replays a tick the
+host had published as confirmed; and the ends still match the on-time run.
+Those scenes now rewind 22 times over 66 ticks, not 26 over 78 as written
+above: the same at the commit before this change, so an earlier change to
+the input path moved it, not the boundary.
+
+Over the real link with run-ahead (release, 600 frames): the host's boundary
+is fully confirmed after 582, 575 and 547 frames with Alice in the hub and
+580, 566 and 560 with her beside Bob, at 0, 25 and 50 ms each way. Fewer as
+the round trip grows, as the window before the guest's lead settles grows
+with it; so persistence and the other observers that wait for a fully
+confirmed world keep up while a guest plays.
 
 ## Review fixes, 2026-11-16
 

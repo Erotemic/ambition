@@ -14,7 +14,7 @@ use ambition_app::Platformer2dSimHarness;
 use ambition_hosted_world::bevy_replicon::prelude::{ClientId, FromClient, RepliconPlugins, ServerPlugin};
 use ambition_hosted_world::{GuestInput, GuestSeat, HostedRole, HostedWorldPlugin, RewindsGuestRooms, RoomRollbackStats};
 use ambition_platformer2d::characters::control::PlayerSlot;
-use ambition_platformer2d::engine_core::ControlFrame;
+use ambition_platformer2d::engine_core::{ConfirmedFrameBoundary, ControlFrame};
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::{Messages, PluginGroup as _, PostUpdate};
 
@@ -36,6 +36,10 @@ struct Run {
     ending: BTreeMap<SimId, [f32; 5]>,
     stats: RoomRollbackStats,
     apart: bool,
+    /// The most ticks the published boundary trailed the live tick, and the
+    /// rewinds that replayed from a tick it had already confirmed.
+    widest_lag: i32,
+    rewound_confirmed: u32,
 }
 
 /// Where Alice plays while Bob's inputs arrive.
@@ -80,6 +84,8 @@ fn run(alice: Alice, arrival: Arrival, rewinds: bool) -> Run {
     if rewinds {
         host.world_mut().insert_resource(RewindsGuestRooms);
     }
+    let rewinds_on = rewinds;
+    let (mut confirmed, mut widest_lag, mut rewound_confirmed) = (i32::MIN, 0, 0);
     let mut in_flight: VecDeque<(i32, GuestInput)> = VecDeque::new();
     let deliver = |host: &mut Platformer2dSimHarness, input: GuestInput| {
         host.world_mut()
@@ -98,7 +104,17 @@ fn run(alice: Alice, arrival: Arrival, rewinds: bool) -> Run {
             deliver(&mut host, input);
         }
         host.drive_seat(0, if alice == Alice::Beside { alice_fights(frame) } else { ControlFrame::default() });
+        let rewinds = host.world().get_resource::<RoomRollbackStats>().map_or(0, |stats| stats.rewinds);
         host.app_mut().update();
+        let stats = host.world().get_resource::<RoomRollbackStats>().copied().unwrap_or_default();
+        if stats.rewinds > rewinds && stats.last_rewound_from.is_some_and(|from| from as i32 <= confirmed) {
+            rewound_confirmed += 1;
+        }
+        if rewinds_on {
+            let boundary = *host.world().get_resource::<ConfirmedFrameBoundary>().expect("a host that rewinds publishes a boundary");
+            widest_lag = widest_lag.max(boundary.current - boundary.confirmed);
+            confirmed = confirmed.max(boundary.confirmed);
+        }
     }
     // The last inputs arrive after the last frame; one more frame takes them
     // in, on time and late alike.
@@ -108,7 +124,7 @@ fn run(alice: Alice, arrival: Arrival, rewinds: bool) -> Run {
     host.drive_seat(0, ControlFrame::default());
     host.app_mut().update();
     let stats = host.world().get_resource::<RoomRollbackStats>().copied().unwrap_or_default();
-    Run { ending: bodies(&mut host, None), stats, apart }
+    Run { ending: bodies(&mut host, None), stats, apart, widest_lag, rewound_confirmed }
 }
 
 fn differing(expected: &BTreeMap<SimId, [f32; 5]>, got: &BTreeMap<SimId, [f32; 5]>) -> Vec<String> {
@@ -139,11 +155,20 @@ fn scene(alice: Alice) -> (Run, Run, Vec<String>, Vec<String>) {
         control_wrong.len(),
         on_time.stats.rewinds
     );
+    println!(
+        "[room rollback host]   the boundary trailed the live tick by at most {} on time and {} late; rewinds from a confirmed tick: {} and {}",
+        on_time.widest_lag, late.widest_lag, on_time.rewound_confirmed, late.rewound_confirmed
+    );
     for line in wrong.iter().take(4) {
         println!("[room rollback host]   {line}");
     }
     assert_eq!(on_time.stats.rewinds, 0, "premise: inputs on time rewind nothing");
     assert!(late.stats.rewinds > 0, "premise: the late inputs were rewound for");
+    // The live tick waits for the input after it; late inputs hold the line
+    // back by their lateness, and no rewind reopens a tick it confirmed.
+    assert_eq!(on_time.widest_lag, 1, "inputs stamped for the next tick confirm every tick before it");
+    assert!(late.widest_lag > 1, "premise: late inputs hold the confirmed line back");
+    assert_eq!(late.rewound_confirmed, 0, "a rewind replayed a tick the host had published as confirmed");
     (on_time, late, wrong, control_wrong)
 }
 
@@ -367,4 +392,220 @@ fn a_reconnected_guest_joins_without_the_previous_owners_held_input() {
     assert!(session_world_component::<SessionParticipants>(host.world()).unwrap().contains(PlayerSlot(1)),
         "the new owner's sequence and join press must be accepted");
     assert_eq!(host.world().resource::<SlotControls>().get(PlayerSlot(1)).axis_x, 0.0);
+}
+
+/// A UDP relay on loopback that holds each datagram `delay` before passing
+/// it on, both ways: a guest joins the relay's address and the host answers
+/// through it, so the link has a round trip of twice `delay`.
+struct Relay {
+    address: std::net::SocketAddr,
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Relay {
+    fn to(host: std::net::SocketAddr, delay: std::time::Duration) -> Relay {
+        use std::net::UdpSocket;
+        use std::sync::atomic::Ordering;
+        use std::time::Instant;
+        let front = UdpSocket::bind("127.0.0.1:0").expect("the relay's guest side binds");
+        let back = UdpSocket::bind("127.0.0.1:0").expect("the relay's host side binds");
+        front.set_nonblocking(true).expect("nonblocking");
+        back.set_nonblocking(true).expect("nonblocking");
+        let address = front.local_addr().expect("an address");
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stopping = stop.clone();
+        let thread = std::thread::spawn(move || {
+            let mut guest = None;
+            let mut up: VecDeque<(Instant, Vec<u8>)> = VecDeque::new();
+            let mut down: VecDeque<(Instant, Vec<u8>)> = VecDeque::new();
+            let mut buffer = [0u8; 2048];
+            while !stopping.load(Ordering::Relaxed) {
+                while let Ok((size, from)) = front.recv_from(&mut buffer) {
+                    guest = Some(from);
+                    up.push_back((Instant::now() + delay, buffer[..size].to_vec()));
+                }
+                while let Ok((size, _)) = back.recv_from(&mut buffer) {
+                    down.push_back((Instant::now() + delay, buffer[..size].to_vec()));
+                }
+                let now = Instant::now();
+                while up.front().is_some_and(|(due, _)| *due <= now) {
+                    let (_, packet) = up.pop_front().expect("checked");
+                    let _ = back.send_to(&packet, host);
+                }
+                while let Some(guest) = guest.filter(|_| down.front().is_some_and(|(due, _)| *due <= now)) {
+                    let (_, packet) = down.pop_front().expect("checked");
+                    let _ = front.send_to(&packet, guest);
+                }
+                std::thread::sleep(std::time::Duration::from_micros(100));
+            }
+        });
+        Relay { address, stop, thread: Some(thread) }
+    }
+}
+
+impl Drop for Relay {
+    fn drop(&mut self) {
+        self.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+/// The host and guest Apps of a run over a real link.
+fn boot_over_udp(room: &str, role: HostedRole) -> Platformer2dSimHarness {
+    Platformer2dSimHarness::build(fixed_60hz_room_options(room), |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        app.add_plugins((
+            RepliconPlugins.set(ServerPlugin::new(PostUpdate)),
+            ambition_hosted_world::udp::RepliconRenetPlugins,
+            HostedWorldPlugin { role },
+        ));
+        app.finish();
+        app.cleanup();
+        Ok(())
+    })
+    .expect("the room boots")
+}
+
+/// What one paced run over a real link measured.
+struct LinkRun {
+    stats: RoomRollbackStats,
+    /// Host update times of frames with no rewind and with one, in ms.
+    plain: Vec<f64>,
+    rewound: Vec<f64>,
+    bob_moved: bool,
+    /// The guest's run-ahead at the end, in ticks.
+    lead: Option<u64>,
+    /// Frames after which the host's boundary was fully confirmed.
+    confirmed_frames: u32,
+}
+
+/// The guest drives Bob over UDP through a relay of `delay` each way, both
+/// Apps paced at 60 Hz of wall time; the host predicts Bob and rewinds his
+/// room when his stamped input arrives and differs.
+fn over_a_real_link(alice: Alice, delay: std::time::Duration) -> LinkRun {
+    use ambition_hosted_world::bevy_replicon::prelude::{ClientState, ConnectedClient};
+    use ambition_hosted_world::udp;
+    use std::time::{Duration, Instant};
+    let bob = PlayerSlot(1);
+    let mut host = boot_over_udp(ROOM, HostedRole::Host);
+    bob_beside_alice(&mut host, ROOM, Some(bob));
+    if alice == Alice::Apart {
+        alice_on_the_hub_door(&mut host);
+        for frame in 1..=60 {
+            host.drive_seat(0, alice_leaves(frame));
+            host.drive_seat(1, ControlFrame::default());
+            host.app_mut().update();
+        }
+    }
+    host.world_mut().insert_resource(RewindsGuestRooms);
+    let mut guest = boot_over_udp(ROOM, HostedRole::Guest);
+    bob_beside_alice(&mut guest, ROOM, Some(bob));
+    crate::a_guest_app_applies_the_host::simulate_nothing(&mut guest);
+    guest.world_mut().insert_resource(ambition_hosted_world::LocalSeat(bob));
+
+    let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("the host binds");
+    let bound = socket.local_addr().expect("an address");
+    let relay = Relay::to(bound, delay);
+    udp::host_on(host.world_mut(), socket, vec![relay.address], 1).expect("the host opens its socket");
+    udp::join(guest.world_mut(), relay.address, 1).expect("the guest opens its socket");
+    let step = Duration::from_secs_f64(1.0 / 60.0);
+    let mut connected = false;
+    for _ in 0..600 {
+        let started = Instant::now();
+        host.drive_seat(0, ControlFrame::default());
+        host.app_mut().update();
+        guest.app_mut().update();
+        if *guest.world().resource::<bevy::state::state::State<ClientState>>() == ClientState::Connected {
+            connected = true;
+            break;
+        }
+        std::thread::sleep(step.saturating_sub(started.elapsed()));
+    }
+    assert!(connected, "the guest joined the host through the relay within 600 frames");
+    let client = {
+        let world = host.world_mut();
+        world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ConnectedClient>>().single(world).expect("one guest")
+    };
+    host.world_mut().entity_mut(client).insert(GuestSeat(bob));
+    let bob_at = |host: &mut Platformer2dSimHarness| {
+        let world = host.world_mut();
+        world
+            .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &ambition_platformer2d::engine_core::BodyKinematics)>()
+            .iter(world)
+            .find(|(driver, _)| driver.0 == bob)
+            .map(|(_, body)| body.pos)
+    };
+    let start = bob_at(&mut host);
+    let mut plain = Vec::new();
+    let mut rewound = Vec::new();
+    let mut confirmed_frames = 0;
+    for frame in 1..=600 {
+        let started = Instant::now();
+        guest.drive_seat(1, bobs(frame));
+        guest.app_mut().update();
+        host.drive_seat(0, if alice == Alice::Beside { alice_fights(frame) } else { ControlFrame::default() });
+        let before = host.world().get_resource::<RoomRollbackStats>().copied().unwrap_or_default();
+        let update = Instant::now();
+        host.app_mut().update();
+        let ms = update.elapsed().as_secs_f64() * 1e3;
+        let after = host.world().get_resource::<RoomRollbackStats>().copied().unwrap_or_default();
+        if after.rewinds > before.rewinds { rewound.push(ms) } else { plain.push(ms) }
+        if host.world().get_resource::<ConfirmedFrameBoundary>().is_some_and(ConfirmedFrameBoundary::fully_confirmed) {
+            confirmed_frames += 1;
+        }
+        std::thread::sleep(step.saturating_sub(started.elapsed()));
+    }
+    let stats = host.world().get_resource::<RoomRollbackStats>().copied().unwrap_or_default();
+    let bob_moved = bob_at(&mut host) != start;
+    let lead = ambition_hosted_world::guest_run_ahead(guest.world());
+    drop(relay);
+    LinkRun { stats, plain, rewound, bob_moved, lead, confirmed_frames }
+}
+
+fn spread(times: &[f64]) -> String {
+    if times.is_empty() {
+        return "none".into();
+    }
+    let mut sorted = times.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let at = |q: f64| sorted[((sorted.len() - 1) as f64 * q).round() as usize];
+    let mean = sorted.iter().sum::<f64>() / sorted.len() as f64;
+    format!("{} frames, mean {mean:.2}, p50 {:.2}, p95 {:.2}, max {:.2} ms", sorted.len(), at(0.5), at(0.95), at(1.0))
+}
+
+/// SIMULATION-ISLANDS: what a room rewind costs over a real link. The guest
+/// drives Bob over UDP through a relay that delays each datagram, both Apps
+/// paced at 60 Hz of wall time, and the host's update is timed on the frames
+/// that rewind and on the frames that do not. Run it in release for the
+/// cost a player pays; a debug build measures the debug build. The guest
+/// runs ahead (`input_clock`): once its lead settles its inputs arrive
+/// before the ticks they name, so the rewinds left are the ones before it
+/// settled and the link's jitter. The lateness is read from the ticks a
+/// rewind replays: renet's own round trip is timed on the App's clock, which
+/// the harness steps, not on the wall.
+#[test]
+#[ignore = "a measurement over wall-clock time: run with --ignored --nocapture, in release for the cost"]
+fn a_guests_room_rewinds_over_a_real_link() {
+    let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+    for alice in [Alice::Apart, Alice::Beside] {
+        for one_way in [0, 25, 50] {
+            let run = over_a_real_link(alice, std::time::Duration::from_millis(one_way));
+            let per_rewind = f64::from(run.stats.replayed) / f64::from(run.stats.rewinds.max(1));
+            println!(
+                "[room rewind over udp] {profile}, {}, {one_way} ms each way: guest run-ahead {:?} ticks; boundary fully confirmed after {} of 600 frames; rewinds {}, ticks replayed {} ({per_rewind:.1} a rewind), not rewound {}; host update without a rewind: {}; with one: {}",
+                if alice == Alice::Apart { "Alice in the hub" } else { "Alice beside Bob" },
+                run.lead,
+                run.confirmed_frames,
+                run.stats.rewinds,
+                run.stats.replayed,
+                run.stats.not_rewound,
+                spread(&run.plain),
+                spread(&run.rewound),
+            );
+            assert!(run.bob_moved, "premise: the guest's input moved Bob on the host");
+        }
+    }
 }

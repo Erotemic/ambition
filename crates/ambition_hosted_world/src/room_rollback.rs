@@ -56,6 +56,8 @@ pub struct RoomRollbackStats {
     pub replayed: u32,
     /// Admitted late inputs that could not rewind and apply on the next tick.
     pub not_rewound: u32,
+    /// The tick the latest rewind replayed from.
+    pub last_rewound_from: Option<u64>,
 }
 
 /// The shared clock at the start of a tick: the timeline, the frame's time,
@@ -141,17 +143,37 @@ pub(crate) struct GuestInputs {
 
 impl GuestInputs {
     pub(crate) fn record(&mut self, seat: PlayerSlot, input: crate::GuestInput, now: u64) -> Option<(u64, ControlFrame)> {
-        if input.tick > now.saturating_add(crate::input_clock::MAX_INPUT_LEAD)
+        if input.tick > now.saturating_add(crate::input_clock::MAX_INPUT_LEAD + crate::input_clock::MAX_RUN_AHEAD)
             || now.saturating_sub(input.tick) > REWIND_HORIZON
             || self.last_sequence.get(&seat).is_some_and(|last| input.sequence <= *last)
         { return None; }
         self.last_sequence.insert(seat, input.sequence);
-        let tick = input.tick.max(self.owned_since.get(&seat).copied().unwrap_or(0));
+        // A stamp never goes back past the seat's latest: the confirmed-frame
+        // boundary (`publish_live_boundary`) confirms each tick before it.
+        let latest = self.arrived.get(&seat).and_then(|arrived| arrived.keys().next_back()).copied().unwrap_or(0);
+        let tick = input.tick.max(self.owned_since.get(&seat).copied().unwrap_or(0)).max(latest);
         let frame = self.arrived.entry(seat).or_default().entry(tick).or_default();
         *frame = frame.merge_sample(input.frame);
         let frame = *frame;
         self.forget_before(now);
         Some((tick, frame))
+    }
+
+    /// The newest tick no late input can make the host replay, at the head of
+    /// `tick`: for each guest seat, the tick before its latest stamped input
+    /// (its stamps never go back), or before its ownership began when none
+    /// has come; a tick past the rewind horizon is final whatever arrives.
+    fn confirmed_through(&self, tick: u64) -> i64 {
+        let now = tick as i64 - 1;
+        let floor = now - REWIND_HORIZON as i64 - 1;
+        self.owned_since
+            .iter()
+            .map(|(seat, since)| match self.arrived.get(seat).and_then(|arrived| arrived.keys().next_back()) {
+                Some(latest) => *latest as i64 - 1,
+                None => *since as i64 - 1,
+            })
+            .min()
+            .map_or(tick as i64, |confirmed| confirmed.max(floor).min(tick as i64))
     }
 
     pub(crate) fn begin_ownership(&mut self, seat: PlayerSlot, tick: u64) {
@@ -228,6 +250,28 @@ fn guest_rooms(world: &mut World) -> (BTreeMap<PlayerSlot, LiveRoomInstance>, Ve
         .map(|(seat, _)| *seat)
         .collect();
     (rooms, local)
+}
+
+/// At the head of each live tick on a host that rewinds guest rooms: publish
+/// the confirmed-frame boundary, so the irreversible observers (checkpoints,
+/// deaths, passages, the conversation ledger, host intents, persistence) act
+/// on a tick only once no late guest input can make the host replay it. A
+/// replay keeps its own boundary (`rewind_room`).
+pub(crate) fn publish_live_boundary(world: &mut World) {
+    if !world.contains_resource::<RewindsGuestRooms>() {
+        return;
+    }
+    let Some(inputs) = world.get_resource::<GuestInputs>() else { return };
+    if inputs.replaying {
+        return;
+    }
+    let tick = world.resource::<SimTick>().0 + 1;
+    let confirmed = inputs.confirmed_through(tick);
+    let session = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world).map_or(0, |scope| scope.0);
+    let boundary = ConfirmedFrameBoundary { current: tick as i32, confirmed: confirmed as i32, session };
+    if world.get_resource::<ConfirmedFrameBoundary>() != Some(&boundary) {
+        world.insert_resource(boundary);
+    }
 }
 
 /// At the head of each tick (before the clock): drive every guest seat with
@@ -366,6 +410,7 @@ pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u
             Some(ticks) => {
                 stats.rewinds += 1;
                 stats.replayed += ticks;
+                stats.last_rewound_from = Some(tick);
             }
             None => stats.not_rewound += 1,
         }
@@ -426,24 +471,27 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     world.resource_mut::<GuestInputs>().replaying = true;
     // The replayed ticks are not confirmed while they run: an irreversible
     // act the replay records (a crossing, which needs the rooms hidden here)
-    // waits for the first tick after it. Outside a replay the host publishes
-    // no boundary and every tick is confirmed on arrival, as before.
+    // waits for the first live tick after it. Nor is anything the live
+    // boundary had not confirmed: another guest's input can still be late.
     let session = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world).map_or(0, |scope| scope.0);
-    let published = !world.contains_resource::<ConfirmedFrameBoundary>();
-    if published {
-        world.insert_resource(ConfirmedFrameBoundary { current: tick as i32, confirmed: tick as i32 - 1, session });
-    }
+    let live = world.remove_resource::<ConfirmedFrameBoundary>();
+    let confirmed = live.map_or(tick as i32 - 1, |live| live.confirmed.min(tick as i32 - 1));
+    world.insert_resource(ConfirmedFrameBoundary { current: tick as i32, confirmed, session });
     let mut ticks = 0;
     while world.resource::<SimTick>().0 < now {
         run_one_tick(world);
         ticks += 1;
     }
     world.resource_mut::<GuestInputs>().replaying = false;
-    if published {
-        world.remove_resource::<ConfirmedFrameBoundary>();
+    world.remove_resource::<ConfirmedFrameBoundary>();
+    match live {
+        // The live boundary stands again; the next live tick publishes anew.
+        Some(live) => world.insert_resource(live),
         // What the replay's verdicts were stamped with is settled now.
-        if let Some(log) = world.get_resource::<ambition_platformer2d_shared_tangle::authored_logic::AuthoredVerdictLog>() {
-            log.confirm_through(session, now as i32);
+        None => {
+            if let Some(log) = world.get_resource::<ambition_platformer2d_shared_tangle::authored_logic::AuthoredVerdictLog>() {
+                log.confirm_through(session, now as i32);
+            }
         }
     }
     if let Some(latches) = latches {

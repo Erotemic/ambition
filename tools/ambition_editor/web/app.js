@@ -222,6 +222,83 @@
     if (!stripCache.has(src)) stripCache.set(src, new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = bad; im.src = src; }));
     return stripCache.get(src);
   }
+  // A sheet's frames, drawn into a cell: `load(row, subject)` gives a function
+  // `(ctx, frame, w, h)` that draws that row's frame filling a w×h cell.
+  // A baked sheet draws from its preview strips; a sheet published part-first
+  // (no page) draws every frame from its part atlas and draw table, as the
+  // game does, so no frame is ever stored.
+  function frameSource(a) {
+    const rows = a.layout.rows, play = a.layout.part_play;
+    if (!play) return { load(i, subject) {
+      const src = subject ? rows[i].subject_strip : rows[i].strip;
+      if (!src) return Promise.reject(new Error("no strip"));
+      const [cw, ch] = subject ? a.layout.framing?.cell || [128, 128] : a.layout.cell || [96, 96];
+      const columns = subject ? rows[i].subject_columns : rows[i].strip_columns;
+      return loadStrip(src).then((im) => (ctx, f, w, h) => ctx.drawImage(im, (f % columns) * cw, Math.floor(f / columns) * ch, cw, ch, 0, 0, w, h));
+    } };
+    return { load(i, subject) {
+      return loadParts(play).then(({ table, atlas }) => (ctx, f, w, h) =>
+        drawPartFrame(ctx, table, atlas, rows[i].name, f, subject ? a.layout.framing : null, w, h));
+    } };
+  }
+  const partCache = new Map();
+  function loadParts(play) {
+    if (!partCache.has(play.key)) partCache.set(play.key, new Promise((ok, bad) => {
+      const done = () => window.ART_PARTS && window.ART_PARTS[play.key] ? ok(window.ART_PARTS[play.key]) : bad(new Error("draw table not loaded"));
+      if (window.ART_PARTS && window.ART_PARTS[play.key]) return done();
+      const tag = document.createElement("script"); tag.src = play.script; tag.onload = done; tag.onerror = bad; document.head.appendChild(tag);
+    }).then((table) => Promise.all(play.atlas.map(loadStrip)).then((atlas) => ({ table, atlas }))));
+    return partCache.get(play.key);
+  }
+  const tintCache = new WeakMap();
+  function tintedPart(page, part, tint) {
+    if (!tintCache.has(page)) tintCache.set(page, new Map());
+    const cache = tintCache.get(page), id = part.join(",") + "|" + tint.join(",");
+    if (!cache.has(id)) {
+      const [, x, y, w, h] = part, c = document.createElement("canvas"); c.width = w; c.height = h;
+      const g = c.getContext("2d");
+      g.drawImage(page, x, y, w, h, 0, 0, w, h);
+      g.globalCompositeOperation = "multiply"; g.fillStyle = `rgb(${tint.map((k) => Math.round(255 * k)).join(",")})`; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = "destination-in"; g.drawImage(page, x, y, w, h, 0, 0, w, h);
+      cache.set(id, c);
+    }
+    return cache.get(id);
+  }
+  // Frame `f` of `clip` from parts into a w×h cell: the whole frame scaled to
+  // the cell, or through the sheet's subject camera (`framing`) when given.
+  // A part texel p lands at feet + at + R·S·(p − pivot) / texel_scale.
+  function drawPartFrame(ctx, t, atlas, clip, f, framing, w, h) {
+    const entry = t.clips[clip];
+    if (!entry || !entry.frames.length) return;
+    f = Math.min(f, entry.frames.length - 1);
+    const fade = entry.opacity ? entry.opacity[Math.min(f, entry.opacity.length - 1)] : 1;
+    let target = ctx;
+    if (fade < 1) { const layer = document.createElement("canvas"); layer.width = w; layer.height = h; target = layer.getContext("2d"); }
+    let view;
+    if (framing && framing.anchor) {
+      const k = framing.scale * w;
+      view = [k, 0, 0, k, w * 0.5 - framing.anchor[0] * k, w * framing.baseline - framing.anchor[1] * k];
+    } else {
+      const k = Math.min(w / t.frame[0], h / t.frame[1]);
+      view = [k, 0, 0, k, 0, 0];
+    }
+    const texel = t.texel_scale || 1;
+    target.save();
+    target.imageSmoothingEnabled = true; target.imageSmoothingQuality = "high";
+    for (const d of entry.frames[f]) {
+      const [part, ax, ay, rot = 0, sx = 1, sy = 1, opacity = 1, tint = null] = d;
+      const p = t.parts[part], [page, x, y, pw, ph, px, py] = p;
+      target.setTransform(...view);
+      target.translate(t.feet[0] + ax, t.feet[1] + ay);
+      if (rot) target.rotate(rot);
+      target.scale(sx / texel, sy / texel);
+      target.globalAlpha = opacity;
+      if (tint) target.drawImage(tintedPart(atlas[page], p, tint), -px, -py);
+      else target.drawImage(atlas[page], x, y, pw, ph, -px, -py, pw, ph);
+    }
+    target.restore();
+    if (target !== ctx) { ctx.save(); ctx.globalAlpha = fade; ctx.drawImage(target.canvas, 0, 0); ctx.restore(); }
+  }
   function wireAnimation(a) {
     stopTimers();
     const canvas = document.getElementById("player");
@@ -229,12 +306,11 @@
     const rows = a.layout.rows;
     let [cw, ch] = a.layout.framing?.cell || [128, 128], loadVersion = 0;
     let row = Math.max(0, rows.findIndex((r) => (a.preview_row ? r.name === a.preview_row : ["idle", "rest", "stand"].includes(r.name)))), frame = 0, playing = true, strip = null, speed = 1, scale = 2;
-    const info = document.getElementById("frameinfo"), ctx = canvas.getContext("2d");
+    const info = document.getElementById("frameinfo"), ctx = canvas.getContext("2d"), source = frameSource(a);
     function draw() {
       if (document.getElementById("player") !== canvas) return;
       canvas.width = cw * scale; canvas.height = ch * scale; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const columns = document.getElementById("framing").value === "subject" ? rows[row].subject_columns : rows[row].strip_columns;
-      if (strip) ctx.drawImage(strip, (frame % columns) * cw, Math.floor(frame / columns) * ch, cw, ch, 0, 0, cw * scale, ch * scale);
+      if (strip) strip(ctx, frame, cw * scale, ch * scale);
       document.getElementById("scrub").max = Math.max(0, rows[row].frames - 1);
       document.getElementById("scrub").value = frame;
       document.getElementById("play").textContent = playing ? "pause" : "play";
@@ -245,8 +321,7 @@
       [cw, ch] = subject ? a.layout.framing?.cell || [128, 128] : a.layout.cell || [96, 96];
       row = i; frame = 0; strip = null; playing = true;
       document.querySelectorAll("#anims .anim").forEach((el) => el.classList.toggle("on", +el.dataset.row === i));
-      const src = subject ? rows[i].subject_strip : rows[i].strip;
-      if (src) loadStrip(src).then((im) => { if (version === loadVersion) { strip = im; draw(); } }, () => { info.textContent = "preview not drawn: run the build without --no-previews"; });
+      source.load(i, subject).then((drawer) => { if (version === loadVersion) { strip = drawer; draw(); } }, () => { info.textContent = "preview not drawn: run the build without --no-previews"; });
       restart();
     }
     function restart() {
@@ -278,23 +353,20 @@
     document.getElementById("playmode").addEventListener("change", e => { const death = rows.findIndex(r => r.name === "death"); select(e.target.value === "death" && death >= 0 ? death : row); });
     document.getElementById("speed").addEventListener("change", (e) => { speed = +e.target.value; restart(); });
     document.getElementById("scale").addEventListener("change", (e) => { scale = +e.target.value; draw(); });
-    const page0 = a.products.map((p) => products[p]).find((p) => p.role === "sheet_page:0" && p.tier === "full");
+    const page0 = a.products.map((p) => products[p]).find((p) => p.role === (a.layout.part_play ? "parts_atlas" : "sheet_page:0") && p.tier === "full");
     const pageLink = document.getElementById("pagelink");
-    if (page0) pageLink.href = page0.href; else pageLink.remove();
+    if (page0) { pageLink.href = page0.href; if (a.layout.part_play) pageLink.textContent = "part atlas (drawn from parts: no page)"; } else pageLink.remove();
     select(row);
     // Pose grid: the middle frame of each animation, drawn when it scrolls into view.
     const io = new IntersectionObserver((entries) => entries.forEach((en) => {
       if (!en.isIntersecting) return;
       const c = en.target; io.unobserve(c);
       const subject = document.getElementById("framing").value === "subject";
-      const src = subject ? c.dataset.subjectStrip : c.dataset.strip;
       const [w, h] = subject ? a.layout.framing?.cell || [128, 128] : a.layout.cell || [96, 96];
-      if (!src) return;
-      loadStrip(src).then((im) => {
+      source.load(+c.parentElement.dataset.row, subject).then((drawer) => {
         if (!c.isConnected || subject !== (document.getElementById("framing").value === "subject")) return;
         const n = +c.dataset.frames || 1, mid = Math.floor(n / 2);
-        const row = rows[+c.parentElement.dataset.row], columns = subject ? row.subject_columns : row.strip_columns;
-        c.width = w; c.height = h; c.getContext("2d").drawImage(im, (mid % columns) * w, Math.floor(mid / columns) * h, w, h, 0, 0, w, h);
+        c.width = w; c.height = h; drawer(c.getContext("2d"), mid, w, h);
       }, () => {});
     }));
     document.querySelectorAll("#poses canvas").forEach((c) => { c.classList.add("checker"); io.observe(c); });

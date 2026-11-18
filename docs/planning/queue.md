@@ -110,7 +110,7 @@ or updating their source. Check with
 
 **Owner:** [part-first publication](engine/part-first-publication.md).
 
-**Next action:** PF0 and PF1 are done, and PF2's module road (2026-11-18: 414 sheets publish page-less by `build_sheet(parts=True)`, all 434 audited against every painted frame, boss art excepted; [state](engine/part-first-publication.md#state-2026-11-18)). Next: republish the module road, then PF2b (bosses drawn page-less), the generator road (35 config sheets), `gnu_ton_boss`, and PF3 (the inspector from parts).
+**Next action:** PF0 and PF1 are done, and PF2's module road (2026-11-18: 414 sheets publish page-less by `build_sheet(parts=True)`, all 434 audited against every painted frame, boss art excepted; [state](engine/part-first-publication.md#state-2026-11-18)). Done 2026-11-18: PF3 (`sprites.sh --reference`; the asset inspector plays page-less sheets from parts), the generator road (config sheets recorded once, page-less, tiers derived), and PF2b content (nine boss sheets drawn from their characters' parts; a faceless part-drawn boss flinches whole; a page-less boss sheet resolves by its declared path). Next: a full republish (maintainer: no music registry on the agent's VM), then the bespoke publishers (`gnu_ton_boss`, `mary_o_v2`, `noether`, `player_robot_v3`, `jeff_hinter_armored`, `sandbag`), PF4, PF5, PF6.
 
 **Acceptance:** the plan's PF1–PF6: no baked pages for a part-drawn character, full reference sheets only on request, the asset inspector animating from parts, and a full regeneration's time and bytes measured before and after.
 

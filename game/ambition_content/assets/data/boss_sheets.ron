@@ -63,6 +63,9 @@
         // Its marinara: a reveal map per cell, drawn over it up to its damage
         // (`presentation::fsm_sauce`). Clean at full health, a splatter at the end.
         layers: ["sauce"],
+        // Drawn from its character's PARTS (npc_flying_spaghetti_monster_boss: the same sheet), row by
+        // row by name, where rigged sprites are admitted.
+        parts: Some("npc_flying_spaghetti_monster_boss"),
     ),
     // ADR 0020 mount/rider split (G1): the giant GNU MOUNT, without the
     // scholar (840x680; the six rows a boss sheet reads by index, then
@@ -217,6 +220,9 @@
         frame_sample_inset: 1,
         body_centered: true,
         authored_faces_left: false,
+        // Drawn from its character's PARTS (npc_bossofthegame: the same sheet), row by
+        // row by name, where rigged sprites are admitted.
+        parts: Some("npc_bossofthegame"),
     ),
     // The three sentinel bosses share one skeleton and these seven rows; each
     // sheet crops its frame to its own drawing (`gradient_sentinel_boss`,
@@ -261,6 +267,9 @@
         frame_sample_inset: 1,
         body_centered: false,
         authored_faces_left: false,
+        // Drawn from its character's PARTS (npc_boss: the same sheet), row by
+        // row by name, where rigged sprites are admitted.
+        parts: Some("npc_boss"),
     ),
     "clockwork_warden": (
         label_width: 100,
@@ -384,6 +393,9 @@
         frame_sample_inset: 1,
         body_centered: true,
         authored_faces_left: false,
+        // Drawn from its character's PARTS (npc_mockingbird_boss: the same sheet), row by
+        // row by name, where rigged sprites are admitted.
+        parts: Some("npc_mockingbird_boss"),
     ),
     // rest->Rest, mouth_open->FloorSlam, eye_beam->SpikeHalo, death->Death.
     // A tight 208x288 body; collision_scale 1.0 makes the sprite, the combat
@@ -415,6 +427,9 @@
         frame_sample_inset: 1,
         body_centered: false,
         authored_faces_left: false,
+        // Drawn from its character's PARTS (npc_smirking_behemoth_boss: the same sheet), row by
+        // row by name, where rigged sprites are admitted.
+        parts: Some("npc_smirking_behemoth_boss"),
     ),
     // Reuses the T-Rex enemy PNG. idle->Rest, walk->DashEcho, charge->FloorSlam,
     // bite->SideSweep, roar->SpikeHalo, tail_swipe and stomp (duplicate labels,

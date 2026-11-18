@@ -330,25 +330,23 @@ fn tween_target_index(draw: &PartDraw, following: &[PartDraw]) -> Option<usize> 
         .filter(|index| following[*index].part == draw.part)
 }
 
-/// The most a sampled in-between may be short of the true reach, in sheet
-/// pixels: the samples of one moving draw are spaced so that no corner moves
-/// more than twice this between two of them.
+/// Maximum error of a sampled motion bound, in sheet pixels.
 const TWEEN_ENVELOPE_SLACK_PX: f32 = 0.25;
 
-/// The most samples of one moving draw. Past it the slack grows with the
-/// path, and the envelope stays conservative.
-const TWEEN_ENVELOPE_MOST_SAMPLES: usize = 2048;
+/// Maximum number of motion intervals. The error bound increases when this
+/// limit applies, so the envelope remains conservative.
+const TWEEN_ENVELOPE_MOST_SEGMENTS: usize = 2048;
 
 /// How far past the frame the IN-BETWEENS of the tweened clips reach: every
 /// draw that [`RiggedSpriteAsset::tween_into`] moves, at every `t`.
 ///
-/// A CONSERVATIVE bound, not a sample. A corner of a moving draw is at
-/// `at(t) + turn(t) * (scale(t) * corner)`, and it moves no faster (per unit
-/// of `t`) than `|at1 - at0| + |turn| * r + |(scale1 - scale0) * corner|`,
-/// where `r` is the larger of the corner's two scaled lengths. So between two
-/// samples a distance `1 / n` of `t` apart, it is within `speed / (2 n)` of
-/// the nearer one. Each draw is sampled finely enough that this is at most
-/// [`TWEEN_ENVELOPE_SLACK_PX`], and that slack is added to its reach.
+/// A corner follows `at(t) + turn(t) * (scale(t) * corner)`. Translation and
+/// scale are linear. Its acceleration is bounded by
+/// `turn² * max(|scaled0|, |scaled1|) + 2 * |turn| * |scaled1 - scaled0|`.
+/// The distance from the chord of an interval of length `h` is at most
+/// `acceleration * h² / 8`. The chord stays within its endpoints' bounds.
+/// Thus translation needs no samples, and rotation needs samples only when
+/// the whole interval's bound exceeds the current envelope.
 fn tween_overhang(
     parts: &[RigPart],
     draws: &[PartDraw],
@@ -367,23 +365,28 @@ fn tween_overhang(
                     continue;
                 };
                 let turn = shorter_turn(draw.rotation, target.rotation).abs();
-                let speed = part_corners(part)
+                let acceleration = part_corners(part)
                     .into_iter()
                     .map(|corner| {
                         let (from, to) = (corner * draw.scale, corner * target.scale);
-                        draw.at.distance(target.at) + turn * from.length().max(to.length()) + from.distance(to)
+                        turn * turn * from.length().max(to.length()) + 2.0 * turn * from.distance(to)
                     })
                     .fold(0.0, f32::max);
-                if speed <= 0.0 {
+                let endpoints = draw_overhang(part, draw, frame_size, feet_pixel)
+                    .max(draw_overhang(part, target, frame_size, feet_pixel));
+                let error = acceleration / 8.0;
+                if endpoints + error <= overhang {
                     continue;
                 }
-                let samples = ((speed / (2.0 * TWEEN_ENVELOPE_SLACK_PX)).ceil() as usize).clamp(1, TWEEN_ENVELOPE_MOST_SAMPLES);
-                let slack = speed / (2.0 * samples as f32);
-                // The two ends are published frames: `art_overhang` has them.
-                for step in 1..samples {
-                    let between = tween_draw(draw, target, step as f32 / samples as f32);
-                    overhang = overhang.max(draw_overhang(part, &between, frame_size, feet_pixel) + slack);
+                let segments = ((error / TWEEN_ENVELOPE_SLACK_PX).sqrt().ceil() as usize)
+                    .clamp(1, TWEEN_ENVELOPE_MOST_SEGMENTS);
+                let slack = error / (segments as f32 * segments as f32);
+                let mut reach = endpoints;
+                for step in 1..segments {
+                    let between = tween_draw(draw, target, step as f32 / segments as f32);
+                    reach = reach.max(draw_overhang(part, &between, frame_size, feet_pixel));
                 }
+                overhang = overhang.max(reach + slack);
             }
         }
     }

@@ -639,6 +639,31 @@ const TURNING_BAR: &str = r#"(
     },
 )"#;
 
+#[test]
+fn the_tween_envelope_covers_translation_rotation_and_scale_together() {
+    let mut out = Vec::new();
+    for turn in [0.0, 0.01, 1.5, 3.14] {
+        for scale in [(1.0, 1.0), (-2.0, 0.1), (0.05, -3.0)] {
+            for travel in [(0.0, 0.0), (250.0, -350.0)] {
+                let mut table = ambition_sprite_part_format::read_ron(TURNING_BAR).unwrap();
+                let frames = &mut table.clips.get_mut("spin").unwrap().frames;
+                frames[0][0].scale = scale;
+                frames[1][0].scale = (scale.1, -scale.0);
+                frames[1][0].rotation = turn;
+                frames[1][0].at = travel;
+                let asset = RiggedSpriteAsset::from_published(table).unwrap();
+                for index in 0..2 {
+                    for step in 0..=512 {
+                        asset.tween_into("spin", index, step as f32 / 512.0, &mut out).unwrap();
+                        assert!(asset.reach_past_frame(&out) <= asset.art_overhang + 1.0e-3,
+                            "turn={turn} scale={scale:?} travel={travel:?} frame={index} step={step}");
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// THE ROOM A CELL NEEDS COVERS THE IN-BETWEENS OF A TWEENED CLIP.
 ///
 /// `art_overhang` was the reach of the AUTHORED frames. A tweened clip draws

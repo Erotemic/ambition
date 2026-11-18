@@ -52,7 +52,8 @@ fn the_watch_looks_when_a_file_changes_and_not_while_none_does() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_platformer2d::actor::ActiveSessionScope>();
-    common::library(&owner, false);
+    common::library(&owner, true);
+    common::publish_fixture(&owner);
     common::install(&mut app, &owner);
     app.insert_resource(SpriteSheetWatchPolicy::Enabled);
     app.add_plugins(SpriteSheetReloadPlugin { manual: false });
@@ -72,6 +73,7 @@ fn the_watch_looks_when_a_file_changes_and_not_while_none_does() {
 
     // A changed file is seen and published (no session is live).
     std::fs::write(&manifest, sheet_text("2.25")).unwrap();
+    common::publish_fixture(&owner);
     update_until(&mut app, Duration::from_secs(5), |app| app.world().resource::<SpriteSheetWatch>().published == 1);
     assert_eq!(app.world().resource::<SpriteSheetWatch>().published, 1, "the changed file was not seen");
     assert_eq!(looks(&app), 2, "one save is one look");

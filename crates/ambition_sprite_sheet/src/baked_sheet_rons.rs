@@ -34,14 +34,14 @@ pub struct SheetGeneration {
     rigs_checked: bool,
     image_paths: std::collections::BTreeMap<String, String>,
     room_themes: crate::game_assets::RoomThemes,
-    warming: std::sync::Once,
     effect_ids: OnceLock<std::collections::HashMap<ambition_vfx::FxId, &'static str>>,
 }
 
 impl SheetGeneration {
-    /// The first table is not checked: a stale or broken publish is named
-    /// where a reader parses it, as before generations existed.
-    fn new(id: u64, texts: SheetTexts) -> Self {
+    /// The empty generation before the first publication.
+    fn empty() -> Self {
+        let id = 0;
+        let texts = SheetTexts::default();
         let (parsed_files, failed, _) = crate::parse_sheet_files(&text_pairs(&texts.sheets), None);
         let registry = crate::SheetRegistry::from_index(crate::index_parsed(&text_pairs(&texts.sheets), &parsed_files, failed));
         let part_tables = crate::baked_part_flipbooks::PartTables::new(texts.part_flipbooks);
@@ -63,7 +63,6 @@ impl SheetGeneration {
             rigs_checked: false,
             image_paths: texts.image_paths,
             room_themes: texts.room_themes,
-            warming: std::sync::Once::new(),
             effect_ids: OnceLock::new(),
         }
     }
@@ -87,12 +86,10 @@ impl SheetGeneration {
             rigs_checked: true,
             image_paths: prepared.texts.image_paths,
             room_themes: prepared.texts.room_themes,
-            warming: std::sync::Once::new(),
             effect_ids: OnceLock::new(),
         }
     }
 
-    pub(crate) fn warm_parts(&self, work: impl FnOnce()) { self.warming.call_once(work); }
 
     pub fn effect_by_id(&self, id: ambition_vfx::FxId) -> Option<&crate::fx::AuthoredEffect> {
         let key = self.effect_ids.get_or_init(|| self.authored_effects().keys()
@@ -196,7 +193,7 @@ impl std::fmt::Debug for SpriteContent {
 impl Default for SpriteContent {
     fn default() -> Self {
         static EMPTY: OnceLock<Arc<SheetGeneration>> = OnceLock::new();
-        Self { generation: EMPTY.get_or_init(|| Arc::new(SheetGeneration::new(0, SheetTexts::default()))).clone() }
+        Self { generation: EMPTY.get_or_init(|| Arc::new(SheetGeneration::empty())).clone() }
     }
 }
 
@@ -299,11 +296,10 @@ impl PreparedSheetTable {
 }
 
 /// Parse and check `texts`. A table with a sheet that does not parse, a body
-/// rig that does not parse or prepare, or a full-resolution part flipbook
-/// that does not decode, is refused, with each such file named: a reader of a
-/// rig or a flipbook panics on one it cannot read. Each flipbook is decoded
-/// and the landmarks are projected here, off the frame; a flipbook whose file
-/// did not change is taken from the current generation.
+/// rig that does not parse or prepare, or a part flipbook at any quality that
+/// does not decode, is refused with each such file named. Each flipbook is
+/// retained and its landmarks are projected before publication. Unchanged
+/// sources reuse their admitted tables.
 pub fn prepare_sheet_table(content: &SpriteContent, mut texts: SheetTexts) -> Result<PreparedSheetTable, SheetTableRefused> {
     texts.sheets.sort_by_key(|row| row.0);
     texts.body_rigs.sort_by_key(|row| row.0);

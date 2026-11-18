@@ -253,12 +253,12 @@ impl ActorConstructionServices {
         let Self { context, boss_catalog } = self;
         let ActorPlacementContext { sprite_content, characters, sheets, prepared, brain_profiles, forced_brains } = context;
         let data = ambition_platformer2d_core::snapshot::canonical::encode(&(
-            "actor-construction-services-v1",
+            "actor-construction-services-v2",
             ambition_sprite_sheet::baked_sheet_rons::current(sprite_content).mechanics_digest(),
-            characters, sheets.deterministic_dump(), prepared.mechanics_digest()?,
+            characters.mechanics_digest()?, sheets.deterministic_dump(), prepared.mechanics_digest()?,
             brain_profiles, forced_brains, boss_catalog,
         ))?;
-        Ok(ambition_platformer2d_core::snapshot::PeerDigest::in_domain("actor-construction-services-v1")
+        Ok(ambition_platformer2d_core::snapshot::PeerDigest::in_domain("actor-construction-services-v2")
             .bytes(&data).finish())
     }
 }

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use bevy::prelude::*;
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
-use bevy::render::render_resource::{TextureFormat, TextureUsages};
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::render::view::Msaa;
 
 use ambition_platformer2d_shared_tangle::camera_layers::{FrontHudCamera, MainCamera};
@@ -105,13 +105,12 @@ pub fn setup_capture_target(
         }
     }
 
-    let mut capture_image = Image::new_target_texture(
-        settings.size.x.max(1),
-        settings.size.y.max(1),
-        TextureFormat::Rgba8UnormSrgb,
-        None,
+    let mut capture_image = Image::new_uninit(
+        Extent3d { width: settings.size.x.max(1), height: settings.size.y.max(1), depth_or_array_layers: 1 },
+        TextureDimension::D2, TextureFormat::Rgba8UnormSrgb, default(),
     );
-    capture_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
+    capture_image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
+        | TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC;
     let image = images.add(capture_image);
     commands.insert_resource(CaptureTarget { image, adopted: 0 });
 }

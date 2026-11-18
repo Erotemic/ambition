@@ -14,7 +14,7 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ImageRenderTarget, RenderTarget, ScalingMode};
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::render::render_resource::TextureFormat;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::sprite_render::AlphaMode2d;
 use std::fmt::Write as _;
 
@@ -1245,12 +1245,12 @@ pub fn sync_portal_view_cones(
             ),
             recursion_depth: effective.recursion_depth,
         };
-        let image = images.add(Image::new_target_texture(
-            rebuild.tex.x,
-            rebuild.tex.y,
-            TextureFormat::Rgba8UnormSrgb,
-            None,
-        ));
+        let mut target = Image::new_uninit(
+            Extent3d { width: rebuild.tex.x, height: rebuild.tex.y, depth_or_array_layers: 1 },
+            TextureDimension::D2, TextureFormat::Rgba8UnormSrgb, default(),
+        );
+        target.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT;
+        let image = images.add(target);
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size, convention);
         // A rig that is built again goes on from the blend it had. A window
         // that is new opens with the ease, from nothing or from its partner.

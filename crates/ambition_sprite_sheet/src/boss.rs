@@ -583,7 +583,13 @@ fn build_boss_pages(content: &crate::SpriteContent,
                 )
             };
             BossSpritePage {
-                texture: crate::game_assets::load_sheet_image(Some(&content), asset_server, "boss-sheet", page_path),
+                // A sheet drawn from its parts publishes no page: the boss is
+                // drawn from the character its spec names (`BossSheetSpec::parts`).
+                texture: if record.drawn_from_parts {
+                    crate::character::NO_BAKED_IMAGE
+                } else {
+                    crate::game_assets::load_sheet_image(Some(&content), asset_server, "boss-sheet", page_path)
+                },
                 layout: layouts.add(build_atlas_layout(
                     &record.atlas_page(page, spec.frame_sample_inset),
                 )),

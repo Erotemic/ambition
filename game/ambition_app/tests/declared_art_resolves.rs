@@ -319,9 +319,27 @@ fn every_catalog_character_names_a_spritesheet_that_exists() {
         .world()
         .get_resource::<CharacterCatalog>()
         .expect("the composed host has an assembled character catalog");
+    let content = app
+        .world()
+        .resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
+    let sheets = ambition_platformer2d::sprite_sheet::shared_baked_sheet_registry(content);
+    // A character drawn from its parts (`SheetRecord::drawn_from_parts`) has no
+    // sheet page: its body is its part flipbook, which must resolve instead.
+    let drawn_from_parts = |sheet: &str| {
+        let (dir, file) = sheet.rsplit_once('/').unwrap_or(("", sheet));
+        let Some(stem) = file.strip_suffix("_spritesheet.png") else { return false };
+        let parts = if dir.is_empty() { format!("{stem}_parts.ron") } else { format!("{dir}/{stem}_parts.ron") };
+        // A record names its page by its content path (`content://<pack>/sprites/...`).
+        let page = format!("/{}", sheet.strip_prefix("game://").unwrap_or(sheet));
+        sheets.iter().any(|(_, record)| record.drawn_from_parts && record.page_image(0).ends_with(&page))
+            && resolves(&parts, &roots)
+    };
     let mut missing: Vec<String> = catalog
         .iter()
-        .filter(|(_, entry)| !resolves(&entry.spritesheet(), &roots))
+        .filter(|(_, entry)| {
+            let sheet = entry.spritesheet();
+            !resolves(&sheet, &roots) && !drawn_from_parts(&sheet)
+        })
         .map(|(id, _)| id.clone())
         .collect();
     missing.sort();

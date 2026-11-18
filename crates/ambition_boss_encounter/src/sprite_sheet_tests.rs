@@ -182,6 +182,7 @@ fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet
         tuning: None,
         authored_faces_left: false,
         column_tile: None,
+        drawn_from_parts: false,
         fx: None,
         rows,
     }

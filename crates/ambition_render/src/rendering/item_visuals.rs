@@ -314,10 +314,12 @@ pub fn sync_ground_item_visuals(
             ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, GROUND_ITEM_Z);
         // A lit fuse swells the item on each flash.
         let flash = ground.fuse_left_s.map_or(0.0, fuse_flash);
+        // A hanging item grows on its stem and shakes before it drops.
+        let (ripe_scale, sway) = ground.hanging.as_ref().map_or((1.0, 0.0), hanging_pose);
         let transform = Transform::from_translation(translation)
-            .with_rotation(Quat::from_rotation_z(ground.material.render_angle()))
+            .with_rotation(Quat::from_rotation_z(ground.material.render_angle() + sway))
             .with_scale(Vec3::new(if ground.material.reflected() { -1.0 } else { 1.0 }, 1.0, 1.0)
-                * (ground.material.scale() * (1.0 + FUSE_FLASH_SWELL * flash)));
+                * (ground.material.scale() * ripe_scale * (1.0 + FUSE_FLASH_SWELL * flash)));
         wanted.push((ground, room, transform, false));
     }
     for (entity, link, drawn, mut transform, mut sprite) in &mut visuals {
@@ -413,6 +415,31 @@ pub fn fuse_flash(left_s: f32) -> f32 {
     let cycles = slow * burned + (fast - slow) * burned * burned / (2.0 * FUSE_FLASH_SPAN_S);
     // A short lit pulse at the start of each cycle.
     if cycles.fract() < 0.4 { 1.0 } else { 0.0 }
+}
+
+/// The part of its wait a hanging item spends growing to its full size.
+const RIPEN_GROW_SHARE: f32 = 0.35;
+/// The size a hanging item is drawn at when it has just grown.
+const RIPEN_START_SCALE: f32 = 0.35;
+/// The seconds before it drops that a hanging item shakes on its stem, and
+/// how far it swings then (radians).
+const RIPEN_SHAKE_S: f32 = 0.8;
+const RIPEN_SHAKE_SWING: f32 = 0.22;
+
+/// How a hanging item is drawn: its scale and its swing (radians). It grows
+/// from a bud over the first part of its wait, hangs full, and shakes harder
+/// and harder in the last moment before it drops.
+pub fn hanging_pose(hanging: &ambition_sim_view::HangingFact) -> (f32, f32) {
+    let grown = (hanging.ripeness / RIPEN_GROW_SHARE).clamp(0.0, 1.0);
+    let eased = grown * grown * (3.0 - 2.0 * grown);
+    let scale = RIPEN_START_SCALE + (1.0 - RIPEN_START_SCALE) * eased;
+    let left = hanging.seconds_left;
+    let sway = if left < RIPEN_SHAKE_S {
+        (left * 28.0).sin() * RIPEN_SHAKE_SWING * (1.0 - left / RIPEN_SHAKE_S)
+    } else {
+        0.0
+    };
+    (scale, sway)
 }
 
 /// The colour of a ground item's sprite: its own, tinted while a fuse flash
@@ -1157,6 +1184,7 @@ mod tests {
             room: Some(LiveRoomInstance::ACTIVATION),
             material: Default::default(),
             fuse_left_s: None,
+            hanging: None,
         };
         app.insert_resource(GroundItemsView(vec![row(100.0)]));
         app.add_systems(Update, sync_ground_item_visuals);

@@ -19,6 +19,9 @@
     // The coconut (renderer target `coconut`): a thing to throw, and what the
     // African swallow carries.
     "coconut": (path: "sprites/props/coconut.png", size: (18.0, 15.0)),
+    // An apple (renderer target `orchard_apple`): what the gravity works'
+    // orchard trees grow, and drop the way their fields pull.
+    "apple": (path: "sprites/props/orchard_apple.png", size: (14.0, 16.0)),
     // The seam gauge (renderer target `seam_gauge`): a plate of a measured
     // grid the seam lab throws through portals.
     "seam_gauge": (path: "sprites/props/seam_gauge.png", size: (40.0, 40.0)),

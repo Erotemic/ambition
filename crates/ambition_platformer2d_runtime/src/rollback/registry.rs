@@ -305,7 +305,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 483 -> 484: contact policy, hitlag SDI, and launch tech policy rewind with bodies and shots.
 // 484 -> 485: `AbilitySet` encodes `blink_slow`, the aim's time slow a worn
 // row can withhold (Precision Blink's level 2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 485;
+// 485 -> 486: `HangingItem`, the countdown an apple hangs on its tree before it
+// drops, rewinds with the item.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 486;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

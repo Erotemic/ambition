@@ -78,6 +78,8 @@ fn room_with_two_typos() -> RoomSpec {
 
     room.ground_items.push(GroundItemSpec {
         regrow_seconds: None,
+        regrow_limit: None,
+        hang_seconds: None,
         id: "pickup_a".to_owned(),
         name: "Milk".to_owned(),
         held_item: "gun_sword".to_owned(),
@@ -86,6 +88,8 @@ fn room_with_two_typos() -> RoomSpec {
     });
     room.ground_items.push(GroundItemSpec {
         regrow_seconds: None,
+        regrow_limit: None,
+        hang_seconds: None,
         id: "pickup_b".to_owned(),
         name: "Axe".to_owned(),
         held_item: "battleaxe".to_owned(),

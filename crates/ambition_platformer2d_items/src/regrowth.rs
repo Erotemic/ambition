@@ -94,6 +94,11 @@ pub fn regrow_pickups(
 /// live again, if the wait is over. The grown item is a runtime mint
 /// ([`crate::loot::grow_ground_item`]); a placement holds at most one item, so
 /// a taken item that is brought back fills it again and nothing grows.
+///
+/// A placement with a `regrow_limit` is full, too, while that many of the
+/// items it grew lie loose in its room: a tree's apple falls away from the
+/// crown it grew in, and without the limit the tree would drop apples for as
+/// long as the room was live.
 #[allow(clippy::too_many_arguments)]
 pub fn regrow_ground_items(
     elapsed: SessionWorldRef<GameplayElapsed>,
@@ -127,11 +132,22 @@ pub fn regrow_ground_items(
             // Within the placement's own box, doubled: an item put back
             // roughly where it grew fills it.
             let reach = spec.half_extent.max_element().max(8.0) * 2.0;
+            let placement = ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&spec.id);
             let held = items.iter().any(|(entity, item, custody, body, _)| {
                 custody.in_world()
                     && item.spec.id == spec.held_item
                     && rooms.live().of(entity) == Some(live)
                     && body.pos.distance(spec.pos) <= reach
+            }) || spec.regrow_limit.is_some_and(|limit| {
+                let grown = items
+                    .iter()
+                    .filter(|(entity, _, custody, _, sim_id)| {
+                        custody.in_world()
+                            && rooms.live().of(*entity) == Some(live)
+                            && sim_id.is_some_and(|id| id.is_regrown_from(&placement))
+                    })
+                    .count();
+                grown >= limit as usize
             });
             if held {
                 if schedule.holds(&room.id, &key) {
@@ -154,7 +170,6 @@ pub fn regrow_ground_items(
                     let Some(held_spec) = ambition_characters::brain::held_item_by_id(&spec.held_item) else {
                         continue;
                     };
-                    let placement = ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&spec.id);
                     // The lowest generation nothing remembers and nothing
                     // carries: derived from rollback state, so a rewind that
                     // takes a grown item back hands its id out again.
@@ -175,6 +190,7 @@ pub fn regrow_ground_items(
                         held_spec,
                         spec.pos,
                         spec.half_extent,
+                        spec.hang_seconds,
                         &format!("Ground item: {}", spec.name),
                     );
                     schedule.forget_from(written, &room.id, &key);

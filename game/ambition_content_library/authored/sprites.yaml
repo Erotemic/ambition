@@ -83,6 +83,7 @@ collections:
   - pirate_heavy_axe
   - throwing_javelin
   - coconut
+  - orchard_apple
   - seam_gauge
   - creator_case
   - evil_chain_gun
@@ -1373,6 +1374,7 @@ static_props:
   throwing_javelin: javelin
   evil_chain_gun: evil_chain_gun
   coconut: coconut
+  orchard_apple: orchard_apple
   seam_gauge: seam_gauge
   creator_case: creator_case
   pool_noodle: pool_noodle

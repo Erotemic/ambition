@@ -101,6 +101,20 @@ pub struct GroundItemSpec {
     /// from here.
     #[serde(default)]
     pub regrow_seconds: Option<f32>,
+    /// How many of the items this placement grew may lie loose in its room at
+    /// once. A placement whose item falls away from it (an apple off a tree)
+    /// is empty again as soon as the item drops, so it would grow without
+    /// end: with a limit, it grows no more while that many of its own lie in
+    /// the room, and again once one is taken or carried off. `None` is no
+    /// limit (a palm's coconut stays where it grew, so its placement is full
+    /// while it is there).
+    #[serde(default)]
+    pub regrow_limit: Option<u32>,
+    /// Seconds the item hangs where it is placed before it drops, as an apple
+    /// hangs on its tree until it ripens (`HangingItem`): the placed item and
+    /// each one the placement grows again. `None` puts it down at rest.
+    #[serde(default)]
+    pub hang_seconds: Option<f32>,
 }
 
 /// Portal channel color, re-exported here to keep the room-spec API stable.

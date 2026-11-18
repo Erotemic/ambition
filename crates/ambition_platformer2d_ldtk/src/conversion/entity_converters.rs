@@ -585,6 +585,8 @@ pub(super) fn convert_ground_item(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             pos: min + size * 0.5,
             half_extent: size * 0.5,
             regrow_seconds: field_f32(entity, "regrow_seconds").filter(|seconds| *seconds > 0.0),
+            regrow_limit: field_i32(entity, "regrow_limit").filter(|limit| *limit > 0).map(|limit| limit as u32),
+            hang_seconds: field_f32(entity, "hang_seconds").filter(|seconds| *seconds > 0.0),
         },
     ))
 }
@@ -602,6 +604,8 @@ pub(super) fn convert_portal_gun_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEm
     Ok(RoomEmission::ground_item(
         ambition_platformer2d_world::rooms::GroundItemSpec {
             regrow_seconds: None,
+            regrow_limit: None,
+            hang_seconds: None,
             id,
             name,
             held_item: "portal_gun".to_string(),

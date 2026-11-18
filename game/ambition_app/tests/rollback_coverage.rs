@@ -1049,6 +1049,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the room-write retractors (ISL-2d), registered when the app is built and only read when a room rewinds: composition, not simulation state; the records they retract are each registered with their own store",
     ),
     (
+        "ambition_platformer2d_shared_tangle::lifecycle::room_writes::RoomReplayRefusals",
+        "the states in which no room may replay alone, registered when the app is built and only read when a late input arrives: composition, not simulation state; each refusal reads state that its own store rewinds",
+    ),
+    (
         "ambition_demo_smash::autoplay::SmashAutoplayDriver",
         "host profiling controller: Update selects the roster, requests a shell route and checks the capture premise; replay uses the admitted session and committed inputs without this controller. Restoring its stage would repeat a host request",
     ),

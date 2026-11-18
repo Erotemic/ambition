@@ -368,7 +368,8 @@ pub fn drop_held_weapon(
 /// It is a runtime mint for the same reason a dropped weapon is: no record
 /// authors it, so the occurrence ledger admits it where it lies, and its
 /// identity (`SimId::regrown`) is what every durable road keys on. It is at
-/// rest where it grew, as the authored item it replaces was.
+/// rest where it grew, as the authored item it replaces was, and hangs there
+/// `hang_seconds` first when its placement says so (an apple on its tree).
 #[allow(clippy::too_many_arguments)]
 pub fn grow_ground_item(
     commands: &mut Commands,
@@ -378,9 +379,10 @@ pub fn grow_ground_item(
     spec: ambition_characters::brain::HeldItemSpec,
     pos: ae::Vec2,
     half_extent: ae::Vec2,
+    hang_seconds: Option<f32>,
     name: &str,
 ) -> bevy::prelude::Entity {
-    spawn_death_drop(
+    let grown = spawn_death_drop(
         commands,
         session_scope,
         placement,
@@ -391,7 +393,11 @@ pub fn grow_ground_item(
             ambition_held_items::SettledItem::default(),
             bevy::prelude::Name::new(name.to_string()),
         ),
-    )
+    );
+    if let Some(seconds) = hang_seconds {
+        commands.entity(grown).insert(ambition_held_items::HangingItem::for_seconds(seconds));
+    }
+    grown
 }
 
 #[cfg(test)]

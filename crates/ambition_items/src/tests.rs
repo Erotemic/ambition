@@ -173,18 +173,19 @@ fn a_held_bomb_stacks_to_its_row_and_a_held_axe_stays_unique() {
 }
 
 /// Precision Blink's levels (ABILITY-VARIANTS 3): level 1 is the quick blink
-/// and withholds the aimed one, level 2 is the robot's whole blink. The demo
-/// bag starts at the top level, and its count is a level, not a stock the
-/// menu counts.
+/// and withholds the aimed one, level 2 aims without the aim's time slow,
+/// level 3 is the robot's whole blink. The demo bag starts at the top level,
+/// and its count is a level, not a stock the menu counts.
 #[test]
-fn precision_blink_has_two_levels_and_the_demo_starts_at_the_top() {
+fn precision_blink_has_three_levels_and_the_demo_starts_at_the_top() {
     let catalog = shipped();
     let withheld = |count| catalog.wears_at(Item::PrecisionBlink, count).map(|row| row.withholds.clone());
     assert_eq!(withheld(1), Some(vec!["precision_blink".to_string()]));
-    assert_eq!(withheld(2), Some(Vec::new()));
-    assert_eq!(catalog.stack(Item::PrecisionBlink), Some(2));
+    assert_eq!(withheld(2), Some(vec!["blink_slow".to_string()]));
+    assert_eq!(withheld(3), Some(Vec::new()));
+    assert_eq!(catalog.stack(Item::PrecisionBlink), Some(3));
     assert!(!catalog.stacks(Item::PrecisionBlink), "a level is not a stock");
-    assert_eq!(OwnedItems::starter(catalog).count(Item::PrecisionBlink), 2);
+    assert_eq!(OwnedItems::starter(catalog).count(Item::PrecisionBlink), 3);
 }
 
 /// A save written with more than a stack holds comes back at the stack.

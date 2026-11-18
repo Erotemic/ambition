@@ -30,7 +30,11 @@ use ambition_time::{ClockDomain, ClockObserver, ClockState};
 /// `docs/planning/engine/island-rollback-and-compact-peer-input.md`).
 pub fn emit_primary_observer_time_intent(
     drivers: Query<(Entity, &DrivingParticipant)>,
-    bodies: Query<(&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat)>,
+    bodies: Query<(
+        &ambition_platformer2d_core::BodyMotionFacts,
+        &BodyCombat,
+        Option<&ambition_platformer2d_core::BodyAbilities>,
+    )>,
     feel: Res<Platformer2dFeelTuningMonolith>,
     // The match hold is independent of the local observer.
     impact: Option<Res<ambition_combat::impact_hitstop::ImpactHitstop>>,
@@ -87,7 +91,7 @@ pub fn emit_primary_observer_time_intent(
     );
     let observed = observed_body.and_then(|body| bodies.get(body).ok());
     // No unique observed body means no retained body may hold the world clock.
-    let Some((facts, combat)) = observed else {
+    let Some((facts, combat, abilities)) = observed else {
         // Nor any room's: every room eases home.
         ease_room_clocks(&mut roots, &mut commands, None, seed, &feel, wall_dt);
         writer.write(ClockScaleRequest {
@@ -101,11 +105,18 @@ pub fn emit_primary_observer_time_intent(
     let (scale, requester, reason) = if one_room && combat.hitstop_timer > 0.0 {
         (0.0, ClockRequester::Engine, "hitstop")
     } else if facts.blink_aiming {
-        (
-            feel.bullet_time_scale,
-            ClockRequester::Player(ClockObserver::PRIMARY),
-            "bullet_blink",
-        )
+        // The aim slows the world only with the `blink_slow` verb, which a
+        // worn row can withhold (Precision Blink's level 2 aims at full
+        // speed). A body with no ability set keeps the slow it always had.
+        if abilities.is_some_and(|abilities| !abilities.abilities.blink_slow) {
+            (1.0, ClockRequester::Engine, "default")
+        } else {
+            (
+                feel.bullet_time_scale,
+                ClockRequester::Player(ClockObserver::PRIMARY),
+                "bullet_blink",
+            )
+        }
     } else if facts.blink_telegraph {
         // The aiming arm above claimed precision aim, so a telegraph here is
         // the charge HOLD specifically.

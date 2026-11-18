@@ -303,7 +303,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // back (`resource.switch_presses_in_rooms`).
 // 482 -> 483: cutscene playback retains its selected game skip timing.
 // 483 -> 484: contact policy, hitlag SDI, and launch tech policy rewind with bodies and shots.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 484;
+// 484 -> 485: `AbilitySet` encodes `blink_slow`, the aim's time slow a worn
+// row can withhold (Precision Blink's level 2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 485;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -1,7 +1,7 @@
 #![cfg(feature = "rl_sim")]
 //! STORY SEQUENCES SS1 + SS2, in level 1's raid: when two raiders have
 //! fallen, a cutscene that starts on that condition (`starts_when:
-//! actor.fallen_is npc_lab_raider 2`) opens the yard gate, sends the last raider out through
+//! actor.fallen_in npc_lab_raider 2 intro_wake_room`) opens the yard gate, sends the last raider out through
 //! the lane edge with the case (`actor.leave_through`), and waits until he is
 //! gone (`WaitFor actor.gone`). His going wins the raid. All of it is content
 //! (`data/cutscenes/intro.ron`); the player fights with its own inputs.

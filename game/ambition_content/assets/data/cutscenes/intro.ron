@@ -77,7 +77,7 @@
     // restores his normal pose before his last words.
     (
         id: "intro_raider_runs_with_the_case",
-        starts_when: Some("actor.fallen_is npc_lab_raider 2"),
+        starts_when: Some("actor.fallen_in npc_lab_raider 2 intro_wake_room"),
         beats: [
             SetFlag(
                 id: "intro_case_taken",

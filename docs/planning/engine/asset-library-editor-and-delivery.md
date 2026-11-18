@@ -1,8 +1,8 @@
 # Asset library, editor and content delivery
 
 **State:** selected slices, 2026-10-31. The live queue owns execution:
-[ASSET-SELECTION](../queue.md#asset-selection--one-selected-file-contract-for-runtime-and-tools),
-[ASSET-PUBLISH](../queue.md#asset-publish--selection-does-not-audit-old-bundle-payloads),
+[ASSET-SELECTION](../queue.md#asset-selection--one-selected-file-contract-for-runtime-and-tools---done-2026-11-17),
+[ASSET-PUBLISH](../queue.md#asset-publish--selection-does-not-audit-old-bundle-payloads---done-2026-11-17),
 and [ASSET-PREVIEW](../queue.md#asset-preview--local-composition-and-release-audit-are-separate-operations).
 The other slices retain their promotion triggers.
 **Source review:** superproject `5ec96e4e3152` (2026-10-31).

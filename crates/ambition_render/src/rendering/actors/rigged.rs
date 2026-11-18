@@ -106,7 +106,7 @@ mod readiness;
 
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
-use bevy::render::render_resource::{AsBindGroup, TextureFormat};
+use bevy::render::render_resource::{AsBindGroup, Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::shader::ShaderRef;
 use bevy::sprite::Anchor;
 use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
@@ -896,7 +896,15 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     let side = cells as f32 * cell;
     let texels = UVec2::splat(side as u32);
     let images = assets.images.as_deref_mut().expect("checked by the binder");
-    let mut target = |format| images.add(Image::new_target_texture(texels.x, texels.y, format, None));
+    let mut target = |format| {
+        // The cameras supply the pixels. No blank CPU image needs an upload.
+        let mut image = Image::new_uninit(
+            Extent3d { width: texels.x, height: texels.y, depth_or_array_layers: 1 },
+            TextureDimension::D2, format, default(),
+        );
+        image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT;
+        images.add(image)
+    };
     // The parts blend as the world blends them drawn directly
     // (`impostor_compositing`: linear light) into an sRGB target; the
     // un-premultiplying pass divides in the space they were blended in (with

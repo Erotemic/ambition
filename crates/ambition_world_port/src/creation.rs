@@ -29,6 +29,7 @@ pub struct ActorNode {
     pub half_extents: [f32; 2],
     pub allegiance: SpawnAllegiance,
     pub face_left: bool,
+    pub starting_wallet: Option<i32>,
     pub holds: Vec<String>,
     pub state: Vec<ActorStateSeed>,
 }
@@ -56,6 +57,8 @@ ambition_extension_sdk::port_record! {
         half_extents: [f32; 2] = [16.0, 24.0],
         allegiance: SpawnAllegiance = SpawnAllegiance::Inherit,
         face_left: bool = false,
+        /// Initial wallet balance for this occurrence. Absent uses the character.
+        starting_wallet: Option<i32> = None,
         /// Status selectors held from birth, through the native status owner.
         holds: Vec<String> = Vec::new(),
         state: Vec<ActorStateSeed> = Vec::new(),
@@ -74,7 +77,7 @@ ambition_extension_sdk::port_record! {
 }
 pub struct CreateActorsPort;
 impl Port for CreateActorsPort {
-    const KEY: PortKey = PortKey::new("ambition.world.create_actors", 1);
+    const KEY: PortKey = PortKey::new("ambition.world.create_actors", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = CreateActors;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) { ambition_extension_sdk::structure::put(value, out); }

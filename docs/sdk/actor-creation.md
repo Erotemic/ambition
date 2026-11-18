@@ -15,7 +15,7 @@ scripts do not build its collision or limb rig themselves.
 ```rhai
 fn sentry(key, at, period) {
     #{key: key, character: "practice_sandbag", at: at,
-      allegiance: "neutral", holds: ["my_game.sentry"],
+      allegiance: "neutral", starting_wallet: 3, holds: ["my_game.sentry"],
       state: [#{schema: "sentry.memory", value: #{
           title: key, elapsed: 0.0, period: period, shots: 0
       }}]}
@@ -53,6 +53,34 @@ Creation runs when the native request adapter consumes the invocation. The
 result names completed construction, not a promise to build later. Callbacks
 arrive at the next eligible actor read cut. A source entry or recipient that
 retires cannot receive a callback in a replacement lifetime.
+
+## Wallet capability at birth
+
+`starting_wallet` is an optional signed 32-bit balance on each actor node.
+An integer creates or overrides that body's wallet. Zero creates an empty
+wallet. A negative balance starts in debt, using the native wallet rules.
+Omitting the field, or using `()`, keeps the character's authored birth state.
+It does not copy the creator's money.
+
+A character catalog row can supply `starting_wallet: Some(7)`. A registered
+`CharacterDefinition::with_starting_wallet(7)` overrides the catalog row. The
+creation request overrides either source for that occurrence. If no source
+supplies a balance, construction adds no wallet; any host-provided wallet
+remains intact. These rules do not depend on the controller or faction.
+
+The shared native body applier distinguishes construction from replacement.
+Construction applies the starting balance once. Live character changes and
+catalog reloads preserve the body's current balance and wallet presence.
+Changing a costume cannot refill money or create a wallet on an existing body.
+
+The wallet is complete before the child's behavior runs or construction is
+reported as applied. It can fund [inventory exchanges](inventory-exchanges.md)
+and [contact consumption](contact-consumption.md). Actor creation, its balance,
+and later exchanges rewind through the existing native snapshot path. Existing
+session restore policies still own saved balances. This does not add durable
+NPC wallets or durable dynamic actors.
+
+The portable request is `ambition.world.create_actors@2`.
 
 ## Placement, allegiance and relations
 

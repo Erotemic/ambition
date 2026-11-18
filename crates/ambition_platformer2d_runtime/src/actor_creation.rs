@@ -39,7 +39,8 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
             let actors = request.actors.iter().map(|actor| RuntimeActor {
                 key: actor.key.clone(), character: actor.character.clone(),
                 aabb: ambition_platformer2d_core::Aabb::new(actor.at.into(), actor.half_extents.into()),
-                faction: faction(actor.allegiance, inherit), face_left: actor.face_left, holds: actor.holds.clone(),
+                faction: faction(actor.allegiance, inherit), face_left: actor.face_left,
+                starting_wallet: actor.starting_wallet, holds: actor.holds.clone(),
             }).collect::<Vec<_>>();
             let links = request.links.iter().map(|link| RuntimeLink {
                 from: link.from.clone(), to: link.to.clone(), relation: match link.kind {

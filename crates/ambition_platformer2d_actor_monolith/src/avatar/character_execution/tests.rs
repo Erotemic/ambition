@@ -2475,6 +2475,7 @@ fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
     let granted = prepared.clone();
     app.add_systems(bevy::app::Update, move |mut commands: Commands| {
         ambition_platformer2d_actor_spawn::grant_prepared_character_body(&sprite_content,
+                ambition_body_seed::BaselineBoundary::Construction,
             &mut ambition_platformer2d_shared_tangle::construction::EntityScope::new(
                 &mut commands,
                 body,

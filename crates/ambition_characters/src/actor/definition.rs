@@ -194,6 +194,9 @@ pub struct CharacterDefinition {
     /// ([`BodyWalletShield`](crate::actor::BodyWalletShield)) where its game's
     /// rules allow it: Sanic's rings. OR-ed with the catalog row's.
     pub wallet_shield: bool,
+    /// Optional wallet balance at birth. Replacement preserves the live wallet.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub starting_wallet: Option<i32>,
     /// Weapon carried by this character.
     /// Held items do not grant verbs; [`Self::action_set`] states what the body can do.
     pub held_item: Option<String>,
@@ -258,6 +261,7 @@ impl CharacterDefinition {
             practice_target: false,
             empowered: crate::actor::Empowerment::none(),
             wallet_shield: false,
+            starting_wallet: None,
             held_item: None,
             mount: None,
             hands: None,
@@ -372,6 +376,11 @@ impl CharacterDefinition {
         self
     }
 
+    pub fn with_starting_wallet(mut self, balance: i32) -> Self {
+        self.starting_wallet = Some(balance);
+        self
+    }
+
     pub fn with_moveset(mut self, moveset: MovesetContract) -> Self {
         self.moveset = Some(moveset);
         self
@@ -482,6 +491,7 @@ mod authority_tests {
             practice_target: _,
             empowered: _,
             wallet_shield: _,
+            starting_wallet: _,
             ranged_execution: _,
 
             // ── DEFAULT CONTROLLER (3) — see the  above ────────────────────

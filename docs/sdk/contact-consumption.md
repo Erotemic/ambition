@@ -39,9 +39,9 @@ retain the original contact index solely to repeat that same request.
 [inventory exchange](inventory-exchanges.md) semantics. Controlled and
 autonomous callers use the same service. The inventory bag is shared; the
 wallet belongs to the caller. Currency terms require a native `BodyWallet`
-capability. The fixture installs that optional capability on its NPC. Current
-character creation does not expose wallet configuration to scripts. Item-only
-terms do not require a wallet.
+capability. [Actor creation](actor-creation.md#wallet-capability-at-birth) can
+initialize that capability from character data or `starting_wallet` on the
+request. Item-only terms do not require a wallet.
 
 ## Contact and object authority
 

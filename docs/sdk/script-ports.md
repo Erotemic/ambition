@@ -416,12 +416,12 @@ Port `ambition.actions.cancel@1`, request: `this.requests.push(request("<alias>"
 
 ## `create_actors`
 
-Port `ambition.world.create_actors@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.world.create_actors@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `reply` | { request: integer (u32), selector: text } | required | Report completed construction or refusal to this entry. |
-| `actors` | list of { key: text, character: text, at: [x, y], half_extents: [x, y], allegiance: one of: inherit \| player \| enemy \| npc \| boss \| neutral, face_left: bool, holds: list of text, state: list of { schema: text, value: schema-selected data } } | required | Build these roots and each character's required internal cluster. |
+| `actors` | list of { key: text, character: text, at: [x, y], half_extents: [x, y], allegiance: one of: inherit \| player \| enemy \| npc \| boss \| neutral, face_left: bool, starting_wallet: integer (i32) or (), holds: list of text, state: list of { schema: text, value: schema-selected data } } | required | Build these roots and each character's required internal cluster. |
 | `links` | list of { from: text, to: text, kind: one of: grudge \| mount } | `[]` | Native relations between actor keys in this batch. |
 
 ## `action_result`

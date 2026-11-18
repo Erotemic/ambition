@@ -76,6 +76,8 @@ struct PreparedCharacterOverrides {
     empowered: crate::actor::Empowerment,
     /// See [`CharacterDefinition::wallet_shield`]. OR-ed with the catalog row's.
     wallet_shield: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    starting_wallet: Option<i32>,
     /// See [`CharacterDefinition::held_item`]. FOLDED with the catalog row's.
     held_item: Option<String>,
     /// See [`CharacterDefinition::dream_seed`]. FOLDED with the catalog row's.
@@ -1253,6 +1255,9 @@ pub struct PreparedCharacterDefinition {
     pub empowered: crate::actor::Empowerment,
     /// See [`CharacterDefinition::wallet_shield`]. OR-ed with the catalog row's.
     pub wallet_shield: bool,
+    /// Optional wallet balance at birth. It is not a replacement grant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub starting_wallet: Option<i32>,
     /// See [`CharacterDefinition::held_item`].
     pub held_item: Option<String>,
     /// Deep-dream visual jitter seed. See
@@ -1832,6 +1837,7 @@ fn prepare_character(
         practice_target: definition.practice_target,
         empowered: definition.empowered,
         wallet_shield: definition.wallet_shield,
+        starting_wallet: definition.starting_wallet,
         held_item: definition.held_item.clone(),
         dream_seed: definition.dream_seed,
         preserves_mirror_symmetry: definition.preserves_mirror_symmetry,
@@ -1942,6 +1948,7 @@ fn finalize_character(
         practice_target,
         empowered,
         wallet_shield,
+        starting_wallet,
         ranged_vfx,
         ranged_execution,
         provoked_profile_ref,
@@ -2052,6 +2059,7 @@ fn finalize_character(
     // A trait that either the row or a registered definition can state.
     let practice_target = practice_target || catalog_row.is_some_and(|row| row.practice_target);
     let empowered = catalog_row.map_or(empowered, |row| empowered.with(row.empowered));
+    let starting_wallet = starting_wallet.or_else(|| catalog_row.and_then(|row| row.starting_wallet));
     let wallet_shield = wallet_shield || catalog_row.is_some_and(|row| row.wallet_shield);
     let preserves_mirror_symmetry =
         preserves_mirror_symmetry || catalog_row.is_some_and(|row| row.preserves_mirror_symmetry);
@@ -2161,6 +2169,7 @@ fn finalize_character(
         practice_target,
         empowered,
         wallet_shield,
+        starting_wallet,
         held_item,
         dream_seed,
         preserves_mirror_symmetry,

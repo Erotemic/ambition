@@ -17,6 +17,7 @@ pub struct RuntimeActor {
     pub aabb: ae::Aabb,
     pub faction: ActorFaction,
     pub face_left: bool,
+    pub starting_wallet: Option<i32>,
     pub holds: Vec<String>,
 }
 
@@ -135,6 +136,9 @@ pub fn create_actors(world: &mut World, caller: Entity, actors: &[RuntimeActor],
     let created = actors.iter().map(|actor| {
         let id = ids[actor.key.as_str()].clone();
         let entity = receipt.entity(&id).expect("the complete plan committed its root");
+        if let Some(balance) = actor.starting_wallet {
+            world.entity_mut(entity).insert(ambition_characters::actor::BodyWallet { balance });
+        }
         if !actor.holds.is_empty() {
             let mut holds = actor.holds.clone(); holds.sort(); holds.dedup();
             world.entity_mut(entity).insert(ambition_combat::extension::status::BodyStatuses(holds));

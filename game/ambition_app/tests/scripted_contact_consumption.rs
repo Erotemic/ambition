@@ -142,9 +142,10 @@ fn setup(sim: &mut Platformer2dSimHarness) -> [Entity; 2] {
     let child = extension::create_actors(world, player, &[extension::RuntimeActor {
         key: "customer".into(), character: "practice_sandbag".into(),
         aabb: ae::Aabb::new(ae::Vec2::new(700.0, 500.0), ae::Vec2::new(12.0, 16.0)),
-        faction: ActorFaction::Neutral, face_left: false, holds: Vec::new(),
+        faction: ActorFaction::Neutral, face_left: false, starting_wallet: Some(0), holds: Vec::new(),
     }], &[], Default::default()).unwrap().remove(0).entity;
-    for entity in [player, child] { world.entity_mut(entity).insert(BodyWallet {balance: 0}); }
+    world.get_mut::<BodyWallet>(player).unwrap().balance = 0;
+    assert_eq!(world.get::<BodyWallet>(child).unwrap().balance, 0);
     [player, child]
 }
 

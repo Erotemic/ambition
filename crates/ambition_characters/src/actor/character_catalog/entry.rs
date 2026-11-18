@@ -845,6 +845,9 @@ pub struct CharacterCatalogEntry {
     /// definition can state it.
     #[serde(default)]
     pub wallet_shield: bool,
+    /// Optional wallet balance at birth. Some(0) creates an empty wallet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub starting_wallet: Option<i32>,
     /// Autonomous twins of this character share one cognitive stream. See
     /// `CharacterDefinition::preserves_mirror_symmetry`. Either the row or a
     /// registered definition can state it.

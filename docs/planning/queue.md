@@ -514,10 +514,13 @@ the Smoking Mountain east of the canopy, the tar pits under the ridge east
 of the fossil beds with a seep back up: an underground loop with no portal
 ([JL-1](game/world-layers-and-travel.md#jl-1--jungle-geometry-and-walking-loops-done-2026-11-14)).
 
-**Next action:** the Jungle's arches (JL-2) wait for an arch prop: the
-288 px gate ring would be drawn through the branch platforms of every
-Jungle room an arch belongs in
-([JL-2](game/world-layers-and-travel.md#jl-2--jungle-arch-travel-waits-for-an-arch-prop)).
+**Jungle's arches done 2026-11-18 (JL-2):** the `jungle_arch` prop, a
+door-sized stone arch; GIANTS (trailhead), TALLEST (treetops), LIANAS
+(canopy) and DIGSITE (tar pits), a chain at reach 6400
+([JL-2](game/world-layers-and-travel.md#jl-2--jungle-arch-travel-done-2026-11-18)).
+
+**Next action:** Magical's arches still wear the round gate ring; give them
+their own dressing of the arch assembly (MG-2's "Left").
 Then recheck the old room-detail counts and Art's remaining publication. Reuse the existing portal and
 gate machinery. Keep authored rooms editable in LDtk. Recheck old room-detail
 counts before selecting missing props, secrets or region links. Then recheck

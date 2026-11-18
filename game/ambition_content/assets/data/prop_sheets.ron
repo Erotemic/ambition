@@ -622,6 +622,11 @@
     "triangle_gate_ring": (sheet: Some("triangle_gate_ring"), frame_sample_inset: 2),
     "triangle_gate_portal": (sheet: Some("triangle_gate_portal"), frame_sample_inset: 2),
     "triangle_gate_glyphs": (sheet: Some("triangle_gate_glyphs"), frame_sample_inset: 2),
+    // The Jungle's portal arch (`targets/props/jungle_arch.py`): a travel
+    // portal at a door's size, the gate's wormhole clipped to its opening. A
+    // portal lights no address, so it has no glyph sheet.
+    "jungle_arch_ring": (sheet: Some("jungle_arch_ring"), frame_sample_inset: 2),
+    "jungle_arch_portal": (sheet: Some("jungle_arch_portal"), frame_sample_inset: 2),
     // The Pirate Port's scenery (`targets/props/pirate_port_props.py`): each
     // piece is drawn in its room's coordinates, over the room's walk lines.
     // The clerk's page is the pickup of the port's problem: drawn a little

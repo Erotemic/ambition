@@ -4,7 +4,8 @@
 [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions).
 Travel portal mechanics are built (`c818c0801`); Magical's sky and arches
 are authored (MG-1, MG-2, 2026-11-14); the Jungle is folded (JL-1) and
-waits for its arches (JL-2). Their counts and bounds were rechecked on 2026-10-31.
+its arches are authored (JL-2, 2026-11-18). Their counts and bounds were
+rechecked on 2026-10-31.
 
 Still binding: dense interconnected regions with loops, shortcuts and
 secrets (`world-composition.md`); side exits join the world and doors enter
@@ -85,7 +86,8 @@ A layer is not a corridor. The rules:
 Portal kinds, same-dimension reach checks, attunement and shared gate transit
 already ship (`ambition_platformer2d_world::rooms::gate_network`). The
 Ambition catalog `game/ambition_content/assets/data/gate_network.ron`
-holds Magical's three arches (MG-2), its first `kind: Portal` rings. Add **authored regions and arch
+holds Magical's three arches (MG-2), its first `kind: Portal` rings, and
+the Jungle's four (JL-2). Add **authored regions and arch
 routes**, not another travel engine. Take one packet per change, in order;
 delete each packet when its acceptance passes.
 
@@ -118,30 +120,34 @@ vine has a one-way branch half way up, nearer its top than the chest shelf. `che
 0 findings. The tar pits' origin (30008, 512) is off the 16 px grid, as
 the fossil beds' and the amber vault's already were (a validator warning).
 
-### JL-2 — Jungle arch travel (waits for an arch prop)
+### JL-2 — Jungle arch travel (done 2026-11-18)
 
-**Held 2026-11-14:** the only ring art is the 288 px gate ring. Magical's
-open rooms took it (MG-2); the Jungle's do not: the trailhead's east end,
-the treetops and the canopy carry one-way branches and a chest shelf
-through the 288 px band over the floor wherever a surface arch would stand,
-so each ring would be drawn through a platform. A planned set that fits the
-reach rule: the trailhead (about x 700), the treetops, the canopy's west
-end and the tar pits' east end; the trailhead cannot reach the canopy
-(about 8400 px), so the trip is a chain. Make the arch prop (smaller than a
-gate ring, drawn as an arch), then place these.
+The arch prop is `jungle_arch` (`targets/props/jungle_arch.py`, prop kinds
+`jungle_arch_ring` and `jungle_arch_portal`): a mossy stone arch with the
+network's Δ cut in its keystone, 144 x 174 world units, its 48 x 146 zone the
+opening down to the floor. Its `charge` row lights a seam up both jambs to
+the keystone as it opens; its wormhole is the gate's, clipped to the arch
+(`_gate_wormhole_triangles`, opening `arch`). The map helper's shape is
+`arch` (`specs/gate_network/gates.py`, `SHAPE_BOXES`); `make_gates.py`
+places the four arches and their terminals (`JUNGLE_ARCHES`).
 
-
-**Owner:** Jungle arch zone authoring and
-`game/ambition_content/assets/data/gate_network.ron`. Add trailhead, canopy
-and deep arches using existing portal `kind`, `reach`, visiting/attunement,
-terminal and room-transition semantics. Avoid cross-dimension portals or a
-single arch bypassing the whole region.
-
-**Pass:** The player visits/attunes a destination, then traverses a local
-arch; an out-of-range endpoint is rejected; an unvisited endpoint is absent
-from the known destination list under discovery policy; the same-dimension
-chain works from a live Jungle room. Extend `the_gate_network.rs` or a
-focused Jungle integration fixture. Do not change the interdimensional gates.
+Four portal rings, each its own facility: GIANTS on the trailhead's floor
+between its two low branches, TALLEST on the treetops' branch over the
+station's sign, LIANAS at the canopy's west end, DIGSITE in front of the tar
+pits' dig camp. Each states `reach: Some(6400)`, so each link is plainly in
+reach and each skip plainly out of it (the default 8000 would leave the
+trailhead only 56 px short of the canopy): trailhead to treetops about 2400,
+treetops to canopy 5700, canopy to tar pits 3100; trailhead to canopy 8100
+and treetops to tar pits 8700 are out. Each terminal posts the arch down the
+chain. `the_gate_network.rs` `the_jungles_arches_chain_along_the_trail`
+plays it from the trailhead: opening the terminal attunes GIANTS and TALLEST
+is unknown; GENESIS is `wrong_kind` and LIANAS `out_of_reach`; TALLEST
+crosses to the treetops, where DIGSITE is `out_of_reach` and LIANAS crosses
+to the canopy, and from there DIGSITE crosses to the dig camp. A crossing
+lands the traveller 34 px in front of the far arch (`GATE_LANDING`), outside
+its narrow zone, so the test holds the landing to the arch's half width.
+`ambition_content` `the_jungles_arches_list_only_their_neighbours_on_the_trail`
+holds the lists and the discovery rule. No interdimensional gate changed.
 
 ### MG-1 — Magical sky and region loop (done 2026-11-14)
 
@@ -185,8 +191,9 @@ home ring answers an arch; its way home is the walk to its world's gate).
 A void star that stood on the keep's arrival moved west: the press that
 carries a traveller through the arch started its conversation.
 
-Left: the arches use the round gate ring's art; an arch's own drawing goes
-with the next prop publish.
+Left: Magical's arches still use the round gate ring's art. The Jungle's
+arch drawing (JL-2) is mossy jungle stone; Magical's want their own
+dressing of the same assembly.
 
 **Every geometry packet:** run
 `python tools/ambition_ldtk_tools/specs/check_flat_map.py <world.ldtk>`

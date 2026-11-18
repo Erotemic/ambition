@@ -53,6 +53,27 @@
         portal_sprite_name: "Rookery Survey Gate Portal",
         ring_sprite_name: "Rookery Survey Gate Ring",
     ),
+    // The Jungle's local arches (portal rings, WORLD-LAYERS JL-2).
+    "primeval_trailhead_arch": (
+        command: Dialed,
+        portal_sprite_name: "Trailhead Arch Portal",
+        ring_sprite_name: "Trailhead Arch Ring",
+    ),
+    "primeval_treetops_arch": (
+        command: Dialed,
+        portal_sprite_name: "Treetops Arch Portal",
+        ring_sprite_name: "Treetops Arch Ring",
+    ),
+    "primeval_canopy_arch": (
+        command: Dialed,
+        portal_sprite_name: "Canopy Arch Portal",
+        ring_sprite_name: "Canopy Arch Ring",
+    ),
+    "primeval_tar_pits_arch": (
+        command: Dialed,
+        portal_sprite_name: "Tar Pits Arch Portal",
+        ring_sprite_name: "Tar Pits Arch Ring",
+    ),
     // The gravity trail's orchard, in the Science dimension.
     "orchard_gate": (
         command: Dialed,

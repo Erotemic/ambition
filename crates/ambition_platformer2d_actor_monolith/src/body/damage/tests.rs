@@ -36,6 +36,7 @@ fn install_hit_reaction_consumers(app: &mut App) {
     app.add_message::<ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<ambition_damage::WalletShieldSpent>();
+    app.add_message::<ambition_damage::BodyHitResolved>();
     app.add_message::<ambition_combat::hitbox::ResolvedBodyHit>();
     app.add_message::<ambition_combat::hitbox::BlockedBodyHit>();
 }

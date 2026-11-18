@@ -200,6 +200,11 @@ fn three_domains_answer_one_question_about_one_body_on_one_tick() {
     app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 60;
     app.world_mut().write_message(BodyHitResolved {
         body,
+        attacker: None,
+        identity: ambition_damage::reception::HitReceiverIdentity { id: None, session: None, room: None },
+        attacker_identity: None,
+        observed_at: 60,
+        attacker_move_instance: None,
         resolution: BodyHitResolution::Damaged {
             damage: 40,
             died: true,

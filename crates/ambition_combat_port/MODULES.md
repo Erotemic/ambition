@@ -21,6 +21,7 @@
 | [`motion`](src/motion.rs) | The body-motion ports of a wielded item: a body moves itself or sets its velocity, arms the shared movement cooldown, strikes where it is, and shows an effect or a hit mark. |
 | [`ray`](src/ray.rs) | A ray: a strike along a line. |
 | [`reaction`](src/reaction.rs) | The ports of a reaction to a hit: what a body does about how this tick's hits came out, decided by a module in `hit_reaction` (`ambition_extension_sdk::phases::HIT_REACTION`). |
+| [`reception`](src/reception.rs) | Bounded batches of decisions from native hit reception. |
 | [`ride`](src/ride.rs) | A body that summons something to ride, and the summon itself: the verbs a move that calls a mount needs, and the facts it reads to decide when the ride ends. |
 | [`riding`](src/riding.rs) | A volume that rides its owner, and a burst of particles: what a conducted boss swings and shows. |
 | [`slow`](src/slow.rs) | A slow on the bodies in a box: honey, glue, tar. |
@@ -32,7 +33,7 @@
 | [`whereabouts`](src/whereabouts.rs) | Where the things a scope's records name are (runtime authoring audit P5 step 3). |
 | [`wielded`](src/wielded.rs) | The held-item domain's extension ports: a body uses the item it holds, pays for it from its resource bank, and is heard doing it. |
 
-_25 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_26 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

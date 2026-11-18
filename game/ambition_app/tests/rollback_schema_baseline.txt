@@ -378,6 +378,7 @@ message.ambient_gravity_request	message-clear	AmbientGravityRequest	clear abando
 message.attacks_clanked	message-clear	AttacksClanked	clear abandoned-future message buffer in LoadWorld::Mapping
 message.blocked_body_hit	message-clear	BlockedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_heal_requested	message-clear	BodyHealRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.body_hit_resolved	message-clear	BodyHitResolved	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_knocked_out	message-clear	BodyKnockedOut	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_teleported	message-clear	BodyTeleported	clear abandoned-future message buffer in LoadWorld::Mapping
 message.boss_defeat_retracted	message-clear	BossDefeatRetracted	clear abandoned-future message buffer in LoadWorld::Mapping

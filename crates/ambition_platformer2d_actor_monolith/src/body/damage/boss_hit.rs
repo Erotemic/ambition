@@ -23,15 +23,14 @@ use super::*;
 /// Apply damage to entity-local boss health and phase authority.
 ///
 /// Boss phase policy rejects hits while invulnerable. Bosses currently use no
-/// post-hit i-frame and no body shield. Returns `(applied, killed, wallet_spent)`;
-/// a kill forces the phase to `Death`.
+/// post-hit i-frame and no body shield. A lethal result sets the death phase.
 pub(crate) fn apply_entity_boss_damage(
     status: &mut BossEncounter,
     health: &mut ambition_characters::actor::BodyHealth,
     combat: &mut ambition_characters::actor::BodyCombat,
     wallet_shield: Option<ambition_damage::WalletArmor<'_>>,
     amount: i32,
-) -> (bool, bool, Option<i32>) {
+) -> ambition_damage::BodyHitResolution {
     // Phase-invuln is boss POLICY, gated before the shared mechanics.
     let invulnerable = status
         .encounter
@@ -41,7 +40,7 @@ pub(crate) fn apply_entity_boss_damage(
     // below. A hit at the floor lands as an invulnerable phase's does.
     let amount = if status.health_floor > 0 { amount.min(health.current() - status.health_floor) } else { amount };
     if invulnerable || amount <= 0 {
-        return (false, false, None);
+        return ambition_damage::BodyHitResolution::Ignored;
     }
     // THE shared victim-side mechanics. The guard is `None` — a boss carries no
     // `BodyShieldState`, so there is nothing to block with and nothing to spend.
@@ -77,23 +76,12 @@ pub(crate) fn apply_entity_boss_damage(
         // first; guessing `true` here would make every boss hit unblockable.
         false,
     );
-    match resolution {
-        // Already dead (raced past the caller's liveness check) — no hit.
-        ambition_damage::BodyHitResolution::Ignored => (false, false, None),
-        // No shield component  the resolver never returns Blocked for a boss.
-        ambition_damage::BodyHitResolution::Blocked => (false, false, None),
-        // No `WornEquipment`  the resolver never returns Armored for a boss.
-        ambition_damage::BodyHitResolution::Armored => (true, false, None),
-        ambition_damage::BodyHitResolution::WalletShielded { spent } => (true, false, Some(spent)),
-        ambition_damage::BodyHitResolution::Damaged { died, .. } => {
-            if died {
-                if let Some(phase) = status.encounter.as_mut() {
-                    let _ = phase.kill();
-                }
-            }
-            (true, died, None)
+    if matches!(resolution, ambition_damage::BodyHitResolution::Damaged { died: true, .. }) {
+        if let Some(phase) = status.encounter.as_mut() {
+            let _ = phase.kill();
         }
     }
+    resolution
 }
 
 /// Mutates the boss ENTITY's HP + phase directly via [`apply_entity_boss_damage`] (the entity is
@@ -142,6 +130,7 @@ pub(crate) fn apply_boss_hit(
     // The effects of a hit on the boss are drawn in the boss's own live room.
     let room = session_scope.room();
     if !health.alive() {
+        writers.receptions.record(boss_entity, event, ambition_damage::BodyHitResolution::Ignored);
         return false;
     }
     let impact = if matches!(event.target, ambition_combat::events::HitTarget::Feature(recipient) if recipient == boss_entity) {
@@ -156,6 +145,7 @@ pub(crate) fn apply_boss_hit(
     if (boss.config.behavior.environmental_kill_only || boss.status.guarded)
         && matches!(event.source, HitSource::Melee | HitSource::Projectile)
     {
+        writers.receptions.record(boss_entity, event, ambition_damage::BodyHitResolution::Protected);
         // Environmental puzzle bosses (e.g. the Smirking Behemoth) take
         // no HP from ordinary player hits; those should give honest local
         // feedback only when they overlap the body hurtbox. The authored
@@ -225,9 +215,14 @@ pub(crate) fn apply_boss_hit(
     // hit. The death CONSEQUENCES that aren't immediate feedback (save Cleared +
     // quest + music restore) are resolved by `update_boss_encounters` when the
     // death settles.
-    let (applied, killed, wallet_spent) =
-        apply_entity_boss_damage(boss.status, health, combat, wallet_shield, amount);
-    if !applied {
+    let resolution = apply_entity_boss_damage(boss.status, health, combat, wallet_shield, amount);
+    writers.receptions.record(boss_entity, event, resolution);
+    let killed = matches!(resolution, ambition_damage::BodyHitResolution::Damaged { died: true, .. });
+    let wallet_spent = match resolution {
+        ambition_damage::BodyHitResolution::WalletShielded { spent } => Some(spent),
+        _ => None,
+    };
+    if matches!(resolution, ambition_damage::BodyHitResolution::Ignored | ambition_damage::BodyHitResolution::Blocked) {
         // Invulnerable phase swallowed the damage. Skip the
         // hit VFX / GameplayEffect signal so the player sees
         // the boss as a hard wall during the beat instead of
@@ -387,10 +382,9 @@ mod entity_damage_tests {
     fn damage_decreases_hp_in_a_vulnerable_phase() {
         let (mut s, mut health) = boss(10, BossEncounterPhase::Phase1);
         let mut combat = ambition_characters::actor::BodyCombat::default();
-        let (applied, killed, _) =
+        let resolution =
             apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
-        assert!(applied);
-        assert!(!killed);
+        assert_eq!(resolution, ambition_damage::BodyHitResolution::Damaged { damage: 3, died: false });
         assert_eq!(health.current(), 7);
     }
 
@@ -398,10 +392,9 @@ mod entity_damage_tests {
     fn lethal_damage_kills_and_sets_death_phase() {
         let (mut s, mut health) = boss(4, BossEncounterPhase::Phase1);
         let mut combat = ambition_characters::actor::BodyCombat::default();
-        let (applied, killed, _) =
+        let resolution =
             apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 10);
-        assert!(applied);
-        assert!(killed);
+        assert_eq!(resolution, ambition_damage::BodyHitResolution::Damaged { damage: 10, died: true });
         assert_eq!(health.current(), 0);
         assert!(!health.alive());
         assert_eq!(
@@ -415,10 +408,9 @@ mod entity_damage_tests {
         // Transition is invulnerable in the phase vocabulary.
         let (mut s, mut health) = boss(10, BossEncounterPhase::Transition);
         let mut combat = ambition_characters::actor::BodyCombat::default();
-        let (applied, killed, _) =
+        let resolution =
             apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 5);
-        assert!(!applied);
-        assert!(!killed);
+        assert_eq!(resolution, ambition_damage::BodyHitResolution::Ignored);
         assert_eq!(health.current(), 10);
     }
 
@@ -428,11 +420,10 @@ mod entity_damage_tests {
         let mut combat = ambition_characters::actor::BodyCombat::default();
         let _ = apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 10);
         // The first hit kills and forces the Death phase.
-        let (applied, killed, _) =
+        let resolution =
             apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 5);
         // Death is invulnerable → the follow-up hit is swallowed, killed stays false.
-        assert!(!applied);
-        assert!(!killed);
+        assert_eq!(resolution, ambition_damage::BodyHitResolution::Ignored);
         assert_eq!(health.current(), 0);
     }
 
@@ -444,9 +435,10 @@ mod entity_damage_tests {
         // damage (player DPS against bosses is unchanged by the resolver).
         let (mut s, mut health) = boss(10, BossEncounterPhase::Phase1);
         let mut combat = ambition_characters::actor::BodyCombat::default();
-        let (a1, _, _) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
-        let (a2, _, _) = apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
-        assert!(a1 && a2, "both hits apply — no i-frame swallows the second");
+        let a1 = apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
+        let a2 = apply_entity_boss_damage(&mut s, &mut health, &mut combat, None, 3);
+        assert_eq!(a1.damage_applied(), 3);
+        assert_eq!(a2.damage_applied(), 3);
         assert_eq!(health.current(), 4, "both hits dealt full damage");
         assert!(
             combat.vulnerable(),

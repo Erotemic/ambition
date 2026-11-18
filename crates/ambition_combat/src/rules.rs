@@ -1419,3 +1419,24 @@ mod stale_tests {
         assert_eq!(staling(0.2, 1.0).stale_scale(9), 1.0);
     }
 }
+
+/// A game's bounds and room observers for native hit reception.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct HitReceptionRules {
+    pub max_events: u32,
+    pub room_observers: Vec<String>,
+}
+impl Default for HitReceptionRules {
+    fn default() -> Self { Self { max_events: 64, room_observers: Vec::new() } }
+}
+impl HitReceptionRules {
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        if self.max_events == 0 { problems.push("hit_receptions.max_events must be positive".into()); }
+        if self.room_observers.iter().any(|key| key.trim().is_empty()) {
+            problems.push("hit_receptions.room_observers must have nonempty selectors".into());
+        }
+        problems
+    }
+}

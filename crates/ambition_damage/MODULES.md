@@ -6,10 +6,12 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`extension`](src/extension.rs) | Script delivery of native reception decisions after damage resolution. |
 | [`healing`](src/healing.rs) | Health restoration requests and their application to bodies. |
+| [`reception`](src/reception.rs) | Native hit decisions with identity captured at the reception cut. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for health effects. |
 
-_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

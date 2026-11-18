@@ -25,6 +25,10 @@ ambition_time = { path = "../ambition_time" }
 # lived in a crate that already had it.
 ambition_persistence = { path = "../ambition_persistence" }
 
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_combat_port = { path = "../ambition_combat_port" }
+
 [dev-dependencies]
 # Named only in `src/tests.rs` (`ProjectileKind`); the `src/lib.rs` mention is
 # prose in a doc comment, not an intra-doc link, so moving this does not touch

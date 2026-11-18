@@ -3,11 +3,10 @@
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
 pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
-    #[cfg(feature = "causal")]
-        registrar.clear_instrument_message_on_rollback::<crate::BodyHitResolved>(
-            OWNER,
-            "message.causal_body_hit_resolved",
-        );
+    registrar.clear_message_on_rollback::<crate::BodyHitResolved>(
+        OWNER,
+        "message.body_hit_resolved",
+    );
 
     #[cfg(feature = "causal")]
         registrar.clear_instrument_message_on_rollback::<crate::BodyReactionApplied>(

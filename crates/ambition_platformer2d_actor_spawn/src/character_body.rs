@@ -377,6 +377,7 @@ pub fn install_ranged_execution(
 /// investigation kept circling: a save taken between the two restores a world claiming to be
 /// projected and missing what the projection grants. One batch, one archetype move, one tick.
 pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
+    boundary: ambition_body_seed::BaselineBoundary,
     scope: &mut EntityScope,
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
     generation: ambition_characters::prepared::CharacterCatalogGeneration,
@@ -394,6 +395,11 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
     // already folded with it. Only the `Grant` arm writes a kit to fold.
     hand: ambition_characters::repertoire::Hand<'_>,
 ) {
+    if boundary == ambition_body_seed::BaselineBoundary::Construction {
+        if let Some(balance) = prepared.starting_wallet {
+            scope.insert(ambition_characters::actor::BodyWallet { balance });
+        }
+    }
     {
         // ⭐⭐ EVERY GRANTED CHARACTER BODY PUBLISHES ITS POSE READ MODEL. Which
         // row it draws, which clip, which frame — `BodyPoseView` is a pure
@@ -706,4 +712,41 @@ mod tests {
         assert_ne!(form.collision, sized.collision, "premise: the sheet would size it differently");
         assert!(form.render.is_some(), "its sheet draws it fitted to its box");
     }
+
+    #[test]
+    fn a_wallet_is_initialized_at_birth_and_survives_character_replacement() {
+        use ambition_body_seed::BaselineBoundary::{Construction, Replacement};
+        use ambition_characters::actor::{BodyWallet, definition::CharacterDefinition};
+        use ambition_characters::prepared::{CharacterBindings, prepare_and_finalize_for_test};
+        use bevy::prelude::*;
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let definition = CharacterDefinition::new("merchant", "Merchant", "test").with_starting_wallet(7);
+        let mut prepared = prepare_and_finalize_for_test(definition, &CharacterBindings::default()).prepared;
+        let mut world = World::new();
+        let body = world.spawn_empty().id();
+        let apply = |world: &mut World, prepared: &ambition_characters::prepared::PreparedCharacterDefinition, boundary| {
+            let mut commands = world.commands();
+            grant_prepared_character_body(&sprites, boundary, &mut EntityScope::new(&mut commands, body),
+                prepared, Default::default(), KitOwnership::Grant, None,
+                ambition_characters::repertoire::Hand::Empty);
+            world.flush();
+        };
+        apply(&mut world, &prepared, Construction);
+        assert_eq!(world.get::<BodyWallet>(body).unwrap().balance, 7);
+        world.get_mut::<BodyWallet>(body).unwrap().balance = 2;
+        prepared.starting_wallet = Some(50);
+        apply(&mut world, &prepared, Replacement);
+        assert_eq!(world.get::<BodyWallet>(body).unwrap().balance, 2);
+        prepared.starting_wallet = None;
+        apply(&mut world, &prepared, Replacement);
+        assert_eq!(world.get::<BodyWallet>(body).unwrap().balance, 2);
+        world.entity_mut(body).remove::<BodyWallet>();
+        prepared.starting_wallet = Some(10);
+        apply(&mut world, &prepared, Replacement);
+        assert!(world.get::<BodyWallet>(body).is_none());
+        prepared.starting_wallet = Some(0);
+        apply(&mut world, &prepared, Construction);
+        assert_eq!(world.get::<BodyWallet>(body).unwrap().balance, 0);
+    }
+
 }

@@ -965,6 +965,8 @@ pub use ambition_shrine as shrine;
 /// tool composes with: declaring modules, naming module files to load, and
 /// reading what the host admitted.
 pub mod extension {
+    pub use ambition_platformer2d_construction::runtime::{ActorCreationLimits, CreatedActor,
+        RuntimeActor, RuntimeLink, create_actors};
     pub use ambition_extension_host::{
         AdmittedExtensions, BodyRecords, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
         ExtensionHostPlugin, ExtensionSet, ExtensionProfile, EntryProfile, ObservationContext,
@@ -996,7 +998,9 @@ pub mod extension {
     pub use ambition_platformer2d_runtime::extension_composition::script_ports;
     /// A module the game ships as a script.
     #[cfg(feature = "script_modules")]
-    pub use ambition_platformer2d_runtime::extension_composition::add_shipped_script;
+    pub use ambition_platformer2d_runtime::extension_composition::{
+        add_shipped_script, add_prepared_script, LibraryLimits, LibrarySource, PreparedScript, RhaiModules,
+    };
 }
 pub use ambition_platformer2d_shared_tangle as platformer;
 /// The camera's live presentation state; its requests and tunings are `platformer::camera_ease`.

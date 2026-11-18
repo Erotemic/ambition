@@ -4583,6 +4583,34 @@ fn host_with_the_shipped_room_rules() -> bevy::app::App {
     app
 }
 
+#[test]
+fn actor_creation_bounds_reload_for_ambitions_rooms_without_a_build() {
+    use ambition_platformer2d_world::{creation::{ActorCreationLimits, ACTOR_CREATION_RULES_SCHEMA},
+        scoped_rules::{DeclaredRules, RulesScope}};
+    let mut app = host_with_the_shipped_room_rules();
+    let original = *crate::pack::shipped().lowered::<ActorCreationLimits>(
+        &ambition_content_pack::SchemaId::new(ACTOR_CREATION_RULES_SCHEMA)).unwrap();
+    app.world_mut().insert_resource(DeclaredRules::<ActorCreationLimits>::default());
+    app.world_mut().resource_mut::<DeclaredRules<ActorCreationLimits>>()
+        .restate(RulesScope::UntaggedRooms, Some(original));
+    let candidate = crate::pack::compile_pack_with(|path, text| {
+        if path == "data/actor_creation_rules.ron" { "(max_actors: 2, max_state_bytes: 4096)".into() }
+        else { text }
+    }).unwrap();
+    let expected = *candidate.lowered::<ActorCreationLimits>(
+        &ambition_content_pack::SchemaId::new(ACTOR_CREATION_RULES_SCHEMA)).unwrap();
+    assert_ne!(expected, original);
+    let live = live_pack(&app);
+    assert!(matches!(request_reload(app.world_mut(), ambition_content_pack::CandidateGeneration::prepared_against(
+        std::sync::Arc::new(candidate), Some(live.fingerprint))), ReloadRequest::Requested { .. }));
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut().write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_eq!(untagged::<ActorCreationLimits>(app.world()), Some(expected));
+    assert!(app.world().resource::<DeclaredRules<ActorCreationLimits>>()
+        .governing(ambition_platformer2d_world::scoped_rules::ActiveRoom::Mode("another_game")).is_none());
+}
+
 /// An edit to the landing-lag share reaches Ambition's rooms at the
 /// activation, with no build. The death rule is in the same file and is not
 /// edited: it is the control, and it must not move.

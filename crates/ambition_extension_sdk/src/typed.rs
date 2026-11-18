@@ -36,7 +36,7 @@ use crate::schema::{FieldKind, Value};
 /// A Rust type that a record field can hold.
 pub trait RecordField: Sized {
     /// The field's kind. `max` is the declared maximum length; only a
-    /// sequence uses it, and a sequence must have one.
+    /// sequence or text value uses it, and each must have one.
     fn kind(max: Option<u32>) -> FieldKind;
     fn to_value(&self) -> Value;
     /// `None` when `value` is not of this field's kind.
@@ -119,6 +119,62 @@ impl RecordField for [f32; 2] {
     }
 }
 
+impl RecordField for String {
+    fn kind(max: Option<u32>) -> FieldKind {
+        FieldKind::Text { max_bytes: max.expect("a String field must declare `[max N]`") }
+    }
+    fn to_value(&self) -> Value { Value::Text(self.clone()) }
+    fn from_value(value: &Value) -> Option<Self> { value.as_text().map(str::to_owned) }
+}
+
+/// Declare a reusable value with tagged fields and no separate lifetime.
+/// Use this type inside a `record!`, an option or a bounded sequence.
+#[macro_export]
+macro_rules! record_value {
+    (
+        $(#[$meta:meta])* $vis:vis struct $name:ident;
+        $( $(#[$fmeta:meta])* $tag:literal $field:ident : $ty:ty $([max $max:expr])? ),* $(,)?
+    ) => {
+        $(#[$meta])*
+        #[derive(Clone, Debug, Default, PartialEq)]
+        $vis struct $name { $( $(#[$fmeta])* pub $field: $ty, )* }
+
+        impl $name {
+            pub fn fields() -> Vec<$crate::FieldDecl> {
+                vec![$(
+                    $crate::FieldDecl::new($tag, stringify!($field),
+                        <$ty as $crate::typed::RecordField>::kind($crate::record!(@max $($max)?)))
+                ),*]
+            }
+
+            pub fn to_record_value(&self) -> $crate::Record {
+                $crate::Record::from_values(vec![$(
+                    <$ty as $crate::typed::RecordField>::to_value(&self.$field)
+                ),*])
+            }
+
+            #[allow(unused_assignments)]
+            pub fn from_record_value(record: &$crate::Record) -> Option<Self> {
+                if record.values().len() != Self::fields().len() { return None; }
+                let mut index = 0usize;
+                Some(Self { $( $field: {
+                    let value = record.get($crate::FieldRef(index)).ok()?;
+                    index += 1;
+                    <$ty as $crate::typed::RecordField>::from_value(value)?
+                }, )* })
+            }
+        }
+
+        impl $crate::typed::RecordField for $name {
+            fn kind(_: Option<u32>) -> $crate::FieldKind { $crate::FieldKind::Record(Self::fields()) }
+            fn to_value(&self) -> $crate::Value { $crate::Value::Record(self.to_record_value()) }
+            fn from_value(value: &$crate::Value) -> Option<Self> {
+                Self::from_record_value(value.as_record()?)
+            }
+        }
+    };
+}
+
 impl<T: RecordField> RecordField for Option<T> {
     fn kind(max: Option<u32>) -> FieldKind {
         FieldKind::opt(T::kind(max))
@@ -164,10 +220,9 @@ macro_rules! record {
             $tag:literal $field:ident : $ty:ty $([max $max:expr])?
         ),* $(,)?
     ) => {
-        $(#[$meta])*
-        #[derive(Clone, Debug, Default, PartialEq)]
-        $vis struct $name {
-            $( $(#[$fmeta])* pub $field: $ty, )*
+        $crate::record_value! {
+            $(#[$meta])* $vis struct $name;
+            $( $(#[$fmeta])* $tag $field: $ty $([max $max])?, )*
         }
 
         impl $name {
@@ -180,17 +235,7 @@ macro_rules! record {
                     key: Self::KEY,
                     attachment: $crate::record!(@attach $($attach)?),
                     save: $crate::record!(@save $($save)?),
-                    fields: vec![
-                        $(
-                            $crate::FieldDecl::new(
-                                $tag,
-                                stringify!($field),
-                                <$ty as $crate::typed::RecordField>::kind(
-                                    $crate::record!(@max $($max)?),
-                                ),
-                            ),
-                        )*
-                    ],
+                    fields: Self::fields(),
                 }
             }
 
@@ -202,61 +247,19 @@ macro_rules! record {
 
             /// A stored record, as the struct: what an inspector or a test
             /// reads from the host's store.
-            #[allow(unused_assignments)]
             pub fn from_record(record: &$crate::Record) -> Result<Self, $crate::Fault> {
-                let mut index = 0usize;
-                Ok(Self {
-                    $(
-                        $field: {
-                            let value = record.get($crate::FieldRef(index)).map_err(|error| {
-                                $crate::Fault::Schema { schema: Self::KEY, error }
-                            })?;
-                            index += 1;
-                            <$ty as $crate::typed::RecordField>::from_value(value).ok_or_else(|| {
-                                $crate::Fault::Module(
-                                    format!(
-                                        "field {} of {} is not a {}",
-                                        stringify!($field),
-                                        Self::KEY,
-                                        stringify!($ty)
-                                    )
-                                    .into(),
-                                )
-                            })?
-                        },
-                    )*
-                })
+                Self::schema().check(record)
+                    .map_err(|error| $crate::Fault::Schema { schema: Self::KEY, error })?;
+                Self::from_record_value(record).ok_or_else(|| $crate::Fault::Module(
+                    format!("record does not match {}", Self::KEY).into()))
             }
 
-            /// The struct as a record of its schema: what a test or a tool
-            /// seats in the host's store. The inverse of [`Self::from_record`].
-            #[allow(unused_assignments)]
-            pub fn to_record(&self) -> $crate::Record {
-                let mut record = Self::schema().initial_record();
-                let mut index = 0usize;
-                $(
-                    let _ = record.set($crate::FieldRef(index), $crate::typed::RecordField::to_value(&self.$field));
-                    index += 1;
-                )*
-                let _ = index;
-                record
-            }
+            /// Convert this value to schema order.
+            pub fn to_record(&self) -> $crate::Record { self.to_record_value() }
 
             /// Write the struct back as this invocation's record.
-            #[allow(unused_assignments)]
             pub fn store(&self, inv: &mut $crate::Invocation<'_>) -> Result<(), $crate::Fault> {
-                let record = inv.state(&Self::KEY)?;
-                let mut index = 0usize;
-                $(
-                    record
-                        .set(
-                            $crate::FieldRef(index),
-                            $crate::typed::RecordField::to_value(&self.$field),
-                        )
-                        .map_err(|error| $crate::Fault::Schema { schema: Self::KEY, error })?;
-                    index += 1;
-                )*
-                let _ = index;
+                *inv.state(&Self::KEY)? = self.to_record_value();
                 Ok(())
             }
         }
@@ -275,6 +278,41 @@ macro_rules! record {
 #[allow(dead_code)] // `load` and `store` run through the host; see the modules
 mod tests {
     use crate::{SchemaKey, StateSchema};
+
+    record_value! {
+        struct Task;
+        1 title: String [max 32],
+        2 progress: u32,
+    }
+
+    record! {
+        struct Tasks = SchemaKey::new("test", "tasks", 1), per session, kept durable;
+        1 active: Option<Task>,
+        2 queue: Vec<Task> [max 4],
+    }
+
+    #[test]
+    fn reusable_values_compose_in_typed_and_script_records() {
+        let value = Tasks { active: Some(Task { title: "build".into(), progress: 3 }),
+            queue: vec![Task { title: "guard".into(), progress: 7 }] };
+        let schema = Tasks::schema();
+        schema.validate().unwrap();
+        let record = value.to_record();
+        schema.check(&record).unwrap();
+        assert_eq!(Tasks::from_record(&record).unwrap(), value);
+        let mut script = crate::script::record_to_script(&schema, &record).unwrap();
+        assert_eq!(crate::script::record_from_script(&schema, &script).unwrap(), record);
+        if let crate::script::ScriptValue::Map(fields) = &mut script {
+            if let crate::script::ScriptValue::Map(active) = &mut fields[0].1 {
+                active[0].0 = "typo".into();
+            }
+        }
+        let error = crate::script::record_from_script(&schema, &script).unwrap_err();
+        assert!(error.contains("active") && error.contains("typo"), "{error}");
+        let mut too_long = value;
+        too_long.queue[0].title = "x".repeat(33);
+        assert!(schema.check(&too_long.to_record()).is_err());
+    }
 
     record! {
         struct Everything = SchemaKey::new("test", "everything", 1);

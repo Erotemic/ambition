@@ -180,11 +180,11 @@ or updating their source. Check with
 
 ### GNUTON-GNU2-FINALE — summon a second GNU through a real portal
 
-**Failure:** GNU-ton's phase-3 well uses a real floor/overhead portal pair but changes the existing hall's sky and gravity to represent space. The preferred new finale is a large live portal summoning physically present GNU2, followed by simultaneous GNU and GNU2 combat. GNU2 art is currently an unpublished art-only prototype.
+**Failure:** GNU-ton's phase-3 well uses a real floor/overhead portal pair but changes the existing hall's sky and gravity to represent space. The preferred new finale is a large live portal summoning physically present GNU2, followed by simultaneous GNU and GNU2 combat. GNU2 is published and catalogued (`npc_giant_gnu2`, 2026-11-18): the giant's rows, seams and surfaces in its harness.
 
 **Owner:** [boss finale and acceptance](game/boss-cinematics-gnu2-and-motion.md) and [GNU-ton debts](game/gnu-ton-fight-debts.md).
 
-**Next action:** register published GNU2 character and combat geometry; author a same-active-area portal staging source, actual through-aperture entrance, combined fight and multi-boss victory policy. Replace obsolete sky/space-phase authority only after replay, reset and exit gating pass.
+**Next action:** author a same-active-area portal staging source, actual through-aperture entrance, combined fight and multi-boss victory policy. Replace obsolete sky/space-phase authority only after replay, reset and exit gating pass.
 
 **Acceptance:** physically observed GNU2 portal emergence, simultaneous independently damageable GNU/GNU2 giants with readable counters, either defeat order supported, door gating on both plus rider yield, no duplicate spawn on retries, and both bosses safely cleaned on teardown. Keep intra-island portal semantics and existing phase 1/2 gameplay.
 
@@ -1772,6 +1772,14 @@ narrows its field of view so the active face fills 96% of the height, not
 80% (`SHORT_SCREEN_FACE_FILL`, `fit_cube_camera_regions`): labels read at
 about 13 px. The inventory face is next. Maintainer 2026-11-17: mobile UX
 waits behind higher-value queue items, so the rest of this row is deferred.
+
+### INPUT-GLYPH-ART — draw prompts and a controller layout from the published glyphs
+
+**Art done 2026-11-18** (renderer target `input_glyphs`, published under `sprites/input_glyphs/`): gamepad glyphs for each `GamepadStyle` (xbox, playstation, switch, generic), keycaps named by `key_label`, mouse glyphs, and xbox/playstation/switch/generic pad, keyboard and mouse pictures, each with a `_layout.ron` that places every control (Bevy `GamepadButton`/`KeyCode`/`MouseButton` names) in the full-size picture. The naming rule (style, control) → file is in the target's docstring; ⚠ Bevy's `LeftTrigger` is the bumper and `LeftTrigger2` the trigger.
+
+**Next action:** `ambition_input::glyphs` returns text today. Give the control prompt (`ambition_sim_view::control_prompt`) the glyph image for the seat's device, with the text as fallback, and add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
+
+**Acceptance:** a prompt shows the pressed button's glyph for keyboard, an Xbox-like and a PlayStation-like pad; a rebind moves the glyph; the layout page names every bound action on its control.
 
 ### CONTENT-AS-DATA — content still written as Rust
 

@@ -14,7 +14,7 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 pub mod brain_command;
 mod movement;
 mod integration;
-pub use integration::{BodyFrameOutput, BodyReset};
+pub use ae::{BodyFrameOutput, BodyReset};
 pub(crate) mod npcs;
 
 pub mod empowerment;

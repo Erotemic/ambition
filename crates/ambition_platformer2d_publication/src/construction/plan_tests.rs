@@ -1547,7 +1547,7 @@ fn an_authored_mount_link_becomes_planned_rows_with_a_mount_relation() {
         .expect("the rider is a plan row");
     assert!(matches!(
         rider_row.parameters(),
-        ActorConstructionParams::AuthoredEnemy { .. }
+        ActorConstructionParams::CharacterBody { .. }
     ));
     assert!(plan.construction().get(&mount).is_some());
     let dump = plan.construction().deterministic_dump();
@@ -1752,7 +1752,7 @@ fn the_mount_pair_reconstruction_closure_is_both_actors() {
 // ── Phase 4a/4b: the enemy and boss FAMILIES are plan rows ────────────────────
 
 /// Every authored enemy and boss is a plan row. Ordinary enemy →
-/// `AuthoredEnemy`; giant → host + two hands; boss → `AuthoredBoss`. The family
+/// `CharacterBody`; giant → host + two hands; boss → `AuthoredBoss`. The family
 /// loops are deleted, so this is the only way a room's actors exist.
 #[test]
 fn every_authored_enemy_and_boss_is_a_plan_row() {
@@ -1790,7 +1790,7 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
         assert!(check(row.parameters()), "`{id}` has the right family");
     };
     expect_kind("walker", |parameters| {
-        matches!(parameters, ActorConstructionParams::AuthoredEnemy { .. })
+        matches!(parameters, ActorConstructionParams::CharacterBody { .. })
     });
     expect_kind("boss_mount", |parameters| {
         matches!(parameters, ActorConstructionParams::GiantHost { .. })
@@ -2261,7 +2261,7 @@ fn a_placement_is_planned_where_its_body_starts() {
         let [request] = requests.as_slice() else {
             panic!("one placement plans one row, not {}", requests.len());
         };
-        let ActorConstructionParams::AuthoredEnemy { authored, .. } = &request.parameters else {
+        let ActorConstructionParams::CharacterBody { authored, .. } = &request.parameters else {
             panic!("the placement plans an ordinary enemy row");
         };
         use ae::AabbExt;

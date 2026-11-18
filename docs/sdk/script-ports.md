@@ -317,7 +317,7 @@ Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.
 
 ## `body_contact`
 
-Port `ambition.body.contact@2`, trigger: read as `this.trigger`.
+Port `ambition.body.contact@3`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
@@ -332,6 +332,10 @@ Port `ambition.body.contact@2`, trigger: read as `this.trigger`.
 | `incomplete` | bool | At least one same-scope body could not supply accepted geometry. |
 | `refusals` | list of { id: text, reason: text } |  |
 | `refusals_truncated` | bool |  |
+| `world` | list of { role: one of: support \| head \| side \| attachment, point: [x, y], normal: [x, y], toi: number, surface_velocity: [x, y], impact_speed: number, involuntary: bool, block: { geometry: { origin: one of: placement \| tile_layer \| generator \| delta \| anonymous, key: text or (), operation: integer (u32) or (), index: integer (u32) }, material: one of: solid \| one_way \| bonk_only \| blink_wall \| barrier \| hazard \| pogo_orb \| rebound, blink_tier: one of: soft \| hard or (), rebound_impulse: [x, y] or () } or (), chain: { chain: integer (u32), segment: integer (u32) } or () } | Native movement contacts, in solver order. Repeated contacts remain distinct. |
+| `world_available` | bool | This body published movement output for this exact simulation tick. |
+| `world_truncated` | bool | More world contacts existed than the game's world-contact budget. |
+| `world_refusal` | text or () | The movement solver refused part of this step. Contacts may be partial. |
 
 ## `hit_receptions`
 
@@ -410,6 +414,16 @@ Port `ambition.actions.cancel@1`, request: `this.requests.push(request("<alias>"
 | `room` | integer (u32) | required | The live room that minted this caller lifetime. |
 | `generation` | text | required | A caller lifetime within that room. Recreated bodies get a new value. |
 
+## `create_actors`
+
+Port `ambition.world.create_actors@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required | Report completed construction or refusal to this entry. |
+| `actors` | list of { key: text, character: text, at: [x, y], half_extents: [x, y], allegiance: one of: inherit \| player \| enemy \| npc \| boss \| neutral, face_left: bool, starting_wallet: integer (i32) or (), holds: list of text, state: list of { schema: text, value: schema-selected data } } | required | Build these roots and each character's required internal cluster. |
+| `links` | list of { from: text, to: text, kind: one of: grudge \| mount } | `[]` | Native relations between actor keys in this batch. |
+
 ## `action_result`
 
 Port `ambition.actions.result@1`, trigger: read as `this.trigger`.
@@ -456,15 +470,22 @@ Port `ambition.story.command@2`, request: `this.requests.push(request("<alias>",
 
 ## `inventory_exchange`
 
-Port `ambition.world.inventory_exchange@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.world.inventory_exchange@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `reply` | { request: integer (u32), selector: text } | required |  |
-| `costs` | list of { id: text, count: integer (u32) } | `[]` |  |
-| `grants` | list of { id: text, count: integer (u32) } | `[]` |  |
-| `pay_coins` | integer (u32) | `0` |  |
-| `receive_coins` | integer (u32) | `0` |  |
+| `exchange` | { costs: list of { id: text, count: integer (u32) }, grants: list of { id: text, count: integer (u32) }, pay_coins: integer (u32), receive_coins: integer (u32) } | required |  |
+
+## `consume_contact`
+
+Port `ambition.world.consume_contact@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `contact` | integer (u32) | required | Index in this.trigger.world. Do not retain this index for another step. |
+| `exchange` | { costs: list of { id: text, count: integer (u32) }, grants: list of { id: text, count: integer (u32) }, pay_coins: integer (u32), receive_coins: integer (u32) } | `#{ costs: [], grants: [], pay_coins: 0, receive_coins: 0 }` |  |
 
 ## `inventory`
 

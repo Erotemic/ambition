@@ -135,3 +135,27 @@ impl FrameEvents {
         self.constraint_conflicts.extend(other.constraint_conflicts);
     }
 }
+
+/// Movement facts from one body step. Downstream domains read this component.
+#[derive(bevy_ecs::prelude::Component, Default)]
+pub struct BodyFrameOutput {
+    pub events: FrameEvents,
+    pub reset: Option<BodyReset>,
+    /// The simulation context that published this output.
+    pub stamp: Option<BodyStepStamp>,
+}
+
+/// A movement reset cause and the body position before reset policy runs.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyReset {
+    pub cause: ResetCause,
+    pub origin: Vec2,
+}
+
+/// Source context for derived movement facts. Scope IDs stay inside the host.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BodyStepStamp {
+    pub tick: u64,
+    pub room: Option<u32>,
+    pub session: Option<u64>,
+}

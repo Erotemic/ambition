@@ -11,6 +11,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 
 mod facts;
+mod geometry;
 pub use facts::{ContactFactsLimits, queue_body_contacts};
 
 /// Install the trigger port, the bounce and the defeat in `body_contact`.

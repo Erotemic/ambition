@@ -45,6 +45,7 @@ mod returns;
 pub use returns::{mirror_breakable_respawns, record_spent_breakables};
 
 pub mod construction;
+pub mod consumption;
 
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;

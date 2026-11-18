@@ -2,6 +2,7 @@
 
 use ambition_extension_sdk::wire::{WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
+pub use ambition_world_port::geometry::WorldContact;
 
 /// Contact rules bind a held status or a custom brain key. Every controller
 /// uses the same path. Each active recipient reads one sample in body_contact,
@@ -52,6 +53,10 @@ pub struct BodyContact {
     pub incomplete: bool,
     pub refusals: Vec<ContactRefusal>,
     pub refusals_truncated: bool,
+    pub world: Vec<WorldContact>,
+    pub world_available: bool,
+    pub world_truncated: bool,
+    pub world_refusal: Option<String>,
 }
 
 ambition_extension_sdk::port_record! {
@@ -100,6 +105,14 @@ ambition_extension_sdk::port_record! {
         incomplete: bool,
         refusals: Vec<ContactRefusal>,
         refusals_truncated: bool,
+        /// Native movement contacts, in solver order. Repeated contacts remain distinct.
+        world: Vec<WorldContact>,
+        /// This body published movement output for this exact simulation tick.
+        world_available: bool,
+        /// More world contacts existed than the game's world-contact budget.
+        world_truncated: bool,
+        /// The movement solver refused part of this step. Contacts may be partial.
+        world_refusal: Option<String>,
     }
 }
 
@@ -142,7 +155,7 @@ macro_rules! port {
 port!(
     BodyContactPort,
     "ambition.body.contact",
-    2,
+    3,
     Trigger,
     BodyContact
 );

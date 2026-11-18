@@ -19,7 +19,7 @@
 //! and names no domain type. Numbers are `f32`, the engine's: an adapter that
 //! computes in another width does not give the module's results.
 
-use crate::schema::{FieldKind, FieldRef, Record, StateSchema, Value};
+use crate::schema::{FieldDecl, FieldKind, Record, StateSchema, Value};
 use crate::{Fault, Invocation, ModuleDescriptor, Name, Port, PortKey};
 
 /// A value as a script sees it.
@@ -321,22 +321,26 @@ pub fn state_name(schema: &StateSchema) -> &str {
     schema.key.key.rsplit('.').next().unwrap_or(&schema.key.key)
 }
 
-fn value_to_script(value: &Value) -> ScriptValue {
-    match value {
-        Value::Bool(b) => ScriptValue::Bool(*b),
-        Value::U32(v) => ScriptValue::Int(i64::from(*v)),
-        Value::I32(v) => ScriptValue::Int(i64::from(*v)),
-        Value::U64(v) => <u64 as crate::structure::Field<u64>>::to_script(v),
-        Value::F32(v) => ScriptValue::Num(*v),
-        Value::Vec2(v) => ScriptValue::vec2(*v),
-        Value::Opt(None) => ScriptValue::Unit,
-        Value::Opt(Some(v)) => value_to_script(v),
-        Value::Seq(items) => ScriptValue::List(items.iter().map(value_to_script).collect()),
-        Value::Ref(id) => ScriptValue::Text(id.clone()),
-    }
+fn value_to_script(kind: &FieldKind, value: &Value) -> Result<ScriptValue, String> {
+    Ok(match (kind, value) {
+        (FieldKind::Bool, Value::Bool(b)) => ScriptValue::Bool(*b),
+        (FieldKind::U32, Value::U32(v)) => ScriptValue::Int(i64::from(*v)),
+        (FieldKind::I32, Value::I32(v)) => ScriptValue::Int(i64::from(*v)),
+        (FieldKind::U64, Value::U64(v)) => <u64 as crate::structure::Field<u64>>::to_script(v),
+        (FieldKind::F32, Value::F32(v)) => ScriptValue::Num(*v),
+        (FieldKind::Vec2, Value::Vec2(v)) => ScriptValue::vec2(*v),
+        (FieldKind::Opt(_), Value::Opt(None)) => ScriptValue::Unit,
+        (FieldKind::Opt(inner), Value::Opt(Some(v))) => value_to_script(inner, v)?,
+        (FieldKind::Seq { elem, .. }, Value::Seq(items)) => ScriptValue::List(
+            items.iter().map(|v| value_to_script(elem, v)).collect::<Result<_, _>>()?),
+        (FieldKind::Ref(_), Value::Ref(id)) | (FieldKind::Text { .. }, Value::Text(id)) => ScriptValue::Text(id.clone()),
+        (FieldKind::Record(fields), Value::Record(record)) => fields_to_script(fields, record)?,
+        _ => return Err(format!("value does not match {kind:?}")),
+    })
 }
 
-fn value_from_script(kind: &FieldKind, v: &ScriptValue) -> Result<Value, String> {
+/// Read a typed state value. Record fields must match the declaration exactly.
+pub fn value_from_script(kind: &FieldKind, v: &ScriptValue) -> Result<Value, String> {
     let int = |v: &ScriptValue| v.as_int();
     Ok(match kind {
         FieldKind::Bool => Value::Bool(v.as_bool()?),
@@ -350,21 +354,43 @@ fn value_from_script(kind: &FieldKind, v: &ScriptValue) -> Result<Value, String>
             v => Some(Box::new(value_from_script(inner, v)?)),
         }),
         FieldKind::Seq { elem, .. } => {
-            Value::Seq(v.as_list()?.iter().map(|v| value_from_script(elem, v)).collect::<Result<_, _>>()?)
+            Value::Seq(v.as_list()?.iter().enumerate().map(|(i, v)|
+                value_from_script(elem, v).map_err(|e| format!("[{i}]: {e}"))).collect::<Result<_, _>>()?)
         }
         FieldKind::Ref(_) => Value::Ref(v.as_text()?.to_owned()),
+        FieldKind::Text { .. } => Value::Text(v.as_text()?.to_owned()),
+        FieldKind::Record(fields) => Value::Record(fields_from_script(fields, v)?),
     })
 }
 
-pub fn record_to_script(schema: &StateSchema, record: &Record) -> ScriptValue {
-    ScriptValue::Map(
-        schema
-            .fields
-            .iter()
-            .zip(record.values())
-            .map(|(field, value)| (field.name.to_string(), value_to_script(value)))
-            .collect(),
-    )
+pub fn record_to_script(schema: &StateSchema, record: &Record) -> Result<ScriptValue, String> {
+    schema.check(record).map_err(|e| e.to_string())?;
+    fields_to_script(&schema.fields, record)
+}
+
+fn fields_to_script(fields: &[FieldDecl], record: &Record) -> Result<ScriptValue, String> {
+    Ok(ScriptValue::Map(fields.iter().zip(record.values())
+        .map(|(f, v)| Ok((f.name.to_string(), value_to_script(&f.kind, v)?)))
+        .collect::<Result<_, String>>()?))
+}
+
+fn fields_from_script(declared: &[FieldDecl], v: &ScriptValue) -> Result<Record, String> {
+    let ScriptValue::Map(fields) = v else {
+        return Err(format!("expected a table, got {}", v.kind()));
+    };
+    for (i, (name, _)) in fields.iter().enumerate() {
+        if !declared.iter().any(|f| f.name == name.as_str()) {
+            return Err(format!("{name}: the schema declares no such field"));
+        }
+        if fields[..i].iter().any(|(other, _)| other == name) {
+            return Err(format!("{name}: duplicate field"));
+        }
+    }
+    Ok(Record::from_values(declared.iter().map(|field| {
+        let v = fields.iter().find(|(k, _)| k.as_str() == field.name.as_ref())
+            .map(|(_, v)| v).ok_or_else(|| format!("{}: missing", field.name))?;
+        value_from_script(&field.kind, v).map_err(|e| format!("{}: {e}", field.name))
+    }).collect::<Result<_, _>>()?))
 }
 
 /// A record from a script's table. A field the schema does not declare, or a
@@ -372,25 +398,7 @@ pub fn record_to_script(schema: &StateSchema, record: &Record) -> ScriptValue {
 /// must not pass silently. The schema's own check (finite floats, sequence
 /// bounds) still runs when the host takes the record back.
 pub fn record_from_script(schema: &StateSchema, v: &ScriptValue) -> Result<Record, String> {
-    let name = state_name(schema);
-    let ScriptValue::Map(fields) = v else {
-        return Err(format!("state.{name}: expected a table, got {}", v.kind()));
-    };
-    if let Some((stray, _)) = fields.iter().find(|(k, _)| !schema.fields.iter().any(|f| f.name == k.as_str())) {
-        return Err(format!("state.{name}.{stray}: the schema {} declares no such field", schema.key.key));
-    }
-    let mut record = schema.initial_record();
-    for (index, field) in schema.fields.iter().enumerate() {
-        let what = format!("state.{name}.{}", field.name);
-        let v = fields
-            .iter()
-            .find(|(k, _)| k.as_str() == field.name.as_ref())
-            .map(|(_, v)| v)
-            .ok_or_else(|| format!("{what}: missing"))?;
-        let value = value_from_script(&field.kind, v).map_err(|e| format!("{what}: {e}"))?;
-        record.set(FieldRef(index), value).map_err(|e| format!("{what}: {e:?}"))?;
-    }
-    Ok(record)
+    fields_from_script(&schema.fields, v).map_err(|e| format!("state.{}.{}", state_name(schema), e))
 }
 
 /// Run entry `entry` of `module` from a script: the SDK decodes the
@@ -425,7 +433,7 @@ pub fn invoke_script(
         let mut state = Vec::new();
         for schema in &writes {
             let record = inv.state(&schema.key)?.clone();
-            state.push((state_name(schema).to_owned(), record_to_script(schema, &record)));
+            state.push((state_name(schema).to_owned(), record_to_script(schema, &record).map_err(fault)?));
         }
         let inv_value = ScriptValue::Map(vec![
             ("tick".into(), ScriptValue::Int(inv.tick() as i64)),

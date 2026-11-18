@@ -37,7 +37,7 @@ pub(crate) fn schema_migration_refusal(to: &StateSchema, from: &StateSchema) -> 
     }
     for old in &from.fields {
         if let Some(new) = to.fields.iter().find(|field| field.tag == old.tag) {
-            if old.kind != new.kind {
+            if !new.kind.accepts_migration_from(&old.kind) {
                 return Some(format!(
                     "schema {} field tag {} ({}) changed kind from {:?} to {:?}; \
                      keep the kind, or declare new state under a new schema key",
@@ -61,6 +61,7 @@ pub fn validate_saved_rows(admitted: &Admitted, rows: &[(SaveRoad, SavedRow)]) -
         let written = StateSchema::read(&mut reader)
             .map_err(|error| format!("saved record {}: its schema does not decode: {error:?}", row.key))?;
         reader.finish().map_err(|error| format!("saved record {}: {error:?}", row.key))?;
+        written.validate().map_err(|error| format!("saved record {}: invalid schema: {error:?}", row.key))?;
         if row.key != written.key.to_string() {
             return Err(format!("saved record {}: its schema names {}", row.key, written.key));
         }
@@ -177,6 +178,10 @@ pub fn adopt_saved_rows(admitted: &Admitted, road: SaveRoad, records: &mut Recor
         let Some(admitted_schema) = admitted.schemas.get(&written.key) else {
             continue;
         };
+        if let Err(error) = written.validate() {
+            problems.push(format!("saved record {}: invalid schema: {error:?}", row.key));
+            continue;
+        }
         if let Some(reason) = schema_migration_refusal(&admitted_schema.schema, &written) {
             problems.push(format!("saved record {}: {reason}", row.key));
             continue;

@@ -26,13 +26,18 @@ customers. They are constrained to semantic facade modules (`actor`, `engine`,
 so adding a raw implementation-crate import there fails the architecture
 ratchet instead of expanding the public API by accident.
 
-Scripts can receive native command outcomes through
+[Script libraries](script-libraries.md) provide captured imports, reusable behavior
+functions, and typed state factories. [Structured state](script-state.md) adds reusable
+nested records and bounded text. [Actor creation](actor-creation.md) composes native
+character bodies and initializes their behavior state. Scripts can receive native command outcomes through
 [action results](action-results.md). This includes correlated replies, retries,
 cancellation, and rollback delivery. [Inventory exchanges](inventory-exchanges.md)
-apply exact item and wallet changes through the native owner. [Body queries](body-queries.md) provide
+apply exact item and wallet changes through the native owner.
+[Contact consumption](contact-consumption.md) commits a contacted destructible
+and its exchange together. [Body queries](body-queries.md) provide
 bounded, identified same-room facts for scripts. [Hit receptions](hit-receptions.md)
-report native damage and defense decisions. [Body contacts](body-contacts.md)
-provide native physical contact samples and responses for any controller. The broader
+report native damage and defense decisions. [Body and world contacts](body-contacts.md)
+provide native physical contacts, geometry identities, and responses for any controller. The broader
 [script capability program](../planning/engine/script-first-ambition-gameplay.md)
 remains open. [Projectile ownership](projectile-ownership.md) explains native
 credit, reflection, and script-authored parry windows.

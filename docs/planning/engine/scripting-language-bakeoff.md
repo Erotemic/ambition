@@ -101,8 +101,9 @@ faster; its binding should then build tables directly, not through serde.
    witness and its invocation-fault witness. **Landed:**
    `game/ambition_content_modules/rhai/sentry.rhai` (the fixture compares
    this file), loaded by `AMBITION_EXTENSION_MODULES` and reloaded on edit;
-   a script's code identity is `rhai-f32-exact/1` and the digest of its
-   text, so an edit is a new content generation and each fault names it.
+   the initial code identity used `rhai-f32-exact/1` and a text digest.
+   [Captured libraries](../../sdk/script-libraries.md) now use version 2 and
+   include library source. An edit changes content identity and each fault names it.
    Witness: `game/ambition_app/tests/a_script_module_runs_without_a_build.rs`.
    P3's project entry (a manifest, no game Rust) remains.
 4. Story sequences (SS1, SS2) as the first content customer of script-callable

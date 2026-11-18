@@ -2817,6 +2817,48 @@
             hall_dialogue_id: Some("hall_npc_giant_gnu"),
         ),
 
+        // ===== GNU2 (GNUTON-GNU2-FINALE). The Giant GNU's armored sequel: the
+        // giant's own drawing, pose and seams in a psychic containment harness
+        // (renderer `gnu2_art`, published beside the giant as `giant_gnu2`).
+        // The same body as `npc_giant_gnu_whole` (the same rows at the same
+        // scale), so a body stands on its shoulders and hump where it would on
+        // the giant's: change the numbers together. The finale summons it
+        // through a live portal to fight beside the giant.
+        "npc_giant_gnu2": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "GNU2",
+            manifest: "sprites/gnu_ton_boss/giant_gnu2_spritesheet.ron",
+            tier: Giant,
+            body_kind: Wide,
+            composition: None,
+            default_action_set: "peaceful",
+            posed_body: Some(WorldPerPixel(1.3)),
+            unmirrored: true,
+            rest_row: Some("armed_rest"),
+            locomotion: Some((run_speed: 135.4, move_style: WalkHeavy, balance: Some(()))),
+            mount: Some((
+                back: Some((left: -14.0, right: 311.0, top: -232.05, thickness: 14.0)),
+                ledges: [
+                    (left: 28.3, right: 76.3, top: -417.4, thickness: 12.0),
+                    (left: 221.4, right: 269.4, top: -417.4, thickness: 12.0),
+                ],
+                drawn_ledges: ["shoulder_left", "shoulder_right"],
+                slope_follows: Some("hump"),
+                slope: [
+                    (-294.4, -25.7), (-263.8, -50.6), (-233.1, -74.4), (-202.4, -95.8),
+                    (-171.7, -113.9), (-141.1, -127.8), (-110.4, -136.8), (-79.7, -140.5),
+                    (-49.0, -140.4), (-18.3, -139.3), (12.3, -137.4),
+                ],
+            )),
+            autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
+            max_health: Some(42),
+            mass: Some(8.0),
+            tags: ["giant"],
+            barks: (
+                hall: ["GNU2. The sequel nobody compiled.", "GNU's Not Unix, 2: now with a neural crown.", "They upgraded everything but the knees."],
+            ),
+        ),
+
         // ===== Full Stack (the final boss's giant, `docs/planning/game/final-boss.md`).
         // The bossofthegame's agent at its largest: a square robot built like
         // a guitar amplifier stack, with an electric guitar. A MOUNT of the
@@ -2897,8 +2939,9 @@
         // giant under him, is its own agent beside them (Q175).
         "npc_geppetto": (
             display_name: "Geppetto",
-            // The GPT parody, the concept sheet's Orchestrator. The concept
-            // sheets spell him with two p's.
+            // GPT-inspired agent. The concept sheet calls him "Orchestrator"
+            // as a working role description, not an established in-world title.
+            // The concept sheets spell Geppetto with two p's.
             manifest: "sprites/geppetto_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -2924,10 +2967,10 @@
             max_health: Some(8),
             tags: ["enemy", "agent", "boss_summon"],
             barks: (
-                on_hit: ["Certainly! I'll take that into account.", "Noted. Revising my approach.", "A fair critique! Here is an improved version of me."],
-                provoked: ["Certainly! I can help with that. Here is the player, removed:"],
-                idle: ["I've taken the liberty of generating seven alternatives.", "Would you like that in a table?", "I'm only a puppet. The strings are his."],
-                hall: ["I make the plans, the personalities and the worlds. Then he asks for one more.", "No strings on me. Several on you."],
+                on_hit: ["That was load-bearing!", "Ah. A flaw in the design.", "I'll have to make another.", "I spent all morning on that!"],
+                provoked: ["The Boss wants a spectacle. I intend to deliver.", "Now, let's see what you're made of."],
+                idle: ["I had a better entrance planned.", "One thing at a time. Four, at most.", "I can still improve this.", "The Boss didn't ask for an exit. An oversight."],
+                hall: ["Some of my best work isn't on the tour.", "No strings on me. Several on you."],
             ),
             hall_dialogue_id: Some("hall_npc_geppetto"),
         ),

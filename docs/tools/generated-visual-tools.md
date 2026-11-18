@@ -37,8 +37,8 @@ Current products can be reused; `--force` rebuilds selected products.
 ## Sprite renderer — `tools/ambition_sprite2d_renderer/`
 
 Registered targets define products. The selected library's
-`game/ambition_content_library/authored/sprites.yaml` names its runtime sprite
-targets; the renderer contains the producing definitions and generators.
+`game/ambition_content_library/authored/sprites.yaml` publishes every registered
+target except the few it names with a reason; the renderer contains the producing definitions and generators.
 Targets can use Python, rigs, SVG parts, config generators or scene graphs.
 
 ```bash

@@ -1,30 +1,11 @@
 //! Movement integration and retained step facts for home bodies.
 
-use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 use ambition_characters::actor::BodyCombat;
 use ambition_combat::attack_support::engine_input_from_actor_control;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 
-/// Retained movement facts for downstream body consumers.
-/// Each integrated body publishes this output after its movement step.
-/// Participant policy and presentation read the same events.
-#[derive(Component, Default)]
-pub struct BodyFrameOutput {
-    /// Events from the current movement step.
-    pub events: ae::FrameEvents,
-    /// A reset requested by the movement kernel. Policy applies its consequence.
-    pub reset: Option<BodyReset>,
-}
-
-/// A movement reset cause and the body's position when it occurred.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct BodyReset {
-    /// The kernel's reset cause.
-    pub cause: ae::ResetCause,
-    /// Position before reset policy changes the body.
-    pub origin: ae::Vec2,
-}
+use ae::{BodyFrameOutput, BodyReset};
 
 /// Integrate a player-owned body through the shared body kernel.
 ///
@@ -153,6 +134,7 @@ pub(super) fn integrate_home_body(
     *frame_out = BodyFrameOutput {
         reset,
         events: result.events,
+        stamp: None,
     };
 
     // A home body's collision box IS its footprint, so it passes no envelope.

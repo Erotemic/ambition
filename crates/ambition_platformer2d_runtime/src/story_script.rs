@@ -57,6 +57,7 @@ fn queue_story_ticks(
     specs: LiveRoomSpecs,
     pace: RoomFreeze,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
+    #[cfg(feature = "dialogue")]
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
 ) {
@@ -85,8 +86,9 @@ fn queue_story_ticks(
         let busy = cutscene.is_playing()
             && cutscene
                 .room
-                .is_none_or(|ordinal| ordinal == room.ordinal())
-            || conversation
+                .is_none_or(|ordinal| ordinal == room.ordinal());
+        #[cfg(feature = "dialogue")]
+        let busy = busy || conversation
                 .as_ref()
                 .and_then(|active| active.live())
                 .is_some_and(|live| {

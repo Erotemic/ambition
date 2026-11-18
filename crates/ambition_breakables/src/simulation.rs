@@ -298,3 +298,27 @@ pub fn strike(
     }
     broke
 }
+
+pub(super) struct PreparedConsumption {
+    next: ambition_interaction::Breakable,
+}
+
+pub(super) fn prepare_consumption(feature: &BreakableFeature)
+    -> Result<PreparedConsumption, &'static str> {
+    if feature.broken() { return Err("object_already_consumed"); }
+    let mut next = feature.breakable.clone();
+    if !next.apply_damage(next.health.current.max(1)) {
+        return Err("object_protected");
+    }
+    Ok(PreparedConsumption { next })
+}
+
+pub(super) fn commit_consumption(
+    commands: &mut Commands,
+    entity: Entity,
+    feature: &mut BreakableFeature,
+    prepared: PreparedConsumption,
+) {
+    feature.breakable = prepared.next;
+    begin_ecs_breakable_respawn(commands, entity, &feature.breakable);
+}

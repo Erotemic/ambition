@@ -159,27 +159,7 @@ fn schema_of(value: &Dynamic, provider: &str, at: &str) -> Result<StateSchema, S
         None => 1,
         Some(v) => v.as_int().map_err(|t| format!("{at}.revision: expected a number, got {t}"))?,
     };
-    let mut fields = Vec::new();
-    for (n, field) in list(&table, "fields")?.iter().enumerate() {
-        let fat = format!("{at}.fields[{n}]");
-        let field = map(field, &fat)?;
-        let kind = kind_of(&text(&field, "kind", &fat)?).map_err(|e| format!("{fat}.kind: {e}"))?;
-        let tag = field
-            .get("tag")
-            .ok_or_else(|| format!("{fat}: no tag"))?
-            .as_int()
-            .map_err(|t| format!("{fat}.tag: expected a number, got {t}"))?;
-        let initial = match field.get("initial") {
-            None => kind.initial(),
-            Some(v) => initial_of(v, &kind).ok_or_else(|| format!("{fat}.initial: not a {kind:?}"))?,
-        };
-        fields.push(FieldDecl {
-            tag: u16::try_from(tag).map_err(|_| format!("{fat}.tag: {tag} is out of range"))?,
-            name: Name::Owned(text(&field, "name", &fat)?),
-            kind,
-            initial,
-        });
-    }
+    let fields = fields_of(&list(&table, "fields")?, at, 0)?;
     let schema = StateSchema {
         key: SchemaKey {
             provider: Name::Owned(provider.to_owned()),
@@ -194,11 +174,59 @@ fn schema_of(value: &Dynamic, provider: &str, at: &str) -> Result<StateSchema, S
     Ok(schema)
 }
 
-/// A field kind as a declaration writes it: a scalar (`bool`, `u32`, `i32`,
-/// `u64`, `f32`, `vec2`), a reference (`body`, `item`), `opt <kind>`, or
-/// `seq <max length> <kind>` (`seq 16 opt item`).
+fn fields_of(values: &[Dynamic], at: &str, depth: usize) -> Result<Vec<FieldDecl>, String> {
+    values.iter().enumerate().map(|(n, value)| {
+        let at = format!("{at}.fields[{n}]");
+        let field = map(value, &at)?;
+        let kind = kind_dynamic(field.get("kind").ok_or_else(|| format!("{at}: no kind"))?, &at, depth)?;
+        let tag = field.get("tag").ok_or_else(|| format!("{at}: no tag"))?
+            .as_int().map_err(|t| format!("{at}.tag: expected a number, got {t}"))?;
+        let initial = match field.get("initial") {
+            None => kind.initial(),
+            Some(v) => initial_of(v, &kind).map_err(|e| format!("{at}.initial: {e}"))?,
+        };
+        Ok(FieldDecl {
+            tag: u16::try_from(tag).map_err(|_| format!("{at}.tag: {tag} is out of range"))?,
+            name: Name::Owned(text(&field, "name", &at)?), kind, initial,
+        })
+    }).collect()
+}
+
+fn kind_dynamic(value: &Dynamic, at: &str, depth: usize) -> Result<FieldKind, String> {
+    if depth >= ambition_extension_sdk::MAX_SCHEMA_DEPTH {
+        return Err(format!("{at}.kind: too much nesting"));
+    }
+    if let Ok(text) = value.clone().into_string() {
+        return kind_text(&text, depth).map_err(|e| format!("{at}.kind: {e}"));
+    }
+    let table = map(value, &format!("{at}.kind"))?;
+    if table.len() == 1 {
+        if let Some(fields) = table.get("record") {
+            let fields = fields.clone().into_array().map_err(|t| format!("{at}.kind.record: expected fields, got {t}"))?;
+            return Ok(FieldKind::Record(fields_of(&fields, &format!("{at}.kind.record"), depth + 1)?));
+        }
+        if let Some(inner) = table.get("opt") {
+            return Ok(FieldKind::opt(kind_dynamic(inner, &format!("{at}.kind.opt"), depth + 1)?));
+        }
+    }
+    if table.len() == 2 {
+        if let (Some(bound), Some(inner)) = (table.get("seq"), table.get("of")) {
+            let n = bound.as_int().map_err(|t| format!("{at}.kind.seq: expected a bound, got {t}"))?;
+            let max_len = u32::try_from(n).map_err(|_| format!("{at}.kind.seq: {n} is out of range"))?;
+            return Ok(FieldKind::seq(kind_dynamic(inner, &format!("{at}.kind.of"), depth + 1)?, max_len));
+        }
+    }
+    Err(format!("{at}.kind: expected text, #{{record: fields}}, #{{opt: kind}}, or #{{seq: bound, of: kind}}"))
+}
+
+/// Read a scalar, reference, bounded text, option or bounded sequence kind.
 pub fn kind_of(text: &str) -> Result<FieldKind, String> {
-    fn parse<'a>(words: &mut impl Iterator<Item = &'a str>) -> Result<FieldKind, String> {
+    kind_text(text, 0)
+}
+
+fn kind_text(text: &str, depth: usize) -> Result<FieldKind, String> {
+    fn parse<'a>(words: &mut impl Iterator<Item = &'a str>, depth: usize) -> Result<FieldKind, String> {
+        if depth >= ambition_extension_sdk::MAX_SCHEMA_DEPTH { return Err("too much nesting".into()); }
         let word = words.next().ok_or("a kind is missing")?;
         Ok(match word {
             "bool" => FieldKind::Bool,
@@ -209,43 +237,62 @@ pub fn kind_of(text: &str) -> Result<FieldKind, String> {
             "vec2" => FieldKind::Vec2,
             "body" => FieldKind::Ref(ambition_extension_sdk::RefKind::Body),
             "item" => FieldKind::Ref(ambition_extension_sdk::RefKind::Item),
-            "opt" => FieldKind::opt(parse(words)?),
-            "seq" => {
-                let len = words.next().ok_or("`seq` needs a maximum length")?;
-                let max_len = len.parse::<u32>().map_err(|_| format!("`seq {len}`: the maximum length is not a number"))?;
-                FieldKind::seq(parse(words)?, max_len)
+            "opt" => FieldKind::opt(parse(words, depth + 1)?),
+            "text" | "seq" => {
+                let len = words.next().ok_or_else(|| format!("`{word}` needs a bound"))?;
+                let n = len.parse::<u32>().map_err(|_| format!("`{word} {len}`: the bound is not a number"))?;
+                if word == "text" { FieldKind::Text { max_bytes: n } }
+                else { FieldKind::seq(parse(words, depth + 1)?, n) }
             }
-            other => {
-                return Err(format!(
-                    "\"{other}\" is not one of bool, u32, i32, u64, f32, vec2, body, item, opt <kind>, seq <n> <kind>"
-                ))
-            }
+            other => return Err(format!(
+                "\"{other}\" is not one of bool, u32, i32, u64, f32, vec2, body, item, text <bytes>, opt <kind>, seq <n> <kind>")),
         })
     }
     let mut words = text.split_whitespace();
-    let kind = parse(&mut words)?;
+    let kind = parse(&mut words, depth)?;
     match words.next() {
         None => Ok(kind),
         Some(extra) => Err(format!("\"{text}\": \"{extra}\" follows a whole kind")),
     }
 }
 
-fn initial_of(value: &Dynamic, kind: &FieldKind) -> Option<Value> {
-    Some(match kind {
-        FieldKind::Bool => Value::Bool(value.as_bool().ok()?),
-        FieldKind::U32 => Value::U32(u32::try_from(value.as_int().ok()?).ok()?),
-        FieldKind::I32 => Value::I32(i32::try_from(value.as_int().ok()?).ok()?),
-        FieldKind::U64 => Value::U64(value.clone().into_string().ok()?.parse().ok()?),
-        FieldKind::F32 => Value::F32(value.as_float().ok()?),
+fn initial_of(value: &Dynamic, kind: &FieldKind) -> Result<Value, String> {
+    let wrong = || format!("expected {kind:?}, got {}", value.type_name());
+    Ok(match kind {
+        FieldKind::Bool => Value::Bool(value.as_bool().map_err(|_| wrong())?),
+        FieldKind::U32 => Value::U32(u32::try_from(value.as_int().map_err(|_| wrong())?).map_err(|_| wrong())?),
+        FieldKind::I32 => Value::I32(i32::try_from(value.as_int().map_err(|_| wrong())?).map_err(|_| wrong())?),
+        FieldKind::U64 => Value::U64(value.clone().into_string().map_err(|_| wrong())?.parse().map_err(|_| wrong())?),
+        FieldKind::F32 => Value::F32(value.as_float().map_err(|_| wrong())?),
         FieldKind::Vec2 => {
-            let items = value.clone().into_array().ok()?;
+            let items = value.clone().into_array().map_err(|_| wrong())?;
             match items.as_slice() {
-                [x, y] => Value::Vec2([x.as_float().ok()?, y.as_float().ok()?]),
-                _ => return None,
+                [x, y] => Value::Vec2([x.as_float().map_err(|_| wrong())?, y.as_float().map_err(|_| wrong())?]),
+                _ => return Err(wrong()),
             }
         }
-        FieldKind::Ref(_) => Value::Ref(value.clone().into_string().ok()?),
-        _ => return None,
+        FieldKind::Ref(_) => Value::Ref(value.clone().into_string().map_err(|_| wrong())?),
+        FieldKind::Text { .. } => Value::Text(value.clone().into_string().map_err(|_| wrong())?),
+        FieldKind::Opt(_) if value.is_unit() => Value::Opt(None),
+        FieldKind::Opt(inner) => Value::some(initial_of(value, inner)?),
+        FieldKind::Seq { elem, max_len } => {
+            let items = value.clone().into_array().map_err(|_| wrong())?;
+            if items.len() > *max_len as usize { return Err("sequence exceeds its bound".into()); }
+            Value::Seq(items.iter().enumerate().map(|(i, v)| initial_of(v, elem)
+                .map_err(|e| format!("[{i}]: {e}"))).collect::<Result<_, _>>()?)
+        }
+        FieldKind::Record(fields) => {
+            let table = map(value, "record")?;
+            if let Some(name) = table.keys().find(|name| !fields.iter().any(|f| f.name == name.as_str())) {
+                return Err(format!("{name}: no such field"));
+            }
+            Value::Record(ambition_extension_sdk::Record::from_values(fields.iter().map(|f| {
+                match table.get(f.name.as_ref()) {
+                    Some(v) => initial_of(v, &f.kind).map_err(|e| format!("{}: {e}", f.name)),
+                    None => Ok(f.initial.clone()),
+                }
+            }).collect::<Result<_, _>>()?))
+        }
     })
 }
 

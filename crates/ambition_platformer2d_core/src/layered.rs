@@ -268,7 +268,9 @@ pub trait Spatial {
 /// reach it, in list order.
 struct Grid {
     cell: f32,
-    cells: std::collections::BTreeMap<(i32, i32), Vec<u32>>,
+    cells: Vec<((i32, i32), Vec<u32>)>,
+    /// Indexed entries, once, in source order.
+    all: Vec<u32>,
     /// Entries too big to file by cell (more than this many cells): asked
     /// every time.
     large: Vec<u32>,
@@ -285,40 +287,43 @@ impl Grid {
     }
 
     fn build<T: Spatial>(items: &[T], swept: bool) -> Self {
-        let mut grid = Self { cell: GRID_CELL, cells: Default::default(), large: Vec::new() };
+        let mut grid = Self { cell: GRID_CELL, cells: Default::default(), all: Vec::new(), large: Vec::new() };
+        let mut cells = std::collections::BTreeMap::<(i32, i32), Vec<u32>>::new();
         for (i, item) in items.iter().enumerate() {
             let (x0, y0, x1, y1) = grid.cells_of(if swept { item.swept_bounds() } else { item.spatial_bounds() });
-            if (i64::from(x1)-i64::from(x0)+1).saturating_mul(i64::from(y1)-i64::from(y0)+1) > GRID_LARGE_CELLS {
+            let large = (i64::from(x1)-i64::from(x0)+1).saturating_mul(i64::from(y1)-i64::from(y0)+1) > GRID_LARGE_CELLS;
+            if large || (x0 <= x1 && y0 <= y1) {
+                grid.all.push(i as u32);
+            }
+            if large {
                 grid.large.push(i as u32);
                 continue;
             }
             for x in x0..=x1 {
                 for y in y0..=y1 {
-                    grid.cells.entry((x, y)).or_default().push(i as u32);
+                    cells.entry((x, y)).or_default().push(i as u32);
                 }
             }
         }
+        grid.cells = cells.into_iter().collect();
         grid
     }
 
     /// The entries whose cells meet `region`, each once, in list order.
     fn near(&self, region: Aabb) -> Vec<u32> {
         let (x0, y0, x1, y1) = self.cells_of(region);
-        let mut found: Vec<u32> = self.large.clone();
         if (i64::from(x1)-i64::from(x0)+1).saturating_mul(i64::from(y1)-i64::from(y0)+1) > GRID_LARGE_CELLS * 16 {
-            // A region the size of the room: every entry.
-            // AMBITION_REVIEW(determinism): the hash order does not get out;
-            // `found` is sorted and made unique below.
-            found.extend(self.cells.values().flatten().copied());
-        } else {
-            for x in x0..=x1 {
-                for y in y0..=y1 {
-                    if let Some(cell) = self.cells.get(&(x, y)) {
-                        found.extend_from_slice(cell);
-                    }
+            return self.all.clone();
+        }
+        let mut found: Vec<u32> = self.large.clone();
+        for x in x0..=x1 {
+            for y in y0..=y1 {
+                if let Ok(index) = self.cells.binary_search_by_key(&(x, y), |(key, _)| *key) {
+                    found.extend_from_slice(&self.cells[index].1);
                 }
             }
         }
+        // Cell lookup order must not change contact order.
         found.sort_unstable();
         found.dedup();
         found
@@ -529,6 +534,43 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Layered<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spatial_queries_match_visible_list_order_for_local_and_global_regions() {
+        #[derive(Clone)]
+        struct At { id: usize, bounds: Aabb, swept: Aabb }
+        impl Spatial for At {
+            fn spatial_bounds(&self) -> Aabb { self.bounds }
+            fn swept_bounds(&self) -> Aabb { self.swept }
+        }
+        let mut entries: Layered<At> = (0..1000).map(|id| {
+            let min = Vec2::new((id % 50) as f32 * 64.0 - 1600.0, (id / 50) as f32 * 64.0 - 640.0);
+            let bounds = Aabb { min, max: min + Vec2::splat(128.0) };
+            At { id, bounds, swept: Aabb { min: min - Vec2::splat(256.0), max: bounds.max } }
+        }).chain(std::iter::once(At { id: 1000, bounds: UNBOUNDED, swept: UNBOUNDED })).collect();
+        // Build both shared grids before a layer hides and adds entries.
+        entries.near(UNBOUNDED);
+        entries.swept_near(UNBOUNDED);
+        for index in [999, 500, 0] { entries.hide(index); }
+        entries.add(At { id: 1001, bounds: UNBOUNDED, swept: UNBOUNDED });
+        entries.add(At { id: 1002, bounds: Aabb { min: Vec2::ZERO, max: Vec2::ZERO }, swept: UNBOUNDED });
+        let mut regions = vec![UNBOUNDED, Aabb { min: Vec2::splat(-100000.0), max: Vec2::splat(100000.0) }];
+        for i in -20..20 {
+            let min = Vec2::new(i as f32 * 128.0, i as f32 * 32.0);
+            regions.push(Aabb { min, max: min });
+            regions.push(Aabb { min, max: min + Vec2::splat(300.0) });
+        }
+        for region in regions {
+            for swept in [false, true] {
+                let expected: Vec<_> = entries.iter().enumerate()
+                    .filter(|(_, entry)| touches(if swept { entry.swept } else { entry.bounds }, region))
+                    .map(|(index, entry)| (index, entry.id)).collect();
+                let actual: Vec<_> = entries.indexed_candidates(region, swept).into_iter()
+                    .map(|(index, entry)| (index, entry.id)).collect();
+                assert_eq!(actual, expected, "region={region:?}, swept={swept}");
+            }
+        }
+    }
 
     #[test]
     fn a_thin_line_keeps_its_far_endpoint_in_the_index() {

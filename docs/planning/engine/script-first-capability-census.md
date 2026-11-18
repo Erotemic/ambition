@@ -192,3 +192,22 @@ messages do not own spawning. See [projectile ownership](../../sdk/projectile-ow
 
 The P0 combat row stays open for per-shot notifications and accepted damage
 correlation. This receipt does not complete the SDK capability program.
+
+
+## Retained hit origins
+
+Deferred damage could lose a retired source's credit and the shot identity.
+The native `HitWriter` now captures identity for all hit kinds. Detached
+volumes and pending hits retain it. Reception version 3 supplies the shot ID
+and current credit for direct and splash decisions. Commit: `e7979d090`.
+
+Guards: the loaded
+[`scripted_projectile_credit.rs`](../../../game/ambition_app/tests/scripted_projectile_credit.rs)
+fixture checks accepted damage after reflection and deflector retirement under
+GGRS replay. Native tests check retired melee sources, detached splash origins,
+semantic checksums, and portable session masking. See
+[hit receptions](../../sdk/hit-receptions.md).
+
+Do not infer the absence of later damage from shot retirement. Spawn replies,
+interception results, and retirement outcomes remain open. This receipt does
+not complete the SDK program.

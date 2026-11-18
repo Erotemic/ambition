@@ -1773,6 +1773,14 @@ narrows its field of view so the active face fills 96% of the height, not
 about 13 px. The inventory face is next. Maintainer 2026-11-17: mobile UX
 waits behind higher-value queue items, so the rest of this row is deferred.
 
+### INPUT-GLYPH-ART — draw prompts and a controller layout from the published glyphs
+
+**Art done 2026-11-18** (renderer target `input_glyphs`, published under `sprites/input_glyphs/`): gamepad glyphs for each `GamepadStyle` (xbox, playstation, switch, generic), keycaps named by `key_label`, mouse glyphs, and xbox/playstation/switch/generic pad, keyboard and mouse pictures, each with a `_layout.ron` that places every control (Bevy `GamepadButton`/`KeyCode`/`MouseButton` names) in the full-size picture. The naming rule (style, control) → file is in the target's docstring; ⚠ Bevy's `LeftTrigger` is the bumper and `LeftTrigger2` the trigger.
+
+**Next action:** `ambition_input::glyphs` returns text today. Give the control prompt (`ambition_sim_view::control_prompt`) the glyph image for the seat's device, with the text as fallback, and add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
+
+**Acceptance:** a prompt shows the pressed button's glyph for keyboard, an Xbox-like and a PlayStation-like pad; a rebind moves the glyph; the layout page names every bound action on its control.
+
 ### CONTENT-AS-DATA — content still written as Rust
 
 **Owner:** [fast iteration implementation](engine/fast-iteration-implementation.md)

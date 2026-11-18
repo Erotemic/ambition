@@ -368,7 +368,7 @@ pub fn probe_ledge_grab_in_frame(
 
     let head_down = player_pos.dot(frame.down) - player_size.y * 0.5;
     let mut best: Option<(LedgeContact, f32)> = None;
-    for (ledge, block) in block_ledges.chain(line_ledges.collect::<Vec<_>>()) {
+    for (ledge, block) in block_ledges.chain(line_ledges) {
         let Some(candidate) = ledge_contact_at(player_pos, player_size, ledge, block, world, frame) else {
             continue;
         };
@@ -392,11 +392,7 @@ fn ledge_contact_at(
     world: &World,
     frame: crate::AccelerationFrame,
 ) -> Option<LedgeContact> {
-    if !ledge.grabbable(frame) {
-        return None;
-    }
     let half = player_size * 0.5;
-    let half_world = frame.to_world_half(half);
     let player_side = player_pos.dot(frame.side);
     let head_down = player_pos.dot(frame.down) - half.y;
     let lip_down = ledge.lip.dot(frame.down);
@@ -412,6 +408,10 @@ fn ledge_contact_at(
     if (ledge.lip.dot(frame.side) - cling_side).abs() > LEDGE_HORIZONTAL_REACH {
         return None;
     }
+    if !ledge.grabbable(frame) {
+        return None;
+    }
+    let half_world = frame.to_world_half(half);
     let others = |b: &crate::world::Block| ledge_clearance_blocker_kind(b.kind) && block.is_none_or(|own| !std::ptr::eq(b, own));
     // The space over the surface (away from the feet) must be clear.
     let probe_center = ledge.standing_centre(half, half.x - 1.0, 1.0, frame);

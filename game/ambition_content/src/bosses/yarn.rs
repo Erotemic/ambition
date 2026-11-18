@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 use std::sync::Arc;
 
-use ambition_combat::SetFlagRequested;
+use ambition_combat::SetFlagsRequested;
 use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
 use ambition_persistence::save::AmbitionGameSave;
 
@@ -27,15 +27,15 @@ const HEAVY_OBJECT_KEY: &str = "cut_rope_heavy_object";
 /// browser after a settings/privacy opt-in. For now the Yarn line presents the
 /// link and this command records the choice as a save flag for traceability.
 pub fn cmd_watch_cut_rope_video(
-    mut narrative: ambition_conversation::NarrativeInputWriter<SetFlagRequested>,
+    mut narrative: ambition_conversation::NarrativeInputWriter<SetFlagsRequested>,
 ) {
     info!(
         target: "ambition_conversation::dialog::yarn",
         "watch_cut_rope_video: TODO optional browser launch for https://www.youtube.com/watch?v=ucLGm27DDL0",
     );
-    narrative.write(SetFlagRequested {
-        id: "smirking_behemoth_video_suggested".into(),
-        on: true,
+    narrative.write(SetFlagsRequested {
+        changes: vec![("smirking_behemoth_video_suggested".into(), true)],
+        reply: None,
         written: None,
     });
 }

@@ -235,12 +235,6 @@ const FAMILY_EDITS: &[(&str, &str, &str)] = &[
     ("audio/music_registry.ron", "default_track: \"long_lofi_drift\"", "default_track: \"original_lofi_loop\""),
     // quest book
     ("data/quests.ron", "title: \"First Steps\"", "title: \"First Steps, Revised\""),
-    // cutscene library
-    (
-        "data/cutscenes/intro.ron",
-        "text: \"Drain Market — STAFF ONLY\"",
-        "text: \"Drain Market — STAFF ONLY (revised)\"",
-    ),
     // encounter waves
     ("data/encounters/goblin_encounter.ron", "delay: 0.70", "delay: 0.75"),
     // fighter brain ladder
@@ -262,6 +256,7 @@ const FAMILY_EDITS: &[(&str, &str, &str)] = &[
 fn pack_that_disagrees_everywhere() -> std::sync::Arc<PreparedContentPack> {
     let mut applied = std::collections::BTreeSet::new();
     let mut items_swapped = false;
+    let mut cutscenes_changed = false;
     let pack = compile_pack_with(|path, text| {
         let text = half_a_second_longer(path, text);
         if path == "data/items.ron" {
@@ -281,6 +276,15 @@ fn pack_that_disagrees_everywhere() -> std::sync::Arc<PreparedContentPack> {
             return ron::ser::to_string_pretty(&rows, ron::ser::PrettyConfig::default())
                 .expect("the edited grid serializes");
         }
+        if path == "data/cutscenes/intro.ron" {
+            let mut scripts: Vec<ambition_cutscene::CutsceneScript> = ron::from_str(&text)
+                .expect("the cutscene source parses as its typed document");
+            scripts.first_mut().expect("the cutscene family has a script").beats
+                .push(ambition_cutscene::CutsceneBeat::Wait { seconds: 0.125 });
+            cutscenes_changed = true;
+            return ron::ser::to_string_pretty(&scripts, ron::ser::PrettyConfig::default())
+                .expect("the edited cutscenes serialize");
+        }
         for (edit_path, from, to) in FAMILY_EDITS {
             if path == *edit_path && text.contains(from) {
                 applied.insert(*edit_path);
@@ -291,6 +295,7 @@ fn pack_that_disagrees_everywhere() -> std::sync::Arc<PreparedContentPack> {
     })
     .expect("the edited pack compiles");
     assert!(items_swapped, "no declared source is `data/items.ron`");
+    assert!(cutscenes_changed, "no declared source is `data/cutscenes/intro.ron`");
     for (path, from, _) in FAMILY_EDITS {
         assert!(
             applied.contains(path),

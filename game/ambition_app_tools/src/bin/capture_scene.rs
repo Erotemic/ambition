@@ -777,13 +777,13 @@ fn blow_on_bosses(
 fn record_flags(
     config: Res<SceneCaptureConfig>,
     tick: Res<ambition_platformer2d::time::SimTick>,
-    mut requests: MessageWriter<ambition_platformer2d::combat::events::SetFlagRequested>,
+    mut requests: MessageWriter<ambition_platformer2d::combat::events::SetFlagsRequested>,
 ) {
     for (id, on_tick) in &config.flags {
         if tick.get() == *on_tick {
-            requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
-                id: id.clone(),
-                on: true,
+            requests.write(ambition_platformer2d::combat::events::SetFlagsRequested {
+                changes: vec![(id.clone(), true)],
+                reply: None,
                 written: None,
             });
             eprintln!("capture_scene: recorded the flag {id} on tick {on_tick}");

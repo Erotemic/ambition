@@ -44,7 +44,7 @@ fn the_flag_chains_are_the_packs_rows() {
 #[test]
 fn emit_chains_promotes_bob_survey_to_private_marks() {
     use crate::quest::QuestRegistry;
-    use ambition_combat::SetFlagRequested;
+    use ambition_combat::SetFlagsRequested;
     use ambition_persistence::save::AmbitionGameSave;
     use ambition_platformer2d_runtime::effect_bus::apply_flag_effects;
     use bevy::app::{App, Update};
@@ -55,7 +55,7 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
     ));
     app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(QuestRegistry::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_systems(
         Update,
         (super::emit_intro_flag_chains, apply_flag_effects).chain(),
@@ -90,7 +90,7 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
 #[test]
 fn alices_message_quest_advances_through_alice_bob_and_alice_again() {
     use crate::quest::{apply_quest_advance_events, shipped_quest_specs, QuestRegistry};
-    use ambition_combat::events::SetFlagRequested;
+    use ambition_combat::events::SetFlagsRequested;
     use ambition_persistence::quest::QuestAdvanceRequested;
     use ambition_persistence::save::AmbitionGameSave;
     use ambition_platformer2d_runtime::effect_bus::apply_flag_effects;
@@ -110,7 +110,7 @@ use ambition_platformer2d_runtime::effect_bus::apply_quest_effects;
         let _ = q.start();
     }
     app.insert_resource(registry);
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     // Order matters: chain emits SetFlag effects, then
     // apply_flag_effects writes them to save + pushes
@@ -186,7 +186,7 @@ use ambition_platformer2d_runtime::effect_bus::apply_quest_effects;
 #[test]
 fn emit_chains_promotes_p5_to_route_memory() {
     use crate::quest::QuestRegistry;
-    use ambition_combat::SetFlagRequested;
+    use ambition_combat::SetFlagsRequested;
     use ambition_persistence::save::AmbitionGameSave;
     use ambition_platformer2d_runtime::effect_bus::apply_flag_effects;
     use bevy::app::{App, Update};
@@ -197,7 +197,7 @@ fn emit_chains_promotes_p5_to_route_memory() {
     ));
     app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(QuestRegistry::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_systems(
         Update,
         (super::emit_intro_flag_chains, apply_flag_effects).chain(),

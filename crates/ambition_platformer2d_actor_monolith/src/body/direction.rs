@@ -456,22 +456,26 @@ fn send(
     CommandOutcome::Done
 }
 
-fn walk_to(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn walk_to(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     send(world, args, room, "walk_to", false, 0.0)
 }
 
-fn leave_through(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn leave_through(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     send(world, args, room, "leave_through", true, 0.0)
 }
 
-fn form_up(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn form_up(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let Some(spacing) = args[2].as_number().map(|value| value as f32).filter(|value| value.is_finite()) else {
         return CommandOutcome::refused("actor.form_up needs finite spacing in pixels");
     };
     send(world, &[args[0].clone(), args[1].clone(), args[3].clone()], room, "form_up", false, spacing)
 }
 
-fn release(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn release(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let Some(character) = args[0].as_name() else {
         return CommandOutcome::refused("`actor.release` takes a character");
     };
@@ -486,7 +490,8 @@ fn release(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstanc
     CommandOutcome::Done
 }
 
-fn face(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn face(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let (Some(character), Some(way)) = (args[0].as_name(), args[1].as_name()) else {
         return CommandOutcome::refused("`actor.face` takes a character and a way");
     };
@@ -534,7 +539,8 @@ fn face(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>)
     CommandOutcome::Done
 }
 
-fn pose(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn pose(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     let (Some(character), Some(row), Some(mode)) = (args[0].as_name(), args[1].as_name(), args[2].as_name()) else {
         return CommandOutcome::refused("`actor.pose` takes a character, a row and `loop` or `hold`");
     };
@@ -554,7 +560,8 @@ fn pose(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>)
     CommandOutcome::Done
 }
 
-fn hold(world: &mut World, args: &[AuthoredArg], room: Option<LiveRoomInstance>) -> CommandOutcome {
+fn hold(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let room = context.room;
     use ambition_combat::held_items::HeldItem;
     let (Some(character), Some(item)) = (args[0].as_name(), args[1].as_name()) else {
         return CommandOutcome::refused("`actor.hold` takes a character and a held item");

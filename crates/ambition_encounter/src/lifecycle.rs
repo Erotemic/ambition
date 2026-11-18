@@ -148,6 +148,62 @@ impl EncounterLifecycle {
         }
     }
 
+    /// Apply one command before the clock and objective step. A repeated
+    /// satisfied command succeeds without a second state change.
+    fn apply_command(&mut self, command: &EncounterCommandKind, events: &mut Vec<EncounterEvent>) -> bool {
+        match command {
+                EncounterCommandKind::Start => {
+                    if matches!(self.phase, EncounterPhase::Inactive) {
+                        self.elapsed_active = 0.0;
+                        self.signals.clear();
+                        self.phase = if self.intro_seconds > 0.0 {
+                            EncounterPhase::Starting {
+                                remaining: self.intro_seconds,
+                            }
+                        } else {
+                            EncounterPhase::Active
+                        };
+                        events.push(EncounterEvent::Started);
+                        events.push(EncounterEvent::LockChanged { locked: true });
+                    }
+                }
+                EncounterCommandKind::Complete => {
+                    if self.phase.in_flight() {
+                        self.complete(events);
+                    }
+                }
+                EncounterCommandKind::Fail => {
+                    if self.phase.in_flight() {
+                        self.fail(events);
+                    }
+                }
+                EncounterCommandKind::Signal(key) => {
+                    if self.phase.in_flight() && self.signals.insert(key.clone()) {
+                        events.push(EncounterEvent::SignalReceived { key: key.clone() });
+                    }
+                }
+                EncounterCommandKind::Reset => {
+                    if !matches!(self.phase, EncounterPhase::Inactive) {
+                        let was_locked = self.phase.locks_exits();
+                        self.phase = EncounterPhase::Inactive;
+                        self.elapsed_active = 0.0;
+                        self.signals.clear();
+                        events.push(EncounterEvent::Reset);
+                        if was_locked {
+                            events.push(EncounterEvent::LockChanged { locked: false });
+                        }
+                    }
+                }
+            }
+        match command {
+            EncounterCommandKind::Start => self.phase.in_flight(),
+            EncounterCommandKind::Complete => matches!(self.phase, EncounterPhase::Completed),
+            EncounterCommandKind::Fail => matches!(self.phase, EncounterPhase::Failed),
+            EncounterCommandKind::Signal(key) => self.phase.in_flight() && self.signals.contains(key),
+            EncounterCommandKind::Reset => matches!(self.phase, EncounterPhase::Inactive),
+        }
+    }
+
     /// THE reducer (pure, headless): apply this tick's commands, advance the
     /// intro/active clocks by `dt`, and evaluate the objective. Returns the
     /// events the caller publishes ([`EncounterEventMsg`] in ECS; trace/tests
@@ -170,52 +226,7 @@ impl EncounterLifecycle {
         objective: Option<&EncounterObjective>,
     ) -> Vec<EncounterEvent> {
         let mut events = Vec::new();
-        for command in commands {
-            match command {
-                EncounterCommandKind::Start => {
-                    if matches!(self.phase, EncounterPhase::Inactive) {
-                        self.elapsed_active = 0.0;
-                        self.signals.clear();
-                        self.phase = if self.intro_seconds > 0.0 {
-                            EncounterPhase::Starting {
-                                remaining: self.intro_seconds,
-                            }
-                        } else {
-                            EncounterPhase::Active
-                        };
-                        events.push(EncounterEvent::Started);
-                        events.push(EncounterEvent::LockChanged { locked: true });
-                    }
-                }
-                EncounterCommandKind::Complete => {
-                    if self.phase.in_flight() {
-                        self.complete(&mut events);
-                    }
-                }
-                EncounterCommandKind::Fail => {
-                    if self.phase.in_flight() {
-                        self.fail(&mut events);
-                    }
-                }
-                EncounterCommandKind::Signal(key) => {
-                    if self.phase.in_flight() && self.signals.insert(key.clone()) {
-                        events.push(EncounterEvent::SignalReceived { key: key.clone() });
-                    }
-                }
-                EncounterCommandKind::Reset => {
-                    if !matches!(self.phase, EncounterPhase::Inactive) {
-                        let was_locked = self.phase.locks_exits();
-                        self.phase = EncounterPhase::Inactive;
-                        self.elapsed_active = 0.0;
-                        self.signals.clear();
-                        events.push(EncounterEvent::Reset);
-                        if was_locked {
-                            events.push(EncounterEvent::LockChanged { locked: false });
-                        }
-                    }
-                }
-            }
-        }
+        for command in commands { self.apply_command(command, &mut events); }
 
         // Intro countdown.
         if let EncounterPhase::Starting { remaining } = self.phase {
@@ -291,6 +302,7 @@ pub struct EncounterCommand {
     /// for a producer that cannot name one. See [`crate::occurrence`].
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pub kind: EncounterCommandKind,
+    pub reply: Option<ambition_platformer2d_shared_tangle::action_results::ActionReply>,
 }
 
 impl EncounterCommand {
@@ -299,6 +311,7 @@ impl EncounterCommand {
             encounter: encounter.into(),
             room: None,
             kind,
+            reply: None,
         }
     }
 
@@ -308,6 +321,11 @@ impl EncounterCommand {
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> Self {
         self.room = room;
+        self
+    }
+
+    pub fn with_reply(mut self, reply: Option<ambition_platformer2d_shared_tangle::action_results::ActionReply>) -> Self {
+        self.reply = reply;
         self
     }
 
@@ -326,6 +344,7 @@ pub struct EncounterLifecycleSet;
 /// Drain [`EncounterCommand`]s and reduce every encounter entity's lifecycle.
 /// The one ECS registration of the pure reducer.
 pub fn reduce_encounter_lifecycles(
+    mut replies: ambition_platformer2d_shared_tangle::action_results::ActionReplies,
     dt: Res<ambition_platformer2d_shared_tangle::time::SimDt>,
     mut commands_in: ReplayMessageReader<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
@@ -345,32 +364,43 @@ pub fn reduce_encounter_lifecycles(
     // entity iteration (the query does), but keep ordering canonical anyway.
     let mut by_occurrence: std::collections::BTreeMap<
         (&str, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>),
-        Vec<&EncounterCommandKind>,
+        Vec<&EncounterCommand>,
     > = std::collections::BTreeMap::new();
     for command in commands_in.read() {
+        if !replies.is_pending(command.reply.as_ref()) { continue; }
         by_occurrence
             .entry((
                 command.encounter.as_str(),
                 crate::occurrence::message_room(&live, command.room),
             ))
             .or_default()
-            .push(&command.kind);
+            .push(command);
     }
     let no_participants = EncounterParticipants::default();
     for (entity, encounter, mut lifecycle, participants, objective) in &mut encounters {
         let room = live.of(entity);
-        let commands = by_occurrence
-            .get(&(encounter.id.as_str(), room))
-            .map(|v| v.as_slice())
-            .unwrap_or(&[]);
-        let events = lifecycle.reduce(
+        let commands = by_occurrence.remove(&(encounter.id.as_str(), room)).unwrap_or_default();
+        let mut events = Vec::new();
+        for command in commands {
+            let accepted = lifecycle.apply_command(&command.kind, &mut events);
+            replies.publish(command.reply.as_ref(),
+                if accepted { ambition_extension_sdk::action::ActionStage::Applied } else { ambition_extension_sdk::action::ActionStage::Rejected },
+                true, if accepted { "encounter_applied" } else { "encounter_phase_refused" }, "", vec![encounter.id.clone()]);
+        }
+        events.extend(lifecycle.reduce(
             dt.dt,
-            commands.iter().copied(),
+            std::iter::empty(),
             participants.unwrap_or(&no_participants),
             objective,
-        );
+        ));
         for event in events {
             events_out.write(EncounterEventMsg::new(encounter.id.clone(), event).in_room(room));
+        }
+    }
+    for commands in by_occurrence.values() {
+        for command in commands {
+            replies.publish(command.reply.as_ref(), ambition_extension_sdk::action::ActionStage::Failed,
+                true, "encounter_gone", "The encounter left before the command was applied.", Vec::new());
         }
     }
 }
@@ -590,4 +620,44 @@ mod tests {
         assert_eq!(lc.phase, EncounterPhase::Completed);
         assert_eq!(lc.to_persisted(), PersistedEncounterState::Cleared);
     }
+    #[test]
+    fn native_replies_follow_the_applied_phase_or_the_lost_target() {
+        use ambition_extension_sdk::action::{ActionStage, ReplyTo};
+        use ambition_platformer2d_shared_tangle::{
+            action_results::{ActionMailbox, begin_action},
+            lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot, SessionScopeId, SessionScopedEntity},
+            sim_id::SimId,
+        };
+        let mut app = App::new();
+        app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>()
+            .init_resource::<ambition_time::SimTick>()
+            .add_message::<EncounterCommand>()
+            .add_message::<EncounterEventMsg>()
+            .add_systems(Update, reduce_encounter_lifecycles);
+        let session = SessionScopedEntity(SessionScopeId(1));
+        let room = LiveRoomInstance::ACTIVATION;
+        app.world_mut().spawn((session, room, RoomInstanceRoot));
+        let caller = app.world_mut().spawn((session, InRoomInstance(room), SimId::placement("caller"))).id();
+        let target = app.world_mut().spawn((Encounter::new("trial"), EncounterLifecycle::default(), InRoomInstance(room))).id();
+        let ask = |app: &mut App, request, kind| {
+            let dispatch = begin_action(app.world_mut(), caller, "test::trial/ask", "encounter",
+                Some(&ReplyTo { request, selector: "test::trial/result".into() }), u64::from(request));
+            app.world_mut().write_message(EncounterCommand::new("trial", kind).in_room(Some(room)).with_reply(dispatch.reply));
+        };
+        let last = |app: &App| app.world().get::<ActionMailbox>(caller).unwrap().history().entries.last().unwrap().result.clone();
+        ask(&mut app, 0, EncounterCommandKind::Signal("early".into()));
+        app.update();
+        assert_eq!(last(&app).stage, ActionStage::Rejected);
+        assert!(app.world().get::<EncounterLifecycle>(target).unwrap().signals.is_empty());
+        ask(&mut app, 1, EncounterCommandKind::Start);
+        app.update();
+        assert_eq!(last(&app).stage, ActionStage::Applied);
+        assert_eq!(app.world().get::<EncounterLifecycle>(target).unwrap().phase(), EncounterPhase::Active);
+        ask(&mut app, 2, EncounterCommandKind::Signal("late".into()));
+        app.world_mut().despawn(target);
+        app.update();
+        assert_eq!(last(&app).stage, ActionStage::Failed);
+        assert_eq!(last(&app).code, "encounter_gone");
+    }
+
 }

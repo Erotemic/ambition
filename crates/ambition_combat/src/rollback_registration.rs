@@ -16,6 +16,7 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    registrar.rollback_component_canonical::<crate::extension::body_query::BodyQueryHistory>(OWNER, "combat.body_query_history");
     registrar.rollback_resource_clone_checksum::<crate::events::FlagWritesInRooms>(
         OWNER,
         "resource.flag_writes_in_rooms",
@@ -551,13 +552,13 @@ where
         OWNER,
         "message.room_replay_admitted",
     );
-    registrar.clear_message_on_rollback::<crate::events::SetFlagRequested>(
+    registrar.clear_message_on_rollback::<crate::events::SetFlagsRequested>(
         OWNER,
-        "message.set_flag_requested",
+        "message.set_flags_requested",
     );
     // ⛔⛤ FIVE OF THESE WERE DECLARED TWICE, VERBATIM, AND NOTHING COULD SEE IT.
     // `ActorStimulus`, `GameplayBannerRequested`, `GameplaySfxRequested`,
-    // `RoomReplayAdmitted` and `SetFlagRequested` each had a second
+    // `RoomReplayAdmitted` and `SetFlagsRequested` each had a second
     // `clear_message_on_rollback` call with the same type AND the same stable
     // name, so `schema_dump()` emitted one row per name and the baseline — the
     // one guard that member-diffs every row — was byte-identical either way.

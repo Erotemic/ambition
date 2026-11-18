@@ -55,6 +55,7 @@ ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional 
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_world_port = { path = "../ambition_world_port" }
 ambition_extension_wasm = { path = "../ambition_extension_wasm", optional = true }
 ambition_extension_rhai = { path = "../ambition_extension_rhai", optional = true }
 ambition_combat_port = { path = "../ambition_combat_port", optional = true }

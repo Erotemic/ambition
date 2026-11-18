@@ -29,7 +29,7 @@ fn install_hit_reaction_consumers(app: &mut App) {
     // installed beside it rather than in 29 hand-rolled `App::new()` blocks.
     app.init_resource::<ambition_damage::PlayerDamagePolicy>();
     ambition_combat::hitbox::register_strike_outcome_messages(app);
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();

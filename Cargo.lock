@@ -737,6 +737,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
  "ambition_entity_catalog",
+ "ambition_extension_sdk",
  "ambition_interaction",
  "ambition_persistence",
  "ambition_platformer2d_core",
@@ -1111,6 +1112,7 @@ dependencies = [
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
+ "ambition_combat_port",
  "ambition_content_cli",
  "ambition_content_pack",
  "ambition_conversation",
@@ -1176,6 +1178,7 @@ dependencies = [
  "ambition_ui_nav",
  "ambition_vfx",
  "ambition_world_items",
+ "ambition_world_port",
  "ambition_world_returns",
  "bevy",
  "notify",
@@ -1587,6 +1590,7 @@ dependencies = [
  "ambition_time",
  "ambition_vfx",
  "ambition_world_items",
+ "ambition_world_port",
  "ambition_world_returns",
  "bevy",
  "bevy_common_assets",
@@ -1645,6 +1649,7 @@ name = "ambition_platformer2d_shared_tangle"
 version = "0.1.0"
 dependencies = [
  "ambition_binding",
+ "ambition_extension_sdk",
  "ambition_hit_spec",
  "ambition_platformer2d_core",
  "ambition_projectile_spec",
@@ -2039,6 +2044,13 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_time",
  "bevy",
+]
+
+[[package]]
+name = "ambition_world_port"
+version = "0.1.0"
+dependencies = [
+ "ambition_extension_sdk",
 ]
 
 [[package]]

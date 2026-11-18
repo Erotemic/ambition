@@ -185,19 +185,23 @@ fn end_cutscene(active: &mut ActiveCutscene) -> Option<String> {
 }
 
 /// Write the flags a cutscene set this tick, dated in the room it plays for
-/// (ISL-2d): through `SetFlagRequested`, so a rewind of that room takes them
+/// (ISL-2d): through `SetFlagsRequested`, so a rewind of that room takes them
 /// back and the quests they moved, as it does a switch's. A composition with
 /// no flag channel writes the save directly.
 fn write_cutscene_flags(
     flags: Vec<(String, bool)>,
     written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
-    requests: Option<&mut Messages<ambition_combat::events::SetFlagRequested>>,
+    requests: Option<&mut Messages<ambition_combat::events::SetFlagsRequested>>,
     save: &mut ambition_persistence::save::AmbitionGameSave,
 ) {
     match requests {
         Some(requests) => {
             for (id, on) in flags {
-                requests.write(ambition_combat::events::SetFlagRequested { id, on, written });
+                requests.write(ambition_combat::events::SetFlagsRequested {
+                    changes: vec![(id, on)],
+                    reply: None,
+                    written
+                });
             }
         }
         None => {
@@ -342,7 +346,7 @@ pub fn tick_active_cutscene(
     (drivers, rooms, mut requests, tick, freeze, mut cast): (
         Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-        Option<ResMut<Messages<ambition_combat::events::SetFlagRequested>>>,
+        Option<ResMut<Messages<ambition_combat::events::SetFlagsRequested>>>,
         Option<Res<ambition_time::SimTick>>,
         ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
         // The bodies a `Fall` beat can name: by the character they wear; and
@@ -877,14 +881,14 @@ mod tests {
 
     /// The flags a cutscene sets, and its seen flag, under the room it plays
     /// for and the tick (ISL-2d), so a rewind of that room takes them back.
-    fn flags_written_by_a_cutscene_in(room: Option<u32>) -> Vec<ambition_combat::events::SetFlagRequested> {
+    fn flags_written_by_a_cutscene_in(room: Option<u32>) -> Vec<ambition_combat::events::SetFlagsRequested> {
         let mut app = bevy::prelude::App::new();
         app.insert_resource(ambition_time::WorldTime::new(1.0, 1.0));
         app.insert_resource(ambition_time::SimTick(5));
         app.init_resource::<ambition_characters::control::SlotControls>();
         app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
-        app.add_message::<ambition_combat::events::SetFlagRequested>();
+        app.add_message::<ambition_combat::events::SetFlagsRequested>();
         app.insert_resource(ActiveCutscene {
             room,
             runtime: Some(ambition_cutscene::CutsceneRuntime::new(
@@ -899,7 +903,7 @@ mod tests {
         app.init_resource::<CutsceneWaitAnswer>();
         app.add_systems(bevy::prelude::Update, tick_active_cutscene);
         app.update();
-        let messages = app.world().resource::<Messages<ambition_combat::events::SetFlagRequested>>();
+        let messages = app.world().resource::<Messages<ambition_combat::events::SetFlagsRequested>>();
         messages.get_cursor().read(messages).cloned().collect()
     }
 
@@ -907,7 +911,7 @@ mod tests {
     fn a_room_cutscene_dates_its_flags_in_its_room() {
         let room = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(3);
         let dated = Some(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: 5 });
-        let written: Vec<_> = flags_written_by_a_cutscene_in(Some(3)).into_iter().map(|flag| (flag.id, flag.on, flag.written)).collect();
+        let written: Vec<_> = flags_written_by_a_cutscene_in(Some(3)).into_iter().flat_map(|flag| flag.changes.into_iter().map(move |(id, on)| (id, on, flag.written))).collect();
         assert_eq!(
             written,
             [("probe_flag".to_string(), true, dated), ("probe_seen".to_string(), true, dated)],

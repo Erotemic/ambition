@@ -236,6 +236,22 @@ pub struct AdmittedEntry {
     pub runner: EntryRunner,
 }
 
+/// Resolve a reply entry owned by the submitting module, in its declared phase.
+pub fn reply_entry<'a, P: ambition_extension_sdk::Port>(
+    admitted: &'a Admitted,
+    source: &str,
+    path: &str,
+    phase: &Phase,
+) -> Option<&'a AdmittedEntry> {
+    let source = admitted.entries.iter().find(|entry| entry.path == source)?;
+    admitted.entries.iter().find(|entry| {
+        entry.path == path
+            && entry.module == source.module
+            && entry.descriptor.phase == *phase
+            && entry.descriptor.trigger.port == P::KEY
+    })
+}
+
 /// One admitted schema with its shape digest.
 #[derive(Clone, Debug)]
 pub struct AdmittedSchema {

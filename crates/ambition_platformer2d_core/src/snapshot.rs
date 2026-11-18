@@ -180,8 +180,12 @@ pub fn put_opt_str(out: &mut Vec<u8>, value: Option<&str>) {
 }
 
 pub fn put_str(out: &mut Vec<u8>, value: &str) {
+    put_bytes(out, value.as_bytes());
+}
+
+pub fn put_bytes(out: &mut Vec<u8>, value: &[u8]) {
     put_u32(out, value.len() as u32);
-    out.extend_from_slice(value.as_bytes());
+    out.extend_from_slice(value);
 }
 
 pub fn put_f32(out: &mut Vec<u8>, value: f32) {
@@ -280,8 +284,12 @@ impl<'a> Reader<'a> {
     }
 
     pub fn str(&mut self) -> Option<&'a str> {
+        std::str::from_utf8(self.bytes()?).ok()
+    }
+
+    pub fn bytes(&mut self) -> Option<&'a [u8]> {
         let len = self.u32()? as usize;
-        std::str::from_utf8(self.take(len)?).ok()
+        self.take(len)
     }
 
     #[allow(clippy::option_option)]

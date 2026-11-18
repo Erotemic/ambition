@@ -41,6 +41,15 @@ pub enum CombatVolume {
     Convex { bounds: Aabb, points: Vec<Vec2> },
 }
 
+/// Surface points and the outward normal of the first volume, in world coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VolumeContact {
+    pub point1: Vec2,
+    pub point2: Vec2,
+    pub normal1: Vec2,
+    pub distance: f32,
+}
+
 impl From<Aabb> for CombatVolume {
     fn from(a: Aabb) -> Self {
         CombatVolume::Aabb(a)
@@ -310,6 +319,38 @@ impl CombatVolume {
             .unwrap_or(true)
     }
 
+    /// Read the contact patch, including touching edges, within `prediction`.
+    /// Invalid prediction distances and unsupported shape pairs return no contacts.
+    pub fn surface_contacts(&self, other: &CombatVolume, prediction: f32) -> Vec<VolumeContact> {
+        use query::PersistentQueryDispatcher;
+        if !prediction.is_finite() || prediction < 0.0 { return Vec::new(); }
+        let (a, b) = (self.bounds(), other.bounds());
+        if a.min.x > b.max.x + prediction || b.min.x > a.max.x + prediction
+            || a.min.y > b.max.y + prediction || b.min.y > a.max.y + prediction {
+            return Vec::new();
+        }
+        let (lhs, lhs_pose) = self.parry_shape();
+        let (rhs, rhs_pose) = other.parry_shape();
+        let mut manifold = query::ContactManifold::<(), ()>::new();
+        // Parry uses a strict distance limit for some shapes. Admit the next
+        // float, then keep only points within the requested closed distance.
+        if query::DefaultQueryDispatcher.contact_manifold_convex_convex(
+            &lhs_pose.inv_mul(&rhs_pose), lhs.as_shape(), rhs.as_shape(), None, None,
+            prediction.next_up(), &mut manifold,
+        ).is_err() { return Vec::new(); }
+        let normal = lhs_pose.rotation * manifold.local_n1;
+        manifold.points.iter().filter(|point| point.dist <= prediction).map(|point| {
+            let first = lhs_pose.transform_point(point.local_p1);
+            let second = rhs_pose.transform_point(point.local_p2);
+            VolumeContact {
+                point1: Vec2::new(first.x, first.y),
+                point2: Vec2::new(second.x, second.y),
+                normal1: Vec2::new(normal.x, normal.y),
+                distance: point.dist,
+            }
+        }).collect()
+    }
+
     /// Overlap against a plain [`Aabb`] target (most hurtboxes are boxes).
     pub fn intersects_aabb(&self, other: Aabb) -> bool {
         match self {
@@ -481,6 +522,51 @@ mod tests {
 
     fn aabb(cx: f32, cy: f32, hx: f32, hy: f32) -> Aabb {
         Aabb::new(Vec2::new(cx, cy), Vec2::new(hx, hy))
+    }
+
+    #[test]
+    fn surface_contacts_include_resting_faces_and_keep_surface_witnesses() {
+        let body = CombatVolume::from(aabb(0.0, 0.0, 2.0, 1.0));
+        let touching = CombatVolume::from(aabb(4.0, 0.0, 2.0, 1.0));
+        assert!(!body.intersects(&touching));
+        let patch = body.surface_contacts(&touching, 0.0);
+        assert_eq!(patch.len(), 2);
+        let contact = patch[0];
+        assert_eq!(contact.distance, 0.0);
+        assert_eq!(contact.normal1, Vec2::X);
+        assert_eq!(contact.point1, contact.point2);
+        assert_eq!(contact.point1.x, 2.0);
+        let reversed = touching.surface_contacts(&body, 0.0)[0];
+        assert_eq!(reversed.normal1, -contact.normal1);
+        let apart = touching.translated(Vec2::new(0.5, 0.0));
+        assert!(body.surface_contacts(&apart, 0.0).is_empty());
+        assert_eq!(body.surface_contacts(&apart, 0.5)[0].distance, 0.5);
+        assert!(body.surface_contacts(&apart, -1.0).is_empty());
+        assert!(body.surface_contacts(&apart, f32::NAN).is_empty());
+    }
+
+    #[test]
+    fn surface_contacts_follow_shape_orientation_and_common_scale() {
+        for scale in [0.5, 1.0, 3.0] {
+            for angle in [0.0, std::f32::consts::FRAC_PI_4] {
+                let turn = bevy_math::Mat2::from_angle(angle);
+                let origin = Vec2::new(40.0, 80.0);
+                let left = CombatVolume::obb(origin, Vec2::new(2.0, 1.0) * scale, angle);
+                let right = CombatVolume::obb(origin + turn * Vec2::new(3.5, 0.0) * scale,
+                    Vec2::new(2.0, 1.0) * scale, angle);
+                let contacts = left.surface_contacts(&right, 0.0);
+                assert!(!contacts.is_empty());
+                let contact = contacts[0];
+                assert!((contact.distance + 0.5 * scale).abs() < 0.0001);
+                assert!((contact.normal1 - turn * Vec2::X).length() < 0.0001);
+            }
+        }
+        let diagonal = CombatVolume::obb(Vec2::ZERO, Vec2::new(10.0, 1.0), std::f32::consts::FRAC_PI_4);
+        let beside = CombatVolume::from(aabb(-6.0, 6.0, 0.5, 0.5));
+        assert!(diagonal.bounds().strict_intersects(beside.bounds()));
+        assert!(diagonal.surface_contacts(&beside, 0.0).is_empty());
+        let circle = CombatVolume::circle(Vec2::ZERO, 2.0);
+        assert!(!circle.surface_contacts(&CombatVolume::circle(Vec2::new(4.0, 0.0), 2.0), 0.0).is_empty());
     }
 
     #[test]

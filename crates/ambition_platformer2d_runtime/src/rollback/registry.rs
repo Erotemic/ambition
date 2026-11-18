@@ -305,9 +305,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 483 -> 484: contact policy, hitlag SDI, and launch tech policy rewind with bodies and shots.
 // 484 -> 485: `AbilitySet` encodes `blink_slow`, the aim's time slow a worn
 // row can withhold (Precision Blink's level 2).
-// 485 -> 486: `HangingItem`, the countdown an apple hangs on its tree before it
-// drops, rewinds with the item.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 486;
+// 485 -> 486: action mailboxes and room caller sequences join the canonical
+// simulation state. Flag requests use native batches. The orchard branch adds
+// the hanging-item countdown at the same version.
+// 486 -> 487: the merged schema contains both sets of state.
+// 487 -> 488: bounded body-query facts remain available for their replies.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 488;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

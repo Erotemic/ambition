@@ -881,6 +881,7 @@ pub mod reaction;
 pub mod special;
 pub mod status;
 pub mod targets;
+pub mod body_query;
 pub mod think;
 pub use contact::install_for_body_contact;
 pub use reaction::install_for_hit_reaction;

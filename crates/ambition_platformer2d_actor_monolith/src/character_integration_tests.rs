@@ -484,7 +484,7 @@ fn fight_app() -> App {
         time.set_wall_dt(TICK);
     }
     ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
-    app.add_message::<ambition_combat::events::SetFlagRequested>();
+    app.add_message::<ambition_combat::events::SetFlagsRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     // `dispatch_move_events` asks for PAIRED effects now — a visual and the cue its own name

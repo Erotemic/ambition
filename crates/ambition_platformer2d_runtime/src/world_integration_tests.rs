@@ -14,7 +14,7 @@ use ambition_breakables::BreakableFeature;
 use ambition_combat::components::{
     CenteredAabb, DamageableVolumes, FeatureId, FeatureName, PogoPolicy, PogoTargetContributor, PogoTargetVolumes,
 };
-use ambition_combat::events::{GameplayBanner, SetFlagRequested};
+use ambition_combat::events::{GameplayBanner, SetFlagsRequested};
 use ambition_encounter::switches::SwitchActivated;
 use ambition_persistence::quest::QuestAdvanceRequested;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
@@ -238,7 +238,7 @@ fn interact_buffered_opens_adjacent_chest() {
     let mut app = App::new();
 
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_damage::healing::BodyHealRequested>();
@@ -281,7 +281,7 @@ fn interact_buffered_does_not_open_distant_chest() {
     let mut app = App::new();
 
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_damage::healing::BodyHealRequested>();
@@ -315,7 +315,7 @@ fn interact_does_not_reopen_already_opened_chest() {
     let mut app = App::new();
 
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_damage::healing::BodyHealRequested>();
@@ -378,7 +378,7 @@ fn interact_buffered_starts_npc_dialogue() {
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxInRoom>();

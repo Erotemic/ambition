@@ -942,7 +942,7 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Q136 / SetFlagRequested: a message whose producer is ordered after its own
+// Q136 / SetFlagsRequested: a message whose producer is ordered after its own
 // consumer, so it straddles a tick boundary.
 //
 // `emit_intro_flag_chains` runs after `Platformer2dSimulationPhase::GameplayEffects`
@@ -963,20 +963,20 @@ const RAISE_AT: u64 = 40;
 fn request_the_flag_once(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut requests: bevy::prelude::MessageWriter<
-        ambition_platformer2d::combat::events::SetFlagRequested,
+        ambition_platformer2d::combat::events::SetFlagsRequested,
     >,
 ) {
     if tick.0 == RAISE_AT {
-        requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
-            id: WITNESS_FLAG.to_string(),
-            on: true,
+        requests.write(ambition_platformer2d::combat::events::SetFlagsRequested {
+            changes: vec![(WITNESS_FLAG.to_string(), true)],
+            reply: None,
             written: None,
         });
     }
 }
 
 /// ⛔ THE CONTROL THAT SEPARATES THE POSITION FROM THE PAYLOAD. Same schedule
-/// slot, same `MessageWriter<SetFlagRequested>` parameter, same `SimTick` read —
+/// slot, same `MessageWriter<SetFlagsRequested>` parameter, same `SimTick` read —
 /// and it never writes. If a system merely PRESENT after `GameplayEffects`
 /// desyncs, the finding is about the slot and has nothing to do with straddling
 /// messages. Every distinguishing feature measured only on the accused is
@@ -984,7 +984,7 @@ fn request_the_flag_once(
 fn request_nothing(
     _tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut _requests: bevy::prelude::MessageWriter<
-        ambition_platformer2d::combat::events::SetFlagRequested,
+        ambition_platformer2d::combat::events::SetFlagsRequested,
     >,
 ) {
 }
@@ -1000,16 +1000,16 @@ fn request_nothing(
 fn derive_the_flag_from_the_save(
     save: bevy::prelude::Res<AmbitionGameSave>,
     mut requests: bevy::prelude::MessageWriter<
-        ambition_platformer2d::combat::events::SetFlagRequested,
+        ambition_platformer2d::combat::events::SetFlagsRequested,
     >,
 ) {
     // ⚠ NO TICK CONDITION, and the first fixture's had one — see
     // `PRIMER_FLAG`. A derivation gated on CHANGED runs on the tick after
     // something moved the save, which is not a tick this arm chooses.
     if !save.data().flag(WITNESS_FLAG) {
-        requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
-            id: WITNESS_FLAG.to_string(),
-            on: true,
+        requests.write(ambition_platformer2d::combat::events::SetFlagsRequested {
+            changes: vec![(WITNESS_FLAG.to_string(), true)],
+            reply: None,
             written: None,
         });
     }
@@ -1029,13 +1029,13 @@ const PRIMER_FLAG: &str = "a_straddling_setflag_witness_primer";
 fn prime_the_save_once(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut requests: bevy::prelude::MessageWriter<
-        ambition_platformer2d::combat::events::SetFlagRequested,
+        ambition_platformer2d::combat::events::SetFlagsRequested,
     >,
 ) {
     if tick.0 == RAISE_AT {
-        requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
-            id: PRIMER_FLAG.to_string(),
-            on: true,
+        requests.write(ambition_platformer2d::combat::events::SetFlagsRequested {
+            changes: vec![(PRIMER_FLAG.to_string(), true)],
+            reply: None,
             written: None,
         });
     }
@@ -1140,7 +1140,7 @@ fn drive_until_refused(sim: &mut Platformer2dSimHarness, frames: usize) {
 /// The premise for the straddle arms: with no rollback and the producer
 /// before its consumer, this composition can set the flag at all.
 #[test]
-#[ignore = "playtest: premise of the SetFlagRequested straddle investigation; not a gate"]
+#[ignore = "playtest: premise of the SetFlagsRequested straddle investigation; not a gate"]
 fn a_flag_requested_inside_the_tick_reaches_the_save_without_rollback() {
     let mut sim = witness_sim(false, false);
     drive(&mut sim, 240);
@@ -1155,7 +1155,7 @@ fn a_flag_requested_inside_the_tick_reaches_the_save_without_rollback() {
 /// Control for the straddle: the same request ordered BEFORE its consumer, the
 /// case `clear_message_on_rollback` is designed for, under a live rewind.
 #[test]
-#[ignore = "playtest: control of the SetFlagRequested straddle investigation; not a gate"]
+#[ignore = "playtest: control of the SetFlagsRequested straddle investigation; not a gate"]
 fn a_flag_requested_before_its_consumer_survives_the_rewind() {
     let mut sim = witness_sim(false, true);
     drive(&mut sim, 240);
@@ -1233,7 +1233,7 @@ fn a_flag_requested_after_its_consumer_desyncs_the_timeline() {
 /// Slot control for the straddle: the same system shape in the same slot,
 /// writing nothing, does not desync.
 #[test]
-#[ignore = "playtest: control of the SetFlagRequested straddle investigation; not a gate"]
+#[ignore = "playtest: control of the SetFlagsRequested straddle investigation; not a gate"]
 fn a_silent_system_after_the_consumer_does_not_desync() {
     let mut sim = witness_sim_with(true, true, false);
     drive(&mut sim, 240);

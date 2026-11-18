@@ -79,7 +79,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     app.insert_resource(NextState::<
         ambition_platformer2d_shared_tangle::schedule::GameMode,
     >::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxInRoom>();
@@ -144,7 +144,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     app.insert_resource(NextState::<
         ambition_platformer2d_shared_tangle::schedule::GameMode,
     >::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxInRoom>();
@@ -266,7 +266,7 @@ fn dialogue_app(nodes: &[&str]) -> App {
     app.insert_resource(NextState::<
         ambition_platformer2d_shared_tangle::schedule::GameMode,
     >::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxInRoom>();
@@ -387,7 +387,7 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
     );
     let quests = world.resource::<bevy::ecs::message::Messages<QuestAdvanceRequested>>();
     assert_eq!(quests.len(), 0, "no `NpcTalked` may fire");
-    let flags = world.resource::<bevy::ecs::message::Messages<SetFlagRequested>>();
+    let flags = world.resource::<bevy::ecs::message::Messages<SetFlagsRequested>>();
     assert_eq!(flags.len(), 0, "no `..._talked` flag may be set");
 }
 
@@ -437,7 +437,7 @@ fn interaction_app() -> App {
     app.insert_resource(NextState::<
         ambition_platformer2d_shared_tangle::schedule::GameMode,
     >::default());
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxInRoom>();
@@ -863,7 +863,7 @@ fn a_talk_is_dated_in_the_talkers_room() {
     let dated = Some(RoomWrite { room: rooms[1], tick: 7 });
     let flags: Vec<_> = app
         .world()
-        .resource::<bevy::ecs::message::Messages<SetFlagRequested>>()
+        .resource::<bevy::ecs::message::Messages<SetFlagsRequested>>()
         .iter_current_update_messages()
         .map(|flag| flag.written)
         .collect();

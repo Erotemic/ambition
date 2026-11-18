@@ -295,8 +295,8 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
             CutRopeRoomReplayRequested,
         >::default());
-        // The same registration for `SetFlagRequested`. `cmd_watch_cut_rope_video`
-        // in this module's `yarn.rs` takes a `NarrativeInputWriter<SetFlagRequested>`,
+        // The same registration for `SetFlagsRequested`. `cmd_watch_cut_rope_video`
+        // in this module's `yarn.rs` takes a `NarrativeInputWriter<SetFlagsRequested>`,
         // whose `ledger` field is a plain `ResMut<NarrativeInputLedger<M>>`. Without
         // this plugin the one-shot system cannot resolve its parameters and the
         // authored `<<watch_cut_rope_video>>` records nothing.
@@ -305,7 +305,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // "is the message registered?" check passes; only this plugin creates the
         // ledger resource.
         app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
-            ambition_combat::SetFlagRequested,
+            ambition_combat::SetFlagsRequested,
         >::default());
         // The cycle/replay state is content-owned rollback state. Record its
         // host-independent schema here; the selected rollback host installs the

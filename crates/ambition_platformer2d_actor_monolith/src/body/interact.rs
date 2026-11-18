@@ -25,7 +25,7 @@ use bevy::prelude::*;
 
 // the ONLY dialogue name this module has left, and it is a port rather than a
 // type from `ambition_dialog`. See `ambition_conversation::opening`.
-use ambition_combat::events::{GameplayBanner, SetFlagRequested};
+use ambition_combat::events::{GameplayBanner, SetFlagsRequested};
 #[cfg(feature = "dialogue")]
 use ambition_conversation::{DialogueDispatch, npc_talk_dialogue_id};
 #[cfg(not(feature = "dialogue"))]
@@ -216,7 +216,7 @@ pub fn interact_ecs_actors_and_switches(
         ),
         With<FeatureSimEntity>,
     >,
-    mut set_flag: MessageWriter<SetFlagRequested>,
+    mut set_flag: MessageWriter<SetFlagsRequested>,
     mut quest_advance: MessageWriter<QuestAdvanceRequested>,
     // With the live rooms and the seats that drive a body, in one parameter:
     // the system is at Bevy's parameter ceiling.
@@ -399,14 +399,14 @@ pub fn interact_ecs_actors_and_switches(
             let event = ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone());
             let cause = written.zip(quest_causes.as_deref_mut()).map(|(written, causes)| causes.record(written, event.label()));
             quest_advance.write(QuestAdvanceRequested(event, cause));
-            set_flag.write(SetFlagRequested {
-                id: "met_any_hub_npc".into(),
-                on: true,
+            set_flag.write(SetFlagsRequested {
+                changes: vec![("met_any_hub_npc".into(), true)],
+                reply: None,
                 written,
             });
-            set_flag.write(SetFlagRequested {
-                id: ambition_persistence::save_data::npc_talked_flag(dialogue_id),
-                on: true,
+            set_flag.write(SetFlagsRequested {
+                changes: vec![(ambition_persistence::save_data::npc_talked_flag(dialogue_id), true)],
+                reply: None,
                 written,
             });
             vfx.for_room(live_rooms.of(actor_entity)).write(VfxMessage::Burst {

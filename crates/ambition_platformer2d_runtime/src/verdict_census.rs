@@ -77,7 +77,7 @@ pub fn verdict_census_row(at: f64, entries: Option<&[AuthoredVerdict]>) -> Strin
             AuthoredVerdict::Ran(verdict) => {
                 ran += 1;
                 match &verdict.outcome {
-                    CommandOutcome::Done => false,
+                    CommandOutcome::Done | CommandOutcome::Queued => false,
                     CommandOutcome::Refused(_) => {
                         refused += 1;
                         true

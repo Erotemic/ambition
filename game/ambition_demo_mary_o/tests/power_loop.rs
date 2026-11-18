@@ -638,7 +638,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition_platformer2d::actors::body::apply_feature_hit_events;
 use ambition_platformer2d::actor::spawn_encounter_mob;
     use ambition_platformer2d::combat::components::ActorIdentity;
-    use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
+    use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagsRequested};
     use ambition_platformer2d::world::FeatureEcsWorldOverlay;
     // ⛔ `ProjectileBody` belongs to the projectile MODEL crate; the monolith's
     // glob forward of it was deleted, and no gate builds this target.
@@ -681,7 +681,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
     app.init_resource::<ambition_platformer2d::gameplay_trace::GameplayTraceBuffer>();
     app.add_message::<HitEvent>();
     app.add_message::<ambition_platformer2d::vfx::FxRequest>();
-    app.add_message::<SetFlagRequested>();
+    app.add_message::<SetFlagsRequested>();
     app.add_message::<ambition_platformer2d::combat::events::ActorStimulus>();
     app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     // A body reaching zero says so through `BodyKnockedOut` whether or not a

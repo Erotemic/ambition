@@ -307,6 +307,37 @@ bindings, on a publishing machine; then plant a contact by solving its
 limb to the held point, and give the arms and head their follow-through
 on the joints.
 
+**The visual rig and its part bindings (2026-11-18).** Scout publishes a
+body rig (`_player_robot_v3_body_rig.py`): the fifteen bones of his side
+rig document as world frames from the feet (no parents: the torso and head
+squash and the head flips on the part alone, which a parent-local frame
+could only state with a shear), for his side rows and their mirrors. Left
+out: the back rows, the turns (front and back frames inside a side row) and
+the pure side rows, whose rig hangs the shared limb rasters a few degrees
+and about a pixel apart. The rig names each part track's joint
+(`part_bindings`, read by `published_part_bindings`; the definition a body
+carries does not hold it), because guessing the joint from the frames
+fails on what this flipbook does:
+
+- one track draws many rasters (each subpixel phase of a part is its own),
+  and a mirrored row draws the same raster flipped under a mirrored joint
+  frame, whose angle reads with the opposite sign. So a part's place in its
+  joint's frame is kept per raster, per handedness of the joint frame and
+  per flip of the draw;
+- the flipbook draws one raster for every raster that is a lossless
+  transform of it: Scout's oval visor and capsule shins come back drawn half
+  a turn about another pivot. A named part is rigid on its joint, so a
+  second place of one raster can only be such a transform: each place must
+  be tight, and the binding is the one most frames drew.
+
+Measured on the published files: every named draw of the 2028 shared frames
+is placed from the rig's pose, 41707 exactly and 35 half a turn away on the
+same raster (`scouts_named_parts_are_placed_by_his_body_rigs_pose`). Mary-O
+and the pirates name no joints and bind as before.
+`scripts/measure/measure_track_joints.py` still measures one place per
+track, so it reports Scout's limbs as loose. Next: plant a contact by
+solving its limb to the held point, and follow-through, on these joints.
+
 ## Phase 4 - Expand expressive coverage after the first playable pass
 
 Review the rest of Melee's motion vocabulary and Ambition's `fighter_motion_vocabulary.yaml` by physical event family, not by raw state count. Add new bases only when the current rig cannot make the event legible. Give different fighters their own stance and recoil style after the shared pose language works. The same visual system must later serve Ambition campaign characters, but no campaign conversion belongs in this first pass.

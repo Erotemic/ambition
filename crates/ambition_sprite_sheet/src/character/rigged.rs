@@ -36,7 +36,7 @@ mod posed;
 pub(crate) use ambition_sprite_part_format::parts as published;
 
 use published::Published;
-pub use posed::{PosedParts, TrackBinding};
+pub use posed::{PartBinding, PosedParts, TrackBinding};
 pub use published::{ClipTween, Realize, RigPlacement};
 
 /// The `<target>_parts.ron` schema this build writes and reads. Schema 2 adds

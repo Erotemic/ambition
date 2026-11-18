@@ -9,6 +9,31 @@ pub enum TextReveal {
     Typewriter { chars_per_second: f32 },
 }
 
+impl TextReveal {
+    pub fn visible_chars(self, total: usize, elapsed_s: f32) -> usize {
+        match self {
+            Self::Instant => total,
+            Self::Typewriter { chars_per_second } => {
+                if elapsed_s >= total as f32 / chars_per_second { return total; }
+                ((elapsed_s.max(0.0) * chars_per_second).floor() as usize).min(total)
+            },
+        }
+    }
+
+    pub fn duration(self, text: &str) -> f32 {
+        match self {
+            Self::Instant => 0.0,
+            Self::Typewriter { chars_per_second } => text.chars().count() as f32 / chars_per_second,
+        }
+    }
+
+    pub fn visible_text(self, text: &str, elapsed_s: f32) -> &str {
+        let count = self.visible_chars(text.chars().count(), elapsed_s);
+        let end = text.char_indices().nth(count).map_or(text.len(), |(byte, _)| byte);
+        &text[..end]
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RevealConfirm {
     #[default]
@@ -65,6 +90,16 @@ impl Default for DialogSettings {
 }
 
 impl DialogSettings {
+    /// A confirm can reveal the line before it can advance its source.
+    pub fn reveal_confirm_action(self, complete: bool) -> Option<DialogConfirmAction> {
+        if complete { return None; }
+        match self.confirm_while_revealing {
+            RevealConfirm::RevealOnly => Some(DialogConfirmAction::Reveal),
+            RevealConfirm::Ignore => Some(DialogConfirmAction::Wait),
+            RevealConfirm::RevealAndAdvance => None,
+        }
+    }
+
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
         if let TextReveal::Typewriter { chars_per_second } = self.text_reveal {
@@ -84,6 +119,24 @@ impl DialogSettings {
             }
         }
         problems
+    }
+}
+
+#[cfg(test)]
+mod shared_line_tests {
+    use super::*;
+
+    #[test]
+    fn timed_lines_share_reveal_confirmation_and_safe_unicode_boundaries() {
+        let settings = DialogSettings { text_reveal: TextReveal::Typewriter { chars_per_second: 10.0 }, ..Default::default() };
+        let text = "é好🙂done";
+        assert_eq!(settings.text_reveal.visible_text(text, 0.2), "é好");
+        assert_eq!(settings.reveal_confirm_action(false), Some(DialogConfirmAction::Reveal));
+        let duration = settings.text_reveal.duration(text);
+        assert_eq!(settings.text_reveal.visible_text(text, duration), text);
+        assert_eq!(settings.reveal_confirm_action(true), None);
+        let instant = DialogSettings { text_reveal: TextReveal::Instant, ..settings };
+        assert_eq!(instant.text_reveal.visible_text(text, 0.0), text);
     }
 }
 

@@ -9,6 +9,10 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::Buttonlike;
 
 fn opening(frame_hz: f64) -> App {
+    opening_at(frame_hz, true)
+}
+
+fn opening_at(frame_hz: f64, complete: bool) -> App {
     let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
         app.insert_resource(StartRoomOverride("intro_wake_room".to_owned()));
         app.insert_resource(StartRoomMustResolve);
@@ -19,11 +23,35 @@ fn opening(frame_hz: f64) -> App {
     for _ in 0..600 {
         app.update();
         let view = app.world().resource::<DialogView>();
-        if view.active && view.body == "Hey you, you're finally awake." {
+        if view.active && view.speaker_character_id == "npc_creator"
+            && (!complete || view.body == "Hey you, you're finally awake.") {
             return app;
         }
     }
     panic!("the opening never showed the Creator's first line");
+}
+
+fn wait_for_complete_line(app: &mut App) {
+    for _ in 0..600 {
+        if app.world().resource::<DialogView>().confirm_action == ambition_platformer2d::dialog::DialogConfirmAction::Advance { return; }
+        app.update();
+    }
+    panic!("the line did not finish revealing");
+}
+
+#[test]
+fn the_creators_triggered_line_types_and_f_reveals_before_advancing() {
+    let mut app = opening_at(60.0, false);
+    wait(&mut app, 2);
+    let first = "Hey you, you're finally awake.";
+    let shown = &app.world().resource::<DialogView>().body;
+    assert!(!shown.is_empty() && shown != first && first.starts_with(shown));
+    assert_eq!(app.world().resource::<DialogView>().confirm_action, ambition_platformer2d::dialog::DialogConfirmAction::Reveal);
+    confirm(&mut app);
+    assert_eq!(app.world().resource::<DialogView>().body, first);
+    confirm(&mut app);
+    wait(&mut app, 2);
+    assert!("Don't sit up fast.".starts_with(&app.world().resource::<DialogView>().body));
 }
 
 fn wait(app: &mut App, frames: usize) {
@@ -68,7 +96,7 @@ fn the_creators_cutscene_uses_one_press_per_shown_line() {
         assert_creator_portrait(&mut app);
         wait(&mut app, frame_hz as usize);
         confirm(&mut app);
-        wait(&mut app, 8);
+        wait_for_complete_line(&mut app);
         let view = app.world().resource::<DialogView>();
         assert!(
             view.body.starts_with("Don't sit up fast."),
@@ -90,7 +118,7 @@ fn the_creators_conversation_reveals_and_advances_the_shown_text() {
     use crate::neighbor_prefetch_prepares_rooms::alice;
     let mut app = opening(60.0);
     confirm(&mut app);
-    wait(&mut app, 10);
+    wait_for_complete_line(&mut app);
     confirm(&mut app);
     wait(&mut app, 30);
     let creator = npc(&mut app, "npc_creator");
@@ -183,7 +211,7 @@ fn the_creator_offers_optional_practice_before_the_raid() {
     for accept in [true, false] {
         let mut app = opening(60.0);
         confirm(&mut app);
-        wait(&mut app, 10);
+        wait_for_complete_line(&mut app);
         confirm(&mut app);
         wait(&mut app, 30);
         talk_to_creator(&mut app);

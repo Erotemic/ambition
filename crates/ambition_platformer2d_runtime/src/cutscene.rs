@@ -329,6 +329,8 @@ fn cutscene_seat(
 /// press re-delivers it. The primary seat owns the shell controls, as it owns
 /// `MenuControlFrame`.
 pub fn tick_active_cutscene(
+    #[cfg(feature = "dialogue")]
+    dialogue_settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
     time: Res<ambition_time::WorldTime>,
     controls: Res<ambition_characters::control::SlotControls>,
     mut active: ResMut<ActiveCutscene>,
@@ -431,7 +433,40 @@ pub fn tick_active_cutscene(
         false
     };
     // An EDGE: a held confirm does not burn through several beats.
+    #[cfg(feature = "dialogue")]
+    let mut dismiss = seat.confirm_pressed;
+    #[cfg(not(feature = "dialogue"))]
     let dismiss = seat.confirm_pressed;
+    #[cfg(feature = "dialogue")]
+    let mut beat_dt = dt;
+    #[cfg(feature = "dialogue")]
+    let mut reveal_to = None;
+    #[cfg(not(feature = "dialogue"))]
+    let beat_dt = dt;
+    #[cfg(feature = "dialogue")]
+    if let Some(ambition_cutscene::CutsceneBeat::Dialogue { text, .. }) = runtime.current_beat() {
+        let policy = dialogue_settings.in_live_room(room.map(
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
+        )).copied().unwrap_or_default();
+        let duration = policy.text_reveal.duration(text);
+        let clock_end = match policy.line_advance {
+            ambition_dialog::LineAdvance::Manual => duration,
+            ambition_dialog::LineAdvance::Automatic { delay_seconds } => duration + delay_seconds,
+        }.max(f32::EPSILON);
+        beat_dt = dt.min((clock_end - runtime.elapsed).max(0.0));
+        if dismiss {
+            match policy.reveal_confirm_action(runtime.elapsed >= duration) {
+                Some(ambition_dialog::DialogConfirmAction::Reveal) => {
+                    reveal_to = Some(duration.max(f32::EPSILON));
+                    dismiss = false;
+                },
+                Some(ambition_dialog::DialogConfirmAction::Wait) => dismiss = false,
+                _ => {},
+            }
+        } else if let ambition_dialog::LineAdvance::Automatic { delay_seconds } = policy.line_advance {
+            dismiss = runtime.elapsed >= duration + delay_seconds;
+        }
+    }
 
     if skip {
         skip_hold.seconds = 0.0;
@@ -451,7 +486,9 @@ pub fn tick_active_cutscene(
         return;
     }
 
-    let events = runtime.tick_asking(dt, dismiss, |line| wait.holds(line));
+    let events = runtime.tick_asking(beat_dt, dismiss, |line| wait.holds(line));
+    #[cfg(feature = "dialogue")]
+    if let Some(elapsed) = reveal_to { runtime.elapsed = elapsed; }
     let mut completed = false;
     let mut flags = Vec::new();
     for event in events {

@@ -25,7 +25,7 @@ use bevy::math::Vec2;
 use bevy_yarnspinner::prelude::OptionId;
 
 use ambition_input::InputOwner;
-use crate::{DialogSettings, TextReveal, RevealConfirm, LineAdvance, DialogConfirmAction};
+use crate::{DialogSettings, TextReveal, LineAdvance, DialogConfirmAction};
 
 /// A `start()` request waiting for the Yarn bridge to drain it.
 ///
@@ -525,12 +525,8 @@ impl DialogState {
 
     /// The action that input and the displayed hint assign to the next confirm.
     pub fn confirm_action(&self) -> DialogConfirmAction {
-        if !self.line_reveal_complete() {
-            match self.settings.confirm_while_revealing {
-                RevealConfirm::RevealOnly => return DialogConfirmAction::Reveal,
-                RevealConfirm::Ignore => return DialogConfirmAction::Wait,
-                RevealConfirm::RevealAndAdvance => {}
-            }
+        if let Some(action) = self.settings.reveal_confirm_action(self.line_reveal_complete()) {
+            return action;
         }
         if !self.options_reveal_complete() {
             return DialogConfirmAction::Reveal;
@@ -607,8 +603,8 @@ impl LineRevealState {
         // - punctuation pauses
         // - metadata-based speed like `#slow`, `#fast`, `#instant`
         // - optional typing cursor / continue indicator
-        let chars = (self.elapsed_s * chars_per_second).floor() as usize;
-        self.revealed_chars = chars.min(self.full_line_byte_ends.len().saturating_sub(1));
+        self.revealed_chars = TextReveal::Typewriter { chars_per_second }
+            .visible_chars(self.full_line_byte_ends.len().saturating_sub(1), self.elapsed_s);
     }
 
     fn reveal_full_line(&mut self, line: &str) {

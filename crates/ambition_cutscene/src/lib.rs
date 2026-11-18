@@ -395,7 +395,10 @@ impl CutsceneRuntime {
                 self.elapsed += dt;
                 self.elapsed >= *seconds
             }
-            CutsceneBeat::Dialogue { .. } => advance_dialogue,
+            CutsceneBeat::Dialogue { .. } => {
+                self.elapsed += dt;
+                advance_dialogue
+            },
             CutsceneBeat::CameraPan { seconds, .. }
             | CutsceneBeat::CameraRelease { seconds }
             | CutsceneBeat::Fade { seconds, .. } => {

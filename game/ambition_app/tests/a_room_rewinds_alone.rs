@@ -120,6 +120,7 @@ fn alice_fires(sim: &mut Platformer2dSimHarness, frame: i32) {
     world.run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
         alice,
         ambition_platformer2d::projectiles::ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: at + bevy::math::Vec2::new(24.0, 0.0),

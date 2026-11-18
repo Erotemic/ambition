@@ -555,6 +555,7 @@ pub fn conduct_fsm(
                             projectiles.write(ProjectileSpawnRequest::open(
                                 god,
                                 ProjectileSpawn {
+                                    reply: None,
                                     properties: Default::default(),
                                     guard: Default::default(),
                                     origin,

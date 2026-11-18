@@ -50,9 +50,9 @@ pub struct SimCoreResourcesPlugin;
 impl Plugin for SimCoreResourcesPlugin {
     fn build(&self, app: &mut App) {
         crate::external_effects::end_presentation_effects_with_their_session(app);
+        ambition_combat::projectile_spawn::install_emission(app);
         app.add_message::<ambition_sfx::OwnedSfxMessage>()
             .add_message::<VfxInRoom>()
-            .init_resource::<ambition_combat::projectile_spawn::PendingProjectileEmissions>().add_message::<ambition_combat::projectile_spawn::ProjectileEmission>()
             .add_message::<FxRequest>()
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()

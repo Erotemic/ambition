@@ -11,6 +11,22 @@ use bevy::{
 pub struct PendingProjectileEmissions(pub(super) Vec<ProjectileEmission>);
 
 impl PendingProjectileEmissions {
+    pub(super) fn cancel(
+        &mut self,
+        reply: &ambition_platformer2d_shared_tangle::action_results::ActionReply,
+    ) -> bool {
+        let before = self.0.len();
+        self.0.retain(|emission| {
+            !emission.request.reply.as_ref().is_some_and(|queued| {
+                queued.ticket == reply.ticket
+                    && queued.recipient.session == reply.recipient.session
+                    && queued.recipient.subject == reply.recipient.subject
+                    && (queued.recipient.subject.is_some()
+                        || queued.recipient.room == reply.recipient.room)
+            })
+        });
+        self.0.len() != before
+    }
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -28,6 +44,12 @@ impl PendingProjectileEmissions {
         wire::put_u64(&mut out, self.0.len() as u64);
         for emission in &self.0 {
             let request = &emission.request;
+            wire::put_bool(&mut out, request.reply.is_some());
+            if let Some(reply) = &request.reply {
+                wire::put_u32(&mut out, reply.recipient.room);
+                wire::put_opt_str(&mut out, reply.recipient.subject.as_deref());
+                ambition_extension_sdk::structure::put(&reply.ticket, &mut out);
+            }
             request.projectile.body.kin.encode(&mut out);
             request.projectile.body.game.encode(&mut out);
             request.projectile.body.acceleration.encode(&mut out);

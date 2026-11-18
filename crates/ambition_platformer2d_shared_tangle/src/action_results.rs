@@ -11,6 +11,60 @@ use crate::sim_id::SimId;
 const HISTORY_LIMIT: usize = 64;
 const PENDING_LIMIT: usize = 32;
 
+/// Native owners cancel queued work before the mailbox reports cancellation.
+#[derive(Resource, Default)]
+pub struct ActionCancellationHandlers(
+    std::collections::BTreeMap<String, fn(&mut World, &ActionReply) -> bool>,
+);
+
+pub fn register_action_cancellation(
+    app: &mut App,
+    domain: &str,
+    handler: fn(&mut World, &ActionReply) -> bool,
+) {
+    app.init_resource::<ActionCancellationHandlers>();
+    let mut handlers = app.world_mut().resource_mut::<ActionCancellationHandlers>();
+    if let Some(old) = handlers.0.insert(domain.into(), handler) {
+        assert!(
+            std::ptr::fn_addr_eq(old, handler),
+            "an action domain has two cancellation owners"
+        );
+    }
+}
+
+/// A domain can refuse cancellation after application has started.
+pub fn cancel_action(world: &mut World, scope: Entity, ticket: &ActionTicket) -> bool {
+    if !world
+        .get::<ActionMailbox>(scope)
+        .is_some_and(|mailbox| mailbox.is_pending(ticket))
+    {
+        return false;
+    }
+    let Some(recipient) = ActionRecipient::of(world, scope) else {
+        return false;
+    };
+    let reply = ActionReply {
+        recipient,
+        ticket: ticket.clone(),
+    };
+    let handler = world
+        .get_resource::<ActionCancellationHandlers>()
+        .and_then(|handlers| handlers.0.get(&ticket.domain))
+        .copied();
+    if handler.is_some_and(|handler| !handler(world, &reply)) {
+        return false;
+    }
+    publish_action_result(
+        world,
+        Some(&reply),
+        ActionStage::Canceled,
+        true,
+        "caller_canceled",
+        "",
+        Vec::new(),
+    )
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PendingAction {
     ticket: ActionTicket,
@@ -602,7 +656,7 @@ impl ActionMailbox {
         }
     }
 
-    pub fn retire_absent(&mut self, now: u64, mut present: impl FnMut(&str) -> bool) {
+    pub fn retire_absent(&mut self, mut present: impl FnMut(&str) -> bool) {
         let retired: std::collections::BTreeSet<_> = self
             .producers
             .iter()
@@ -610,29 +664,12 @@ impl ActionMailbox {
             .map(|producer| producer.entry.clone())
             .collect();
         for entry in retired {
-            self.retire_entry(&entry, now);
+            self.retire_entry(&entry);
         }
     }
 
-    /// A removed entry ends its pending work and its callback ownership.
-    pub fn retire_entry(&mut self, entry: &str, now: u64) {
-        let pending: Vec<_> = self
-            .producers
-            .iter()
-            .filter(|p| p.entry == entry)
-            .flat_map(|p| p.pending.iter().cloned())
-            .collect();
-        for pending in pending {
-            self.publish(ActionResult {
-                ticket: pending.ticket,
-                stage: ActionStage::Canceled,
-                terminal: true,
-                tick: now,
-                code: "producer_retired".into(),
-                message: String::new(),
-                subjects: Vec::new(),
-            });
-        }
+    /// Entry removal ends reply ownership, not an owning domain's applied work.
+    pub fn retire_entry(&mut self, entry: &str) {
         self.producers.retain(|p| p.entry != entry);
         for row in &mut self.journal {
             if row.result.ticket.entry == entry {
@@ -755,7 +792,14 @@ mod tests {
     fn a_retired_producer_cannot_finish_work_in_its_replacement() {
         let mut mailbox = ActionMailbox::new(0, 0);
         let old = start(&mut mailbox, 0);
-        mailbox.retire_entry("test::actions/ask", 10);
+        mailbox.retire_entry("test::actions/ask");
+        assert!(
+            mailbox
+                .history()
+                .entries
+                .iter()
+                .all(|entry| entry.result.stage != ActionStage::Canceled)
+        );
         let new = start(&mut mailbox, 0);
         assert_ne!(old.occurrence, new.occurrence);
         assert!(!mailbox.publish(applied(old)));

@@ -81,6 +81,7 @@ fn fire(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         .unwrap_or_else(|| Vec2::new(caster.facing, 0.0));
     for dir in fan(aim, COUNT, SPREAD_RAD) {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin,

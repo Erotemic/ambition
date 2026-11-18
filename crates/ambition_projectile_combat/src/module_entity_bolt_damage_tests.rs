@@ -49,6 +49,7 @@ fn fire_once(
         requests.write(ProjectileSpawnRequest::open(
             entity,
             ProjectileSpawn {
+                reply: None,
                 properties: ambition_hit_spec::HitProperties {
                     hitlag_scale: 0.5, sdi_scale: 0.0, tech: ambition_hit_spec::TechPolicy::Deny,
                     targets: ambition_hit_spec::HitTargets { grounded: true, airborne: false, prone: false },

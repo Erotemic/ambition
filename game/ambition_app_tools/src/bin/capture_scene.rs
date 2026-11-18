@@ -1348,6 +1348,7 @@ fn fire_shots(
             None => ProjectileSpawnRequest::open(
                 owner,
                 ProjectileSpawn {
+                    reply: None,
                     properties: Default::default(),
                     guard: Default::default(),
                     origin,

@@ -116,6 +116,7 @@ fn rain(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     lanes.store(inv)?;
     for x in drops {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: Vec2::new(x, spawn_y),

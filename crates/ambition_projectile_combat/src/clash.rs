@@ -449,6 +449,7 @@ mod tests {
     ) -> Entity {
         let projectile =
             ambition_projectiles::build_in_flight_projectile(ambition_projectiles::ProjectileSpawn {
+                reply: None,
                 properties: Default::default(),
                 guard: Default::default(),
                 origin: pos,

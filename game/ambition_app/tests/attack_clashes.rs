@@ -70,6 +70,7 @@ fn a_pair_at_the_victim(window: f32) -> (i32, usize, usize) {
         sim.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
             owner,
             ProjectileSpawn {
+                reply: None,
                 properties: Default::default(),
                 guard: Default::default(),
                 origin: at,

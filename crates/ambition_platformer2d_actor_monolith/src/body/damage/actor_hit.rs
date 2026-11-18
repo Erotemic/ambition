@@ -632,6 +632,7 @@ pub(crate) fn apply_actor_hit(
                     for k in 0..burst.count {
                         let dir = if k % 2 == 0 { 1.0 } else { -1.0 };
                         let spawn = ambition_projectiles::ProjectileSpawn {
+                            reply: None,
                             properties: Default::default(),
                             guard: Default::default(),
                             origin: ae::Vec2::new(em.kin.pos.x, feet - burst.half_extent[1] - 2.0),

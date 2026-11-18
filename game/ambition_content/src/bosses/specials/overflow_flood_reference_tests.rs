@@ -124,6 +124,7 @@ pub fn spawn_overflow_flood_from_special_messages(
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {
+                    reply: None,
                     properties: Default::default(),
                     guard: Default::default(),
                     origin: ae::Vec2::new(x, spawn_y),

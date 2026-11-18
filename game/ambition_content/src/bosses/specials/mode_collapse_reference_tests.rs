@@ -125,6 +125,7 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {
+                    reply: None,
                     properties: Default::default(),
                     guard: Default::default(),
                     origin,

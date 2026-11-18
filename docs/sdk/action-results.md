@@ -35,7 +35,7 @@ request number when it has several pending actions.
 | `applied` | The native owner applied the action. A one-step change can end here. |
 | `completed` | A longer action reached its defined end. |
 | `rejected` | Admission or application refused the request. |
-| `canceled` | The caller canceled pending work, or its source entry was removed. |
+| `canceled` | The caller canceled pending work through its native owner. |
 | `failed` | Admitted work could not finish, for example because its target left. |
 
 `terminal` states whether that result ends the action. The domain supplies the
@@ -44,6 +44,11 @@ The generic protocol does not decide combat, grant, spawn, or travel rules.
 Each domain must publish its own actual result.
 
 ## Installed command results
+
+- `projectile` reports `projectile_queued` at native admission and terminal
+  `projectile_created` after actual construction. `subjects` contains the shot
+  ID. Invalid shape, callback, or source context is refused. Explicit
+  cancellation removes a queued emission before construction starts.
 
 - `world.set_flag` reports `flags_written` after the native flag consumer applies
   the batch and its quest updates.
@@ -87,12 +92,12 @@ A scope retains 64 result rows and admits at most 32 pending actions. The
 and a count of dropped rows. Scripts that need recovery can inspect that count
 and reconcile with the domain's current state.
 
-Code replacement retains work when its source entry remains installed. Removal
-of the source entry cancels its pending work and retires its queued callbacks
-before native consumers run again. Its history retains the cancellation.
-Removal of the recipient retires its mailbox. Old deferred work then has no
-authority. The caller sequence prevents an old reply from matching a replacement
-recipient.
+Code replacement retains replies when their source entry remains installed.
+Entry removal retires callback ownership without inventing a physical outcome.
+Recipient removal retires its mailbox. Native domains define whether their
+work can outlive that observer. An admitted projectile emission does; an
+unapplied caller-bound command can stop. The caller sequence prevents an old
+reply from completing work in a replacement recipient.
 
 Tickets and mailboxes belong to the live session. They are rollback state, not
 saved progress. Do not keep an unfinished ticket in a durable script record.

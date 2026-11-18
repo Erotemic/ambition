@@ -474,6 +474,7 @@ fn fly(
 ) -> Result<(), Fault> {
     let speed = velocity.length();
     inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+        reply: None,
         properties: Default::default(),
         guard: Default::default(),
         origin,

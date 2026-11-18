@@ -19,6 +19,8 @@ mod hit_properties;
 /// platform is or which side fired it.
 #[derive(Clone, Debug)]
 pub struct ProjectileSpawn {
+    /// Optional creation result in the submitting caller's action mailbox.
+    pub reply: Option<ambition_extension_sdk::action::ReplyTo>,
     pub properties: ambition_hit_spec::HitProperties,
     pub guard: ambition_hit_spec::HitGuard,
     pub origin: Vec2,
@@ -68,13 +70,13 @@ pub struct ProjectileSpawn {
 ///   state for the next early materializer.
 /// * **Provenance** — the host attaches the invocation's move use; the damage
 ///   result names that use, not the move playing at impact (A12).
-/// * **Result** — submitted is not applied: the projectile domain can still
-///   refuse or retire the shot. No acknowledgement port exists yet.
+/// * **Result** — optional `reply` requests a scoped action_result. Applied
+///   identifies actual creation. Admission does not prove birth or damage.
 pub struct ProjectileSpawnPort;
 
 impl ambition_extension_sdk::Port for ProjectileSpawnPort {
     const KEY: ambition_extension_sdk::PortKey =
-        ambition_extension_sdk::PortKey::new("ambition.projectiles.spawn", 2);
+        ambition_extension_sdk::PortKey::new("ambition.projectiles.spawn", 3);
     const ROLE: ambition_extension_sdk::PortRole = ambition_extension_sdk::PortRole::Request;
     type Value = ProjectileSpawn;
 
@@ -114,6 +116,8 @@ impl ambition_extension_sdk::structure::Field<Vec2> for Vec2Codec {
 
 ambition_extension_sdk::port_record! {
     ProjectileSpawn {
+        /// Optional action_result callback for actual creation or refusal.
+        reply: Option<ambition_extension_sdk::action::ReplyTo> = None,
         /// Contact policy.
         properties: ambition_hit_spec::HitProperties as hit_properties::HitPropertiesCodec = ambition_hit_spec::HitProperties::default(),
         /// Shield damage bonus, or unit for an unblockable shot.
@@ -157,6 +161,7 @@ mod hit_policy_tests {
     #[test]
     fn script_and_wire_keep_projectile_contact_policy() {
         let shot = ProjectileSpawn {
+            reply: None,
             origin: Vec2::ZERO, dir: Vec2::X, speed: 300.0, damage: 7,
             max_lifetime: 2.0, half_extent: Vec2::splat(5.0), gravity: 0.0,
             visual_id: String::new(), bounces: 0, bounce_on_world_contact: false,

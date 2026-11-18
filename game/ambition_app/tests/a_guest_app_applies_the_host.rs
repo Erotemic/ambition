@@ -278,6 +278,7 @@ fn alice_fires_often(sim: &mut Platformer2dSimHarness, frame: i32) {
     world.run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_platformer2d::projectiles::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
         alice,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             // Low, at a crawler's height: a body's collision is fitted to its

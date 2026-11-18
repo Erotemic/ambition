@@ -132,6 +132,7 @@ pub fn spawn_eye_beam_from_special_messages(
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {
+                    reply: None,
                     properties: Default::default(),
                     guard: Default::default(),
                     origin: beam_origin,

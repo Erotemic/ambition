@@ -44,6 +44,34 @@ early materializer. Its shot becomes available at the next early materializer.
 The native pending queue preserves this timing across rollback. Early technique,
 wielded-item, module-entity, and boss-conduct requests use the same service.
 
+## Observe creation
+
+The `projectile` request accepts an optional `reply`:
+
+```rhai
+this.requests.push(request("projectile", #{
+    origin: this.trigger.position, dir: [1.0, 0.0], speed: 200.0,
+    damage: 1, max_lifetime: 2.0, half_extent: [4.0, 4.0],
+    reply: #{ request: 1, selector: "my_game::weapon/created" },
+}));
+```
+
+Declare `created` as an `action_result` entry in `actor_think`. The reply
+selector is the full entry path in the submitting module. Admission reports
+`projectile_queued`. Actual construction reports terminal `applied` with code
+`projectile_created` and one semantic shot ID in `subjects`. This result does
+not promise that the shot remains alive when the callback runs. Invalid shape,
+callback, scope, or emitter identity produces a native refusal.
+
+A retry with the same request number and data does not create a second shot.
+Use a new request number for each new shot. See [action results](action-results.md).
+
+Explicit cancellation removes a queued emission before construction starts.
+After the materializer takes the emission, cancellation cannot revoke its
+birth. Creation completion does not retire the shot. Tracking is optional:
+an emitted shot can still be born after its observer retires. Session teardown
+clears pending emissions.
+
 ## Author a parry window
 
 A script can request `parry_window` in `technique_execution`:
@@ -84,8 +112,8 @@ decisions, including the actual applied damage. Native hit publication uses
 reception. Detached strikes retain `HitOrigin`; this also covers non-projectile
 sources whose owners retire.
 
-The projectile outcome API remains open for spawn replies and interception and
-retirement outcomes. Accepted hit batches identify the shot and its current
+The projectile outcome API remains open for interception and retirement
+outcomes. Accepted hit batches identify the shot and its current
 credit. Request submission is not proof of creation or damage.
 
 Native tests in

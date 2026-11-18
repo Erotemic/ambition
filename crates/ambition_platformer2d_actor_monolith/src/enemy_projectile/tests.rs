@@ -133,6 +133,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     spawn_ownerless_projectile(
         &mut app,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: actor_pos,
@@ -211,6 +212,7 @@ fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
     spawn_test_projectile(
         app,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: pos,
@@ -279,6 +281,7 @@ fn spawn_stamped_enemy_glider_with_splash(
     crate::enemy_projectile::test_support::spawn_test_projectile_fired_by(
         app,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: pos,
@@ -424,6 +427,7 @@ fn a_shot_that_expires_on_a_wall_still_names_the_move_use_that_fired_it() {
     crate::enemy_projectile::test_support::spawn_test_projectile_fired_by(
         &mut app,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: ae::Vec2::new(300.0, 100.0),
@@ -894,6 +898,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
 fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
     use ambition_projectiles::{ProjectileOwner, ProjectileSeq};
     let projectile = build_in_flight_projectile(ProjectileSpawn {
+        reply: None,
         properties: Default::default(),
         guard: Default::default(),
         origin: pos,
@@ -1026,6 +1031,7 @@ fn a_parried_enemy_shot_stops_naming_the_firers_move_use() {
     crate::enemy_projectile::test_support::spawn_test_projectile_fired_by(
         &mut app,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: player_pos,
@@ -1096,6 +1102,7 @@ fn parried_shot_retains_its_interceptors_side(possessed: bool) {
     spawn_test_projectile(
         &mut app,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: player_pos,
@@ -1223,6 +1230,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_combat::projectile_spawn::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
         attacker,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: player_pos,
@@ -1410,6 +1418,7 @@ fn spawn_executor_attaches_visual_id() {
     app.world_mut().run_system_once_with(|bevy::prelude::In(request), mut writer: ambition_combat::projectile_spawn::ProjectileWriter| writer.write(request), ProjectileSpawnRequest::open(
         Entity::PLACEHOLDER,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: ae::Vec2::ZERO,
@@ -1495,6 +1504,7 @@ fn player_shot_overlapping_enemy() -> (App, Entity) {
     spawn_test_projectile(
         &mut app,
         ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: enemy_pos,

@@ -300,6 +300,7 @@ use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart}
                     // (materialization stamps `ProjectileOwner` from this).
                     entity,
                     ProjectileSpawn {
+                        reply: None,
                         properties: Default::default(),
                         guard: Default::default(),
                         origin,
@@ -434,6 +435,7 @@ use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart}
                     // it (materialization stamps `ProjectileOwner` from this).
                     entity,
                     ProjectileSpawn {
+                        reply: None,
                         properties: Default::default(),
                         guard: Default::default(),
                         origin,
@@ -772,6 +774,7 @@ use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart}
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {
+                    reply: None,
                     properties: Default::default(),
                     guard: Default::default(),
                     origin: sentry.pos,

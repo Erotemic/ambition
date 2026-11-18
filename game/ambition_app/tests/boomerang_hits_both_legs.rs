@@ -128,6 +128,7 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
             // than about allegiance.
             bevy::prelude::Entity::PLACEHOLDER,
             ambition_platformer2d::projectiles::ProjectileSpawn {
+                reply: None,
                 properties: Default::default(),
                 guard: Default::default(),
                 origin,

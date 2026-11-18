@@ -354,7 +354,8 @@ pub fn spawn_projectiles_from_brain_actions(
             }
             _ => spawn_origin,
         };
-        let spawn = ProjectileSpawn { properties: flight.properties, guard: flight.guard,
+        let spawn = ProjectileSpawn {
+            reply: None, properties: flight.properties, guard: flight.guard,
             origin: spawn_origin,
             dir: world_dir,
             speed: spec.speed(),

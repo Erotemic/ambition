@@ -142,6 +142,7 @@ pub fn spawn_apple_rain_from_special_messages(
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {
+                    reply: None,
                     properties: Default::default(),
                     guard: Default::default(),
                     origin: ae::Vec2::new(spawn_x, spawn_y),

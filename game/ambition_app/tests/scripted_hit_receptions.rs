@@ -35,10 +35,13 @@ fn declare() {
            #{ tag: 4, name: "incoming", kind: "u32" },
            #{ tag: 5, name: "outgoing", kind: "u32" },
            #{ tag: 6, name: "truncated", kind: "u32" },
+           #{ tag: 7, name: "queued", kind: "u32" },
+           #{ tag: 8, name: "created", kind: "u32" },
        ] }],
        entries: [#{ key: "observe", phase: "hit_reaction",
            trigger: #{ port: "hit_receptions", selector: "reception_probe.observe" },
-           writes: ["hits"], requests: ["hold_status", "projectile"], limit: 2 }],
+           writes: ["hits"], requests: ["hold_status", "projectile"], limit: 2 },
+           #{ key: "created", phase: "actor_think", trigger: #{ port: "action_result", selector: "created" }, writes: ["hits"] }],
     }
 }
 fn observe() {
@@ -67,10 +70,18 @@ fn observe() {
     }
     if owned {
         this.requests.push(request("hold_status", #{ kind: "reception_probe.received", held: true }));
+        this.state.hits.queued += 1;
         this.requests.push(request("projectile", #{
+            reply: #{ request: this.state.hits.queued, selector: "reception_probe::observe/created" },
             origin: [200.0, 80.0], dir: [1.0, 0.0], speed: 100.0,
             damage: 1, max_lifetime: 3.0, half_extent: [2.0, 2.0],
         }));
+    }
+ }
+fn created() {
+    if this.trigger.stage == "applied" {
+        if this.trigger.code != "projectile_created" || this.trigger.subjects.len() != 1 { throw "lost creation result"; }
+        this.state.hits.created += 1;
     }
 }
 "#;
@@ -192,6 +203,8 @@ fn loaded_rules_receive_bounded_native_decisions_on_either_controller_and_replay
             .unwrap()
             .get(&RECORD)
             .unwrap();
+        assert_eq!(record.get(FieldRef(6)).unwrap(), record.get(FieldRef(7)).unwrap(),
+            "late counter shots receive actual creation replies");
         assert_eq!(
             record.get(FieldRef(0)).unwrap(),
             &Value::U32(2),

@@ -145,6 +145,7 @@ fn submit(inv: &mut Invocation<'_>, request: &J) -> Result<(), String> {
     match port {
         "projectile" => inv
             .submit::<ProjectileSpawnPort>(ProjectileSpawn {
+                reply: None,
                 properties: Default::default(),
                 guard: Default::default(),
                 origin: Vec2::from(vec2(field("origin")?, "origin")?),

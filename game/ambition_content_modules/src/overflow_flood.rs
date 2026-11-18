@@ -93,6 +93,7 @@ fn flood(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let spawn_y = (caster.position[1] - SPAWN_HEIGHT_ABOVE_BOSS).max(HALF_EXTENT.y + 8.0);
     for x in columns(room[0], SPACING, gap[0], GAP_HALF) {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: Vec2::new(x, spawn_y),

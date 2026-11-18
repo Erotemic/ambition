@@ -92,6 +92,7 @@ fn pulse(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if c.cooldown_s <= 0.0 {
         for direction in [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]] {
             inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+                reply: None,
                 properties: Default::default(),
                 guard: Default::default(),
                 origin: Vec2::from(trigger.position), dir: Vec2::from(direction),

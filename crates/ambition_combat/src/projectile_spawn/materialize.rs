@@ -1,13 +1,11 @@
 //! Construct projectiles from the facts captured at emission.
 
 #[cfg(test)]
-use bevy::ecs::system::RunSystemOnce;
-#[cfg(test)]
 use super::ProjectileEmission;
+#[cfg(test)]
+use bevy::ecs::system::RunSystemOnce;
 
-use super::{
-    PendingProjectileEmissions, ProjectilePresentation, ProjectileStart,
-};
+use super::{PendingProjectileEmissions, ProjectilePresentation, ProjectileStart};
 use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use ambition_projectiles::{
     LiveProjectile, ProjectileOwner, ProjectileSeqCounter, ProjectileVisualId,
@@ -95,6 +93,25 @@ fn materialize_matching(
                 ));
             }
         }
+        if let Some(reply) = request.reply.clone() {
+            let subjects = source
+                .identity
+                .as_ref()
+                .map(|(id, _)| id.as_str().to_owned())
+                .into_iter()
+                .collect();
+            commands.queue(move |world: &mut bevy::prelude::World| {
+                ambition_platformer2d_shared_tangle::action_results::publish_action_result(
+                    world,
+                    Some(&reply),
+                    ambition_extension_sdk::action::ActionStage::Applied,
+                    true,
+                    "projectile_created",
+                    "",
+                    subjects,
+                );
+            });
+        }
     }
 }
 
@@ -114,6 +131,7 @@ mod tests {
         ProjectileSpawnRequest::open(
             owner,
             ambition_projectile_spec::ProjectileSpawn {
+                reply: None,
                 properties: Default::default(),
                 guard: Default::default(),
                 origin: ae::Vec2::ZERO,
@@ -459,7 +477,7 @@ mod captured_birth_tests {
         sim_id::SimId,
     };
     use ambition_projectiles::{
-        ownership::ProjectileCredit, InFlightProjectile, ProjectileBody, ProjectileKind,
+        InFlightProjectile, ProjectileBody, ProjectileKind, ownership::ProjectileCredit,
     };
     use bevy::{ecs::system::RunSystemOnce, prelude::*};
 
@@ -489,8 +507,8 @@ mod captured_birth_tests {
     }
 
     #[test]
-    fn deferred_birth_retains_identity_credit_side_presentation_and_lifetime_after_source_retirement(
-    ) {
+    fn deferred_birth_retains_identity_credit_side_presentation_and_lifetime_after_source_retirement()
+     {
         for retire in [false, true] {
             let mut app = App::new();
             app.init_resource::<PendingProjectileEmissions>()
@@ -520,10 +538,11 @@ mod captured_birth_tests {
                 .id();
             assert!(fire(app.world_mut(), emitter, emitter));
             let emitted_id = SimId::spawned(&source_id, 0);
-            assert!(!app
-                .world()
-                .resource::<bevy::ecs::message::Messages<ProjectileEmission>>()
-                .is_empty());
+            assert!(
+                !app.world()
+                    .resource::<bevy::ecs::message::Messages<ProjectileEmission>>()
+                    .is_empty()
+            );
             if retire {
                 app.world_mut().despawn(emitter);
             } else {
@@ -604,10 +623,11 @@ mod captured_birth_tests {
             .id();
         assert!(!fire(app.world_mut(), emitter, foreign));
         assert!(!fire(app.world_mut(), Entity::PLACEHOLDER, emitter));
-        assert!(app
-            .world()
-            .resource::<bevy::ecs::message::Messages<ProjectileEmission>>()
-            .is_empty());
+        assert!(
+            app.world()
+                .resource::<bevy::ecs::message::Messages<ProjectileEmission>>()
+                .is_empty()
+        );
         assert!(fire(app.world_mut(), emitter, emitter));
         let emission = app
             .world_mut()
@@ -691,26 +711,27 @@ mod pending_tests {
                 SessionScopedEntity(session),
             ))
             .id();
-        assert!(app
-            .world_mut()
-            .run_system_once_with(
-                |In(owner), mut writer: ProjectileWriter| writer.write(
-                    ProjectileSpawnRequest::named(
-                        owner,
-                        InFlightProjectile {
-                            body: ProjectileBody::from_spec(ProjectileKind::Fireball.spec(
-                                Vec2::ZERO,
-                                Vec2::X,
-                                1.0
-                            ))
-                        },
-                        ProjectileKind::Fireball,
-                        ProjectileStart::StepThisTick
-                    )
-                ),
-                owner
-            )
-            .unwrap());
+        assert!(
+            app.world_mut()
+                .run_system_once_with(
+                    |In(owner), mut writer: ProjectileWriter| writer.write(
+                        ProjectileSpawnRequest::named(
+                            owner,
+                            InFlightProjectile {
+                                body: ProjectileBody::from_spec(ProjectileKind::Fireball.spec(
+                                    Vec2::ZERO,
+                                    Vec2::X,
+                                    1.0
+                                ))
+                            },
+                            ProjectileKind::Fireball,
+                            ProjectileStart::StepThisTick
+                        )
+                    ),
+                    owner
+                )
+                .unwrap()
+        );
         app
     }
 
@@ -728,16 +749,18 @@ mod pending_tests {
         app.insert_resource(saved);
         app.add_systems(Update, materialize_projectiles_for_next_tick);
         app.update();
-        assert!(!app
-            .world()
-            .resource::<PendingProjectileEmissions>()
-            .is_empty());
+        assert!(
+            !app.world()
+                .resource::<PendingProjectileEmissions>()
+                .is_empty()
+        );
         app.add_systems(Update, materialize_projectiles_for_this_tick);
         app.update();
-        assert!(app
-            .world()
-            .resource::<PendingProjectileEmissions>()
-            .is_empty());
+        assert!(
+            app.world()
+                .resource::<PendingProjectileEmissions>()
+                .is_empty()
+        );
         assert_eq!(app.world().resource::<ProjectileSeqCounter>().0, 1);
         app.update();
         assert_eq!(app.world().resource::<ProjectileSeqCounter>().0, 1);

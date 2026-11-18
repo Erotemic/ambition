@@ -6,7 +6,7 @@
 
 use bevy::prelude::Entity;
 
-use ambition_projectiles::{build_in_flight_projectile, InFlightProjectile, ProjectileKind};
+use ambition_projectiles::{InFlightProjectile, ProjectileKind, build_in_flight_projectile};
 
 /// When a newly materialized projectile begins advancing.
 ///
@@ -48,6 +48,7 @@ pub enum ProjectilePresentation {
 /// presentation-source inheritance at emission.
 #[derive(Clone, Debug)]
 pub struct ProjectileSpawnRequest {
+    pub reply: Option<ambition_platformer2d_shared_tangle::action_results::ActionReply>,
     pub owner: Entity,
     pub projectile: InFlightProjectile,
     pub presentation: ProjectilePresentation,
@@ -77,6 +78,7 @@ impl ProjectileSpawnRequest {
     ) -> Self {
         let visual_id = spawn.visual_id.clone();
         Self {
+            reply: None,
             owner,
             projectile: build_in_flight_projectile(spawn),
             presentation: ProjectilePresentation::OpenVisual(visual_id),
@@ -95,6 +97,7 @@ impl ProjectileSpawnRequest {
         start: ProjectileStart,
     ) -> Self {
         Self {
+            reply: None,
             owner,
             projectile,
             presentation: ProjectilePresentation::NamedKind(kind),
@@ -161,3 +164,25 @@ pub use materialize::{
 
 mod pending;
 pub use pending::PendingProjectileEmissions;
+
+pub const SPAWN_DOMAIN: &str = "projectiles.spawn";
+
+/// Install native emission state and cancellation before any producer runs.
+pub fn install_emission(app: &mut bevy::prelude::App) {
+    app.init_resource::<PendingProjectileEmissions>()
+        .add_message::<ProjectileEmission>();
+    ambition_platformer2d_shared_tangle::action_results::register_action_cancellation(
+        app,
+        SPAWN_DOMAIN,
+        cancel_queued_spawn,
+    );
+}
+
+fn cancel_queued_spawn(
+    world: &mut bevy::prelude::World,
+    reply: &ambition_platformer2d_shared_tangle::action_results::ActionReply,
+) -> bool {
+    world
+        .get_resource_mut::<PendingProjectileEmissions>()
+        .is_some_and(|mut pending| pending.cancel(reply))
+}

@@ -53,6 +53,7 @@ mod tests {
 
     fn spawn(speed: f32, damage: i32) -> ambition_projectile_spec::ProjectileSpawn {
         ambition_projectile_spec::ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: ae::Vec2::ZERO,

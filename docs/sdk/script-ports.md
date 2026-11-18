@@ -209,10 +209,11 @@ Port `ambition.world.module_entity_tick@2`, trigger: read as `this.trigger`.
 
 ## `projectile`
 
-Port `ambition.projectiles.spawn@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.projectiles.spawn@3`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Optional action_result callback for actual creation or refusal. |
 | `properties` | { targets: { grounded: bool, airborne: bool, prone: bool }, clash: one of: "normal" \| "transcendent", hitlag_scale: number, sdi_scale: number, tech: one of: "normal" \| "deny", weight: number or (), armor: one of: "respect" \| "bypass" } | `#{ targets: #{ grounded: true, airborne: true, prone: true }, clash: "normal", hitlag_scale: 1.0, sdi_scale: 1.0, tech: "normal", weight: (), armor: "respect" }` | Contact policy. |
 | `guard` | integer (u32) or () | `0` | Shield damage bonus, or unit for an unblockable shot. |
 | `origin` | [x, y] | required | Where the shot starts (world units, +Y down). |

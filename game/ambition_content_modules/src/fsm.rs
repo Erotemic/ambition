@@ -580,6 +580,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         let spread = (k as f32 - (count - 1) as f32 * 0.5) * MEATBALL_SPREAD;
                         let (dir, speed) = lob(origin, Vec2::new(target.x + spread, target.y));
                         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+                            reply: None,
                             properties: Default::default(),
                             guard: Default::default(),
                             origin,

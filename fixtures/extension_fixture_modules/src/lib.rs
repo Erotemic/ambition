@@ -89,6 +89,7 @@ fn count(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     tally.uses += 1;
     if tally.uses % EVERY == 0 {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin: Vec2::from(w.position),

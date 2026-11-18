@@ -1125,6 +1125,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             if t >= ROCK_WARN_S + i as f32 * ROCK_STAGGER_S {
                 c.rocks_dropped = i + 1;
                 inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+                    reply: None,
                     properties: Default::default(),
                     guard: Default::default(),
                     origin: Vec2::new(x, ceiling),

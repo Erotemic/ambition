@@ -105,6 +105,7 @@ fn volley(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             continue;
         }
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
+            reply: None,
             properties: Default::default(),
             guard: Default::default(),
             origin,

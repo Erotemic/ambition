@@ -99,6 +99,12 @@ impl ProjectileWriter<'_, '_> {
             };
             let room = self.rooms.of(emitter);
             let scope = SessionSpawnScope::new(session.map(|value| value.0)).in_room(room);
+            if request.reply.as_ref().is_some_and(|reply| {
+                scope.id().map(|scope| scope.0) != Some(reply.recipient.session)
+            }) {
+                warn!("projectile emission refused: its observer belongs to another session");
+                return false;
+            }
             let owner = self.sources.get(request.owner).ok();
             if request.owner != Entity::PLACEHOLDER && owner.is_none() {
                 warn!("projectile emission refused: its credit body has left");
@@ -156,6 +162,10 @@ impl ProjectileWriter<'_, '_> {
                 identity,
             }
         };
+        if request.reply.is_some() && source.identity.is_none() {
+            warn!("tracked projectile emission refused: its emitter has no identity");
+            return false;
+        }
         let emission = ProjectileEmission { request, source };
         self.pending
             .as_mut()

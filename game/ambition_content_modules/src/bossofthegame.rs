@@ -325,6 +325,7 @@ fn stage_the_band(inv: &mut Invocation<'_>, boss: &BossConduct) -> Result<(), Fa
 
 fn shot(origin: Vec2, dir: Vec2, speed: f32, gravity: f32, half: f32, lifetime: f32, visual: &str) -> ProjectileSpawn {
     ProjectileSpawn {
+        reply: None,
         properties: Default::default(),
         guard: Default::default(),
         origin,

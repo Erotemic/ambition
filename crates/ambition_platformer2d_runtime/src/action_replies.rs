@@ -161,42 +161,25 @@ fn queue_replies(
 
 fn retire_sources(
     admitted: Res<AdmittedExtensions>,
-    tick: Res<ambition_time::SimTick>,
     mut mailboxes: Query<&mut ActionMailbox>,
 ) {
     for mut mailbox in &mut mailboxes {
-        mailbox.retire_absent(tick.0, |entry| {
+        mailbox.retire_absent(|entry| {
             admitted.0.entries.iter().any(|active| active.path == entry)
         });
     }
 }
 
-fn cancel_actions(
-    mut outbox: ResMut<ExtensionOutbox>,
-    tick: Res<ambition_time::SimTick>,
-    mut mailboxes: Query<&mut ActionMailbox>,
-) {
-    for submitted in outbox.drain::<CancelActionPort>(&ACTOR_THINK) {
+fn cancel_actions(world: &mut World) {
+    let submitted = world.resource_mut::<ExtensionOutbox>().drain::<CancelActionPort>(&ACTOR_THINK);
+    for submitted in submitted {
         let ticket = submitted.value;
         if submitted.entry.rsplit_once('/').map(|(module, _)| module)
             != ticket.entry.rsplit_once('/').map(|(module, _)| module)
         {
-            warn!(
-                "action cancellation from {} refused: another module owns the ticket",
-                submitted.entry
-            );
+            warn!("action cancellation refused: another module owns the ticket");
             continue;
         }
-        if let Ok(mut mailbox) = mailboxes.get_mut(submitted.scope) {
-            mailbox.publish(ActionResult {
-                ticket,
-                stage: ActionStage::Canceled,
-                terminal: true,
-                tick: tick.0,
-                code: "caller_canceled".into(),
-                message: String::new(),
-                subjects: Vec::new(),
-            });
-        }
+        ambition_platformer2d_shared_tangle::action_results::cancel_action(world, submitted.scope, &ticket);
     }
 }

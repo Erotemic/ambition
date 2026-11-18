@@ -276,14 +276,19 @@ claim. Do not imitate consume-and-reward with separate state setters.
 
 ## Script library receipt
 
-Compiler commit: `c12a4e89c`. Source files could not share reusable code.
+Commits: `c12a4e89c`, `c8a52ba02`, `014127af5`. Source files could not share
+reusable code.
 Prepared library graphs now support functions, behavior parameters, and state
 factories. Runtime imports use fresh environments and the caller's work budget.
 The file watcher captures dependencies and stages affected entries together.
+Script-visible source names also stay independent of installation paths.
 
 Guards: the Rhai owner tests and loaded `scripted_libraries` fixture. They
 check closure isolation, budget ownership, real native actions, independent
 instances, replay, and edit recovery. See [script libraries](../../sdk/script-libraries.md)
-for bounds and measured cost. Do not retain mutable library environments as a
-substitute for host-owned records. The remaining object and event capabilities
+for bounds and measured cost. The default app warning check, optional-backend
+profiles, WebAssembly owner check, Android app check, and absence contracts
+pass. Workspace policy retains its 11 baseline violations. Broad union and
+tooling verification remain incomplete. Do not retain mutable library
+environments as a substitute for host-owned records. The remaining object and event capabilities
 keep the program open.

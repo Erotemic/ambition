@@ -426,4 +426,3 @@ pub fn remint_session_content(world: &mut World) {
     crate::content_identity::publish_session_content(world, next);
     info!("extension modules reloaded: the session's content is now generation {epoch:?}");
 }
-

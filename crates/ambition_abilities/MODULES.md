@@ -13,6 +13,7 @@
 | [`group`](src/group.rs) | The adapters of a coordinated group (`ambition.actor.group_think`): one invocation for each room whose live bodies carry a bound catalog tag, and their steering intent. |
 | [`mana`](src/mana.rs) | Mana pool access, spending, and regeneration policy. |
 | [`module_entity`](src/module_entity.rs) | Module-owned entities (fast-iteration I7): the adapters of `ambition.world.spawn_module_entity` and `ambition.world.module_entity_tick`. |
+| [`pending_transit`](src/pending_transit.rs) | A technique's transit (`ambition.motion.transit` in `technique_execution`). |
 | [`ranged`](src/ranged/mod.rs) | Ranged abilities: the bomb. |
 | [`ride`](src/ride.rs) | The adapters of a summoned ride: `ambition.world.summon_ride`, the facts `ambition.body.ride`, `ambition.body.saddle`, `ambition.body.presses`, `ambition.body.tumbling` and `ambition.body.room`, and the requests `ambition.mount.dismount`, `ambition.body.hold_course` and `ambition.world.dismiss`. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
@@ -22,7 +23,7 @@
 | [`traversal`](src/traversal/mod.rs) | Traversal rules a held item uses through its ports: the blink rule and the mark, which the blink, dive and mark/recall modules use. |
 | [`whereabouts`](src/whereabouts.rs) | The whereabouts of what a scope's records name (P5 step 3): the supplier of `ambition.world.whereabouts`. |
 
-_15 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

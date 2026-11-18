@@ -171,10 +171,8 @@ pub fn mint_spawned_sim_ids(
         let id = SimId::spawned(owner_id, sequence);
         // A projectile can itself spawn (a splitting shot), so it gets a counter.
         //
-        // It also gets its PROVENANCE, stated rather than spelled: the owner it
-        // descends from is right here, so recording it costs nothing and saves
-        // `heal_projectile_owners` from having to recover it by splitting the id
-        // string back apart.
+        // Creation provenance records the original spawner. Current combat
+        // ownership can change after this identity publication.
         commands.entity(entity).insert((
             id,
             ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
@@ -186,68 +184,50 @@ pub fn mint_spawned_sim_ids(
     }
 }
 
-// ─── The projectile family: the first blob-rebuildable dynamic family ────────
-//
-// The projectile domain declares its authoritative rollback state through the
-// backend-neutral registrar. `ProjectileOwner` — the one `Entity` handle — is
-// derived and healed per identity pass from the spawned occurrence's provenance.
-// That lets a dead projectile in a snapshot rebuild from authoritative blobs and
-// then recover its live owner handle without serializing a Bevy `Entity`.
-
-/// Re-resolve [`ProjectileOwner`](ambition_projectiles::ProjectileOwner) — the
-/// projectile family's one `Entity` handle — from the projectile's declared
-/// provenance.
-///
-/// N3.1 decision (2) forbids `Entity` in blobs, so the owner handle is DERIVED
-/// state. The durable fact behind it is
-/// [`SpawnOrigin::Dynamic`](ambition_platformer2d_shared_tangle::construction::SpawnOrigin)'s
-/// `parent`, stamped at minting and carried through snapshots, and this system
-/// re-resolves the handle wherever it is missing or stale — a blob-rebuilt
-/// projectile after a restore, or a shot whose firer was itself rebuilt.
-/// Scheduled with the identity pair (head and tail of the sim tick), so an
-/// owner is healed before anything reads it.
-///
-/// Provenance is data now; the spelling is free to change.
+/// Restore a missing or stale live owner link from current credit.
+/// Creation provenance names the spawner and cannot describe reflection.
+/// A live owner link is retained, including when that owner has traveled.
+/// An unresolved credit stays unresolved; another room or session cannot lend
+/// its body to the projectile.
 pub fn heal_projectile_owners(
-    mut commands: bevy::ecs::system::Commands,
-    projectiles: bevy::ecs::system::Query<
-        (
-            bevy::ecs::entity::Entity,
-            &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
-            Option<&ambition_projectiles::ProjectileOwner>,
-        ),
-        bevy::ecs::query::With<ambition_projectiles::LiveProjectile>,
-    >,
-    identities: bevy::ecs::system::Query<(
-        bevy::ecs::entity::Entity,
+    mut commands: bevy::prelude::Commands,
+    mut projectiles: bevy::prelude::Query<(
+        bevy::prelude::Entity,
+        &mut ambition_projectiles::ownership::ProjectileCredit,
+        Option<&ambition_projectiles::ProjectileOwner>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
+    ), bevy::prelude::With<ambition_projectiles::LiveProjectile>>,
+    identities: bevy::prelude::Query<(
+        bevy::prelude::Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
     )>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    let mut orphans: Vec<(
-        bevy::ecs::entity::Entity,
-        &ambition_platformer2d_shared_tangle::sim_id::SimId,
-    )> = Vec::new();
-    for (entity, origin, owner) in &projectiles {
-        // A live, resolvable handle needs no healing.
-        if owner.is_some_and(|owner| identities.get(owner.0).is_ok()) {
+    let mut orphans = Vec::new();
+    for (shot, mut credit, owner, session) in &mut projectiles {
+        let session = session.map(|scope| scope.0);
+        if let Some((entity, id, _)) = owner.and_then(|owner| identities.get(owner.0).ok())
+            .filter(|(_, id, scope)| scope.map(|scope| scope.0) == session
+                && credit.body.as_ref().is_none_or(|credit| credit == *id)) {
+            let room = rooms.of(entity);
+            if credit.body.as_ref() != Some(id) || credit.room != room {
+                *credit = ambition_projectiles::ownership::ProjectileCredit::capture(Some(id), room);
+            }
             continue;
         }
-        if let Some(parent) = origin.parent() {
-            orphans.push((entity, parent));
-        }
+        if owner.is_some() { commands.entity(shot).try_remove::<ambition_projectiles::ProjectileOwner>(); }
+        if let Some(id) = credit.body.clone() { orphans.push((shot, session, credit.room, id)); }
     }
-    if orphans.is_empty() {
-        return;
+    if orphans.is_empty() { return; }
+    let mut by_identity = std::collections::BTreeMap::new();
+    for (entity, id, session) in &identities {
+        let key = (session.map(|scope| scope.0), rooms.of(entity), id);
+        by_identity.entry(key).and_modify(|candidate| *candidate = None).or_insert(Some(entity));
     }
-    let by_id: std::collections::BTreeMap<
-        &ambition_platformer2d_shared_tangle::sim_id::SimId,
-        bevy::ecs::entity::Entity,
-    > = identities.iter().map(|(entity, id)| (id, entity)).collect();
-    for (entity, parent) in orphans {
-        if let Some(owner) = by_id.get(parent) {
-            commands
-                .entity(entity)
-                .insert(ambition_projectiles::ProjectileOwner(*owner));
+    for (shot, session, room, id) in orphans {
+        if let Some(Some(owner)) = by_identity.get(&(session, room, &id)) {
+            commands.entity(shot).insert(ambition_projectiles::ProjectileOwner(*owner));
         }
     }
 }

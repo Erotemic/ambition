@@ -10,7 +10,7 @@ use bevy::prelude::{Commands, Entity, Name, Query, Res, ResMut};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, RoomScopedEntity, SessionSpawnScope,
+    ActiveSessionScope, LiveRooms, RoomScopedEntity, SessionSpawnScope,
 };
 
 use crate::{
@@ -18,14 +18,14 @@ use crate::{
     ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId,
 };
 
-/// What a projectile takes from the body that fired it: whose cues it
-/// emits, and the live room it is in (a shot lands in its owner's room).
+/// Source metadata for materialization. LiveRooms supplies its effective room.
 type OwnerFacts<'w, 's> = Query<
     'w,
     's,
     (
         Option<&'static ambition_sfx::BodyPresentationSource>,
-        Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<&'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<&'static ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
     ),
 >;
 
@@ -37,6 +37,7 @@ pub fn materialize_projectiles_for_this_tick(
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
     owners: OwnerFacts<'_, '_>,
+    rooms: LiveRooms<'_, '_>,
 ) {
     materialize_matching(
         ProjectileStart::StepThisTick,
@@ -46,6 +47,7 @@ pub fn materialize_projectiles_for_this_tick(
         active_session,
         active_round,
         owners,
+        rooms,
     );
 }
 
@@ -57,6 +59,7 @@ pub fn materialize_projectiles_for_next_tick(
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
     owners: OwnerFacts<'_, '_>,
+    rooms: LiveRooms<'_, '_>,
 ) {
     materialize_matching(
         ProjectileStart::StepNextTick,
@@ -66,6 +69,7 @@ pub fn materialize_projectiles_for_next_tick(
         active_session,
         active_round,
         owners,
+        rooms,
     );
 }
 
@@ -77,6 +81,7 @@ fn materialize_matching(
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
     owners: OwnerFacts<'_, '_>,
+    rooms: LiveRooms<'_, '_>,
 ) {
     let Some(scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -92,6 +97,11 @@ fn materialize_matching(
         if request.start != wanted {
             continue;
         }
+        let owned = owners.get(request.owner).ok();
+        let (source, id, owner_scope) = owned.unwrap_or((None, None, None));
+        let room = owned.and_then(|_| rooms.of(request.owner));
+        let credited_id = if owner_scope.map(|owner| owner.0) == scope.id() { id } else { None };
+        if owner_scope.is_some_and(|owner| Some(owner.0) != scope.id()) { continue; }
         let body = &request.projectile.body;
         let mut entity = commands.spawn((
             body.kin,
@@ -104,8 +114,7 @@ fn materialize_matching(
             // `#[require]`s it — see that marker. Listing it here as well would
             // be the fourth copy of a fact one place should own.
         ));
-        let (source, room) = owners.get(request.owner).unwrap_or((None, None));
-        scope.in_room(room.map(|room| room.0)).apply_to(&mut entity);
+        scope.in_room(room).apply_to(&mut entity);
         round_scope.apply_to(&mut entity);
 
         // Insert only if a move fired the shot; see `FiredByMoveInstance`.
@@ -120,7 +129,7 @@ fn materialize_matching(
         }
 
         if request.owner != Entity::PLACEHOLDER {
-            entity.insert(ProjectileOwner(request.owner));
+            entity.insert((ProjectileOwner(request.owner), crate::ownership::ProjectileCredit::capture(credited_id, room)));
             if let Some(source) = source {
                 entity.insert(source.clone());
             }
@@ -348,5 +357,42 @@ mod tests {
             .map(|(kind, visual, owner)| (*kind, visual.0.clone(), owner.0))
             .collect();
         assert_eq!(rows, vec![(kind, kind.visual_id().to_string(), owner)]);
+    }
+}
+
+
+#[cfg(test)]
+mod credit_scope_tests {
+    use super::*;
+    use bevy::prelude::{App, Update};
+    use ambition_platformer2d_shared_tangle::{lifecycle::{InRoomInstance, LiveRoomInstance, SessionScopedEntity}, sim_id::SimId};
+    #[test]
+    fn materialization_captures_credit_in_its_session_and_refuses_a_foreign_owner() {
+        for (foreign, root) in [(false, false), (true, false), (false, true), (true, true)] {
+            let mut app = App::new();
+            app.add_message::<ProjectileSpawnRequest>().init_resource::<ProjectileSeqCounter>();
+            app.add_systems(Update, materialize_projectiles_for_this_tick);
+            let mut active = ActiveSessionScope::default();
+            let source_scope = active.begin();
+            let id = SimId::placement("source");
+            let owner = app.world_mut().spawn((id.clone(), SessionScopedEntity(source_scope), InRoomInstance(LiveRoomInstance::ACTIVATION))).id();
+            if root {
+                app.world_mut().entity_mut(owner).remove::<InRoomInstance>().insert((
+                    ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+            }
+            if foreign { active.begin(); }
+            app.insert_resource(active);
+            app.world_mut().write_message(ProjectileSpawnRequest::named(owner,
+                crate::InFlightProjectile { body: crate::ProjectileBody::from_spec(crate::ProjectileKind::Fireball.spec(
+                    ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::X, 1.0)) }, crate::ProjectileKind::Fireball, ProjectileStart::StepThisTick));
+            app.update();
+            let credits: Vec<_> = app.world_mut().query::<&crate::ownership::ProjectileCredit>().iter(app.world()).cloned().collect();
+            if foreign {
+                assert!(credits.is_empty());
+                assert_eq!(app.world().resource::<ProjectileSeqCounter>().0, 0);
+            } else {
+                assert_eq!(credits, vec![crate::ownership::ProjectileCredit::capture(Some(&id), Some(LiveRoomInstance::ACTIVATION))]);
+            }
+        }
     }
 }

@@ -202,3 +202,29 @@ fn read_motion_direction(r: &mut Reader<'_>) -> Option<crate::MotionDirection> {
         _ => return None,
     })
 }
+
+impl SnapshotState for crate::ownership::ProjectileCredit {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_bool(out, self.body.is_some());
+        if let Some(body) = &self.body {
+            body.encode(out);
+        }
+        put_bool(out, self.room.is_some());
+        if let Some(room) = self.room {
+            put_u32(out, room.ordinal());
+        }
+    }
+    fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+        let body = if reader.bool()? {
+            Some(ambition_platformer2d_shared_tangle::sim_id::SimId::decode(reader)?)
+        } else {
+            None
+        };
+        let room = if reader.bool()? {
+            Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(reader.u32()?))
+        } else {
+            None
+        };
+        Some(Self { body, room })
+    }
+}

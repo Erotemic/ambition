@@ -16,6 +16,7 @@ pub mod entity;
 pub mod extension;
 pub mod kind;
 pub mod materialize;
+pub mod ownership;
 mod snapshot_impls;
 pub mod spawn;
 pub mod spawn_request;

@@ -243,7 +243,6 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // owns these resources (rule 5); WorldPrep just invokes its registrar.
         ambition_combat::targeting::init_targeting_resources(app);
 
-        #[cfg(feature = "causal")]
         app.add_message::<ambition_damage::BodyHitResolved>();
         #[cfg(feature = "causal")]
         app.add_message::<crate::causal::BodyMovementOps>();

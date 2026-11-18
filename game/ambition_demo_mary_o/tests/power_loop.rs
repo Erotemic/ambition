@@ -689,6 +689,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
     // hand-registers their messages; `CombatSchedulePlugin` covers the apps that
     // install the whole schedule.
     app.add_message::<ambition_platformer2d::combat::stocks::BodyKnockedOut>();
+    app.add_message::<ambition_platformer2d::damage::BodyHitResolved>();
     app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();

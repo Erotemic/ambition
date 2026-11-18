@@ -494,6 +494,7 @@ fn fight_app() -> App {
     app.add_message::<ambition_vfx::vfx::DebrisBurstMessage>();
     app.add_message::<ambition_combat::events::ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
+    app.add_message::<ambition_damage::BodyHitResolved>();
     app.add_message::<ambition_damage::WalletShieldSpent>();
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();

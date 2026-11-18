@@ -18,7 +18,7 @@
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ImageRenderTarget, RenderTarget, ScalingMode};
 use bevy::prelude::*;
-use bevy::render::render_resource::TextureFormat;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 
 use ambition_platformer2d_shared_tangle::camera_layers::{
     FrontHudCamera, MainCamera, FRONT_HUD_LAYER, PARALLAX_BACKGROUND_LAYER,
@@ -272,12 +272,12 @@ fn spawn_slot(
     materials: &mut Assets<ColorMaterial>,
     slot: usize,
 ) -> BubbleSlot {
-    let image = images.add(Image::new_target_texture(
-        BUBBLE_TEXELS,
-        BUBBLE_TEXELS,
-        TextureFormat::Rgba8UnormSrgb,
-        None,
-    ));
+    let mut target = Image::new_uninit(
+        Extent3d { width: BUBBLE_TEXELS, height: BUBBLE_TEXELS, depth_or_array_layers: 1 },
+        TextureDimension::D2, TextureFormat::Rgba8UnormSrgb, default(),
+    );
+    target.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT;
+    let image = images.add(target);
     let camera = commands
         .spawn((
             Camera2d,

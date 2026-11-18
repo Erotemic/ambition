@@ -59,6 +59,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_vfx::vfx::KnockoutBeatRequested>()
             .add_message::<ActorDiedMessage>()
             .add_message::<ambition_damage::WalletShieldSpent>()
+            .add_message::<ambition_damage::BodyHitResolved>()
             .add_message::<ambition_combat::SetFlagsRequested>()
             .add_message::<ambition_persistence::quest::QuestAdvanceRequested>()
             .add_message::<ambition_encounter::switches::SwitchActivated>()

@@ -310,7 +310,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // the hanging-item countdown at the same version.
 // 486 -> 487: the merged schema contains both sets of state.
 // 487 -> 488: bounded body-query facts remain available for their replies.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 488;
+// 488 -> 489: current projectile credit survives ownership transfer and reconstruction.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 489;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -434,6 +434,8 @@ impl Plugin for CombatSchedulePlugin {
                 // not `run_if(gameplay_allowed)` — a bolt that materialized
                 // before a pause must not lose its side by being skipped, and
                 // stamping is not gameplay progress.
+                ambition_projectiles::ownership::capture_missing_projectile_credit,
+                crate::sim_identity::mint_spawned_sim_ids,
                 ambition_combat::allegiance::stamp_attack_allegiance,
                 // ⭐⭐ TWO ATTACKS MEETING IS RESOLVED FIRST, AND "FIRST" MEANS
                 // BEFORE BOTH DAMAGE ROADS. This used to sit down in the melee
@@ -472,6 +474,8 @@ impl Plugin for CombatSchedulePlugin {
                 // its side HERE, inside `Materialize`, rather than next frame —
                 // because its firer can be eliminated later this same tick, in
                 // `Settle`. See the note beside the first placement.
+                ambition_projectiles::ownership::capture_missing_projectile_credit,
+                crate::sim_identity::mint_spawned_sim_ids,
                 ambition_combat::allegiance::stamp_attack_allegiance,
             )
                 .chain()

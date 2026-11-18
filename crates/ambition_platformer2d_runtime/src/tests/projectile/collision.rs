@@ -3256,3 +3256,35 @@ fn a_projectile_damages_a_bodys_far_side_hurt_cap_and_keeps_its_contact_chart() 
     let empty_corner = ae::CombatVolume::circle(bounds.min + ae::Vec2::splat(margin), margin * 0.5);
     assert!(!event.volume.intersects(&empty_corner));
 }
+
+#[test]
+fn overlapping_room_ordinals_do_not_let_a_shot_hit_a_body_in_another_session() {
+    use ambition_combat::events::{HitEvent, HitTarget};
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionScopedEntity};
+    for target_session in [1, 2] {
+        let world = ae::World::new("scoped_target", ae::Vec2::splat(2000.0), ae::Vec2::splat(200.0), vec![]);
+        let mut app = projectile_test_app(world, ae::Vec2::splat(200.0), 1.0);
+        app.update();
+        let body = ae::BodyKinematics { pos: ae::Vec2::new(500.0, 300.0),
+            canonical_size: ae::Vec2::splat(12.0), ..Default::default() };
+        let target = app.world_mut().spawn((
+            ambition_characters::actor::ActorFaction::Enemy, body,
+            SessionScopedEntity(SessionScopeId(target_session)),
+            ae::CenteredAabb::from_aabb(body.aabb()),
+            ambition_combat::components::DamageableVolumes::body_box(ae::Vec2::splat(6.0)),
+            BodyHealth::new(ambition_characters::actor::Health::new(100)),
+        )).id();
+        let spec = ProjectileKind::Fireball.spec(body.pos, ae::Vec2::X, 1.0);
+        let mut shot = ambition_projectiles::ProjectileBody::from_spec(spec);
+        shot.kin.vel = ae::Vec2::ZERO;
+        crate::projectile_tests::spawn_player_projectile(&mut app, shot);
+        let shot = app.world_mut().query_filtered::<Entity, With<ambition_projectiles::LiveProjectile>>()
+            .single(app.world()).unwrap();
+        app.world_mut().entity_mut(shot).insert(SessionScopedEntity(SessionScopeId(1)));
+        advance_time(&mut app, 0.016);
+        app.update();
+        let hits = app.world().resource::<Messages<HitEvent>>().iter_current_update_messages()
+            .filter(|hit| hit.target == HitTarget::Body(target)).count();
+        assert_eq!(hits, usize::from(target_session == 1));
+    }
+}

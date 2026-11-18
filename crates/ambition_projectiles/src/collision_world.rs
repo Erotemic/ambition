@@ -3,15 +3,16 @@
 use ambition_platformer2d_core as ae;
 use bevy::ecs::system::SystemParam;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
-use bevy::prelude::Entity;
+use bevy::prelude::{Entity, Query};
 #[cfg(feature = "portal")]
-use bevy::prelude::{Res, Query};
+use bevy::prelude::Res;
 
 /// Room geometry stays in its physical chart. The material query scopes each
 /// contact through the aperture snapshot.
 #[derive(SystemParam)]
 pub struct ProjectileCollisionWorld<'w, 's> {
     collision: ambition_platformer2d_world::collision::CollisionWorld<'w, 's>,
+    sessions: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
     /// Which live room a shot and each thing it may reach are in (OW1 cut
     /// 4). Here and not a top-level parameter, for the reason the portals
     /// are.
@@ -72,6 +73,11 @@ impl ProjectileCollisionWorld<'_, '_> {
         self.live_rooms
             .stamped(shot)
             .or_else(|| self.live_rooms.of(owner.unwrap_or(shot)))
+    }
+
+    /// A shot can reach only recipients in its own session.
+    pub fn same_session(&self, shot: Entity, recipient: Entity) -> bool {
+        self.sessions.get(shot).ok().map(|scope| scope.0) == self.sessions.get(recipient).ok().map(|scope| scope.0)
     }
 
     /// The live room a thing a shot may reach is in.

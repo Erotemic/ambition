@@ -342,7 +342,13 @@ impl ChangeReports {
         let (sender, receiver) = std::sync::mpsc::channel();
         let dirs = roots.iter().cloned();
         let mut reports = Self { reports: None, awaited: dirs.collect(), above: Vec::new() };
-        match notify::recommended_watcher(sender) {
+        let changes = move |report: notify::Result<notify::Event>| {
+            // A reader must not start a scan. The scan reads published.json.
+            if report.as_ref().map_or(true, |event| !event.kind.is_access() || event.need_rescan()) {
+                let _ = sender.send(report);
+            }
+        };
+        match notify::recommended_watcher(changes) {
             Ok(watcher) => {
                 reports.reports = Some((watcher, receiver));
                 if let Err(error) = reports.watch_what_came() {
@@ -400,7 +406,7 @@ impl ChangeReports {
         let (_, receiver) = self.reports.as_ref()?;
         let relevant = |report: notify::Result<notify::Event>| {
             // An error can be a lost report: look.
-            report.map_or(true, |event| event.paths.iter().any(|path| watched_file(path)))
+            report.map_or(true, |event| event.need_rescan() || event.paths.iter().any(|path| watched_file(path)))
         };
         let mut changed = relevant(receiver.recv_timeout(longest).ok()?);
         // A save is several reports, and a publish writes many files: one

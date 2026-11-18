@@ -8,8 +8,8 @@
 //! - [`ambition_platformer2d_core::BodyKinematics`] — the SHARED kinematic body. Carrying the
 //!   exact component the player / enemy / boss carry is what lets Phase 4 plug
 //!   projectiles into the generic portal-transit machine "tag + go".
-//! - [`ProjectileOwner`] — the firing body entity (attacker attribution,
-//!   allegiance freezing, and presentation-source inheritance).
+//! - [`ProjectileOwner`] — the current credited live entity. Combat side and
+//!   presentation source are separate captures.
 //! - [`ProjectileSeq`] — a monotonic spawn id. Bevy query iteration order is
 //!   unspecified; the step system collects + sorts by this so the per-frame
 //!   processing order exactly reproduces the old `Vec` push order (determinism
@@ -33,9 +33,9 @@ use bevy::prelude::*;
 #[require(ambition_platformer2d_shared_tangle::projectile::ProjectileHits)]
 pub struct LiveProjectile;
 
-/// The firing body entity for a projectile. Used for hit attribution, for
-/// freezing faction/team allegiance at materialization, and for inheriting the
-/// firer's presentation source. The unified step loop is global and does not
+/// The current credited live entity. Ownership transfer updates this link,
+/// semantic `ProjectileCredit`, and combat allegiance together. The projectile
+/// keeps its presentation source separately. The unified step loop does not
 /// partition projectiles by owner.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ProjectileOwner(pub Entity);

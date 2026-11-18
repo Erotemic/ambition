@@ -36,7 +36,7 @@
 //! is worth somebody's judgement; it is named here so the next arrival is weighed
 //! against a stated boundary rather than against this one precedent.
 
-use ambition_combat::util::{body_vulnerable, shield_blocks_hit};
+use ambition_combat::util::shield_blocks_hit;
 use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut};
 
 use ambition_platformer2d_core as ae;
@@ -149,6 +149,8 @@ impl<'a> GuardUnderFire<'a> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BodyHitResolution {
     Ignored,
+    /// The receiver accepted the strike but its policy prevents health loss.
+    Protected,
     /// The body's raised shield consumed the hit: no damage, but the hit DID
     /// register (guard i-frame armed; the caller plays block feedback).
     Blocked,
@@ -165,39 +167,39 @@ pub enum BodyHitResolution {
     },
 }
 
-/// What the shared resolver DECIDED about one hit, announced so an observer
-/// can explain it.
+impl BodyHitResolution {
+    /// The accepted damage amount, after all defenses and damage modifiers.
+    pub fn damage_applied(self) -> i32 {
+        match self { Self::Damaged { damage, .. } => damage, _ => 0 }
+    }
+}
+
+/// The native receiver's decision about one admitted hit.
 ///
-/// The resolution already exists — `Ignored` / `Blocked` / `Armored` /
-/// `WalletShielded` / `Damaged` is exactly the "why was this hit accepted or
-/// rejected" vocabulary — and it was reaching nobody but the caller. This is the
-/// smallest way to let it out.
-///
-/// written only under the `causal` feature. A build with no inspector
-/// pays nothing: no message, no write, no registration. The alternative was
-/// instrumenting the resolver itself, which would have put an observer's
-/// concern inside the one function every body's damage goes through.
-///
-/// nothing in the simulation reads this. It is a fact ABOUT a decision
-/// already made, so a reader cannot change the decision — the same property
-/// that makes the stock-lifecycle observer safe.
-#[cfg(feature = "causal")]
+/// Identities and scope are captured before the receiver can retire. Entity
+/// handles are only for delivery to the same live body. The decision does not
+/// imply a knockout: health policy and the lifecycle owner decide that.
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
 pub struct BodyHitResolved {
-    pub body: bevy::prelude::Entity,
+    pub body: Entity,
+    pub attacker: Option<Entity>,
+    pub identity: reception::HitReceiverIdentity,
+    pub attacker_identity: Option<reception::HitReceiverIdentity>,
+    pub observed_at: u64,
     pub resolution: BodyHitResolution,
     pub source: ambition_combat::HitSource,
-    /// The raw damage the hit carried, BEFORE the multiplier and before any
-    /// defence. Kept beside the outcome because "asked for 30 and dealt 0" and
-    /// "asked for 0" are different findings.
     pub raw_damage: i32,
+    pub attacker_move_instance: Option<u32>,
 }
+
+pub mod reception;
+pub mod extension;
 
 /// The launch, announced. Carries [`BodyReaction`]'s three inputs beside the
 /// velocity they produced, because the velocity alone cannot say whether a short
 /// launch was a weak hit or a well-DI'd one.
 ///
-/// Feature-gated and `Option`-written, exactly like [`BodyHitResolved`]: read by
+/// Feature-gated and `Option`-written: read by
 /// an instrument and nothing else, so a composition that never registers it must
 /// publish nothing rather than panic.
 #[cfg(feature = "causal")]
@@ -415,14 +417,13 @@ pub fn resolve_body_hit(
     // ⭐ THE PHYSICAL REACTION IS UNCHANGED: a windbox still pushes, still lands,
     // still publishes its hit. What it does not do is take health.
     let damage = if raw_damage <= 0 { 0 } else { damage.max(1) };
-    let died = if never_dies && !unstoppable {
-        false
-    } else {
-        health
-            .as_deref_mut()
-            .map(|health| health.damage(damage))
-            .unwrap_or(false)
-    };
+    if never_dies && !unstoppable {
+        return BodyHitResolution::Protected;
+    }
+    let died = health
+        .as_deref_mut()
+        .map(|health| health.damage(damage))
+        .unwrap_or(false);
     // ⭐ A KILLING BLOW SAYS HOW BIG IT WAS. "Its health pool reached zero" is
     // true of a chip and of a detonation alike, and the two want opposite fixes:
     // one is a survivability number, the other is a rule that should not apply.
@@ -453,7 +454,7 @@ pub fn resolve_body_hit(
 /// same moment for the same reason, and a future consumer of "this body died"
 /// belongs in here beside them rather than as a 17th parameter.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct BodyDeathWriters<'w> {
+pub struct BodyDeathWriters<'w, 's> {
     /// The world's own death record — position and attribution.
     pub died: MessageWriter<'w, ActorDiedMessage>,
     /// S4: a KO of a body whose death a RULESET owns, for the stocks loop. A
@@ -476,19 +477,7 @@ pub struct BodyDeathWriters<'w> {
     /// connected reads this beside `resolved` and never infers a block from a
     /// missing connect. `Option` for the same reason as `resolved`.
     pub blocked: Option<MessageWriter<'w, ambition_combat::hitbox::BlockedBodyHit>>,
-    /// The resolver's DECISION about each hit, for the causal inspector. Rides
-    /// this bundle rather than a new parameter because it is written from the
-    /// same two places, at the same moment, from the same value.
-    ///
-    /// `Option`, and that is the difference between this and
-    /// `BodyKnockedOut` above. A knockout is a message the SIMULATION acts on,
-    /// so a composition that fails to register it is broken and should say so
-    /// loudly. This one is read by an INSTRUMENT and by nothing else, so a
-    /// composition that never registers it — a hand-built test fixture, a game
-    /// with no inspector — should publish nothing rather than panic. An
-    /// instrument that can take down a composition is worse than no instrument.
-    #[cfg(feature = "causal")]
-    pub resolutions: Option<MessageWriter<'w, BodyHitResolved>>,
+    pub receptions: reception::BodyHitReporter<'w, 's>,
     /// The LAUNCH the reaction produced. Same `Option` rule as above.
     #[cfg(feature = "causal")]
     pub reactions: Option<MessageWriter<'w, BodyReactionApplied>>,
@@ -519,7 +508,7 @@ pub(crate) fn handle_player_damage_events(
     // Bound to the live room of the struck body.
     vfx: &mut VfxForRoom<'_, '_>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
-    death_writers: &mut BodyDeathWriters<'_>,
+    death_writers: &mut BodyDeathWriters<'_, '_>,
     clusters: &mut ae::BodyClustersMut<'_>,
     // `None` while another live room stays: the sim clock is one clock for
     // the whole world, and one body's respawn does not snap another room's
@@ -554,19 +543,6 @@ pub(crate) fn handle_player_damage_events(
     let Some(damage) = damage_events.first().cloned() else {
         return false;
     };
-    // The post-hit i-frame window is consumed inside the resolver — the SAME rule for every
-    // body; emitters no longer decide it.
-    if !body_vulnerable(
-        player_health
-            .as_deref()
-            .map(|health| health.health.invulnerable)
-            .unwrap_or_default(),
-        facts.evading(),
-        clusters.shield,
-        combat,
-    ) {
-        return false;
-    }
     let impact_pos = damage
         .knockback
         .as_ref()
@@ -617,16 +593,9 @@ pub(crate) fn handle_player_damage_events(
         facts.evading(),
         matches!(damage.source, ambition_combat::HitSource::LeftTheWorld),
     );
-    // The resolver's decision, announced for the inspector. Gated: a build with
-    // no `causal` feature writes nothing here.
-    #[cfg(feature = "causal")]
-    if let Some(resolutions) = death_writers.resolutions.as_mut() {
-        resolutions.write(BodyHitResolved {
-            body: player_entity,
-            resolution,
-            source: damage.source.clone(),
-            raw_damage: damage.damage,
-        });
+    death_writers.receptions.record(player_entity, &damage, resolution);
+    for ignored in damage_events.iter().skip(1) {
+        death_writers.receptions.record(player_entity, ignored, BodyHitResolution::Ignored);
     }
     // THE KO, announced. (S4) Two things count as one for a body whose death
     // a ruleset owns: the meter emptying its pool, and the world throwing it out.
@@ -652,7 +621,7 @@ pub(crate) fn handle_player_damage_events(
         }
     }
     match resolution {
-        BodyHitResolution::Ignored => false,
+        BodyHitResolution::Ignored | BodyHitResolution::Protected => false,
         BodyHitResolution::Blocked => {
             // The guard is this body's (G1).
             sfx.in_space(vfx.sfx_space()).write_for_body(
@@ -739,7 +708,7 @@ pub(crate) fn handle_player_damage_events(
                         damage.attacker,
                         combat.hitstop_timer,
                         damage.source.clone(),
-                        damage.damage,
+                        resolution,
                         damage.attacker_move_instance,
                     );
                     publish_reaction(death_writers, player_entity, reaction);
@@ -837,7 +806,7 @@ pub(crate) fn handle_player_damage_events(
                     damage.attacker,
                     combat.hitstop_timer,
                     damage.source.clone(),
-                    damage.damage,
+                    resolution,
                     damage.attacker_move_instance,
                 );
                 publish_reaction(death_writers, player_entity, reaction);
@@ -984,7 +953,7 @@ pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReac
 /// exactly the kind of noise that gets a warning ignored.
 #[cfg(feature = "causal")]
 fn publish_reaction(
-    writers: &mut BodyDeathWriters<'_>,
+    writers: &mut BodyDeathWriters<'_, '_>,
     body: bevy::prelude::Entity,
     reaction: BodyReaction,
 ) {
@@ -1030,7 +999,7 @@ pub fn publish_resolved_hit(
     attacker: Option<bevy::prelude::Entity>,
     hitlag_seconds: f32,
     source: ambition_combat::HitSource,
-    damage: i32,
+    resolution: BodyHitResolution,
     attacker_move_instance: Option<u32>,
 ) {
     if let Some(resolved) = resolved {
@@ -1039,7 +1008,7 @@ pub fn publish_resolved_hit(
             attacker,
             hitlag_seconds,
             source,
-            damage,
+            damage: resolution.damage_applied(),
             attacker_move_instance,
         });
     }
@@ -1047,7 +1016,7 @@ pub fn publish_resolved_hit(
 
 #[cfg(not(feature = "causal"))]
 fn publish_reaction(
-    _writers: &mut BodyDeathWriters<'_>,
+    _writers: &mut BodyDeathWriters<'_, '_>,
     _body: bevy::prelude::Entity,
     _reaction: BodyReactionOutcome,
 ) {

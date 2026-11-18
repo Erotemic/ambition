@@ -13,6 +13,7 @@
 | [`extension`](src/extension.rs) | The projectile domain's extension request adapter. |
 | [`kind`](src/kind.rs) | Named projectile kinds + their authored stat tables (Ambition's basic kit). |
 | [`materialize`](src/materialize.rs) | Projectile request → ECS materialization. |
+| [`ownership`](src/ownership.rs) | Current projectile credit, separate from creation provenance and live links. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_projectiles`. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`spawn`](src/spawn.rs) | Cooldown + resource-meter gating for spawning new projectiles. |
@@ -20,7 +21,7 @@
 | [`state`](src/state.rs) | Per-player projectile controller state: charge machine, motion-input buffer, and tracked unlocks. |
 | [`visual`](src/visual.rs) | Projectile visual identity — an open, content-owned art registry. |
 
-_13 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

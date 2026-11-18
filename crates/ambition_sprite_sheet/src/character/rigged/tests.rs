@@ -20,6 +20,52 @@ const FIXTURE: &str = r#"(
 )"#;
 
 #[test]
+fn replacing_a_full_table_with_a_quality_table_retires_its_landmarks() {
+    use crate::baked_part_flipbooks::BakedPartFlipbook;
+    use crate::baked_sheet_rons::{publish_sheet_generation, SheetTexts};
+
+    let tracked = TURNING_BAR.replace("tracks: [\"bar\"]", "tracks: [\"near_hand\"]");
+    let mut content = crate::SpriteContent::from_texts(SheetTexts {
+        part_flipbooks: vec![("bar", BakedPartFlipbook::Ron(Arc::from(tracked)), "bar_parts.ron")],
+        ..Default::default()
+    }).unwrap();
+    let retained = content.clone();
+    assert_eq!(crate::baked_landmarks::landmarks(&content).len(), 1);
+    publish_sheet_generation(&mut content, SheetTexts {
+        part_flipbooks: vec![("bar.0_5x", BakedPartFlipbook::Ron(Arc::from(TURNING_BAR)), "bar_half_parts.ron")],
+        ..Default::default()
+    }).unwrap();
+    assert!(crate::baked_landmarks::landmarks(&content).is_empty());
+    assert_eq!(crate::baked_landmarks::landmarks(&retained).len(), 1);
+}
+
+#[test]
+fn a_quality_realization_uses_the_admitted_table_after_its_source_is_gone() {
+    use crate::baked_part_flipbooks::BakedPartFlipbook;
+
+    let root = std::env::temp_dir().join(format!("ambition_retained_tier_{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let path = root.join("fixture_parts.ron");
+    let tier = FIXTURE.replace("schema_version: 1,", "schema_version: 1, texel_scale: 0.5,");
+    std::fs::write(&path, tier).unwrap();
+    let path = crate::published_tree::kept(path.to_string_lossy());
+    let content = crate::SpriteContent::from_texts(crate::baked_sheet_rons::SheetTexts {
+        part_flipbooks: vec![
+            ("fixture", BakedPartFlipbook::Ron(Arc::from(FIXTURE)), "fixture_parts.ron"),
+            ("fixture.0_5x", BakedPartFlipbook::File(path), path),
+        ],
+        ..Default::default()
+    }).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+
+    let full = RiggedSpriteAsset::baked(&content, "fixture").unwrap();
+    let half = full.for_tier(&content, ambition_persistence::settings::TextureResolutionScale::Half)
+        .unwrap().expect("the admitted table does not need its source file");
+    assert_eq!(half.texel_scale, 0.5);
+    assert_eq!(half.parts[0].size, full.parts[0].size);
+}
+
+#[test]
 fn a_published_flipbook_keeps_its_draw_order_and_holds_its_last_frame() {
     let asset = RiggedSpriteAsset::from_published_ron(FIXTURE).expect("the fixture parses");
     assert_eq!(asset.max_draws(), 2);
@@ -639,6 +685,31 @@ const TURNING_BAR: &str = r#"(
     },
 )"#;
 
+#[test]
+fn the_tween_envelope_covers_translation_rotation_and_scale_together() {
+    let mut out = Vec::new();
+    for turn in [0.0, 0.01, 1.5, 3.14] {
+        for scale in [(1.0, 1.0), (-2.0, 0.1), (0.05, -3.0)] {
+            for travel in [(0.0, 0.0), (250.0, -350.0)] {
+                let mut table = ambition_sprite_part_format::read_ron(TURNING_BAR).unwrap();
+                let frames = &mut table.clips.get_mut("spin").unwrap().frames;
+                frames[0][0].scale = scale;
+                frames[1][0].scale = (scale.1, -scale.0);
+                frames[1][0].rotation = turn;
+                frames[1][0].at = travel;
+                let asset = RiggedSpriteAsset::from_published(table).unwrap();
+                for index in 0..2 {
+                    for step in 0..=512 {
+                        asset.tween_into("spin", index, step as f32 / 512.0, &mut out).unwrap();
+                        assert!(asset.reach_past_frame(&out) <= asset.art_overhang + 1.0e-3,
+                            "turn={turn} scale={scale:?} travel={travel:?} frame={index} step={step}");
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// THE ROOM A CELL NEEDS COVERS THE IN-BETWEENS OF A TWEENED CLIP.
 ///
 /// `art_overhang` was the reach of the AUTHORED frames. A tweened clip draws
@@ -787,54 +858,6 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
     assert!(engine_blink.contains(&crate::shared_baked_sheet_registry(content).canonical_key("player_robot_v3").unwrap()));
     eprintln!("the engine's blink: {engine_blink:?}");
     eprintln!("their own blink: {own_blink:?}");
-}
-
-/// A MEASUREMENT, not a check (review of 2026-10-14, queue REVIEW-1014 item
-/// 3): the memory that [`RiggedSpriteAsset::warm_baked_in_background`] keeps
-/// for the process, as the resident set before and after every published
-/// full-resolution table is decoded and kept, and the decode time on one
-/// thread. Run it by name with `--ignored --nocapture`; it reads the tables
-/// this checkout published.
-#[test]
-#[ignore = "a measurement of the published tables; run by name"]
-fn measure_the_memory_the_warm_up_keeps() {
-    let content = &crate::test_support::shared_sprites();
-    fn resident_kib() -> u64 {
-        std::fs::read_to_string("/proc/self/status")
-            .ok()
-            .and_then(|status| {
-                status
-                    .lines()
-                    .find_map(|line| line.strip_prefix("VmRSS:"))
-                    .and_then(|kib| kib.trim().trim_end_matches("kB").trim().parse().ok())
-            })
-            .unwrap_or(0)
-    }
-    let targets: Vec<&str> = crate::baked_part_flipbooks::baked_part_flipbook_targets(&content).collect();
-    let before = resident_kib();
-    let started = std::time::Instant::now();
-    // The slowest table is the stall a first use pays without the warm-up.
-    let mut slowest = (std::time::Duration::ZERO, "");
-    let mut decoded = 0;
-    for target in &targets {
-        let one = std::time::Instant::now();
-        if RiggedSpriteAsset::baked_checked(&content, target).is_some_and(|asset| asset.is_ok()) {
-            decoded += 1;
-        }
-        slowest = slowest.max((one.elapsed(), target));
-    }
-    let took = started.elapsed();
-    let after = resident_kib();
-    println!(
-        "warm-up: {decoded} of {} tables decoded on one thread in {:.2} s (slowest {:.1} ms, `{}`); resident {} MiB -> {} MiB (+{} MiB kept)",
-        targets.len(),
-        took.as_secs_f64(),
-        slowest.0.as_secs_f64() * 1000.0,
-        slowest.1,
-        before / 1024,
-        after / 1024,
-        after.saturating_sub(before) / 1024
-    );
 }
 
 /// A body that looks up while it walks: its head and its face turn about the

@@ -49,6 +49,7 @@ fn commit_parried_shot(
     impact: ae::Vec2,
     parrier: Entity,
     parrier_allegiance: AttackAllegiance,
+    parrier_credit: ambition_projectiles::ownership::ProjectileCredit,
     parrier_source: Option<&ambition_sfx::PresentationSourceId>,
     // The live room the shot flies in: the parry impact is drawn there.
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
@@ -56,7 +57,7 @@ fn commit_parried_shot(
     vfx: &mut VfxWriter,
 ) -> bool {
     let survived=super::intercept::intercept_projectile(
-        commands,proj_entity,kin,parrier,parrier_allegiance,response,
+        commands,proj_entity,kin,parrier,parrier_allegiance,parrier_credit,response,
     );
     if !survived { return false; }
     sfx.in_space(ambition_vfx::sfx_space(room)).write_for_body(
@@ -1078,6 +1079,7 @@ pub fn step_projectiles(
             let next_leg = candidate_game.leg(candidate.vel, *acceleration);
             let rearm_hits = next_leg != candidate_game.hits_cleared_on_leg;
             let may_touch = |target| !hit_this_tick && Some(target) != owner_entity
+                && collision.same_session(proj_entity, target)
                 && (rearm_hits || !already_hit.hit.contains(&target));
             // ⛔⛔ **WHERE IT WAS STRUCK, NOT WHERE THE TICK ENDED.** This was a
             // bare `bool`, and the splash below then used `kin.pos` — the
@@ -1374,6 +1376,7 @@ pub fn step_projectiles(
                 heals.write(ambition_damage::healing::BodyHealRequested::new(PARRY_HEAL,victim.entity));
                 if commit_parried_shot(&mut commands,proj_entity,&mut kin,&response,contact.hit.point,
                     victim.entity,AttackAllegiance::from_body(*victim.faction,victim.team,victim.driver),
+                    ambition_projectiles::ownership::ProjectileCredit::capture(victim.sim_id,collision.room_of(victim.entity)),
                     victim.voice.map(ambition_sfx::BodyPresentationSource::id),shot_room,&mut sfx,&mut vfx) {
                     commands.entity(proj_entity).insert(ae::SweepSample {turn:None,material:before.material,
                         travel:ae::LinearTravel::Prefix {delta:attempted_delta,until:contact.hit.toi},time:[leg_time,1.0],
@@ -1695,6 +1698,7 @@ mod parry_tests {
                     faction: ActorFaction::Player,
                     team: None,
                 },
+                ambition_projectiles::ownership::ProjectileCredit::default(),
                 parrier_source.as_ref(),
                 None,
                 &mut sfx,

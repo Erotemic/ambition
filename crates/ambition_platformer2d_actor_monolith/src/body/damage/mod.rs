@@ -123,12 +123,7 @@ pub struct FeatureHitWriters<'w, 's> {
     /// connected reads this beside `resolved` and never infers a block from a
     /// missing connect. `Option` for the same reason as `resolved`.
     pub blocked: Option<MessageWriter<'w, ambition_combat::hitbox::BlockedBodyHit>>,
-    /// The resolver's DECISION about each hit, for the causal inspector.
-    /// `Option` for the reason spelled out on the player-side twin: this is read
-    /// by an instrument and by nothing else, so a composition that never
-    /// registers it publishes nothing rather than panicking.
-    #[cfg(feature = "causal")]
-    pub resolutions: Option<MessageWriter<'w, ambition_damage::BodyHitResolved>>,
+    pub receptions: ambition_damage::reception::BodyHitReporter<'w, 's>,
     /// The LAUNCH the reaction produced. Same `Option` rule as above.
     #[cfg(feature = "causal")]
     pub reactions: Option<MessageWriter<'w, ambition_damage::BodyReactionApplied>>,

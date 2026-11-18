@@ -8,13 +8,9 @@
 //! schema (`character::rigged::published`), so the game decodes a table and
 //! does not parse its text.
 //!
-//! A development build embeds nothing, so that a sprite publish compiles
-//! nothing. It names each published file, and reads a table when a sheet first
-//! realizes it: as bincode from its cache (`published_cache`) when a run
-//! before this one parsed the same file, and from the RON text when not. The
-//! parse is about 50 ms a table, against 3.5 ms to decode (measured
-//! 2026-10-11), and it is on the main thread; with no cache the hub's
-//! neighbour prefetch stalled for 1.1 s on the cast of the hall (2026-10-14).
+//! Publication prepares and retains every full-resolution and quality table.
+//! A realization reads the admitted table without file IO or decoding. Native
+//! file preparation uses the development cache (`published_cache`).
 
 use crate::character::rigged::{RiggedSpriteAsset, RiggedSpriteError};
 
@@ -103,28 +99,22 @@ fn modified(table: &BakedPartFlipbook) -> Option<std::time::SystemTime> {
 pub(crate) type Landmarks = (Vec<(&'static str, Vec<u8>)>, String);
 
 /// The part flipbooks of one sheet generation, and what is derived from
-/// them: each decoded full-resolution table and the landmark tables.
+/// them: each decoded table and the landmark tables.
 pub struct PartTables {
     rows: Vec<PartFlipbookRow>,
     aliases: std::collections::HashMap<String, String>,
-    /// Each decoded full-resolution table, with the modification time its
+    /// Each decoded table, with the modification time its
     /// file had before it was read.
-    parsed: std::sync::Mutex<std::collections::HashMap<String, (RiggedSpriteAsset, Option<std::time::SystemTime>)>>,
+    parsed: std::collections::HashMap<String, (RiggedSpriteAsset, Option<std::time::SystemTime>)>,
     landmarks: std::sync::OnceLock<Landmarks>,
-    /// The modification time of each quality tier's table file when this
-    /// generation read its rows. A sheet decodes a tier table where it
-    /// realizes at that tier, and panics on one that does not decode, so the
-    /// next preparation checks each tier table whose file changed since.
-    tiers_seen: std::collections::HashMap<&'static str, Option<std::time::SystemTime>>,
     decoded_landmarks: std::sync::OnceLock<Vec<std::sync::OnceLock<std::sync::Arc<ambition_characters::actor::landmarks::BodyLandmarkTable>>>>,
 }
 
 impl PartTables {
-    /// Tables decoded when first asked for.
+    /// An empty preparation result for these sources.
     pub(crate) fn new(rows: Vec<PartFlipbookRow>) -> Self {
-        let tiers_seen = rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_some()).map(|(key, table, _)| (*key, modified(table))).collect();
         let aliases = crate::library_aliases(rows.iter().map(|(key, ..)| *key));
-        Self { rows, aliases, parsed: Default::default(), landmarks: Default::default(), tiers_seen, decoded_landmarks: Default::default() }
+        Self { rows, aliases, parsed: Default::default(), landmarks: Default::default(), decoded_landmarks: Default::default() }
     }
 
     /// Every flipbook, as `(key, table, file)` sorted by key.
@@ -136,88 +126,60 @@ impl PartTables {
         self.aliases.get(key).map(String::as_str).unwrap_or(key)
     }
 
-    /// Decode each full-resolution table of `rows`, and project the
-    /// landmarks, so that a publication is checked before it is played and
-    /// costs the frame nothing. A table whose file did not change since
-    /// `previous` decoded it is taken from `previous`. Each tier table whose
-    /// file changed since `previous` read it is decoded to check it, and not
-    /// kept: a sheet decodes it where it realizes at that tier. A table that
-    /// does not decode is returned with its file named and its error.
+    /// Decode and retain every table before publication. Reuse a table only
+    /// when its source and file stamp are unchanged. Project landmarks from
+    /// the full-resolution sources. Refuse the generation if any table fails.
     pub(crate) fn prepared(rows: Vec<PartFlipbookRow>, previous: &Self) -> Result<Self, Vec<(String, String)>> {
-        let tables = Self::new(rows);
-        let old = previous.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut tables = Self::new(rows);
+        let old = &previous.parsed;
         let mut parsed = std::collections::HashMap::new();
         let mut failed = Vec::new();
         let mut all_kept = true;
-        for (key, table, file) in tables.rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_none()) {
+        for (key, table, file) in &tables.rows {
             let seen = modified(table);
+            let same_source = previous.rows.binary_search_by_key(key, |row| row.0).ok()
+                .is_some_and(|index| previous.rows[index].1 == *table);
+            let stamp_available = !matches!(table, BakedPartFlipbook::File(_)) || seen.is_some();
             match old.get(*key) {
-                Some((asset, was)) if seen.is_some() && *was == seen
-                    && previous.rows.iter().any(|(old_key, old_table, _)| old_key == key && old_table == table) => {
+                Some((asset, was)) if stamp_available && *was == seen && same_source => {
                     parsed.insert((*key).to_owned(), (asset.clone(), seen));
                 }
                 _ => {
-                    all_kept = false;
+                    if crate::quality_variant_marker(key).is_none() { all_kept = false; }
                     match table.decode() {
                         Ok(asset) => {
                             parsed.insert((*key).to_owned(), (asset, seen));
                         }
-                        Err(error) => failed.push((file.rsplit('/').next().unwrap_or(file).to_owned(), error.to_string())),
+                        Err(error) => {
+                            let source = if crate::quality_variant_marker(key).is_some() {
+                                file.split_once("/assets/").map_or(*file, |(_, under)| under)
+                            } else {
+                                file.rsplit('/').next().unwrap_or(file)
+                            };
+                            failed.push((source.to_owned(), error.to_string()));
+                        }
                     }
                 }
-            }
-        }
-        drop(old);
-        for (key, table, file) in tables.rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_some()) {
-            let seen = tables.tiers_seen.get(key).copied().flatten();
-            if seen.is_some() && previous.tiers_seen.get(key) == Some(&seen)
-                && previous.rows.iter().any(|(old_key, old_table, _)| old_key == key && old_table == table) {
-                continue;
-            }
-            if let Err(error) = table.decode() {
-                // By its path under `assets/`: a tier table has the file name
-                // of its full-resolution table.
-                failed.push((file.split_once("/assets/").map_or(*file, |(_, under)| under).to_owned(), error.to_string()));
             }
         }
         if !failed.is_empty() {
             return Err(failed);
         }
-        let same_files = all_kept && previous.rows.len() == tables.rows.len();
+        let full_count = |rows: &[PartFlipbookRow]| rows.iter()
+            .filter(|(key, ..)| crate::quality_variant_marker(key).is_none()).count();
+        let same_files = all_kept && full_count(&previous.rows) == full_count(&tables.rows);
         let landmarks = match previous.landmarks.get() {
             Some(landmarks) if same_files => landmarks.clone(),
             _ => crate::baked_landmarks::project_rows(&tables.rows),
         };
         let _ = tables.landmarks.set(landmarks);
-        *tables.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = parsed;
+        tables.parsed = parsed;
         Ok(tables)
     }
 
-    /// The decoded full-resolution table of `target`, decoded now when it is
-    /// not yet.
-    pub(crate) fn decoded(&self, target: &str) -> Option<Result<RiggedSpriteAsset, RiggedSpriteError>> {
-        let index = self.rows.binary_search_by(|(name, _, _)| (*name).cmp(target)).ok()?;
-        let table = &self.rows[index].1;
-        if let Some((asset, _)) = self.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(target) {
-            return Some(Ok(asset.clone()));
-        }
-        // Decoded with the lock open: the warm threads and the game do not
-        // wait for each other. Two decodes of one table give one table.
-        let seen = modified(table);
-        let asset = match table.decode() {
-            Ok(asset) => asset,
-            Err(error) => return Some(Err(error)),
-        };
-        self.parsed
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(target.to_owned(), (asset.clone(), seen));
-        Some(Ok(asset))
-    }
-
-    /// Drop each decoded table: this generation is no longer the current one.
-    pub(crate) fn forget_decoded(&self) {
-        self.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
+    /// The table admitted with this immutable generation.
+    pub(crate) fn decoded(&self, target: &str) -> Option<RiggedSpriteAsset> {
+        self.parsed.get(self.canonical_key(target)).map(|(asset, _)| asset.clone())
     }
 
     /// The landmark tables of this generation, projected when first asked

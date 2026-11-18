@@ -202,8 +202,10 @@ pub(crate) fn apply_actor_hit(
         // An i-framed repeat returns false so the caller's
         // `actor_hit_this_event` stays unset (no feedback or hit bookkeeping).
         if !combat.vulnerable() {
+            writers.receptions.record(actor_entity, event, ambition_damage::BodyHitResolution::Ignored);
             return false;
         }
+        writers.receptions.record(actor_entity, event, ambition_damage::BodyHitResolution::Protected);
         // A protected body registers the hit without health damage. The
         // stimulus consumer owns retaliation, strike counts and speech.
         combat.hit_flash = combat.hit_flash.max(0.18);
@@ -314,20 +316,7 @@ pub(crate) fn apply_actor_hit(
             evading,
             left_the_world,
         );
-        // The resolver's decision, announced for the inspector — BEFORE the
-        // early return, because `Ignored` ("i-framed, or already dead") is one
-        // of the answers somebody comes here looking for. A publisher placed
-        // after this line would explain every hit except the ones that did
-        // nothing, which are the puzzling ones.
-        #[cfg(feature = "causal")]
-        if let Some(resolutions) = writers.resolutions.as_mut() {
-            resolutions.write(ambition_damage::BodyHitResolved {
-                body: actor_entity,
-                resolution,
-                source: event.source.clone(),
-                raw_damage: event.damage,
-            });
-        }
+        writers.receptions.record(actor_entity, event, resolution);
         if resolution == ambition_damage::BodyHitResolution::Ignored {
             return false;
         }
@@ -511,7 +500,7 @@ pub(crate) fn apply_actor_hit(
                 event.attacker,
                 combat.hitstop_timer,
                 event.source.clone(),
-                event.damage,
+                resolution,
                 event.attacker_move_instance,
             );
             #[cfg(feature = "causal")]

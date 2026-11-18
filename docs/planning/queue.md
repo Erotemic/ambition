@@ -69,7 +69,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ASSET-PREVIEW in that order.
    A9's completed profile proof is not an automatic invitation to rewrite the
    capability architecture. Continue AP14 ownership work before lower-priority
-   ENEMY-NOTICE, WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS and
+   ENEMY-NOTICE (done 2026-11-18), WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
 4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
 5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
@@ -440,7 +440,7 @@ followed by a real hit. Owner tests check exact portal caps and refusal states.
 Keep debug collection off during normal play. Do not replace effective geometry
 with an unlabelled authored or coarse outline.
 
-### ENEMY-NOTICE — complete first-sight beats on the existing brain paths
+### ENEMY-NOTICE — complete first-sight beats on the existing brain paths — ✅ DONE 2026-11-18
 
 **Failure:** the dilophosaurus and other skirmishers have authored notice art
 or sound but no notice interval in `SkirmisherCfg`. The enemy-pattern plan's
@@ -490,11 +490,17 @@ and the `ninja_heavy` profile (`MeleeBrute`, 0.5 s) in place of the
 `melee_brute_brute` preset. The audit's "axe heavy" is no character (the
 axe is a held prop), and Kagero is an ally (`stand_still`), not a foe.
 
-**Next action:** the admiral already notices (its `Skirmisher` profile has
-`notice_s: 0.4`) but its fighter sheet has no `notice` or `windup` row, so
-the beat draws its idle; draw both in its fighter rig
-(`_pirate_admiral_fighter.py`). The eye-band examiner keeps `medium_striker`
-(`Smash`) for the rank exam.
+**Closed 2026-11-18 (the admiral):** this row's earlier next action was
+wrong. The admiral has no `Skirmisher` profile (that was the raider's): it
+ships the `melee_brute_striker` preset, and both rooms that place it (the
+pirate cove's quest giver in `pvn.ldtk` and the hall exhibit) override its
+brain with `stand_still`. Provoked, it fights as `pirate_boarder`
+(`Smash`): a reaction to a blow, not a first sight. It never meets a foe
+on first sight, so `notice` and `windup` rows on its fighter sheet would be
+art no brain pins; none were drawn. The eye-band examiner keeps
+`medium_striker` (`Smash`) for the rank exam, and the skirmisher profiles
+without notice art or cue keep their declared policy (fight on first
+sight), as the acceptance allows.
 
 **Acceptance:** first sight produces one authored pose and cue before attack;
 loss and reacquisition follow the declared policy. Hurt interruption and

@@ -47,7 +47,7 @@ The catalog row's `cues` (`CharacterCues`, `sfx_registry` ids), so a telegraph i
 
 The strike sounds are folded onto its moves when its kit is prepared (`moveset_prefabs::voice_moveset`), its moveset file's moves too. A move keeps a sound it authored. The beats are played by `body::play_beat_cues`, off the brain's beat edges (`Brain::beat`).
 
-The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/measure/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers, skirmishers and fighter engagement can emit notice beats. The remaining authored profiles are tracked by ENEMY-NOTICE.
+The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/measure/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers, skirmishers and fighter engagement can emit notice beats. ENEMY-NOTICE (done 2026-11-18) gave the crew and the dojo theirs; a profile with no notice art or cue fights on first sight.
 
 ## What the art gives a character
 
@@ -133,8 +133,8 @@ Test: `game/ambition_app/tests/the_gnu_ton_apples.rs`.
   AI is idle or patrolling. The dojo's heavies (the Ninja Heavy, the Bruiser
   and the Wrestler) followed the same day: `notice` and `windup` rows, a
   grunt `enemy.ninja_heavy.notice`, and the `ninja_heavy` profile (0.5 s).
-  The admiral's beat draws its idle until its fighter sheet has the rows;
-  the other skirmisher profiles have no notice art or cue yet and keep
-  fighting on first sight.
-  [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths).
+  The admiral needs no beat: every room that places it stands it still, and
+  provoked it fights as `Smash`. The other skirmisher profiles have no
+  notice art or cue yet and keep fighting on first sight.
+  [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths---done-2026-11-18).
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

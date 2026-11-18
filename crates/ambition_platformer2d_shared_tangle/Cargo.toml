@@ -12,6 +12,7 @@ description = "Reusable, content-free platformer runtime primitives (lifecycle v
 crate-type = ["rlib"]
 
 [dependencies]
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_hit_spec = { path = "../ambition_hit_spec" }
 serde = { workspace = true }
 # Authored projectile intent lives on a lower floor than projectile physics.

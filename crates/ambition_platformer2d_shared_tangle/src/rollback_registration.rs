@@ -11,7 +11,10 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
-{    // Every live claim, shadowed ones included: restoring only a winner would
+{
+    registrar.rollback_component_canonical::<crate::action_results::ActionMailbox>(OWNER, "actions.mailbox");
+    registrar.rollback_component_canonical::<crate::action_results::ActionScopeSequence>(OWNER, "actions.scope_sequence");
+    // Every live claim, shadowed ones included: restoring only a winner would
     // forget a ride under a possession across a rewind.
     registrar
         .rollback_component_canonical::<crate::temporary_control::ControlClaims>(

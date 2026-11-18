@@ -10,6 +10,7 @@ description = "Reusable encounter wave/lockdown vocabulary and headless state ma
 crate-type = ["rlib"]
 
 [dependencies]
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The wave-mob request vocabulary names `placements::CharacterBrain`. A LEAF
 # with zero `ambition_*` dependencies, so this adds no closure beyond itself.

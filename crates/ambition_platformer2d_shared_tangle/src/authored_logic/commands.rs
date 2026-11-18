@@ -78,21 +78,13 @@ pub struct CommandDescriptor {
     pub params: &'static [ParamSpec],
 }
 
-/// What happened, and there are only TWO answers.
-///
-/// deliberately one fewer than [`ConditionOutcome`](super::ConditionOutcome),
-/// and the missing one is the interesting part. A question has three answers
-/// because *"I cannot tell"* is genuinely different from *"no"*. A verb does not:
-/// either the domain did the thing or it did not, and every reason it did not —
-/// no such command, wrong arguments, no save layer installed — is the same fact
-/// to the caller, which is that the world did not change.
-///
-/// so `Refused` always carries a reason, because that reason is the only
-/// thing distinguishing the cases and it is what an author reads.
+/// The command owner distinguishes a queue write from an applied change.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CommandOutcome {
     /// The owning domain performed it.
     Done,
+    /// Work entered the native domain queue. Its consumer must publish the result.
+    Queued,
     /// Nothing happened, with a reason written for a human or an agent reading a
     /// diagnostic.
     Refused(String),
@@ -108,29 +100,15 @@ impl CommandOutcome {
     }
 }
 
-/// How a domain performs its own verb.
-///
-/// a plain `fn`, not a boxed closure, for the reason the condition
-/// evaluator is one: it keeps the catalog `Clone` and captures nothing, so a
-/// registration cannot smuggle state into a value that is supposed to be
-/// immutable for the whole run.
-///
-/// `&mut World`, unlike a condition's `&World` — that is the entire
-/// difference between the two halves, and it is why this type may only be called
-/// from one place in the frame.
-///
-/// a runner must not depend on query iteration order, and it must not
-/// write anything the owning domain has not registered for rollback. The
-/// preferred shape is that a runner writes its domain's EXISTING typed request
-/// message and lets the domain's own consumer apply it — which is what
-/// `world.set_flag` does, and what makes it snapshot-safe without inventing
-/// anything.
-///
-/// The third argument is the live room the request was made in (a switch's
-/// room, a room's own `while_live` line), or `None` for a request that is no
-/// room's (a conversation). A verb that acts on one occurrence of something
-/// two live rooms can each hold uses it to tell them apart.
-pub type CommandRunner = fn(&mut World, &[AuthoredArg], Option<crate::lifecycle::LiveRoomInstance>) -> CommandOutcome;
+/// The caller's room and optional action receipt travel with native work.
+#[derive(Clone, Debug, Default)]
+pub struct CommandContext {
+    pub room: Option<crate::lifecycle::LiveRoomInstance>,
+    pub reply: Option<crate::action_results::ActionReply>,
+}
+
+/// A domain applies a change or writes its existing typed request channel.
+pub type CommandRunner = fn(&mut World, &[AuthoredArg], &CommandContext) -> CommandOutcome;
 
 #[derive(Clone)]
 struct Registered {
@@ -195,9 +173,9 @@ impl CommandCatalog {
         id: &CommandId,
         args: &[AuthoredArg],
         asked_by: &super::AuthoredAsk,
-        room: Option<crate::lifecycle::LiveRoomInstance>,
+        context: &CommandContext,
     ) -> CommandOutcome {
-        let outcome = self.perform(world, id, args, room);
+        let outcome = self.perform(world, id, args, context);
         // ⛔⛤ **THE SAME ONE DOOR THE CONDITION SIDE RECORDS AT, AND FOR THE
         // SAME REASON — see [`super::AuthoredVerdictLog`].** The verbs land in
         // the SAME ring as the questions, because *"the door did not open when
@@ -219,7 +197,7 @@ impl CommandCatalog {
 
     /// The verb itself, with no diagnostic on the path: arity, kinds, then the
     /// owning domain.
-    fn perform(&self, world: &mut World, id: &CommandId, args: &[AuthoredArg], room: Option<crate::lifecycle::LiveRoomInstance>) -> CommandOutcome {
+    fn perform(&self, world: &mut World, id: &CommandId, args: &[AuthoredArg], context: &CommandContext) -> CommandOutcome {
         let Some(row) = self.rows.get(id) else {
             return CommandOutcome::refused(format!(
                 "no command `{id}` is published; the installed engine knows {} others",
@@ -249,7 +227,7 @@ impl CommandCatalog {
                 ));
             }
         }
-        (row.run)(world, args, room)
+        (row.run)(world, args, context)
     }
 
     /// Every published command, in id order.
@@ -320,6 +298,7 @@ pub struct RunAuthoredCommand {
     /// The live room it was asked in; `None` for a request that is no room's.
     /// See [`CommandRunner`].
     pub room: Option<crate::lifecycle::LiveRoomInstance>,
+    pub reply: Option<crate::action_results::ActionReply>,
 }
 
 impl RunAuthoredCommand {
@@ -329,7 +308,13 @@ impl RunAuthoredCommand {
             args,
             asked_by,
             room: None,
+            reply: None,
         }
+    }
+
+    pub fn with_reply(mut self, reply: Option<crate::action_results::ActionReply>) -> Self {
+        self.reply = reply;
+        self
     }
 
     /// This request, asked in live room `room`.
@@ -378,18 +363,34 @@ pub fn run_requested_authored_commands(world: &mut World) {
              has published any command",
             requests.len(),
         );
+        for request in requests {
+            crate::action_results::publish_action_result(world, request.reply.as_ref(),
+                ambition_extension_sdk::action::ActionStage::Rejected, true,
+                "no_command_catalog", "No command catalog is installed.", Vec::new());
+        }
         return;
     }
     world.resource_scope::<CommandCatalog, _>(|world, catalog| {
         for request in requests {
-            if let CommandOutcome::Refused(reason) =
-                catalog.run(world, &request.id, &request.args, &request.asked_by, request.room)
-            {
-                tracing::warn!(
-                    target: "crate::authored_logic",
-                    "authored command `{}` was refused: {reason}",
-                    request.id,
-                );
+            use crate::action_results::{action_is_pending, publish_action_result};
+            use ambition_extension_sdk::action::ActionStage;
+            if !action_is_pending(world, request.reply.as_ref()) { continue; }
+            let context = CommandContext { room: request.room, reply: request.reply };
+            let outcome = catalog.run(world, &request.id, &request.args, &request.asked_by, &context);
+            match outcome {
+                CommandOutcome::Refused(reason) => {
+                    publish_action_result(world, context.reply.as_ref(), ActionStage::Rejected, true,
+                        "command_refused", reason.clone(), Vec::new());
+                    tracing::warn!(target: "crate::authored_logic", "authored command `{}` was refused: {reason}", request.id);
+                }
+                CommandOutcome::Done | CommandOutcome::Queued => {
+                    publish_action_result(world, context.reply.as_ref(), ActionStage::Admitted, false,
+                        "command_admitted", "", Vec::new());
+                    if outcome == CommandOutcome::Done {
+                        publish_action_result(world, context.reply.as_ref(), ActionStage::Applied, true,
+                            "command_applied", "", Vec::new());
+                    }
+                }
             }
         }
     });

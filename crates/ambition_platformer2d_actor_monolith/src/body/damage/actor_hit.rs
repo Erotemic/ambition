@@ -7,7 +7,7 @@ use bevy::prelude::Entity;
 
 use super::super::ae;
 use ambition_combat::components::ActorDisposition;
-use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
+use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagsRequested};
 use ambition_platformer2d_items::loot::{drop_currency_coin, drop_health_pickup, id_drops_health};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
@@ -699,7 +699,11 @@ pub(crate) fn apply_actor_hit(
                         let written = room.zip(writers.tick.as_deref()).map(|(room, tick)| {
                             ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
                         });
-                        writers.set_flag.write(SetFlagRequested { id, on: true, written });
+                        writers.set_flag.write(SetFlagsRequested {
+                            changes: vec![(id, true)],
+                            reply: None,
+                            written
+                        });
                     }
                 }
             }

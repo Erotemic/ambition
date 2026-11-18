@@ -966,6 +966,7 @@ pub mod extension {
     };
     pub use ambition_extension_host::{inspect, reload};
     pub use ambition_extension_sdk as sdk;
+    pub use ambition_world_port as world;
 #[cfg(feature = "wasm_modules")]
     pub use ambition_extension_wasm::{LoadError, WasmModules, build_module_crate};
     pub use ambition_platformer2d_runtime::extension_composition::{

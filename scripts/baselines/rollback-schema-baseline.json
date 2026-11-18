@@ -1,7 +1,9 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v484",
+    "version": "ggrs-rollback-schema-v486",
     "rows": [
+      "actions.mailbox\tcomponent-canonical\tActionMailbox",
+      "actions.scope_sequence\tcomponent-canonical\tActionScopeSequence",
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
       "actor.attack_gesture_state\tcomponent-canonical\tAttackGestureState",

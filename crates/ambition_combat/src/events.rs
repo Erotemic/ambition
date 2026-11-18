@@ -76,13 +76,13 @@ pub enum ActorStimulus {
 // Cross-system gameplay effects use typed messages with focused consumers.
 // Do not reintroduce a generic effect enum or side-channel vectors.
 
-/// Set a save/quest flag. The consumer mirrors `on == true` into a
-/// `QuestAdvanceEvent::FlagSet` so flag-driven quest steps advance in the
-/// same frame as the save write.
+/// Apply one batch of save flags through the quest owner. No system can
+/// observe a partial batch. The consumer publishes one optional result after
+/// all changes and their quest mirrors are applied.
 #[derive(Message, Clone, Debug, PartialEq)]
-pub struct SetFlagRequested {
-    pub id: String,
-    pub on: bool,
+pub struct SetFlagsRequested {
+    pub reply: Option<ambition_platformer2d_shared_tangle::action_results::ActionReply>,
+    pub changes: Vec<(String, bool)>,
     /// The room and tick a body's act in a room set it from, when it was one
     /// (a pickup, a chest, a death, a switch, a room's cutscene): a rewind of
     /// that room takes the write back ([`FlagWritesInRooms`]). `None` for a
@@ -97,7 +97,7 @@ pub struct FlagWrite {
     pub on: bool,
     /// What the flag was before.
     pub replaced: bool,
-    /// The room it came from, as [`SetFlagRequested::written`].
+    /// The room it came from, as [`SetFlagsRequested::written`].
     pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
     /// The tick it was applied on, which bounds the log.
     pub applied_at: u64,

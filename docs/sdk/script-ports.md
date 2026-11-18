@@ -303,6 +303,43 @@ Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.
 | `members` | list of { id: text, form: text, position: [x, y], velocity: [x, y], size: [x, y], alive: bool, driven: bool, held: text or (), supporter: text or (), target: [x, y] or (), target_velocity: [x, y] or () } | The room's members, in the order of their identity. |
 | `items` | list of { id: text, kind: text, position: [x, y], at_rest: bool } | The items lying in the room (not held), in the order of their identity. |
 
+## `cancel_action`
+
+Port `ambition.actions.cancel@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `entry` | text | required | The submitting provider::module/entry. |
+| `domain` | text | required | The native action domain. |
+| `request` | integer (u32) | required |  |
+| `occurrence` | text | required | A stable occurrence in this recipient's action mailbox. |
+| `room` | integer (u32) | required | The live room that minted this caller lifetime. |
+| `generation` | text | required | A caller lifetime within that room. Recreated bodies get a new value. |
+
+## `action_result`
+
+Port `ambition.actions.result@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `ticket` | { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text } |  |
+| `stage` | one of: submitted \| admitted \| applied \| completed \| rejected \| canceled \| failed |  |
+| `terminal` | bool | The domain has finished this action. Applied can be terminal for a one-step mutation. |
+| `tick` | text | Simulation tick when the domain published this stage. |
+| `code` | text | A domain-defined result or refusal code. |
+| `message` | text | The domain's diagnostic, when it supplies one. |
+| `subjects` | list of text | Stable semantic identities supplied by the domain. No native entity handles. |
+
+## `action_history`
+
+Port `ambition.actions.history@1`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `next_sequence` | text |  |
+| `dropped` | text |  |
+| `entries` | list of { sequence: text, result: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text }, stage: one of: submitted \| admitted \| applied \| completed \| rejected \| canceled \| failed, terminal: bool, tick: text, code: text, message: text, subjects: list of text } } |  |
+
 ## `story_tick`
 
 Port `ambition.story.tick@1`, trigger: read as `this.trigger`.
@@ -316,11 +353,12 @@ Port `ambition.story.tick@1`, trigger: read as `this.trigger`.
 
 ## `story_command`
 
-Port `ambition.story.command@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.story.command@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `line` | text | required | A command line from the authored command catalog. It runs in this room. |
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Optional correlated replies from the command owner. |
 
 ## `play_cutscene`
 

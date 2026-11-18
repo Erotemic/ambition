@@ -73,6 +73,7 @@ pub fn install_ports(app: &mut App) {
     // A room's group decides in one invocation (P4: the coconut swallows).
     ambition_abilities::group::install(app);
     crate::story_script::install(app);
+    crate::action_replies::install(app);
     // Where the things a scope's records name are (P5 step 3).
     ambition_abilities::whereabouts::install(app);
     // body_contact: retirement follows all ordinary request adapters.
@@ -563,9 +564,12 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ActorFirePort>("fire")
         .add::<ambition_combat_port::SetVelocityPort>("velocity")
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
-        .add::<crate::story_script::StoryTickPort>("story_tick")
-        .add::<crate::story_script::StoryCommandPort>("story_command")
-        .add::<crate::story_script::PlayCutscenePort>("play_cutscene")
+        .add::<ambition_extension_sdk::action::CancelActionPort>("cancel_action")
+        .add::<ambition_extension_sdk::action::ActionResultPort>("action_result")
+        .add::<ambition_extension_sdk::action::ActionResultsPort>("action_history")
+        .add::<ambition_world_port::StoryTickPort>("story_tick")
+        .add::<ambition_world_port::StoryCommandPort>("story_command")
+        .add::<ambition_world_port::PlayCutscenePort>("play_cutscene")
         .add::<ambition_combat_port::SteerPort>("steer")
         .add::<ambition_combat_port::TakeItemPort>("take")
         .add::<ambition_combat_port::ReleaseItemPort>("release")

@@ -8,7 +8,7 @@ use ambition_world_items::containers::Opened;
 // deleting it: bevy's prelude, `ambition_vfx`'s two message types and
 // `RoomVisual`, which is `shared_tangle`'s. No monolith vocabulary.
 use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
-use ambition_combat::events::{GameplayBanner, SetFlagRequested};
+use ambition_combat::events::{GameplayBanner, SetFlagsRequested};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxWriter;
@@ -62,7 +62,7 @@ pub fn open_ecs_chests(
         ),
         With<FeatureSimEntity>,
     >,
-    mut set_flag: MessageWriter<SetFlagRequested>,
+    mut set_flag: MessageWriter<SetFlagsRequested>,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     // A body opens only a chest in its own live room: two live rooms can
@@ -234,12 +234,12 @@ pub fn open_ecs_chests(
             if let Some(encounter_id) =
                 ambition_encounter::encounter_id_from_chest_feature_id(id.as_str())
             {
-                set_flag.write(SetFlagRequested {
+                set_flag.write(SetFlagsRequested {
+                    changes: vec![(ambition_encounter::encounter_reward_looted_flag(encounter_id), true)],
+                    reply: None,
                     // The flag NAME has one authority; this used to spell the
                     // same `format!` by hand, which is a second one that agrees
                     // only until somebody edits the helper.
-                    id: ambition_encounter::encounter_reward_looted_flag(encounter_id),
-                    on: true,
                     written,
                 });
             }

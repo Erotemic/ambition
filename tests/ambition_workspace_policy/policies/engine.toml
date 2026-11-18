@@ -1679,6 +1679,7 @@ allow = ["ambition_asset_manager", "ambition_shrine", "ambition_interaction", "a
     # (`script_ports()`) names. The converters use the same values as Rust modules.
     "ambition_extension_rhai",
     "ambition_combat_port",
+    "ambition_world_port",
     "ambition_boss_special_port",
     "ambition_projectile_spec",
     # Player/victim hit resolution: the runtime schedules `apply_player_hit_events`

@@ -20,7 +20,7 @@ use bevy::prelude::{
 use super::BodyCombat;
 use ambition_combat::components::{
     ActorDisposition, CenteredAabb, FeatureId, FeatureName};
-use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
+use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagsRequested};
 use ambition_combat::util::approximately_same_aabb;
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
@@ -98,7 +98,7 @@ pub(crate) fn boss_damage_allowed(
 pub struct FeatureHitWriters<'w, 's> {
     pub geometry:
         Option<Res<'w, ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
-    pub set_flag: MessageWriter<'w, SetFlagRequested>,
+    pub set_flag: MessageWriter<'w, SetFlagsRequested>,
     /// The tick a flag a death sets is written on (ISL-2d).
     pub tick: Option<Res<'w, ambition_time::SimTick>>,
     pub actor_stimuli: MessageWriter<'w, ActorStimulus>,

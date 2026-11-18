@@ -14,6 +14,7 @@ The [runtime registry](../../../crates/ambition_platformer2d_runtime/src/extensi
 - Actor rules: `actor_think`, `fire`, `velocity`, `group_think`, `steer`.
 - Custody and references: `take`, `release`, `whereabouts`.
 - Room story: `story_tick`, `story_command`, `play_cutscene`.
+- Action outcomes: `action_result`, `action_history`, `cancel_action`.
 - Status and hit response: `hold_status`, `status_tick`, `time_scale`, `status_clock`, `in_play`, `struck`, `parried`, `answer_parry`.
 - Combat credit and areas: `credit`, `blast`.
 - Effects: `sound`, `pull_bodies`, `launch_toucher`.
@@ -57,8 +58,8 @@ This register is ordered by likely leverage, not by the number of names in `scri
 
 | Priority and capability | Observed limitation in this snapshot | Owner / place to inspect | Required evidence to close |
 | --- | --- | --- | --- |
-| **P0: authoritative event triggers** | `story_tick` polls room bodies, flags and marks. Contact and struck/parried port triggers are typed Rust/WASM but do not have Rhai entry bindings in `script_ports()`. Room-wide facts are not a gameplay event stream. | `crates/ambition_platformer2d_runtime/src/story_script.rs`; `crates/ambition_combat_port/src/contact.rs` and `reaction.rs`; `extension_composition.rs` | A new Ambition rule receives scoped, ordered contact or gameplay events and reacts to them without reconstructing the fact from a full-room poll. Define producer phase, durable identity and rollback delivery; cover relevant actor/controller kinds. |
-| **P0: domain action outcome** | `story_command` calls `prepare_line`, submits `RunAuthoredCommand`, and logs preparation refusal. The script cannot receive a structured downstream applied/refused result. A requested spawn, grant, cutscene or portal is not proof it occurred. | `story_script.rs`; `extension-domain-contracts.md`; the actual domain reducers and extension outbox | Correlate an invocation/request occurrence with typed domain verdicts at a defined read cut, including later application or cancellation. A rejected action cannot advance script-owned success state; rollback does not double-consume results. |
+| **P0: authoritative event triggers** | `story_tick` polls room bodies, flags and marks. `struck` and `parried` have Rhai bindings. The existing contact trigger is bound to custom brain keys, accepts player touchers only, and has no Rhai binding. Controller-neutral contact and accepted combat outcome streams remain open. | `crates/ambition_platformer2d_runtime/src/story_script.rs`; `crates/ambition_combat_port/src/contact.rs` and `reaction.rs`; `extension_composition.rs` | A new Ambition rule receives scoped, ordered contact or gameplay events and reacts to them without reconstructing the fact from a full-room poll. Define producer phase, durable identity and rollback delivery; cover relevant actor/controller kinds. |
+| **P0: domain action outcome** | `story_command` has correlated `action_result` replies, `action_history`, and `cancel_action`. Flag batches and encounter commands publish from their native consumers. Other spawn, grant, cutscene, and portal requests still need downstream results. | `story_script.rs`; `extension-domain-contracts.md`; the actual domain reducers and extension outbox | Correlate an invocation/request occurrence with typed domain verdicts at a defined read cut, including later application or cancellation. A rejected action cannot advance script-owned success state; rollback does not double-consume results. |
 | **P0: authored object interaction / collision** | Mary-O bricks and Sanic monitors have native object/contact/consumption mechanics. There is no general Rhai-facing authored-object contact + atomic consume + collision/art update path. | `game/ambition_demo_mary_o/src/bricks.rs`; `game/ambition_demo_sanic/src/monitors.rs`; `crates/ambition_world_items`; per-room geometry/collision overlay owner | One new Ambition object reacts to legitimate contact, pays out/changes state once across competing consumers, and updates simulation and presentation consistently. A second small use proves the interface is not named for the first object. |
 | **P0: bounded, identified spatial facts** | `FoesPort` is typed Rust/WASM, without Rhai alias, and returns positions but not actionable identities; `group_think` can return room-wide lists without request-bounded selection. | `crates/ambition_combat/src/extension/targets.rs`; `crates/ambition_combat_port`; actor/world observation owner | An actual script targets a bounded, ordered same-room selection with stable semantic IDs, explicit scope/filter/truncation, and safe stale-ID failure. No unbounded ECS query. |
 | **P0: accepted combat contact / damage** | Projectile spawning and `module_entity_tick` are scriptable, but accepted hit/damage outcomes and victim reaction triggers are not generally available in Rhai. Contact is not synonymous with damage. | `crates/ambition_combat_port/src/reaction.rs`, `contact.rs`; projectile/combat verdict owners | A new script reacts to confirmed hit/defense/damage with correct striker credit after shield, reflection, invulnerability, lifetime change and replay. Do not calculate damage from animation or overlap. |
@@ -110,3 +111,23 @@ status clocks, body credit, and area strikes for a controlled body and an NPC
 through the assembled host. Credit tokens and `u64` record fields use exact
 decimal strings in scripts; native wire values remain unsigned 64-bit values.
 This also permits records to retain seeds with the high bit set.
+
+## Action-result foundation
+
+The [action contract](../../sdk/action-results.md) now supplies scoped tickets,
+next-read-cut replies, bounded history, cancellation, and canonical rollback
+state. The portable story values live in `ambition_world_port`. The command
+runner distinguishes a native queue write from an applied change. Flag batches
+and encounter commands publish from their actual native consumers.
+
+The assembled headless fixture is
+[`scripted_action_results.rs`](../../../game/ambition_app/tests/scripted_action_results.rs).
+It checks a real flag change, preparation refusal, callback ownership, directed
+delivery, and rewind. Owning tests check expired retries, pending bounds, source
+removal, and a recreated body with the same identity.
+
+The P0 domain-action row is still blocked for the full program: other action
+families must publish their own results. Mailboxes are live-session state. They
+do not replace durable consume/reward transactions. World objects, bounded
+identified targets, accepted combat outcomes, actor creation, inventory, and
+travel remain open.

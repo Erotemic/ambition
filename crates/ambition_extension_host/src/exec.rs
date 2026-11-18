@@ -38,6 +38,8 @@ use crate::AdmittedExtensions;
 /// One queued trigger.
 pub struct PendingInvocation {
     pub phase: Phase,
+    /// A directed reply names one admitted entry. Ordinary triggers broadcast.
+    pub entry: Option<Name>,
     pub port: PortKey,
     pub selector: Name,
     pub scope: Entity,
@@ -71,6 +73,7 @@ impl ExtensionInvocations {
     ) {
         self.pending.push(PendingInvocation {
             phase: phase.clone(),
+            entry: None,
             port: P::KEY,
             selector: selector.into(),
             scope,
@@ -79,6 +82,16 @@ impl ExtensionInvocations {
             encode: encode_erased::<P>,
             idle,
         });
+    }
+
+    /// Deliver a domain reply to one entry. Other entries with the same
+    /// trigger selector do not receive it.
+    pub fn trigger_entry<P: Port>(
+        &mut self, phase: &Phase, entry: impl Into<Name>, selector: impl Into<Name>,
+        scope: Entity, value: P::Value,
+    ) {
+        self.trigger::<P>(phase, selector, scope, None, false, value);
+        self.pending.last_mut().unwrap().entry = Some(entry.into());
     }
 
     pub fn is_empty(&self) -> bool {
@@ -366,6 +379,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             let path: Arc<str> = Arc::from(entry.path.as_str());
             for (invocation, pace) in pending.iter().zip(&paces).filter(|(p, _)| {
                 p.port == descriptor.trigger.port && p.selector == descriptor.trigger.selector
+                    && p.entry.as_ref().is_none_or(|path| path.as_ref() == entry.path)
             }) {
                 let dt = dt * pace;
                 if world.get_entity(invocation.scope).is_err() {

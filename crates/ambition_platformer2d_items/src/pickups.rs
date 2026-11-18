@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use ambition_combat::components::{CenteredAabb, FeatureName};
 use ambition_combat::events::GameplayBanner;
-use ambition_combat::events::SetFlagRequested;
+use ambition_combat::events::SetFlagsRequested;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -197,7 +197,7 @@ pub fn collect_ecs_pickups(
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
-    mut set_flag: MessageWriter<SetFlagRequested>,
+    mut set_flag: MessageWriter<SetFlagsRequested>,
     // A quest step `ItemCollected(id)` names a pickup by its placement id, and
     // this is the one place a pickup is collected.
     mut quest_advance: MessageWriter<ambition_persistence::quest::QuestAdvanceRequested>,
@@ -357,7 +357,7 @@ pub fn grant_pickup(
     collector: bevy::prelude::Entity,
     heals: &mut MessageWriter<ambition_damage::healing::BodyHealRequested>,
     wallets: &mut Query<&mut ambition_characters::actor::BodyWallet>,
-    set_flag: &mut MessageWriter<SetFlagRequested>,
+    set_flag: &mut MessageWriter<SetFlagsRequested>,
     mut owned: Option<&mut ambition_items::OwnedItems>,
     items: &ambition_items::ItemCatalog,
     // The room and tick of the grant, which a flag it sets carries.
@@ -397,9 +397,9 @@ pub fn grant_pickup(
             // Mirrors the LockWall/Switch flag-setting pattern so
             // intro-v1 cartography pickups and similar narrative
             // story-flag drops just work without per-pickup wiring.
-            set_flag.write(SetFlagRequested {
-                id: flag.clone(),
-                on: true,
+            set_flag.write(SetFlagsRequested {
+                changes: vec![(flag.clone(), true)],
+                reply: None,
                 written,
             });
         }

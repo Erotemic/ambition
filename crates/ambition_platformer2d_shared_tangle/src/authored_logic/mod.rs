@@ -18,7 +18,7 @@ pub mod prepared;
 
 pub use commands::{
     AuthoredCommandPlugin, AuthoredCommandSet, CommandCatalog, CommandDescriptor, CommandId,
-    CommandOutcome, CommandRunner, PublishCommand, RunAuthoredCommand,
+    CommandContext, CommandOutcome, CommandRunner, PublishCommand, RunAuthoredCommand,
 };
 pub use prepared::{prepare_authored_arg, PreparationError, PreparedCommand, PreparedCondition};
 
@@ -668,7 +668,7 @@ impl CommandVerdict {
     /// The reason nothing happened, when nothing did.
     pub fn refusal(&self) -> Option<&str> {
         match &self.outcome {
-            CommandOutcome::Done => None,
+            CommandOutcome::Done | CommandOutcome::Queued => None,
             CommandOutcome::Refused(reason) => Some(reason),
         }
     }
@@ -687,6 +687,7 @@ impl std::fmt::Display for CommandVerdict {
         write!(f, ") => ")?;
         match &self.outcome {
             CommandOutcome::Done => write!(f, "done"),
+            CommandOutcome::Queued => write!(f, "queued"),
             CommandOutcome::Refused(reason) => write!(f, "refused: {reason}"),
         }
     }

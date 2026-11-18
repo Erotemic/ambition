@@ -12,7 +12,7 @@ focused requests:
 
 | Message | Consumed by | Result |
 |---|---|---|
-| `SetFlagRequested` | `apply_flag_effects` | Changes the save flag through quest helpers and advances matching quest state |
+| `SetFlagsRequested` | `apply_flag_effects` | Applies a flag batch through quest helpers, advances quest state, and publishes an optional action result |
 | `QuestAdvanceRequested` | `apply_quest_effects` | Enqueues an authored quest event |
 | `SwitchActivated` | `apply_switch_effects` | Queues the encounter activation and switch sound |
 | `GameplaySfxRequested` | `apply_gameplay_sfx_effects` | Emits a sound message |

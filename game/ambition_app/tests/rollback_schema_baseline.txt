@@ -1,10 +1,12 @@
-ggrs-rollback-schema-v484
+ggrs-rollback-schema-v486
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.held_course	component-clone	HeldCourse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.module_entity	component-clone	ModuleEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actions.mailbox	component-canonical	ActionMailbox	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actions.scope_sequence	component-canonical	ActionScopeSequence	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -442,7 +444,7 @@ message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buff
 message.room_replay_admitted	message-clear	RoomReplayAdmitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.run_authored_command	message-clear	RunAuthoredCommand	clear abandoned-future message buffer in LoadWorld::Mapping
-message.set_flag_requested	message-clear	SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.set_flags_requested	message-clear	SetFlagsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.shop_transaction_requested	message-clear	ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_projectile	message-clear	ProjectileSpawnRequest	clear abandoned-future message buffer in LoadWorld::Mapping

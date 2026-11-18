@@ -210,6 +210,7 @@ ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physic
 # already composes, named as one engine concept rather than as crate paths.
 ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_world_port = { path = "../ambition_world_port" }
 ambition_extension_wasm = { path = "../ambition_extension_wasm", optional = true }
 ambition_damage = { path = "../ambition_damage" }
 ambition_mount = { path = "../ambition_mount" }

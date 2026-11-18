@@ -26,6 +26,12 @@ customers. They are constrained to semantic facade modules (`actor`, `engine`,
 so adding a raw implementation-crate import there fails the architecture
 ratchet instead of expanding the public API by accident.
 
+Scripts can receive native command outcomes through
+[action results](action-results.md). This includes correlated replies, retries,
+cancellation, and rollback delivery. The broader
+[script capability program](../planning/engine/script-first-ambition-gameplay.md)
+remains open.
+
 ## Before any of that: your `Cargo.toml`
 
 This is an example dependency for a desktop game with LDtk and the basic

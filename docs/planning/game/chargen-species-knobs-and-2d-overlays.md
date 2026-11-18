@@ -189,6 +189,25 @@ Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
 - Every species named in the queue row now has its own knobs. None is
   one-sided, so no left cells were needed.
 
+## Game scale check (2026-11-18)
+
+Each species was generated with its knobs at the ends of their ranges
+(the dog twice: stop 0.3, skull 1.2, flews 1, long folded floppy ears set
+low, saddle; and stop 1.6, skull 0.85, folded pointed ears set high, mask;
+the pigeon at beak curve 2, cere 2, sheen 2, eye ring 1; the cat at ear size
+1.35, cheek fluff 1, stripes 1; the horse at face length 1.5 with a blaze
+and 0.7 with a star; the bird with a fan and a swept crest at size 1.6; the
+sea lion at pads 2.5, whiskers 1.6; the alligator at snout width 1.25 with
+four scute rows; the finch as drawn), rigged with `write_character` and
+drawn in eight clips from the views the sheet publishes
+(`sheets.clip_union_sheet`). Every head stays on its neck in every frame of
+every clip, crouch and jump included, and the knobs read at that size.
+The pigeon's cere and eye ring and the sea lion's whisker pads barely show
+at this scale; they are head-crop details.
+
+The script and sheets were scratch work and are not kept; rerun them with
+`write_character` and `clip_union_sheet` over the same specs.
+
 ## Traps (measured while making the dog and pigeon, renderer 5d0f0bf)
 
 - `generate()` draws EVERY field in a fixed order, then applies overrides, so

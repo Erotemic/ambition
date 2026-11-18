@@ -332,10 +332,25 @@ alligator defaults. A redone resident check (the old one loaded 239 of 243
 residents as errors) finds all 243 drawings identical to the renderer
 before the cat, and only Mina's and Nagisa's records gain their pins.
 
-**Next action:** every listed species has its knobs. What is left is the
-acceptance at game scale: posed clips per species with the new knobs, and
-left cells for a one-sided detail when one is first wanted (none is yet).
-Nothing published changed, so nothing is republished.
+**Game scale checked 2026-11-18:** each species (dog twice, pigeon, cat,
+horse twice, bird twice, sea lion, alligator, finch), generated with its
+knobs at the ends of their ranges, rigged and drawn in eight clips (idle,
+walk, run, jump, attack, hurt, talk, crouch) from the views the sheet
+publishes. Every head stays on its neck in every frame, and the knobs read:
+the dog's low folded ears, saddle and mask, the cat's big ears and stripes,
+the horse's long and short faces, the bird's fan and swept crests, the
+alligator's wide snout and four scute rows. At this scale the pigeon's cere
+and eye ring and the sea lion's whisker pads are barely there; they are
+head-crop details, not silhouette. ([knobs](game/chargen-species-knobs-and-2d-overlays.md#game-scale-check-2026-11-18))
+
+**Next action:** asymmetric details keep their side. Every species marking
+is the same on both sides, but three overlays are not (Nikobolt's and André
+Rebouças's watch chains, Coulomba's plume and roses), and three generated
+features are not (the nihongami's ornaments, the kimono's wrap). A left
+cell alone changes nothing in the game: the runtime draws a body that faces
+left by flipping its right row. The fix is a left-facing row set for a
+target that has a one-sided detail (the flipbook's `<row>~mirrored`, which
+the runtime already selects), drawn with the left cells, and published.
 
 **Acceptance:** head crops and posed clips show distinct valid shapes in every
 view; heads stay attached and asymmetric features keep their side. Existing

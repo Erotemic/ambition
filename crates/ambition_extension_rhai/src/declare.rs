@@ -235,7 +235,7 @@ fn initial_of(value: &Dynamic, kind: &FieldKind) -> Option<Value> {
         FieldKind::Bool => Value::Bool(value.as_bool().ok()?),
         FieldKind::U32 => Value::U32(u32::try_from(value.as_int().ok()?).ok()?),
         FieldKind::I32 => Value::I32(i32::try_from(value.as_int().ok()?).ok()?),
-        FieldKind::U64 => Value::U64(u64::try_from(value.as_int().ok()?).ok()?),
+        FieldKind::U64 => Value::U64(value.clone().into_string().ok()?.parse().ok()?),
         FieldKind::F32 => Value::F32(value.as_float().ok()?),
         FieldKind::Vec2 => {
             let items = value.clone().into_array().ok()?;

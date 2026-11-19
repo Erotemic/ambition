@@ -278,6 +278,38 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   piece and posed per frame (a limb a segment that turns at its joint), the
   supersampled reduction per piece (the continuous road), held to the replay
   guard by the audit.
+- **PF5 built and measured (2026-11-19): the kit's pieces cost more than its
+  pages, so the kit stays painted.** The kit-level conversion was built
+  without touching a character: each `Frame` call recorded, the sheet
+  measured first (two consecutive shapes are one piece when the same pair in
+  the same relative placement recurs in at least two frames), each piece
+  rasterized once in its first form and placed through `blit_rotated`, its
+  outline a piece under every piece (the widened union decomposes exactly),
+  the glow a frame layer. It is exact: drawn outside a planned sheet, 185 of
+  185 frames are byte-identical to the old kit, and planned, aurochs, the
+  Andean condor, hoplite, mime, mummy and tiger replay 37 of 37 painted
+  frames each. It does not pay. Single shapes recur (8–13% of shape calls
+  are distinct up to a rigid motion), but their compositions do not: the
+  cast's drawings bend, squash and spread per frame, so most pieces are new
+  in a few frames, and each body piece carries an outline raster. Parts
+  against the trimmed page each would replace: condor 743k texels vs 481k,
+  aurochs 854k vs 759k, hoplite 345k vs 241k, mime 198k vs 134k, mummy 817k
+  vs 350k, tiger 944k vs 567k, at 13–55 draws a frame instead of one.
+  Stricter rigidity (4, 8, every frame) gives more draws and no fewer
+  texels. The kit keeps its trimmed pages; the conversion is not shipped.
+  A character redrawn as a rig of rigid pieces (the person or toon rigs)
+  is the road for any of them that should draw from parts.
+- **The part-first gate prices the page untrimmed (2026-11-19).**
+  `sheet_build._part_realization` compares a page-less sheet's parts with
+  its frames on the grid; the page it replaces is alpha-trimmed and packed,
+  so the gate accepted the kit pieces above (1.4–1.5x the trimmed page).
+  Over every flipbook target recorded from today's code (432 page-less
+  sheets): parts 158 MP against 1,426 MP of trimmed pages, 9x cheaper
+  overall; 7 exceed their trimmed page, by 1–37% (`fsm_noodling` 1.37,
+  `super_mary_o` 1.25, its fire form 1.16 and tall form 1.10, `sandbag`
+  1.06, `george_booul` 1.03, `ai_slop` 1.01). The gate is kept: those are
+  small sheets that tween or are drawn from the same parts as their tiers,
+  and no sheet is near the kit's ratios.
 - **PF4 measured (2026-11-18): tweening every pairable clip misplaces
   limbs.** Two findings. (1) A tweened clip moves its last frame toward its
   first (`tween_draws`, the runtime's `tween_targets`): right for a loop,

@@ -287,6 +287,9 @@ pub struct HostedWorldPlugin {
 
 impl Plugin for HostedWorldPlugin {
     fn build(&self, app: &mut App) {
+        app.insert_resource(ambition_platformer2d_shared_tangle::lifecycle::SimulationIslands(|world|
+            world.contains_resource::<room_rollback::RewindsGuestRooms>()
+                || world.contains_resource::<prediction::PredictsOwnBody>()));
         app.replicate::<BodyRow>()
             .replicate::<LifeRow>()
             .replicate::<SpawnRow>()

@@ -37,7 +37,7 @@ impl PendingProjectileEmissions {
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> Vec<ProjectileEmission> {
         let (ready, pending) = std::mem::take(&mut self.0).into_iter().partition(|emission| {
-            emission.request.start == start && room.is_none_or(|room| emission.source.credit.room == Some(room))
+            emission.request.start == start && room.is_none_or(|room| emission.source.scope.room() == Some(room))
         });
         self.0 = pending;
         ready
@@ -135,30 +135,28 @@ impl MapEntities for PendingProjectileEmissions {
     }
 }
 
-/// The ticks of queue a room rewind can reach back to: past the room rollback
-/// host's horizon (`ambition_hosted_world::REWIND_HORIZON`, 60).
-const CARRIED_TICKS: u64 = 120;
-
 /// What [`PendingProjectileEmissions`] held at the start of each recent tick
 /// (only the ticks it held something). A room rewind sets its room's rows of
 /// the queue back to these ([`retract_room_projectile_emissions`]).
 #[derive(Resource, Default)]
 pub struct CarriedProjectileEmissions(std::collections::BTreeMap<u64, Vec<ProjectileEmission>>);
 
-/// At the head of each tick: note what the queue carries into it.
+/// After the clock names this tick, record its pending native work. A room
+/// replay replaces only its own history; other rooms retain their saved rows.
 pub fn carry_pending_projectile_emissions(
     tick: Option<Res<ambition_time::SimTick>>,
     pending: Option<Res<PendingProjectileEmissions>>,
     mut carried: ResMut<CarriedProjectileEmissions>,
+    replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
 ) {
     let (Some(tick), Some(pending)) = (tick, pending) else { return };
-    let tick = tick.0 + 1;
-    if pending.0.is_empty() {
-        carried.0.remove(&tick);
-    } else {
-        carried.0.insert(tick, pending.0.clone());
-    }
-    carried.0.retain(|at, _| *at + CARRIED_TICKS > tick);
+    let tick = tick.0;
+    let room = replay.as_deref().map(|replay| replay.room);
+    let rows = carried.0.entry(tick).or_default();
+    rows.retain(|emission| room.is_some_and(|room| emission.source.scope.room() != Some(room)));
+    rows.extend(pending.0.iter().filter(|emission| room.is_none_or(|room| emission.source.scope.room() == Some(room))).cloned());
+    if rows.is_empty() { carried.0.remove(&tick); }
+    carried.0.retain(|at, _| at.saturating_add(ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS) > tick);
 }
 
 /// A room rewound to the start of the tick after `saved_at`: its queued
@@ -173,9 +171,9 @@ pub fn retract_room_projectile_emissions(
     let back: Vec<ProjectileEmission> = world
         .get_resource::<CarriedProjectileEmissions>()
         .and_then(|carried| carried.0.get(&(saved_at + 1)))
-        .map(|carried| carried.iter().filter(|emission| emission.source.credit.room == Some(room)).cloned().collect())
+        .map(|carried| carried.iter().filter(|emission| emission.source.scope.room() == Some(room)).cloned().collect())
         .unwrap_or_default();
     let Some(mut pending) = world.get_resource_mut::<PendingProjectileEmissions>() else { return };
-    pending.0.retain(|emission| emission.source.credit.room != Some(room));
+    pending.0.retain(|emission| emission.source.scope.room() != Some(room));
     pending.0.extend(back);
 }

@@ -3,7 +3,7 @@
 ## Decision and scope
 
 Action callbacks and directed object calls share one addressed delivery pass.
-Native event subscriptions must use this pass when they are added. Keep typed
+Runtime birth subscriptions use this pass for typed native facts. Keep typed
 payloads and domain journals. Do not add a third dispatcher or copy domain
 payloads into a second persistent queue to obtain common delivery.
 
@@ -18,8 +18,9 @@ collection map lasts for one phase and contains no undelivered payloads.
 Receipt sequences are local to their typed lane. Outcome and request receipts
 select their own native journal, even when their sequence numbers are equal.
 
-The current pass runs in `actor_think`. It does not establish subscriptions,
-signals, delivery in other phases or safe cross-island transport.
+The current pass runs in `actor_think`. Birth subscriptions select named methods.
+Signals, other native sources, delivery in other phases and confirmed transport
+remain open.
 
 ## Keep the meanings distinct
 
@@ -51,11 +52,12 @@ that contract.
 
 ## Native subscriptions and authored signals
 
-A subscription must select an existing named behavior method. Preparation must
+Implemented birth subscriptions select an existing named behavior method. Preparation must
 resolve that method to its entry and check the entry's native trigger type,
 phase and selector against the source contract. A subscription must not add an
 independent handler address table. Initial subscriptions are part of native
-construction preparation. Live replacement must validate the complete new set
+construction preparation. The set is fixed for an instance lifetime. A future
+live replacement must validate the complete new set
 before it retires removed pending deliveries.
 
 Native domains publish typed facts after their own application boundary. A
@@ -126,7 +128,8 @@ and replay with the same small composition. Add a focused two-island check that
 proves speculative work cannot mutate the destination and confirmed delivery
 survives destination replay. Keep native authority and portable parity.
 
-Native subscriptions, signal admission, mixed actor/prop factory batches and the
-confirmed transport remain implementation work. Actor and prop factories now
+Runtime birth subscriptions use the common pass. Additional native sources,
+signal admission, live subscription replacement, mixed actor/prop factory
+batches and confirmed transport remain implementation work. Actor and prop factories now
 resolve typed local references in their own native construction batches. This evaluation does not close the
 [script-first program](script-first-ambition-gameplay.md).

@@ -109,14 +109,23 @@ fn method_bound(admitted: &ambition_extension_host::Admitted, path: &str) -> boo
         && entry.descriptor.trigger.port == ObjectCallPort::KEY)
 }
 
+fn behavior_method_bound(world: &World, path: &str) -> bool {
+    let admitted = &world.resource::<AdmittedExtensions>().0;
+    method_bound(admitted, path) || admitted.entries.iter().find(|entry| entry.path == path)
+        .is_some_and(|entry| world.resource::<crate::behavior_events::NativeSources>().for_entry(entry).is_some())
+}
+
 #[derive(Clone)]
 pub(crate) struct BehaviorInitialization {
     instance: BehaviorInstance,
     records: BodyRecords,
     references: Vec<(String, ambition_world_port::object_target::ObjectTarget)>,
+    subscriptions: Vec<crate::behavior_events::PreparedSubscription>,
+    event_capacity: u32,
+    event_max_bytes: u32,
 }
 impl ambition_platformer2d_construction::runtime::ObjectInitialization for BehaviorInitialization {
-    type Prepared = (BehaviorInstance, BodyRecords);
+    type Prepared = (BehaviorInstance, BodyRecords, crate::behavior_events::EventMailbox);
     fn prepare(&self, context: &ambition_platformer2d_construction::runtime::ObjectInitializationContext<'_>)
         -> Result<Self::Prepared, String> {
         use ambition_world_port::object_target::ObjectTarget;
@@ -132,7 +141,8 @@ impl ambition_platformer2d_construction::runtime::ObjectInitialization for Behav
             }
             Ok((key.clone(), reference))
         }).collect::<Result<_, String>>()?;
-        Ok((instance, self.records.clone()))
+        let events = crate::behavior_events::initialized(&self.subscriptions, &instance.references, self.event_capacity, self.event_max_bytes);
+        Ok((instance, self.records.clone(), events))
     }
 }
 pub(crate) type PreparedBehaviorState = ambition_platformer2d_construction::runtime::OwnedObjectState<BehaviorInitialization>;
@@ -173,12 +183,14 @@ fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
         let mut writes = BTreeSet::new();
         for method in &binding.methods {
             if method.name.is_empty() || method.name.len() > 64 || !names.insert(&method.name)
-                || !method_bound(admitted, &method.entry) {
+                || !behavior_method_bound(world, &method.entry) {
                 return Err(format!("Behavior {} has an invalid or unavailable method {} at {}.", binding.key, method.name, method.entry));
             }
             let entry = admitted.entries.iter().find(|entry| entry.path == method.entry).unwrap();
             writes.extend(entry.descriptor.writes.iter().cloned());
         }
+        let subscriptions = crate::behavior_events::prepare(world, &binding.methods, &references,
+            &binding.subscriptions, limits.max_subscriptions)?;
         let mut records = BodyRecords::default();
         let mut seeded = BTreeSet::new();
         for seed in &binding.state {
@@ -201,7 +213,8 @@ fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
         }
         Ok(PreparedBehaviorState {key: binding.key.clone(), bundle: BehaviorInitialization {
             instance: BehaviorInstance {key: binding.key.clone(), methods: binding.methods.clone(), params,
-                references: Vec::new(), next_sequence: 0, calls: Vec::new()}, records, references}})
+                references: Vec::new(), next_sequence: 0, calls: Vec::new()}, records, references, subscriptions,
+                event_capacity: limits.max_event_history, event_max_bytes: limits.max_data_bytes}})
     }).collect()
 }
 /// Validate the complete creation batch before the native owner mints any root.
@@ -421,6 +434,9 @@ pub(crate) fn maintain(world: &mut World, state: Entity, objects: &ObjectIndex, 
     for origin in expired { publish(world, &origin, ActionStage::Failed, "object_call_expired", None); }
 }
 impl BehaviorInstance {
+    pub(crate) fn method_entry(&self, name: &str) -> Option<&str> {
+        self.methods.iter().find(|method| method.name == name).map(|method| method.entry.as_str())
+    }
     pub(crate) fn deliveries(&self) -> impl Iterator<Item = (u64, u64, &str)> {
         self.calls.iter().filter(|row| !row.terminal && row.progress.pending())
             .map(|row| (row.call.sequence, row.written, row.entry.as_str()))

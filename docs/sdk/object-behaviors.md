@@ -67,9 +67,51 @@ the entire creation batch. The creation result returns the physical roots.
 Actor root `state` seeds still require the factory entry's write permission.
 Private binding seeds require the declared methods' write permissions. The
 private instances are separate state owners, even when they use the same schema.
-Creation ports are `create_actors` version 4 and `create_breakables` version 3.
-`attach_behaviors` and the `behavior` observation are version 2.
+Creation ports are `create_actors` version 5 and `create_breakables` version 4.
+`attach_behaviors` is version 3. The `behavior` observation is version 2.
 Rebuild portable module files that use these ports.
+
+## Subscribe named methods to native facts
+
+A binding can declare `subscriptions`. Each subscription names a key, a source
+in the binding's `references` map, and an existing method:
+
+```rhai
+#{key: "logic", references: #{peer: #{local: "worker"}},
+  methods: [#{name: "ready", entry: "example::relay/ready"}],
+  subscriptions: [#{key: "peer_ready", source: "peer", method: "ready"}]}
+```
+
+The method's entry declares `phase: "actor_think"` and
+`trigger: #{port: "object_born", selector: "born"}`. The native source contract
+checks the trigger type, phase and selector during binding preparation. A
+method that receives `object_method` or `action_result` cannot serve as a native
+fact subscription. An object call cannot invoke a native fact method.
+
+`object_born` reports `this.trigger.object`, the exact source occurrence. The
+native runtime constructor publishes it after it initializes the complete
+batch. It is not emitted when a snapshot restores a component. This source
+currently covers runtime actor and prop construction, not every authored room
+birth. New subscriptions do not replay facts from before the binding existed.
+
+Native facts wait for a later actor read cut. Calls, action outcomes and facts
+share the addressed inbox's receiver budget and host commit receipts. Faults
+use the same bounded retry policy. `behavior_events` reports each fact's source,
+subscription, native port identity, tick and delivery progress. Queue overflow
+increments its `dropped` count. Retained terminal rows can be reclaimed for new
+facts. A handler cannot undo the reported native fact or turn it into a request.
+
+`max_subscriptions`, `max_event_history` and `max_data_bytes` bound the initial
+subscription set, retained facts and each encoded native value. The mailbox
+retains these admission bounds with the private instance. These are game rules.
+Native publishers use a typed source registered by the engine; a script cannot
+publish `object_born` or register an arbitrary native fact type.
+
+Whole-app GGRS permits direct routing between its rooms because they share one
+rollback authority. A host declares its island policy, including independent host
+room replay and guest room prediction. The native source refuses direct fact fanout to a different island and reports the limitation to its native
+publisher. It does not write a foreign mailbox. Confirmed transport, live
+subscription replacement and additional native source families remain open.
 
 ## Connect objects at construction
 
@@ -209,8 +251,10 @@ The current witness is
 It checks private instances on controlled and autonomous bodies, actual native
 wallet application and refusal, busy refusal, fault exhaustion without a staged
 reward, cancellation, GGRS, and private-state reconstruction through room
-snapshots. General discovery and inspection, native event subscriptions,
-authored signals, local references between nodes in a factory batch, and a
-cross-object event composition witness remain open. Cross-room message causality under
-independent room replay also remains open; snapshot membership alone does not
-prove that contract.
+snapshots. Native birth subscriptions also start a relay/worker interaction,
+retain handler quarantine and run native fact handlers and workers through Rhai
+or actual WASM with
+GGRS replay. General discovery, authored signals, mixed actor/prop batches,
+live subscription replacement and other native event families remain open.
+Message causality under independent room replay also remains open; refusing a
+foreign speculative write does not implement confirmed transport.

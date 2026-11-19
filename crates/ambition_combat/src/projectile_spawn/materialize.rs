@@ -511,6 +511,50 @@ mod captured_birth_tests {
     }
 
     #[test]
+    fn room_replay_owns_pending_births_by_emitter_and_preserves_other_rooms_history() {
+        use crate::projectile_spawn::{CarriedProjectileEmissions, carry_pending_projectile_emissions, retract_room_projectile_emissions};
+        use ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot;
+        let mut app = App::new();
+        app.init_resource::<PendingProjectileEmissions>()
+            .init_resource::<CarriedProjectileEmissions>()
+            .init_resource::<ProjectileSeqCounter>()
+            .add_message::<ProjectileEmission>();
+        app.insert_resource(ambition_time::SimTick(11));
+        let mut sessions = ActiveSessionScope::default();
+        let session = sessions.begin(); app.insert_resource(sessions);
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        for room in rooms { app.world_mut().spawn((RoomInstanceRoot, room, SessionScopedEntity(session))); }
+        let emitters = rooms.map(|room| app.world_mut().spawn((SessionScopedEntity(session), InRoomInstance(room),
+            SimId::placement(&format!("emitter{}", room.ordinal())))).id());
+        assert!(fire(app.world_mut(), emitters[0], emitters[1]));
+        assert!(fire(app.world_mut(), emitters[1], emitters[0]));
+        app.world_mut().run_system_once(carry_pending_projectile_emissions).unwrap();
+        app.insert_resource(RoomReplay {room: rooms[0]});
+        app.world_mut().run_system_once(materialize_projectiles_for_next_tick).unwrap();
+        let world = app.world_mut();
+        let shots: Vec<_> = world.query_filtered::<&InRoomInstance, With<LiveProjectile>>().iter(world).map(|at| at.0).collect();
+        assert_eq!(shots, vec![rooms[0]], "combat credit must not select the birth room");
+        world.remove_resource::<RoomReplay>();
+        world.run_system_once(materialize_projectiles_for_next_tick).unwrap();
+        assert!(fire(world, emitters[1], emitters[0]));
+        let future = world.resource::<PendingProjectileEmissions>().0[0].source.identity.as_ref().unwrap().0.clone();
+        world.insert_resource(RoomReplay {room: rooms[0]});
+        retract_room_projectile_emissions(world, rooms[0], 10);
+        world.run_system_once(carry_pending_projectile_emissions).unwrap();
+        // A's replay must not replace B's historical queue with B's live future.
+        retract_room_projectile_emissions(world, rooms[1], 10);
+        let pending = world.resource::<PendingProjectileEmissions>();
+        assert_eq!(pending.0.len(), 2);
+        for (index, room) in rooms.into_iter().enumerate() {
+            let emission = pending.0.iter().find(|emission| emission.source.scope.room() == Some(room)).unwrap();
+            assert_eq!(emission.source.credit.room, Some(rooms[1 - index]));
+            assert_ne!(emission.source.identity.as_ref().unwrap().0, future);
+            assert_eq!(emission.source.identity.as_ref().unwrap().0,
+                SimId::spawned(&SimId::placement(&format!("emitter{}", room.ordinal())), 0));
+        }
+    }
+
+    #[test]
     fn deferred_birth_retains_identity_credit_side_presentation_and_lifetime_after_source_retirement()
      {
         for retire in [false, true] {

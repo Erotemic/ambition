@@ -14,6 +14,7 @@ not always Rust items.
 | Descriptors, schemas, records, canonical digest, typed ports, `Invocation` | `ambition_extension_sdk` (no dependencies) |
 | Admission, serial order, staged writes, fault discard | `ambition_extension_host` (`admission`, `exec`) |
 | Body-attached state | `BodyRecords` (`extension.body_records`), retired with the body |
+| Room story state | Body-attached records on the live room root. Each new room instance has a new root. Joining an existing room retains its root and records. Retirement removes its records and pending observer state. |
 | Session-attached state | `SessionRecords` (`extension.session_records`), a required component of `SessionRoot` |
 | Idle ticks | `IdlePolicy::{Invoke, ResetState, ResetStateExcept}` |
 | Schema evolution on reload | `StateSchema::migrate` by field tag; a changed field kind, attachment, or save policy is refused against live and saved schemas |

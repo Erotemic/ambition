@@ -150,6 +150,15 @@ impl Plugin for AmbitionContentPlugin {
             }
         }
 
+        {
+            use ambition_platformer2d_shared_tangle::action_results::{ActionDeliveryPolicy, ACTION_DELIVERY_RULES_SCHEMA};
+            use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt as _, RulesScope};
+            if let Some(policy) = pack.lowered::<ActionDeliveryPolicy>(
+                &ambition_content_pack::SchemaId::new(ACTION_DELIVERY_RULES_SCHEMA)) {
+                app.declare_rules(RulesScope::UntaggedRooms, *policy);
+            }
+        }
+
         // Ambition's people are on the player's side (Jon, 2026-10-30: "NPCs in
         // dangerous areas that are aligned with you need to help you fight").
         // An NPC with a kit joins the player's fight in a room authored

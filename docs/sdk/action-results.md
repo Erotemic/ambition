@@ -76,29 +76,105 @@ This support does not add results to every other request port. In particular,
 
 Use a new, increasing `u32` request number for each action from one submitting
 entry and domain in one scope. Retrying the same number with the same request
-joins its pending work or repeats its retained terminal reply. It never applies
-the action again. Reusing a number for different work is rejected. An expired
+joins its pending work. For a quarantined terminal callback, it starts another
+bounded set of delivery attempts. It does not call an acknowledged handler or
+apply the action again. Reusing a number for different work is rejected. An expired
 old number is also rejected.
 
-The ticket includes the submitting entry, native domain, request number, live
-room, caller generation, and occurrence. The room assigns caller generations.
-A recreated body with the same authored identity cannot complete an old body's
-work. A surviving body's replies follow that body through room travel.
+The ticket includes the submitting entry, native domain, request number,
+allocation room, object generation, and action occurrence. The native
+`ObjectOccurrence` stamp identifies one live object lifetime in its session.
+Its room is an allocation namespace. It does not change when the object travels.
+The room assigns a fresh sequence when an object first needs a reference.
+The stamp and counter rewind together. Retirement removes the stamp; rollback
+reconstruction restores it. A new object with the same authored identity gets
+a different stamp.
 
-`cancel_action` takes a ticket and cancels pending work in the caller's scope
-and module. The native consumer checks the ticket before each change. A
-terminal applied action cannot be canceled.
+Both native reply APIs resolve the session and occurrence stamp. An equal
+authored identity in another room, with or without a mailbox, cannot receive
+or block the reply. Room roots use the same occurrence path and retire with
+their live room. A surviving body's replies follow that body through travel.
+
+`cancel_action` takes the target ticket and a separate `reply`. Cancellation
+is itself an action in the `actions.cancel` domain:
+
+```rhai
+this.requests.push(request("cancel_action", #{
+    ticket: pending_ticket,
+    reply: #{ request: next_cancel_request, selector: "my_game::bridge/result" },
+}));
+```
+
+A successful cancellation emits terminal `canceled` for the target and terminal
+`applied` with code `action_canceled` for the cancellation request. A refusal
+emits terminal `rejected` for the cancellation request and leaves the target's
+state unchanged. The cancellation callback uses the same commit and retry
+contract as any other action callback. Retrying the same cancellation request
+does not repeat its native operation.
+
+The target must belong to this scope and module. Refusal codes distinguish
+`cancel_foreign_module`, `cancel_unknown_ticket`, `cancel_already_terminal`,
+`cancel_unknown_domain`, `cancel_unsupported`, `cancel_application_started`,
+and `cancel_owner_refused`. A retained terminal target cannot be canceled.
+After its history expires, it can report `cancel_unknown_ticket`.
+
+Each installed action domain declares one native cancellation policy:
+
+| Domain | Policy |
+| --- | --- |
+| `authored.command` | Each queued consumer checks the pending ticket before mutation. Cancellation stops submitted or admitted work. |
+| `projectiles.spawn` | The native handler removes queued emissions. It refuses once the queue no longer owns the work. |
+| `world.create_actors`, `world.create_breakables` | Unsupported. Construction finishes in one native call. |
+| `inventory.exchange`, `world.consume_contact`, `combat.body_query` | Unsupported. These operations finish in one native call. |
+| `actions.cancel` | Unsupported. Cancellation finishes in one native call. |
+
+An unregistered domain refuses cancellation. It cannot inherit mailbox-only
+success. A new queued command must retain its reply and check its pending
+ticket immediately before every mutation. A domain that cannot guarantee that
+must use a native suppression handler or declare cancellation unsupported.
+Cancellation does not reverse changes that already committed.
 
 ## Delivery and lifetime
 
 Results become eligible in the next `actor_think` read cut after their publish
 tick. A held room does not consume its replies. Canonical snapshots contain the
-pending actions, caller sequence, history, and delivery cursor. Rewind restores
-all of them.
+pending actions, caller sequence, history, and delivery state. Rewind restores
+all of them. Queuing a callback does not acknowledge it. The host acknowledges
+it only after its state and staged requests commit. A handler fault commits
+neither state nor requests.
+
+Each history row exposes `handler`, `delivery`, `attempts`, `last_attempt`, and
+`last_error`. Delivery has these states:
+
+| State | Meaning |
+| --- | --- |
+| `waiting` | The result awaits a later read cut. |
+| `queued` | The host has a directed invocation for this row. |
+| `invoked` | The host started the handler. |
+| `acknowledged` | Handler state and requests committed. |
+| `faulted` | The handler failed and can retry on a later tick. |
+| `quarantined` | The handler reached its attempt limit. Explicit retry is required. |
+| `unbound` | The destination is absent. Rebinding permits delivery without a new action. |
+| `retired` | The submitting entry left the composition. Delivery has stopped. |
+
+`action_delivery_rules` sets positive `max_attempts` and `max_per_tick` budgets.
+The defaults are three attempts per row and 64 queued callbacks per scope per
+tick. Ambition declares these rules in its content pack. A fault retries at
+most once per row per tick. Quarantine retains the result for inspection.
+Resubmit the same request after repair to retry its quarantined terminal
+callback. This does not repeat native work. An acknowledged row stays
+acknowledged across code replacement and request retries.
+
+Canonical `last_error` values are fixed codes, such as `handler_fault` and
+`reply_entry_unbound`. Full VM errors remain in the local `ExtensionFaults`
+diagnostic. Its `receipt_sequence`, scope, and entry identify the failed row.
+Local paths in an error do not become rollback state.
 
 A scope retains 64 result rows and admits at most 32 pending actions. The
 `action_history` observation contains the retained rows, their sequence numbers,
-and a count of dropped rows. Scripts that need recovery can inspect that count
+and a count of dropped rows. New rows first replace an acknowledged or retired
+row. If neither exists, they replace the oldest row and increase the dropped
+count. Scripts that need recovery can inspect that count
 and reconcile with the domain's current state.
 
 Code replacement retains replies when their source entry remains installed.

@@ -1,69 +1,36 @@
 //! Scoped action replies. Domain owners publish the stages they apply.
 
 use ambition_extension_sdk::action::{
-    ActionJournalEntry, ActionResult, ActionResults, ActionStage, ActionTicket, ReplyTo,
+    ActionDelivery, ActionJournalEntry, ActionResult, ActionResults, ActionStage, ActionTicket, ReplyTo,
 };
 use bevy::prelude::*;
 
-use crate::lifecycle::{InRoomInstance, LiveRoomInstance, SessionScopedEntity};
+use crate::lifecycle::{SessionScopedEntity, ObjectOccurrence, ensure_object_occurrence};
+#[cfg(test)]
+use crate::lifecycle::{InRoomInstance, LiveRoomInstance};
 use crate::sim_id::SimId;
 
 const HISTORY_LIMIT: usize = 64;
 const PENDING_LIMIT: usize = 32;
 
-/// Native owners cancel queued work before the mailbox reports cancellation.
-#[derive(Resource, Default)]
-pub struct ActionCancellationHandlers(
-    std::collections::BTreeMap<String, fn(&mut World, &ActionReply) -> bool>,
-);
-
-pub fn register_action_cancellation(
-    app: &mut App,
-    domain: &str,
-    handler: fn(&mut World, &ActionReply) -> bool,
-) {
-    app.init_resource::<ActionCancellationHandlers>();
-    let mut handlers = app.world_mut().resource_mut::<ActionCancellationHandlers>();
-    if let Some(old) = handlers.0.insert(domain.into(), handler) {
-        assert!(
-            std::ptr::fn_addr_eq(old, handler),
-            "an action domain has two cancellation owners"
-        );
-    }
+/// Room rules for bounded callback attempts and work at each read cut.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ActionDeliveryPolicy {
+    pub max_attempts: std::num::NonZeroU32,
+    pub max_per_tick: std::num::NonZeroU32,
 }
 
-/// A domain can refuse cancellation after application has started.
-pub fn cancel_action(world: &mut World, scope: Entity, ticket: &ActionTicket) -> bool {
-    if !world
-        .get::<ActionMailbox>(scope)
-        .is_some_and(|mailbox| mailbox.is_pending(ticket))
-    {
-        return false;
+impl Default for ActionDeliveryPolicy {
+    fn default() -> Self {
+        Self { max_attempts: std::num::NonZeroU32::new(3).unwrap(),
+            max_per_tick: std::num::NonZeroU32::new(64).unwrap() }
     }
-    let Some(recipient) = ActionRecipient::of(world, scope) else {
-        return false;
-    };
-    let reply = ActionReply {
-        recipient,
-        ticket: ticket.clone(),
-    };
-    let handler = world
-        .get_resource::<ActionCancellationHandlers>()
-        .and_then(|handlers| handlers.0.get(&ticket.domain))
-        .copied();
-    if handler.is_some_and(|handler| !handler(world, &reply)) {
-        return false;
-    }
-    publish_action_result(
-        world,
-        Some(&reply),
-        ActionStage::Canceled,
-        true,
-        "caller_canceled",
-        "",
-        Vec::new(),
-    )
 }
+pub const ACTION_DELIVERY_RULES_SCHEMA: &str = "action_delivery_rules";
+
+mod cancellation;
+pub use cancellation::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PendingAction {
@@ -87,15 +54,16 @@ struct JournalRow {
     result: ActionResult,
     selector: String,
     signature: u64,
-    delivered: bool,
+    delivery: ActionDelivery,
+    attempts: u32,
+    last_attempt: Option<u64>,
+    last_error: Option<String>,
 }
 
 /// A scope retains bounded history and pending actions. A request number
 /// cannot apply again after its retained reply expires.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActionMailbox {
-    room: u32,
-    generation: u64,
     next_occurrence: u64,
     next_sequence: u64,
     dropped: u64,
@@ -110,92 +78,31 @@ pub enum ActionStart {
     Rejected,
 }
 
-/// Each room assigns distinct caller lifetimes, including recreated bodies.
-#[derive(Component, Clone, Debug, Default)]
-pub struct ActionScopeSequence(u64);
-
-impl ambition_platformer2d_core::snapshot::SnapshotState for ActionScopeSequence {
-    fn encode(&self, out: &mut Vec<u8>) {
-        ambition_platformer2d_core::snapshot::put_u64(out, self.0);
-    }
-    fn decode(reader: &mut ambition_platformer2d_core::snapshot::Reader<'_>) -> Option<Self> {
-        Some(Self(reader.u64()?))
-    }
-}
-
-fn new_mailbox(world: &mut World, recipient: &ActionRecipient) -> Option<ActionMailbox> {
-    let mut roots = world.query_filtered::<(Entity, &SessionScopedEntity, &LiveRoomInstance), With<crate::lifecycle::RoomInstanceRoot>>();
-    let mut found = roots.iter(world).filter(|(_, session, room)| {
-        session.0.0 == recipient.session && room.ordinal() == recipient.room
-    });
-    let root = found.next()?.0;
-    if found.next().is_some() {
-        return None;
-    }
-    let mut root = world.entity_mut(root);
-    if !root.contains::<ActionScopeSequence>() {
-        root.insert(ActionScopeSequence::default());
-    }
-    let mut sequence = root.get_mut::<ActionScopeSequence>().unwrap();
-    let generation = sequence.0;
-    sequence.0 = sequence.0.checked_add(1)?;
-    Some(ActionMailbox::new(recipient.room, generation))
-}
-
 /// Deferred work keeps semantic identities, not native entity handles.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct ActionRecipient {
     pub session: u64,
-    pub room: u32,
+    pub occurrence: ObjectOccurrence,
     pub subject: Option<String>,
 }
 
 impl ActionRecipient {
     pub fn of(world: &World, scope: Entity) -> Option<Self> {
-        let session = world.get::<SessionScopedEntity>(scope)?.0.0;
-        let room = world
-            .get::<LiveRoomInstance>(scope)
-            .copied()
-            .or_else(|| world.get::<InRoomInstance>(scope).map(|at| at.0))?;
-        let subject = world.get::<SimId>(scope).map(|id| id.as_str().to_owned());
-        if subject.is_none()
-            && !world
-                .entity(scope)
-                .contains::<crate::lifecycle::RoomInstanceRoot>()
-        {
-            return None;
-        }
         Some(Self {
-            session,
-            room: room.ordinal(),
-            subject,
+            session: world.get::<SessionScopedEntity>(scope)?.0.0,
+            occurrence: *world.get::<ObjectOccurrence>(scope)?,
+            subject: world.get::<SimId>(scope).map(|id| id.as_str().to_owned()),
         })
     }
 
-    fn matches(
-        &self,
-        session: &SessionScopedEntity,
-        id: Option<&SimId>,
-        room: Option<&LiveRoomInstance>,
-    ) -> bool {
-        session.0.0 == self.session
-            && match &self.subject {
-                Some(subject) => id.is_some_and(|id| id.as_str() == subject),
-                None => room.is_some_and(|room| room.ordinal() == self.room),
-            }
+    fn matches(&self, session: &SessionScopedEntity, occurrence: &ObjectOccurrence) -> bool {
+        session.0.0 == self.session && self.occurrence == *occurrence
     }
 
     pub fn resolve(&self, world: &World) -> Option<Entity> {
-        let query = world.try_query_filtered::<(
-            Entity,
-            &SessionScopedEntity,
-            Option<&SimId>,
-            Option<&LiveRoomInstance>,
-        ), With<ActionMailbox>>()?;
-        let query = query.query_manual(world);
-        let mut found = query
-            .iter()
-            .filter(|(_, session, id, room)| self.matches(session, *id, *room))
+        let mut query = world.try_query_filtered::<(Entity, &SessionScopedEntity, &ObjectOccurrence), With<ActionMailbox>>()?;
+        let mut found = query.iter(world)
+            .filter(|(_, session, occurrence)| self.matches(session, occurrence))
             .map(|(entity, ..)| entity);
         let only = found.next()?;
         found.next().is_none().then_some(only)
@@ -263,23 +170,13 @@ pub fn begin_action(
             reply: None,
         };
     }
+    let Some(occurrence) = ensure_object_occurrence(world, scope) else {
+        return ActionDispatch { execute: false, reply: None };
+    };
+    world.entity_mut(scope).entry::<ActionMailbox>().or_default();
     let recipient = ActionRecipient::of(world, scope);
-    if world.get::<ActionMailbox>(scope).is_none() {
-        let Some(mailbox) = recipient
-            .as_ref()
-            .and_then(|recipient| new_mailbox(world, recipient))
-        else {
-            return ActionDispatch {
-                execute: false,
-                reply: None,
-            };
-        };
-        world.entity_mut(scope).insert(mailbox);
-    }
-    let started = world
-        .get_mut::<ActionMailbox>(scope)
-        .unwrap()
-        .begin(entry, domain, reply, signature, now);
+    let started = world.get_mut::<ActionMailbox>(scope).unwrap()
+        .begin(occurrence, entry, domain, reply, signature, now);
     let ActionStart::New(ticket) = started else {
         return ActionDispatch {
             execute: false,
@@ -356,26 +253,15 @@ pub fn publish_action_result(
 /// Typed consumers can publish without taking exclusive access to the world.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ActionReplies<'w, 's> {
-    scopes: Query<
-        'w,
-        's,
-        (
-            Entity,
-            &'static SessionScopedEntity,
-            Option<&'static SimId>,
-            Option<&'static LiveRoomInstance>,
-        ),
-    >,
+    scopes: Query<'w, 's, (Entity, &'static SessionScopedEntity, &'static ObjectOccurrence), With<ActionMailbox>>,
     mailboxes: Query<'w, 's, &'static mut ActionMailbox>,
     tick: Option<Res<'w, ambition_time::SimTick>>,
 }
 
 impl ActionReplies<'_, '_> {
     fn receiver(&self, reply: &ActionReply) -> Option<Entity> {
-        let mut found = self
-            .scopes
-            .iter()
-            .filter(|(_, session, id, room)| reply.recipient.matches(session, *id, *room))
+        let mut found = self.scopes.iter()
+            .filter(|(_, session, occurrence)| reply.recipient.matches(session, occurrence))
             .map(|(entity, ..)| entity);
         let only = found.next()?;
         found.next().is_none().then_some(only)
@@ -419,18 +305,6 @@ impl ActionReplies<'_, '_> {
 
 impl ActionMailbox {
     pub const HISTORY_CAPACITY: usize = HISTORY_LIMIT;
-    fn new(room: u32, generation: u64) -> Self {
-        Self {
-            room,
-            generation,
-            next_occurrence: 0,
-            next_sequence: 0,
-            dropped: 0,
-            producers: Vec::new(),
-            journal: Vec::new(),
-        }
-    }
-
     fn producer(&mut self, entry: &str, domain: &str) -> usize {
         match self
             .producers
@@ -452,22 +326,24 @@ impl ActionMailbox {
         }
     }
 
-    fn ticket(&mut self, entry: &str, domain: &str, request: u32) -> ActionTicket {
+    fn ticket(&mut self, scope: ObjectOccurrence, entry: &str, domain: &str, request: u32) -> ActionTicket {
         let ticket = ActionTicket {
             entry: entry.into(),
             domain: domain.into(),
             request,
             occurrence: self.next_occurrence,
-            room: self.room,
-            generation: self.generation,
+            room: scope.allocation_room(),
+            generation: scope.sequence(),
         };
         self.next_occurrence = self.next_occurrence.saturating_add(1);
         ticket
     }
 
-    fn record(&mut self, result: ActionResult, selector: String, signature: u64, delivered: bool) {
+    fn record(&mut self, result: ActionResult, selector: String, signature: u64) {
         if self.journal.len() == HISTORY_LIMIT {
-            self.journal.remove(0);
+            let remove = self.journal.iter().position(|row| matches!(row.delivery,
+                ActionDelivery::Acknowledged | ActionDelivery::Retired)).unwrap_or(0);
+            self.journal.remove(remove);
             self.dropped = self.dropped.saturating_add(1);
         }
         self.journal.push(JournalRow {
@@ -475,13 +351,17 @@ impl ActionMailbox {
             result,
             selector,
             signature,
-            delivered,
+            delivery: ActionDelivery::Waiting,
+            attempts: 0,
+            last_attempt: None,
+            last_error: None,
         });
         self.next_sequence = self.next_sequence.saturating_add(1);
     }
 
     fn reject(
         &mut self,
+        scope: ObjectOccurrence,
         entry: &str,
         domain: &str,
         reply: &ReplyTo,
@@ -489,7 +369,7 @@ impl ActionMailbox {
         now: u64,
         code: &str,
     ) {
-        let ticket = self.ticket(entry, domain, reply.request);
+        let ticket = self.ticket(scope, entry, domain, reply.request);
         self.record(
             ActionResult {
                 ticket,
@@ -502,14 +382,14 @@ impl ActionMailbox {
             },
             reply.selector.clone(),
             signature,
-            false,
         );
     }
 
     /// Reserve one action before the domain dispatches work. Retries retain
     /// the original occurrence and cannot repeat a mutation.
-    pub fn begin(
+    fn begin(
         &mut self,
+        scope: ObjectOccurrence,
         entry: &str,
         domain: &str,
         reply: &ReplyTo,
@@ -525,7 +405,7 @@ impl ActionMailbox {
             if pending.signature == signature && pending.selector == reply.selector {
                 return ActionStart::Existing(pending.ticket.clone());
             }
-            self.reject(entry, domain, reply, signature, now, "request_id_reused");
+            self.reject(scope, entry, domain, reply, signature, now, "request_id_reused");
             return ActionStart::Rejected;
         }
         if self.producers[producer]
@@ -540,10 +420,15 @@ impl ActionMailbox {
                     && row.signature == signature
                     && row.selector == reply.selector
             }) {
-                row.delivered = false;
+                if row.delivery == ActionDelivery::Quarantined {
+                    row.delivery = ActionDelivery::Waiting;
+                    row.attempts = 0;
+                    row.last_attempt = None;
+                    row.last_error = None;
+                }
                 return ActionStart::Existing(row.result.ticket.clone());
             }
-            self.reject(entry, domain, reply, signature, now, "stale_request");
+            self.reject(scope, entry, domain, reply, signature, now, "stale_request");
             return ActionStart::Rejected;
         }
         self.producers[producer].high_watermark = Some(reply.request);
@@ -555,6 +440,7 @@ impl ActionMailbox {
             >= PENDING_LIMIT
         {
             self.reject(
+                scope,
                 entry,
                 domain,
                 reply,
@@ -564,7 +450,7 @@ impl ActionMailbox {
             );
             return ActionStart::Rejected;
         }
-        let ticket = self.ticket(entry, domain, reply.request);
+        let ticket = self.ticket(scope, entry, domain, reply.request);
         self.producers[producer].pending.push(PendingAction {
             ticket: ticket.clone(),
             signature,
@@ -583,7 +469,6 @@ impl ActionMailbox {
             },
             reply.selector.clone(),
             signature,
-            false,
         );
         ActionStart::New(ticket)
     }
@@ -620,25 +505,70 @@ impl ActionMailbox {
             producer.pending[index].stage = result.stage;
             producer.pending[index].clone()
         };
-        self.record(result, pending.selector, pending.signature, false);
+        self.record(result, pending.selector, pending.signature);
         true
     }
 
     /// Results enter a later read cut. An absent subscriber does not consume
     /// a result, and a paused scope does not call this method.
-    pub fn take_ready(
+    pub fn queue_ready(
         &mut self,
         now: u64,
+        policy: ActionDeliveryPolicy,
         mut bound: impl FnMut(&ActionTicket, &str) -> bool,
-    ) -> Vec<(String, ActionResult)> {
+    ) -> Vec<(u64, String, ActionResult)> {
         let mut ready = Vec::new();
         for row in &mut self.journal {
-            if !row.delivered && row.result.tick < now && bound(&row.result.ticket, &row.selector) {
-                row.delivered = true;
-                ready.push((row.selector.clone(), row.result.clone()));
+            if matches!(row.delivery, ActionDelivery::Queued | ActionDelivery::Invoked |
+                ActionDelivery::Acknowledged | ActionDelivery::Quarantined | ActionDelivery::Retired) { continue; }
+            if !bound(&row.result.ticket, &row.selector) {
+                row.delivery = ActionDelivery::Unbound;
+                row.last_error = Some("reply_entry_unbound".into());
+                continue;
             }
+            if row.result.tick >= now || row.last_attempt.is_some_and(|tick| tick >= now) { continue; }
+            if ready.len() >= policy.max_per_tick.get() as usize { break; }
+            row.delivery = ActionDelivery::Queued;
+            ready.push((row.sequence, row.selector.clone(), row.result.clone()));
         }
         ready
+    }
+
+    pub fn delivery_started(&mut self, sequence: u64, now: u64) {
+        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence
+            && row.delivery == ActionDelivery::Queued) {
+            row.delivery = ActionDelivery::Invoked;
+            row.attempts = row.attempts.saturating_add(1);
+            row.last_attempt = Some(now);
+        }
+    }
+
+    /// The host calls this only after handler state and requests commit.
+    pub fn delivery_committed(&mut self, sequence: u64) {
+        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence
+            && row.delivery == ActionDelivery::Invoked) {
+            row.delivery = ActionDelivery::Acknowledged;
+            row.last_error = None;
+        }
+    }
+
+    pub fn delivery_faulted(&mut self, sequence: u64, policy: ActionDeliveryPolicy) {
+        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence
+            && row.delivery == ActionDelivery::Invoked) {
+            row.delivery = if row.attempts >= policy.max_attempts.get() {
+                ActionDelivery::Quarantined
+            } else { ActionDelivery::Faulted };
+            // VM diagnostics can contain local paths. They stay in ExtensionFaults.
+            row.last_error = Some("handler_fault".into());
+        }
+    }
+
+    pub fn delivery_unavailable(&mut self, sequence: u64) {
+        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence
+            && row.delivery == ActionDelivery::Queued) {
+            row.delivery = ActionDelivery::Unbound;
+            row.last_error = Some("handler_not_invoked".into());
+        }
     }
 
     pub fn history(&self) -> ActionResults {
@@ -651,6 +581,11 @@ impl ActionMailbox {
                 .map(|row| ActionJournalEntry {
                     sequence: row.sequence,
                     result: row.result.clone(),
+                    handler: row.selector.clone(),
+                    delivery: row.delivery,
+                    attempts: row.attempts,
+                    last_attempt: row.last_attempt,
+                    last_error: row.last_error.clone(),
                 })
                 .collect(),
         }
@@ -672,8 +607,9 @@ impl ActionMailbox {
     pub fn retire_entry(&mut self, entry: &str) {
         self.producers.retain(|p| p.entry != entry);
         for row in &mut self.journal {
-            if row.result.ticket.entry == entry {
-                row.delivered = true;
+            if row.result.ticket.entry == entry && row.delivery != ActionDelivery::Acknowledged {
+                row.delivery = ActionDelivery::Retired;
+                row.last_error = Some("source_entry_retired".into());
             }
         }
     }
@@ -686,10 +622,11 @@ ambition_extension_sdk::port_record! {
     Producer { entry: String, domain: String, high_watermark: Option<u32>, pending: Vec<PendingAction> }
 }
 ambition_extension_sdk::port_record! {
-    JournalRow { sequence: u64, result: ActionResult, selector: String, signature: u64, delivered: bool }
+    JournalRow { sequence: u64, result: ActionResult, selector: String, signature: u64,
+        delivery: ActionDelivery, attempts: u32, last_attempt: Option<u64>, last_error: Option<String> }
 }
 ambition_extension_sdk::port_record! {
-    ActionMailbox { room: u32, generation: u64, next_occurrence: u64, next_sequence: u64, dropped: u64, producers: Vec<Producer>, journal: Vec<JournalRow> }
+    ActionMailbox { next_occurrence: u64, next_sequence: u64, dropped: u64, producers: Vec<Producer>, journal: Vec<JournalRow> }
 }
 
 impl ambition_platformer2d_core::snapshot::SnapshotState for ActionMailbox {
@@ -720,6 +657,7 @@ mod tests {
     }
     fn start(mailbox: &mut ActionMailbox, request: u32) -> ActionTicket {
         match mailbox.begin(
+            ObjectOccurrence { room: 0, generation: 0 },
             "test::actions/ask",
             "test.domain",
             &reply(request),
@@ -744,10 +682,10 @@ mod tests {
 
     #[test]
     fn replies_are_correlated_delivered_later_and_restored_on_rewind() {
-        let mut mailbox = ActionMailbox::new(0, 0);
+        let mut mailbox = ActionMailbox::default();
         let ticket = start(&mut mailbox, 0);
         assert_eq!(
-            mailbox.begin("test::actions/ask", "test.domain", &reply(0), 0, 10),
+            mailbox.begin(ObjectOccurrence { room: 0, generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 10),
             ActionStart::Existing(ticket.clone())
         );
         assert!(mailbox.publish(applied(ticket.clone())));
@@ -755,23 +693,23 @@ mod tests {
             !mailbox.publish(applied(ticket.clone())),
             "a completed occurrence cannot apply again"
         );
-        assert!(mailbox.take_ready(10, |_, _| true).is_empty());
+        assert!(mailbox.queue_ready(10, ActionDeliveryPolicy::default(), |_, _| true).is_empty());
         let snapshot = encode_state(&mailbox);
-        let expected = mailbox.take_ready(11, |_, _| true);
+        let expected = mailbox.queue_ready(11, ActionDeliveryPolicy::default(), |_, _| true);
         assert_eq!(expected.len(), 2);
-        assert!(mailbox.take_ready(12, |_, _| true).is_empty());
+        assert!(mailbox.queue_ready(12, ActionDeliveryPolicy::default(), |_, _| true).is_empty());
         let mut restored: ActionMailbox = decode_state(&snapshot).unwrap();
-        assert_eq!(restored.take_ready(11, |_, _| true), expected);
+        assert_eq!(restored.queue_ready(11, ActionDeliveryPolicy::default(), |_, _| true), expected);
         assert_eq!(encode_state(&restored), encode_state(&mailbox));
         assert_eq!(
-            mailbox.begin("test::actions/ask", "test.domain", &reply(0), 0, 12),
+            mailbox.begin(ObjectOccurrence { room: 0, generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 12),
             ActionStart::Existing(ticket)
         );
     }
 
     #[test]
     fn an_expired_reply_does_not_let_an_old_request_apply_again() {
-        let mut mailbox = ActionMailbox::new(0, 0);
+        let mut mailbox = ActionMailbox::default();
         for request in 0..HISTORY_LIMIT as u32 {
             let ticket = start(&mut mailbox, request);
             assert!(mailbox.publish(applied(ticket)));
@@ -779,7 +717,7 @@ mod tests {
         let history = mailbox.history();
         assert!(history.dropped > 0 && history.entries.len() <= HISTORY_LIMIT);
         assert_eq!(
-            mailbox.begin("test::actions/ask", "test.domain", &reply(0), 0, 20),
+            mailbox.begin(ObjectOccurrence { room: 0, generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 20),
             ActionStart::Rejected
         );
         assert_eq!(
@@ -790,7 +728,7 @@ mod tests {
 
     #[test]
     fn a_retired_producer_cannot_finish_work_in_its_replacement() {
-        let mut mailbox = ActionMailbox::new(0, 0);
+        let mut mailbox = ActionMailbox::default();
         let old = start(&mut mailbox, 0);
         mailbox.retire_entry("test::actions/ask");
         assert!(
@@ -809,12 +747,13 @@ mod tests {
 
     #[test]
     fn pending_work_has_a_bound_and_refusal_preserves_existing_work() {
-        let mut mailbox = ActionMailbox::new(0, 0);
+        let mut mailbox = ActionMailbox::default();
         let tickets: Vec<_> = (0..PENDING_LIMIT as u32)
             .map(|request| start(&mut mailbox, request))
             .collect();
         assert_eq!(
             mailbox.begin(
+            ObjectOccurrence { room: 0, generation: 0 },
                 "test::actions/ask",
                 "test.domain",
                 &reply(PENDING_LIMIT as u32),
@@ -873,5 +812,107 @@ mod tests {
             Vec::new()
         ));
         assert!(action_is_pending(&world, Some(&new)));
+    }
+
+    #[test]
+    fn equal_authored_ids_keep_distinct_recipients_through_travel_and_reconstruction() {
+        use crate::lifecycle::{live_room_root, SessionScopeId};
+        use bevy::ecs::system::SystemState;
+        let mut world = World::new();
+        let session = SessionScopedEntity(SessionScopeId(1));
+        let rooms = (0..4).map(LiveRoomInstance::from_ordinal).collect::<Vec<_>>();
+        for room in &rooms { world.spawn(live_room_root(session.0, *room)); }
+        let id = SimId::placement("shared");
+        let a = world.spawn((session, InRoomInstance(rooms[0]), id.clone())).id();
+        let b = world.spawn((session, InRoomInstance(rooms[1]), id.clone())).id();
+        let untracked = world.spawn((session, InRoomInstance(rooms[2]), id.clone())).id();
+        let ask = |world: &mut World, entity| begin_action(world, entity,
+            "test::actions/ask", "test.domain", Some(&reply(0)), 0).reply.unwrap();
+        let first = ask(&mut world, a);
+        let second = ask(&mut world, b);
+        assert!(world.get::<ActionMailbox>(untracked).is_none());
+        assert_ne!(first.recipient.occurrence, second.recipient.occurrence);
+        let saved_identity = encode_state(world.get::<ObjectOccurrence>(a).unwrap());
+        let saved_mailbox = encode_state(world.get::<ActionMailbox>(a).unwrap());
+        world.entity_mut(a).insert(InRoomInstance(rooms[3]));
+        assert_eq!(first.recipient.resolve(&world), Some(a));
+        assert_eq!(second.recipient.resolve(&world), Some(b));
+        let mut state = SystemState::<ActionReplies>::new(&mut world);
+        {
+            let mut replies = state.get_mut(&mut world).unwrap();
+            assert!(replies.is_pending(Some(&first)));
+            assert!(replies.is_pending(Some(&second)));
+            assert!(replies.publish(Some(&first), ActionStage::Applied, true, "first", "", Vec::new()));
+            assert!(replies.publish(Some(&second), ActionStage::Applied, true, "second", "", Vec::new()));
+        }
+        for (entity, code) in [(a, "first"), (b, "second")] {
+            assert_eq!(world.get::<ActionMailbox>(entity).unwrap().history().entries.last().unwrap().result.code, code);
+        }
+        world.despawn(a);
+        let replacement = world.spawn((session, InRoomInstance(rooms[3]), id.clone())).id();
+        let replacement_reply = ask(&mut world, replacement);
+        assert_ne!(first.recipient.occurrence, replacement_reply.recipient.occurrence);
+        assert_eq!(first.recipient.resolve(&world), None);
+        assert!(!publish_action_result(&mut world, Some(&first), ActionStage::Applied, true, "stale", "", Vec::new()));
+        let restored = world.spawn((session, InRoomInstance(rooms[0]), id,
+            decode_state::<ObjectOccurrence>(&saved_identity).unwrap(),
+            decode_state::<ActionMailbox>(&saved_mailbox).unwrap())).id();
+        assert_eq!(first.recipient.resolve(&world), Some(restored));
+        let mut replies = state.get_mut(&mut world).unwrap();
+        assert!(replies.publish(Some(&first), ActionStage::Applied, true, "restored", "", Vec::new()));
+        assert!(replies.is_pending(Some(&replacement_reply)));
+    }
+
+    #[test]
+    fn delivery_requires_commit_and_fault_recovery_does_not_repeat_the_action() {
+        let mut mailbox = ActionMailbox::default();
+        let ticket = start(&mut mailbox, 0);
+        assert!(mailbox.publish(applied(ticket.clone())));
+        let policy = ActionDeliveryPolicy { max_attempts: std::num::NonZeroU32::new(2).unwrap(), ..Default::default() };
+        let ready = mailbox.queue_ready(11, policy, |_, _| true);
+        assert!(mailbox.history().entries.iter().all(|row| row.delivery == ActionDelivery::Queued));
+        let mut terminal = None;
+        for (sequence, _, result) in ready {
+            mailbox.delivery_started(sequence, 11);
+            if result.terminal {
+                terminal = Some(sequence);
+                mailbox.delivery_faulted(sequence, policy);
+            } else { mailbox.delivery_committed(sequence); }
+        }
+        let terminal = terminal.unwrap();
+        assert!(mailbox.queue_ready(11, policy, |_, _| true).is_empty());
+        let retry = mailbox.queue_ready(12, policy, |_, _| true);
+        assert_eq!(retry.len(), 1);
+        assert_eq!(retry[0].0, terminal);
+        mailbox.delivery_started(terminal, 12);
+        mailbox.delivery_faulted(terminal, policy);
+        let row = mailbox.history().entries.into_iter().find(|row| row.sequence == terminal).unwrap();
+        assert_eq!(row.delivery, ActionDelivery::Quarantined);
+        assert_eq!(row.attempts, policy.max_attempts.get());
+        assert_eq!(row.last_error.as_deref(), Some("handler_fault"));
+        assert!(mailbox.queue_ready(13, policy, |_, _| true).is_empty());
+        let saved = encode_state(&mailbox);
+        let mut mailbox: ActionMailbox = decode_state(&saved).unwrap();
+        assert_eq!(encode_state(&mailbox), saved);
+        assert_eq!(mailbox.begin(ObjectOccurrence {room: 0, generation: 0},
+            "test::actions/ask", "test.domain", &reply(0), 0, 20), ActionStart::Existing(ticket.clone()));
+        assert_eq!(mailbox.queue_ready(21, policy, |_, _| true).len(), 1);
+        mailbox.delivery_started(terminal, 21);
+        mailbox.delivery_committed(terminal);
+        assert_eq!(mailbox.begin(ObjectOccurrence {room: 0, generation: 0},
+            "test::actions/ask", "test.domain", &reply(0), 0, 22), ActionStart::Existing(ticket));
+        assert!(mailbox.queue_ready(23, policy, |_, _| true).is_empty());
+        assert_eq!(mailbox.history().entries.iter().filter(|row| row.result.stage == ActionStage::Applied).count(), 1);
+        let next = start(&mut mailbox, 1);
+        assert!(mailbox.publish(applied(next)));
+        assert!(mailbox.queue_ready(24, policy, |_, _| false).is_empty());
+        assert!(mailbox.history().entries.iter().filter(|row| row.result.ticket.request == 1)
+            .all(|row| row.delivery == ActionDelivery::Unbound && row.attempts == 0));
+        for (sequence, _, _) in mailbox.queue_ready(25, policy, |_, _| true) {
+            mailbox.delivery_started(sequence, 25);
+            mailbox.delivery_committed(sequence);
+        }
+        mailbox.retire_entry("test::actions/ask");
+        assert!(mailbox.history().entries.iter().all(|row| row.delivery == ActionDelivery::Acknowledged));
     }
 }

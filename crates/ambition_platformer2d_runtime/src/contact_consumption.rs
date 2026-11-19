@@ -9,6 +9,8 @@ use bevy::prelude::*;
 const DOMAIN: &str = "world.consume_contact";
 
 pub fn install(app: &mut App) {
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, DOMAIN,
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     app.install_extension_submitted_request::<ConsumeContactPort, _>(
         BODY_CONTACT, "ambition_breakables", lower);
 }

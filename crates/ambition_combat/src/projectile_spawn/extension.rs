@@ -255,7 +255,7 @@ mod tests {
                     app.world_mut()
                         .entity_mut(emitter)
                         .insert(InRoomInstance(LiveRoomInstance::from_ordinal(1)));
-                    assert!(cancel_action(app.world_mut(), emitter, &reply.ticket));
+                    assert_eq!(cancel_action(app.world_mut(), emitter, &reply.ticket), Ok(()));
                 }
                 2 => {
                     app.world_mut().despawn(emitter);
@@ -287,7 +287,8 @@ mod tests {
                     .single(world)
                     .unwrap();
                 assert_eq!(result.subjects, vec![id.as_str()]);
-                assert!(!cancel_action(app.world_mut(), emitter, &reply.ticket));
+                assert_eq!(cancel_action(app.world_mut(), emitter, &reply.ticket),
+                    Err(ambition_platformer2d_shared_tangle::action_results::ActionCancellationRefusal::AlreadyTerminal));
             }
         }
     }

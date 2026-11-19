@@ -89,7 +89,8 @@ Without a matching rule, the adapter uses engine defaults.
 
 The live room owns each prop. Creator removal does not remove its props.
 Room retirement removes them. Re-entering a room does not reconstruct runtime
-props from saved references. Timed respawn works only while their room remains
+props from saved references. The new room root starts fresh script records and
+a separate creation namespace. Timed respawn works only while their room remains
 live. This contract does not expose durable runtime blueprints, custody,
 general activation, or arbitrary component mutation. A durable runtime object
 needs a native reconstruction and save contract; an identity string is not one.

@@ -94,7 +94,7 @@ cached (`_pieces.rasterize`), so a record-only frame is its transforms.
 | PF0 measure | Per-target build seconds in the publish log; the census above as a script; profile of `gnu_ton_boss` | the census and the profile are reproducible by a command |
 | PF1 record without painting | `recorded_paint` gets a record-only mode: the seams record and return without painting; a supersampled frame's reduction is applied to the recorded parts as it is now. Metadata read from frame pixels (body boxes, unions) is computed from the draws | `gnu_ton_boss` publishes in a fraction of 93 minutes with the same draws: the sampled replay holds at today's bounds (`REPLAY_ROUNDING`, `CONTINUOUS_REPLAY_PARITY`) |
 | PF2 no baked pages (engine half DONE 2026-11-18: a parts-only sheet and tier realize with no sheet page; the module road DONE 2026-11-18, see [State](#state-2026-11-18)) | A parts-only character publishes no `_spritesheet*.png` at any tier; the game resolves the body from the sheet record and the part table; tests that read baked pages read parts | an all-parts character renders and animates in the game with no baked page in the store; the store's character sheet bytes fall by the measured 1.22 GB |
-| PF3 reference on demand | `--reference <target>` paints the full sheet into the review tree; the asset inspector animates from parts and shows the canonical frame | `assets.sh` paints no reference sheet; the inspector plays a clip with no sheet present |
+| PF3 reference on demand (DONE 2026-11-18, see [State](#state-2026-11-18)) | `--reference <target>` paints the full sheet into `.agent/sprite_reference/<target>/` (git-ignored, never published); the asset inspector animates from parts and shows the canonical frame | `assets.sh` paints no reference sheet; the inspector plays a clip with no sheet present |
 | PF4 smoother motion | Tween every part clip whose consecutive draws pair (`tween_draws`, `_same_picture_redrawn`), not only the selected locomotion loops; a clip authored to step (a cut, a flash) keeps stepping | clips step only where authored; the in-between overhang guards hold |
 | PF5 convert the rest | The 114 character sheets with no flipbook get a part publisher (rig document, pieces, or the generator recorder); the 4 cost-rule baked flipbooks are re-measured | every character is drawn from parts; props and projectiles stay frames unless a prop animates many frames |
 | PF6 measure | A full regeneration's wall time and store bytes, before and after | recorded here with the commands that measured them |
@@ -150,15 +150,30 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   `drawn_from_parts` realizes `NO_BAKED_IMAGE` pages (`build_boss_pages`),
   the room barrier skips them, and a boss room demands and waits on the
   character its parts are drawn from (`BossSheetSpec::parts`) with its own
-  characters. **PF2b content, open:** each boss sheet names its character
-  (`npc_boss`, `npc_mockingbird_boss`, `npc_smirking_behemoth_boss`,
-  `npc_flying_spaghetti_monster_boss`, `npc_bossofthegame` exist; the
-  Clockwork Warden, the Hooded Sentinel, the Gram Reaper and GNU-ton's
-  scholar have no character row), and a hit on a part-drawn boss whose
-  flipbook has no face tracks must still read: today `hit_reaction` gives a
-  part-drawn boss no `Hit` cell and `hurt_face` draws a face only from face
-  tracks (`face_as`), so moving such a boss onto parts loses its hit
-  reaction. Then each moved sheet leaves `baked_pages`.
+  characters. **PF2b content (2026-11-18):** every boss sheet with a
+  character whose sheet it is now names it (`boss_sheets.ron` `parts`:
+  `npc_boss` for the Gradient Sentinel, `npc_mockingbird_boss`,
+  `npc_smirking_behemoth_boss`, `npc_flying_spaghetti_monster_boss`,
+  `npc_bossofthegame`, beside the T-rex, the Hunny Horror and the two
+  Wolfensteins that did), and those nine sheets left `baked_pages`. A
+  part-drawn boss whose flipbook has no face track flinches whole: it is
+  drawn in its `Hit` frame from parts, as its baked sheet drew it
+  (`rigged::frame_draws`, `RiggedSpriteAsset::has_expression_tracks`),
+  unless parts posed from its row carry its hits. Under the audit, part-first:
+  Gradient Sentinel 50 of 50 frames, Mockingbird 63/63, Smirking Behemoth
+  26/26, FSM 79/79 (its sauce layer stays a painted sheet; its reveal map is
+  drawn beside the seams and came out identical to the store's), Boss of
+  the Game 85/85, T-rex 97/97, Hunny Horror 107/107, Wolfenstein 605/605,
+  the Inugami 553/553 (painted for its flipbook: its paint reads pixels it
+  painted). Published page-less into the local store, the Mockingbird drew
+  the generic body: the boss catalog resolved a boss sheet only by a page
+  file that exists (`try_path_for_load`). `boss::boss_sheet_path` now
+  resolves a `drawn_from_parts` sheet by the page path it declares, which
+  finds its record; with it the composed game's boss tests pass on the
+  page-less Gradient Sentinel and Mockingbird. Still baked (`baked_pages` says why): the
+  Clockwork Warden and the Hooded Sentinel (part flipbooks, no character
+  row), the Gram Reaper and GNU-ton's scholar (no part flipbook), the giant
+  gnu (`gnu_ton_boss`'s bespoke publish).
 - **Final audit (2026-11-18, renderer `9347716`):** every flipbook module
   unit but `gnu_ton_boss` and the two Wolfensteins (boss art) published
   part-first with every frame painted and checked: 434 of 434 replay the
@@ -167,10 +182,90 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   over the 64 budget), and the bespoke publishers below. Hypatia Prime,
   republished into the store page-less, realizes parts-only in the composed
   game with her part page loaded one frame after the request.
-- Not yet part-first: the bespoke publishers (`mary_o_v2` and its forms,
-  `noether`, `player_robot_v3`, `jeff_hinter_armored`, `sandbag`), the generator road (`authoring/sheet.py`, 35 config
-  sheets), `gnu_ton_boss`'s bespoke publish, and the asset inspector, which
-  draws thumbnails from sheet pages (PF3).
+- **The generator road is part-first (2026-11-18).** `write_spritesheet`
+  records a config sheet's flipbook without painting
+  (`sheet._record_part_first`), measures the record off its redraw (the first
+  frame painted, for the body box), lays the rows on a frame grid and writes
+  no page; before, every frame was painted twice (the sheet, then the
+  flipbook). A tier of a page-less config sheet is derived (record scaled,
+  parts downsampled) instead of rendered again at the tier's scale
+  (`publication._worker`). Under the audit: `robot` 173 of 173 frames,
+  `general_hero` 67 of 67, `alice` 375 of 375, `goblin` 798 of 798 (its
+  `blink_out` paints outside the seams, so it is recorded from its painted
+  frames, still page-less). Only a generator that publishes a flipbook
+  (`publishes_part_flipbook`: the toon, robot, goblin, boss, Alice and
+  sandbag sides) goes part-first; the others are PF5.
+- **The bespoke publishers (2026-11-18).** Noether, player_robot_v3 and
+  Mary-O v2's three forms painted their sheet and then painted every frame
+  again for their own flipbook; now `build_sheet(parts=True)` records the
+  flipbook and `part_flipbook.write_part_first` writes it (their tweened
+  rows, the robot's eye landmarks). Under the audit: player_robot_v3 2142 of
+  2142 frames, Noether 938/938 (recorded from its painted frames: it paints
+  outside the seams), Mary-O v2 25/25; Mary-O's strict test compares her
+  flipbook with a painted reference sheet. **player_robot_v3 keeps its page
+  for now** (`baked_pages`): every LDtk world's `PlayerStart` tileset
+  (`sprite_player_robot_v3`) is that page, and the runtime decodes it at
+  boot; the tileset must be retargeted first
+  (`tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py`, the worlds
+  in `game/ambition_map_assets`). Painted on purpose: Jeff Hinter armored
+  (87 draws in a frame, over the 64 budget) and Fukuzawa (66), the cosmic
+  Mary-O (a hybrid: her transformation rows carry light on the whole figure
+  that no part carries, so they stay baked clips).
+- Not yet part-first: `sandbag` (its own sheet writer, an adapter-shaped
+  record) and `gnu_ton_boss`'s layered publish (full, body, hands, fist,
+  GNU2 and rider sheets; the boss road reads its body and hands layers).
+- **PF5 measured (2026-11-18): the 109 characters with no flipbook are not
+  a switch.** Forced part-first (`build_sheet(parts=True)`), twelve of them
+  (aurochs, hoplite, tiger, mummy, terracotta warrior, kraken arm, mime, art
+  curator, quantum die, void lizard, gravity apple; the Gram Reaper
+  refused) recorded ONE draw per frame: the whole frame as one picture,
+  because their painters draw with `ImageDraw` inside their own frame, not
+  through the rig seams. Published, that is a trimmed frame atlas with a
+  part table, not part rendering. 91 of the 109 draw with the Art cast kit
+  (`targets/characters/_art_cast_kit.py`), so the kit is PF5's unit. Its
+  look is cel shapes in flat colour under ONE thick outline round the whole
+  silhouette, drawn at 4x and reduced. That outline decomposes: widening a
+  union is the union of the widened shapes, so each body shape can be a part
+  drawn twice, its widened outline in a pass behind every fill and its fill
+  in paint order, which reproduces the single outline exactly; ink lines and
+  the glow layer are parts over them. What does not decompose is the motion:
+  the kit's shapes are procedural (a limb is a polyline recomputed each
+  frame), so a limb is a new raster every frame and nothing is shared. The
+  conversion is a kit redesign: each body shape authored once as a rigid
+  piece and posed per frame (a limb a segment that turns at its joint), the
+  supersampled reduction per piece (the continuous road), held to the replay
+  guard by the audit.
+- **PF4 measured (2026-11-18): tweening every pairable clip misplaces
+  limbs.** Two findings. (1) A tweened clip moves its last frame toward its
+  first (`tween_draws`, the runtime's `tween_targets`): right for a loop,
+  wrong for a clip played once, so a once-only tween (last frame held)
+  would be needed. (2) More decisive: Mary-O's in-between oracle (her rig
+  posed at the lerped keyframe, `test_mary_o_part_flipbook`), run over
+  every pose row with every clip tweened, misplaces parts the pairing rule
+  accepts: her run and dash legs are a raster drawn again per frame at a
+  new bend, which passes `_same_picture_redrawn` and is slid where the pose
+  turns it (7–49°, up to 4 px), and `throw_up`'s far arm is one part half a
+  turn apart, which the tween spins through 180°. That is why her `run`
+  was never a tweened row: the clips that step are authored, by the
+  oracle. PF4 is therefore per target: a clip tweens when an in-between
+  oracle of its own rig holds it (as Mary-O's does for walk, crouch_walk,
+  climb, swim), not because its draws pair. The work is an in-between
+  render for each rig road (rig documents can pose a fractional keyframe;
+  the generator road and the pieces cannot yet), then the oracle per
+  target, then its tween rows.
+- **PF3 done (2026-11-18).** `scripts/regen/sprites.sh --reference --target
+  <name>` paints a part-first sheet's every frame into
+  `.agent/sprite_reference/<name>/` (`PAINT_REFERENCE_ENV`; Hypatia in 16 s)
+  and publishes nothing. The asset inspector plays a page-less sheet from its
+  part atlas and draw table (`asset_index/sheets.read_part_draws`, a
+  `parts/<key>/draws.js` loaded when the sheet is opened; `web/app.js`
+  `drawPartFrame`), and draws its cover and body camera from parts
+  (`thumbs.parts_task`); a baked sheet still plays from strips. The
+  inspector's frame matches the renderer's `PartFlipbook.recompose` with 0
+  wrong pixels on the frames checked; against a `--reference` paint of
+  today's code, 42 of 44 sampled Hypatia frames match and her `run` differs by
+  12% because the store's run clip predates today's paint (the full republish
+  brings it level).
 
 ## Constraints kept
 

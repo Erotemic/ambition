@@ -64,7 +64,7 @@ This register is ordered by likely leverage, not by the number of names in `scri
 | --- | --- | --- | --- |
 | **P0: authoritative event triggers — contact samples implemented** | `body_contact` now supplies bounded native body and world-contact samples for held-status and brain bindings, for every controller. World samples retain geometry identity and solver role; old movement output is unavailable. Empty samples, identities, native surfaces, room holds, and replay are covered. Native hit receptions and projectile outcomes supply the separate combat facts below. | `crates/ambition_platformer2d_runtime/src/story_script.rs`; `crates/ambition_combat_port/src/contact.rs` and `reaction.rs`; `extension_composition.rs` | [Loaded contact fixture](../../../game/ambition_app/tests/scripted_body_contacts.rs) activates a contact rule with `hold_status`, reads bounded native facts, keeps a body reference, and requests native bounce for a controlled body and an NPC through replay. A world-contact fixture starts native actor creation from real head contacts on both controller paths. Owning tests cover controller pairs, status/brain deduplication, room/session isolation, holds, and response bounds. Contact samples are implemented (`b4e9e7fe0`); a game-wide event log is not implied. Geometry refusals remain explicit incomplete reads. |
 | **P0: domain action outcome** | `story_command` has correlated `action_result` replies, `action_history`, and `cancel_action`. Flag batches and encounter commands publish from their native consumers. Projectile requests now report actual creation or refusal through the same action contract. Inventory exchanges also publish actual application or refusal. `create_actors` and `create_breakables` report completed native construction or refusal. Equipment/custody, cutscene, portal, and older summon requests still need downstream results. | `story_script.rs`; `extension-domain-contracts.md`; the actual domain reducers and extension outbox | Correlate an invocation/request occurrence with typed domain verdicts at a defined read cut, including later application or cancellation. A rejected action cannot advance script-owned success state; rollback does not double-consume results. |
-| **P0: reusable script abstractions and composition — partial** | Captured libraries, shared functions, parameterized behaviors, and typed state factories now have a working path. Library environments cannot retain hidden state across invocations. Host records retain nested instance state, including bounded text, options and sequences. Rhai factories and portable `record_value!` types compose the same tagged values. Parameterized factories can create native character compositions and initialize independent typed state. Shared factories also create native destructible props with collision, art, and timed respawn. General activation, object state observations, and cross-object event routing remain open. Room story records also need an explicit room-instance lifetime: native replacement can reuse the root that holds body-attached records. | [Compiler](../../../crates/ambition_extension_rhai/src/source.rs); [file preparation and reload](../../../crates/ambition_platformer2d_runtime/src/extension_composition/module_files.rs); [author guide](../../sdk/script-libraries.md) | The loaded `scripted_libraries` fixture composes crafting and firing through shared code. Two modules have distinct state on controlled and autonomous bodies. It checks native outcomes, GGRS, shared edits, refusal, and repair without a host rebuild. Nested schema edits preserve live values by tag; durable save adoption uses the same recursive migration. See [structured state](../../sdk/script-state.md). This does not establish the remaining object and event model. |
+| **P0: reusable script abstractions and composition — partial** | Captured libraries, shared functions, parameterized behaviors, and typed state factories now have a working path. Library environments cannot retain hidden state across invocations. Host records retain nested instance state, including bounded text, options and sequences. Rhai factories and portable `record_value!` types compose the same tagged values. Parameterized factories can create native character compositions and initialize independent typed state. Shared factories also create native destructible props with collision, art, and timed respawn. General activation, object state observations, and cross-object event routing remain open. Room story records now retire with their native root. Each new instance has a fresh root and creation namespace; session records span room visits. General object activation and event routing remain open. | [Compiler](../../../crates/ambition_extension_rhai/src/source.rs); [file preparation and reload](../../../crates/ambition_platformer2d_runtime/src/extension_composition/module_files.rs); [author guide](../../sdk/script-libraries.md) | The loaded `scripted_libraries` fixture composes crafting and firing through shared code. Two modules have distinct state on controlled and autonomous bodies. It checks native outcomes, GGRS, shared edits, refusal, and repair without a host rebuild. Nested schema edits preserve live values by tag; durable save adoption uses the same recursive migration. See [structured state](../../sdk/script-state.md). This does not establish the remaining object and event model. |
 | **P0: authored object interaction / collision — partial** | `consume_contact` commits native destructible state and inventory terms from current movement contact. Existing collision, art, respawn, and persistent occurrence owners publish the result. `create_breakables` adds checked room-owned prop factories with native collision, art, and timed respawn. General activation and object state observations remain open. | [Native owner](../../../crates/ambition_breakables/src/consumption.rs); [portable contract](../../../crates/ambition_world_port/src/consumption.rs); [guide](../../sdk/contact-consumption.md) | The loaded `scripted_contact_consumption` fixture checks competing claims, an NPC purchase, actual rewards, refusal, retries, collision/art, GGRS, save/load, and a price edit. The `scripted_breakable_creation` fixture composes room and body factories with actual native contacts, respawn, rules, room retirement, and library edits. See [prop creation](../../sdk/breakable-creation.md). |
 | **P0: bounded, identified spatial facts — implemented** | `body_query` returns native facts for a bounded same-room and same-session selection. Exact-ID follow-up can require every target to remain valid. | [Native owner](../../../crates/ambition_combat/src/extension/body_query.rs); [portable contract](../../../crates/ambition_combat_port/src/body_query.rs); [guide](../../sdk/body-queries.md) | [Loaded Rhai fixture](../../../game/ambition_app/tests/scripted_body_queries.rs) checks controlled and autonomous callers, retained body references, bounded selection, stale relationship refusal, and replay. Owning tests cover room/session isolation, identity order, truncation, grudges, and target removal. Commit: `83ae5b219`. |
 | **P0: accepted combat contact / damage — implemented** | Projectile spawning and `module_entity_tick` are scriptable. `hit_receptions` supplies bounded native reception decisions to held-status bodies and authored room observers, including actual damage and defenses. It has Rhai and portable values, game budgets, identity capture, and replay delivery. Native emission captures source facts and reserves IDs. Late requests survive rollback, including hit-reaction counter shots. Accepted batches now identify direct and splash shots after source retirement. The common native hit writer retains credit for every hit kind. Creation replies identify actual births. Native `projectile_outcomes` supplies bounded creation, interception, clash spending and retirement facts through portable/Rhai bindings. The loaded reflection fixture observes credit and retirement across deflector loss and GGRS replay. Contact is not synonymous with damage. See [hit receptions](../../sdk/hit-receptions.md). | [Native receiver adapter](../../../crates/ambition_damage/src/extension.rs); [portable contract](../../../crates/ambition_combat_port/src/reception.rs); `HitEvent`; projectile materialization and interception | A new script reacts to confirmed hit/defense/damage with correct striker credit after shield, reflection, invulnerability, lifetime change and replay. Do not calculate damage from animation or overlap. |
@@ -98,6 +98,27 @@ For each P0 and P1 row, record one of these states: `implemented` (with source, 
 The program remains open. The maintainer permits capability work without a
 current consumer. Complete a useful semantic family through its domain owner;
 use a gameplay example or a focused host fixture as evidence.
+
+### Object and event substrate review
+
+The maintainer's 2026-11-18 review used `2c0438c4252d`. It was a static review.
+Fix this substrate before the general interaction and event model. Use focused
+behavioral witnesses. Do not migrate working demo gameplay for coverage.
+
+| Priority | Required contract |
+| --- | --- |
+| P1 | Recipient resolution must name one object occurrence through room travel, equal authored IDs, retirement, and rollback reconstruction. Both native publishing APIs must use the same rule. Implemented: [occurrence receipt](#object-occurrence-routing-receipt). |
+| P1 | A callback acknowledges delivery only after its state and requests commit. Faults need bounded deterministic retry or an inspectable terminal diagnostic. Include unavailable subscribers and paused rooms. Implemented: [delivery receipt](#action-callback-acknowledgement-receipt). |
+| P1 | Each domain declares cancellation support and its suppression mechanism. Unsupported or late cancellation must be refused. A canceled operation cannot later mutate the world. Implemented: [cancellation receipt](#native-cancellation-contract-receipt). |
+| P2 | Invalid callback wiring must be caught at preparation or reported through a guaranteed observation of the submitting scope. Reload must not leave silent orphan work. |
+| P2 | Completed object publication follows all native and script initialization. A creation listener must see wallet, statuses, records, relations, and the stable occurrence together. Refused preflight must create nothing. |
+| P2 | Measure native contact collection and frame cost with few and many subscribers in crowded rooms, including two live rooms. Use the native spatial broadphase or confirmed contact stream when the measurements justify a change. Preserve ordering and replay. |
+
+Then implement two distinct reusable object behaviors whose events cause each
+other's native domain actions. Include accepted and refused outcomes, competing
+actions, hot reload, room duplication, travel, and replay. Keep native collision
+and damage authority. Do not build an unbounded global event bus or a generic
+scene-node clone. The model remains open until these contracts have evidence.
 
 The remaining contracts need more than aliases: general world-object
 activation and composition, actor lifetime, equipment/custody outcomes,
@@ -398,5 +419,86 @@ requested prop sheets. The policy run before that merge retained the exact 11
 baseline violations. Broad union and tooling verification remain incomplete.
 
 Do not save a runtime prop's return timer without its reconstruction recipe.
-General activation, object state observations, room-instance records, durable
-dynamic objects, custody, and travel outcomes keep the program open.
+General activation, object state observations, durable dynamic objects, custody,
+and travel outcomes keep the program open.
+
+## Room observer lifetime receipt
+
+Commit: `1cf303415`. Room replacement retained script records and other observer
+state on a reused root. Each new room instance now gets a fresh root and
+creation namespace. Native retirement removes the old attached state. Joining
+an existing live room retains its owner. Traveling bodies retain their own
+records, identities, and counters. Session records span room visits.
+
+Guard: 181 publication tests and 348 shared-domain tests pass. The loaded
+`scripted_room_state_restarts_on_reentry_and_replays_with_its_root` test checks
+initialization and native creation replies once per visit, three visits of
+session state, a GGRS crossing, and native door re-entry. The shell identity
+test and all 53 absence contracts also pass. See [state lifetime](../../sdk/script-state.md#state-lifetime).
+
+Do not clear only script records when a native owner retires. All attached
+observer state must follow the same lifetime. General object activation,
+event routing, durable dynamic objects, custody, and travel outcomes remain open.
+
+## Object occurrence routing receipt
+
+Commit: `9bbb0e72e`. Authored IDs could collide across live rooms, and the two
+reply APIs examined different recipient populations. Both APIs now use the
+same session and native `ObjectOccurrence` stamp. The stamp retains its
+allocation namespace through travel. Retirement removes it, and rollback
+reconstruction restores it. A replacement receives a different stamp.
+Mailbox state no longer owns object identity. Body-query results still report
+the current room. Snapshot schema 496 includes the stamp and its room counter.
+
+Guard: the native routing test checks both APIs, equal IDs, a non-mailbox
+duplicate, travel, retirement, and snapshot reconstruction. The loaded
+`equal_authored_object_ids_receive_independent_replies_after_travel_and_rollback`
+fixture passes through GGRS. The existing action fixture, schema checks, 349
+shared-domain tests, 15 query/projectile owner tests, assembled app check, and
+53 absence contracts pass.
+
+Do not use an authored ID or current room as an object lifetime. Callback
+acknowledgement and cancellation are recorded below. Callback diagnostics,
+atomic creation, and the contact-cost measurement remain open in the substrate
+queue.
+
+## Action callback acknowledgement receipt
+
+Commit: `324f9604b`. Queuing a callback marked it delivered before its handler
+ran. The host now acknowledges delivery after state and requests commit.
+Faults retry under room rules, then retain a quarantined row. An explicit retry
+can recover its terminal callback without repeating native work. History port
+version 2 exposes delivery state and attempts. Snapshot schema 497 retains
+this state. Full VM error text stays outside canonical state.
+
+Guard: the loaded Rhai fixture faults, reaches quarantine, publishes a repaired
+script, and applies its callback once without another native creation. It runs
+with GGRS under local session ownership. The held-room and occurrence fixtures
+also pass. Executed checks: 7 loaded action/schema tests, 350 shared tests,
+47 host tests, 18 SDK tests, assembled app and wasm32 SDK checks, 53 absence
+contracts, and doc links. Workspace policy has the same 11 baseline violations
+in two failing tests. No full workspace or demo sweep was run for this change.
+
+Do not acknowledge a callback before the host commit. Do not put local VM
+error text in rollback state. The object and event model remains open.
+
+## Native cancellation contract receipt
+
+Commit: `7e81de66f`. An absent native handler could report cancellation without
+suppressing work. Each installed action domain now declares unsupported,
+pending-ticket, or native-handler cancellation. Unknown domains refuse it.
+The cancellation request has its own correlated result through port version 2.
+A refusal leaves the target unchanged. Success follows native suppression.
+
+Guard: the loaded Rhai fixture checks queued native flag work, supported
+cancellation, unsupported and unknown domains, a committed action, an unknown
+ticket, and module ownership under GGRS. Each cancellation callback commits
+once. Executed checks: 8 loaded action/schema tests, the native projectile
+cancellation test, 350 shared tests, 18 SDK tests, 2 rollback resource-accounting
+tests, assembled app and wasm32 SDK checks, 53 absence contracts, and doc links.
+No full workspace or demo sweep was run for this change.
+
+Do not infer native cancellation support from a missing handler. A queued
+consumer must check its pending ticket before mutation or use a suppression
+handler. Callback diagnostics, atomic publication, contact measurements, and
+the general object and event model remain open.

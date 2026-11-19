@@ -172,10 +172,10 @@ pub fn install_emission(app: &mut bevy::prelude::App) {
     app.add_message::<crate::projectile_outcomes::ProjectileOutcome>();
     app.init_resource::<PendingProjectileEmissions>()
         .add_message::<ProjectileEmission>();
-    ambition_platformer2d_shared_tangle::action_results::register_action_cancellation(
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(
         app,
         SPAWN_DOMAIN,
-        cancel_queued_spawn,
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Handler(cancel_queued_spawn),
     );
 }
 

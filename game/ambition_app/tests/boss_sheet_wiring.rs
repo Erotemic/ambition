@@ -48,7 +48,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
     let mut missing = Vec::new();
     for (key, _filename) in boss_catalog.sprite_filenames() {
         let id = ambition_platformer2d::asset_manager::platformer_assets::ids::boss_sprite(key);
-        if catalog.try_path_for_load(&id).is_none() {
+        if ambition_platformer2d::sprite_sheet::boss::boss_sheet_path(&sprite_content, &catalog, &id).is_none() {
             missing.push(key);
         }
     }

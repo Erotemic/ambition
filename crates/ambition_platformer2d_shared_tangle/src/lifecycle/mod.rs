@@ -16,6 +16,7 @@ mod markers;
 mod mode_visit;
 mod reset_slots;
 mod room_instance;
+mod object_occurrence;
 mod room_pace;
 pub use room_pace::{RoomFreeze, RoomHolds, RoomPace, rooms_keep_their_own_clocks};
 mod room_writes;
@@ -50,12 +51,14 @@ pub use markers::{
     PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual, custody_closure,
 };
 pub use mode_visit::{Arrival, ModeVisit};
+pub use object_occurrence::{ObjectOccurrence, ensure_object_occurrence};
+pub(crate) use object_occurrence::ObjectOccurrenceSequence;
 pub use reset_slots::{ContentDialogueFollowupSet, ContentRoomReplayResetSet, ContentRoomResetSet};
 pub use room_instance::{
     InRoomInstance, LiveBodies,
     LiveBodyId, LiveRoomInstance,
     LiveRoomOf, LiveRooms, RoomInstanceRoot, SoleLiveRoom, TransactionRooms, activation_room_root,
-    insert_live_room_component, live_room_of, live_room_root_for, sole_live_room_component,
+    insert_live_room_component, live_room_of, live_room_root, live_room_root_for, sole_live_room_component,
     sole_live_room_component_mut, sole_live_room_entity, spawn_live_room,
 };
 pub use round::{

@@ -469,6 +469,24 @@ pub fn record_aligns_with_const(record: &SheetRecord, spec: &BossSheetSpec) -> b
     })
 }
 
+/// The path a boss sheet `id` loads by: its page when the page is there to
+/// load, or, for a sheet drawn from its character's parts (its record says
+/// `drawn_from_parts`), the page path it declares, which no file holds: the
+/// record is found by it, and its pages are never loaded
+/// ([`crate::character::NO_BAKED_IMAGE`]).
+pub fn boss_sheet_path(
+    content: &crate::SpriteContent,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
+    id: &ambition_asset_manager::AssetId,
+) -> Option<String> {
+    catalog.try_path_for_load(id).or_else(|| {
+        let declared = catalog.resolve(id).ok()?.bevy_asset_path()?;
+        record_for_sheet_key(content, boss_record_key(&declared)?.as_str())?
+            .drawn_from_parts
+            .then_some(declared)
+    })
+}
+
 pub fn load_named_boss_sprite_via_catalog(content: &crate::SpriteContent,
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
@@ -491,11 +509,11 @@ pub fn load_named_boss_sprite_via_catalog(content: &crate::SpriteContent,
                 &id,
                 scale.asset_id_suffix(),
             )?;
-            let path = catalog.try_path_for_load(&variant_id)?;
+            let path = boss_sheet_path(content, catalog, &variant_id)?;
             let record = record_for_sheet_key(&content, boss_record_key(&path)?.as_str())?;
             record_aligns_with_const(record, &spec).then_some(path)
         });
-    let Some(path) = variant_path.or_else(|| catalog.try_path_for_load(&id)) else {
+    let Some(path) = variant_path.or_else(|| boss_sheet_path(content, catalog, &id)) else {
         eprintln!(
             "[boss_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to entity sprite",
             catalog.profile().label(),

@@ -1621,9 +1621,16 @@ fn frame_draws<'a>(
             flipbook.head_turned_as(look_row, fraction, drawn);
         }
     }
-    // A hurt face over the pose it has.
+    // A hurt face over the pose it has. A body with no face to wince with
+    // (no expression track) flinches whole, drawn in the frame of its hurt
+    // row as its baked sheet drew it, unless parts posed from its row carry
+    // its hits: then a part drawn elsewhere would not be where a strike lands.
     if let Some((face_row, index)) = animator.expression.as_ref() {
-        flipbook.face_as(face_row, *index, drawn);
+        if flipbook.has_expression_tracks() {
+            flipbook.face_as(face_row, *index, drawn);
+        } else if posed.is_none() && flipbook.tween_into(face_row, *index, 0.0, posed_draws).is_some() {
+            std::mem::swap(drawn, posed_draws);
+        }
     }
     // A layer over the row, on its own clock (a ward round a head).
     if let Some((layer_row, index, mirrored)) = animator.layer.as_ref() {

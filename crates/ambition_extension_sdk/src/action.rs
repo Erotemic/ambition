@@ -51,6 +51,25 @@ pub struct ActionResult {
 pub struct ActionJournalEntry {
     pub sequence: u64,
     pub result: ActionResult,
+    pub handler: String,
+    pub delivery: ActionDelivery,
+    pub attempts: u32,
+    pub last_attempt: Option<u64>,
+    pub last_error: Option<String>,
+}
+
+crate::port_choices! {
+    /// Delivery progress is separate from the native action's result.
+    pub enum ActionDelivery {
+        Waiting = 0 => "waiting",
+        Queued = 1 => "queued",
+        Invoked = 2 => "invoked",
+        Acknowledged = 3 => "acknowledged",
+        Faulted = 4 => "faulted",
+        Quarantined = 5 => "quarantined",
+        Unbound = 6 => "unbound",
+        Retired = 7 => "retired",
+    }
 }
 
 /// Bounded retained history. `dropped` makes a delivery gap explicit.
@@ -100,7 +119,17 @@ crate::port_record! {
         subjects: Vec<String>,
     }
 }
-crate::port_record! { ActionJournalEntry { sequence: u64, result: ActionResult } }
+crate::port_record! {
+    ActionJournalEntry {
+        sequence: u64,
+        result: ActionResult,
+        handler: String,
+        delivery: ActionDelivery,
+        attempts: u32,
+        last_attempt: Option<u64>,
+        last_error: Option<String>,
+    }
+}
 crate::port_record! {
     ActionResults {
         next_sequence: u64,
@@ -108,6 +137,14 @@ crate::port_record! {
         entries: Vec<ActionJournalEntry>,
     }
 }
+
+/// Cancellation is a separate correlated action. Its refusal leaves the target unchanged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CancelAction {
+    pub ticket: ActionTicket,
+    pub reply: ReplyTo,
+}
+crate::port_record! { CancelAction { ticket: ActionTicket, reply: ReplyTo } }
 
 pub struct CancelActionPort;
 pub struct ActionResultPort;
@@ -125,7 +162,7 @@ impl Port for ActionResultPort {
     }
 }
 impl Port for ActionResultsPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.history", 1);
+    const KEY: PortKey = PortKey::new("ambition.actions.history", 2);
     const ROLE: PortRole = PortRole::Observation;
     type Value = ActionResults;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
@@ -138,12 +175,12 @@ impl Port for ActionResultsPort {
 crate::script_port!(ActionResultPort);
 crate::script_port!(ActionResultsPort);
 
-/// Cancel pending work in the caller's scope and module. Applied terminal
-/// work cannot be canceled. The domain checks the ticket before each change.
+/// Ask the native owner to cancel work in this scope and module. The request
+/// has its own result. A refusal does not change the target action.
 impl Port for CancelActionPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.cancel", 1);
+    const KEY: PortKey = PortKey::new("ambition.actions.cancel", 2);
     const ROLE: PortRole = PortRole::Request;
-    type Value = ActionTicket;
+    type Value = CancelAction;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
         crate::structure::put(value, out);
     }

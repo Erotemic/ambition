@@ -32,6 +32,7 @@ fn assert_room_census(expected: &RoomCensus, actual: &RoomCensus, phase: &str) {
 }
 
 fn record_replayed_room_frame(world: &mut bevy::prelude::World) {
+    if !world.contains_resource::<ScheduledRoomCrossing>() { return; }
     let frame = world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0;
     if !(20..=24).contains(&frame) { return; }
     let actual = room_census(world);
@@ -47,7 +48,8 @@ fn cross_inside_the_rollback_schedule(world: &mut bevy::prelude::World) {
     use ambition_platformer2d::runtime::room_transition::{
         finalize_room_transition, RoomTransitionApplication,
     };
-    if world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0 != 20 {
+    if !world.contains_resource::<ScheduledRoomCrossing>()
+        || world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0 != 20 {
         return;
     }
     let stored: std::collections::BTreeSet<_> = world.resource::<ambition_platformer2d::rollback::RollbackRegistry>()
@@ -91,7 +93,7 @@ fn replay_room_crossing(
     source: &str,
     destination: &str,
     expected_rooms: &[&str],
-) {
+) -> Platformer2dSimHarness {
     use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
     use ambition_platformer2d::runtime::room_transition::{
         begin_room_transition_load_system, RoomTransitionLoadState,
@@ -172,6 +174,86 @@ fn replay_room_crossing(
         "rollback replays the crossing frame");
     assert!(sim.world().resource::<ambition_platformer2d::rollback::RollbackExecutionStats>()
         .lifetime_load_runs > loads, "the real rollback load ran");
+    sim.world_mut().remove_resource::<ScheduledRoomCrossing>();
+    sim
+}
+
+#[test]
+fn scripted_room_state_restarts_on_reentry_and_replays_with_its_root() {
+    use ambition_platformer2d::{extension::{BodyRecords, SessionRecords, ExtensionFaults,
+        sdk::{FieldRef, SchemaKey, Value}}, platformer::lifecycle::RoomInstanceRoot};
+    const SCRIPT: &str = r#"
+fn declare() {
+    #{provider: "room_lifetime", key: "factory", schemas: [
+        #{key: "room", fields: [
+            #{tag: 1, name: "starts", kind: "u32"},
+            #{tag: 2, name: "created", kind: "u32"},
+            #{tag: 3, name: "actor", kind: "opt body"}]},
+        #{key: "session", attachment: "session", fields: [#{tag: 1, name: "visits", kind: "u32"}]}
+    ], entries: [
+        #{key: "source", phase: "actor_think", trigger: #{port: "story_tick", selector: "switch_lab"},
+          writes: ["room", "session"], requests: ["create_actors"], limit: 1},
+        #{key: "destination", phase: "actor_think", trigger: #{port: "story_tick", selector: "central_hub_complex"},
+          writes: ["room", "session"], requests: ["create_actors"], limit: 1},
+        #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}, writes: ["room"]}
+    ]}
+}
+fn enter(ctx) {
+    if ctx.state.room.starts > 0 { return ctx; }
+    ctx.state.room.starts += 1;
+    ctx.state.session.visits += 1;
+    let p = ctx.trigger.bodies[0].position;
+    for body in ctx.trigger.bodies { if body.driven { p = body.position; } }
+    ctx.requests.push(request("create_actors", #{
+        reply: #{request: 1, selector: "room_lifetime::factory/result"},
+        actors: [#{key: "practice", character: "practice_sandbag", at: [p[0] + 500.0, p[1] - 200.0]}]}));
+    ctx
+}
+fn source() { this = enter(this); }
+fn destination() { this = enter(this); }
+fn result() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage != "applied" { throw this.trigger.code; }
+    this.state.room.created += 1;
+    this.state.room.actor = this.trigger.subjects[0];
+}
+"#;
+    fn records(sim: &mut Platformer2dSimHarness, visits: u32) -> (Entity, String) {
+        let world = sim.world_mut();
+        let root = world.query_filtered::<Entity, With<RoomInstanceRoot>>().single(world).unwrap();
+        let room = world.get::<BodyRecords>(root).unwrap().get(&SchemaKey::new("room_lifetime", "room", 1)).unwrap();
+        assert_eq!(room.get(FieldRef(0)).unwrap(), &Value::U32(1));
+        assert_eq!(room.get(FieldRef(1)).unwrap(), &Value::U32(1));
+        let Value::Opt(Some(actor)) = room.get(FieldRef(2)).unwrap() else { panic!("the native creation replied"); };
+        let Value::Ref(actor) = actor.as_ref() else { panic!("the reply identifies a body"); };
+        let actor = actor.clone();
+        let session = world.query::<&SessionRecords>().single(world).unwrap()
+            .get(&SchemaKey::new("room_lifetime", "session", 1)).unwrap();
+        assert_eq!(session.get(FieldRef(0)).unwrap(), &Value::U32(visits));
+        assert_eq!(world.resource::<ExtensionFaults>().total, 0);
+        (root, actor)
+    }
+    let file = std::env::temp_dir().join(format!("ambition_room_lifetime_{}.rhai", std::process::id()));
+    std::fs::write(&file, SCRIPT).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab")
+            .with_extension_module_files(vec![file.clone()])
+            .with_sync_test_rollback_settings(4, 10),
+    ).unwrap();
+    sim.step_n(AgentAction::default(), 8);
+    let (first_root, first_actor) = records(&mut sim, 1);
+    let mut sim = replay_room_crossing(sim, "switch_lab", "central_hub_complex", &["central_hub_complex"]);
+    assert!(sim.world().get_entity(first_root).is_err());
+    let (second_root, second_actor) = records(&mut sim, 2);
+    assert_ne!(first_actor, second_actor);
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "switch_lab"), "switch_lab");
+    sim.step_n(AgentAction::default(), 12);
+    assert!(sim.world().get_entity(second_root).is_err());
+    let (_, third_actor) = records(&mut sim, 3);
+    assert_ne!(first_actor, third_actor);
+    assert_ne!(second_actor, third_actor);
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(file);
 }
 
 #[test]

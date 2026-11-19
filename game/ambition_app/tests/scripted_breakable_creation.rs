@@ -614,7 +614,7 @@ fn independent_room_creators_can_use_their_own_identity_ranges() {
         aabb: ae::Aabb::new(ae::Vec2::new(600.0, 100.0), ae::Vec2::new(20.0, 8.0)), spec}];
     let a = create_breakables(world, first, &objects, Default::default()).unwrap().remove(0);
     let b = create_breakables(world, second, &objects, Default::default()).unwrap().remove(0);
-    assert_eq!(a.id, b.id, "native identity is qualified by the live room");
+    assert_ne!(a.id, b.id, "room factories have separate creation namespaces");
     assert_ne!(a.entity, b.entity);
     assert_ne!(world.get::<InRoomInstance>(a.entity), world.get::<InRoomInstance>(b.entity));
     sim.step_n(AgentAction::default(), 2);

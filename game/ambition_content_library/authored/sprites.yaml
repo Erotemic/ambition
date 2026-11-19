@@ -22,26 +22,17 @@ collections:
 # Sheets whose baked pages the game still reads, so a part-first publish
 # (`build_sheet(parts=True)`) paints them as before. Keyed by sheet name: the
 # file stem before `_spritesheet`. Boss art: the boss road
-# (`ambition_sprite_sheet::boss`) loads a boss sheet's pages and the room
-# barrier waits on them, and most boss sheets name no character to draw their
-# parts (`BossSheetSpec::parts`); every file in `data/boss_art_keys.ron` is
-# here until bosses are drawn page-less (PF2b,
-# `docs/planning/engine/part-first-publication.md`).
+# (`ambition_sprite_sheet::boss`) draws a boss sheet page-less only through
+# the character its parts are drawn from (`BossSheetSpec::parts` in
+# `data/boss_sheets.ron`); a boss sheet with no such character, or no part
+# flipbook, is here (PF2b, `docs/planning/engine/part-first-publication.md`).
 baked_pages:
-  gradient_sentinel_boss: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  clockwork_warden_boss: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  hooded_sentinel_boss: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  mockingbird_boss_v2: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  smirking_behemoth_boss: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  giant_gnu: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  gnu_ton_scholar_boss: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  flying_spaghetti_monster_boss: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  trex_enemy: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  hunny_horror_boss: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  gram_reaper: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  wolfenstein: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  wolfenstein_inugami: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
-  bossofthegame_boss: "Boss art (boss_art_keys.ron); the boss road reads its pages (PF2b)."
+  clockwork_warden_boss: "Boss art (boss_art_keys.ron): no character draws its parts (no catalog row)."
+  hooded_sentinel_boss: "Boss art (boss_art_keys.ron): no character draws its parts (no catalog row)."
+  giant_gnu: "Boss art (boss_art_keys.ron): gnu_ton_boss's bespoke publish, a mount with hands."
+  gnu_ton_scholar_boss: "Boss art (boss_art_keys.ron): publishes no part flipbook."
+  gram_reaper: "Boss art (boss_art_keys.ron): publishes no part flipbook."
+  player_robot_v3: "Every LDtk world's PlayerStart tileset (`sprite_player_robot_v3`) is this page, and the runtime decodes it at boot; retarget it first (Q180 in docs/planning/awaiting-maintainer-decision.md)."
 
 static_props:
   shrine: shrine

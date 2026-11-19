@@ -209,6 +209,76 @@ def read_parts(path: Path) -> dict[str, Any]:
     }
 
 
+_NUM = r"-?[0-9.]+(?:e-?[0-9]+)?"
+_PART = re.compile(rf"\(name: {_STR}, page: (\d+), rect: \((\d+), (\d+), (\d+), (\d+)\), pivot: \(({_NUM}), ({_NUM})\)\)")
+_CLIP_OR_FRAME_OR_DRAW = re.compile(
+    rf'"(?P<clip>[^"]+)": \((?P<head>.*?)frames: \['
+    rf"|(?P<open>\[)"
+    rf"|\(part: (?P<part>\d+), at: \((?P<ax>{_NUM}), (?P<ay>{_NUM})\), rotation: (?P<rot>{_NUM}), "
+    rf"scale: \((?P<sx>{_NUM}), (?P<sy>{_NUM})\)(?:, track: \d+)?(?:, opacity: (?P<op>{_NUM}))?"
+    rf"(?:, tint: \((?P<tr>{_NUM}), (?P<tg>{_NUM}), (?P<tb>{_NUM})\))?\)",
+    re.S,
+)
+
+
+def read_part_draws(path: Path) -> dict[str, Any]:
+    """A part flipbook (`_parts.ron`) as the inspector page draws it: each
+    part's atlas rect and pivot, and each clip's frames of ordered draws.
+
+    A part is ``[page, x, y, w, h, pivot_x, pivot_y]`` in atlas texels; a draw
+    is ``[part, at_x, at_y, rotation, scale_x, scale_y, opacity, tint]`` with
+    the trailing defaults left out: ``at`` in published pixels from the feet,
+    the rotation in radians clockwise (+y down). A tier copy stores its parts
+    at ``texel_scale`` texels per published pixel."""
+    text = path.read_text()
+
+    def pair(name: str) -> list[float]:
+        m = re.search(rf"\b{name}: \(({_NUM}), ({_NUM})\)", text)
+        return [float(m.group(1)), float(m.group(2))] if m else [0.0, 0.0]
+
+    m = re.search(rf"\btexel_scale: ({_NUM})", text)
+    pages = re.search(r"\bpages: \[(.*?)\]", text, re.S)
+    parts = [[int(pg), int(x), int(y), int(w), int(h), float(px), float(py)]
+             for _name, pg, x, y, w, h, px, py in _PART.findall(text)]
+    start = text.find("clips: {")
+    end = text.find("baked_clips:", start)
+    clips: dict[str, Any] = {}
+    frames: list | None = None
+    for hit in _CLIP_OR_FRAME_OR_DRAW.finditer(text, start, end if end >= 0 else len(text)):
+        if hit.group("clip"):
+            head = hit.group("head")
+            duration = re.search(rf"frame_duration_s: ({_NUM})", head)
+            fade = re.search(r"frame_opacity: \[(.*?)\]", head, re.S)
+            clip: dict[str, Any] = {"s": float(duration.group(1)) if duration else 0.1, "frames": []}
+            if "tween: Linear" in head:
+                clip["tween"] = "linear"
+            if fade:
+                clip["opacity"] = [float(v) for v in re.findall(_NUM, fade.group(1))]
+            clips[hit.group("clip")] = clip
+            frames = clip["frames"]
+        elif hit.group("open") is not None:
+            if frames is not None:
+                frames.append([])
+        elif frames:
+            draw = [int(hit.group("part")), *(float(hit.group(k)) for k in ("ax", "ay", "rot", "sx", "sy"))]
+            opacity = float(hit.group("op")) if hit.group("op") else 1.0
+            tint = [float(hit.group(k)) for k in ("tr", "tg", "tb")] if hit.group("tr") else None
+            draw += [opacity, tint]
+            # Trailing defaults are left out: rotation 0, scale 1, opacity 1, no tint.
+            defaults = [0.0, 1.0, 1.0, 1.0, None]
+            while len(draw) > 3 and draw[-1] == defaults[len(draw) - 4]:
+                draw.pop()
+            frames[-1].append(draw)
+    return {
+        "frame": [int(v) for v in pair("frame_size")],
+        "feet": pair("feet_pixel"),
+        "texel_scale": float(m.group(1)) if m else 1.0,
+        "pages": re.findall(_STR, pages.group(1)) if pages else [],
+        "parts": parts,
+        "clips": clips,
+    }
+
+
 def read_body_rig(path: Path) -> dict[str, Any]:
     """The joints of a published body rig, each with its parent."""
     text = path.read_text()

@@ -19,10 +19,7 @@ impl PendingProjectileEmissions {
         self.0.retain(|emission| {
             !emission.request.reply.as_ref().is_some_and(|queued| {
                 queued.ticket == reply.ticket
-                    && queued.recipient.session == reply.recipient.session
-                    && queued.recipient.subject == reply.recipient.subject
-                    && (queued.recipient.subject.is_some()
-                        || queued.recipient.room == reply.recipient.room)
+                    && queued.recipient == reply.recipient
             })
         });
         self.0.len() != before
@@ -46,7 +43,7 @@ impl PendingProjectileEmissions {
             let request = &emission.request;
             wire::put_bool(&mut out, request.reply.is_some());
             if let Some(reply) = &request.reply {
-                wire::put_u32(&mut out, reply.recipient.room);
+                reply.recipient.occurrence.encode(&mut out);
                 wire::put_opt_str(&mut out, reply.recipient.subject.as_deref());
                 ambition_extension_sdk::structure::put(&reply.ticket, &mut out);
             }

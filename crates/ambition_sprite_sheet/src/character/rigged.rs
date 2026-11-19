@@ -825,6 +825,12 @@ impl RiggedSpriteAsset {
         true
     }
 
+    /// Whether any track of this flipbook is a face ([`is_expression_track`]):
+    /// without one, [`Self::face_as`] has nothing to change.
+    pub fn has_expression_tracks(&self) -> bool {
+        self.tracks.iter().any(|name| is_expression_track(name))
+    }
+
     /// Give the face of the draws in `out` the expression of frame `index` of
     /// `row`, and keep their pose: a body hit mid-move winces in the pose it
     /// has, and does not jump to the pose of its `hit` row (Jon, 2026-10-24:

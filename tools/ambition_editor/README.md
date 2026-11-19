@@ -171,7 +171,12 @@ queries. `inspect ID` also accepts a target, game label, tag, or source trait.
 evidence gaps when a query has no results.
 
 The build writes `.agent/asset_inspector/index.html`, its scripts, and previews.
-Open the page from disk. It needs no web server. `--no-previews` updates the
+Open the page from disk. It needs no web server. A sheet published part-first
+(no page, `drawn_from_parts`) has no strips: the page draws each frame from the
+part atlas and the draw table (`parts/<key>/draws.js`, loaded when the sheet is
+opened), as the game does, and the build draws its cover from parts. To look
+at such a sheet's every frame painted, run `scripts/regen/sprites.sh
+--reference --target <name>`. `--no-previews` updates the
 index and names preview paths without drawing new strips. `--jobs N` sets the
 preview process count, to a maximum of six. `--prune` removes unused previews.
 `--authorship` adds Git blame and model attribution. Normal status queries do

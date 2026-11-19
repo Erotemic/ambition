@@ -39,3 +39,4 @@ ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["conten
 # The world IR owns the gate portal rows; it does not link the content pack,
 # so its schema is registered here.
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

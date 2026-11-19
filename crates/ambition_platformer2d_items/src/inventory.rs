@@ -26,6 +26,8 @@ pub use ambition_items::transaction::{InventoryExchange, ExchangeApplied};
 pub const EXCHANGE_DOMAIN: &str = "inventory.exchange";
 
 pub fn install(app: &mut App) {
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, EXCHANGE_DOMAIN,
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     use ambition_extension_host::{
         InActorThink, InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick,
         InTechniqueExecution, InWieldedUse,

@@ -165,6 +165,77 @@ def sheet_task(spec: dict[str, Any]) -> str | None:
         return f"{spec['pages'][0] if spec['pages'] else '?'}: {type(ex).__name__}: {ex}"
 
 
+def part_frame(table: dict, atlas: list[Image.Image], clip: str, index: int) -> Image.Image:
+    """Frame ``index`` of ``clip`` drawn from a part flipbook (`sheets.read_part_draws`),
+    at the published frame size: what the page's part player draws."""
+    fw, fh = table["frame"]
+    feet, texel = table["feet"], table.get("texel_scale", 1.0)
+    canvas = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
+    entry = table["clips"].get(clip)
+    if not entry or not entry["frames"]:
+        return canvas
+    frame = entry["frames"][min(index, len(entry["frames"]) - 1)]
+    for draw in frame:
+        part, ax, ay, rotation, sx, sy, opacity, tint = (draw + [0.0, 1.0, 1.0, 1.0, None][len(draw) - 3:])[:8]
+        page, x, y, w, h, px, py = table["parts"][part]
+        image = atlas[page].crop((x, y, x + w, y + h))
+        if tint:
+            r, g, b, a = image.split()
+            image = Image.merge("RGBA", (*(c.point(lambda v, k=k: min(255, round(v * k))) for c, k in zip((r, g, b), tint)), a))
+        # A part texel p lands at feet + at + R S (p - pivot) / texel_scale; PIL asks the inverse.
+        c, s = math.cos(rotation), math.sin(rotation)
+        kx, ky = texel / sx, texel / sy
+        a_, b_, e_, f_ = kx * c, kx * s, -ky * s, ky * c
+        qx, qy = feet[0] + ax, feet[1] + ay
+        layer = image.convert("RGBa").transform(
+            (fw, fh), Image.Transform.AFFINE, (a_, b_, px - a_ * qx - b_ * qy, e_, f_, py - e_ * qx - f_ * qy),
+            Image.Resampling.BICUBIC,
+        ).convert("RGBA")
+        if opacity < 1.0:
+            layer.putalpha(layer.getchannel("A").point(lambda v: round(v * opacity)))
+        canvas.alpha_composite(layer)
+    fade = entry.get("opacity")
+    if fade and fade[min(index, len(fade) - 1)] < 1.0:
+        k = fade[min(index, len(fade) - 1)]
+        canvas.putalpha(canvas.getchannel("A").point(lambda v: round(v * k)))
+    return canvas
+
+
+def parts_task(spec: dict[str, Any]) -> str | None:
+    """A sheet drawn from parts (no page): write its draw table as a script
+    the page loads on demand, and draw its cover and subject camera from the
+    parts. Its animations are drawn by the page, from the part atlas."""
+    try:
+        from .sheets import read_part_draws
+
+        table = read_part_draws(Path(spec["table"]))
+        atlas = []
+        for path in spec["atlas"]:
+            with Image.open(path) as im:
+                atlas.append(im.convert("RGBA"))
+        script = Path(spec["script_dest"])
+        script.parent.mkdir(parents=True, exist_ok=True)
+        partial = script.with_suffix(f".{os.getpid()}.partial")
+        partial.write_text(f"(window.ART_PARTS = window.ART_PARTS || {{}})[{json.dumps(spec['script_key'])}] = "
+                           + json.dumps(table, separators=(",", ":")) + ";\n")
+        partial.replace(script)
+        cover = part_frame(table, atlas, spec["cover_row"], spec["cover_frame"])
+        covers = {}
+        neutral = cover.copy()
+        for dest, row in spec.get("covers", {}).items():
+            frames = len((table["clips"].get(row) or {"frames": []})["frames"])
+            covers[dest] = part_frame(table, atlas, row, frames // 2)
+            neutral.alpha_composite(covers[dest])
+        camera = subject_camera(neutral, spec.get("body"), spec.get("feet"), spec.get("parts", []))
+        _save(subject_frame(cover, camera, THUMB), Path(spec["cover_dest"]))
+        for dest, image in covers.items():
+            _save(subject_frame(image, camera, THUMB), Path(dest))
+        Path(spec["framing_dest"]).write_text(json.dumps(camera))
+        return None
+    except Exception as ex:  # noqa: BLE001
+        return f"{spec['table']}: {type(ex).__name__}: {ex}"
+
+
 def portrait_task(spec: dict[str, Any]) -> str | None:
     try:
         with Image.open(spec["image"]) as im:
@@ -190,6 +261,51 @@ def composite_task(layers: list[str], dest: str) -> str | None:
 
 
 COVER_ROWS = ("idle", "rest", "stand", "default", "neutral")
+
+
+def _plan_part_play(asset, layout, table, products, full_files, out_dir, rel, needed, framing_outputs) -> list:
+    """Name the previews of a sheet drawn from parts: its draw-table script,
+    its cover and its subject camera. The atlas pages are the published ones."""
+    names = sheets_part_pages(table.file)
+    atlas = [full_files.get(real(table.file.parent / name)) for name in names]
+    if not atlas or any(page is None for page in atlas):
+        asset.data.setdefault("errors", []).append("a part atlas page the part table names is not published")
+        return []
+    key = _key("part-play-v1", table.sha256, [p.sha256 for p in atlas], layout["frame"], layout.get("body_bbox"),
+               layout.get("body_parts"), layout.get("feet"), layout.get("cover_rows", []))
+    base = out_dir / "parts" / key
+    row_names = [r["name"] for r in layout["rows"]]
+    cover_row = next((n for n in COVER_ROWS if n in row_names), row_names[0])
+    cover_frame = next(r["frames"] for r in layout["rows"] if r["name"] == cover_row) // 2
+    cw, ch, _ = _cell(tuple(layout["frame"]))
+    layout["cell"] = [cw, ch]
+    script = base / "draws.js"
+    layout["part_play"] = {"script": rel(script), "key": key,
+                           "atlas": [os.path.relpath(p.file, out_dir) for p in atlas]}
+    framing_dest = base / "framing.json"
+    layout["framing"] = {"cell": [CELL, CELL], "metadata": rel(framing_dest)}
+    framing_outputs.append((layout["framing"], framing_dest))
+    cover_dest = base / "cover.webp"
+    covers = {str(base / f"cover-{row_names.index(name)}.webp"): name
+              for name in layout.get("cover_rows", []) if name in row_names}
+    layout["covers"] = {name: rel(Path(dest)) for dest, name in covers.items()}
+    asset.cover = rel(cover_dest)
+    if not (needed(script) or needed(cover_dest) or needed(framing_dest) or any(needed(Path(d)) for d in covers)):
+        return []
+    return [(parts_task, ({
+        "table": str(table.file), "atlas": [str(p.file) for p in atlas], "script_dest": str(script), "script_key": key,
+        "frame": layout["frame"], "cover_row": cover_row, "cover_frame": cover_frame, "cover_dest": str(cover_dest),
+        "covers": covers, "body": layout.get("body_bbox"), "feet": layout.get("feet"),
+        "parts": layout.get("body_parts", []), "framing_dest": str(framing_dest),
+    },))]
+
+
+def sheets_part_pages(path: Path) -> list[str]:
+    """The atlas page names a part table (`_parts.ron`) names."""
+    import re
+
+    m = re.search(r"\bpages: \[(.*?)\]", path.read_text(), re.S)
+    return re.findall(r'"([^"]+)"', m.group(1)) if m else []
 
 
 def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any], jobs: int, draw: bool = True) -> list[str]:
@@ -223,9 +339,16 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
                             if products[key].root.of is None and products[key].role in ("sheet_record", "sheet_layout"))
             pages = [full_files.get(real(metadata.file.parent / name)) for name in layout["pages"]]
             used = {rect[4] for row in layout["rows"] for rect in row["rects"]}
+            table = next((products[key] for key in asset.products
+                          if products[key].root.of is None and products[key].role == "parts_table"), None)
             if any(page >= len(pages) or pages[page] is None for page in used):
-                asset.data.setdefault("errors", []).append("a page the layout names is not published")
-                pages = []
+                if table is not None and not any(pages):
+                    # Published part-first: no page; the page plays the parts.
+                    tasks.extend(_plan_part_play(asset, layout, table, products, full_files, out_dir, rel, needed, framing_outputs))
+                    pages = []
+                else:
+                    asset.data.setdefault("errors", []).append("a page the layout names is not published")
+                    pages = []
             if pages:
                 format_key = "subject-view-v2"
                 key = _key(format_key, [p.sha256 if p else None for p in pages], layout["frame"], layout.get("body_bbox"),
@@ -315,10 +438,11 @@ def prune(out_dir: Path, products: dict[str, Any], assets: dict[str, Any]) -> in
             keep.add(row.get("strip"))
             keep.add(row.get("subject_strip"))
         keep.add((a.data.get("layout") or {}).get("framing", {}).get("metadata"))
+        keep.add(((a.data.get("layout") or {}).get("part_play") or {}).get("script"))
         for clip in (a.data.get("portraits") or {}).get("clips", {}).values():
             keep.add(clip.get("thumb"))
     removed = 0
-    for folder in ("thumbs", "strips", "portraits", "composites"):
+    for folder in ("thumbs", "strips", "parts", "portraits", "composites"):
         for dirpath, _dirs, files in os.walk(out_dir / folder):
             for name in files:
                 path = Path(dirpath) / name

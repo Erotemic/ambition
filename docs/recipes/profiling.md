@@ -78,14 +78,20 @@ is needed to run or test the game (`run_tests.py` falls back to plain
 `cargo test` when nextest is absent). Pass `--profile` when you intend to
 profile, or `--full` to add the sampled instrument libraries as well.
 
-Tracy is built rather than installed because Ubuntu does not package it, and
-it is pinned to the version read out of the `tracy-client-sys` crate the game
-actually links. That pin is not cosmetic: Tracy speaks a versioned wire
-protocol and a mismatched server does not warn — it silently refuses to
-connect. The headless `capture`/`csvexport` tools build from
-`build-essential` + `cmake` alone (~25s each); the GUI needs a desktop's worth
-of libraries and is attempted only when they are present, so its absence never
-costs you the CLI tools.
+The installer builds Tracy from source. It selects the version from the locked
+`tracy-client-sys` dependency.
+The collector and client must use the same protocol version. A mismatched
+collector reports a protocol error and saves no trace. The headless
+`capture`/`csvexport` tools need Git, a C++ toolchain, and CMake. The optional GUI
+needs additional desktop libraries.
+
+To install or repair only the Tracy CLI tools, run
+`./scripts/setup/install_profiling_tools.sh`. It uses one build job by default.
+Set `CMAKE_BUILD_PARALLEL_LEVEL` to select another job count.
+
+Use Rust's default linker for native Linux builds. Both Rust and native
+constructors must run. After a linker configuration change, rebuild the
+profiling binary. The first build can require a full rebuild of dependencies.
 
 Two layers of in-process instrumentation are wired in:
 
@@ -532,8 +538,8 @@ GUI listener.
 cargo run -p ambition_app --bin ambition_game_bin --features profile
 ```
 
-The binary will block on startup until Tracy connects (or proceed
-without if the GUI isn't running — your build, your call).
+The binary can collect zones before a collector connects. Start the collector
+before the game so it can drain those events.
 
 ### Collect a profile
 
@@ -541,6 +547,14 @@ Use `scripts/measure/profile_desktop.sh`. It starts `tracy-capture` before the g
 finalizes the trace when the game exits, then exports
 `tracy_zones.csv` + `tracy_summary.md` — a ranked table of zones by total time,
 count, mean, and max. No GUI, no connect button, no timing on your part.
+
+Zone instances stream directly into the window reducer. The bundle retains
+`tracy_zone_windows.csv`; it does not write the large per-instance CSV. To
+rebuild window totals from a saved trace, run this from the repository root:
+
+```bash
+tracy-csvexport --unwrap DIR/tracy.trace | python3 scripts/lib/tracy_zone_report.py DIR 1 --instances-stdin
+```
 
 The GUI is still there if you want it: open `tracy.trace` from the **local
 capture directory** in `tracy-profiler`. The default uploadable `.tar.gz`

@@ -28,6 +28,7 @@ pub const AI_SLOP_BRAIN_KEY: &str = "mary_o_ai_slop";
 
 fn entry(selector: &'static str) -> EntryDescriptor {
     EntryDescriptor {
+        replies: Vec::new(),
         key: selector.into(),
         phase: BODY_CONTACT,
         trigger: TriggerBinding { port: BodyContactPort::KEY, selector: selector.into() },

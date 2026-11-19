@@ -56,6 +56,7 @@ fn app() -> App {
         },
         schemas: vec![Seen::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "observe".into(),
             phase: HIT_REACTION,
             trigger: TriggerBinding {

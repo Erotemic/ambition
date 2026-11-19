@@ -320,7 +320,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 495 -> 496: object occurrence stamps and their room counters replace mailbox
 // identities. Mailboxes receive the occurrence when an action starts.
 // 496 -> 497: callback delivery retains attempts, fault status, and acknowledgement state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 497;
+// 497 -> 498: action mailboxes retain unreserved submission refusals.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 498;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

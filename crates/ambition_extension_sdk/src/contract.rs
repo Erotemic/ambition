@@ -63,6 +63,7 @@ impl ModuleDescriptor {
             compare(&mut differences, &format!("{path}.writes"), &a.writes, &b.writes);
             compare(&mut differences, &format!("{path}.requests"), &a.requests, &b.requests);
             compare(&mut differences, &format!("{path}.after"), &a.after, &b.after);
+            compare(&mut differences, &format!("{path}.replies"), &a.replies, &b.replies);
             compare(&mut differences, &format!("{path}.limits"), &a.limits, &b.limits);
             compare(&mut differences, &format!("{path}.idle"), &a.on_idle, &b.on_idle);
         }
@@ -83,6 +84,7 @@ fn normalized(module: &ModuleDescriptor) -> ModuleDescriptor {
         entry.requests.sort();
         entry.writes.sort();
         entry.after.sort();
+        entry.replies.sort();
         if let IdlePolicy::ResetStateExcept(keep) = &mut entry.on_idle {
             keep.sort();
         }
@@ -154,6 +156,7 @@ mod tests {
             code: CodeIdentity::StaticNative { build: Some([1; 32]), crate_name: "clock".into(), version: "1".into() },
             schemas: vec![schema.clone()],
             entries: vec![EntryDescriptor {
+                replies: Vec::new(),
                 key: "tick".into(), phase: phases::ACTOR_THINK,
                 trigger: TriggerBinding { port: PortKey::new("think", 1), selector: "clock".into() },
                 reads: vec![PortKey::new("view", 1), PortKey::new("target", 2)],

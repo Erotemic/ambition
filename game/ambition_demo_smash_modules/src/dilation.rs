@@ -62,6 +62,7 @@ pub fn module() -> ModuleDescriptor {
         schemas: vec![Clock::schema()],
         entries: vec![
             EntryDescriptor {
+                replies: Vec::new(),
                 key: TICK.into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: StatusTickPort::KEY, selector: DILATED.into() },
@@ -74,6 +75,7 @@ pub fn module() -> ModuleDescriptor {
                 run: EntryCode::Native(spend),
             },
             EntryDescriptor {
+                replies: Vec::new(),
                 key: DILATION.into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: FighterSpecialPort::KEY, selector: TIME_DILATION.into() },

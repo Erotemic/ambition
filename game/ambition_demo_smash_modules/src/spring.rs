@@ -56,6 +56,7 @@ pub fn module() -> ModuleDescriptor {
         schemas: vec![Plate::schema()],
         entries: vec![
             EntryDescriptor {
+                replies: Vec::new(),
                 key: PLACE_SPRING.into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: FighterSpecialPort::KEY, selector: PLACE_SPRING.into() },
@@ -68,6 +69,7 @@ pub fn module() -> ModuleDescriptor {
                 run: EntryCode::Native(drop_plate),
             },
             EntryDescriptor {
+                replies: Vec::new(),
                 key: PLATE.into(),
                 phase: MODULE_ENTITY_TICK,
                 trigger: TriggerBinding { port: ModuleEntityTickPort::KEY, selector: PLATE.into() },

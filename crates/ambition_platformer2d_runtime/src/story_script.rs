@@ -152,12 +152,11 @@ fn queue_story_ticks(
 
 fn lower_commands(world: &mut World) {
     use ambition_platformer2d_shared_tangle::action_results::publish_action_result;
-    use ambition_extension_sdk::{action::ActionStage, digest::Digest};
+    use ambition_extension_sdk::action::ActionStage;
     let submitted: Vec<_> = world.resource_mut::<ExtensionOutbox>().drain::<StoryCommandPort>(&ACTOR_THINK);
     for submitted in submitted {
-        let signature = Digest::new().str(&submitted.value.line).finish();
-        let dispatch = crate::action_replies::begin(world, submitted.scope, &submitted.entry,
-            "authored.command", submitted.value.reply.as_ref(), signature);
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<StoryCommandPort>(
+            world, submitted.scope, &submitted.entry, &submitted.value);
         if !dispatch.execute { continue; }
         let room = world.get::<LiveRoomInstance>(submitted.scope).copied()
             .or_else(|| world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(submitted.scope).map(|at| at.0));

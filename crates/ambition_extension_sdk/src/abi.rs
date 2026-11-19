@@ -1,4 +1,4 @@
-//! The loaded-module ABI, `ambition-ext-1`: the bytes a host and a guest
+//! The loaded-module ABI, `ambition-ext-2`: the bytes a host and a guest
 //! exchange, and the guest half that runs an entry from them.
 //!
 //! A guest exports three functions and its linear memory:
@@ -27,11 +27,12 @@ use crate::wire::{self, WireReader, WireError};
 use crate::{Fault, Invocation};
 
 /// The ABI name a loaded module's code identity records.
-pub const ABI: &str = "ambition-ext-1";
+pub const ABI: &str = "ambition-ext-2";
 
 /// The module list a guest publishes.
 pub fn describe(modules: &[ModuleDescriptor]) -> Vec<u8> {
     let mut out = Vec::new();
+    wire::put_str(&mut out, ABI);
     wire::put_u32(&mut out, modules.len() as u32);
     for module in modules {
         module.put(&mut out);
@@ -42,6 +43,7 @@ pub fn describe(modules: &[ModuleDescriptor]) -> Vec<u8> {
 /// Decode a guest's module list.
 pub fn read_description(bytes: &[u8]) -> Result<Vec<ModuleDescriptor>, WireError> {
     wire::decode_all(bytes, |r| {
+        if r.str()? != ABI { return Err(WireError::UnsupportedAbi); }
         let n = r.read_len()?;
         (0..n).map(|_| ModuleDescriptor::read(r, ABI)).collect()
     })
@@ -253,7 +255,7 @@ fn invoke_run(
     Ok(out)
 }
 
-/// Write the `ambition-ext-1` exports for a function that lists this
+/// Write the `ambition-ext-2` exports for a function that lists this
 /// crate's modules. It expands to nothing except on `wasm32`.
 ///
 /// ```ignore

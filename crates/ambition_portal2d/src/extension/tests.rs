@@ -96,6 +96,7 @@ fn app() -> App {
             code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
             schemas: vec![],
             entries: vec![EntryDescriptor {
+                replies: Vec::new(),
                 key: "conduct".into(),
                 phase: BOSS_CONDUCT,
                 trigger: TriggerBinding { port: Poke::KEY, selector: "go".into() },
@@ -268,6 +269,7 @@ fn line_app() -> App {
             code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
             schemas: vec![],
             entries: vec![EntryDescriptor {
+                replies: Vec::new(),
                 key: "conduct".into(),
                 phase: BOSS_CONDUCT,
                 trigger: TriggerBinding { port: LinePoke::KEY, selector: "go".into() },
@@ -449,6 +451,7 @@ fn two_phase_app() -> App {
             code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
             schemas: vec![],
             entries: vec![EntryDescriptor {
+                replies: Vec::new(),
                 key: "open".into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: MovePoke::KEY, selector: "go".into() },
@@ -460,6 +463,7 @@ fn two_phase_app() -> App {
                 on_idle: IdlePolicy::Invoke,
                 run: EntryCode::Native(ask_move_pair),
             }, EntryDescriptor {
+                replies: Vec::new(),
                 key: "keep".into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: MovePoke::KEY, selector: "keep".into() },

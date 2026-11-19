@@ -66,6 +66,7 @@ pub fn module() -> ModuleDescriptor {
         schemas: vec![Mark::schema()],
         entries: vec![
             EntryDescriptor {
+                replies: Vec::new(),
                 key: TICK.into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: StatusTickPort::KEY, selector: MARKED.into() },
@@ -78,6 +79,7 @@ pub fn module() -> ModuleDescriptor {
                 run: EntryCode::Native(tick),
             },
             EntryDescriptor {
+                replies: Vec::new(),
                 key: MARK_BODY.into(),
                 phase: HIT_REACTION,
                 trigger: TriggerBinding { port: StruckPort::KEY, selector: MARK_BODY.into() },

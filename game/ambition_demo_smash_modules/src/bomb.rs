@@ -51,6 +51,7 @@ pub fn module() -> ModuleDescriptor {
         schemas: vec![Fuse::schema()],
         entries: vec![
             EntryDescriptor {
+                replies: Vec::new(),
                 key: DROP_BOMB.into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: FighterSpecialPort::KEY, selector: DROP_BOMB.into() },
@@ -63,6 +64,7 @@ pub fn module() -> ModuleDescriptor {
                 run: EntryCode::Native(drop_bomb),
             },
             EntryDescriptor {
+                replies: Vec::new(),
                 key: BOMB.into(),
                 phase: MODULE_ENTITY_TICK,
                 trigger: TriggerBinding { port: ModuleEntityTickPort::KEY, selector: BOMB.into() },

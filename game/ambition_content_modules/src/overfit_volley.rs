@@ -44,6 +44,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: vec![Volley::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "volley".into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding {

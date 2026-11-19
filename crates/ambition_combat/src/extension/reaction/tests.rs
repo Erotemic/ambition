@@ -65,6 +65,7 @@ fn app() -> App {
         schemas: vec![Seen::schema()],
         entries: vec![
             EntryDescriptor {
+                replies: Vec::new(),
                 key: "answer".into(),
                 phase: HIT_REACTION,
                 trigger: TriggerBinding { port: ParriedPort::KEY, selector: STANCE.into() },
@@ -77,6 +78,7 @@ fn app() -> App {
                 run: EntryCode::Native(answer),
             },
             EntryDescriptor {
+                replies: Vec::new(),
                 key: "struck".into(),
                 phase: HIT_REACTION,
                 trigger: TriggerBinding { port: StruckPort::KEY, selector: EFFECT.into() },

@@ -46,7 +46,7 @@ pub use exec::{
     InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick, InTechniqueExecution,
     InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn, PendingInvocation, ScopePace,
     Submitted, Supplier, ObservationContext, ExtensionProfile, EntryProfile,
-    InvocationReceipt, InvocationEvent,
+    InvocationReceipt, InvocationEvent, ActionRefusalHandler,
 };
 pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
 
@@ -183,7 +183,8 @@ struct ExtensionInstallation {
     save_roads: BTreeSet<SaveRoad>,
     suppliers:
         HashMap<ambition_extension_sdk::PortKey, (Supplier, ambition_extension_sdk::EncodeFn)>,
-    request_decoders: HashMap<ambition_extension_sdk::PortKey, ambition_extension_sdk::DecodeFn>,
+    request_codecs: HashMap<ambition_extension_sdk::PortKey, exec::RequestCodec>,
+    refuse_action: Option<ActionRefusalHandler>,
     modules: Vec<DeclaredModule>,
     /// Loaded files that bind to the linked modules at admission.
     bound: Vec<(Arc<str>, BindArtifact)>,
@@ -298,7 +299,8 @@ pub fn admit_world(world: &mut World) {
     world.init_resource::<reload::StagedModuleReplacement>();
     world.insert_resource(InstalledPortCodecs {
         suppliers: Arc::new(installation.suppliers),
-        request_decoders: Arc::new(installation.request_decoders),
+        request_codecs: Arc::new(installation.request_codecs),
+        refuse_action: installation.refuse_action,
     });
     world.insert_resource(AdmittedExtensions(Arc::new(admitted)));
 }
@@ -310,6 +312,9 @@ pub trait ExtensionAppExt {
     /// installs its ports only where this holds; its modules are then not
     /// admitted either.
     fn has_extension_host(&self) -> bool;
+
+    /// Record refused action submissions before state and requests commit.
+    fn install_action_refusal_handler(&mut self, handler: ActionRefusalHandler) -> &mut Self;
 
     /// Install trigger port `P` in `phase`, with the adapter system that
     /// queues its invocations. The system runs in `ExtensionSet::Collect`.
@@ -547,8 +552,8 @@ fn install_request<'a, P: Port, M>(
         .offers
         .push(offer::<P>(PortRole::Request, phase.clone(), owner));
     installation
-        .request_decoders
-        .insert(P::KEY, ambition_extension_sdk::decode_erased::<P>);
+        .request_codecs
+        .insert(P::KEY, exec::RequestCodec::of::<P>());
     let previous = installation
         .last_request
         .insert((phase.clone(), stage), P::KEY);
@@ -578,6 +583,13 @@ fn install_request<'a, P: Port, M>(
 }
 
 impl ExtensionAppExt for App {
+    fn install_action_refusal_handler(&mut self, handler: ActionRefusalHandler) -> &mut Self {
+        let (_, mut installation) = installation(self);
+        assert!(installation.refuse_action.is_none(), "action refusals have one native owner");
+        installation.refuse_action = Some(handler);
+        self
+    }
+
     fn has_extension_host(&self) -> bool {
         self.world().contains_resource::<ExtensionSchedule>()
     }
@@ -622,8 +634,8 @@ impl ExtensionAppExt for App {
             .offers
             .push(offer::<P>(PortRole::Request, phase.clone(), owner));
         installation
-            .request_decoders
-            .insert(P::KEY, ambition_extension_sdk::decode_erased::<P>);
+            .request_codecs
+            .insert(P::KEY, exec::RequestCodec::of::<P>());
         ensure_phase(self, schedule, &phase);
         self
     }

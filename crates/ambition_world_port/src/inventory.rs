@@ -40,6 +40,9 @@ impl Port for InventoryExchangePort {
     const KEY: PortKey = PortKey::new("ambition.world.inventory_exchange", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = InventoryExchange;
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(value, "inventory.exchange", &value.reply))
+    }
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
         ambition_extension_sdk::structure::put(value, out);
     }

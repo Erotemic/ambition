@@ -39,7 +39,7 @@ pub const DEFAULT_FUEL: u64 = 20_000_000;
 pub enum LoadError {
     /// The bytes are not a valid module.
     Compile(String),
-    /// The module does not have the `ambition-ext-1` exports, or imports
+    /// The module does not have the `ambition-ext-2` exports, or imports
     /// something.
     Abi(String),
     /// `amb_describe` failed or returned bytes that do not decode.
@@ -250,16 +250,18 @@ mod tests {
     /// Fuel ends a runaway entry with a fault, the same on every machine.
     #[test]
     fn an_entry_that_never_returns_runs_out_of_fuel() {
-        let wat = r#"(module
+        let description = abi::describe(&[]);
+        let data: String = description.iter().map(|byte| format!("\\{byte:02x}")).collect();
+        let wat = format!(r#"(module
             (memory (export "memory") 1)
+            (data (i32.const 0) "{data}")
             (func (export "amb_alloc") (param i32) (result i32) (i32.const 1024))
             (func (export "amb_describe") (result i64)
-                ;; zero modules: four zero bytes at offset 0
-                (i64.const 4))
+                (i64.const {length}))
             (func (export "amb_invoke") (param i32 i32 i32 i32) (result i64)
                 (loop $forever (br $forever))
-                (i64.const 0)))"#;
-        let bytes = wat::parse_str(wat).unwrap();
+                (i64.const 0)))"#, length = description.len());
+        let bytes = wat::parse_str(&wat).unwrap();
         let (modules, described) = WasmModules::load_with_fuel(&bytes, 10_000).unwrap();
         assert!(described.is_empty());
         let fault = modules.invoke(0, 0, &[]).unwrap_err();

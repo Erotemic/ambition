@@ -108,11 +108,12 @@ ambition_extension_sdk::port_record! {
 }
 
 macro_rules! story_port {
-    ($port:ty, $key:literal, $role:ident, $value:ty, $version:literal) => {
+    ($port:ty, $key:literal, $role:ident, $value:ty, $version:literal $(, $action:item)?) => {
         impl Port for $port {
             const KEY: PortKey = PortKey::new($key, $version);
             const ROLE: PortRole = PortRole::$role;
             type Value = $value;
+            $($action)?
             fn encode(value: &Self::Value, out: &mut Vec<u8>) {
                 ambition_extension_sdk::structure::put(value, out)
             }
@@ -129,7 +130,11 @@ story_port!(
     "ambition.story.command",
     Request,
     StoryCommand,
-    2
+    2,
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(
+            value, "authored.command", value.reply.as_ref()?))
+    }
 );
 story_port!(
     PlayCutscenePort,

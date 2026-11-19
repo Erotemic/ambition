@@ -2,7 +2,7 @@
 
 use ambition_breakables::creation::{BreakableCreationLimits, RuntimeBreakable};
 use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox, LowersIn};
-use ambition_extension_sdk::{action::ActionStage, Port};
+use ambition_extension_sdk::action::ActionStage;
 use ambition_platformer2d_shared_tangle::action_results::publish_action_result;
 use ambition_platformer2d_world::governing_rules::RulesOf;
 use ambition_world_port::breakables::*;
@@ -43,16 +43,8 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
     let rules = rules.get_or_insert_with(|| SystemState::new(world));
     for submitted in submitted {
         let request = submitted.value;
-        let mut bytes = Vec::new();
-        CreateBreakablesPort::encode(&request, &mut bytes);
-        let dispatch = crate::action_replies::begin(
-            world,
-            submitted.scope,
-            &submitted.entry,
-            "world.create_breakables",
-            Some(&request.reply),
-            ambition_extension_sdk::digest::digest_bytes(&bytes),
-        );
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CreateBreakablesPort>(
+            world, submitted.scope, &submitted.entry, &request);
         if !dispatch.execute {
             continue;
         }

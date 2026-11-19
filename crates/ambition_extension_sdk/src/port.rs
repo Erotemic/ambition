@@ -65,6 +65,13 @@ pub trait Port: 'static {
     const ROLE: PortRole;
     type Value: 'static + Send + Sync;
 
+    /// Action ports expose their correlation before the host commits output.
+    fn action(value: &Self::Value) -> Option<crate::action::ActionSubmission<'_>> {
+        let _ = value;
+        None
+    }
+
+
     /// The value's wire encoding (see [`crate::wire`]). A loaded module and
     /// the host exchange these bytes; the encoding is part of the port's
     /// version.

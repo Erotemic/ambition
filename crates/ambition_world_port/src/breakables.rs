@@ -69,6 +69,9 @@ impl Port for CreateBreakablesPort {
     const KEY: PortKey = PortKey::new("ambition.world.create_breakables", 1);
     const ROLE: PortRole = PortRole::Request;
     type Value = CreateBreakables;
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(value, "world.create_breakables", &value.reply))
+    }
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
         ambition_extension_sdk::structure::put(value, out);
     }

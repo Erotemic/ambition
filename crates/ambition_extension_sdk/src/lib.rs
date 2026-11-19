@@ -57,7 +57,7 @@ pub struct ApiVersion {
 
 /// The API version of this SDK. A module records the version it was built
 /// against in its descriptor.
-pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 2 };
+pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 3 };
 
 /// A name in a descriptor. Static modules use `&'static str`; a loaded module
 /// can own its strings.

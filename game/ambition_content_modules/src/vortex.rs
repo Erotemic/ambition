@@ -49,6 +49,7 @@ pub fn module() -> ModuleDescriptor {
     module.entries[0].key = "cast".into();
     module.schemas.push(Well::schema());
     module.entries.push(EntryDescriptor {
+        replies: Vec::new(),
         key: "well".into(),
         phase: MODULE_ENTITY_TICK,
         trigger: TriggerBinding {

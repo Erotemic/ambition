@@ -89,5 +89,5 @@ pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {
 }
 
 // Built for `wasm32-unknown-unknown`, this crate is a loaded module file
-// (`ambition-ext-1`): `scripts/regen/build_extension_modules.sh`.
+// (`ambition-ext-2`): `scripts/regen/build_extension_modules.sh`.
 ambition_extension_sdk::export_modules!(list: crate::MODULES);

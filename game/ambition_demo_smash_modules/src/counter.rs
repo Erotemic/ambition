@@ -41,6 +41,7 @@ pub fn module() -> ModuleDescriptor {
         schemas: Vec::new(),
         entries: vec![
             EntryDescriptor {
+                replies: Vec::new(),
                 key: COUNTER.into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: FighterSpecialPort::KEY, selector: COUNTER.into() },
@@ -53,6 +54,7 @@ pub fn module() -> ModuleDescriptor {
                 run: EntryCode::Native(stance),
             },
             EntryDescriptor {
+                replies: Vec::new(),
                 key: ANSWER.into(),
                 phase: HIT_REACTION,
                 trigger: TriggerBinding { port: ParriedPort::KEY, selector: COUNTER.into() },

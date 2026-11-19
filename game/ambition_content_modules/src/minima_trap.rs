@@ -45,6 +45,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: vec![strike::once_schema(STRIKE), strike::number_schema(NUMBER)],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "trap".into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding {

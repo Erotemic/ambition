@@ -51,6 +51,25 @@ pub struct ActionResult {
 pub struct ActionJournalEntry {
     pub sequence: u64,
     pub result: ActionResult,
+    pub handler: String,
+    pub delivery: ActionDelivery,
+    pub attempts: u32,
+    pub last_attempt: Option<u64>,
+    pub last_error: Option<String>,
+}
+
+crate::port_choices! {
+    /// Delivery progress is separate from the native action's result.
+    pub enum ActionDelivery {
+        Waiting = 0 => "waiting",
+        Queued = 1 => "queued",
+        Invoked = 2 => "invoked",
+        Acknowledged = 3 => "acknowledged",
+        Faulted = 4 => "faulted",
+        Quarantined = 5 => "quarantined",
+        Unbound = 6 => "unbound",
+        Retired = 7 => "retired",
+    }
 }
 
 /// Bounded retained history. `dropped` makes a delivery gap explicit.
@@ -100,7 +119,17 @@ crate::port_record! {
         subjects: Vec<String>,
     }
 }
-crate::port_record! { ActionJournalEntry { sequence: u64, result: ActionResult } }
+crate::port_record! {
+    ActionJournalEntry {
+        sequence: u64,
+        result: ActionResult,
+        handler: String,
+        delivery: ActionDelivery,
+        attempts: u32,
+        last_attempt: Option<u64>,
+        last_error: Option<String>,
+    }
+}
 crate::port_record! {
     ActionResults {
         next_sequence: u64,
@@ -125,7 +154,7 @@ impl Port for ActionResultPort {
     }
 }
 impl Port for ActionResultsPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.history", 1);
+    const KEY: PortKey = PortKey::new("ambition.actions.history", 2);
     const ROLE: PortRole = PortRole::Observation;
     type Value = ActionResults;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {

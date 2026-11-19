@@ -439,3 +439,44 @@ test and all 53 absence contracts also pass. See [state lifetime](../../sdk/scri
 Do not clear only script records when a native owner retires. All attached
 observer state must follow the same lifetime. General object activation,
 event routing, durable dynamic objects, custody, and travel outcomes remain open.
+
+## Object occurrence routing receipt
+
+Commit: `9bbb0e72e`. Authored IDs could collide across live rooms, and the two
+reply APIs examined different recipient populations. Both APIs now use the
+same session and native `ObjectOccurrence` stamp. The stamp retains its
+allocation namespace through travel. Retirement removes it, and rollback
+reconstruction restores it. A replacement receives a different stamp.
+Mailbox state no longer owns object identity. Body-query results still report
+the current room. Snapshot schema 496 includes the stamp and its room counter.
+
+Guard: the native routing test checks both APIs, equal IDs, a non-mailbox
+duplicate, travel, retirement, and snapshot reconstruction. The loaded
+`equal_authored_object_ids_receive_independent_replies_after_travel_and_rollback`
+fixture passes through GGRS. The existing action fixture, schema checks, 349
+shared-domain tests, 15 query/projectile owner tests, assembled app check, and
+53 absence contracts pass.
+
+Do not use an authored ID or current room as an object lifetime. Callback
+acknowledgement is recorded below. Cancellation, callback diagnostics, atomic
+creation, and the contact-cost measurement remain open in the substrate queue.
+
+## Action callback acknowledgement receipt
+
+Commit: `324f9604b`. Queuing a callback marked it delivered before its handler
+ran. The host now acknowledges delivery after state and requests commit.
+Faults retry under room rules, then retain a quarantined row. An explicit retry
+can recover its terminal callback without repeating native work. History port
+version 2 exposes delivery state and attempts. Snapshot schema 497 retains
+this state. Full VM error text stays outside canonical state.
+
+Guard: the loaded Rhai fixture faults, reaches quarantine, publishes a repaired
+script, and applies its callback once without another native creation. It runs
+with GGRS under local session ownership. The held-room and occurrence fixtures
+also pass. Executed checks: 7 loaded action/schema tests, 350 shared tests,
+47 host tests, 18 SDK tests, assembled app and wasm32 SDK checks, 53 absence
+contracts, and doc links. Workspace policy has the same 11 baseline violations
+in two failing tests. No full workspace or demo sweep was run for this change.
+
+Do not acknowledge a callback before the host commit. Do not put local VM
+error text in rollback state. The object and event model remains open.

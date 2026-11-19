@@ -76,8 +76,9 @@ This support does not add results to every other request port. In particular,
 
 Use a new, increasing `u32` request number for each action from one submitting
 entry and domain in one scope. Retrying the same number with the same request
-joins its pending work or repeats its retained terminal reply. It never applies
-the action again. Reusing a number for different work is rejected. An expired
+joins its pending work. For a quarantined terminal callback, it starts another
+bounded set of delivery attempts. It does not call an acknowledged handler or
+apply the action again. Reusing a number for different work is rejected. An expired
 old number is also rejected.
 
 The ticket includes the submitting entry, native domain, request number,
@@ -102,12 +103,43 @@ terminal applied action cannot be canceled.
 
 Results become eligible in the next `actor_think` read cut after their publish
 tick. A held room does not consume its replies. Canonical snapshots contain the
-pending actions, caller sequence, history, and delivery cursor. Rewind restores
-all of them.
+pending actions, caller sequence, history, and delivery state. Rewind restores
+all of them. Queuing a callback does not acknowledge it. The host acknowledges
+it only after its state and staged requests commit. A handler fault commits
+neither state nor requests.
+
+Each history row exposes `handler`, `delivery`, `attempts`, `last_attempt`, and
+`last_error`. Delivery has these states:
+
+| State | Meaning |
+| --- | --- |
+| `waiting` | The result awaits a later read cut. |
+| `queued` | The host has a directed invocation for this row. |
+| `invoked` | The host started the handler. |
+| `acknowledged` | Handler state and requests committed. |
+| `faulted` | The handler failed and can retry on a later tick. |
+| `quarantined` | The handler reached its attempt limit. Explicit retry is required. |
+| `unbound` | The destination is absent. Rebinding permits delivery without a new action. |
+| `retired` | The submitting entry left the composition. Delivery has stopped. |
+
+`action_delivery_rules` sets positive `max_attempts` and `max_per_tick` budgets.
+The defaults are three attempts per row and 64 queued callbacks per scope per
+tick. Ambition declares these rules in its content pack. A fault retries at
+most once per row per tick. Quarantine retains the result for inspection.
+Resubmit the same request after repair to retry its quarantined terminal
+callback. This does not repeat native work. An acknowledged row stays
+acknowledged across code replacement and request retries.
+
+Canonical `last_error` values are fixed codes, such as `handler_fault` and
+`reply_entry_unbound`. Full VM errors remain in the local `ExtensionFaults`
+diagnostic. Its `receipt_sequence`, scope, and entry identify the failed row.
+Local paths in an error do not become rollback state.
 
 A scope retains 64 result rows and admits at most 32 pending actions. The
 `action_history` observation contains the retained rows, their sequence numbers,
-and a count of dropped rows. Scripts that need recovery can inspect that count
+and a count of dropped rows. New rows first replace an acknowledged or retired
+row. If neither exists, they replace the oldest row and increase the dropped
+count. Scripts that need recovery can inspect that count
 and reconcile with the domain's current state.
 
 Code replacement retains replies when their source entry remains installed.

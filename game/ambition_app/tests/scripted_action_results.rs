@@ -160,6 +160,90 @@ fn result() {
 }
 
 #[test]
+fn a_faulted_reply_is_quarantined_then_repaired_without_repeating_creation() {
+    use ambition_platformer2d::{extension::{ExtensionGeneration, sdk::action::{ActionDelivery, ActionStage}},
+        platformer::{action_results::{ActionMailbox, ActionDeliveryPolicy}, lifecycle::RoomInstanceRoot, sim_id::SimIdCounter},
+        world::governing_rules::RulesOf};
+    const SCRIPT: &str = r#"
+const RETRY_DELIVERY = false;
+fn declare() {
+    #{provider: "delivery_probe", key: "factory", schemas: [#{key: "memory", fields: [
+        #{tag: 1, name: "sent", kind: "bool"}, #{tag: 2, name: "completed", kind: "u32"}]}],
+      entries: [
+        #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "switch_lab"},
+          reads: ["action_history"], writes: ["memory"], requests: ["create_breakables"], limit: 1},
+        #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"},
+          writes: ["memory"], requests: ["story_command"], limit: 1}]}
+}
+fn make_request() {
+    request("create_breakables", #{reply: #{request: 1, selector: "delivery_probe::factory/result"},
+        objects: [#{key: "cache", at: [600.0, 200.0], size: [32.0, 16.0], health: 2}]})
+}
+fn tick() {
+    if !this.state.memory.sent {
+        this.state.memory.sent = true;
+        this.requests.push(make_request());
+        return;
+    }
+    if !global::RETRY_DELIVERY { return; }
+    for row in this.observe.action_history.entries {
+        if row.result.terminal && row.result.ticket.domain == "world.create_breakables" && row.delivery == "quarantined" {
+            this.requests.push(make_request());
+            return;
+        }
+    }
+}
+fn result() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage != "applied" { throw this.trigger.code; }
+    this.state.memory.completed += 1;
+    this.requests.push(request("story_command", #{line: "world.set_flag delivery_handler_effect true"}));
+    throw "delivery_probe_failed";
+}
+"#;
+    let file = std::env::temp_dir().join(format!("ambition_delivery_repair_{}.rhai", std::process::id()));
+    std::fs::write(&file, SCRIPT).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab").with_extension_module_files(vec![file.clone()])
+            .with_sync_test_rollback_settings(4, 12)).unwrap();
+    crate::common::hand_the_timeline_to_the_local_maintainer(&mut sim);
+    sim.step_n(AgentAction::default(), 30);
+    sim.rollback_health().unwrap();
+    let world = sim.world_mut();
+    let root = world.query_filtered::<Entity, With<RoomInstanceRoot>>().single(world).unwrap();
+    let mut policies = bevy::ecs::system::SystemState::<RulesOf<ActionDeliveryPolicy>>::new(world);
+    let policy = *policies.get(world).unwrap().of(root).unwrap();
+    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    let original = history.entries.iter().find(|row| row.result.stage == ActionStage::Applied).unwrap().clone();
+    assert_eq!(original.delivery, ActionDelivery::Quarantined);
+    assert_eq!(original.attempts, policy.max_attempts.get());
+    assert_eq!(original.last_error.as_deref(), Some("handler_fault"));
+    assert_eq!(original.handler, "delivery_probe::factory/result");
+    assert!(world.resource::<ExtensionFaults>().recent.iter()
+        .any(|fault| fault.receipt_sequence == Some(original.sequence)));
+    let key = SchemaKey::new("delivery_probe", "memory", 1);
+    assert_eq!(world.get::<BodyRecords>(root).unwrap().get(&key).unwrap().get(FieldRef(1)).unwrap(), &Value::U32(0));
+    assert!(!world.resource::<ambition_platformer2d::session::AmbitionGameSave>().data().flag("delivery_handler_effect"));
+    let counter = world.get::<SimIdCounter>(root).unwrap().0;
+    let generation = world.resource::<ExtensionGeneration>().clone();
+    std::fs::write(&file, SCRIPT.replace("const RETRY_DELIVERY = false;", "const RETRY_DELIVERY = true;")
+        .replace("throw \"delivery_probe_failed\";", "")).unwrap();
+    sim.step_n(AgentAction::default(), 60);
+    sim.rollback_health().unwrap();
+    let world = sim.world();
+    assert!(*world.resource::<ExtensionGeneration>() != generation, "the repaired script must publish");
+    assert_eq!(world.get::<SimIdCounter>(root).unwrap().0, counter);
+    assert_eq!(world.get::<BodyRecords>(root).unwrap().get(&key).unwrap().get(FieldRef(1)).unwrap(), &Value::U32(1));
+    assert!(world.resource::<ambition_platformer2d::session::AmbitionGameSave>().data().flag("delivery_handler_effect"));
+    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    let applied: Vec<_> = history.entries.iter().filter(|row| row.result.stage == ActionStage::Applied).collect();
+    assert_eq!(applied.len(), 1);
+    assert_eq!(applied[0].sequence, original.sequence);
+    assert_eq!(applied[0].delivery, ActionDelivery::Acknowledged);
+    let _ = std::fs::remove_file(file);
+}
+
+#[test]
 fn scripts_receive_native_application_and_refusal_in_the_asking_scope_after_rewind() {
     let dir = std::env::temp_dir().join(format!("ambition_action_results_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

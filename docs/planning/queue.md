@@ -1882,10 +1882,16 @@ missing list entry, so decide it at its owner:
 - the hosted world's `BodyRow::write_into`, a replicated row applied to a
   guest's body, which writes both position and velocity.
 
-**Sanic red (found 2026-11-19, inherited):**
+**Sanic red (found 2026-11-19, inherited; fixed 2026-11-19):**
 `sanic_it`'s `act_two_routes::the_ledge_spring_throws_him_onto_the_sky_island`
-fails at 3ff8d4e39, before the badnik module. He ends at (13616, 456), above
-the island, with no monitor spent.
+failed at 3ff8d4e39, before the badnik module, ending at (13616, 456) with no
+monitor spent. Probed: the script let go of the stick once thrown, and the
+unsteered arc came down with his box 2 px short of the monitor (x 13648
+against 13650) while his feet were in the stomp band; the next tick he met
+the box's side, which an unrolled body bumps off, and a body that lands
+beside the box walks through it. The rule is right; the script was a matter
+of pixels. He now steers toward the monitor and back over it, as a player
+does, and still needs the spring to reach the island and a stomp on the lid.
 
 **Inherited reds found with the GNU2 slice (2026-11-19):** each failed the
 same way with the slice stashed.
@@ -1916,14 +1922,19 @@ same way with the slice stashed.
   parts within its boot cap). The rest are this VM's music registry and the Smash
   match that never starts.
 
-**Shell lifecycle reds (found 2026-11-19, inherited):** two of
-`shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the
+**Shell lifecycle reds (found 2026-11-19, inherited; fixed 2026-11-19):** two of
+`shell_host_lifecycle`'s witnesses failed before the snake-shell slice, the
 same way with and without it:
-- `each_experience_begins_with_its_own_bag`: the Ambition session's bag is
-  25 and its experience begins with 21.
+- `each_experience_begins_with_its_own_bag`: the Ambition session's bag was
+  25 and the witness said 21, a count written on 2026-11-14. The bag was
+  right: the starter set (`OwnedItems::starter`, every real non-key item)
+  gained Precision Blink's third level, Lightning, the Lantern and Contextual
+  Blink. The witness now counts the starter set from the catalog.
 - `a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`:
-  the playing session's save gains `room_visited_sanic_speedway` and a day
-  clock.
+  the playing session's save gained `room_visited_sanic_speedway` and a day
+  clock over the 240 frames, which Sanic writes by playing. The refusal arm
+  now compares against the same Sanic session playing the same frames
+  alone, not against its save before them.
 They are listed as witnesses in
 [construction and reconstitution](engine/construction-and-reconstitution.md).
 Two more fail here for the VM's missing music registry ("authored music is

@@ -3255,12 +3255,15 @@ fn each_experience_begins_with_its_own_bag() {
     type Item = ambition_platformer2d::item::Item;
 
     /// The items of Ambition's starter set: every real unlock (Jon,
-    /// 2026-10-30). Three health cells, two mana cells, five bombs, the five
-    /// abilities with a row (Precision Blink at its top level, two, since
-    /// 2026-11-14) and the five other held items (the Javelin left the game
-    /// on 2026-11-10). No key item (the battery is one): those are given by
-    /// quests.
-    const STARTER: u32 = 21;
+    /// 2026-10-30), as `OwnedItems::starter` reads them from the catalog
+    /// (cells, bombs, each ability at its top level and the held items; no
+    /// key item, which quests give). Counted from the catalog: a count
+    /// written here went stale with every item the game gained.
+    fn starter(app: &App) -> u32 {
+        let catalog = app.world().resource::<ambition_platformer2d::items::ItemCatalog>();
+        let owned = OwnedItems::starter(catalog);
+        (0..).map_while(Item::from_index).map(|item| owned.count(item)).sum()
+    }
 
     fn items_in_the_bag(app: &App) -> u32 {
         let owned = app.world().resource::<OwnedItems>();
@@ -3317,7 +3320,7 @@ fn each_experience_begins_with_its_own_bag() {
         }
         let reading = (at_the_activation, items_in_the_bag(&app), items_in_the_save(&app));
         let last = *walk.last().expect("a walk has a session");
-        let bag = if last == "Ambition" { STARTER } else { 0 };
+        let bag = if last == "Ambition" { starter(&app) } else { 0 };
         eprintln!("[own-bag] {walk:?}: {reading:?} (bag at the activation, bag later, save later)");
         if reading != (bag, bag, bag) {
             wrong.push(format!(
@@ -3530,6 +3533,17 @@ fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save(
     );
 
     // ── Refusal: the candidate's first room cannot be verified. ──
+    // The control: Sanic plays the same frames with no candidate. A playing
+    // session writes its own save (the room it visits, the day's clock), so
+    // the refused candidate is measured against this, not against the save
+    // before the frames.
+    let played_alone = {
+        let (mut control, _, _) = in_sanic(&taken);
+        for _ in 0..240 {
+            control.update();
+        }
+        control.world().resource::<AmbitionGameSave>().0.clone()
+    };
     let (mut veteran, sanic, ambition) = in_sanic(&taken);
     let route = ambition_route(&veteran);
     let sanic_owner = owner(&veteran);
@@ -3538,7 +3552,6 @@ fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save(
     let twins: Vec<Entity> = (0..2)
         .map(|_| veteran.world_mut().spawn(SimId::placement("corrupt_twin")).id())
         .collect();
-    let sanic_save = veteran.world().resource::<AmbitionGameSave>().0.clone();
     veteran.world_mut().write_message(ShellCommand::ReplaceWith {
         route: route.clone(),
         request: None,
@@ -3563,8 +3576,9 @@ fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save(
     );
     assert_eq!(
         veteran.world().resource::<AmbitionGameSave>().0,
-        sanic_save,
-        "a refused candidate changed the save of the session that plays"
+        played_alone,
+        "a refused candidate changed the save of the session that plays (against \
+         the same session playing the same frames alone)"
     );
     for twin in twins {
         veteran.world_mut().despawn(twin);

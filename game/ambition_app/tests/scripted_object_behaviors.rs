@@ -51,7 +51,7 @@ fn found() {
     let bindings = [];
     for pair in [["credit", 0, 2, false], ["debit", 99, 0, false], ["fault", 0, 99, true]] {
         bindings.push(#{key: pair[0], params: #{pay: pair[1], receive: pair[2], fail: pair[3]},
-            methods: [#{name: "use", entry: "objects_probe::composition/work"}]});
+            references: #{owner: target}, methods: [#{name: "use", entry: "objects_probe::composition/work"}]});
     }
     this.requests.push(request("attach_behaviors", #{target: target, bindings: bindings,
         reply: #{request: 0, selector: "objects_probe::composition/attached"}}));
@@ -64,6 +64,7 @@ fn attached() {
     if this.trigger.stage == "rejected" { throw this.trigger.message; }
 }
 fn work() {
+    if this.observe.behavior.references.owner != this.observe.behavior.object { throw "a live binding names another owner"; }
     if this.state.worker.busy {
         this.state.worker.completions += 1;
         this.requests.push(request("complete_object_call", #{sequence: this.trigger.sequence,
@@ -316,14 +317,14 @@ fn declare() {
           writes: ["factory"], requests: ["call_object"], limit: 2},
         #{key: "done", phase: "actor_think", trigger: #{port: "action_result", selector: "done"}, writes: ["factory"]},
         #{key: "work", phase: "actor_think", trigger: #{port: "object_method", selector: "use"},
-          writes: ["instance"], requests: ["complete_object_call"], limit: 1},
+          reads: ["behavior"], writes: ["instance"], requests: ["complete_object_call"], limit: 1},
         #{key: "ack", phase: "actor_think", trigger: #{port: "action_result", selector: "ack"}}
     ]}
 }
-fn bindings() {
+fn bindings(owner) {
     let result = [];
     for pair in [["first", 17], ["second", 29]] {
-        result.push(#{key: pair[0], methods: [#{name: "use", entry: "objects_probe::birth/work"}],
+        result.push(#{key: pair[0], references: #{owner: #{local: owner}}, methods: [#{name: "use", entry: "objects_probe::birth/work"}],
             state: [#{schema: "instance", value: #{born: 0, called: 0, seed: pair[1]}}]});
     }
     result
@@ -333,9 +334,9 @@ fn build() {
     this.state.factory.sent = true;
     let p = this.trigger.position;
     let actor = #{key: "actor", character: "practice_sandbag", at: [p[0] + 800.0, p[1] - 500.0],
-        starting_wallet: 3, holds: ["birth_probe.child"], bindings: bindings()};
+        starting_wallet: 3, holds: ["birth_probe.child"], bindings: bindings("actor")};
     let prop = #{key: "prop", at: [p[0] + 900.0, p[1] - 500.0], size: [12.0, 12.0],
-        health: 2, collision: "none", bindings: bindings()};
+        health: 2, collision: "none", bindings: bindings("prop")};
     this.requests.push(request("create_actors", #{reply: #{request: 1, selector: "objects_probe::birth/created"}, actors: [actor]}));
     this.requests.push(request("create_breakables", #{reply: #{request: 1, selector: "objects_probe::birth/created"}, objects: [prop]}));
     let broken_actor = actor;
@@ -360,6 +361,7 @@ fn created() {
     }
 }
 fn work() {
+    if this.observe.behavior.references.owner != this.observe.behavior.object { throw "unresolved local owner at birth"; }
     if this.state.instance.born != 1 { throw "publication missed initialized private state"; }
     this.state.instance.called += 1;
     this.requests.push(request("complete_object_call", #{reply: #{request: 1, selector: "objects_probe::birth/ack"},
@@ -412,7 +414,10 @@ fn actor_and_prop_births_publish_complete_private_instances_and_refuse_incomplet
     let private = SchemaKey::new("objects_probe", "instance", 1);
     let mut references = Vec::new();
     for (index, body) in subjects.into_iter().enumerate() {
-        let record = sim.world().get::<BodyRecords>(body).unwrap().get(&factory).unwrap();
+        let records = sim.world().get::<BodyRecords>(body).unwrap_or_else(||
+            panic!("factory records were not committed: {:?}", sim.world().resource::<ExtensionFaults>()));
+        let record = records.get(&factory).unwrap_or_else(||
+            panic!("factory state was not committed: {:?}", sim.world().resource::<ExtensionFaults>()));
         for (field, expected) in [(1, 2), (2, 2), (3, 4)] {
             assert_eq!(record.get(FieldRef(field)).unwrap(), &Value::U32(expected),
                 "field {field}: {record:?}; faults: {:?}; actions: {:?}",
@@ -437,6 +442,158 @@ fn actor_and_prop_births_publish_complete_private_instances_and_refuse_incomplet
         count += 1;
     }
     assert_eq!(count, 8);
+    assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(path);
+}
+
+const LOCAL_SOURCE: &str = r#"
+fn declare() {
+    #{provider: "objects_probe", key: "locals", schemas: [
+        #{key: "factory", fields: [
+            #{tag: 1, name: "sent", kind: "bool"}, #{tag: 2, name: "created", kind: "u32"},
+            #{tag: 3, name: "invalid", kind: "u32"}, #{tag: 4, name: "accepted", kind: "u32"},
+            #{tag: 5, name: "refused", kind: "u32"}, #{tag: 6, name: "objects", kind: "seq 4 object"}
+        ]},
+        #{key: "relay", fields: [#{tag: 1, name: "pending", kind: "u64"},
+            #{tag: 2, name: "forwarded", kind: "u32"}, #{tag: 3, name: "completed", kind: "u32"}]},
+        #{key: "worker", fields: [#{tag: 1, name: "requests", kind: "u32"}, #{tag: 2, name: "pending", kind: "u64"},
+            #{tag: 3, name: "applied", kind: "u32"}, #{tag: 4, name: "refused", kind: "u32"},
+            #{tag: 5, name: "busy", kind: "bool"}, #{tag: 6, name: "completions", kind: "u32"}]}
+    ], entries: [
+        #{key: "build", phase: "technique_execution", trigger: #{port: "status_tick", selector: "objects_probe.start"},
+          writes: ["factory"], requests: ["create_actors"], limit: 2},
+        #{key: "created", phase: "actor_think", trigger: #{port: "action_result", selector: "created"},
+          writes: ["factory"], requests: ["call_object"], limit: 2},
+        #{key: "done", phase: "actor_think", trigger: #{port: "action_result", selector: "done"},
+          reads: ["object_call_result"], writes: ["factory"]},
+        #{key: "relay", phase: "actor_think", trigger: #{port: "object_method", selector: "relay"},
+          reads: ["behavior"], writes: ["relay"], requests: ["call_object"], limit: 1},
+        #{key: "relayed", phase: "actor_think", trigger: #{port: "action_result", selector: "relayed"},
+          reads: ["object_call_result"], writes: ["relay"], requests: ["complete_object_call"], limit: 1},
+        #{key: "work", phase: "actor_think", trigger: #{port: "object_method", selector: "work"},
+          reads: ["behavior"], writes: ["worker"], requests: ["inventory_exchange"], limit: 1},
+        #{key: "trade", phase: "actor_think", trigger: #{port: "action_result", selector: "trade"},
+          reads: ["behavior"], writes: ["worker"], requests: ["complete_object_call"], limit: 1},
+        #{key: "ack", phase: "actor_think", trigger: #{port: "action_result", selector: "ack"}}
+    ]}
+}
+fn node(key, peer, entry, pay, p) {
+    #{key: key, character: "practice_sandbag", at: p, starting_wallet: 3, allegiance: "neutral",
+        bindings: [#{key: "logic", params: #{pay: pay, receive: 2, fail: false},
+            references: #{owner: #{local: key}, peer: #{local: peer}},
+            methods: [#{name: "use", entry: entry}]}]}
+}
+fn build() {
+    if this.state.factory.sent { return; }
+    this.state.factory.sent = true;
+    let p = [this.trigger.position[0] + 800.0, this.trigger.position[1] - 500.0];
+    let actors = [
+        node("free_relay", "free_worker", "objects_probe::locals/relay", 0, p),
+        node("free_worker", "free_relay", "objects_probe::locals/work", 0, p),
+        node("cost_relay", "cost_worker", "objects_probe::locals/relay", 99, p),
+        node("cost_worker", "cost_relay", "objects_probe::locals/work", 99, p)
+    ];
+    actors[0].character = "npc_giant_gnu";
+    let broken = actors;
+    broken[3].bindings[0].references.peer = #{local: "absent"};
+    this.requests.push(request("create_actors", #{reply: #{request: 0, selector: "objects_probe::locals/created"}, actors: broken}));
+    this.requests.push(request("create_actors", #{reply: #{request: 1, selector: "objects_probe::locals/created"}, actors: actors}));
+}
+fn created() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage == "rejected" { this.state.factory.invalid += 1; return; }
+    this.state.factory.created += 1;
+    for subject in this.trigger.subjects { this.state.factory.objects.push(subject.object); }
+    for i in 0..2 {
+        this.requests.push(request("call_object", #{reply: #{request: i, selector: "objects_probe::locals/done"},
+            target: this.trigger.subjects[i * 2].object, binding: "logic", method: "use"}));
+    }
+}
+fn relay() {
+    let context = this.observe.behavior;
+    if context.references.owner != context.object { throw "self reference is not the published owner"; }
+    this.state.relay.pending = this.trigger.sequence;
+    this.state.relay.forwarded += 1;
+    this.requests.push(request("call_object", #{reply: #{request: 1, selector: "objects_probe::locals/relayed"},
+        target: context.references.peer, binding: "logic", method: "use"}));
+}
+fn relayed() {
+    if !this.trigger.terminal { return; }
+    let data = this.observe.object_call_result.data;
+    this.state.relay.completed += 1;
+    this.requests.push(request("complete_object_call", #{reply: #{request: 1, selector: "objects_probe::locals/ack"},
+        sequence: this.state.relay.pending, accepted: this.trigger.stage == "completed", code: this.trigger.code, data: data}));
+}
+fn work() {
+    let context = this.observe.behavior;
+    if context.references.owner != context.object || context.references.peer != this.trigger.caller {
+        throw "mutual references crossed a factory occurrence";
+    }
+    this.state.worker.pending = this.trigger.sequence;
+    this.state.worker.requests += 1;
+    this.requests.push(request("inventory_exchange", #{reply: #{request: 1, selector: "objects_probe::locals/trade"},
+        exchange: #{pay_coins: context.params.pay, receive_coins: 2}}));
+}
+fn trade() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage == "applied" { this.state.worker.applied += 1; } else { this.state.worker.refused += 1; }
+    this.state.worker.completions += 1;
+    this.requests.push(request("complete_object_call", #{reply: #{request: 1, selector: "objects_probe::locals/ack"},
+        sequence: this.state.worker.pending, accepted: this.trigger.stage == "applied", code: this.trigger.code,
+        data: #{object: this.observe.behavior.object}}));
+}
+fn done() {
+    if !this.trigger.terminal { return; }
+    if this.observe.object_call_result.data.object != this.state.factory.objects[this.trigger.ticket.request * 2 + 1] {
+        throw "the return value came from another worker occurrence";
+    }
+    if this.trigger.stage == "completed" { this.state.factory.accepted += 1; } else { this.state.factory.refused += 1; }
+}
+fn ack() { if this.trigger.stage == "rejected" { throw this.trigger.code; } }
+"#;
+
+#[test]
+fn local_factory_references_connect_independent_objects_before_publication_and_replay() { exercise_local_references(false); }
+
+#[test]
+fn local_factory_references_reach_portable_workers_with_native_outcomes_and_replay() { exercise_local_references(true); }
+
+fn exercise_local_references(portable: bool) {
+    use ambition_platformer2d::platformer::{lifecycle::*, sim_id::SimIdCounter};
+    let (mut sim, roots, path) = if portable {
+        let guest = ambition_platformer2d::extension::build_module_crate(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap(),
+            "ambition_extension_fixture_modules").unwrap();
+        let source = LOCAL_SOURCE.replace("\"objects_probe::locals/work\",", "\"fixture::object_worker/work\",");
+        prepared_with_modules(&source, "local_wasm", vec![guest])
+    } else { prepared(LOCAL_SOURCE, "locals") };
+    let counters = roots.map(|entity| sim.world().get::<SimIdCounter>(entity).unwrap().0);
+    sim.step_n(AgentAction::default(), 80);
+    let factory = SchemaKey::new("objects_probe", "factory", 1);
+    for (index, root) in roots.into_iter().enumerate() {
+        let record = sim.world().get::<BodyRecords>(root).unwrap().get(&factory).unwrap();
+        for field in 1..=4 {
+            assert_eq!(record.get(FieldRef(field)).unwrap(), &Value::U32(1),
+                "field {field}: {record:?}; faults: {:?}", sim.world().resource::<ExtensionFaults>());
+        }
+        assert_eq!(sim.world().get::<SimIdCounter>(root).unwrap().0, counters[index] + 4);
+        assert_eq!(sim.world().get::<BodyWallet>(root).unwrap().balance, 3);
+    }
+    let worker = if portable { SchemaKey::new("fixture", "object_worker.memory", 1) }
+        else { SchemaKey::new("objects_probe", "worker", 1) };
+    let world = sim.world_mut();
+    let rows = world.query::<(&ObjectScopeOwner, &BodyRecords)>().iter(world)
+        .filter_map(|(owner, records)| records.get(&worker).map(|record| (owner.0, record.clone()))).collect::<Vec<_>>();
+    assert_eq!(rows.len(), 4);
+    for (owner, record) in rows {
+        assert_eq!(record.get(FieldRef(0)).unwrap(), &Value::U32(1));
+        assert_eq!(record.get(FieldRef(5)).unwrap(), &Value::U32(1));
+        let applied = record.get(FieldRef(2)).unwrap() == &Value::U32(1);
+        assert_eq!(record.get(FieldRef(3)).unwrap(), &Value::U32(u32::from(!applied)));
+        let entity = resolve_object(world, SessionScopeId(owner.session), owner).unwrap();
+        assert_eq!(world.get::<BodyWallet>(entity).unwrap().balance, if applied { 5 } else { 3 });
+    }
     assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_file(path);

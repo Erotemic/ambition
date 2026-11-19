@@ -118,7 +118,8 @@ pub fn create_breakables<Initialization: RuntimeInitialization>(
     }
     let ids: Vec<_> = rows.iter().map(|row| row.sim_id.clone()).collect();
     let states: BTreeMap<_, _> = ids.iter().cloned().zip(objects.iter().map(|object| &object.initialization)).collect();
-    let receipt = context.commit(world, rows, &states, |_, _| {})?;
+    let names = objects.iter().zip(&ids).map(|(object, id)| (object.key.clone(), id.clone())).collect();
+    let receipt = context.commit(world, rows, &names, &states, |_, _| {})?;
     Ok(objects
         .iter()
         .zip(ids)

@@ -15,11 +15,13 @@ ambition_extension_sdk::port_record! { BehaviorMethod { name: String, entry: Str
 pub struct BehaviorBinding {
     pub key: String,
     pub methods: Vec<BehaviorMethod>,
+    pub references: Vec<(String, crate::object_target::ObjectTarget)>,
     pub params: ScriptValue,
     pub state: Vec<StateSeed>,
 }
 ambition_extension_sdk::port_record! {
     BehaviorBinding { key: String, methods: Vec<BehaviorMethod>,
+        references: Vec<(String, crate::object_target::ObjectTarget)> as ambition_extension_sdk::structure::TextMap<crate::object_target::ObjectTarget> = Vec::new(),
         params: ScriptValue = ScriptValue::Unit, state: Vec<StateSeed> = Vec::new() }
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -55,16 +57,21 @@ ambition_extension_sdk::port_record! {
     ObjectCallResult { ticket: ambition_extension_sdk::action::ActionTicket, data: ScriptValue }
 }
 #[derive(Clone, Debug, PartialEq)]
-pub struct BehaviorContext { pub object: ObjectRef, pub binding: String, pub params: ScriptValue }
+pub struct BehaviorContext { pub object: ObjectRef, pub binding: String, pub params: ScriptValue,
+    pub references: Vec<(String, ObjectRef)> }
 ambition_extension_sdk::port_record! {
-    BehaviorContext { object: ObjectRef, binding: String, params: ScriptValue }
+    BehaviorContext { object: ObjectRef, binding: String, params: ScriptValue,
+        references: Vec<(String, ObjectRef)> as ambition_extension_sdk::structure::TextMap<ObjectRef> }
 }
 
 macro_rules! port {
     ($name:ident, $key:literal, $role:ident, $value:ty) => {
+        port!($name, $key, 1, $role, $value);
+    };
+    ($name:ident, $key:literal, $version:literal, $role:ident, $value:ty) => {
         pub struct $name;
         impl Port for $name {
-            const KEY: PortKey = PortKey::new($key, 1);
+            const KEY: PortKey = PortKey::new($key, $version);
             const ROLE: PortRole = PortRole::$role;
             type Value = $value;
             fn encode(value: &Self::Value, out: &mut Vec<u8>) { ambition_extension_sdk::structure::put(value, out); }
@@ -89,10 +96,10 @@ macro_rules! action_port {
         ambition_extension_sdk::script_port!($name);
     };
 }
-action_port!(AttachBehaviorsPort, "ambition.objects.attach_behaviors", 1, AttachBehaviors, "objects.attach_behaviors");
+action_port!(AttachBehaviorsPort, "ambition.objects.attach_behaviors", 2, AttachBehaviors, "objects.attach_behaviors");
 action_port!(CallObjectPort, "ambition.objects.call", 1, CallObject, "objects.call");
 port!(ObjectCallPort, "ambition.objects.method", Trigger, ObjectCall);
 action_port!(CompleteObjectCallPort, "ambition.objects.complete_call", 2, CompleteObjectCall, "objects.complete_call");
-port!(BehaviorContextPort, "ambition.objects.behavior", Observation, Option<BehaviorContext>);
+port!(BehaviorContextPort, "ambition.objects.behavior", 2, Observation, Option<BehaviorContext>);
 
 port!(ObjectCallResultPort, "ambition.objects.call_result", Observation, Option<ObjectCallResult>);

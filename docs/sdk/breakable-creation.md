@@ -66,6 +66,10 @@ The native transaction validates every method, seed and binding bound before it
 materializes the batch. It publishes initialized private instances with the prop.
 A native birth listener can inspect their records immediately. An invalid binding
 on any node refuses the complete batch without a partial prop or private instance.
+Named `references` can select live objects or local prop keys from the same
+request. The native plan resolves every reference before it materializes the
+batch. An unresolved key refuses all props. See
+[connected bindings](object-behaviors.md#connect-objects-at-construction).
 
 Props expose normal native damage volumes and collision geometry. Creation
 completes before its applied result. Movement and collision observations use

@@ -34,11 +34,13 @@ pub(crate) struct BehaviorInstance {
     key: String,
     methods: Vec<BehaviorMethod>,
     params: ScriptValue,
+    references: Vec<(String, ObjectRef)>,
     next_sequence: u64,
     calls: Vec<CallRow>,
 }
 ambition_extension_sdk::port_record! {
     BehaviorInstance { key: String, methods: Vec<BehaviorMethod>, params: ScriptValue,
+        references: Vec<(String, ObjectRef)> as ambition_extension_sdk::structure::TextMap<ObjectRef>,
         next_sequence: u64, calls: Vec<CallRow> }
 }
 impl SnapshotState for BehaviorInstance {
@@ -84,7 +86,7 @@ pub(crate) fn install(app: &mut App) {
 fn context(world: &World, context: ObservationContext<'_>) -> Option<Option<BehaviorContext>> {
     Some(world.get::<BehaviorInstance>(context.state_scope).and_then(|instance| Some(BehaviorContext {
         object: world.get::<ObjectScopeOwner>(context.state_scope)?.0,
-        binding: instance.key.clone(), params: instance.params.clone(),
+        binding: instance.key.clone(), params: instance.params.clone(), references: instance.references.clone(),
     })))
 }
 fn tick(world: &World) -> u64 { world.resource::<ambition_time::SimTick>().0 }
@@ -107,9 +109,35 @@ fn method_bound(admitted: &ambition_extension_host::Admitted, path: &str) -> boo
         && entry.descriptor.trigger.port == ObjectCallPort::KEY)
 }
 
-pub(crate) type PreparedBehaviorState = ambition_platformer2d_construction::runtime::OwnedObjectState<(BehaviorInstance, BodyRecords)>;
+#[derive(Clone)]
+pub(crate) struct BehaviorInitialization {
+    instance: BehaviorInstance,
+    records: BodyRecords,
+    references: Vec<(String, ambition_world_port::object_target::ObjectTarget)>,
+}
+impl ambition_platformer2d_construction::runtime::ObjectInitialization for BehaviorInitialization {
+    type Prepared = (BehaviorInstance, BodyRecords);
+    fn prepare(&self, context: &ambition_platformer2d_construction::runtime::ObjectInitializationContext<'_>)
+        -> Result<Self::Prepared, String> {
+        use ambition_world_port::object_target::ObjectTarget;
+        let mut instance = self.instance.clone();
+        instance.references = self.references.iter().map(|(key, target)| {
+            let reference = match target {
+                ObjectTarget::Live(reference) => *reference,
+                ObjectTarget::Local(local) => *context.locals.get(local)
+                    .ok_or_else(|| format!("Behavior {} reference {key}: no local object {local} exists in this batch.", instance.key))?,
+            };
+            if reference.session != context.object.session {
+                return Err(format!("Behavior {} reference {key} crosses sessions.", instance.key));
+            }
+            Ok((key.clone(), reference))
+        }).collect::<Result<_, String>>()?;
+        Ok((instance, self.records.clone()))
+    }
+}
+pub(crate) type PreparedBehaviorState = ambition_platformer2d_construction::runtime::OwnedObjectState<BehaviorInitialization>;
 fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
-    limits: ObjectBehaviorLimits) -> Result<Vec<PreparedBehaviorState>, String> {
+    limits: ObjectBehaviorLimits, objects: &std::cell::OnceCell<ObjectIndex>) -> Result<Vec<PreparedBehaviorState>, String> {
     let admitted = &world.resource::<AdmittedExtensions>().0;
     let mut keys = BTreeSet::new();
     let mut bytes = 0usize;
@@ -120,6 +148,27 @@ fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
             || binding.methods.is_empty() || binding.methods.len() > limits.max_methods as usize
             || binding.state.len() > limits.max_state_records as usize {
             return Err("A behavior key, method count, state count or parameter value exceeds its bound.".into());
+        }
+        if binding.references.len() > limits.max_references as usize {
+            return Err("The behavior reference count exceeds its game bound.".into());
+        }
+        let mut references = binding.references.clone();
+        references.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut reference_names = BTreeSet::new();
+        for (key, target) in &references {
+            if key.is_empty() || key.len() > 64 || !reference_names.insert(key) {
+                return Err("Behavior reference names must be unique, nonempty and at most 64 bytes.".into());
+            }
+            match target {
+                ambition_world_port::object_target::ObjectTarget::Local(key) if key.is_empty() || key.len() > 128 => {
+                    return Err("Local object keys must be nonempty and at most 128 bytes.".into());
+                }
+                ambition_world_port::object_target::ObjectTarget::Live(reference) => {
+                    objects.get_or_init(|| ObjectIndex::capture(world)).resolve(SessionScopeId(reference.session), *reference)
+                        .map_err(|_| format!("Behavior reference {key} does not name one live occurrence."))?;
+                }
+                _ => {}
+            }
         }
         let mut names = BTreeSet::new();
         let mut writes = BTreeSet::new();
@@ -151,8 +200,9 @@ fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
             if bytes > limits.max_state_bytes as usize { return Err("Behavior state exceeds the byte bound.".into()); }
             records.put(key.clone(), declared.shape, record);
         }
-        Ok(PreparedBehaviorState {key: binding.key.clone(), bundle: (BehaviorInstance {key: binding.key.clone(),
-            methods: binding.methods.clone(), params, next_sequence: 0, calls: Vec::new()}, records)})
+        Ok(PreparedBehaviorState {key: binding.key.clone(), bundle: BehaviorInitialization {
+            instance: BehaviorInstance {key: binding.key.clone(), methods: binding.methods.clone(), params,
+                references: Vec::new(), next_sequence: 0, calls: Vec::new()}, records, references}})
     }).collect()
 }
 /// Validate the complete creation batch before the native owner mints any root.
@@ -169,7 +219,8 @@ pub(crate) fn prepare_creation(world: &mut World, caller: Entity, groups: &[&[Be
         || groups.iter().any(|group| group.len() > limits.max_bindings_per_object as usize) {
         return Err("The object or session behavior bound cannot admit this creation batch.".into());
     }
-    groups.iter().map(|group| prepare_bindings(world, group, limits)).collect()
+    let objects = std::cell::OnceCell::new();
+    groups.iter().map(|group| prepare_bindings(world, group, limits, &objects)).collect()
 }
 
 fn attach(world: &mut World) {
@@ -194,17 +245,22 @@ fn attach(world: &mut World) {
                 || request.bindings.iter().any(|binding| existing.contains(&binding.key)) {
                 return Err("Behavior keys must be new and the object and session bounds must permit the batch.".into());
             }
-            let prepared = prepare_bindings(world, &request.bindings, limits)?;
+            let prepared = prepare_bindings(world, &request.bindings, limits, &std::cell::OnceCell::new())?;
+            use ambition_platformer2d_construction::runtime::{ObjectInitialization, ObjectInitializationContext};
+            let locals = BTreeMap::new();
+            let context = ObjectInitializationContext {object: request.target, locals: &locals};
+            let prepared = prepared.into_iter().map(|binding| Ok((binding.key, binding.bundle.prepare(&context)?)))
+                .collect::<Result<Vec<_>, String>>()?;
             let room = object_scope_room(world, entity);
             let allocation = match room {
                 Some(room) => PreparedObjectOccurrences::prepare(world, session, room, prepared.len())?,
                 None => PreparedObjectOccurrences::prepare_session(world, session, prepared.len())?,
             };
             let mut entities = Vec::new();
-            for binding in prepared {
-                let id = owned_object_state_id(request.target, &binding.key);
+            for (key, bundle) in prepared {
+                let id = owned_object_state_id(request.target, &key);
                 entities.push(world.spawn((SessionScopedEntity(session), id,
-                    ObjectScopeOwner(request.target), binding.bundle)).id());
+                    ObjectScopeOwner(request.target), bundle)).id());
             }
             if let Err(problem) = allocation.assign(world, &entities) {
                 for entity in entities { world.despawn(entity); }

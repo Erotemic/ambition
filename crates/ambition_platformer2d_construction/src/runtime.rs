@@ -26,20 +26,39 @@ pub struct ComposedInitialization<Root, Owned> {
     pub owned: Vec<OwnedObjectState<Owned>>,
 }
 
-/// Native owners validate their bundles before the construction transaction starts.
+/// Read-only occurrence references for one checked construction plan.
+pub struct ObjectInitializationContext<'a> {
+    pub object: ambition_extension_sdk::ObjectRef,
+    pub locals: &'a BTreeMap<String, ambition_extension_sdk::ObjectRef>,
+}
+
+/// Resolve declared state before any root or private instance is materialized.
+pub trait ObjectInitialization: Clone {
+    type Prepared: Bundle + Clone;
+    fn prepare(&self, context: &ObjectInitializationContext<'_>) -> Result<Self::Prepared, String>;
+}
+impl<B: Bundle + Clone> ObjectInitialization for B {
+    type Prepared = B;
+    fn prepare(&self, _: &ObjectInitializationContext<'_>) -> Result<B, String> { Ok(self.clone()) }
+}
+
+/// Native owners prepare root and private state in one construction transaction.
 pub trait RuntimeInitialization: Clone {
-    type Owned: Bundle + Clone;
-    fn insert(&self, root: &mut RootScope<'_, '_, '_>);
+    type Root: ObjectInitialization;
+    type Owned: ObjectInitialization;
+    fn root(&self) -> &Self::Root;
     fn owned(&self) -> &[OwnedObjectState<Self::Owned>];
 }
 impl<B: Bundle + Clone> RuntimeInitialization for B {
+    type Root = B;
     type Owned = ();
-    fn insert(&self, root: &mut RootScope<'_, '_, '_>) { root.insert(self.clone()); }
+    fn root(&self) -> &B { self }
     fn owned(&self) -> &[OwnedObjectState<()>] { &[] }
 }
-impl<R: Bundle + Clone, O: Bundle + Clone> RuntimeInitialization for ComposedInitialization<R, O> {
+impl<R: ObjectInitialization, O: ObjectInitialization> RuntimeInitialization for ComposedInitialization<R, O> {
+    type Root = R;
     type Owned = O;
-    fn insert(&self, root: &mut RootScope<'_, '_, '_>) { root.insert(self.root.clone()); }
+    fn root(&self) -> &R { &self.root }
     fn owned(&self) -> &[OwnedObjectState<O>] { &self.owned }
 }
 
@@ -132,7 +151,7 @@ pub fn create_actors<Initialization: RuntimeInitialization>(
     let mut ids = BTreeMap::new();
     for (index, actor) in actors.iter().enumerate() {
         let id = context.id(index);
-        ids.insert(actor.key.as_str(), id.clone());
+        ids.insert(actor.key.clone(), id.clone());
         let mut spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Passive,
             actor.character.as_str(),
@@ -222,7 +241,7 @@ pub fn create_actors<Initialization: RuntimeInitialization>(
         .map_err(|e| e.to_string())?;
     let initializers: BTreeMap<_, _> = actors.iter().map(|actor| (ids[actor.key.as_str()].clone(), actor)).collect();
     let states = initializers.iter().map(|(id, actor)| (id.clone(), &actor.initialization)).collect();
-    let receipt = context.commit(world, rows, &states, |id, root| {
+    let receipt = context.commit(world, rows, &ids, &states, |id, root| {
         root.insert(ambition_combat::components::RuntimeStagedActor);
         if let Some(actor) = initializers.get(id) {
             if let Some(balance) = actor.starting_wallet {
@@ -368,6 +387,7 @@ impl RuntimeConstruction {
         self,
         world: &mut World,
         rows: Vec<ActorConstructionRequest>,
+        names: &BTreeMap<String, SimId>,
         states: &BTreeMap<SimId, &Initialization>,
         mut initialize: impl FnMut(&SimId, &mut RootScope<'_, '_, '_>),
     ) -> Result<ConstructionReceipt, String> {
@@ -416,10 +436,25 @@ impl RuntimeConstruction {
                 .ok_or("The construction capability is not installed.")?,
         )
         .map_err(|error| error.to_string())?;
+        let references: BTreeMap<_, _> = plan.entities().iter().enumerate()
+            .map(|(index, root)| (root.sim_id().clone(), occurrences.reference(index))).collect();
+        let locals = names.iter().map(|(key, id)| {
+            references.get(id).copied().map(|reference| (key.clone(), reference))
+                .ok_or_else(|| format!("Local object {key} is outside the construction plan."))
+        }).collect::<Result<BTreeMap<_, _>, _>>()?;
+        let mut prepared = BTreeMap::new();
+        for (id, state) in states {
+            let context = ObjectInitializationContext {object: references[id], locals: &locals};
+            let root = state.root().prepare(&context)?;
+            let owned = state.owned().iter().map(|owned| Ok(OwnedObjectState {
+                key: owned.key.clone(), bundle: owned.bundle.prepare(&context)?,
+            })).collect::<Result<Vec<_>, String>>()?;
+            prepared.insert(id.clone(), (root, owned));
+        }
         let mut owned_specs = Vec::with_capacity(owned_count);
         for (index, root) in plan.entities().iter().enumerate() {
-            if let Some(state) = states.get(root.sim_id()) {
-                for owned in state.owned() {
+            if let Some((_, owned)) = prepared.get(root.sim_id()) {
+                for owned in owned {
                     owned_specs.push(OwnedStateSpec {owner: root.sim_id().clone(),
                         reference: occurrences.reference(index), key: owned.key.clone()});
                 }
@@ -437,10 +472,10 @@ impl RuntimeConstruction {
             for (index, id) in receipt.committed_ids().iter().enumerate() {
                 let mut root = RootScope::new(&mut commands, session, receipt.entity(id).unwrap());
                 initialize(id, &mut root);
-                if let Some(state) = states.get(id) {
-                    state.insert(&mut root);
+                if let Some((state, owned)) = prepared.get(id) {
+                    root.insert(state.clone());
                     let reference = occurrences.reference(index);
-                    for owned in state.owned() {
+                    for owned in owned {
                         let entity = receipt.owned_state(reference, &owned.key).expect("the plan allocated every private state");
                         RootScope::new(&mut commands, session, entity).insert(owned.bundle.clone());
                         owned_entities.push(entity);

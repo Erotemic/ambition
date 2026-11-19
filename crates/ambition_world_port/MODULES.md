@@ -12,9 +12,10 @@
 | [`creation`](src/creation.rs) | Create a checked actor composition and initialize its declared behavior state. |
 | [`geometry`](src/geometry.rs) | World geometry identity and confirmed movement contacts. |
 | [`inventory`](src/inventory.rs) | Exact inventory exchanges and observations over native item authority. |
+| [`object_target`](src/object_target.rs) | Typed occurrence targets and local names in a native construction batch. |
 | [`story`](src/story.rs) | Portable room story observations and action requests. |
 
-_7 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

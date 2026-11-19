@@ -71,7 +71,7 @@ ambition_extension_sdk::port_record! {
 }
 pub struct CreateActorsPort;
 impl Port for CreateActorsPort {
-    const KEY: PortKey = PortKey::new("ambition.world.create_actors", 3);
+    const KEY: PortKey = PortKey::new("ambition.world.create_actors", 4);
     const ROLE: PortRole = PortRole::Request;
     type Value = CreateActors;
     fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {

@@ -635,6 +635,7 @@ name = "ambition_demo_sanic"
 version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
+ "ambition_demo_sanic_modules",
  "ambition_entity_catalog",
  "ambition_platformer2d",
  "ambition_sprite_part_format",
@@ -650,6 +651,14 @@ dependencies = [
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
+]
+
+[[package]]
+name = "ambition_demo_sanic_modules"
+version = "0.1.0"
+dependencies = [
+ "ambition_combat_port",
+ "ambition_extension_sdk",
 ]
 
 [[package]]

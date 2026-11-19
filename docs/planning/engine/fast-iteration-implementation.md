@@ -359,7 +359,8 @@ before you add a port.
 
 **Delivered migrations:** GNU-ton's conductor and its boss/mount ports,
 actor-think S1-S3 (the Void Lizard and Laden Swallow), body-contact C1/C2
-(AI Slop and Laden Swallow squash), and the fighter-special F1-F14 route
+(AI Slop and Laden Swallow squash), the Sanic badnik squash (2026-11-19), and
+the fighter-special F1-F14 route
 (riposte, module entity/spring, sleep/song, dilation, resource refill,
 parry/counter, homing, mark, bomb/mine, steered bolt, tether, portal recovery,
 and shark ride). Their native duplicate systems were removed. The SDK/host
@@ -373,14 +374,23 @@ modules. This is completion history, **not** another list of work to redo.
    wall-contact observations, and the same provider-owned stomp facts. Do not
    duplicate those facts as module constants. Preserve room isolation and
    body-contact ordering.
-2. **Sanic badnik:** migrate contact consequences through `body_contact`
-   using the existing owner of the toucher's rolling fact (currently the
-   demo's `ball_dash::Rolling`) and contact-harm rule
-   (`Empowerment::HARMS_ON_CONTACT`), without manufacturing a second
-   source of truth. The provider-owned `sanic_rules.ron` bounce speed and
-   stomp band must be exposed through a provider observation, following
-   Mary-O's `mary_o.rules.stomp` precedent. Its current multi-participant,
-   per-room contact behavior is already guarded; preserve it.
+2. **Sanic badnik: DONE 2026-11-19.** `ambition_demo_sanic_modules::badnik`
+   is one `body_contact` entry for each of his six badnik kinds. It reads
+   `sanic.rules.badnik` (the stomp band, the bounce, the squash bursts and
+   the cue, projected from `sanic_rules.ron`), and `sanic.contact.touchers`.
+   That second observation is a context observation: whether each toucher of
+   this contact rolls (`ball_dash::Rolling`) and whether its touch harms
+   (`Empowerment::HARMS_ON_CONTACT`), asked of their owners at each
+   invocation. The native `defeat_badniks` is deleted. The witness
+   `ambition_demo_sanic_app/tests/badniks_are_squashed.rs` covers:
+   - a stomp on each kind, at the pack's bounce;
+   - a roll and a harming touch from the side;
+   - a plain side touch as the control;
+   - a second player of the room, and one of another room.
+
+   The touchers are the trigger's, so they need real surface contact. The
+   native rule also took feet up to `stomp.band` above the head, without
+   overlap; a falling body reaches the overlap in a tick.
 3. **Other native demo consumers:** the Snake Plant's path/pose behavior is
    an `actor_think` customer rather than a body-contact rule. Sanic ball dash
    and any remaining move-invoked technique need a concrete domain-port

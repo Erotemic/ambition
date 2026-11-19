@@ -7,9 +7,10 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`input_clock`](src/input_clock.rs) | Input sample order is independent of the estimated host tick. |
+| [`prediction`](src/prediction.rs) | A guest that predicts its own body (NA-3), in production. |
 | [`room_rollback`](src/room_rollback.rs) | A host that keeps a guest's room correct by rollback (SIMULATION-ISLANDS). |
 
-_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -111,6 +111,7 @@ members = [
     "game/ambition_menu_kaleidoscope",
     "game/ambition_content_modules",
     "game/ambition_demo_mary_o_modules",
+    "game/ambition_demo_sanic_modules",
     "game/ambition_demo_smash_modules",
     "game/ambition_fighter_specials",
     "fixtures/extension_fixture_modules",

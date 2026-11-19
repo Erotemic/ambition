@@ -1846,6 +1846,30 @@ Remove obsolete diagnostics only after checking their actual callers. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 
+**Workspace policy reds (found 2026-11-19, inherited):**
+`cargo test -p ambition_workspace_policy` was red in two scopes.
+
+The game scope is repaired. `ambition_app` gained `ambition_hosted_world`
+(the `hosted_world` feature) and `ambition_content_schemas` (the shipped
+validator) without its allowlist, and both are now listed with their reasons.
+
+The engine scope still fails 7 policies. Each one is a boundary call, not a
+missing list entry, so decide it at its owner:
+- `ambition_abilities` → `ambition_persistence`;
+- `ambition_portal2d` → `ambition_geometry_observation`;
+- `ambition_platformer2d_runtime` → `ambition_camera_presentation`;
+- `ambition_abilities/src/group.rs` reads `Res<CharacterCatalog>`;
+- `ambition_render/src/rendering/observed_geometry.rs` names
+  `ControlledSubject`;
+- a velocity write in `ambition_combat/src/hit_feel.rs`;
+- the hosted world's `BodyRow::write_into`, a replicated row applied to a
+  guest's body, which writes both position and velocity.
+
+**Sanic red (found 2026-11-19, inherited):**
+`sanic_it`'s `act_two_routes::the_ledge_spring_throws_him_onto_the_sky_island`
+fails at 3ff8d4e39, before the badnik module. He ends at (13616, 456), above
+the island, with no monitor spent.
+
 **Smash fixture shared (2026-11-14):** `common::smash` holds the Smash
 setup `smash_ride` repeated in each test: `shipped_host` (the shipped
 composition, 30 frames in), `wait_for_live_round` (a cast exists and none of
@@ -2072,9 +2096,10 @@ held traversal modules; and the `body_contact` extension route. Do not
 re-enqueue the old missing-reload-family list or repeat the completed brain
 migration.
 
-**Next action:** finish the specifically named `body_contact` customers:
-Mary-O snake-shell behavior and the Sanic badnik contact behavior, including
-toucher roll/contact harm through their existing owners. The plant is a brain
+**Next action:** finish the last named `body_contact` customer, the Mary-O
+snake-shell behavior. The Sanic badnik's contact is a module now (2026-11-19).
+Its toucher roll and contact-harm facts are asked of their owners through
+`sanic.contact.touchers`. The plant is a brain
 and pose customer, not a contact rule. Recheck which customers are still native
 before migrating them.
 

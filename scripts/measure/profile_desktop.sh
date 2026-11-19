@@ -117,7 +117,8 @@ smash_seconds="0"
 # nobody ever recorded.
 record_history="yes"
 # Limit compiler concurrency while the host also runs a VM.
-cargo_jobs="${CARGO_BUILD_JOBS:-1}"
+cargo_jobs=""
+if [[ -z "${CARGO_BUILD_JOBS:-}" ]]; then cargo_jobs=1; fi
 memory_limit_mib="auto"
 memory_scope="disabled"
 tracy_memory_percent="10"
@@ -1114,7 +1115,7 @@ write_metadata() {
         echo "profile_uncapped=$uncapped"
         echo "sprite_sheet_watch=${AMBITION_SPRITE_WATCH:-platform-default}"
         echo "cargo_profile=$build_profile"
-        echo "cargo_jobs=${cargo_jobs:-<cargo default>}"
+        echo "cargo_jobs=${cargo_jobs:-${CARGO_BUILD_JOBS:-<cargo default>}}"
         echo "memory_limit_mib=$memory_limit_mib"
         echo "memory_scope=$memory_scope"
         echo "tracy_memory_percent=$tracy_memory_percent"
@@ -1808,15 +1809,22 @@ enter_memory_scope() {
         log "User memory scope unavailable; the collector and compiler limits still apply"
         return
     fi
-    local limit="$memory_limit_mib"
+    local limit="$memory_limit_mib" status
     if [[ "$limit" == auto ]]; then
         limit="$(awk '/^MemTotal:/ {total=$2} /^MemAvailable:/ {available=$2} END {a=available/2048; t=total/4096; print int(a<t?a:t)}' /proc/meminfo)"
     fi
     (( limit > 0 )) || fail "No RAM budget is available for profiling"
     log "Profile memory limit: $limit MiB in a separate user scope"
-    exec env AMBITION_PROFILE_MEMORY_SCOPE_MIB="$limit" \
+    set +e
+    env AMBITION_PROFILE_MEMORY_SCOPE_MIB="$limit" \
         systemd-run --user --scope --quiet --property="MemoryMax=${limit}M" \
         "$BASH" "$repo_root/scripts/measure/profile_desktop.sh" "${original_args[@]}"
+    status=$?
+    set -e
+    if [[ "$status" -eq 137 || "$status" -eq 143 ]]; then
+        log "Memory-limited profile terminated (status $status, limit $limit MiB). Check memory-*.txt and the user journal for OOM events."
+    fi
+    exit "$status"
 }
 
 write_memory_snapshot() {

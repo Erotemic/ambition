@@ -8,7 +8,8 @@ action still changes that subject's wallet through the inventory owner.
 
 The current ports run in `actor_think`. They share portable Rust, Rhai and
 linked Rust contracts. A loaded Rhai witness runs through the assembled engine
-and GGRS. The new behavior ports do not yet have an actual WASM behavior witness.
+and GGRS. The same witness also loads a Rust method module as actual WASM. Its
+schemas are new to the host; the fixture crate is not linked into the game.
 
 ## Bind an instance
 

@@ -101,13 +101,18 @@ fn done() {
 "#;
 
 fn prepared(source: &str, label: &str) -> (Platformer2dSimHarness, [Entity; 2], std::path::PathBuf) {
+    prepared_with_modules(source, label, Vec::new())
+}
+fn prepared_with_modules(source: &str, label: &str, mut modules: Vec<std::path::PathBuf>)
+    -> (Platformer2dSimHarness, [Entity; 2], std::path::PathBuf) {
     let path = std::env::temp_dir().join(format!("ambition_object_behaviors_{label}_{}.rhai", std::process::id()));
     std::fs::write(&path, source).unwrap();
+    modules.push(path.clone());
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_flag("intro_wake_seen", true);
     let mut sim = Platformer2dSimHarness::new_with_options(
         crate::common::fixed_60hz_room_options("intro_wake_room").with_save(save)
-            .with_extension_module_files(vec![path.clone()]).with_sync_test_rollback_settings(4, 12)).unwrap();
+            .with_extension_module_files(modules).with_sync_test_rollback_settings(4, 12)).unwrap();
     let world = sim.world_mut();
     let player = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
     let teacher = world.query::<(Entity, &CharacterForm)>().iter(world)
@@ -120,11 +125,23 @@ fn prepared(source: &str, label: &str) -> (Platformer2dSimHarness, [Entity; 2], 
 }
 
 #[test]
-fn reusable_instances_await_native_results_on_both_controllers_and_replay() {
-    let (mut sim, [player, teacher], path) = prepared(SOURCE, "instances");
+fn reusable_instances_await_native_results_on_both_controllers_and_replay() { exercise_instances(false); }
+
+#[test]
+fn wasm_methods_keep_private_state_and_complete_calls_after_native_results_and_replay() { exercise_instances(true); }
+
+fn exercise_instances(portable: bool) {
+    let (mut sim, [player, teacher], path) = if portable {
+        let guest = ambition_platformer2d::extension::build_module_crate(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap(),
+            "ambition_extension_fixture_modules").unwrap();
+        let source = SOURCE.replace("entry: \"objects_probe::composition/work\"", "entry: \"fixture::object_worker/work\"");
+        prepared_with_modules(&source, "wasm_instances", vec![guest])
+    } else { prepared(SOURCE, "instances") };
     sim.step_n(AgentAction::default(), 40);
     let root = SchemaKey::new("objects_probe", "root", 1);
-    let worker = SchemaKey::new("objects_probe", "worker", 1);
+    let worker = if portable { SchemaKey::new("fixture", "object_worker.memory", 1) }
+        else { SchemaKey::new("objects_probe", "worker", 1) };
     for body in [player, teacher] {
         let record = sim.world().get::<BodyRecords>(body).unwrap().get(&root).unwrap();
         assert_eq!(record.get(FieldRef(1)).unwrap(), &Value::U32(1));

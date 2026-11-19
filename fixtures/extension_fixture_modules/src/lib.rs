@@ -22,6 +22,8 @@
 //! body's identity, so the count goes on when that body is built again, and
 //! in a transient one beside it, which starts again with each live body.
 
+mod object_worker;
+
 use ambition_combat_port::{
     ActorFire, ActorFirePort, ActorThink, ActorThinkPort, DamageBox, DamageBoxPort, WieldedUsePort, Wielder,
 };
@@ -399,7 +401,7 @@ fn object_ref_result(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 }
 
 /// Every module this crate provides, as constructors.
-pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker, object_refs];
+pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker, object_refs, object_worker::module];
 
 #[cfg(test)]
 mod tests {

@@ -637,3 +637,17 @@ policy retained its 11 baseline violations. The new behavior ports lack an
 actual WASM method-call witness. Do not infer room-island rollback coverage from
 GGRS: private instance membership remains open. See
 [object behaviors](../../sdk/object-behaviors.md) for the other remaining work.
+
+## Inherited scope and portable behavior methods
+
+Private instances were absent from room snapshots. `ObjectScopeOwner` now
+supplies one owner link for room membership and visibility cuts. Allocation
+uses the owning scope's counter. Commit: `c42c48b65`.
+
+The shared scope witness checks travel and owner reconstruction. The loaded
+[`scripted_object_behaviors.rs`](../../../game/ambition_app/tests/scripted_object_behaviors.rs)
+fixture restores private callbacks through room snapshots without duplicate
+rewards. Shared tests passed 354 cases; assembled scope, result, schema and
+room rewind tests passed 30 with 14 ignored. The default app warning check and
+53 absence contracts passed. Cross-room message causality during independent
+replay remains open.

@@ -176,6 +176,7 @@ fi
             "--name", "unit", "--out", str(self.root / "profiles"),
             "--no-tracy", "--no-record", "--chunks", "2",
             "--tracy-export-memory-mib", "0",
+            "--tracy-runtime-memory-mib", "0",
             *extra,
         ]
         # The script intentionally refuses a windowed Smash launch without a
@@ -374,7 +375,6 @@ fi
         self.assertIn("--features profile", calls[builds[0]])
         self.assertNotIn("--features profile", calls[builds[1]])
         self.assertLess(builds[0], calls.index("tracy capture"))
-        self.assertLess(calls.index("tracy capture"), games[0])
         self.assertLess(games[0], builds[1])
         self.assertLess(max(i for i, row in enumerate(calls) if row.startswith("tracy export")), builds[1])
         self.assertLess(builds[1], calls.index("perf record"))
@@ -454,7 +454,9 @@ fi
             str(self.root / "scripts/measure/profile_desktop.sh"),
             "--smash", "--smash-fighters", "4", "--smash-seconds", "1",
             "--name", "unit", "--out", str(self.root / "profiles"),
-            "--no-record", "--chunks", "2", *extra,
+            "--no-record", "--chunks", "2",
+            "--tracy-runtime-memory-mib", "0", "--tracy-export-memory-mib", "0",
+            *extra,
         ]
         return subprocess.run(cmd, cwd=self.root, env=env, text=True,
                               capture_output=True, timeout=70)

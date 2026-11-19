@@ -121,6 +121,12 @@ memory_limit_mib="0"
 memory_scope="disabled"
 tracy_memory_percent="10"
 tracy_export_memory_mib="auto"
+tracy_runtime_memory_mib="auto"
+tracy_game_memory_mib=0
+tracy_collector_memory_mib=0
+tracy_game_scope=""
+tracy_collector_scope=""
+tracy_effective_memory_percent=10
 
 # Scenario markers AND the in-process censuses. A frame spike that does not
 # appear next to the chunk it happened in is a spike nobody can attribute.
@@ -254,6 +260,10 @@ Options:
                            (disabled). auto uses the smaller of half available
                            RAM and a quarter of total RAM; includes builds.
   --tracy-memory-percent N  Collector limit as percent of total RAM. Default: 10.
+  --tracy-runtime-memory-mib N  Combined game/collector RAM budget after build.
+                           Default: auto (75% of available RAM, at most 37.5%
+                           of total RAM). Split 2:1 between game and collector.
+                           0 disables these scopes. Builds are not limited.
   --tracy-export-memory-mib N  Exporter RAM limit, separate from builds.
                            Default: auto (half available RAM or a quarter of
                            total RAM, whichever is less). 0 disables it.
@@ -374,6 +384,8 @@ while [[ $# -gt 0 ]]; do
         --memory-limit-mib=*) memory_limit_mib="${1#--memory-limit-mib=}" ;;
         --tracy-export-memory-mib) shift; [[ $# -gt 0 ]] || fail "--tracy-export-memory-mib requires auto, 0, or a MiB count"; tracy_export_memory_mib="$1" ;;
         --tracy-export-memory-mib=*) tracy_export_memory_mib="${1#--tracy-export-memory-mib=}" ;;
+        --tracy-runtime-memory-mib) shift; [[ $# -gt 0 ]] || fail "--tracy-runtime-memory-mib requires auto, 0, or a MiB count"; tracy_runtime_memory_mib="$1" ;;
+        --tracy-runtime-memory-mib=*) tracy_runtime_memory_mib="${1#--tracy-runtime-memory-mib=}" ;;
         --tracy-memory-percent) shift; [[ $# -gt 0 ]] || fail "--tracy-memory-percent requires a percentage"; tracy_memory_percent="$1" ;;
         --tracy-memory-percent=*) tracy_memory_percent="${1#--tracy-memory-percent=}" ;;
         --census-hz) shift; [[ $# -gt 0 ]] || fail "--census-hz requires a value"; census_hz="$1" ;;
@@ -802,7 +814,12 @@ start_tracy_capture() {
         printf '%s\n' "$tracy_tsc_note" > "$out_dir/tracy.caveat"
         log "$tracy_tsc_note"
     fi
-    tracy-capture -o "$out_dir/tracy.trace" -f -m "$tracy_memory_percent" > "$out_dir/tracy-capture.log" 2>&1 &
+    local collector=(tracy-capture -o "$out_dir/tracy.trace" -f -m "$tracy_effective_memory_percent")
+    if (( tracy_collector_memory_mib > 0 )); then
+        collector=(systemd-run --user --scope --quiet --unit="$tracy_collector_scope" \
+            --property="MemoryMax=${tracy_collector_memory_mib}M" "${collector[@]}")
+    fi
+    "${collector[@]}" > "$out_dir/tracy-capture.log" 2>&1 &
     tracy_capture_pid=$!
 }
 
@@ -819,6 +836,61 @@ tracy_capture_running() {
     [[ "$state" != Z* && -n "$state" ]]
 }
 
+user_memory_scope_available() {
+    [[ -r /sys/fs/cgroup/cgroup.controllers ]] && have_tool systemd-run \
+        && systemctl --user show-environment >/dev/null 2>&1
+}
+
+automatic_profile_memory_mib() {
+    awk '/^MemTotal:/ {total=$2} /^MemAvailable:/ {available=$2} END {a=available/2048; t=total/4096; print int(a<t?a:t)}' /proc/meminfo
+}
+
+prepare_tracy_runtime_memory() {
+    local out_dir="$1" limit="$tracy_runtime_memory_mib" total_mib
+    tracy_game_memory_mib=0
+    tracy_collector_memory_mib=0
+    tracy_game_scope=""
+    tracy_collector_scope=""
+    tracy_effective_memory_percent="$tracy_memory_percent"
+    if [[ "$limit" != 0 ]]; then
+        if ! user_memory_scope_available; then
+            log "Tracy runtime memory scopes unavailable; skipping this capture. Use --tracy-runtime-memory-mib 0 to run without them."
+            return 1
+        fi
+        if [[ "$limit" == auto ]]; then
+            limit="$(automatic_profile_memory_mib)"
+            limit=$((limit * 3 / 2))
+        fi
+        (( limit >= 3 )) || { log "Tracy runtime memory budget must be at least 3 MiB"; return 1; }
+        tracy_game_memory_mib=$((limit * 2 / 3))
+        tracy_collector_memory_mib=$((limit - tracy_game_memory_mib))
+        total_mib="$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo)"
+        tracy_effective_memory_percent=$((tracy_collector_memory_mib * 80 / total_mib))
+        (( tracy_effective_memory_percent >= 1 )) || tracy_effective_memory_percent=1
+        if (( tracy_effective_memory_percent > tracy_memory_percent )); then
+            tracy_effective_memory_percent="$tracy_memory_percent"
+        fi
+        tracy_game_scope="ambition-tracy-game-$BASHPID-$RANDOM.scope"
+        tracy_collector_scope="ambition-tracy-collector-$BASHPID-$RANDOM.scope"
+        log "Tracy runtime RAM: game $tracy_game_memory_mib MiB; collector $tracy_collector_memory_mib MiB; collector save threshold $tracy_effective_memory_percent% of system RAM"
+    fi
+    {
+        printf 'requested_mib=%s\ngame_limit_mib=%s\ncollector_limit_mib=%s\ncollector_percent=%s\n' \
+            "$tracy_runtime_memory_mib" "$tracy_game_memory_mib" "$tracy_collector_memory_mib" "$tracy_effective_memory_percent"
+        printf 'game_scope=%s\ncollector_scope=%s\n' "$tracy_game_scope" "$tracy_collector_scope"
+    } > "$out_dir/tracy-runtime-memory.txt"
+}
+
+record_tracy_scope_result() {
+    local out_dir="$1" kind="$2" unit="$3" result
+    [[ -n "$unit" ]] || return 0
+    result="$(systemctl --user show "$unit" --property=Result --value 2>/dev/null || true)"
+    printf '%s_scope_result=%s\n' "$kind" "${result:-unavailable}" >> "$out_dir/tracy-runtime-memory.txt"
+    if [[ "$result" == oom-kill ]]; then
+        log "Tracy $kind reached its RAM limit; its separate memory scope was terminated"
+    fi
+}
+
 run_tracy_export() {
     local out_dir="$1" stage="$2"; shift 2
     local limit="$tracy_export_memory_mib" status
@@ -826,13 +898,12 @@ run_tracy_export() {
         tracy-csvexport "$@"
         return $?
     fi
-    if [[ ! -r /sys/fs/cgroup/cgroup.controllers ]] || ! have_tool systemd-run \
-            || ! systemctl --user show-environment >/dev/null 2>&1; then
+    if ! user_memory_scope_available; then
         log "Tracy export memory scope unavailable; retaining the raw trace. Use --tracy-export-memory-mib 0 to export without a limit."
         return 1
     fi
     if [[ "$limit" == auto ]]; then
-        limit="$(awk '/^MemTotal:/ {total=$2} /^MemAvailable:/ {available=$2} END {a=available/2048; t=total/4096; print int(a<t?a:t)}' /proc/meminfo)"
+        limit="$(automatic_profile_memory_mib)"
     fi
     (( limit > 0 )) || { log "No RAM budget is available for Tracy export"; return 1; }
     printf 'limit_mib=%s\n' "$limit" > "$out_dir/tracy-export-$stage-memory.txt"
@@ -873,6 +944,7 @@ finish_tracy_capture() {
     fi
     kill "$capture_pid" 2>/dev/null || true
     wait "$capture_pid" 2>/dev/null || true
+    record_tracy_scope_result "$out_dir" collector "$tracy_collector_scope"
     if [[ ! -s "$out_dir/tracy.trace" ]]; then
         # ⛔⛔ SAY WHY, AND tracy-capture ALREADY DID. On 2026-09-01 a capture on
         # real hardware recorded "the game never connected" while its own
@@ -1153,6 +1225,7 @@ write_metadata() {
         echo "memory_scope=$memory_scope"
         echo "tracy_memory_percent=$tracy_memory_percent"
         echo "tracy_export_memory_mib=$tracy_export_memory_mib"
+        echo "tracy_runtime_memory_mib=$tracy_runtime_memory_mib"
         echo "profile_dir=$plan_profile_dir"
         echo "cargo_features=$plan_features"
         echo "package=$plan_package"
@@ -1506,8 +1579,18 @@ assert_stamper_starts() {
 run_instrumented_launch() {
     local out_dir="$1" status_file="$2"; shift 2
     write_memory_snapshot "$out_dir" before-capture
+    if [[ "$want_tracy" == yes ]] && ! prepare_tracy_runtime_memory "$out_dir"; then
+        printf '1\n' > "$status_file"
+        printf 'Tracy runtime memory scopes unavailable or budget invalid; see the profiler log.\n' > "$out_dir/tracy.skipped"
+        return 0
+    fi
+    local launch=("$@")
+    if [[ "$want_tracy" == yes ]] && (( tracy_game_memory_mib > 0 )); then
+        launch=(systemd-run --user --scope --quiet --unit="$tracy_game_scope" \
+            --property="MemoryMax=${tracy_game_memory_mib}M" "${launch[@]}")
+    fi
     assert_stamper_starts "$out_dir"
-    echo "$(quote_cmd "$@")" > "${status_file%.status}.command.txt"
+    echo "$(quote_cmd "${launch[@]}")" > "${status_file%.status}.command.txt"
 
     local tracy_pid=""
     tracy_capture_pid=""
@@ -1551,7 +1634,7 @@ run_instrumented_launch() {
     (python3 -u -c "$stamp_py" < "$stderr_fifo" | tee "$out_dir/game-stderr-stamped.txt" >&2) &
     local stderr_stamper_pid=$!
     set +e
-    "$@" > "$stdout_fifo" 2> "$stderr_fifo"
+    "${launch[@]}" > "$stdout_fifo" 2> "$stderr_fifo"
     local status=$?
     wait "$stdout_stamper_pid" "$stderr_stamper_pid"
     local stamp_status=$?
@@ -1564,6 +1647,9 @@ run_instrumented_launch() {
     kill "$heartbeat_pid" 2>/dev/null || true
     wait "$heartbeat_pid" 2>/dev/null || true
     echo "$status" > "$status_file"
+    if [[ "$want_tracy" == yes ]]; then
+        record_tracy_scope_result "$out_dir" game "$tracy_game_scope"
+    fi
     if [[ "$status" -ne 0 && "$status" -ne 124 && "$status" -ne 130 ]]; then
         log "the game exited with status $status; finalizing the artifacts collected so far"
     fi
@@ -1814,6 +1900,7 @@ expose_tracy_diagnostic() {
     local name
     for name in tracy.trace tracy_zones.csv tracy_zone_windows.csv \
             tracy_summary.md tracy-capture.log tracy-csvexport.stderr \
+            tracy-runtime-memory.txt tracy-export-totals-memory.txt tracy-export-instances-memory.txt \
             tracy.skipped tracy.caveat tracy_zone_instances.streamed \
             tracy-zone-export.stderr tracy-zone-report.stderr; do
         if [[ -e "$diag/$name" ]]; then
@@ -1830,6 +1917,10 @@ expose_tracy_diagnostic() {
 enter_memory_scope() {
     [[ "$memory_limit_mib" =~ ^(auto|0|[1-9][0-9]*)$ ]] || fail "--memory-limit-mib requires auto, 0, or a positive MiB count"
     [[ "$tracy_export_memory_mib" =~ ^(auto|0|[1-9][0-9]*)$ ]] || fail "--tracy-export-memory-mib requires auto, 0, or a positive MiB count"
+    [[ "$tracy_runtime_memory_mib" =~ ^(auto|0|[1-9][0-9]*)$ ]] || fail "--tracy-runtime-memory-mib requires auto, 0, or a positive MiB count"
+    if [[ "$tracy_runtime_memory_mib" != auto && "$tracy_runtime_memory_mib" != 0 ]]; then
+        (( tracy_runtime_memory_mib >= 3 )) || fail "--tracy-runtime-memory-mib requires at least 3 MiB"
+    fi
     is_positive_int "$tracy_memory_percent" && (( tracy_memory_percent <= 100 )) || fail "--tracy-memory-percent must be between 1 and 100"
     if [[ -n "${AMBITION_PROFILE_MEMORY_SCOPE_MIB:-}" ]]; then
         memory_limit_mib="$AMBITION_PROFILE_MEMORY_SCOPE_MIB"
@@ -1837,8 +1928,7 @@ enter_memory_scope() {
         return
     fi
     [[ "$memory_limit_mib" != 0 ]] || return 0
-    if [[ ! -r /sys/fs/cgroup/cgroup.controllers ]] || ! have_tool systemd-run \
-            || ! systemctl --user show-environment >/dev/null 2>&1; then
+    if ! user_memory_scope_available; then
         [[ "$memory_limit_mib" == auto ]] || fail "A user systemd memory scope is unavailable; use --memory-limit-mib 0 to run without it"
         memory_scope="unavailable"
         log "User memory scope unavailable; the collector limit still applies"
@@ -1846,7 +1936,7 @@ enter_memory_scope() {
     fi
     local limit="$memory_limit_mib" status
     if [[ "$limit" == auto ]]; then
-        limit="$(awk '/^MemTotal:/ {total=$2} /^MemAvailable:/ {available=$2} END {a=available/2048; t=total/4096; print int(a<t?a:t)}' /proc/meminfo)"
+        limit="$(automatic_profile_memory_mib)"
     fi
     (( limit > 0 )) || fail "No RAM budget is available for profiling"
     log "Profile memory limit: $limit MiB in a separate user scope"

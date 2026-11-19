@@ -114,8 +114,20 @@ that fact and retains the collector limit. An explicit nonzero scope limit
 requires a working user manager. The scope does not reserve RAM for a VM or
 change the VM's settings.
 
-The Tracy collector stops recording at 10% of system RAM by default; change
-that with `--tracy-memory-percent N`. This is a percentage, not a MiB count.
+The Tracy game and live collector run in separate memory scopes after the
+warm build. Their combined default budget is 75% of available RAM, capped at
+37.5% of total RAM, measured after compilation. Two thirds goes to the game;
+one third goes to the collector. A game OOM leaves the collector alive to
+save its trace. These scopes do not limit compiler jobs or compiler RAM.
+Use `--tracy-runtime-memory-mib N` to set another combined budget, or `0` to
+disable these scopes. If the user memory manager is unavailable, the Tracy
+launch is skipped; a paired command still runs the native pass.
+`tracy-runtime-memory.txt` records the limits, scope names, and scope results.
+
+The collector's requested save threshold is 10% of system RAM by default;
+`--tracy-memory-percent N` changes it. This is a percentage, not a MiB count.
+The runtime budget can lower this threshold to leave space for saving the
+trace. The actual threshold is recorded in `tracy-runtime-memory.txt`.
 Each Tracy exporter runs in its own memory scope by default. Its RAM limit is
 the smaller of half available RAM and a quarter of total RAM, measured when
 that exporter starts. The exporter reloads the trace, so the collector's limit

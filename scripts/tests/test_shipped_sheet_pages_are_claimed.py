@@ -102,14 +102,13 @@ CANONICAL = pytest.mark.skipif(
 )
 
 
-# ⛔ KNOWN, MEASURED 2026-09-02. Four sheet renders with no `.ron` at any of the
-# four tiers (16 files, 13.6 MB) — `_full`, `_body` and `_hands` layer outputs
-# left beside the manifested `gnu_ton_boss` / `giant_gnu` sheets the boss really
-# uses. ⚠ The BOSS IS FINE: `gnu_ton_boss_spritesheet.ron` and
-# `giant_gnu_spritesheet.ron` both exist and are claimed. These are extra
-# renders, not missing art.
+# ⛔ KNOWN, MEASURED 2026-09-02. Sheet renders with no `.ron` at any of the
+# four tiers — `_full`, `_body` and `_hands` layer outputs left beside the
+# manifested `gnu_ton_boss` sheet the boss really uses. ⚠ The BOSS IS FINE:
+# `gnu_ton_boss_spritesheet.ron` exists and is claimed. These are extra
+# renders, not missing art. (`giant_gnu_body`, a copy of the giant's page, is
+# no longer rendered: 2026-11-18.)
 KNOWN_UNMANIFESTED_SHEETS = {
-    "giant_gnu_body",
     "gnu_ton_boss_body",
     "gnu_ton_boss_full",
     "gnu_ton_boss_hands",

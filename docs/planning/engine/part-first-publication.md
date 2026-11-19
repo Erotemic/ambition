@@ -177,9 +177,10 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
 - **Final audit (2026-11-18, renderer `9347716`):** every flipbook module
   unit but `gnu_ton_boss` and the two Wolfensteins (boss art) published
   part-first with every frame painted and checked: 434 of 434 replay the
-  paint within the guard; 414 publish page-less. The rest paint by design:
+  paint within the guard; 414 publish page-less. The rest painted then:
   boss art (`baked_pages`), `history_fukuzawa_yukichi` (66 draws in a frame,
-  over the 64 budget), and the bespoke publishers below. Hypatia Prime,
+  over the 64 budget; part-first since, below), and the bespoke publishers
+  below. Hypatia Prime,
   republished into the store page-less, realizes parts-only in the composed
   game with her part page loaded one frame after the request.
 - **The generator road is part-first (2026-11-18).** `write_spritesheet`
@@ -207,10 +208,26 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   (`sprite_player_robot_v3`) is that page, and the runtime decodes it at
   boot; the tileset must be retargeted first
   (`tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py`, the worlds
-  in `game/ambition_map_assets`). Painted on purpose: Jeff Hinter armored
-  (87 draws in a frame, over the 64 budget) and Fukuzawa (66), the cosmic
-  Mary-O (a hybrid: her transformation rows carry light on the whole figure
-  that no part carries, so they stay baked clips).
+  in `game/ambition_map_assets`). Painted on purpose: the cosmic Mary-O (a
+  hybrid: her transformation rows carry light on the whole figure that no
+  part carries, so they stay baked clips).
+- **Rigid pieces are one part (2026-11-18).** Jeff Hinter armored (87 draws
+  in a frame) and Fukuzawa (66) were baked for the draw budget, though most
+  of each body rides a few bones. Two causes, both fixed at the source of the
+  draws rather than by the budget: a person's limb bone dressed in several
+  pieces (plates, a sleeve and its cuff) placed each piece at its own point
+  along the bone, so no two shared a place (`_person_rig.dressed_bone` now
+  composes them into one part pivoted at the bone's root); and a clip over
+  the budget is recorded again with each run of pieces placed alike on the
+  supersampled canvas joined before the reduction (`part_flipbook._rigid_runs`;
+  after the reduction they sit at half texels of each other and cannot be
+  pasted exactly). Under the audit: Jeff Hinter armored 189 of 189 frames,
+  at most 30 draws, page-less (84 s, was 300 s painting); Fukuzawa 103 of
+  103, at most 64, page-less, its part pages 6% smaller. The bone change
+  reaches every person whose limbs are dressed in pieces: data_lovelace's
+  worst frame 59 → 21 draws (5,503 → 1,576 over the sheet), ninja_heavy 38 →
+  30, ramen_nujan unchanged, all replaying every painted frame; one dressed
+  in a single piece (jeff_hinter) publishes byte for byte as before.
 - **Sandbag (2026-11-18).** Its own sheet writer painted every frame for the
   page and again for its flipbook; now it records the flipbook once, measures
   the body box off its first idle frame, keeps its frames on a grid and writes
@@ -220,8 +237,26 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   sandbag's pages and drops a missing name silently, so the page-less robot
   in the store had not been embedded at all; each sheet's `_parts.png` is
   listed beside its page.
-- Not yet part-first: `gnu_ton_boss`'s layered publish (full, body, hands,
-  fist, GNU2 and rider sheets; the boss road reads its body and hands layers).
+- **GNU-ton's layered publish (2026-11-18).** The giant MOUNT records its
+  flipbook before the layer pass (`_record_giant_flipbook`), so its layer is
+  not painted and it publishes no page: its record keeps its frames on a
+  grid with its seams and surfaces, and its boss row draws it from
+  `npc_giant_gnu`'s parts. Under the audit 464 of 464 frames replay the paint
+  (at most 36 draws a frame). `giant_gnu_body` (a copy of the giant's page
+  nobody read) is gone. **GNU2 is part-first too.** Its parts took 67 draws
+  a frame and it was baked onto a 194 MP page: its armour was layered
+  globally (every leg plate at z+0.7, every arm plate at z41), so each plate
+  was drawn after every limb and none was beside the segment it rides. Now
+  each segment's armour is placed right after it in its own space
+  (`gnu2_art._on_its_segment`), and `_pieces.compose` merges each run of
+  consecutive pieces in one space into one part (`_pieces.merged`): GNU2 at
+  most 36 draws, the giant 36, and under the audit both replay 464 of 464 painted frames (GNU2's parts 5.2 MP against its 194 MP page); the near arm in the jab and hook
+  frames, drawn bare before because its armour sorted behind the body, now
+  wears it. The cost rule also weighs texels over the budget
+  (`draws_affordable`: up to 96 draws when the parts are at most 1/16 of the
+  baked texels). Still painted on purpose: the fused `gnu_ton_boss` sheet
+  (full, body and hands layers: `npc_gnu_ton_boss` reads it and it has no
+  flipbook), the scholar rider and the fist (no flipbook). Published into the local store: 2,723 s for `gnu_ton_boss`, half the 5,523 s it took with GNU2 painted.
 - **PF5 measured (2026-11-18): the 109 characters with no flipbook are not
   a switch.** Forced part-first (`build_sheet(parts=True)`), twelve of them
   (aurochs, hoplite, tiger, mummy, terracotta warrior, kraken arm, mime, art

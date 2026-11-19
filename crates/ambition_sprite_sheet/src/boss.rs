@@ -283,6 +283,7 @@ impl BossSheetSpec {
             authored_faces_left: self.authored_faces_left,
             column_tile: None,
             drawn_from_parts: false,
+            sits_on_ground: false,
             fx: None,
             rows,
         }

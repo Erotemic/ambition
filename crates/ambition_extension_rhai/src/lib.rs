@@ -55,7 +55,7 @@ use rhai::{AST, Dynamic, Engine, FLOAT, INT};
 /// The code identity's ABI: the language and the engine configuration that
 /// gives a script its meaning. A change to the configuration (the number
 /// type, the comparisons, the binding) is a new ABI name.
-pub const ABI: &str = "rhai-f32-exact/3";
+pub const ABI: &str = "rhai-f32-exact/4";
 
 /// The operations one invocation may spend.
 pub const DEFAULT_MAX_OPERATIONS: u64 = 200_000;
@@ -85,14 +85,18 @@ pub fn engine(max_operations: u64) -> Engine {
     engine.set_max_operations(max_operations);
     engine.set_max_call_levels(32);
     engine.set_max_expr_depths(64, 64);
-    engine.set_max_string_size(4096);
-    engine.set_max_array_size(1024);
-    engine.set_max_map_size(256);
+    set_value_limits(&mut engine, LibraryLimits::default());
     engine.set_strict_variables(true);
     engine.set_fail_on_invalid_map_property(true);
     engine.set_module_resolver(rhai::module_resolvers::DummyModuleResolver::new());
     exact_float_comparisons(&mut engine);
     engine
+}
+
+fn set_value_limits(engine: &mut Engine, limits: LibraryLimits) {
+    engine.set_max_string_size(limits.max_value_text_bytes);
+    engine.set_max_array_size(limits.max_value_collection_entries);
+    engine.set_max_map_size(limits.max_value_collection_entries);
 }
 
 /// `request(alias, value)`: the request `#{ port: alias, value }` with its
@@ -186,14 +190,19 @@ impl PreparedScript {
     ) -> Result<Self, String> {
         let ports = Arc::new(ports);
         let mut engine = engine(max_operations);
+        set_value_limits(&mut engine, limits);
         register_request(&mut engine, ports.clone());
         let compiled = source::compile(&mut engine, source, text, limits, &mut read)?;
+        let mut identity = ambition_extension_sdk::digest::Digest::new();
+        identity.str("ambition.rhai.execution/1").u64(compiled.digest).u64(max_operations)
+            .u64(limits.max_imports as u64).u64(limits.max_value_text_bytes as u64)
+            .u64(limits.max_value_collection_entries as u64);
         Ok(Self {
             engine: Arc::new(engine),
             ast: compiled.entry,
             ports,
             source: Arc::from(source),
-            digest: compiled.digest,
+            digest: identity.finish(),
             libraries: compiled.libraries,
         })
     }

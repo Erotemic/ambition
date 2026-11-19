@@ -1,8 +1,8 @@
 # Chargen: species head knobs and per-view 2D overlay art
 
-**State:** the overlay mechanism and the dog and pigeon knobs are built. The
-other species' knobs and asymmetric view cells remain open under
-[CHARGEN-SPECIES](../queue.md#chargen-species--species-parameters-and-asymmetric-overlay-views).
+**State:** the overlay mechanism, every species' knobs and the one-sided
+details' left-facing rows are built (2026-11-19), under
+[CHARGEN-SPECIES](../queue.md#chargen-species--species-parameters-and-asymmetric-overlay-views---done-2026-11-19).
 The renderer's `chargen` modules own implementation; this page owns the design.
 
 ## As built: overlays (renderer `chargen/overlay.py`)
@@ -38,9 +38,35 @@ The renderer's `chargen` modules own implementation; this page owns the design.
 - Generator fix found on the way: the `bust` bump sat on the chest line
   (the bottom of the ribcage); it is now a third of the way from the base
   of the neck to the waist, with a long rise above and a rounder fall.
-- Open: a left view is the mirror of its right twin, so an asymmetric feature
-  (Nikobolt's watch chain, Coulomba's plume and roses) changes sides in the
-  left views; they need their own left cells.
+- **One-sided details (2026-11-19).** A left-facing row is a flipped
+  picture, so a detail on one side of the body changed sides when the
+  character turned. A character that wears one (`rig.one_sided`: a kimono's
+  wrap, a nihongami's ornaments, an overlay with a mirrored cell) is also
+  drawn as its *mirror image* (`View.mirrored`: the wrap, the ornaments and
+  the overlay's `data-figure="mirrored"` cells on the other side, everything
+  symmetric drawn exactly as before), in `<slug>.mirrored.svg` and
+  `<slug>_<view>_mirrored.rig.json` with the plain rigs' clips. Its sheet
+  gains `<row>~mirrored` for every row, the mirror image's frame flipped
+  (`SheetRow::mirror_of`, which the animator already draws for a body facing
+  left), and a turn row's left views come from the mirror image too. A true
+  left view (negative yaw) was measured first and rejected: the house shade
+  is always on the screen's left, and the hands are not drawn as mirror
+  twins, so a flipped left view differed from its right twin on 20-30 % of
+  the drawn pixels even for a symmetric resident; the mirror image is
+  identical to the plain view everywhere but on the detail.
+- Ten residents are one-sided: seven kimono wearers (Nagisa's nihongami
+  too), and three overlays with mirrored cells: André Rebouças's and
+  Nikobolt's watch chains, Coulomba's cocked hat with its plume, bow and
+  roses. The cells were derived once from the plain cells (the rules are in
+  the renderer commit) and are now ordinary art: a front or back cell is
+  the detail flipped about the body's line; a three-quarter cell flips the
+  detail about its own centre, foreshortened on the far side; a side cell
+  moves the detail to the hidden side of what covers it. Two plain cells
+  were wrong and are fixed: Nikobolt's three-quarter chain ran to his right,
+  and his side view showed a chain on his far side.
+- An item held in a hand (a bag, a staff, a brush) is not one-sided: it
+  stays in the far hand whichever way the character faces, the sprite
+  convention every hand-made sheet follows.
 
 ## What Jon asked
 
@@ -62,7 +88,8 @@ Rulings it must keep:
   shared parts; no stacked whole-view alternates (only face-type swaps
   overlay).
 - **All angles; mirror only what is symmetric.** An asymmetric feature (a
-  scar, a parted fringe, a monocle) needs its own left views, never a mirror.
+  scar, a parted fringe, a monocle) needs its own left views, never a mirror
+  (built as the mirror image's cells and `~mirrored` rows, above).
 - No drop shadows; feet on the floor.
 
 ## 1. The overlay mechanism
@@ -136,7 +163,8 @@ Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
   studio's controls and `applies.py` pick them up; `test_chargen_applies`
   checks each knob draws on its own head and nothing on a human's.
 - Every marking is the same on both sides, so the mirrored left views stay
-  right. A one-sided marking (an eye patch) needs left cells first.
+  right. A one-sided marking (an eye patch) would read `View.lateral`, as
+  the kimono's wrap does, and join `rig.one_sided`.
 - **cat** (`spec.SPECIES_KNOBS["cat"]`, 2026-11-14): `head.ear_size` (the
   ears' size, 1 as drawn), `head.cheek_fluff` (fur standing out below and
   behind the eyes, 0 for none: a relief on the head), `head.stripes` (a

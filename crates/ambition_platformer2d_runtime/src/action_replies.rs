@@ -46,13 +46,13 @@ pub fn install(app: &mut App) {
         BODY_CONTACT,
         HIT_REACTION,
     ] {
-        app.install_extension_observation::<ActionResultsPort>(
+        app.install_extension_context_observation::<ActionResultsPort>(
             phase,
             "ambition_platformer2d_runtime",
-            |world, scope| {
+            |world, context| {
                 Some(
                     world
-                        .get::<ActionMailbox>(scope)
+                        .get::<ActionMailbox>(context.state_scope)
                         .map_or_else(ActionResults::default, ActionMailbox::history),
                 )
             },
@@ -160,12 +160,12 @@ fn cancel_actions(world: &mut World) {
     for submitted in submitted {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CancelActionPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
         let authorized = submitted.entry.rsplit_once('/').map(|(module, _)| module)
             == request.ticket.entry.rsplit_once('/').map(|(module, _)| module);
         let result = if authorized {
-            cancel_action(world, submitted.scope, &request.ticket).map_err(|refusal| refusal.code())
+            cancel_action(world, submitted.state_scope, &request.ticket).map_err(|refusal| refusal.code())
         } else { Err("cancel_foreign_module") };
         let (stage, code) = match result {
             Ok(()) => (ActionStage::Applied, "action_canceled"),

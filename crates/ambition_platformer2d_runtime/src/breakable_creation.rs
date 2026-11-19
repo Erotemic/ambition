@@ -44,7 +44,7 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
     for submitted in submitted {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CreateBreakablesPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute {
             continue;
         }

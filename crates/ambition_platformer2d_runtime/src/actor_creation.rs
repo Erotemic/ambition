@@ -31,7 +31,7 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
     for submitted in submitted {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CreateActorsPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
         let limits = rules.get(world).ok().and_then(|rules| rules.of(submitted.scope).copied()).unwrap_or_default();
         let result = prepare_state(world, &submitted.entry, &request, limits).and_then(|states| {

@@ -20,7 +20,7 @@ fn lower(world: &mut World) {
     for submitted in requests {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<ConsumeContactPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
         let outcome = (|| {
             let catalog = world.get_resource::<ambition_items::ItemCatalog>().ok_or("inventory_unavailable")?;

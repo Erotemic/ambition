@@ -109,7 +109,7 @@ fn result_of_reply(
         (result.ticket.domain == QUERY_DOMAIN && result.stage == ActionStage::Applied)
             .then(|| {
                 world
-                    .get::<BodyQueryHistory>(context.scope)?
+                    .get::<BodyQueryHistory>(context.state_scope)?
                     .results
                     .iter()
                     .find(|query| query.ticket == result.ticket)
@@ -131,7 +131,7 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
     for submitted in submitted {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<BodyQueryPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute {
             continue;
         }
@@ -167,12 +167,12 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
                 };
                 let identities = result.targets.iter().map(|target|
                     ambition_extension_sdk::action::ActionSubject {key: target.id.clone(), object: Some(target.object)}).collect();
-                if world.get::<BodyQueryHistory>(submitted.scope).is_none() {
+                if world.get::<BodyQueryHistory>(submitted.state_scope).is_none() {
                     world
-                        .entity_mut(submitted.scope)
+                        .entity_mut(submitted.state_scope)
                         .insert(BodyQueryHistory::default());
                 }
-                let mut history = world.get_mut::<BodyQueryHistory>(submitted.scope).unwrap();
+                let mut history = world.get_mut::<BodyQueryHistory>(submitted.state_scope).unwrap();
                 if history.results.len() == ActionMailbox::HISTORY_CAPACITY {
                     history.results.remove(0);
                 }

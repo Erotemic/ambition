@@ -86,7 +86,7 @@ fn lower_projectile_spawns<L: LowersIn>(world: &mut World, mut state: Local<Opti
     let state = state.get_or_insert_with(|| SystemState::new(world));
     for submitted in requests {
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<ProjectileSpawnPort>(
-            world, submitted.scope, &submitted.entry, &submitted.value);
+            world, submitted.state_scope, &submitted.entry, &submitted.value);
         if !dispatch.execute {
             continue;
         }

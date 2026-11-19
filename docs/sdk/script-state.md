@@ -18,6 +18,15 @@ retains its values until session retirement. Durable save policy is a separate
 choice and needs an installed save road. Room-root records have no durable save
 road. All future-affecting records rewind with their native owner.
 
+The native host can separate an invocation's subject from its private record
+owner with `InvocationScope { subject, state }`. Observations, time pace and
+domain actions use the subject. Body-attached records, action mailboxes, query
+reply history and delivery receipts use the state owner. Two instances can use
+the same entry and schema on one subject without sharing these records. Both
+entities must remain live. This is a native host contract; script-authored
+behavior attachment and method calls are separate work.
+
+
 ## Rhai values
 
 A library can return a reusable kind declaration:

@@ -1641,3 +1641,50 @@ fn a_trigger_adapter_runs_while_its_port_is_bound() {
     app.update();
     assert_eq!(app.world().resource::<Runs>().0, 4, "the tick its module went, the adapter did not run once more");
 }
+
+#[test]
+fn private_behavior_records_share_a_subject_without_sharing_state_or_receipts() {
+    #[derive(Resource, Default)]
+    struct Receipts(Vec<(Entity, u64, bool)>);
+    fn settle(world: &mut World, state: Entity, sequence: u64, event: InvocationEvent) {
+        match event {
+            InvocationEvent::Committed | InvocationEvent::Faulted => {
+                world.resource_mut::<Receipts>().0.push((state, sequence,
+                    matches!(event, InvocationEvent::Committed)));
+            }
+            _ => {}
+        }
+    }
+    let mut app = app();
+    app.init_resource::<Receipts>();
+    step(&mut app);
+    let subject = app.world_mut().spawn(Tall(7.0)).id();
+    let first = app.world_mut().spawn_empty().id();
+    let second = app.world_mut().spawn_empty().id();
+    let queue = |app: &mut App, state, poke, sequence| {
+        app.world_mut().resource_mut::<ExtensionInvocations>()
+            .trigger_entry_with_receipt::<Poke>(&PHASE, "test::counter/a", "go",
+                InvocationScope { subject, state }, poke,
+                InvocationReceipt { sequence, notify: settle });
+    };
+    queue(&mut app, first, 1, 1);
+    queue(&mut app, second, 2, 2);
+    queue(&mut app, first, 13, 3);
+    queue(&mut app, first, 3, 4);
+    run_phase(PHASE)(app.world_mut());
+    let rows = app.world_mut().resource_mut::<ExtensionOutbox>().drain::<Emit>(&PHASE);
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows.iter().map(|row| (row.scope, row.state_scope, row.value)).collect::<Vec<_>>(),
+        vec![(subject, first, (1, 1, 7.0)), (subject, second, (2, 1, 7.0)), (subject, first, (3, 2, 7.0))]);
+    let count = |entity| app.world().get::<BodyRecords>(entity).unwrap()
+        .get(&COUNTER).unwrap().get(COUNT).unwrap().as_u32().unwrap();
+    assert_eq!(count(first), 2);
+    assert_eq!(count(second), 1);
+    assert!(app.world().get::<BodyRecords>(subject).is_none());
+    assert_eq!(app.world().resource::<Receipts>().0,
+        vec![(first, 1, true), (second, 2, true), (first, 3, false), (first, 4, true)]);
+    app.world_mut().despawn(second);
+    queue(&mut app, second, 4, 5);
+    run_phase(PHASE)(app.world_mut());
+    assert!(app.world().resource::<ExtensionOutbox>().is_empty());
+}

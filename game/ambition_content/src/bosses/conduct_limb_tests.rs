@@ -35,7 +35,7 @@ fn rider(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ph
 }
 
 fn submitted<T>(boss: Entity, value: T) -> Vec<Submitted<T>> {
-    vec![Submitted { scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value }]
+    vec![Submitted { scope: boss, state_scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value }]
 }
 
 fn closed(world: &World, fist: Entity) -> bool {

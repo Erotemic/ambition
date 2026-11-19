@@ -1118,7 +1118,7 @@ mod limb_pose_tests {
             ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(world,
                 ae::RoomGeometry(ae::World::new("pose room", ae::Vec2::splat(2000.0), ae::Vec2::ZERO, vec![])));
         }
-        let request = Submitted { scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value: pose };
+        let request = Submitted { scope: boss, state_scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value: pose };
         world.run_system_once_with(pose_limbs, vec![request]).unwrap();
     }
 
@@ -1217,6 +1217,7 @@ mod limb_strike_tests {
             .iter()
             .map(|(slot, generation)| Submitted {
                 scope: boss,
+                state_scope: boss,
                 invocation: Default::default(),
                 occurrence: None,
                 entry: "test::gnu/conduct".into(),
@@ -1271,6 +1272,7 @@ mod limb_bond_tests {
             .iter()
             .map(|(slot, start)| Submitted {
                 scope: boss,
+                state_scope: boss,
                 invocation: Default::default(),
                 occurrence: None,
                 entry: "test::gnu/conduct".into(),
@@ -1321,7 +1323,7 @@ mod drawn_row_tests {
     use bevy::ecs::system::RunSystemOnce as _;
 
     fn draw(world: &mut World, boss: Entity, row: DrawnRow) {
-        let request = Submitted { scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value: row };
+        let request = Submitted { scope: boss, state_scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value: row };
         world.run_system_once_with(draw_rows, vec![request]).unwrap();
     }
 
@@ -1366,7 +1368,7 @@ mod launch_and_bubble_tests {
     use bevy::ecs::system::RunSystemOnce as _;
 
     fn submitted<T>(scope: Entity, value: T) -> Vec<Submitted<T>> {
-        vec![Submitted { scope, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value }]
+        vec![Submitted { scope, state_scope: scope, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value }]
     }
 
     /// ⭐ The launch is staged on the mount, not on its rider. The control: a

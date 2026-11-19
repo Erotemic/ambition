@@ -177,7 +177,7 @@ fn lower<L: LowersIn>(world: &mut World) {
         .drain::<InventoryExchangePort>(&L::PHASE);
     for submitted in requests {
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<InventoryExchangePort>(
-            world, submitted.scope, &submitted.entry, &submitted.value);
+            world, submitted.state_scope, &submitted.entry, &submitted.value);
         if !dispatch.execute {
             continue;
         }

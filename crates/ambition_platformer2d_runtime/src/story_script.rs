@@ -156,7 +156,7 @@ fn lower_commands(world: &mut World) {
     let submitted: Vec<_> = world.resource_mut::<ExtensionOutbox>().drain::<StoryCommandPort>(&ACTOR_THINK);
     for submitted in submitted {
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<StoryCommandPort>(
-            world, submitted.scope, &submitted.entry, &submitted.value);
+            world, submitted.state_scope, &submitted.entry, &submitted.value);
         if !dispatch.execute { continue; }
         let room = world.get::<LiveRoomInstance>(submitted.scope).copied()
             .or_else(|| world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(submitted.scope).map(|at| at.0));

@@ -1198,6 +1198,11 @@ write_metadata() {
         echo "strace_version=$(strace --version 2>/dev/null | head -1 || true)"
         echo "python3_version=$(python3 --version 2>/dev/null || true)"
         echo "tracy_invariant_tsc_override=${TRACY_NO_INVARIANT_CHECK:-0}"
+        echo "tracy_required_version=$("$repo_root/scripts/setup/install_profiling_tools.sh" --print-version 2>/dev/null || echo unavailable)"
+        echo "tracy_client_port=${TRACY_PORT:-auto}"
+        echo "tracy_capture_port=8086"
+        echo "tracy_only_ipv4=${TRACY_ONLY_IPV4:-unset}"
+        echo "tracy_only_localhost=${TRACY_ONLY_LOCALHOST:-unset}"
         # Tracy's Linux system tracing (context switches + call-stack sampling)
         # starts only when tracefs is readable by this user; when it does, the
         # client resolves symbols for every sampled stack before it exits. On

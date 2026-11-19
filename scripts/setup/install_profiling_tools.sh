@@ -75,7 +75,7 @@ build_tracy_tool() {
     log "building $binary"
     cmake -B "$build_dir" -S "$src_dir/$subproject" \
         -DCMAKE_BUILD_TYPE=Release -DNO_FILESELECTOR=ON >/dev/null 2>&1 || return 1
-    cmake --build "$build_dir" --parallel >/dev/null 2>&1 || return 1
+    cmake --build "$build_dir" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-1}" >/dev/null 2>&1 || return 1
     install -Dm755 "$build_dir/$binary" "$bin_dir/$binary" || return 1
 }
 

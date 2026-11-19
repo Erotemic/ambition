@@ -238,14 +238,12 @@ FLOORS = {"sim-schedule ResMut bindings": 180, "accumulating bindings": 45}
 #:     A DEV OR DEMO TOOL       not in a shipped composition
 ADJUDICATED: dict[str, str] = {
     "carry_pending_projectile_emissions": (
-        "⭐ A RECORD OF THE LIVE TIMELINE, KEYED BY TICK, NOT A SUM. "
-        "`CarriedProjectileEmissions` holds what the projectile queue carried into "
-        "each recent tick; each run overwrites (or removes) its own tick's entry "
-        "from the queue as it stands and forgets entries past `CARRIED_TICKS`. A "
-        "replayed tick rewrites its entry with the replay's queue, which is the "
-        "timeline that then stands. Its one reader is the room rewind's retractor "
-        "(`retract_room_projectile_emissions`), which reads the entry of the saved "
-        "tick (`crates/ambition_combat/src/projectile_spawn/pending.rs`, read 2026-11-19)"
+        "`CarriedProjectileEmissions` records pending work by tick and captured "
+        "emitter scope. A live pass replaces the complete tick entry; a room "
+        "replay replaces only its room's rows. The shared ROOM_REWIND_HORIZON_TICKS "
+        "bounds retention. Session activation clears the history. The native "
+        "room retractor restores the saved room's pending work "
+        "(`ambition_combat/src/projectile_spawn/pending.rs`)."
     ),
     "detect_cut_rope_rope_cut": (
         "⭐ PRESENTATION ONLY. `CutRopeBossArenaState` is one arena per live "

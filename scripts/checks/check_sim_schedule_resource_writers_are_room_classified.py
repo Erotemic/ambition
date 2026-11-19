@@ -264,11 +264,10 @@ WORLD_OWNED: dict[str, str] = {
 #: other writers are not mirrors.
 MIRRORS: dict[str, str] = {
     "carry_pending_projectile_emissions": (
-        "each tick writes its own tick's entry of `CarriedProjectileEmissions` from "
-        "the projectile queue as it stands, which a replayed tick writes again from "
-        "the replay's queue; a room rewind reads the saved tick's entry to set its "
-        "room's rows of the queue back (`retract_room_projectile_emissions`, "
-        "`ambition_combat/src/projectile_spawn/pending.rs`, read 2026-11-19)"
+        "A live tick records pending work from the native queue. A room replay "
+        "replaces only its room's rows and preserves other rooms' saved history. "
+        "The room retractor selects captured emitter scope, not combat credit "
+        "(`ambition_combat/src/projectile_spawn/pending.rs`)."
     ),
     "grant_quest_completion_rewards": (
         "each quest's payout follows the registry both ways: granted once when it "

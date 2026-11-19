@@ -73,8 +73,8 @@ Rebuild portable module files that use these ports.
 
 ## Connect objects at construction
 
-A binding can declare named `references`. A live reference names an existing
-occurrence. `#{local: "node_key"}` names a root in the same factory request:
+A binding can declare named `references`. A direct reference holds an exact occurrence
+address. `#{local: "node_key"}` names a root in the same factory request:
 
 ```rhai
 #{key: "relay", character: "practice_sandbag", at: [200.0, 100.0],
@@ -95,7 +95,10 @@ object reference. It can be the target of an ordinary `call_object` request.
 The native call owner still checks admission and the target method. A reference
 does not grant a physical capability or prove that a domain action succeeded.
 The reference map uses canonical key order and rewinds with the private instance.
-Target retirement leaves a stale reference; native operations refuse that lifetime.
+An external address need not be live when the binding is created. Binding
+admission does not read another object's speculative state. Native operations
+check liveness and scope when they use the address. Target retirement leaves a
+stale reference; native operations refuse that lifetime.
 
 `attach_behaviors` can use live references. It has no factory namespace, so a
 local name in that request is refused. References must belong to the receiver's

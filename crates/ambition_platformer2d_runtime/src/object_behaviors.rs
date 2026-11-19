@@ -137,7 +137,7 @@ impl ambition_platformer2d_construction::runtime::ObjectInitialization for Behav
 }
 pub(crate) type PreparedBehaviorState = ambition_platformer2d_construction::runtime::OwnedObjectState<BehaviorInitialization>;
 fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
-    limits: ObjectBehaviorLimits, objects: &std::cell::OnceCell<ObjectIndex>) -> Result<Vec<PreparedBehaviorState>, String> {
+    limits: ObjectBehaviorLimits) -> Result<Vec<PreparedBehaviorState>, String> {
     let admitted = &world.resource::<AdmittedExtensions>().0;
     let mut keys = BTreeSet::new();
     let mut bytes = 0usize;
@@ -163,9 +163,8 @@ fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
                 ambition_world_port::object_target::ObjectTarget::Local(key) if key.is_empty() || key.len() > 128 => {
                     return Err("Local object keys must be nonempty and at most 128 bytes.".into());
                 }
-                ambition_world_port::object_target::ObjectTarget::Live(reference) => {
-                    objects.get_or_init(|| ObjectIndex::capture(world)).resolve(SessionScopeId(reference.session), *reference)
-                        .map_err(|_| format!("Behavior reference {key} does not name one live occurrence."))?;
+                ambition_world_port::object_target::ObjectTarget::Live(reference) if !reference.is_bound() => {
+                    return Err(format!("Behavior reference {key} is unbound."));
                 }
                 _ => {}
             }
@@ -219,8 +218,7 @@ pub(crate) fn prepare_creation(world: &mut World, caller: Entity, groups: &[&[Be
         || groups.iter().any(|group| group.len() > limits.max_bindings_per_object as usize) {
         return Err("The object or session behavior bound cannot admit this creation batch.".into());
     }
-    let objects = std::cell::OnceCell::new();
-    groups.iter().map(|group| prepare_bindings(world, group, limits, &objects)).collect()
+    groups.iter().map(|group| prepare_bindings(world, group, limits)).collect()
 }
 
 fn attach(world: &mut World) {
@@ -245,7 +243,7 @@ fn attach(world: &mut World) {
                 || request.bindings.iter().any(|binding| existing.contains(&binding.key)) {
                 return Err("Behavior keys must be new and the object and session bounds must permit the batch.".into());
             }
-            let prepared = prepare_bindings(world, &request.bindings, limits, &std::cell::OnceCell::new())?;
+            let prepared = prepare_bindings(world, &request.bindings, limits)?;
             use ambition_platformer2d_construction::runtime::{ObjectInitialization, ObjectInitializationContext};
             let locals = BTreeMap::new();
             let context = ObjectInitializationContext {object: request.target, locals: &locals};

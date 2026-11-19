@@ -329,7 +329,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 503 -> 504: runtime publication includes private state in the occurrence range and visibility boundary.
 // 504 -> 505: addressed calls and outcomes share age order and one receiver budget.
 // 505 -> 506: private behaviors retain resolved references from atomic native construction.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 506;
+// 506 -> 507: bound external references are data; binding admission does not query foreign liveness.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 507;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

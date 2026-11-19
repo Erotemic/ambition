@@ -48,10 +48,12 @@ fn start() {
 fn found() {
     if this.trigger.stage != "applied" { return; }
     let target = this.observe.body_query_result.targets[0].object;
+    let dormant = target;
+    dormant.sequence = "18446744073709551614";
     let bindings = [];
     for pair in [["credit", 0, 2, false], ["debit", 99, 0, false], ["fault", 0, 99, true]] {
         bindings.push(#{key: pair[0], params: #{pay: pair[1], receive: pair[2], fail: pair[3]},
-            references: #{owner: target}, methods: [#{name: "use", entry: "objects_probe::composition/work"}]});
+            references: #{owner: target, dormant: dormant}, methods: [#{name: "use", entry: "objects_probe::composition/work"}]});
     }
     this.requests.push(request("attach_behaviors", #{target: target, bindings: bindings,
         reply: #{request: 0, selector: "objects_probe::composition/attached"}}));

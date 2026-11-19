@@ -116,7 +116,7 @@ pub fn create_breakables(
         });
     }
     let ids: Vec<_> = rows.iter().map(|row| row.sim_id.clone()).collect();
-    let receipt = context.commit(world, rows)?;
+    let receipt = context.commit(world, rows, |_, _| {})?;
     Ok(objects
         .iter()
         .zip(ids)

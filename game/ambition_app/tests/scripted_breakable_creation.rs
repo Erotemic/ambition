@@ -318,6 +318,7 @@ fn body_factories_create_contact_rewards_with_native_respawn_and_replay() {
         world,
         player,
         &[extension::RuntimeActor {
+            initialization: (),
             key: "builder".into(),
             character: "practice_sandbag".into(),
             aabb: ae::Aabb::new(

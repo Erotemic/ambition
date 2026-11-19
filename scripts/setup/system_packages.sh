@@ -66,7 +66,6 @@ install_system_packages() {
         libxkbcommon-x11-dev
         libxrandr-dev
         mesa-vulkan-drivers
-        mold
         # `download_ambition_audio_tools.sh` unpacks the FreePats Upright Piano
         # from a .7z; without this it warns and that library silently does not
         # install. It is a required package because the instrument libraries are

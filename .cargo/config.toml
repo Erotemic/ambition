@@ -24,6 +24,9 @@
 # `target/debug/incremental`.
 incremental = true
 
+[target.x86_64-unknown-linux-gnu]
+linker = "scripts/setup/native_linker.sh"
+
 [target.wasm32-unknown-unknown]
 # Browser wasm builds use getrandom through wasm-bindgen/Web Crypto.
 # getrandom 0.3 requires selecting the wasm_js backend explicitly for

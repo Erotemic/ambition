@@ -140,6 +140,7 @@ fn setup(sim: &mut Platformer2dSimHarness) -> [Entity; 2] {
     world.init_resource::<extension::ExtensionProfile>();
     let player = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
     let child = extension::create_actors(world, player, &[extension::RuntimeActor {
+            initialization: (),
         key: "customer".into(), character: "practice_sandbag".into(),
         aabb: ae::Aabb::new(ae::Vec2::new(700.0, 500.0), ae::Vec2::new(12.0, 16.0)),
         faction: ActorFaction::Neutral, face_left: false, starting_wallet: Some(0), holds: Vec::new(),

@@ -111,7 +111,7 @@ behavioral witnesses. Do not migrate working demo gameplay for coverage.
 | P1 | A callback acknowledges delivery only after its state and requests commit. Faults need bounded deterministic retry or an inspectable terminal diagnostic. Include unavailable subscribers and paused rooms. Implemented: [delivery receipt](#action-callback-acknowledgement-receipt). |
 | P1 | Each domain declares cancellation support and its suppression mechanism. Unsupported or late cancellation must be refused. A canceled operation cannot later mutate the world. Implemented: [cancellation receipt](#native-cancellation-contract-receipt). |
 | P2 | Invalid callback wiring must be caught at preparation or reported through a guaranteed observation of the submitting scope. Reload must not leave silent orphan work. Implemented: [callback receipt](#callback-preparation-receipt). |
-| P2 | Completed object publication follows all native and script initialization. A creation listener must see wallet, statuses, records, relations, and the stable occurrence together. Refused preflight must create nothing. |
+| P2 | Completed object publication follows all native and script initialization. A creation listener must see wallet, statuses, records, relations, and the stable occurrence together. Refused preflight must create nothing. Native boundary implemented: [publication receipt](#completed-native-publication-receipt). Scoped script birth delivery remains open. |
 | P2 | Measure native contact collection and frame cost with few and many subscribers in crowded rooms, including two live rooms. Use the native spatial broadphase or confirmed contact stream when the measurements justify a change. Preserve ordering and replay. |
 
 Then implement two distinct reusable object behaviors whose events cause each
@@ -528,3 +528,25 @@ sweeps were omitted.
 Do not reserve an action or commit awaiting state before callback preparation.
 Do not deliver a wiring refusal through that broken callback. Atomic creation,
 contact measurements, and the general object and event model remain open.
+
+## Completed native publication receipt
+
+Commit: `bb8cb1dcd`. Runtime actors became visible before wallet, status and
+script-record initialization. Actors and breakables now use one hidden native
+construction boundary. It checks the complete batch, assigns all occurrence
+references, publishes all roots, then emits native `ObjectPublished` notices.
+Owner-prepared components use a root-scoped initializer. A refused batch does
+not publish new roots or spend allocation counters.
+
+Guard: the loaded factory listener reads wallet, status, seeded script records,
+rig and relation references at publication. Its birth record survives GGRS
+without duplicate effects. Executed: 20 assembled creation, contact, action and
+schema tests; 351 shared tests; 14 constructor and breakable tests; app check
+and default all-target warning check; 53 absence checks. Policy reports the
+same 11 baseline violations in two failed groups; 33 groups pass. Full workspace
+and optional-feature union checks were omitted. These checks preceded the next
+upstream linker merge.
+
+Do not use component-add hooks as completed creation events. Hidden construction
+does not undo arbitrary native hook effects or panics. Scoped script birth
+delivery, the contact benchmark, and the general object/event model remain open.

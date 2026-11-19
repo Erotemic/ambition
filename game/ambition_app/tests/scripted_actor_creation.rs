@@ -18,12 +18,13 @@ fn memory() {
         #{tag: 4, name: "shots", kind: "u32"},
         #{tag: 5, name: "applied", kind: "u32"},
         #{tag: 6, name: "trades", kind: "u32"},
+        #{tag: 7, name: "births", kind: "u32"},
     ]}
 }
 fn node(key, character, at, period) {
     #{key: key, character: character, at: at, allegiance: "neutral",
       starting_wallet: 3, holds: ["creation_probe.child"], state: [#{schema: "child", value: #{
-          label: key, period: period, elapsed: 0.0, shots: 0, applied: 0, trades: 0
+          label: key, period: period, elapsed: 0.0, shots: 0, applied: 0, trades: 0, births: 0
       }}]}
 }
 fn tick(ctx) {
@@ -120,6 +121,33 @@ fn child_result() {
 }
 "#;
 
+fn observe_fully_initialized_birth(
+    event: On<ambition_platformer2d::platformer::lifecycle::ObjectPublished>,
+    mut bodies: Query<(&BodyWallet, &BodyStatuses, &mut BodyRecords,
+        &ambition_platformer2d::platformer::lifecycle::ObjectOccurrence, Option<&LimbRig>,
+        Option<&ambition_platformer2d::combat::components::ActorAggression>)>,
+    occurrences: Query<&ambition_platformer2d::platformer::lifecycle::ObjectOccurrence>,
+) {
+    let Ok((wallet, statuses, mut records, occurrence, rig, aggression)) = bodies.get_mut(event.subject) else { return; };
+    let key = SchemaKey::new("creation_probe", "child", 1);
+    let Some(record) = records.get(&key) else { return; };
+    assert_eq!(*occurrence, event.occurrence);
+    assert_eq!(wallet.balance, 3);
+    assert!(statuses.0.iter().any(|key| key == "creation_probe.child"));
+    assert!(record.get(FieldRef(1)).unwrap().as_f32().unwrap() > 0.0);
+    if let Some(rig) = rig {
+        for hand in rig.limbs.values() { occurrences.get(*hand).unwrap(); }
+    }
+    if let Some(target) = aggression.and_then(|aggression| aggression.grudge).and_then(|grudge| grudge.body()) {
+        occurrences.get(target).unwrap();
+    }
+    let births = record.get(FieldRef(6)).unwrap().as_u32().unwrap();
+    let mut updated = record.clone();
+    updated.set(FieldRef(6), Value::U32(births + 1)).unwrap();
+    let shape = records.get_stored(&key).unwrap().shape;
+    records.put(key, shape, updated);
+}
+
 fn options() -> ambition_app::rl_sim::Platformer2dSimHarnessOptions {
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_flag("intro_wake_seen", true);
@@ -158,6 +186,7 @@ fn a_behavior_factory_builds_real_body_clusters_with_state_and_replays() {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         app.init_resource::<extension::ExtensionProfile>();
         extension::add_prepared_script(app, "creation", &source);
+        app.add_observer(observe_fully_initialized_birth);
         Ok(())
     }).unwrap();
     let parents = setup(&mut sim);
@@ -189,6 +218,8 @@ fn a_behavior_factory_builds_real_body_clusters_with_state_and_replays() {
             assert!(record.get(FieldRef(3)).unwrap().as_u32().unwrap() > 0, "the seeded behavior must run");
             assert!(record.get(FieldRef(4)).unwrap().as_u32().unwrap() > 0, "the native domain must confirm shot creation");
             assert_eq!(record.get(FieldRef(5)).unwrap().as_u32(), Some(1));
+            assert_eq!(record.get(FieldRef(6)).unwrap().as_u32(), Some(1),
+                "each canonical actor receives one complete birth, including after replay");
             assert_eq!(sim.world().get::<BodyWallet>(entity).unwrap().balance, 2);
             if child == 1 {
                 let rig = sim.world().get::<LimbRig>(entity).expect("a complete giant cluster");
@@ -222,6 +253,7 @@ fn a_behavior_factory_builds_real_body_clusters_with_state_and_replays() {
     }
     let batch: Vec<_> = [("native_sentry", "practice_sandbag"), ("native_giant", "npc_giant_gnu")]
         .into_iter().map(|(key, character)| extension::RuntimeActor {
+            initialization: (),
             key: key.into(), character: character.into(),
             aabb: bevy::math::bounding::Aabb2d::new(Vec2::new(600.0, -400.0), Vec2::new(16.0, 24.0)),
             faction: ambition_platformer2d::characters::actor::ActorFaction::Neutral,
@@ -276,6 +308,7 @@ fn an_edit_to_the_factory_library_changes_live_bodies_without_recreating_them() 
         }
     }
     let next_parent = extension::create_actors(sim.world_mut(), parents[0], &[extension::RuntimeActor {
+            initialization: (),
         key: "next_factory".into(), character: "practice_sandbag".into(),
         aabb: bevy::math::bounding::Aabb2d::new(Vec2::new(600.0, -400.0), Vec2::new(16.0, 24.0)),
         faction: ambition_platformer2d::characters::actor::ActorFaction::Neutral,

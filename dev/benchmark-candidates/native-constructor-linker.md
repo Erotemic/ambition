@@ -8,8 +8,14 @@ Tracy threads or listening socket. Its native profiler instance was null at
 `main`.
 
 The default Rust linker merged the tables and registered their full size.
-Relinking the same game libraries restored the Tracy handshake. Use the Rust
-toolchain's native linker instead of forcing a system mold installation.
+Relinking the same game libraries restored the Tracy handshake. Modern mold
+also passes the native constructor probe. The Linux build now selects pinned
+mold 2.42.1 through `scripts/setup/native_linker.sh`. The driver uses an absolute
+path: clang can select `/usr/bin/ld.mold` before a newer copy on `PATH`.
+
+Do not infer linker performance from a dependency rebuild after a configuration
+change. That change invalidates Cargo artifacts. No full game link comparison
+between bundled LLD and modern mold was measured in this investigation.
 
 For this failure class, compare `readelf -W -S` with `readelf -d`. A section
 containing constructor addresses is insufficient if the loader does not visit

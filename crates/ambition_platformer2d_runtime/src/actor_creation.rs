@@ -37,11 +37,16 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
         let result = prepare_state(world, &submitted.entry, &request, limits).and_then(|states| {
             let inherit = world.get::<ambition_characters::actor::ActorFaction>(submitted.scope)
                 .copied().unwrap_or(ambition_characters::actor::ActorFaction::Neutral);
-            let actors = request.actors.iter().map(|actor| RuntimeActor {
+            let actors = request.actors.iter().zip(states).map(|(actor, states)| RuntimeActor {
                 key: actor.key.clone(), character: actor.character.clone(),
                 aabb: ambition_platformer2d_core::Aabb::new(actor.at.into(), actor.half_extents.into()),
                 faction: faction(actor.allegiance, inherit), face_left: actor.face_left,
                 starting_wallet: actor.starting_wallet, holds: actor.holds.clone(),
+                initialization: {
+                    let mut records = BodyRecords::default();
+                    for (key, shape, record) in states { records.put(key, shape, record); }
+                    records
+                },
             }).collect::<Vec<_>>();
             let links = request.links.iter().map(|link| RuntimeLink {
                 from: link.from.clone(), to: link.to.clone(), relation: match link.kind {
@@ -51,12 +56,6 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
             }).collect::<Vec<_>>();
             let created = ambition_platformer2d_construction::runtime::create_actors(world,
                 submitted.scope, &actors, &links, limits)?;
-            for (actor, states) in created.iter().zip(states) {
-                if states.is_empty() { continue; }
-                let mut body = world.entity_mut(actor.entity);
-                let mut records = body.entry::<BodyRecords>().or_default().into_mut();
-                for (key, shape, record) in states { records.put(key, shape, record); }
-            }
             Ok(created.into_iter().map(|actor| actor.id.as_str().to_owned()).collect())
         });
         match result {

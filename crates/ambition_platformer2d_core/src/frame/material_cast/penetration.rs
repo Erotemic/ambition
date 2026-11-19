@@ -13,11 +13,11 @@ impl MaterialCastCells<'_> {
     pub(crate) fn in_front_of(
         &self, part: &MaterialCell, time: f64, point: DVec2, outward: DVec2,
     ) -> Result<bool, Refusal> {
-        let polygon = self.material.domain.polygon().ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
-        let mut material: Vec<_> = polygon.iter().map(|point| point.as_dvec2()).collect();
+        let polygon = self.source_polygon().ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
+        let mut material = std::borrow::Cow::Borrowed(polygon);
         for plane in part.planes_at(time).map_err(|fault| numeric_at(part, fault))?
             .ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))? {
-            material = clip(&material, plane.plane);
+            material = std::borrow::Cow::Owned(clip(&material, plane.plane));
         }
         let inverse = part.at(time).and_then(|map| map.inverse()).map_err(|fault| numeric_at(part, fault))?;
         let origin = inverse.point_wide(point);
@@ -48,8 +48,7 @@ impl MaterialCastCells<'_> {
             return Err(numeric_at(part, NumericFault::InvalidFrame));
         }
         if obstacle.len() >= 3 && !self.collider_may_occupy(part, obstacle, Vec2::ZERO) { return Ok(None); }
-        let body = self.material.domain.polygon().ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
-        let body: Vec<_> = body.iter().map(|point| point.as_dvec2()).collect();
+        let body = self.source_polygon().ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
         let root = self.source.map_at(1.0).map_err(|fault| numeric_at(part, fault))?;
         let inverse = root.inverse().map_err(|fault| numeric_at(part, fault))?;
         let direction = inverse.direction_wide(direction.as_dvec2()) * inverse.scale_wide();
@@ -59,10 +58,10 @@ impl MaterialCastCells<'_> {
         if region.iter().any(|point| !point.is_finite()) { return Err(numeric_at(part, NumericFault::NonFinite)); }
         let planes = part.planes_at(1.0).map_err(|fault| numeric_at(part, fault))?
             .ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
-        let mut material = body.clone();
+        let mut material = std::borrow::Cow::Borrowed(body);
         for plane in planes {
             region = clip(&region, plane.plane);
-            material = clip(&material, plane.plane);
+            material = std::borrow::Cow::Owned(clip(&material, plane.plane));
         }
         // Boundary strata carry crossing events, not static support.
         if !crate::frame::thread::has_area(&material) { return Ok(None); }
@@ -70,13 +69,13 @@ impl MaterialCastCells<'_> {
         let mut lower = (f64::NEG_INFINITY, DVec2::ZERO);
         let mut upper = (f64::INFINITY, DVec2::ZERO);
         let mut minimum = (f64::INFINITY, DVec2::ZERO);
-        for (a, b) in edges(&body).chain(edges(&region)) {
+        for (a, b) in edges(body).chain(edges(&region)) {
             let edge = b - a;
             if edge == DVec2::ZERO { continue; }
             let n = DVec2::new(-edge.y, edge.x).normalize();
             let span = |points: &[DVec2]| points.iter().map(|point| point.dot(n))
                 .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), value| (lo.min(value), hi.max(value)));
-            let ((alo, ahi), (blo, bhi)) = (span(&body), span(&region));
+            let ((alo, ahi), (blo, bhi)) = (span(body), span(&region));
             let forward = bhi - alo;
             let backward = ahi - blo;
             let nearest = if forward < backward { (forward, n) } else { (backward, -n) };

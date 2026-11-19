@@ -122,6 +122,8 @@ const METRICS: &[Metric] = &[
     Metric { key: "atk_fwd_frames", label: "attack, run held: length", unit: Unit::Time, column: None },
     Metric { key: "atk_fwd_move", label: "  travel during the move", unit: Unit::Distance, column: None },
     Metric { key: "atk_fwd_end", label: "  speed at its end, stick on", unit: Unit::Speed, column: None },
+    Metric { key: "dash_jump_speed", label: "dash jump: speed 5 ticks up", unit: Unit::Speed, column: None },
+    Metric { key: "dash_shield_slide", label: "dash shield: slide to rest", unit: Unit::Distance, column: None },
     Metric { key: "squat", label: "press to takeoff", unit: Unit::Time, column: None },
     Metric { key: "full_hop", label: "full hop height", unit: Unit::Distance, column: Some("full_hop") },
     Metric { key: "fh_air", label: "full hop airtime", unit: Unit::Time, column: Some("fh_frames") },
@@ -397,6 +399,8 @@ fn measure(id: &str, demo_host: bool, stage_left: f32, stage_right: f32, stage_t
     let mut out = BTreeMap::new();
     ground(&mut rig, &mut out);
     run_attacks(&mut rig, &mut out);
+    dash_cancels(&mut rig, &mut out);
+    ledge_attacks(&mut rig);
     jumps(&mut rig, &mut out);
     falls(&mut rig, &mut out);
     evades(&mut rig, &mut out);
@@ -510,6 +514,87 @@ fn run_attacks(rig: &mut Rig, out: &mut BTreeMap<&'static str, f32>) {
             if stick_on { "on" } else { "off" },
             from.vel.x,
             name.as_deref().unwrap_or("none")
+        );
+    }
+}
+
+/// A dash cancelled (GROUNDED-ATTACK-MOMENTUM, Q169): three ticks into the
+/// initial dash from rest, jump (the speed carried into the air, five ticks
+/// after the press) or shield held with the stick let go (how far the body
+/// slides under the shield). Ultimate: a dash jump keeps the dash's speed; a
+/// dash shield stops at traction.
+fn dash_cancels(rig: &mut Rig, out: &mut BTreeMap<&'static str, f32>) {
+    let start = rig.stage_left + 60.0;
+    for cancel in ["jump", "shield"] {
+        rig.reset_at(start);
+        let mut dash = rig.sample();
+        for _ in 0..3 {
+            dash = rig.step(hold(1.0, 0.0));
+        }
+        let mut s = dash;
+        let mut ticks = 0usize;
+        if cancel == "jump" {
+            s = rig.step(ControlFrame { jump_pressed: true, jump_held: true, ..hold(1.0, 0.0) });
+            for _ in 0..5 {
+                s = rig.step(ControlFrame { jump_held: true, ..hold(1.0, 0.0) });
+            }
+            out.insert("dash_jump_speed", s.vel.x);
+        } else {
+            while ticks < 120 {
+                s = rig.step(ControlFrame { shield_held: true, ..ControlFrame::default() });
+                ticks += 1;
+                if s.vel.x.abs() <= 2.0 {
+                    break;
+                }
+            }
+            out.insert("dash_shield_slide", (s.pos.x - dash.pos.x).abs());
+        }
+        eprintln!(
+            "  dash {cancel}: dashing {} at {:.0} px/s; after: {:.0} px/s, on the ground {}, slid {:.1} px in {ticks} ticks",
+            dash.facts.initial_dashing,
+            dash.vel.x,
+            s.vel.x,
+            s.on_ground,
+            (s.pos.x - dash.pos.x).abs()
+        );
+    }
+}
+
+/// A grounded attack at the stage's edge (GROUNDED-ATTACK-MOMENTUM, Q169):
+/// a full run that presses Attack `gap` px before the edge, stick let go
+/// and stick held: does the move carry the body off the stage?
+fn ledge_attacks(rig: &mut Rig) {
+    let start = rig.stage_left + 60.0;
+    for (gap, stick_on) in [(20.0f32, false), (20.0, true), (60.0, true)] {
+        rig.reset_at(start);
+        let mut s = rig.sample();
+        for _ in 0..600 {
+            s = rig.step(hold(1.0, 0.0));
+            if s.pos.x >= rig.stage_right - gap {
+                break;
+            }
+        }
+        let from = s;
+        let press = ControlFrame { attack_pressed: true, ..if stick_on { hold(1.0, 0.0) } else { ControlFrame::default() } };
+        s = rig.step(press);
+        let name = playing(rig);
+        let mut left_ground = None;
+        let mut frames = 1usize;
+        while playing(rig).is_some() && frames < 240 {
+            s = rig.step(if stick_on { hold(1.0, 0.0) } else { ControlFrame::default() });
+            frames += 1;
+            if !s.on_ground && left_ground.is_none() {
+                left_ground = Some(frames);
+            }
+        }
+        eprintln!(
+            "  ledge attack {gap:.0} px from the edge (stick {}): {:.0} px/s at the press, move {}; at its end x {:.1} (edge {:.1}), on the ground {}, left the ground at frame {left_ground:?}",
+            if stick_on { "on" } else { "off" },
+            from.vel.x,
+            name.as_deref().unwrap_or("none"),
+            s.pos.x,
+            rig.stage_right,
+            s.on_ground,
         );
     }
 }

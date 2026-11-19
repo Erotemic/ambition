@@ -1753,8 +1753,16 @@ input that only brakes) is a feel change filed as
 [Q181](awaiting-maintainer-decision.md). The 2026-11-11 frozen ball does not
 reproduce on main (14 spin dashes).
 
-**Next action:** a Smash dash cancel (dash into shield or jump), and a
-controlled ledge for the axis and responsive-axis laws. Originally: measure, for
+**Measured 2026-11-19, Smash** ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)):
+a dash jump keeps the dash's speed; a dash into shield slid on at 345 px/s
+off the stage (the guard's brake was bounded by the run speed, and the dash
+is faster), fixed: it now stops in 82 px. A grounded move does not stop at a
+ledge (a jab let go 20 px before it slides off; the dash attack is carried
+off from 60 px).
+
+**Next action:** the ledge stop recommended in the table: a per-move
+`stops_at_ledge` for the Smash kit's grounded moves, checked against
+Ultimate's per-move behaviour first. Originally: measure, for
 representative laws and moves: whether the move
 takes the stick; whether it keeps horizontal speed; which braking law applies
 while it plays; whether authored move motion adds travel; whether it can carry

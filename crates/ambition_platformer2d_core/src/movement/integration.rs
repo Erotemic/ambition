@@ -1313,7 +1313,13 @@ pub fn integrate_normal_spine(
         // Third time this shape has appeared — the roll's shed, the initial
         // dash, and now this — and the answer is the same each time: bound the
         // effect by what the maneuver itself put in.
-        let owned = tuning.locomotion.max_run_speed;
+        //
+        // ⛔ THE INITIAL DASH IS THE BODY'S OWN TOO. A fighter's dash is faster
+        // than its run (345 against 315 px/s), so bounding by the run alone
+        // read a shield raised mid-dash as a launch: measured, the guard went
+        // up and the body slid at 345 px/s off the stage (`fighter_motion`'s
+        // dash shield row, 2026-11-19).
+        let owned = tuning.locomotion.max_run_speed.max(tuning.locomotion.initial_dash_speed);
         if along.abs() <= owned {
             let braked = approach(along, 0.0, tuning.locomotion.ground_friction * dt);
             *kin_vel += (braked - along) * m;

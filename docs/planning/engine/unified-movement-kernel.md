@@ -233,8 +233,25 @@ with Attack, release; `ball_dash.rs`).
   route now meets a badnik first. 14 spin dashes from seven start points,
   with the stick held or let go after, never rode at speed without moving.
 
-**Not yet measured:** a Smash dash cancel (dash into shield or jump), and a
-controlled ledge for the axis and responsive-axis laws.
+**Measured 2026-11-19, a Smash dash cancelled and a move at the stage's
+edge** (`fighter_motion demo`, its `dash_cancels` and `ledge_attacks` rows;
+George and the stand-in duelist give the same numbers except their moves):
+
+| Case | Measured |
+|---|---|
+| Dash jump (3 ticks into the initial dash at 345 px/s) | 308 px/s five ticks up: the jump keeps the dash's speed (Ultimate's dash jump). |
+| Dash shield, stick let go | **Was a defect, fixed:** the guard went up and the body slid on at 345 px/s off the stage. A raised guard brakes only speed the body made itself (not a launch), bounded by `max_run_speed` (315), and the dash is faster. The bound now includes `initial_dash_speed`; the dash shield stops in 30 ticks, 82 px. |
+| Jab pressed 20 px before the edge, stick let go | Slides off the stage (leaves the ground at its 11th frame). |
+| Dash attack 20 or 60 px before the edge, stick held | Carried off the stage (9th and 15th frames). |
+| Jab 60 px before the edge, stick held | Stops on the stage (550 of 560). |
+
+- **A grounded move does not stop at a ledge.** Teetering is a pose fact
+  only (`teetering_at_edge`: "nothing here refuses it"). In Ultimate most
+  grounded attacks stop at the edge and a few are made to slide off.
+  **Recommendation:** a per-move `stops_at_ledge` (default on for the Smash
+  kit's grounded moves, off where a move should leave) that clamps the
+  move's ground step at the support's end; the robot keeps walking off
+  with the stick held, its authored Hollow Knight model.
 
 **Found while measuring Sanic (2026-11-11, not fixed): a ball frozen at
 speed.** In the demo's act, after 150 frames of running right from the

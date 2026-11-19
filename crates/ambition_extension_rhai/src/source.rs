@@ -22,6 +22,10 @@ pub struct LibraryLimits {
     pub max_source_bytes: usize,
     pub max_depth: usize,
     pub max_imports: usize,
+    /// Rhai sums text bytes within each reachable value.
+    pub max_value_text_bytes: usize,
+    /// Rhai sums nested array and map entries within each reachable value.
+    pub max_value_collection_entries: usize,
 }
 
 impl Default for LibraryLimits {
@@ -31,6 +35,8 @@ impl Default for LibraryLimits {
             max_source_bytes: 1_048_576,
             max_depth: 32,
             max_imports: 128,
+            max_value_text_bytes: 65_536,
+            max_value_collection_entries: 16_384,
         }
     }
 }
@@ -409,6 +415,20 @@ mod tests {
             assert_eq!(first.digest, second.digest);
             assert_eq!(read(&first), read(&second));
         }
+    }
+
+    #[test]
+    fn value_budgets_bound_nested_composition_and_change_code_identity() {
+        let text = "fn values(n) { let a = []; for i in 0..n { a.push(#{a: i, b: i}); } a }";
+        let prepare = |max_value_collection_entries, operations| PreparedScript::with_libraries(
+            "values.rhai", text, Default::default(), operations,
+            LibraryLimits {max_value_collection_entries, ..Default::default()}, |_| unreachable!()).unwrap();
+        let small = prepare(3, 200_000);
+        let large = prepare(32, 200_000);
+        assert_ne!(small.digest, large.digest);
+        assert_ne!(large.digest, prepare(32, 300_000).digest);
+        assert!(small.engine.call_fn::<rhai::Array>(&mut Scope::new(), &small.ast, "values", (2 as rhai::INT,)).is_err());
+        assert_eq!(large.engine.call_fn::<rhai::Array>(&mut Scope::new(), &large.ast, "values", (2 as rhai::INT,)).unwrap().len(), 2);
     }
 
     #[test]

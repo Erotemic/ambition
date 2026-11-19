@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v505
+ggrs-rollback-schema-v508
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -160,9 +160,7 @@ content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapsh
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_shell_kick_credit	component-clone	ShellKickCredit	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 content.mary_o_snake_plant_out	component-clone	SnakePlantOut	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
 content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
 content.sanic_act_state	component-clone	SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -351,7 +349,6 @@ map.hitbox_hits	entity-mapping	HitboxHits	bevy_ggrs LoadWorld entity-reference r
 map.item_custody	entity-mapping	ItemCustody	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_member	entity-mapping	Limb	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_rig	entity-mapping	LimbRig	bevy_ggrs LoadWorld entity-reference remapping
-map.mary_o_shell_kick_credit	entity-mapping	ShellKickCredit	bevy_ggrs LoadWorld entity-reference remapping
 map.mount_reserved_for	entity-mapping	MountReservedFor	bevy_ggrs LoadWorld entity-reference remapping
 map.mount_slot	entity-mapping	MountSlot	bevy_ggrs LoadWorld entity-reference remapping
 map.move_playback	entity-mapping	MovePlayback	bevy_ggrs LoadWorld entity-reference remapping

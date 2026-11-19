@@ -138,8 +138,20 @@ Typed native journals keep ticket ownership and explicit call completion.
 The loaded `requests_and_native_outcomes_share_one_private_receiver_budget_through_replay`
 guard checks their shared budget. The existing Rhai and WASM witnesses cover
 native outcomes, private state, faults, cancellation and replay. Subscriptions,
-signals, local factory references and confirmed cross-island delivery remain
+signals, mixed factory batches and confirmed cross-island delivery remain
 open under the [delivery evaluation](addressed-behavior-inbox.md).
+
+### Local construction reference receipt
+
+`50b12933d` resolves typed live/local targets through the checked native plan
+before it materializes any root. `local_factory_references` guards connect
+independent relays and workers, include a giant cluster, refuse an unresolved
+reference without births or spent creation IDs, and check actual native outcomes
+through Rhai, WASM and GGRS. Actor/prop publication and live attachment guards
+also pass. `abaa59138` stores external addresses without reading foreign liveness.
+Native operations retain liveness and scope checks. `6056d42a1` adds bounded Rhai
+composite values and fingerprints their execution budgets. Native facts, authored signals and confirmed cross-island
+transport remain open. Do not treat local names as durable object addresses.
 
 ### Unified object model in progress
 
@@ -154,9 +166,10 @@ Keep the full capability program open while these contracts lack evidence:
 - Typed occurrence references, bounded discovery and domain-owned inspection
   must work for actors, props, room roots and session lifetimes. Authored names
   remain locators. Runtime references must not survive the durable save road.
-- Factories need local occurrence references between their declared nodes.
-  Behavior bindings now share actor and prop initialization. Composed relations
-  and independent instances must not require game-specific Rust.
+- Actor and prop factories now resolve local references between their own
+  declared roots before publication. Mixed actor/prop construction batches
+  remain open. Composed relations and independent instances must not require
+  game-specific Rust.
 - Methods and event handlers need the appropriate native read cuts. Directed
   calls currently run in `actor_think`; technique and reaction phases remain
   separate capability work. Reach and scope rules belong to native owners.
@@ -170,7 +183,8 @@ Keep the full capability program open while these contracts lack evidence:
 
 Typed references, subject payloads and private behavior bindings are implemented.
 Directed calls and actor/prop bindings at birth have loaded replay witnesses.
-Local references within factory batches, general discovery, native event
+Typed local references within actor and prop factory batches have loaded Rhai
+and WASM witnesses. Mixed construction batches, general discovery, native event
 subscriptions and cross-room message causality during independent room replay
 remain open. See
 [object behaviors](../../sdk/object-behaviors.md).

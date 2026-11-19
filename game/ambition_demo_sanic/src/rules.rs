@@ -78,6 +78,29 @@ pub struct RingSparkle {
     pub kind: String,
 }
 
+impl SanicRules {
+    /// The badnik rules as the squash module observes them
+    /// (`sanic.rules.badnik`).
+    pub fn badnik_observed(&self) -> ambition_demo_sanic_modules::rules::BadnikRules {
+        ambition_demo_sanic_modules::rules::BadnikRules {
+            band: self.stomp.band,
+            bounce_speed: self.badnik.bounce_speed,
+            squash: self
+                .effects
+                .badnik_squash
+                .iter()
+                .map(|burst| ambition_demo_sanic_modules::rules::SquashBurst {
+                    count: burst.count,
+                    speed: burst.speed,
+                    color: burst.color,
+                    kind: burst.kind.clone(),
+                })
+                .collect(),
+            cue: crate::SFX_BADNIK.into(),
+        }
+    }
+}
+
 impl Burst {
     /// The message that plays this burst at `pos`.
     pub fn at(&self, pos: ambition_platformer2d::engine_core::Vec2) -> ambition_platformer2d::vfx::VfxMessage {
@@ -357,6 +380,13 @@ impl SanicRules {
         problems.extend(effects.skid_dust.problems("effects.skid_dust"));
         for (index, squash) in effects.badnik_squash.iter().enumerate() {
             problems.extend(squash.problems(&format!("effects.badnik_squash[{index}]")));
+        }
+        let most = ambition_demo_sanic_modules::badnik::MAX_SQUASH_BURSTS as usize;
+        if effects.badnik_squash.len() > most {
+            problems.push(format!(
+                "`effects.badnik_squash` states {} bursts; the badnik's squash plays at most {most}",
+                effects.badnik_squash.len()
+            ));
         }
         problems.extend(effects.monitor_break.problems("effects.monitor_break"));
         problems.extend(effects.wall_break.problems("effects.wall_break"));

@@ -8,6 +8,10 @@
 //! host's bodies; its keyboard and pads (its seat 0) drive the seat the host
 //! gave it.
 //!
+//! With `--predict-own-body` a guest stays awake instead and predicts its own
+//! body, correcting it by replaying its room when the host's rows say
+//! otherwise (`ambition_hosted_world::PredictsOwnBody`).
+//!
 //! A guest may boot anywhere: until it has a body of its own it watches the
 //! host's player, and its own room lifecycle builds the room that player is
 //! in. A guest's bodies meet the host's by `SimId`.
@@ -25,14 +29,15 @@ use ambition_hosted_world::{udp, HostedRole, HostedWorldPlugin};
 pub enum HostedLaunch {
     /// Open the world on loopback `port` (0: any free port).
     Host { port: u16 },
-    /// Join the world at `server`.
-    Guest { server: SocketAddr },
+    /// Join the world at `server`; `predicts`: predict the own body.
+    Guest { server: SocketAddr, predicts: bool },
 }
 
 /// The most guests a host accepts.
 const GUESTS: usize = 3;
 
-/// `--host-world PORT` or `--join-world ADDRESS` (also `--flag=value`).
+/// `--host-world PORT` or `--join-world ADDRESS` (also `--flag=value`), and
+/// with the latter `--predict-own-body`.
 pub fn hosted_launch_from(args: &[String]) -> Result<Option<HostedLaunch>, String> {
     let value = |flag: &str| -> Option<String> {
         args.iter().enumerate().find_map(|(i, arg)| {
@@ -43,15 +48,17 @@ pub fn hosted_launch_from(args: &[String]) -> Result<Option<HostedLaunch>, Strin
             }
         })
     };
+    let predicts = args.iter().any(|arg| arg == "--predict-own-body");
     match (value("--host-world"), value("--join-world")) {
         (Some(_), Some(_)) => Err("--host-world and --join-world name two ends of one process".into()),
+        (Some(_), None) if predicts => Err("--predict-own-body is a guest's: the host simulates every body".into()),
         (Some(port), None) => port
             .parse()
             .map(|port| Some(HostedLaunch::Host { port }))
             .map_err(|_| format!("--host-world takes a port, not {port:?}")),
         (None, Some(server)) => server
             .parse()
-            .map(|server| Some(HostedLaunch::Guest { server }))
+            .map(|server| Some(HostedLaunch::Guest { server, predicts }))
             .map_err(|_| format!("--join-world takes an address like 127.0.0.1:47010, not {server:?}")),
         (None, None) => Ok(None),
     }
@@ -66,6 +73,7 @@ pub fn compose_hosted_world(app: &mut App, launch: HostedLaunch) {
         HostedLaunch::Host { .. } => HostedRole::Host,
         HostedLaunch::Guest { .. } => HostedRole::Guest,
     };
+    let predicts = matches!(launch, HostedLaunch::Guest { predicts: true, .. });
     app.add_plugins((
         RepliconPlugins.set(ServerPlugin::new(PostUpdate)),
         udp::RepliconRenetPlugins,
@@ -86,6 +94,9 @@ pub fn compose_hosted_world(app: &mut App, launch: HostedLaunch) {
                 ambition_platformer2d::characters::control::PlayerSlot(0),
             ));
             app.add_systems(Update, ambition_hosted_world::sleep_once_connected);
+            if predicts {
+                app.insert_resource(ambition_hosted_world::PredictsOwnBody);
+            }
         }
     }
     app.add_systems(Update, report_the_link);
@@ -97,7 +108,7 @@ fn open_the_link(world: &mut World) {
     let launch = *world.resource::<HostedLaunch>();
     let opened = match launch {
         HostedLaunch::Host { port } => udp::host(world, port, GUESTS).map(|address| format!("hosting on {address}")),
-        HostedLaunch::Guest { server } => {
+        HostedLaunch::Guest { server, .. } => {
             // Netcode tells clients apart by id; the process id is one no other
             // guest on this machine holds.
             udp::join(world, server, u64::from(std::process::id())).map(|()| format!("joining {server}"))
@@ -154,8 +165,13 @@ mod tests {
         assert_eq!(hosted_launch_from(&args("game --host-world 47010")), Ok(Some(HostedLaunch::Host { port: 47010 })));
         assert_eq!(
             hosted_launch_from(&args("game --join-world=127.0.0.1:47010")),
-            Ok(Some(HostedLaunch::Guest { server: "127.0.0.1:47010".parse().unwrap() }))
+            Ok(Some(HostedLaunch::Guest { server: "127.0.0.1:47010".parse().unwrap(), predicts: false }))
         );
+        assert_eq!(
+            hosted_launch_from(&args("game --join-world 127.0.0.1:47010 --predict-own-body")),
+            Ok(Some(HostedLaunch::Guest { server: "127.0.0.1:47010".parse().unwrap(), predicts: true }))
+        );
+        assert!(hosted_launch_from(&args("game --host-world 47010 --predict-own-body")).is_err());
         assert_eq!(hosted_launch_from(&args("game")), Ok(None));
         assert!(hosted_launch_from(&args("game --host-world 1 --join-world 127.0.0.1:1")).is_err());
         assert!(hosted_launch_from(&args("game --host-world here")).is_err());

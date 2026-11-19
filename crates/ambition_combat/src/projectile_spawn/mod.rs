@@ -163,7 +163,10 @@ pub use materialize::{
 };
 
 mod pending;
-pub use pending::PendingProjectileEmissions;
+pub use pending::{
+    carry_pending_projectile_emissions, retract_room_projectile_emissions, CarriedProjectileEmissions,
+    PendingProjectileEmissions,
+};
 
 pub const SPAWN_DOMAIN: &str = "projectiles.spawn";
 
@@ -171,7 +174,15 @@ pub const SPAWN_DOMAIN: &str = "projectiles.spawn";
 pub fn install_emission(app: &mut bevy::prelude::App) {
     app.add_message::<crate::projectile_outcomes::ProjectileOutcome>();
     app.init_resource::<PendingProjectileEmissions>()
+        .init_resource::<CarriedProjectileEmissions>()
         .add_message::<ProjectileEmission>();
+    // A rewound room's rows of the queue go back to what it carried into the
+    // saved tick (`carry_pending_projectile_emissions`, at each tick's head).
+    ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+        app,
+        "resource.pending_projectile_emissions",
+        retract_room_projectile_emissions,
+    );
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(
         app,
         SPAWN_DOMAIN,

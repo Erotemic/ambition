@@ -976,6 +976,68 @@ player takes, end to end, without a window. A windowed guest has not been played
 host by pressing Start (the local join road); the witness above presses it,
 a headless binary run cannot.
 
+### A guest that predicts its own body (2026-11-19)
+
+NA-3's prediction is production code: `ambition_hosted_world::PredictsOwnBody`
+(`crates/ambition_hosted_world/src/prediction.rs`), on in the visible app
+with `--join-world ADDRESS --predict-own-body`. Without the option a guest
+still sleeps once connected.
+
+- A predicting guest's simulation stays awake. Its devices' seat
+  (`InputFromSeat`) drives the seat the host gave it, and nothing drives
+  the devices' own seat (on the host that seat is someone else's).
+- Its own tick is its input's stamp. Each tick sends one `GuestInput` for
+  that tick, from the tick's head, so the host (with `RewindsGuestRooms`)
+  runs the input on the tick the guest ran it. The tick follows the input
+  clock's estimate plus its run-ahead: the first predicted tick takes it
+  whichever way it lies, and after that the tick only jumps ahead, because a
+  stamp the host already holds would merge into it. A guest whose lead
+  shrinks stays ahead, and its inputs arrive earlier than they need to. A
+  report from the host is read against the lead a stamp in fact had, so
+  this does not move the lead.
+- Each tick the guest saves its room at the start (`RoomSnapshotRows` and
+  the clock) and notes where its own body ended the tick before.
+- The host dates each body a guest's seat drives with `RowTick`, the tick
+  its rows were written at. The date rides on the body, so it arrives with
+  the rows it dates.
+- When the guest's own body's row differs from the prediction for that
+  tick, the guest restores the save after that tick. It writes every body
+  it is sent as the host had it (place, motion, health) and replays its own
+  inputs since. The replay is the host's room replay
+  (`room_rollback::replay_room`, factored out of the host's rewind for
+  this), so it hides other rooms, retracts the room's world writes and
+  presents nothing.
+- Other bodies are written when their rows arrive, and between rows the
+  guest's own simulation moves them.
+
+Witness `a_guest_predicts_its_own_body.rs`: `switch_lab`, Bob driven only on
+the guest, every message arriving 3 frames late both ways.
+
+| Scene | Bob turns on the guest | Rows compared after settling (frames 90–240) | Corrected | End |
+|---|---|---|---|---|
+| Alice still, predicting | 0 frames after his input | 150 | 0 | equal to the host |
+| Alice still, sleeping guest (control) | 8–9 frames | — | — | equal to the host |
+| Alice striking Bob, predicting | 0 frames | 150 | 42 by replay (mean 0.68 units of those; largest 2.67), 336 ticks replayed | equal to the host |
+
+- Over the whole still run there is one correction: the first predicted
+  tick, which jumps to the clock's tick and finds the guest's Bob where its
+  unpredicted frames had left him.
+- No difference failed to replay.
+
+Not done, and why:
+
+- A predicting guest mints its own shots. A shot's id is its owner's
+  `SimId` and the owner's own counter (`sim_identity`), not a world
+  sequence. So a shot the guest predicts gets the host's id while both
+  fire the same shots, and the host's copy continues into it by
+  `Signature`. This is read from the code, not witnessed: in the witness
+  room Bob's ranged and special buttons fire nothing on either App (probed
+  2026-11-19).
+- A predicting guest's simulation names the primary seat its subject each
+  tick, as the host's does. Its view takes its own seat again in `Update`,
+  so the subject changes twice a frame.
+- No window has played it.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -1031,7 +1093,10 @@ a headless binary run cannot.
    on Bob. Reconciling by replaying the guest's own room since the snapshot
    (ISL-2's room rewind) brings the mean to 0.068 at about 9 ms a frame of
    replays (debug build). What else a prediction needs is what reaches the
-   predicted body from others (here, strikes); the replay absorbs it.
+   predicted body from others (here, strikes); the replay absorbs it. In
+   production 2026-11-19 (`PredictsOwnBody`, above): with 3 frames each way
+   Bob turns on his own frame, no row differs while nothing touches him,
+   and Alice's strikes are corrected by replay to the host's end.
 3. **NA-3 — NPC facts and late join.** Host-owned NPC state across a guest's
    departure and return, using the existing save/persistence authority; a
    guest joining a running world from a host snapshot. A late join

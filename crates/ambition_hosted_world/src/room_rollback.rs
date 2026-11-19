@@ -74,7 +74,7 @@ pub struct RoomRollbackStats {
 /// hold that takes another), and `rewind_room` keeps it live for the seats
 /// outside the room, as it keeps their gestures.
 #[derive(Clone)]
-struct Clock(
+pub(crate) struct Clock(
     SimTick,
     WorldTime,
     DayClock,
@@ -86,7 +86,7 @@ struct Clock(
     ambition_platformer2d_actor_monolith::control::possession::PossessionState,
 );
 
-fn clock(world: &World) -> Option<Clock> {
+pub(crate) fn clock(world: &World) -> Option<Clock> {
     Some(Clock(
         *world.get_resource::<SimTick>()?,
         *world.get_resource::<WorldTime>()?,
@@ -402,7 +402,7 @@ pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u
 
 /// A room crossing recorded and not yet begun, or begun and not yet
 /// committed.
-fn a_crossing_is_under_way(world: &World) -> bool {
+pub(crate) fn a_crossing_is_under_way(world: &World) -> bool {
     world
         .get_resource::<ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit>()
         .is_some_and(|pending| pending.peek().is_some())
@@ -422,10 +422,35 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
         saves.retain(|at, _| *at < tick);
         saved
     };
-    let rows = world.remove_resource::<RoomSnapshotRows>()?;
+    if !world.contains_resource::<RoomSnapshotRows>() {
+        return None;
+    }
+    let replaying = |world: &mut World, on: bool| world.resource_mut::<GuestInputs>().replaying = on;
+    Some(replay_room(world, room, &mut snapshot, at, tick, now, replaying, |_| {}))
+}
+
+/// Put `room` back to `snapshot` (its state at the start of `tick`, with the
+/// clock `at`), let `correct` write what is known better than the save, and
+/// replay the room alone to `now`: the other rooms hidden, its world writes
+/// since the save retracted, the input tables as they stood put back after.
+/// `replaying` marks the replay for the caller's own tick head. Returns the
+/// ticks replayed.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn replay_room(
+    world: &mut World,
+    room: LiveRoomInstance,
+    snapshot: &mut RoomSnapshot,
+    at: Clock,
+    tick: u64,
+    now: u64,
+    replaying: fn(&mut World, bool),
+    correct: impl FnOnce(&mut World),
+) -> u32 {
+    let rows = world.remove_resource::<RoomSnapshotRows>().expect("the caller checked the room rows");
     let entities = ambition_platformer2d_shared_tangle::lifecycle::room_scope_members(world, room);
-    rows.restore(world, &mut snapshot, &entities);
+    rows.restore(world, snapshot, &entities);
     world.insert_resource(rows);
+    correct(world);
     ambition_platformer2d_shared_tangle::lifecycle::begin_room_replay(world, room);
     let live_gestures = world.get_resource::<SlotInteractionState>().copied();
     let live_possession = world.get_resource::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>().cloned();
@@ -450,7 +475,7 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
     let latches = world.get_resource::<ambition_characters::control::SlotControlLatches>().copied();
     let raw = world.get_resource::<ambition_characters::control::SeatRawFrames>().copied();
     let slots = world.get_resource::<ambition_characters::control::SlotControls>().copied();
-    world.resource_mut::<GuestInputs>().replaying = true;
+    replaying(world, true);
     // The replayed ticks are not confirmed while they run: an irreversible
     // act the replay records (a crossing, which needs the rooms hidden here)
     // waits for the first live tick after it. Nor is anything the live
@@ -464,7 +489,7 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
         run_one_tick(world);
         ticks += 1;
     }
-    world.resource_mut::<GuestInputs>().replaying = false;
+    replaying(world, false);
     world.remove_resource::<ConfirmedFrameBoundary>();
     match live {
         // The live boundary stands again; the next live tick publishes anew.
@@ -520,7 +545,7 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
         }
     }
     ambition_platformer2d_shared_tangle::lifecycle::end_room_replay(world);
-    Some(ticks)
+    ticks
 }
 
 /// Presentation output stays at the live boundary while a room replays.
@@ -535,7 +560,7 @@ pub(crate) fn register_presentation_replay_channels(app: &mut App) {
 }
 
 /// Run one simulation step, as the host's own loop runs it.
-fn run_one_tick(world: &mut World) {
+pub(crate) fn run_one_tick(world: &mut World) {
     let label = world.resource::<ambition_platformer2d_shared_tangle::schedule::SimSchedule>().peek();
     if label == bevy::ecs::schedule::ScheduleLabel::intern(&FixedUpdate) {
         *world.resource_mut::<Time>() = world.resource::<Time<Fixed>>().as_generic();

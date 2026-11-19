@@ -96,7 +96,7 @@ are 64 libraries, 1 MiB of total source, and 32 import levels. Runtime imports
 are bounded at 128 per invocation. `LibraryLimits` exposes these limits to
 host composition; the operation limit remains a separate preparation input.
 
-The loaded-code ABI is `rhai-f32-exact/3`. Code identity includes entry text
+The loaded-code ABI is `rhai-f32-exact/4`. Code identity includes entry text
 and every reachable library's ID and text, in stable order. Script-visible source names are `entry` and the bundle-relative library IDs.
 Host diagnostic paths are excluded from script input and code identity. A helper edit therefore changes each dependent module's code
 identity.
@@ -151,3 +151,16 @@ Libraries and structured state support source reuse, behavior factories, nested
 records and bounded text. [Actor creation](actor-creation.md) now supplies native character compositions.
 Interactive props, cross-object event routing, and the remaining domain lifecycle
 contracts stay open in the [capability census](../planning/engine/script-first-capability-census.md).
+
+## Invocation value limits
+
+`LibraryLimits` also bounds values in each prepared Rhai environment. Rhai
+counts nested entries and text within a reachable value. The defaults permit
+16,384 array or map entries and 65,536 text bytes. A multi-object factory can
+therefore build a bounded request containing many nested binding records.
+Native domain bounds still decide whether the request can apply.
+
+Hosts can set `max_value_collection_entries` and `max_value_text_bytes` through
+`PreparedScript::with_libraries`. The operation, import and value limits are
+part of loaded code identity. Equal source with different execution budgets
+has a different identity. Rebuild prepared scripts after a limit change.

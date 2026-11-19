@@ -28,8 +28,9 @@ adjudicated.py` scans) is one of:
                     `room_rollback.rs`) saves and sets back its type around a
                     replay: the shared clock in `struct Clock(..)`, which a
                     rewind sets to the saved tick and the replay runs forward
-                    again, and the seat inputs `rewind_room` copies out
-                    before the replay and puts back after it
+                    again, and the seat inputs `replay_room` (the replay the
+                    host's `rewind_room` and a predicting guest share) copies
+                    out before the replay and puts back after it
     derived         the system overwrites its own section of a store from
                     live state (`MIRRORS`), or
                     its type is rebuilt from live state each run, and the scan
@@ -262,6 +263,13 @@ WORLD_OWNED: dict[str, str] = {
 #: the source's own class does under a rewind. Keyed by SYSTEM: the store's
 #: other writers are not mirrors.
 MIRRORS: dict[str, str] = {
+    "carry_pending_projectile_emissions": (
+        "each tick writes its own tick's entry of `CarriedProjectileEmissions` from "
+        "the projectile queue as it stands, which a replayed tick writes again from "
+        "the replay's queue; a room rewind reads the saved tick's entry to set its "
+        "room's rows of the queue back (`retract_room_projectile_emissions`, "
+        "`ambition_combat/src/projectile_spawn/pending.rs`, read 2026-11-19)"
+    ),
     "grant_quest_completion_rewards": (
         "each quest's payout follows the registry both ways: granted once when it "
         "completes, taken back with its flag when it no longer is; the registry "
@@ -416,9 +424,9 @@ def host_rewound_types(repo: Path = REPO) -> frozenset[str]:
     match = re.search(r"struct\s+Clock\s*\(([^;]*)\)\s*;", text)
     if match:
         found |= {part.strip().rsplit("::", 1)[-1] for part in match.group(1).split(",") if part.strip()}
-    # The seat inputs `rewind_room` copies out before the replay drives the
+    # The seat inputs `replay_room` copies out before the replay drives the
     # seats with their records, and puts back after it.
-    body = re.search(r"fn\s+rewind_room\b.*?\n}\n", text, re.S)
+    body = re.search(r"fn\s+replay_room\b.*?\n}\n", text, re.S)
     if body:
         found |= set(re.findall(r"get_resource::<(?:[\w:]+::)?(\w+)>\(\)\.copied\(\)", body.group(0)))
     return frozenset(found)

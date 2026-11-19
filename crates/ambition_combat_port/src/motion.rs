@@ -349,8 +349,10 @@ impl Port for EffectPort {
 ///   item that sets the velocity. `actor_think` (a custom brain), before the
 ///   body integrates: the kernel moves the body by it this tick.
 ///   `technique_execution` (a special), after the body stepped this tick: the
-///   kernel moves the body by it on the next tick. Two requests of one tick
-///   apply in the order they were submitted.
+///   kernel moves the body by it on the next tick. `body_contact` (a contact
+///   rule driving its body, a kicked shell), after the body stepped this
+///   tick: the kernel moves the body by it on the next tick. Two requests of
+///   one tick apply in the order they were submitted.
 pub struct SetVelocityPort;
 
 #[derive(Clone, Debug, PartialEq)]

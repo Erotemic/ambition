@@ -389,8 +389,10 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
 /// only thing that would have caught it.
 #[test]
 fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
-    use ambition_demo_mary_o::snake::{
-        SnakeShell, SNAKE_BRAIN_KEY, SNAKE_SHEET_TARGET,
+    use ambition_demo_mary_o::snake::{SNAKE_BRAIN_KEY, SNAKE_SHEET_TARGET};
+    let served = |app: &mut App| {
+        let snakes = ambition_demo_mary_o::snake::snakes(app.world_mut());
+        snakes.into_iter().filter(|(snake, _)| ambition_demo_mary_o::snake::is_served(app.world(), *snake)).count()
     };
 
     let mut app = build_demo_app();
@@ -399,10 +401,7 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
     ));
     settle(&mut app);
 
-    let before = {
-        let mut query = app.world_mut().query::<&SnakeShell>();
-        query.iter(app.world()).count()
-    };
+    let before = served(&mut app);
 
     // Ask the engine for a snake exactly as the level's staging does.
     app.world_mut()
@@ -424,10 +423,9 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
         });
     settle(&mut app);
 
-    let tagged = {
-        let mut query = app.world_mut().query::<&SnakeShell>();
-        query.iter(app.world()).count()
-    };
+    // The shell module serves each body whose brain is the snake's: it keeps
+    // the shell's record on it.
+    let tagged = served(&mut app);
     assert_eq!(
         tagged,
         before + 1,

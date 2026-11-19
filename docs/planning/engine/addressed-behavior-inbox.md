@@ -126,6 +126,7 @@ and replay with the same small composition. Add a focused two-island check that
 proves speculative work cannot mutate the destination and confirmed delivery
 survives destination replay. Keep native authority and portable parity.
 
-Native subscriptions, signal admission, symbolic references and the confirmed
-transport remain implementation work. This evaluation does not close the
+Native subscriptions, signal admission, mixed actor/prop factory batches and the
+confirmed transport remain implementation work. Actor and prop factories now
+resolve typed local references in their own native construction batches. This evaluation does not close the
 [script-first program](script-first-ambition-gameplay.md).

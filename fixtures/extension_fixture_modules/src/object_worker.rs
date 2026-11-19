@@ -55,6 +55,10 @@ fn work(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         return state.store(inv);
     }
     let context = context(inv)?;
+    for (key, reference) in &context.references {
+        let expected = match key.as_str() { "owner" => context.object, "peer" => call.caller, _ => continue };
+        if *reference != expected { return Err(Fault::Module("a bound reference names another occurrence".into())); }
+    }
     state.busy = true;
     state.requests += 1;
     state.pending = call.sequence;

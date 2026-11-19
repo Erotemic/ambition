@@ -379,6 +379,14 @@ impl Plugin for CombatSchedulePlugin {
                 .chain()
                 .in_set(CombatSet::Playback),
         );
+        // What the projectile queue carries into each tick, for a room rewind
+        // to set its room's rows back to (`retract_room_projectile_emissions`).
+        app.add_systems(
+            sim,
+            ambition_combat::projectile_spawn::carry_pending_projectile_emissions
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
+                .before(ambition_platformer2d_shared_tangle::schedule::SimClockHead),
+        );
         app.add_systems(
             sim,
             (

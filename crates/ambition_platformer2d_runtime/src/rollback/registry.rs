@@ -328,7 +328,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 502 -> 503: cost-refused invocations publish correlated native rejection before request retirement.
 // 503 -> 504: runtime publication includes private state in the occurrence range and visibility boundary.
 // 504 -> 505: addressed calls and outcomes share age order and one receiver budget.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 505;
+// 505 -> 506: private behaviors retain resolved references from atomic native construction.
+// 506 -> 507: bound external references are data; binding admission does not query foreign liveness.
+// 507 -> 508: the Mary-O snake's shell phase and kick credit are the shell module's body record, not components.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 508;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

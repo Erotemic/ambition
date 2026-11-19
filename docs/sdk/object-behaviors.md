@@ -67,8 +67,44 @@ the entire creation batch. The creation result returns the physical roots.
 Actor root `state` seeds still require the factory entry's write permission.
 Private binding seeds require the declared methods' write permissions. The
 private instances are separate state owners, even when they use the same schema.
-Creation ports are `create_actors` version 3 and `create_breakables` version 2.
+Creation ports are `create_actors` version 4 and `create_breakables` version 3.
+`attach_behaviors` and the `behavior` observation are version 2.
 Rebuild portable module files that use these ports.
+
+## Connect objects at construction
+
+A binding can declare named `references`. A direct reference holds an exact occurrence
+address. `#{local: "node_key"}` names a root in the same factory request:
+
+```rhai
+#{key: "relay", character: "practice_sandbag", at: [200.0, 100.0],
+  bindings: [#{key: "logic",
+    methods: [#{name: "activate", entry: "example::relay/activate"}],
+    references: #{peer: #{local: "worker"}, owner: #{local: "relay"}}}]}
+```
+
+A second node can name `relay` in its own references. The native construction
+plan resolves both names against its checked roots and reserved occurrence
+range. Internal character clusters do not change the meaning of a node key.
+All root and private initialization is prepared before any entity is built.
+An unresolved name refuses the entire batch without births or a spent creation
+counter. The first native publication notice follows reference initialization.
+
+A method reads `this.observe.behavior.references.peer`. This is an exact live
+object reference. It can be the target of an ordinary `call_object` request.
+The native call owner still checks admission and the target method. A reference
+does not grant a physical capability or prove that a domain action succeeded.
+The reference map uses canonical key order and rewinds with the private instance.
+An external address need not be live when the binding is created. Binding
+admission does not read another object's speculative state. Native operations
+check liveness and scope when they use the address. Target retirement leaves a
+stale reference; native operations refuse that lifetime.
+
+`attach_behaviors` can use live references. It has no factory namespace, so a
+local name in that request is refused. References must belong to the receiver's
+session. Their names are unique, nonempty and at most 64 bytes. Local node keys
+are at most 128 bytes. `object_behavior_rules.max_references` defaults to 32 per
+binding. These bindings are transient; they do not create durable save addresses.
 
 ## Call and complete a method
 
@@ -157,7 +193,7 @@ include private state through that link, including after owner reconstruction.
 ## Game-authored bounds
 
 The `object_behavior_rules` room schema supplies bounds for instances per
-object and session, methods, initial records and bytes, parameter and call data,
+object and session, methods, named references, initial records and bytes, parameter and call data,
 pending calls per binding, and active wait ticks. `action_delivery_rules`
 supplies attempt and per-tick delivery budgets. Defaults permit 16 instances
 per object, 1024 per session, 32 pending calls per binding and 600 active wait

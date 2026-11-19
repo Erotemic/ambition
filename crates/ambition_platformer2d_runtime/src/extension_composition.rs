@@ -13,7 +13,7 @@
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; observations `ambition.world.item_state`, `ambition.world.spawner_body` and `ambition.world.toucher_credits` (`ambition_abilities`); requests `ambition.feedback.body_sound`, `ambition.feedback.effect`, `ambition.world.move_module_entity`, `ambition.world.launch_toucher`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn`, `ambition.combat.blast` and observation `ambition.combat.credit` (`ambition_combat`) |
 //! | `actor_think` | after `ActorDecisionSet::Publish`, before `PlayerInputSet::ControlGate`, gameplay-gated | trigger `ambition.actor.think`; requests `ambition.actor.fire` (`ambition_combat`) and `ambition.motion.velocity` (`ambition_abilities`); trigger `ambition.actor.group_think`, requests `ambition.actor.steer`, `ambition.item.take` and `ambition.item.release`, observation `ambition.world.whereabouts` (`ambition_abilities`) |
 //! | `hit_reaction` | `CombatSet::ContentFlavor`, gameplay-gated | triggers `ambition.combat.parried`, `ambition.combat.struck`, `ambition.combat.hit_receptions` (damage domain), and `ambition.combat.projectile_outcomes` (combat domain); requests `ambition.combat.answer_parry`, `ambition.body.hold_status`, and captured projectile emission (`ambition_combat`) |
-//! | `body_contact` | `WorldPrepSet::AfterIntegrate`, after `boss_conduct`, before `WorldPrepSet::ContactDamage`, gameplay-gated | trigger `ambition.body.contact`; requests `ambition.body.contact_bounce` and `ambition.body.defeat` (`ambition_combat`) |
+//! | `body_contact` | `WorldPrepSet::AfterIntegrate`, after `boss_conduct`, before `WorldPrepSet::ContactDamage`, gameplay-gated | trigger `ambition.body.contact`; requests `ambition.body.contact_bounce`, `ambition.body.contact_cue`, `ambition.body.contact_threat`, `ambition.body.control_hold`, `ambition.body.pose_pin`, `ambition.combat.kinetic_hazard` and `ambition.body.defeat` (`ambition_combat`), `ambition.feedback.burst`, `ambition.feedback.body_sound` and `ambition.motion.velocity` (`ambition_abilities`) |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
 
@@ -361,6 +361,11 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ParryWindowPort>("parry_window")
         .add::<ambition_combat_port::ContactBouncePort>("contact_bounce")
         .add::<ambition_combat_port::BodyDefeatPort>("defeat_body")
+        .add::<ambition_combat_port::ContactCuePort>("contact_cue")
+        .add::<ambition_combat_port::ContactThreatPort>("contact_threat")
+        .add::<ambition_combat_port::ControlHoldPort>("control_hold")
+        .add::<ambition_combat_port::PosePinPort>("pose_pin")
+        .add::<ambition_combat_port::KineticHazardPort>("kinetic_hazard")
         .add::<ambition_combat_port::body_query::BodyQueryPort>("body_query")
         .add::<ambition_combat_port::body_query::BodyQueryResultPort>("body_query_result")
         .add::<ambition_extension_sdk::action::CancelActionPort>("cancel_action")

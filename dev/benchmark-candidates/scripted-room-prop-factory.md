@@ -43,3 +43,12 @@ A live art request must reach the sheet loader. A registered kind can also be
 scenery in a distant room. The scenery reach filter must not suppress its
 current runtime use. The live feature feed supplies this demand; do not mark
 the kind global or pre-place hidden scenery to force it to load.
+
+## Nested factory values
+
+Rhai counts nested map and array entries within a reachable value. A small
+change to binding records can exceed that budget while the native object count
+stays small. Measure script construction and request normalization separately
+from native materialization. Native population bounds and VM value bounds
+serve different purposes. The prepared code identity must include runtime
+budgets that can change whether an invocation commits.

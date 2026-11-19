@@ -36,6 +36,9 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 # game names `ambition_platformer2d` + `bevy`, and NOTHING ELSE. It still holds — this file is
 # the proof.
 bevy = { version = "0.19.1", default-features = false }
+# His contact rules (the badnik's squash) are modules, built against the SDK
+# and port values only, so a rule edit rebuilds that crate alone.
+ambition_demo_sanic_modules = { path = "../ambition_demo_sanic_modules" }
 # The demo's own pack schema (`rules.rs`) derives its reader.
 serde = { workspace = true }
 

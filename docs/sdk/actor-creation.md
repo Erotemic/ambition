@@ -73,7 +73,10 @@ work.
 
 Native callers can supply prepared, entity-local components through
 `RuntimeActor.initialization`. Their owner validates those values. The runtime
-uses a root-scoped initializer, without a world callback. The script adapter
+prepares root and private bundles through `ObjectInitialization`. Its read-only
+context supplies the root occurrence and the checked local-name map. Preparation
+can refuse before materialization. The commit uses root-scoped insertion,
+without a world callback. The script adapter
 supplies its checked `BodyRecords` through this same path. A native
 `ComposedInitialization` also supplies named `OwnedObjectState` bundles. The
 native plan declares and allocates those private instances before initialization.
@@ -86,7 +89,10 @@ Each actor node can declare a `bindings` list of
 [private behavior instances](object-behaviors.md). The native transaction
 publishes those instances with the root. Method paths and private seeds must
 all validate before any actor in the batch is materialized. A second attachment
-action is not required.
+action is not required. Bindings can also declare
+[named local references](object-behaviors.md#connect-objects-at-construction) to
+other roots in the same batch. The native plan resolves those references before
+it publishes any actor or private instance.
 
 ## Wallet capability at birth
 
@@ -114,7 +120,7 @@ and later exchanges rewind through the existing native snapshot path. Existing
 session restore policies still own saved balances. This does not add durable
 NPC wallets or durable dynamic actors.
 
-The portable request is `ambition.world.create_actors@2`.
+The portable request is `ambition.world.create_actors@4`.
 
 ## Placement, allegiance and relations
 

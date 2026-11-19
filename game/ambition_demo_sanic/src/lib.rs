@@ -684,7 +684,7 @@ impl Plugin for SanicRulesPlugin {
             // An act that asks to leave is carried out the same tick.
             .before(ambition_platformer2d::session::DepartureSet);
         // This is an ordering, not an installation. `apply_contact_harm` is
-        // absent from this game on purpose: `defeat_badniks` owns
+        // absent from this game on purpose: the badnik's squash module owns
         // destroy-on-touch (pop and bounce included), and two authorities must
         // not kill the same badnik. The engine owns expiry and the untouchable
         // reason; the super row states the traits.
@@ -695,17 +695,11 @@ impl Plugin for SanicRulesPlugin {
         );
         let milestone_sfx = emit_sanic_milestone_sfx
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects);
-        // The badnik defeat runs before the engine's shared body-contact-damage
-        // pass so a stomp/roll never also hurts Sanic (the rule zeroes the
-        // badnik's health that frame; the contact pass skips a dead attacker).
-        // And AFTER integration, so both read this tick's positions. Without
-        // that edge the order against `integrate_sim_bodies` was not stated,
-        // and the schedule's sort decided which tick's positions the defeat read.
-        let badniks = badnik::defeat_badniks
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep,
-            )
-            .after(ambition_platformer2d::platformer::schedule::WorldPrepSet::AfterIntegrate)
-            .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
+        // The badnik's squash is a module in `body_contact`, which decides
+        // before the shared contact damage, so a stomp or a roll never also
+        // hurts Sanic. Its entries act on a body whose placement authors a
+        // badnik brain key, so they need no rules scope.
+        badnik::install(app);
         // The shared player resolver spends wallet armor before death and emits
         // the deterministic fact this Sanic presentation consumes.
         let ring_loss = scatter_rings_on_hit
@@ -732,7 +726,6 @@ impl Plugin for SanicRulesPlugin {
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_scoped_systems(sim, self.scope, rules);
         app.add_scoped_systems(sim, self.scope, milestone_sfx);
-        app.add_scoped_systems(sim, self.scope, badniks);
         app.add_scoped_systems(sim, self.scope, ring_loss);
         app.add_scoped_systems(sim, self.scope, scatter_arc);
         app.add_scoped_systems(sim, self.scope, monitor_rules);

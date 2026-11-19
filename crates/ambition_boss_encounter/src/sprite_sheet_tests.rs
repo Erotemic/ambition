@@ -214,21 +214,23 @@ fn boss_ron_target_strips_the_sheet_suffix() {
 }
 
 #[test]
-fn giant_gnu_baked_record_drives_the_packed_pixels() {
+fn giant_gnu_baked_record_drives_the_drawn_parts() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-    // End-to-end convergence guard: the regenerated `giant_gnu` mount sheet is
-    // an alpha-trim/packed sheet. The published record must (a) line up with the
-    // const so it drives the pixels, (b) be trimmed, and (c) stay single-page
-    // (a multi-page sibling would resolve the wrong page's filename).
+    // End-to-end convergence guard: the regenerated `giant_gnu` mount is
+    // published page-less, drawn from its parts (PART-FIRST, 2026-11-18). The
+    // published record must (a) line up with the const so its frame boxes
+    // place the parts, (b) say it is drawn from parts (it has no packed page
+    // to trim), and (c) stay single-page (a multi-page sibling would resolve
+    // the wrong page's filename).
     let record = record_for_sheet_key(&sprite_content, "giant_gnu")
         .expect("baked giant_gnu record present (run scripts/regen/sprites.sh)");
     assert!(
         record_aligns_with_const(record, &content_sheet("giant_gnu")),
-        "the packed giant_gnu record lines up with the const → it drives the pixels"
+        "the giant_gnu record lines up with the const → its frames place the parts"
     );
     assert!(
-        record.is_trimmed(),
-        "the giant_gnu sheet is alpha-trimmed/packed, not a raw grid"
+        record.drawn_from_parts,
+        "the giant_gnu mount is drawn from its parts, with no baked page"
     );
     assert_eq!(
         record.page_count(),

@@ -26,11 +26,10 @@ use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
     LimbBlowPort, LimbBond, LimbBondPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, LimbStrike,
     LimbStrikePort, MountLaunch, MountLaunchPort, MountWalk, MountWalkPort, FoeLaunch, FoeLaunchPort,
-    MountView, MountViewPort, Pose as BodyPose, Wear, WearPort, Wearer,
+    MountView, MountViewPort, Pose as BodyPose,
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, Effect, EffectPort, HeldDamageBox, HeldDamageBoxPort,
-    GravityWell, HeldForce, HeldForcePort,
     Place, RidingHitbox,
     RidingHitboxPort, RidingKnockback, SpeechBubble, SpeechBubblePort,
 };
@@ -93,8 +92,6 @@ const WAVE_BOX_SLOT: u32 = 2;
 const WAVES: usize = 4;
 /// The held portal pair's slot: the pair of the punch.
 const PUNCH_PAIR_SLOT: u32 = 0;
-/// The slot of the well's pair of portals (`ch::space::well_portals`).
-const WELL_PAIR_SLOT: u32 = 1;
 /// The slots of the apple rain's catching pairs (`ch::catch`).
 const CATCH_PAIR_SLOTS: [u32; 2] = [2, 3];
 const INK: [f32; 4] = [1.0, 0.86, 0.45, 0.95];
@@ -145,22 +142,9 @@ const FX_CLASH: &str = "gnu_blow_clash";
 const CLASH_SCALE: f32 = 3.4;
 /// The golden apple of the end, and when (seconds into its row) it hits.
 const FX_APPLE: &str = "gnu_apple_bonk";
-/// Phase 3: his power, the giant's liftoff, and a push of the tide.
+/// His power, at the enrage.
 const FX_POWER: &str = "gnu_power_up";
 const POWER_SCALE: f32 = 3.2;
-const FX_LIFTOFF: &str = "gnu_liftoff";
-const LIFTOFF_SCALE: f32 = 6.0;
-const FX_PUFF: &str = "gnu_thrust_puff";
-const PUFF_SCALE: f32 = 2.6;
-/// The gear he and his giant wear in space (`worn_gear.ron`). Not the
-/// player: a fight that ends with no finale (the player falls, or leaves)
-/// would leave the player's helmet on.
-const HELMET: &str = "space_helmet";
-const HELMET_WEARERS: [Wearer; 2] = [Wearer::Boss, Wearer::Mount];
-/// The slot of the field of space among his fields.
-const SPACE_FIELD: u32 = 1;
-/// The slot of the field of the well's gravity.
-const WELL_FIELD: u32 = 2;
 const APPLE_SCALE: f32 = 7.0;
 const APPLE_HITS: f32 = 14.0 * 0.055 * 0.42;
 const GLINT_SCALE: f32 = 3.0;
@@ -188,7 +172,7 @@ pub const EUREKA_LEN: f32 = ch::eureka::APPLE + ch::eureka::TUMBLE + ch::eureka:
 
 record! {
     /// The conductor's memory, on the scholar.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "gnu_ton.conductor", 1);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "gnu_ton.conductor", 2);
     /// The latch holds where the fists stood when it first conducted.
     1 seated: bool,
     /// The hall under the gnu, last measured.
@@ -340,26 +324,21 @@ record! {
     /// when he was beaten.
     82 finale_t: Option<f32>,
     83 finale_from: [f32; 2],
-    /// Phase 3 (`ch::space`): seconds since the launch began (none: on the
-    /// ground), how far the sky is in space (0..1), the seconds before a
-    /// blow of the player's may push them back again, and whether the
-    /// helmets are on.
-    84 space_t: Option<f32>,
-    85 ascent: f32,
-    86 recoil_wait: f32,
-    87 helmets: bool,
+    /// Phase 3 (`ch::call`): seconds since the call began (none: not in
+    /// the beat before the enrage).
+    84 call_t: Option<f32>,
     /// His arrival (`ch::arrival`): seconds into it (none: before the hall
     /// woke, or after it), and whether it has played.
-    88 arrive_t: Option<f32>,
-    89 arrived: bool,
+    85 arrive_t: Option<f32>,
+    86 arrived: bool,
     /// How far into its walk row its hooves have stepped, in the row's
     /// seconds: the distance it has walked over `stride::SPEED`, so a hoof
     /// on the floor stands still on it as the body speeds up and slows down.
     /// From the start of a walk; it runs on while the body slides to a stop.
-    90 stride: f32,
+    87 stride: f32,
     /// Seconds it has been drawn at rest with its arms on: the rest row
     /// starts at its first frame, where a blow's last row ends.
-    91 rest_t: f32,
+    88 rest_t: f32,
 }
 
 /// What he does on the giant's back when he is not in his saddle.
@@ -538,11 +517,6 @@ impl Conductor {
     }
 
     /// Seconds into the end of the fight (`ch::finale`), once he is beaten.
-    /// How far the sky is in space: 0 on the ground, 1 in space.
-    pub fn ascent(&self) -> f32 {
-        self.ascent
-    }
-
     pub fn finale(&self) -> Option<f32> {
         self.finale_t
     }
@@ -668,8 +642,6 @@ pub fn module() -> ModuleDescriptor {
                 MountLaunchPort::KEY,
                 MountWalkPort::KEY,
                 FoeLaunchPort::KEY,
-                HeldForcePort::KEY,
-                WearPort::KEY,
                 CameraShakePort::KEY,
                 HeldDamageBoxPort::KEY,
                 HeldPortalPairPort::KEY,
@@ -955,10 +927,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let head = scholar_pos - Vec2::new(0.0, scholar_size.y * 0.5);
 
     // ── Which part of which beat, and did it just begin? ──
-    // In the launch (the beat before the enrage, `ch::space`) he performs no
+    // In the call (the beat before the enrage, `ch::call`) he performs no
     // move: the pattern's move of the phase before is not his now.
-    let in_launch = c.space_t.is_some_and(|t| t < ch::space::LEN)
-        || (c.space_t.is_none() && scholar.between_phases && scholar.health * 2 < c.full_health && c.loosed);
+    let in_launch = scholar.between_phases && scholar.health * 2 < c.full_health && c.loosed;
     let live = live_part(&scholar).filter(|_| !in_launch);
     let previous = c.part();
     let in_eureka = previous.is_some_and(|p| p.mv == Move::Eureka);
@@ -2155,12 +2126,12 @@ fn hold_catching_pairs(inv: &mut Invocation<'_>, c: &Conductor, giant: &MountVie
 fn call(inv: &mut Invocation<'_>, c: &mut Conductor, scholar: &BossConduct, dt: f32) -> Result<Option<f32>, Fault> {
     let low = scholar.health * 2 < c.full_health;
     if !(scholar.between_phases && low && c.loosed) {
-        c.space_t = None;
+        c.call_t = None;
         return Ok(None);
     }
-    let prev = c.space_t.unwrap_or(-dt);
+    let prev = c.call_t.unwrap_or(-dt);
     let t = prev + dt;
-    c.space_t = Some(t);
+    c.call_t = Some(t);
     if prev < ch::call::SAY && t >= ch::call::SAY {
         let head = v(scholar.position) - Vec2::new(0.0, scholar.size[1] * 0.5);
         play(inv, SFX_CHARGE, head)?;
@@ -2170,163 +2141,6 @@ fn call(inv: &mut Invocation<'_>, c: &mut Conductor, scholar: &BossConduct, dt: 
         })?;
     }
     Ok(Some(t))
-}
-
-/// Phase 3 (`ch::space`): the launch in the beat before the enrage, and the
-/// fight in space after it. Returns the seconds into the launch while it
-/// plays.
-///
-/// The beat before the enrage is the encounter's `between_phases` with his
-/// health under half (the beat before phase 2 is at two thirds of it).
-fn space(
-    inv: &mut Invocation<'_>,
-    c: &mut Conductor,
-    scholar: &BossConduct,
-    giant: &MountView,
-    hall: Hall,
-    dt: f32,
-    landed: bool,
-) -> Result<Option<f32>, Fault> {
-    use ch::space::{self as sp, Sea};
-    let low = scholar.health * 2 < c.full_health;
-    let launching = scholar.between_phases && low && c.loosed;
-    // Out of the enrage (a fight that was put back) is out of space.
-    if c.space_t.is_some() && !scholar.enraged && !launching {
-        c.space_t = None;
-        c.ascent = 0.0;
-        return Ok(None);
-    }
-    let prev = match c.space_t {
-        Some(t) => t,
-        // A fight that is in its enrage with no launch before it goes
-        // straight to space.
-        None if scholar.enraged => sp::LEN,
-        None if launching => -dt,
-        None => return Ok(None),
-    };
-    let t = prev + dt;
-    c.space_t = Some(t);
-    let crossed = |at: f32| prev < at && t >= at;
-    let giant_pos = v(giant.position);
-    let giant_size = v(giant.size);
-    let head = v(scholar.position) - Vec2::new(0.0, scholar.size[1] * 0.5);
-    let feet = Vec2::new(giant_pos.x, hall.floor);
-    c.ascent = sp::ascent(t);
-    if crossed(sp::POWER) {
-        effect(inv, FX_POWER, v(scholar.position), POWER_SCALE, Vec2::X)?;
-        play(inv, SFX_CHARGE, head)?;
-        inv.submit::<SpeechBubblePort>(SpeechBubble {
-            at: a(head - Vec2::new(0.0, 30.0)),
-            text: "Every body pulls on every body...".to_string(),
-        })?;
-    }
-    // The well: a pair of portals, the floor's and the one over it, and a
-    // well of gravity at the floor's. A body falls into the floor and out of
-    // the portal over it, and into the floor again: the hall falls through
-    // itself until the pair closes, and then it is in space.
-    let [(floor_at, floor_normal), (over_at, over_normal)] = sp::well_portals(hall);
-    let open = sp::well_open(t);
-    if open > 0.0 {
-        let end = |at: [f32; 2], normal: [f32; 2]| PortalEnd {
-            at,
-            normal,
-            half_length: sp::PORTAL_HALF * open,
-            half_thickness: None,
-        };
-        inv.submit::<HeldPortalPairPort>(HeldPortalPair {
-            slot: WELL_PAIR_SLOT,
-            ends: [end(floor_at, floor_normal), end(over_at, over_normal)],
-            looks: [24, 25],
-            closes_on_use: false,
-        })?;
-    }
-    let pull = sp::well_pull(t);
-    if pull > 0.0 {
-        inv.submit::<HeldForcePort>(HeldForce {
-            slot: WELL_FIELD,
-            min: [hall.left - 200.0, hall.floor - 4000.0],
-            max: [hall.right + 200.0, hall.floor + 64.0],
-            lift: 0.0,
-            force: [0.0, 0.0],
-            well: Some(GravityWell { at: floor_at, pull, near: sp::WELL_NEAR }),
-        })?;
-    }
-    if crossed(sp::LIFTOFF) {
-        let size = FX_SIZE * LIFTOFF_SCALE;
-        effect(inv, FX_LIFTOFF, feet - Vec2::new(0.0, size * 0.5), LIFTOFF_SCALE, Vec2::NEG_Y)?;
-        inv.submit::<CameraShakePort>(CameraShake { amplitude_px: 30.0 })?;
-        play(inv, SFX_STOMP, feet)?;
-        play(inv, SFX_FLOOR, feet)?;
-        for side in [-1.0, 1.0] {
-            dust(inv, feet + Vec2::new(side * giant_size.x * 0.4, 0.0), 24, 420.0, [0.75, 0.62, 0.45, 1.0])?;
-        }
-        inv.submit::<SpeechBubblePort>(SpeechBubble {
-            at: a(head - Vec2::new(0.0, 30.0)),
-            text: "...and MINE pulls hardest!".to_string(),
-        })?;
-    }
-    if crossed(sp::CLOSE) {
-        inv.submit::<CameraShakePort>(CameraShake { amplitude_px: 16.0 })?;
-        play(inv, SFX_WHOOSH, Vec2::from(over_at))?;
-    }
-    if crossed(sp::HELMETS) && !c.helmets {
-        c.helmets = true;
-        for who in HELMET_WEARERS {
-            inv.submit::<WearPort>(Wear { who, gear: HELMET.into(), on: true })?;
-        }
-        spark(inv, head, [0.75, 0.9, 1.0, 1.0], 14, 200.0)?;
-    }
-    if crossed(sp::LEN) {
-        inv.submit::<SpeechBubblePort>(SpeechBubble {
-            at: a(head - Vec2::new(0.0, 30.0)),
-            text: "In space, nothing stops you!".to_string(),
-        })?;
-    }
-    // The field over the hall: the weight space takes, and the tide.
-    let (lift, push) = sp::field(t);
-    if lift > 0.0 || push != [0.0, 0.0] {
-        hold_space_field(inv, hall, lift, push)?;
-    }
-    // A tide is told before it comes, and is seen as it pushes.
-    match sp::sea(t) {
-        Sea::Warning(tide) if matches!(sp::sea(prev), Sea::Calm) => {
-            inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head - Vec2::new(0.0, 30.0)), text: tide.bark().to_string() })?;
-            play(inv, SFX_WHOOSH, head)?;
-        }
-        Sea::Tide(tide, _) if c.ticks % 6 == 0 => {
-            // Puffs in the hall that go the way the tide pushes.
-            let way = Vec2::from(tide.way());
-            let k = (c.ticks / 6) % 5;
-            let across = hall.left + (hall.right - hall.left) * (0.1 + 0.2 * k as f32);
-            let at = Vec2::new(across, hall.floor - 160.0 - 180.0 * ((c.ticks / 30) % 4) as f32);
-            effect(inv, FX_PUFF, at, PUFF_SCALE, way)?;
-        }
-        _ => {}
-    }
-    // Every blow that lands on him pushes the player back: the third law.
-    c.recoil_wait = (c.recoil_wait - dt).max(0.0);
-    if landed && t >= sp::LEN && c.recoil_wait <= 0.0 {
-        if let Some(body) = scholar.target_body {
-            let from = v(scholar.position).x;
-            inv.submit::<FoeLaunchPort>(FoeLaunch { velocity: sp::recoil(body.position[0], from), flinchless: true })?;
-            effect(inv, FX_PUFF, v(body.position), PUFF_SCALE, Vec2::new(if body.position[0] < from { -1.0 } else { 1.0 }, 0.0))?;
-            c.recoil_wait = sp::RECOIL_WAIT;
-        }
-    }
-    Ok((t < sp::LEN).then_some(t.max(0.0)))
-}
-
-/// The field of space over the hall, from wall to wall and from the floor
-/// up past the top of the room.
-fn hold_space_field(inv: &mut Invocation<'_>, hall: Hall, lift: f32, push: [f32; 2]) -> Result<(), Fault> {
-    inv.submit::<HeldForcePort>(HeldForce {
-        slot: SPACE_FIELD,
-        min: [hall.left - 200.0, hall.floor - 4000.0],
-        max: [hall.right + 200.0, hall.floor + 64.0],
-        lift,
-        force: push,
-        well: None,
-    })
 }
 
 /// Beaten (`ch::finale`): he falls from its shoulder, and lets his fists go.
@@ -2381,16 +2195,6 @@ fn finale(
     }
     draw(inv, DrawnPart::Body, Some(fin::scholar_rows(t)))?;
     draw(inv, DrawnPart::Mount, Some(fin::gnu_rows(t)))?;
-    // Beaten in space, they come back down to the ground as he falls: the
-    // sky and the weight come back by the time the giant holds him.
-    if c.space_t.is_some() {
-        let back = ch::ease(t / (fin::FALL + fin::GATHER));
-        c.ascent = c.ascent.min(1.0 - back);
-        let lift = ch::space::LIFT * (1.0 - back);
-        if lift > 0.0 {
-            hold_space_field(inv, hall, lift, [0.0, 0.0])?;
-        }
-    }
     inv.submit::<MountWalkPort>(MountWalk { to_x: giant_pos.x, speed: 0.0 })?;
     // His fists: he lets them go as he falls; then the giant draws them back
     // into its arms, which hold him.
@@ -2448,13 +2252,6 @@ fn finale(
         spark(inv, head_of(cradle), GOLD, 24, 240.0)?;
         play(inv, SFX_SNORT, head_of(cradle))?;
         inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head_of(cradle) - Vec2::new(0.0, 30.0)), text: "...Eureka?".to_string() })?;
-    }
-    if crossed(apple_at + fin::APPLE) && c.helmets {
-        // Back on the ground, the helmets come off.
-        c.helmets = false;
-        for who in HELMET_WEARERS {
-            inv.submit::<WearPort>(Wear { who, gear: HELMET.into(), on: false })?;
-        }
     }
     if crossed(apple_at + fin::APPLE + fin::WAKE * 0.6) {
         inv.submit::<SpeechBubblePort>(SpeechBubble {

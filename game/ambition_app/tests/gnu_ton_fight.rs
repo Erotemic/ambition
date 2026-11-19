@@ -2671,8 +2671,8 @@ fn rider_pin(sim: &mut Platformer2dSimHarness) -> Option<(String, f32)> {
 /// contract: the fight's pattern decides what happens in the window.
 ///
 /// Three runs: phase 1; phase 2 (its arms free, `free_fists`); and phase 3,
-/// the scholar brought to a fifth of his health, so the well opens and the
-/// fight goes on in space.
+/// the scholar brought to a fifth of his health, so he calls GNU2 and the
+/// two giants fight on in the hall.
 #[test]
 #[ignore = "measurement: prints the giant's motion discontinuities; run with --ignored --nocapture"]
 fn how_the_giant_moves_frame_by_frame() {

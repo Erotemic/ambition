@@ -1,6 +1,6 @@
 # Boss cinematics, GNU2's finale and the giant's motion
 
-**Owner of:** [BOSS-CINEMATIC-COVERAGE](../queue.md#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](../queue.md#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), [GNU-MOTION-PARTS](../queue.md#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion).
+**Owner of:** [BOSS-CINEMATIC-COVERAGE](../queue.md#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](../queue.md#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal---done-2026-11-19), [GNU-MOTION-PARTS](../queue.md#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion).
 **Related:** [bosses](bosses.md) (the fights' design), [GNU-ton's debts](gnu-ton-fight-debts.md), [semantic-part rendering](../engine/semantic-part-rendering-and-ragdolls.md).
 
 ## Name cards (BOSS-CINEMATIC-COVERAGE)
@@ -188,6 +188,12 @@ the plan:
 Witnessed in `app_it`: `at_his_enrage_gnu2_walks_into_the_hall_through_its_pair`,
 `defeating_him_opens_the_arena_and_his_body_going_does_not_close_it` (the gate holds after GNU-ton alone and
 opens when GNU2 is cleared too), and the handle's two-grille tests.
+
+**Step 7 done 2026-11-19: space is retired.** The conductor no longer has
+`space()`, the well's pair and field, the tides, the helmets or the ascent;
+`ch::space` and the space sky (`presentation/gnu_ton_sky.rs`, `ascent_of`)
+are deleted. Its record is v2: `call_t` (the call's clock) replaces the
+launch's four fields. The space helmet stays a worn-gear row.
 
 What step 2 needed first, measured 2026-11-19: no boss takes its body from a
 character entry (`BossSpawn` has no `character_id`; `BossProfile` names

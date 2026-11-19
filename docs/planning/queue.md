@@ -79,7 +79,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
    capability architecture. Continue AP14 ownership work before lower-priority
    ENEMY-NOTICE (done 2026-11-18), WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS (its laser sound waits for the SFX bank) and
    CHARGEN-SPECIES (done 2026-11-19).
-4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
+4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal---done-2026-11-19), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
 5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
    remain selected at their stated boundaries (TOOL-DISCOVERY and EDITOR-SHELL
    are complete: [tooling layout](engine/tooling-layout-and-editor-consolidation.md),
@@ -196,7 +196,7 @@ or updating their source. Check with
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 
-### GNUTON-GNU2-FINALE — summon a second GNU through a real portal
+### GNUTON-GNU2-FINALE — summon a second GNU through a real portal — ✅ DONE 2026-11-19
 
 **Failure:** GNU-ton's phase-3 well uses a real floor/overhead portal pair but changes the existing hall's sky and gravity to represent space. The preferred new finale is a large live portal summoning physically present GNU2, followed by simultaneous GNU and GNU2 combat. GNU2 is published and catalogued (`npc_giant_gnu2`, 2026-11-18): the giant's rows, seams and surfaces in its harness.
 
@@ -204,7 +204,9 @@ or updating their source. Check with
 
 **Steps 2-6 done 2026-11-19 ([owner](game/boss-cinematics-gnu2-and-motion.md#gnu2s-finale-gnuton-gnu2-finale)):** GNU2 sleeps in a sealed cell under each arena's floor, wakes when GNU-ton enrages (`successors_wake: Enraged`), opens its own held pair and walks through it into the hall. It has its own conductor (`gnu2`: walk, stomp shocks, buck), the boss bar stacks every fought boss, and each arena's way out waits on both (the handle has a grille for each). The scholar's enrage now calls GNU2 instead of launching to space.
 
-**Next action:** step 7, retire space: the well, the ascent and the tides are no longer reached.
+**Step 7 done 2026-11-19:** space is retired. The well, the ascent, the tides, the helmets and the space sky (`presentation/gnu_ton_sky.rs`) are gone, and the conductor's record is v2 (its call clock replaces the launch's).
+
+**Next action:** none; watch the two-giant fight on Jon's displays.
 
 **Acceptance:** physically observed GNU2 portal emergence, simultaneous independently damageable GNU/GNU2 giants with readable counters, either defeat order supported, door gating on both plus rider yield, no duplicate spawn on retries, and both bosses safely cleaned on teardown. Keep intra-island portal semantics and existing phase 1/2 gameplay.
 
@@ -1888,6 +1890,10 @@ same way with the slice stashed.
   the published `giant_gnu` record is not trimmed ("alpha-trimmed/packed, not
   a raw grid"). The record-only part-first publish (PF1) is the first
   suspect: read the published record before republishing.
+- `scripts/checks/check_session_authority_none_arms.py`: two optional
+  reads from upstream have no `none-arm:` row,
+  `gravity.rs::retract_room_gravity_turns` (`BaseGravity`) and
+  `gate_portal.rs::retract_room_gate_portal_phases` (`GatePortalPhases`).
 
 **Shell lifecycle reds (found 2026-11-19, inherited):** two of
 `shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the

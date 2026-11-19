@@ -39,13 +39,6 @@ pub struct GnuTonView {
     pub finale: Option<f32>,
 }
 
-/// How far GNU-ton's sky is in space (0 on the ground, 1 in space), read
-/// from his conductor's record. `None` before the module stored anything.
-pub fn ascent_of(records: &ambition_extension_host::BodyRecords) -> Option<f32> {
-    use ambition_content_modules::gnu_ton::conductor::Conductor;
-    Conductor::from_record(records.get(&Conductor::KEY)?).ok().map(|c| c.ascent())
-}
-
 /// The conductor's record on `scholar`, as a view. `None` before the module
 /// stored anything.
 pub fn conductor_of(world: &World, scholar: Entity) -> Option<GnuTonView> {

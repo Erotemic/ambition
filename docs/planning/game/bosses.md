@@ -927,6 +927,14 @@ giant's arms."*
    the ways onto the giant are its back, its shoulders and the pair.
 4. **The clamp and phase 2,** as before: two lines take the arms, and the
    fists are bodies of their own.
+**Steps 5 and 6 were retired 2026-11-19 (GNUTON-GNU2-FINALE step 7).**
+In the beat before the enrage he now calls GNU2, which walks into the hall
+through its own pair and fights beside him
+([owner](boss-cinematics-gnu2-and-motion.md#gnu2s-finale-gnuton-gnu2-finale)).
+The well, the sky in space, the tides and the helmets are gone from the
+conductor, and `presentation/gnu_ton_sky.rs` is deleted. The space helmet
+stays a worn-gear row. Items 5 and 6 below record what was built.
+
 5. **The launch: the well.** At the enrage the encounter holds a beat
    (`enrage_seconds`, 3.6). He powers up (*"Every body pulls on every
    body..."*). A huge pair of portals eases open: one in the floor of the
@@ -947,10 +955,9 @@ giant's arms."*
    seconds a tide comes, told first (*"The tide turns!"*, *"Gravity... is
    optional!"*): a push to the right, then to the left, then up. The pair
    and the fists go on as in phase 2.
-7. **The end.** Beaten, he falls; the sky and the weight come back as he
-   falls, and the giant gathers him in its arms. It grieves, then roars in
+7. **The end.** Beaten, he falls, and the giant gathers him in its arms. It grieves, then roars in
    rage and the hall shakes. A golden apple falls on his head
-   (*"...Eureka?"*), the helmets come off, and he wakes on its shoulder:
+   (*"...Eureka?"*), and he wakes on its shoulder:
    *"I yield. A body at rest stays at rest."*
 
 **Newton's laws, as mechanics.**

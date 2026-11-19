@@ -31,6 +31,13 @@ impl<'a> ActionSubmission<'a> {
     pub fn signature(&self) -> u64 { (self.fingerprint)(self.value) }
 }
 
+/// The host boundary that refused a correlated submission.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActionRefusal {
+    InvalidReply,
+    InvocationCost,
+}
+
 /// A request is scoped to its recipient, submitting entry, and native domain.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ActionTicket {

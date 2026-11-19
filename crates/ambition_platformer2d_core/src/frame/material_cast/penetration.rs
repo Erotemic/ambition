@@ -69,10 +69,17 @@ impl MaterialCastCells<'_> {
         let mut lower = (f64::NEG_INFINITY, DVec2::ZERO);
         let mut upper = (f64::INFINITY, DVec2::ZERO);
         let mut minimum = (f64::INFINITY, DVec2::ZERO);
+        let mut cardinal_axes = 0;
         for (a, b) in edges(body).chain(edges(&region)) {
             let edge = b - a;
             if edge == DVec2::ZERO { continue; }
             let n = DVec2::new(-edge.y, edge.x).normalize();
+            // Parallel cardinal edges share a separation test. Keep the first
+            // axis so equal penetration depths retain their contact order.
+            let cardinal = if n.x == 0.0 && n.y.abs() == 1.0 { 1 }
+                else if n.y == 0.0 && n.x.abs() == 1.0 { 2 } else { 0 };
+            if cardinal_axes & cardinal != 0 { continue; }
+            cardinal_axes |= cardinal;
             let span = |points: &[DVec2]| points.iter().map(|point| point.dot(n))
                 .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), value| (lo.min(value), hi.max(value)));
             let ((alo, ahi), (blo, bhi)) = (span(body), span(&region));

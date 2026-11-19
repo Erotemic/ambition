@@ -214,6 +214,27 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
 - Not yet part-first: `sandbag` (its own sheet writer, an adapter-shaped
   record) and `gnu_ton_boss`'s layered publish (full, body, hands, fist,
   GNU2 and rider sheets; the boss road reads its body and hands layers).
+- **PF5 measured (2026-11-18): the 109 characters with no flipbook are not
+  a switch.** Forced part-first (`build_sheet(parts=True)`), twelve of them
+  (aurochs, hoplite, tiger, mummy, terracotta warrior, kraken arm, mime, art
+  curator, quantum die, void lizard, gravity apple; the Gram Reaper
+  refused) recorded ONE draw per frame: the whole frame as one picture,
+  because their painters draw with `ImageDraw` inside their own frame, not
+  through the rig seams. Published, that is a trimmed frame atlas with a
+  part table, not part rendering. 91 of the 109 draw with the Art cast kit
+  (`targets/characters/_art_cast_kit.py`), so the kit is PF5's unit. Its
+  look is cel shapes in flat colour under ONE thick outline round the whole
+  silhouette, drawn at 4x and reduced. That outline decomposes: widening a
+  union is the union of the widened shapes, so each body shape can be a part
+  drawn twice, its widened outline in a pass behind every fill and its fill
+  in paint order, which reproduces the single outline exactly; ink lines and
+  the glow layer are parts over them. What does not decompose is the motion:
+  the kit's shapes are procedural (a limb is a polyline recomputed each
+  frame), so a limb is a new raster every frame and nothing is shared. The
+  conversion is a kit redesign: each body shape authored once as a rigid
+  piece and posed per frame (a limb a segment that turns at its joint), the
+  supersampled reduction per piece (the continuous road), held to the replay
+  guard by the audit.
 - **PF4 measured (2026-11-18): tweening every pairable clip misplaces
   limbs.** Two findings. (1) A tweened clip moves its last frame toward its
   first (`tween_draws`, the runtime's `tween_targets`): right for a loop,

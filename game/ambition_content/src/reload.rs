@@ -419,11 +419,14 @@ fn participates(domain: &str) -> bool {
 /// request time against world state (the other providers' fragments in
 /// `BossCatalogRegistry`), so [`PendingGeneration`] carries the candidate
 /// catalog and the preparation freezes it (`PendingGenerationInputs::bosses`).
-/// The seed library and the validator bands are not in the catalog, and stay
-/// refused.
+/// The art keys (which sheet draws each boss, which rows each move claims) are
+/// part of the same fragment (`bosses::boss_catalog_fragment_from`), so they
+/// reload with it. The seed library and the validator bands are not in the
+/// catalog; they reload as pack-derived families.
 const BOSS_DOMAINS: &[&str] = &[
     ambition_boss_encounter::pattern::content_schema::BOSS_PROFILES_SCHEMA,
     ambition_boss_encounter::pattern::content_schema::BOSS_ENCOUNTER_SCHEMA,
+    ambition_boss_encounter::pattern::content_schema::BOSS_ART_KEYS_SCHEMA,
 ];
 
 /// The domains of the audio registries. Admitted at request time against the

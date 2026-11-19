@@ -1909,6 +1909,18 @@ rows from the registry, so the edited words are the next frame's. Witness:
 `a_candidate_that_changes_only_the_launcher_words_restates_the_row` (edit
 the file, reload, activate: about 15 s, with no Cargo build of the content).
 
+**Boss art keys restated (2026-11-19):** `data/boss_art_keys.ron` (which sheet
+draws each boss, which rows each move claims) is part of the boss catalog
+fragment, but it was not a participating domain, so saving it refused the
+whole reload (`RefusedUnsupportedChangedDomain`) and the running game kept the
+old rows until a restart. It is now in `BOSS_DOMAINS` (`BOSS_ART_KEYS_SCHEMA`),
+staged with the candidate catalog like `boss_profiles`. Witness:
+`a_boss_art_key_saved_while_the_game_runs_is_played` (mockingbird's snap row
+`chomp` → `dive`; failed with no reload before the change). Edit-to-play: 22
+frames after the save; the test runs in about 35 s with no Cargo build of the
+content. Still refused in Ambition's pack: `world_manifest`, which the LDtk
+world reload owns.
+
 **Deferred:** game-specific movement VFX overrides have an agreed optional
 `room_rules` policy but no game currently authors a different look. Promote
 only for such a customer; do not copy the engine's defaults into every pack.

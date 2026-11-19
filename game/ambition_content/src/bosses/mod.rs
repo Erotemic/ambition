@@ -148,7 +148,7 @@ pub fn boss_catalog_fragment_from(sprite_content: &ambition_platformer2d::sprite
         behaviors,
         encounters,
         &crate::pack::source_text(BOSS_SHEETS_SOURCE_PATH, BOSS_SHEETS_RON_STATIC),
-        ambition_content_pack::lowered_rules::<ambition_boss_encounter::BossArtKeys>(pack, "boss_art_keys")
+        ambition_content_pack::lowered_rules::<ambition_boss_encounter::BossArtKeys>(pack, ambition_boss_encounter::pattern::content_schema::BOSS_ART_KEYS_SCHEMA)
             .ok_or("the pack carries no lowered boss art keys")?.clone(),
     )
     .map_err(|error| error.to_string())?

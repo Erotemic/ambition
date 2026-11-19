@@ -214,16 +214,24 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
 - Not yet part-first: `sandbag` (its own sheet writer, an adapter-shaped
   record) and `gnu_ton_boss`'s layered publish (full, body, hands, fist,
   GNU2 and rider sheets; the boss road reads its body and hands layers).
-- **PF4 is a format change, not a list.** A tweened clip interpolates its
-  last frame toward its first (`tween_draws`, and the runtime's
-  `tween_targets`), which is right for a loop and wrong for a one-shot clip
-  (an attack's last frame would slide back toward its windup while it is
-  shown). And a draw that keeps its part tweens however far it moves, so a
-  cut (the same part placed far away) would slide. Tweening every pairable
-  clip needs a tween that holds its last frame (a `LinearOnce` beside
-  `Linear`, in the flipbook RON and `ClipTween`) and a cut rule (no tween
-  past the picture's size, as `_same_picture_redrawn` already says for a
-  changed part), with the game's loop flags deciding which clips loop.
+- **PF4 measured (2026-11-18): tweening every pairable clip misplaces
+  limbs.** Two findings. (1) A tweened clip moves its last frame toward its
+  first (`tween_draws`, the runtime's `tween_targets`): right for a loop,
+  wrong for a clip played once, so a once-only tween (last frame held)
+  would be needed. (2) More decisive: Mary-O's in-between oracle (her rig
+  posed at the lerped keyframe, `test_mary_o_part_flipbook`), run over
+  every pose row with every clip tweened, misplaces parts the pairing rule
+  accepts: her run and dash legs are a raster drawn again per frame at a
+  new bend, which passes `_same_picture_redrawn` and is slid where the pose
+  turns it (7–49°, up to 4 px), and `throw_up`'s far arm is one part half a
+  turn apart, which the tween spins through 180°. That is why her `run`
+  was never a tweened row: the clips that step are authored, by the
+  oracle. PF4 is therefore per target: a clip tweens when an in-between
+  oracle of its own rig holds it (as Mary-O's does for walk, crouch_walk,
+  climb, swim), not because its draws pair. The work is an in-between
+  render for each rig road (rig documents can pose a fractional keyframe;
+  the generator road and the pieces cannot yet), then the oracle per
+  target, then its tween rows.
 - **PF3 done (2026-11-18).** `scripts/regen/sprites.sh --reference --target
   <name>` paints a part-first sheet's every frame into
   `.agent/sprite_reference/<name>/` (`PAINT_REFERENCE_ENV`; Hypatia in 16 s)

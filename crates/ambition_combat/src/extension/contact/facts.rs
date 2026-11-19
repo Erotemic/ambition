@@ -58,8 +58,52 @@ struct Sample {
     driven: bool,
     keys: Vec<String>,
     limits: ContactFactsLimits,
-    pieces: Vec<ae::frame::thread::VolumePiece>,
+    pieces: Vec<PhysicalPiece>,
     refusal: Option<String>,
+}
+
+struct PhysicalPiece {
+    chart: ae::frame::thread::VolumePiece,
+    volume: ae::CombatVolume,
+}
+
+struct Envelope { sample: usize, bounds: ae::Aabb }
+impl ae::layered::Spatial for Envelope {
+    fn spatial_bounds(&self) -> ae::Aabb { self.bounds }
+}
+
+type PartitionKey = (Option<SessionScopeId>, Option<LiveRoomInstance>);
+struct ContactPartition {
+    material: ae::layered::Layered<Envelope>,
+    refused: Vec<usize>,
+}
+
+fn contact_partitions(samples: &[Sample]) -> std::collections::BTreeMap<PartitionKey, ContactPartition> {
+    let mut partitions = std::collections::BTreeMap::<PartitionKey, (Vec<Envelope>, Vec<usize>)>::new();
+    for (index, sample) in samples.iter().enumerate() {
+        let (material, refused) = partitions.entry((sample.session, sample.room)).or_default();
+        if sample.refusal.is_some() { refused.push(index); }
+        for piece in &sample.pieces {
+            material.push(Envelope {sample: index, bounds: piece.volume.bounds()});
+        }
+    }
+    partitions.into_iter().map(|(key, (material, refused))| {
+        (key, ContactPartition {material: material.into(), refused})
+    }).collect()
+}
+
+impl ContactPartition {
+    fn near(&self, recipient: &Sample) -> Vec<usize> {
+        // Unknown material must still report an incomplete read in this partition.
+        let mut near = self.refused.clone();
+        for piece in &recipient.pieces {
+            near.extend(self.material.near(piece.volume.bounds()).iter().map(|envelope| envelope.sample));
+        }
+        // Grid cells and multiple portal pieces must not change identity order.
+        near.sort_unstable();
+        near.dedup();
+        near
+    }
 }
 
 pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>>) {
@@ -144,7 +188,15 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
         .unwrap_or(&empty_geometry);
     for sample in &mut samples {
         match geometry.physical_body_pieces(sample.entity, &sample.kinematics, sample.room) {
-            Ok(pieces) => sample.pieces = pieces,
+            Ok(pieces) => {
+                for chart in pieces {
+                    match volume(&chart) {
+                        Ok(Some(volume)) => sample.pieces.push(PhysicalPiece {chart, volume}),
+                        Ok(None) => {},
+                        Err(reason) => { sample.refusal = Some(reason); break; },
+                    }
+                }
+            },
             Err(refusal) => sample.refusal = Some(format!("{:?}", refusal.reason)),
         }
     }
@@ -154,6 +206,7 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
             .then(a.room.cmp(&b.room))
             .then(a.id.cmp(&b.id))
     });
+    let partitions = contact_partitions(&samples);
     let tick = world.resource::<ambition_time::SimTick>().0;
     for recipient in samples
         .iter()
@@ -165,11 +218,10 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
         let mut refusals = Vec::new();
         let mut incomplete = false;
         let mut refusals_truncated = false;
-        for toucher in samples.iter().filter(|body| {
-            body.entity != recipient.entity
-                && body.room == recipient.room
-                && body.session == recipient.session
-        }) {
+        let partition = &partitions[&(recipient.session, recipient.room)];
+        for index in partition.near(recipient) {
+            let toucher = &samples[index];
+            if toucher.entity == recipient.entity { continue; }
             let read = toucher.refusal.as_ref().map_or_else(
                 || surfaces(recipient, toucher),
                 |reason| Err(reason.clone()),
@@ -265,22 +317,15 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
 fn surfaces(body: &Sample, toucher: &Sample) -> Result<(Vec<ContactSurface>, bool), String> {
     let mut surfaces = Vec::new();
     for first in &body.pieces {
-        let first_volume = match volume(first)? {
-            Some(volume) => volume,
-            None => continue,
-        };
         for second in &toucher.pieces {
-            let Some(second_volume) = volume(second)? else {
-                continue;
-            };
-            for point in first_volume.surface_contacts(&second_volume, 0.0) {
-                let position = first
+            for point in first.volume.surface_contacts(&second.volume, 0.0) {
+                let position = first.chart
                     .uncarry(point.point1)
                     .map_err(|fault| format!("{fault:?}"))?;
-                let other = first
+                let other = first.chart
                     .uncarry(point.point2)
                     .map_err(|fault| format!("{fault:?}"))?;
-                let normal = first
+                let normal = first.chart
                     .uncarry_dir(point.normal1)
                     .map_err(|fault| format!("{fault:?}"))?
                     .try_normalize()

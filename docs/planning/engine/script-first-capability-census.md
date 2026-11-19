@@ -33,7 +33,7 @@ All positions below use world units with +Y down unless stated otherwise. A nati
 | --- | --- | --- | --- | --- |
 | Spatial targeting: [Ambition foes](../../../crates/ambition_combat/src/extension/targets.rs), [swallows](../../../game/ambition_content/rhai/swallows.rhai) | A technique selector or catalog group tag starts a phase call. | `FoesPort` reads living targets in the body's live room, in SimId order. It returns positions with no identities or count/radius parameter. `group_think` returns room members and loose items in identity order; its ids support custody. Both scale with room population. | Steering and item custody go through domain requests. Group records and reference resolution survive rollback. An observation is not a reserved target. | `body_query` supplies bounded, identified native body facts through a correlated reply. It uses the shared relationship owner, distance/identity order, authored room budgets, and exact-ID revalidation. `FoesPort` remains a simpler typed observation. See [body queries](../../sdk/body-queries.md). |
 | Boss pattern and stage sequence: [encore jets](../../../game/ambition_content/rhai/boss_stage_pyro.rhai), [boss trigger](../../../crates/ambition_boss_special_port/src/lib.rs) | Authored `Telegraph`, `Strike`, and `Rest` steps select a special key and its windows. | One call per bound key per boss. The read cut gives settled body/combat boxes, facing, optional tracked point, and optional live room size. It has no target identity list or world scan. | A script requests effects, sound, and ordinary projectiles. It keeps pulse state in body records. Idle resets the beat; replay restores it. Pattern admission and native projectile results remain with their owners. | `boss_special` and `effect` now describe existing typed contracts. The native boss modules are independent customers. No new boss-specific engine verb is needed. |
-| Body contact and damage: [Mary-O stomp](../../../game/ambition_demo_mary_o/src/stomp.rs), [contact port](../../../crates/ambition_combat_port/src/contact.rs), [hit reaction](../../../crates/ambition_combat_port/src/reaction.rs) | A held status or custom brain selector binds a contact rule; a move's on-hit data selects a reaction. | Body contact samples native physical material after movement and before contact damage. Touchers have durable identities and phase-local response indices in SimId order. Recipient and toucher can use any controller; room and session bound the sample. `StruckPort` runs on the victim after a strike and carries durable striker credit. Neither is a projectile-owned accepted-hit stream. | Native contact responses and hit reactions own defeat, launch, and status effects. Transient trigger facts are derived again on replay. Module records are canonical state. | `body_contact` version 3 has Rhai and portable records, native surface points and normals, held-status binding, game-authored bounds, and empty samples. It uses physical aperture partitions. `contact_bounce` and `defeat_body` share the native responses. Rhai can also read `struck` and `parried`. See [body contacts](../../sdk/body-contacts.md). A projectile outcome subscription needs shot identity, room lifetime, and replay-safe delivery. |
+| Body contact and damage: [Mary-O stomp](../../../game/ambition_demo_mary_o/src/stomp.rs), [contact port](../../../crates/ambition_combat_port/src/contact.rs), [hit reaction](../../../crates/ambition_combat_port/src/reaction.rs) | A held status or custom brain selector binds a contact rule; a move's on-hit data selects a reaction. | Body contact samples native physical material after movement and before contact damage. Touchers have authored identities in their live room and phase-local response indices in SimId order. General script occurrence references remain open. Recipient and toucher can use any controller; room and session bound the sample. `StruckPort` runs on the victim after a strike and carries durable striker credit. Neither is a projectile-owned accepted-hit stream. | Native contact responses and hit reactions own defeat, launch, and status effects. Transient trigger facts are derived again on replay. Module records are canonical state. | `body_contact` version 3 has Rhai and portable records, native surface points and normals, held-status binding, game-authored bounds, and empty samples. It uses physical aperture partitions. `contact_bounce` and `defeat_body` share the native responses. Rhai can also read `struck` and `parried`. See [body contacts](../../sdk/body-contacts.md). A projectile outcome subscription needs shot identity, room lifetime, and replay-safe delivery. |
 | Actor intent: [Sanic spin dash](../../../game/ambition_demo_sanic/src/ball_dash.rs), [actor trigger](../../../crates/ambition_combat_port/src/think.rs) | Sanic data claims the Attack slot. Its native body state implements charge, rolling shape, and launch. Catalog custom brains select actor callbacks. | `technique_use` supplies slot edges, body-local aim, gravity basis, resource level, and spawn authority for each bound body. It does not supply arbitrary physics internals. | `steer`, `fire`, and `velocity` enter their domain adapters. Sanic's shape and rolling authority stay native and rollback state stays on the body. | Common intent is scriptable. Sanic's rolling shape service has no portable script contract. Do not emulate a motion solver with script position writes. No migration is selected. |
 | Authored world contacts and collision changes: [Mary-O bricks](../../../game/ambition_demo_mary_o/src/bricks.rs), [Sanic monitors](../../../game/ambition_demo_sanic/src/monitors.rs) | LDtk block metadata describes a brick, grant, or monitor. A head contact or rolling/falling overlap starts the rule. | Mary-O uses `ContactSource::Block` and `GeoId`, then an authored name. Sanic selects breakers in SimId order in their own live rooms. Collision overlays read per-room broken names. | A first break spends the room object, grants its effect, and removes collision and art. Per-live-room state rewinds. Authored base geometry stays immutable. | Native/data owners already provide the behavior. Rhai receives native world contacts with geometry identity. The native destructible owner now exposes atomic contact consumption with shared inventory terms. General activation and prop composition remain open. Do not offer a raw geometry setter. |
 | Creation and lifetime: [projectile request](../../../crates/ambition_projectile_spec/src/lib.rs), [module entity](../../../crates/ambition_combat_port/src/module_entity.rs) | Technique, held use, or a module entity tick submits authored spawn data. | Scope supplies owner and occurrence credit. The body must have a SimId and a mint stream. Projectile movement uses the native collision and portal path. Module ticks expose their own position, parameters, and scoped targets. | `projectile` and `spawn_module_entity` request creation. `end_module_entity` ends its own scope. Lifetime, room ownership, simulation ids, and flight state rewind. Submitted does not mean a hit occurred. | Available in Rhai and portable Rust. Lightning requires no new spawn service. Accepted-hit batches identify shots and current credit. Creation replies identify actual births. Interception and retirement outcomes remain open. |
@@ -52,7 +52,7 @@ Lightning now uses `technique_use`, `spend_mana`, `held_ray`, `drawn_row`, and `
 
 A chain-lightning variant can now request bounded, identified body facts. Native hit receptions and projectile outcomes now supply confirmed combat facts; the current cone does not. Contact is not accepted damage: a shield, invulnerability, or a wall can change the result. Do not fire follow-up damage from a guessed overlap or a presentation event.
 
-The next broad candidate is a room-scoped authored world-object contact and consume/result contract. Bricks, power blocks, and monitors show independent add/remove/reward uses. A current game consumer is not required. Define its domain authority and validate composition with a focused fixture when needed. Keep each native game mechanic unless a separately selected product benefit justifies migration.
+The next shared family is scoped interactive-object behavior and event composition, after the substrate repairs below. Contact consumption and native factories supply existing domain actions. Stable object references, activation and lifecycle subscriptions must compose them. A current game consumer is not required. Keep each native game mechanic unless a separately selected product benefit justifies migration.
 
 ## Active gap register and acceptance evidence
 
@@ -112,7 +112,7 @@ behavioral witnesses. Do not migrate working demo gameplay for coverage.
 | P1 | Each domain declares cancellation support and its suppression mechanism. Unsupported or late cancellation must be refused. A canceled operation cannot later mutate the world. Implemented: [cancellation receipt](#native-cancellation-contract-receipt). |
 | P2 | Invalid callback wiring must be caught at preparation or reported through a guaranteed observation of the submitting scope. Reload must not leave silent orphan work. Implemented: [callback receipt](#callback-preparation-receipt). |
 | P2 | Completed object publication follows all native and script initialization. A creation listener must see wallet, statuses, records, relations, and the stable occurrence together. Refused preflight must create nothing. Native boundary implemented: [publication receipt](#completed-native-publication-receipt). Scoped script birth delivery remains open. |
-| P2 | Measure native contact collection and frame cost with few and many subscribers in crowded rooms, including two live rooms. Use the native spatial broadphase or confirmed contact stream when the measurements justify a change. Preserve ordering and replay. |
+| P2 | Measure native contact collection and frame cost with few and many subscribers in crowded rooms, including two live rooms. Use the native spatial broadphase or confirmed contact stream when the measurements justify a change. Preserve ordering and replay. Local benchmark and native spatial candidates implemented: [contact receipt](#contact-observer-scaling-receipt). Release and device budgets remain unverified. |
 
 Then implement two distinct reusable object behaviors whose events cause each
 other's native domain actions. Include accepted and refused outcomes, competing
@@ -457,10 +457,9 @@ fixture passes through GGRS. The existing action fixture, schema checks, 349
 shared-domain tests, 15 query/projectile owner tests, assembled app check, and
 53 absence contracts pass.
 
-Do not use an authored ID or current room as an object lifetime. Callback
-acknowledgement and cancellation are recorded below. Callback diagnostics,
-atomic creation, and the contact-cost measurement remain open in the substrate
-queue.
+Do not use an authored ID or current room as an object lifetime. The other
+substrate repairs are recorded below. The general object/event model remains
+open.
 
 ## Action callback acknowledgement receipt
 
@@ -500,8 +499,8 @@ No full workspace or demo sweep was run for this change.
 
 Do not infer native cancellation support from a missing handler. A queued
 consumer must check its pending ticket before mutation or use a suppression
-handler. Callback diagnostics, atomic publication, contact measurements, and
-the general object and event model remain open.
+handler. The later receipts record the remaining substrate repairs. The
+general object and event model remains open.
 
 ## Callback preparation receipt
 
@@ -526,8 +525,9 @@ assembled app check passed again after its merge. Full workspace and demo
 sweeps were omitted.
 
 Do not reserve an action or commit awaiting state before callback preparation.
-Do not deliver a wiring refusal through that broken callback. Atomic creation,
-contact measurements, and the general object and event model remain open.
+Do not deliver a wiring refusal through that broken callback. The later
+receipts record native publication and contact measurement. The general
+object and event model remains open.
 
 ## Completed native publication receipt
 
@@ -549,4 +549,28 @@ upstream linker merge.
 
 Do not use component-add hooks as completed creation events. Hidden construction
 does not undo arbitrary native hook effects or panics. Scoped script birth
-delivery, the contact benchmark, and the general object/event model remain open.
+delivery and the general object/event model remain open. The contact receipt
+below records the later benchmark.
+
+## Contact observer scaling receipt
+
+Commit: `70df6093c`. The sampler compared each observer with all room bodies.
+The focused headless sample measured 10.8 ms for 256 observers and 22.1 ms for
+512 across two rooms. It now prepares each material piece once and uses the
+native layered geometry grid per session and room. Exact checks retain portal
+pieces, resting faces, refusal reporting and identity order. The same sample
+measures 3.3 ms and 7.0 ms. Few-observer index overhead is below 0.2 ms.
+
+Guard: 12 native contact tests pass, including a distant portal contact and
+refused geometry without a usable envelope. The loaded contact, actor, prop,
+consume, action and schema population passes: 22 tests, with the separate cost
+probe run explicitly. These include GGRS checks after the upstream linker
+merge. Smash passes 74 tests, with 6 ignored. The default app all-target
+warning check, absence contracts and doc links pass. Full workspace and
+optional-feature union checks were omitted. See the
+[measurement and remaining limits](../../../dev/benchmark-candidates/scripted-contact-observer-scaling.md).
+
+Do not treat output bounds as a fixed collection budget. Every-body Rhai
+polling still takes about 85 ms per complete debug step with 512 observers.
+Release and device budgets, the separate room-story polling cost, scoped
+script birth subscriptions, and the general object/event model remain open.

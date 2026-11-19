@@ -317,10 +317,15 @@ impl Grid {
         }
         let mut found: Vec<u32> = self.large.clone();
         for x in x0..=x1 {
-            for y in y0..=y1 {
-                if let Ok(index) = self.cells.binary_search_by_key(&(x, y), |(key, _)| *key) {
-                    found.extend_from_slice(&self.cells[index].1);
-                }
+            let first = self.cells.binary_search_by_key(&(x, y0), |(key, _)| *key);
+            if y0 == y1 {
+                if let Ok(index) = first { found.extend_from_slice(&self.cells[index].1); }
+                continue;
+            }
+            let first = first.unwrap_or_else(|insertion| insertion);
+            for (key, entries) in &self.cells[first..] {
+                if key.0 != x || key.1 > y1 { break; }
+                found.extend_from_slice(entries);
             }
         }
         // Cell lookup order must not change contact order.

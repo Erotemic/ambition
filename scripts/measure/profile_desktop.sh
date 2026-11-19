@@ -116,10 +116,11 @@ smash_seconds="0"
 # meant a run on real hardware -- the scarcest kind -- could produce numbers
 # nobody ever recorded.
 record_history="yes"
-# Passed straight through to run_game.sh, so the warm build and the launch it
-# wraps both honour it. Empty means "cargo's default", which on an agent
-# worktree is the WHOLE machine -- see scripts/agent_worktree.sh jobs.
-cargo_jobs=""
+# Limit compiler concurrency while the host also runs a VM.
+cargo_jobs="${CARGO_BUILD_JOBS:-1}"
+memory_limit_mib="auto"
+memory_scope="disabled"
+tracy_memory_percent="10"
 
 # Scenario markers AND the in-process censuses. A frame spike that does not
 # appear next to the chunk it happened in is a spike nobody can attribute.
@@ -247,8 +248,12 @@ Options:
   -I, --interval MS       perf stat interval in milliseconds. Default: 1000.
   -p, --pid PID           PID to attach to (attach modes).
   -j, --jobs N            Cargo parallel job count, passed to ./run_game.sh for
-                           both the warm build and the launch. On an agent
-                           worktree use `scripts/agent_worktree.sh jobs N`.
+                           both the warm build and the launch. Default: 1,
+                           or CARGO_BUILD_JOBS when set.
+  --memory-limit-mib N    Linux profile scope RAM limit. Default: auto, the
+                           smaller of half available RAM and a quarter of
+                           total RAM. Use 0 to disable the scope limit.
+  --tracy-memory-percent N  Collector limit as percent of total RAM. Default: 10.
   -o, --out DIR           Output base directory. Default: profiles/ (untracked,
                           outside target/ so it survives `cargo clean`).
   --name NAME             Output directory suffix. Existing names are never
@@ -362,6 +367,10 @@ while [[ $# -gt 0 ]]; do
         -j|--jobs) shift; [[ $# -gt 0 ]] || fail "--jobs requires a job count"; is_positive_int "$1" || fail "--jobs must be a positive integer"; cargo_jobs="$1" ;;
         -j[0-9]*) cargo_jobs="${1#-j}"; is_positive_int "$cargo_jobs" || fail "-j must be a positive integer" ;;
         --jobs=*) cargo_jobs="${1#--jobs=}"; is_positive_int "$cargo_jobs" || fail "--jobs must be a positive integer" ;;
+        --memory-limit-mib) shift; [[ $# -gt 0 ]] || fail "--memory-limit-mib requires auto, 0, or a MiB count"; memory_limit_mib="$1" ;;
+        --memory-limit-mib=*) memory_limit_mib="${1#--memory-limit-mib=}" ;;
+        --tracy-memory-percent) shift; [[ $# -gt 0 ]] || fail "--tracy-memory-percent requires a percentage"; tracy_memory_percent="$1" ;;
+        --tracy-memory-percent=*) tracy_memory_percent="${1#--tracy-memory-percent=}" ;;
         --census-hz) shift; [[ $# -gt 0 ]] || fail "--census-hz requires a value"; census_hz="$1" ;;
         --census-hz=*) census_hz="${1#--census-hz=}" ;;
         --no-census) census="no" ;;
@@ -788,7 +797,7 @@ start_tracy_capture() {
         printf '%s\n' "$tracy_tsc_note" > "$out_dir/tracy.caveat"
         log "$tracy_tsc_note"
     fi
-    tracy-capture -o "$out_dir/tracy.trace" -f > "$out_dir/tracy-capture.log" 2>&1 &
+    tracy-capture -o "$out_dir/tracy.trace" -f -m "$tracy_memory_percent" > "$out_dir/tracy-capture.log" 2>&1 &
     tracy_capture_pid=$!
 }
 
@@ -1010,6 +1019,7 @@ run_warm_build_if_needed() {
         return 1
     fi
     require_tool cargo
+    write_memory_snapshot "$out_dir" before-build
     # ⛔⛔ THE PLAN'S ENVIRONMENT, NOT THIS SHELL'S. `run_game.sh` exports
     # `CARGO_INCREMENTAL=0` for every release-level profile, deliberately and at
     # length (see `.cargo/config.toml`, whose `[build] incremental = true`
@@ -1058,6 +1068,7 @@ run_warm_build_if_needed() {
     wait
     set -e
     echo "$status" > "$out_dir/warm-build.status"
+    write_memory_snapshot "$out_dir" after-build
     if [[ "$status" -ne 0 ]]; then log "warm build failed; see $out_dir/warm-build.stderr"; return "$status"; fi
 }
 
@@ -1104,6 +1115,9 @@ write_metadata() {
         echo "sprite_sheet_watch=${AMBITION_SPRITE_WATCH:-platform-default}"
         echo "cargo_profile=$build_profile"
         echo "cargo_jobs=${cargo_jobs:-<cargo default>}"
+        echo "memory_limit_mib=$memory_limit_mib"
+        echo "memory_scope=$memory_scope"
+        echo "tracy_memory_percent=$tracy_memory_percent"
         echo "profile_dir=$plan_profile_dir"
         echo "cargo_features=$plan_features"
         echo "package=$plan_package"
@@ -1392,6 +1406,7 @@ PY
 # everything in the directory becomes one summary.md.
 write_bundle_reports() {
     local out_dir="$1"
+    write_memory_snapshot "$out_dir" reports
     python3 "$repo_root/scripts/lib/profile_census_csv.py" "$out_dir" \
         || log "census CSV extraction failed; the stamped log is still in the bundle"
     python3 "$repo_root/scripts/lib/profile_frame_wait_csv.py" "$out_dir" \
@@ -1455,6 +1470,7 @@ assert_stamper_starts() {
 # leave usable artifacts behind.
 run_instrumented_launch() {
     local out_dir="$1" status_file="$2"; shift 2
+    write_memory_snapshot "$out_dir" before-capture
     assert_stamper_starts "$out_dir"
     echo "$(quote_cmd "$@")" > "${status_file%.status}.command.txt"
 
@@ -1524,7 +1540,9 @@ run_instrumented_launch() {
     else
         log "game exited; native perf capture has ended (no Tracy drain in this pass)"
     fi
+    write_memory_snapshot "$out_dir" after-capture
     finish_tracy_capture "$out_dir" "$tracy_pid"
+    write_memory_snapshot "$out_dir" after-tracy-export
 }
 
 prepare_launch_mode() {
@@ -1768,13 +1786,58 @@ expose_tracy_diagnostic() {
             ln -s "tracy_diagnostic/$name" "$out_dir/$name"
         fi
     done
-    if [[ "$diag_status" -ne 0 && ! -e "$out_dir/tracy.skipped" ]]; then
+    if [[ "$diag_status" -ne 0 && ! -e "$out_dir/tracy.skipped" && ! -s "$out_dir/tracy.trace" ]]; then
         printf 'Tracy diagnostic build or launch failed; see tracy_diagnostic/warm-build.stderr and tracy-only.status\n' \
             > "$out_dir/tracy.skipped"
     fi
 }
 
+enter_memory_scope() {
+    [[ "$memory_limit_mib" =~ ^(auto|0|[1-9][0-9]*)$ ]] || fail "--memory-limit-mib requires auto, 0, or a positive MiB count"
+    is_positive_int "$tracy_memory_percent" && (( tracy_memory_percent <= 100 )) || fail "--tracy-memory-percent must be between 1 and 100"
+    if [[ -n "${AMBITION_PROFILE_MEMORY_SCOPE_MIB:-}" ]]; then
+        memory_limit_mib="$AMBITION_PROFILE_MEMORY_SCOPE_MIB"
+        memory_scope="systemd"
+        return
+    fi
+    [[ "$memory_limit_mib" != 0 ]] || return 0
+    if [[ ! -r /sys/fs/cgroup/cgroup.controllers ]] || ! have_tool systemd-run \
+            || ! systemctl --user show-environment >/dev/null 2>&1; then
+        [[ "$memory_limit_mib" == auto ]] || fail "A user systemd memory scope is unavailable; use --memory-limit-mib 0 to run without it"
+        memory_scope="unavailable"
+        log "User memory scope unavailable; the collector and compiler limits still apply"
+        return
+    fi
+    local limit="$memory_limit_mib"
+    if [[ "$limit" == auto ]]; then
+        limit="$(awk '/^MemTotal:/ {total=$2} /^MemAvailable:/ {available=$2} END {a=available/2048; t=total/4096; print int(a<t?a:t)}' /proc/meminfo)"
+    fi
+    (( limit > 0 )) || fail "No RAM budget is available for profiling"
+    log "Profile memory limit: $limit MiB in a separate user scope"
+    exec env AMBITION_PROFILE_MEMORY_SCOPE_MIB="$limit" \
+        systemd-run --user --scope --quiet --property="MemoryMax=${limit}M" \
+        "$BASH" "$repo_root/scripts/measure/profile_desktop.sh" "${original_args[@]}"
+}
+
+write_memory_snapshot() {
+    local out_dir="$1" stage="$2" group path name
+    group="$(awk -F: '$1 == "0" {print $3}' /proc/self/cgroup 2>/dev/null || true)"
+    path="/sys/fs/cgroup$group"
+    {
+        date -u +%FT%TZ
+        printf 'scope=%s limit_mib=%s cgroup=%s\n' "$memory_scope" "$memory_limit_mib" "$group"
+        awk '/^(MemTotal|MemAvailable|SwapTotal|SwapFree):/' /proc/meminfo
+        for name in memory.current memory.peak memory.max memory.events; do
+            if [[ -n "$group" && -r "$path/$name" ]]; then
+                printf '\n%s\n' "$name"
+                cat "$path/$name"
+            fi
+        done
+    } > "$out_dir/memory-$stage.txt" 2>/dev/null || true
+}
+
 main() {
+    enter_memory_scope
     mkdir -p "$out_base"; cd "$repo_root"
     resolve_launch_plan
     # `run_game.sh --print-plan` is the authority for both target and runtime

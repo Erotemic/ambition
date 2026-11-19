@@ -113,6 +113,7 @@ if [[ " $* " == *" --wait-probe "* ]]; then
     echo '[frame-wait] t=1.001 frames=61 gaps=60 main_wall_ms=3.1 main_cpu_ms=2.5 gap_wall_ms=13.1 gap_cpu_ms=0.1 gap_p95_ms=15.0 gap_over_10ms=57 cpu_clock=thread' >&2
 fi
 echo '[smash-profile] done seats_at_end=4' >&2
+exit "${FAKE_PROFILE_GAME_EXIT_STATUS:-0}"
 EOF
 if [[ " $* " == *" --features profile "* ]]; then
     printf '# TracyPlot\n' >> "$FAKE_REPO/target/profiling/smash_match_profile"
@@ -421,6 +422,16 @@ fi
         self.assertTrue((bundle / "perf.data").is_file())
         self.assertIn("failed", (bundle / "tracy.skipped").read_text())
         self.assertEqual(self.logfile.read_text().count("game --window"), 1)
+
+    def test_saved_tracy_results_remain_available_after_forced_game_exit(self):
+        with mock.patch.dict(os.environ, {"FAKE_PROFILE_GAME_EXIT_STATUS": "137"}):
+            completed = self.capture_with_tracy("--tracy-and-no-tracy", "--duration", "3")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-5500:])
+        bundle = self.root / "profiles/desktop-unit"
+        self.assertEqual((bundle / "tracy-diagnostic.status").read_text().strip(), "137")
+        self.assertTrue((bundle / "tracy.trace").is_file())
+        self.assertTrue((bundle / "tracy_zones.csv").is_file())
+        self.assertFalse((bundle / "tracy.skipped").exists())
 
     def test_a_profile_feature_cannot_label_a_tracy_binary_as_clean_native(self):
         completed = self.capture_with_tracy("--tracy-and-no-tracy", "--", "--features", "profile")

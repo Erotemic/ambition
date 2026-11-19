@@ -100,6 +100,27 @@ constructor table in an observed desktop build; mold 2.42.1 passes the native
 constructor probe. After a linker configuration change, rebuild the profiling
 binary. The first build can require a full rebuild of dependencies.
 
+The desktop profiler uses one build job by default. `--jobs N` or
+`CARGO_BUILD_JOBS` selects another count. On Linux with a user systemd manager
+and cgroup v2, the whole profile runs in a memory scope. Its default RAM limit
+is the smaller of half the available RAM and a quarter of total RAM. This keeps
+the profiler's memory failures in its own group. It does not reserve RAM for a
+VM or change the VM's settings.
+
+Use `--memory-limit-mib N` to select a different scope limit, or `0` to disable
+it. The scope covers builds, launched games, collectors, and reports. A game
+attached by PID remains outside it. If the user memory scope is unavailable,
+auto mode reports that fact and retains the compiler and collector limits.
+An explicit nonzero scope limit requires a working user manager.
+
+The Tracy collector stops recording at 10% of system RAM by default; change
+that with `--tracy-memory-percent N`. This is a percentage, not a MiB count.
+An early stop can leave a partial trace. Read the collector log and session
+span before comparing it with a complete run. `memory-*.txt` records host
+available RAM and cgroup memory events at build, capture, and report boundaries.
+A scope OOM can terminate the profiling attempt. The outer host and VM are
+outside that OOM group.
+
 Two layers of in-process instrumentation are wired in:
 
 1. **Lightweight startup phase logger** (always on, zero deps).

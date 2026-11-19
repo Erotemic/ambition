@@ -285,3 +285,34 @@ own row of the grid, so it is not the answer here.
 **Owner:** the movement kernel's blink control (`ambition_platformer2d_core`)
 and the loadout plan. Engineering adds the double-press window as body
 maneuver state (rollback, codec) whichever option is chosen.
+
+## Q180 — What should the LDtk worlds' PlayerStart icon point at, so the player robot can publish without a sheet page?
+
+**Context (2026-11-18, [PART-FIRST](queue.md#part-first--publish-characters-as-parts-not-frames)).**
+Every character with a part flipbook now publishes no baked sheet page; the
+game draws it from parts. `player_robot_v3` cannot yet: every LDtk world in
+`game/ambition_map_assets` declares the tileset `sprite_player_robot_v3` with
+`relPath ../sprites/player_robot_v3_spritesheet.png` (3072×2468, 7.6 MP) only
+so the editor can draw the `PlayerStart` entity, and `bevy_ecs_ldtk` loads
+every declared tileset, so the runtime decodes that page at boot and a
+missing page would fail the world load
+(`scripts/measure/measure_ldtk_tileset_usage.py`: no level layer draws it).
+Until this is answered, `authored/sprites.yaml` `baked_pages` keeps the robot
+painted. `tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py`
+rewrites the tileset's rects from a real PNG header, so any target below is
+mechanical.
+
+**Options:**
+
+* **(a) The robot's portrait page** (recommended default):
+  `../sprites/player_robot_v3_portraits.png`, with `PlayerStart`'s
+  `tileRect` / `uiTileRect` on its neutral portrait cell. The editor shows the
+  robot's face at the start; the page is already published at every tier.
+* **(b) A small editor icon** published as a static prop (a `PlayerStart`
+  marker drawn for the editor), so no character art is bound to the worlds.
+* **(c) Keep the sheet page:** the robot stays painted on every publish
+  (`baked_pages`) and the runtime keeps decoding 7.6 MP at boot.
+
+**Owner:** the map submodule's worlds (Jon) and the part-first plan
+([part-first publication](engine/part-first-publication.md)). After (a) or
+(b), `player_robot_v3` leaves `baked_pages`.

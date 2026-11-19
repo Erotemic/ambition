@@ -49,6 +49,27 @@ def chains():
     return out
 
 
+def poses():
+    """Each row name's pose, from `CharacterAnim::from_name`: a chain name binds
+    a row the sheet spells differently for the same pose (`first_bound_row`)."""
+    text = open(os.path.join(REPO, "crates/ambition_sprite_sheet/src/character/anim.rs")).read()
+    body = text[text.index("pub fn from_name(name: &str)"):]
+    body = body[:body.index("_ => return None")]
+    pose = {}
+    for m in re.finditer(r'^\s*((?:"[a-z_0-9]+"\s*\|?\s*)+)=> Self::([A-Za-z]+)', body, re.M):
+        for name in re.findall(r'"([a-z_0-9]+)"', m.group(1)):
+            pose[name] = m.group(2)
+    return pose
+
+
+POSE = poses()
+
+
+def binds(name, rows):
+    """Whether `name` binds a row of `rows`, as `first_bound_row` binds it."""
+    return name in rows or (name in POSE and any(POSE.get(row) == POSE[name] for row in rows))
+
+
 def roster():
     text = open(RULES).read()
     block = text[text.index("roster: ["):]
@@ -113,9 +134,9 @@ for manifest, ids in sorted(campaign.items()):
         continue
     lacks = []
     for chain in all_chains:
-        if chain[0] in rows:
+        if binds(chain[0], rows):
             continue
-        land = next((row for row in chain[1:] if row in rows), None)
+        land = next((row for row in chain[1:] if binds(row, rows)), None)
         missing_first[chain[0]] += 1
         landings[(chain[0], land)] += 1
         if land is None:

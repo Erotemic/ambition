@@ -37,14 +37,30 @@ impl SheetRecord {
 
     /// Return the first row in `chain` that this sheet contains.
     ///
-    /// Chain order is authored fallback priority. Missing every row returns
-    /// `None`; it never substitutes row 0.
+    /// Chain order is authored fallback priority. Each name binds its own row,
+    /// or else a row this sheet spells differently for the same pose
+    /// ([`CharacterAnim::from_name`]: a townsperson's `hurt` is the `hit` a
+    /// struck body asks for, a boss's `rest` its `idle`). Without that, a
+    /// chain stepped past the pose to the next name: a struck townsperson was
+    /// drawn `idle`. Missing every row returns `None`; it never substitutes
+    /// row 0.
+    ///
+    /// [`CharacterAnim::from_name`]: crate::character::CharacterAnim::from_name
     pub fn first_bound_row<'a>(
         &self,
         chain: impl IntoIterator<Item = &'a str>,
     ) -> Option<BoundAnimRow> {
         let rows = self.anim_rows();
-        chain.into_iter().find_map(|name| rows.bind(name))
+        chain.into_iter().find_map(|name| rows.bind(name).or_else(|| self.same_pose_row(&rows, name)))
+    }
+
+    /// The first row of this sheet that draws the pose `name` names, under
+    /// another spelling.
+    fn same_pose_row(&self, rows: &Resolver<AnimRow>, name: &str) -> Option<BoundAnimRow> {
+        use crate::character::CharacterAnim;
+        let pose = CharacterAnim::from_name(name)?;
+        let row = self.rows.iter().find(|row| CharacterAnim::from_name(&row.animation) == Some(pose))?;
+        rows.bind(&row.animation)
     }
 
     /// Return the row named by `bound`.

@@ -735,11 +735,13 @@ the authored pose; a strike or a clip cancels it
 **Campaign gaps measured 2026-11-19**
 ([table](demos/smash-expressive-fighter-poses.md#roster-rollout-jon-2026-10-31-everyone-really),
 `scripts/measure/campaign_sheet_gaps.py`): of 510 sheets no Smash fighter
-draws, none draws the state poses, and 329 have no `hit` row, so a struck
-body on them is drawn `idle`. That includes all 244 townsfolk from the
-character generator. Left: watch the swing amplitudes in the game at 60 and
-144 Hz; then give the townsfolk target the motion library's reaction anchors
-(one change, 244 sheets), and the 86 hand-made rigs theirs.
+draws, none draws the state poses. 329 had no row named `hit`, so a struck
+body on them was drawn `idle`, though most spell that pose `hurt`. Fixed the
+same day: a chain name binds the sheet's other spelling of its pose
+(`first_bound_row`), and 492 of 504 now draw the struck pose. Left: watch the
+swing amplitudes in the game at 60 and 144 Hz; then give the townsfolk target
+the motion library's reaction anchors (one change, 244 sheets), and the
+hand-made rigs theirs.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp
 attack poses remain readable. Check interruptions, rollback resets, quality
@@ -1898,6 +1900,21 @@ same way with the slice stashed.
   sites, one stale row (the projectile writer's read moved from `write_from`
   to its `SystemParam`) and eleven optional reads with no row. Each now has a
   row read from its code: nine `reduced-composition`, two `refuses`.
+- Fixed 2026-11-19: `ambition_sprite_sheet`'s
+  `a_flipbook_states_the_road_it_is_drawn_by` required a published baked
+  flipbook. Since PART-FIRST the cost rule realizes none baked (older bundles
+  still hold `realize: baked`), so its census asks only for the parts road.
+  The baked road is still read back from a record.
+- Open, the same with and without the binding change (`app_it -- pose`):
+  `projectile_portal_transit`'s
+  `a_projectile_retains_its_pose_when_a_recipients_partition_is_refused` (980
+  against 1000) and `a_spinning_exit_carries_a_projectile_into_a_hurt_body_between_matching_poses`
+  ("the far-side wall must stop the shot"), both in the projectile replay
+  work upstream is landing; `every_composed_character_can_say_at_least_one_line`
+  (`npc_clause_band` and four others have no line);
+  `hit_he_is_drawn_in_the_pose_his_hurt_parts_have` (no T-rex is drawn from
+  parts within its boot cap). The rest are this VM's music registry and the Smash
+  match that never starts.
 
 **Shell lifecycle reds (found 2026-11-19, inherited):** two of
 `shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the

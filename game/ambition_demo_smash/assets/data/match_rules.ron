@@ -64,7 +64,7 @@
             grab: true,
             interact: false,
             // Every fighter ducks (crouch cancel, ducking a jab); a crawler
-            // declares its own `crouch_speed_frac`.
+            // declares its own `body.crawl_speed_frac` in its fighter facet.
             crouch: true,
             climb: false,
             morph: false,
@@ -204,7 +204,9 @@
             drop_lag: 0.18333334,
         ),
         // Crouching stops the fighter, as in every Smash for characters
-        // without a crawl. A fighter with a crawl declares its own.
+        // without a crawl. A fighter with a crawl declares its own
+        // (`body.crawl_speed_frac` in its fighter facet), which this does not
+        // write over.
         crouch_speed_frac: 0.0,
         // Initial dash: the first 10 frames of a ground move, where a
         // direction change is free (dash-dance, foxtrot re-tap). Ultimate's

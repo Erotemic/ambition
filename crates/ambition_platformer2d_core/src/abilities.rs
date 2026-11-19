@@ -1300,10 +1300,11 @@ pub struct MatchBody {
     /// See [`MovementTuning::crouch_speed_frac`] — what a crouching fighter may
     /// do with the stick, as a fraction of its top speed.
     ///
-    /// ⭐ A MATCH FACT rather than a character one. What a crouch costs is a
-    /// rule of the STAGE, the same way `crouch_cancel_scale` is: one fighter
-    /// crawling while another is planted would be a per-character mechanic
-    /// nobody authored.
+    /// ⭐ THE STAGE'S RULE FOR A FIGHTER WITHOUT A CRAWL. What a crouch costs
+    /// is the stage's, the same way `crouch_cancel_scale` is. Whether a fighter
+    /// crawls is the fighter's, as in every Smash: a fighter that authors a
+    /// crawl keeps it over this (`FighterBodyAuthoring::crawl_speed_frac`,
+    /// applied by `MatchRules::seat_movement`).
     pub crouch_speed_frac: f32,
     /// See [`MovementTuning::initial_dash_time`] — the ground phase in which a
     /// direction change is still free. `0.0` = no phase.

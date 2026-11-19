@@ -3389,6 +3389,116 @@ fn a_respawned_fighter_can_recover_before_it_has_landed() {
     );
 }
 
+/// ⭐ A FIGHTER THAT AUTHORS A CRAWL CRAWLS, AND ONE THAT DOES NOT IS PLANTED
+/// (D72 `S0.7`), at the first spawn AND after a stock respawn.
+///
+/// The stage's `crouch_speed_frac: 0.0` plants every crouch; robot v3's facet
+/// authors `body.crawl_speed_frac`, which `MatchRules::seat_movement` keeps
+/// over it. George authors none. Real keys through the host: hold Down, then
+/// Right, and measure the travel while the body reports `Crouching` — a body
+/// that never crouched would make the crawler's travel meaningless and the
+/// noncrawler's stop an accident of something else.
+#[test]
+fn a_crawler_crawls_and_a_noncrawler_is_planted_at_spawn_and_after_a_respawn() {
+    use bevy::ecs::message::Messages;
+    const WATCHED_TICKS: usize = 30;
+
+    let seat_zero = |app: &mut App| -> Entity {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &ambition_platformer2d::versus_match::MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("seat zero has a body")
+    };
+    // Crouch, hold forward, and report (travel, crouching throughout).
+    let crawl = |app: &mut App| -> (f32, bool) {
+        stand_seat_zero(app);
+        let body = seat_zero(app);
+        Buttonlike::press(&KeyCode::ArrowDown, app.world_mut());
+        for _ in 0..6 {
+            app.update();
+        }
+        Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
+        app.update();
+        let x = |app: &App| {
+            app.world()
+                .get::<ambition_platformer2d::engine_core::BodyKinematics>(body)
+                .expect("a seated fighter has kinematics")
+                .pos
+                .x
+        };
+        let crouching = |app: &App| {
+            app.world()
+                .get::<ambition_platformer2d::engine_core::BodyModeState>(body)
+                .is_some_and(|mode| {
+                    mode.body_mode == ambition_platformer2d::engine_core::BodyMode::Crouching
+                })
+        };
+        let from = x(app);
+        let mut crouched_throughout = crouching(app);
+        for _ in 0..WATCHED_TICKS {
+            app.update();
+            crouched_throughout &= crouching(app);
+        }
+        let travel = (x(app) - from).abs();
+        Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
+        Buttonlike::release(&KeyCode::ArrowDown, app.world_mut());
+        app.update();
+        (travel, crouched_throughout)
+    };
+    let knock_out_and_return = |app: &mut App| {
+        let body = seat_zero(app);
+        app.world_mut()
+            .resource_mut::<Messages<ambition_platformer2d::actor::BodyKnockedOut>>()
+            .write(ambition_platformer2d::actor::BodyKnockedOut {
+                body,
+                cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
+            });
+        app.update();
+        for _ in 0..240 {
+            app.update();
+            if app
+                .world()
+                .get::<ambition_platformer2d::actor::PendingRespawn>(body)
+                .is_none()
+            {
+                return;
+            }
+        }
+        panic!("seat zero never came back within 240 ticks");
+    };
+
+    for (fighter, crawls) in [(PREPARED_FIGHTER, true), (OTHER_PREPARED_FIGHTER, false)] {
+        let mut app = open_the_lobby();
+        pick_and_start(&mut app, fighter);
+        wait_for_the_round_to_go_live(&mut app);
+        let spawned = crawl(&mut app);
+        knock_out_and_return(&mut app);
+        let respawned = crawl(&mut app);
+        for (when, (travel, crouched)) in [("at spawn", spawned), ("after a respawn", respawned)] {
+            assert!(
+                crouched,
+                "{fighter} {when} was not crouching through the window, so its \
+                 {travel:.1}px says nothing about a crouch"
+            );
+            if crawls {
+                assert!(
+                    travel > 10.0,
+                    "{fighter} authors a crawl and moved {travel:.1}px crouched {when} \
+                     in {WATCHED_TICKS} ticks: the stage's crouch rule wrote over it"
+                );
+            } else {
+                assert!(
+                    travel < 1.0,
+                    "{fighter} authors no crawl and moved {travel:.1}px crouched {when}: \
+                     the stage's crouch rule did not plant it"
+                );
+            }
+        }
+    }
+}
+
 /// Open the lobby from the title screen.
 fn open_the_lobby() -> App {
     let mut app = shell_host_app();

@@ -63,7 +63,7 @@ count toward it.
 | `S0.4` | Airborne capture semantics | Closed by product ruling, 2026-11-17 | No airborne grabs. Standing grabs retain grounded capture rules. A tether may select a distinct aerial hit move through the ordinary moveset; that move damages or launches and creates no capture relationship. |
 | `S0.5` | Threshold armor | ✔ for selected damage-threshold semantics | Damage threshold shipped: `ArmorPolicy::{None, Super, Damage{breaks_at}}`, authored as `WindowTag::ArmorUnder{damage}`. Plain `WindowTag::Armor` still lowers to `Super`. `>=` breaks; nothing accumulates; overlapping windows take the stronger. **Deferred extension, not an open gate or current maintainer question:** knockback-threshold armor lacks an authored customer and a chosen typed quantity. `HitKnockbackMagnitude` is `FeelScale` or `LaunchSpeed`; a bare `f32` threshold would be incorrect, and launch velocity is computed below the armor gate. Preserve this candidate in [tracks](../tracks.md#deferred-smash-semantics) and revisit only for a concrete move. See the `ArmorPolicy` doc. |
 | `S0.6` | Localized hurtbox defense | ✔ | `HurtboxVolume::defense` and `HurtDefense::{Vulnerable,Intangible}` flow through `ResolvedHurtboxes::world_volumes` and all `strike_reaches_victim` callers; a vulnerable region still registers even when another region is intangible. Production resolver and publisher tests exist. No shipped move presently authors an intangible hurt region; that is a **customer/content decision**, not missing defense infrastructure. |
-| `S0.7` | Character-specific movement traits | ◐ | Smash admits a fighter's authored `WallMobility` wall-jump/cling rather than granting or flattening it globally; adopted and spawned seats agree. **Open:** per-fighter crawl trait. The match-wide `crouch_speed_frac: 0.0` stops every crouch; a crawler must travel while a noncrawler crouches in place, with no fighter-ID branches. Test spawn and respawn. |
+| `S0.7` | Character-specific movement traits | ✔ 2026-11-19 | Smash admits a fighter's authored `WallMobility` wall-jump/cling rather than granting or flattening it globally; adopted and spawned seats agree. **Crawl:** a fighter facet authors `body.crawl_speed_frac`, and `MatchRules::seat_movement` keeps it over the stage's `crouch_speed_frac: 0.0`, which now means "a fighter without a crawl is planted". No fighter-ID branch. Customer: robot v3 crawls at a quarter of its run (a feel value; no Ultimate crawl table was used). The crawl is construction tuning carried in `AuthoredMovementTuning` and the motion codec, so it adds no rollback state. Guard: `a_crawler_crawls_and_a_noncrawler_is_planted_at_spawn_and_after_a_respawn` (real keys; robot v3 travels while `Crouching`, George is planted, at first spawn and after a stock respawn). |
 | `S0.8` | Special victim-reaction families | ▢ | No bury, gameplay freeze (distinct from hitlag), paralysis or crumple. Each owns its timer, escape and posture rules through shared reaction/status authority and composes with damage, launch, capture, invulnerability, rollback and KO. |
 | `S0.9` | Target/effect interaction primitives | ▢ | No projectile follows a semantic target (the homing dash and steered bolt are different things). No production lifesteal/heal-on-hit consumer of `OnHitEffectMessage`. Ship both with projectile-owned deterministic steering state, the resolved-hit effect seam, production-path tests and stable rollback identity. |
 
@@ -82,8 +82,8 @@ customer where required; an isolated kernel test does not close it.
    authored damage window. The engine default remains off for other games.
 2. **S0.3 is complete:** shared contact policy and authored customers ship
    in `c6a65c250`. Keep ordinary defaults and grounded capture rules.
-3. **S0.7:** add one fighter-authored crawl and prove a noncrawler stops on
-   crouch; cover both new spawn and stock respawn.
+3. **S0.7 is complete:** robot v3 authors a crawl; a noncrawler is planted,
+   at spawn and after a stock respawn.
 4. **S0.4 is closed:** airborne grabs are out of scope. Aerial tether moves
    use ordinary hit volumes, separate from standing captures.
    **S0.5 damage-threshold armor is complete**; its
@@ -240,7 +240,7 @@ Preserve these and build new features on their seams.
 | Turnaround / pivot | ✔ | M | E1 | Arm on the request edge, not the condition. |
 | Pivot grab | ✔ | S | — | Aim resolves against the flipped facing. |
 | Run cancel into shield / crouch | ✔ | S/M | E1 | A brake may only take back speed the body could have walked up to. |
-| Character-specific crawl | ◐ | M | E1 | `S0.7`. |
+| Character-specific crawl | ✔ | M | E1 | `S0.7`: `body.crawl_speed_frac` in the fighter facet. |
 | Reverse aerial rush | ✔ | S/M | — | Leaving the floor finishes a turnaround. |
 | Teeter | ✔ | S/M | E1 | `BodyMotionFacts::teetering`, a fact, not a rule. |
 | Walk-stop / crouch transition beats | ▢ | S | E1 | Publish only if animation needs them. |

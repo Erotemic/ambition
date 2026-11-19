@@ -11,31 +11,38 @@
 //!   be seen is seen.
 //! - `AroundThePlayer`: the veil with a soft hole of light round the player:
 //!   a sprite of a round falloff on the player, and four flat pieces round it.
-//! - `LightMap` (High, Ultra; DR2): one sprite over the view whose small
-//!   texture is the darkness left where every light reaches: each player's,
-//!   each lamp the room places (`LightSource`), and each thing that casts
-//!   light ([`CastsLight`]: actor glows, fires). Computed on the CPU each
-//!   frame at [`MAP_TEXELS`], each light over only the texels it reaches;
-//!   drawn smooth. Where a lamp's light fades the veil takes its colour, so
-//!   a lantern's pool has a warm rim; a player's light keeps the ambient.
+//! - `LightMap` (High, Ultra; DR2): the darkness left where every light
+//!   reaches: each player's, each lamp the room places (`LightSource`), and
+//!   each thing that casts light ([`CastsLight`]: actor glows, fires). Where
+//!   a lamp's light fades the veil takes its colour, so a lantern's pool has
+//!   a warm rim; a player's light keeps the ambient. Summed per pixel on the
+//!   GPU ([`DarknessMaterial`], [`super::lamps`]), so a light's falloff and
+//!   its shadow's edge are as fine as the screen. Where no 2D material can be
+//!   built (no renderer, Android), a sprite over the view whose small texture
+//!   is the same sum computed on the CPU each frame at [`MAP_TEXELS`], each
+//!   light over only the texels it reaches, drawn smooth.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
-use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::reflect::TypePath;
+use bevy::render::render_resource::{AsBindGroup, Extent3d, TextureDimension, TextureFormat};
+use bevy::shader::ShaderRef;
+use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d};
 
 use ambition_persistence::settings::{DarknessQuality, ResolvedVisualQuality};
 use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{CastsLight, PlayerLight};
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
-use ambition_platformer2d_world::rooms::LiveRoomSpecs;
+use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
 
 use super::daylight::DAYLIGHT_VEIL_Z;
+use super::lamps::{pack, reach_image, LampsPlugin, LampsUniform, ReachWrites};
 use super::occlusion::{lit_part, SolidGrid};
 
 /// Which room's geometry a solid grid was built from: its name, size and
 /// how many blocks and lines it has (a reloaded room that changed is new).
-type GridKey = (String, Vec2, usize, usize);
+pub(crate) type GridKey = (String, Vec2, usize, usize);
 
 /// A dark room's solid ground, and the reach of each of its lamps over it,
 /// in the room's order.
@@ -88,6 +95,69 @@ impl DarknessVeil {
 #[derive(Resource, Clone)]
 pub struct DarknessLightMap(pub Handle<Image>);
 
+/// The veil at High and Ultra, summed per pixel: the room's ambient (sRGB)
+/// and how dark it looks, its lights, and how far each reaches (Ultra).
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+pub struct DarknessMaterial {
+    #[uniform(0)]
+    pub veil: Vec4,
+    #[uniform(1)]
+    pub lamps: LampsUniform,
+    #[texture(2, sample_type = "float", filterable = false)]
+    pub reach: Option<Handle<Image>>,
+}
+
+impl Material2d for DarknessMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "embedded://ambition_render/rendering/darkness.wgsl".into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
+/// The per-pixel veil's mesh and material, and its lights' reach texture,
+/// where a 2D material can be built.
+#[derive(Resource, Clone)]
+pub struct DarknessVeilAssets {
+    mesh: Handle<Mesh>,
+    material: Handle<DarknessMaterial>,
+    reach: Handle<Image>,
+}
+
+/// Installs the per-pixel veil's material. Without it (no renderer, Android)
+/// the light map is computed on the CPU.
+pub struct DarknessPlugin;
+
+impl Plugin for DarknessPlugin {
+    fn build(&self, app: &mut App) {
+        if app.get_sub_app(bevy::render::RenderApp).is_none() || cfg!(target_os = "android") {
+            return;
+        }
+        bevy::asset::embedded_asset!(app, "darkness.wgsl");
+        if !app.is_plugin_added::<LampsPlugin>() {
+            app.add_plugins(LampsPlugin);
+        }
+        app.add_plugins(Material2dPlugin::<DarknessMaterial>::default());
+        let world = app.world_mut();
+        let Some(reach) = world.get_resource_mut::<Assets<Image>>().map(|mut images| images.add(reach_image())) else {
+            return;
+        };
+        let Some(material) = world.get_resource_mut::<Assets<DarknessMaterial>>().map(|mut materials| {
+            materials.add(DarknessMaterial { veil: Vec4::ZERO, lamps: LampsUniform::default(), reach: Some(reach.clone()) })
+        }) else {
+            return;
+        };
+        let Some(mesh) =
+            world.get_resource_mut::<Assets<Mesh>>().map(|mut meshes| meshes.add(Rectangle::new(2.0 * FAR, 2.0 * FAR)))
+        else {
+            return;
+        };
+        app.insert_resource(DarknessVeilAssets { mesh, material, reach });
+    }
+}
+
 /// One light in the light map, in bevy world units.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Lamp {
@@ -106,23 +176,19 @@ fn lamp_light(lamp: &Lamp, p: Vec2) -> f32 {
     lamp.intensity * (1.0 - t * t * (3.0 - 2.0 * t))
 }
 
-/// The light map's texels, row by row from the top: the veil over `size`
-/// about `center`, `perceived` dark in `ambient` (sRGB), less what each lamp
-/// lights. A texel's colour is the ambient and the lamps' colours, each as
-/// much as it is there (the darkness left, each lamp's light).
-/// With `reaches` (`ShadowedLightMap`; each lamp's, [`SolidGrid::reach`]),
-/// a lamp's light stops at the ground.
-fn light_map(
+/// What the lamps give each texel of a map over `size` about `center`, row by
+/// row from the top: `[the darkness left, the light, and the light's colour
+/// (each lamp's colour by its light, summed)]`. The darkness left is the
+/// product of what each lamp leaves; the light is their sum. With `reaches`
+/// (each lamp's, [`SolidGrid::reach`]) a lamp's light stops at the ground.
+pub(crate) fn lamp_texels(
     texels: UVec2,
     center: Vec2,
     size: Vec2,
-    perceived: f32,
-    ambient: [f32; 3],
     lamps: &[Lamp],
     reaches: Option<&[Vec<f32>]>,
-) -> Vec<u8> {
+) -> Vec<[f32; 5]> {
     let count = (texels.x * texels.y) as usize;
-    // Per texel: the darkness left, the light, and the light's colour.
     let mut texel_light = vec![[1.0f32, 0.0, 0.0, 0.0, 0.0]; count];
     let texel = size / texels.as_vec2();
     let top_left = Vec2::new(center.x - size.x / 2.0, center.y + size.y / 2.0);
@@ -150,19 +216,36 @@ fn light_map(
                 let t = &mut texel_light[(y * texels.x + x) as usize];
                 t[0] *= 1.0 - light;
                 t[1] += light;
-                let warmth = RIM_WARMTH * light;
-                t[2] += lamp.color[0] * warmth;
-                t[3] += lamp.color[1] * warmth;
-                t[4] += lamp.color[2] * warmth;
+                t[2] += lamp.color[0] * light;
+                t[3] += lamp.color[1] * light;
+                t[4] += lamp.color[2] * light;
             }
         }
     }
+    texel_light
+}
+
+/// The light map's texels, row by row from the top: the veil over `size`
+/// about `center`, `perceived` dark in `ambient` (sRGB), less what each lamp
+/// lights ([`lamp_texels`]). A texel's colour is the ambient and the lamps'
+/// colours, each as much as it is there (the darkness left, each lamp's
+/// light, at [`RIM_WARMTH`]).
+fn light_map(
+    texels: UVec2,
+    center: Vec2,
+    size: Vec2,
+    perceived: f32,
+    ambient: [f32; 3],
+    lamps: &[Lamp],
+    reaches: Option<&[Vec<f32>]>,
+) -> Vec<u8> {
+    let texel_light = lamp_texels(texels, center, size, lamps, reaches);
     // The veil's alpha by the darkness left, once per frame, not per texel.
     let alpha: Vec<u8> = (0..=255).map(|k| (veil_alpha(perceived * k as f32 / 255.0) * 255.0 + 0.5) as u8).collect();
-    let mut data = Vec::with_capacity(count * 4);
+    let mut data = Vec::with_capacity(texel_light.len() * 4);
     for &[dark, lit, r, g, b] in &texel_light {
         let scale = 255.0 / (dark + lit);
-        let rgb = |ambient: f32, tint: f32| ((ambient * dark + tint) * scale + 0.5).min(255.0) as u8;
+        let rgb = |ambient: f32, tint: f32| ((ambient * dark + RIM_WARMTH * tint) * scale + 0.5).min(255.0) as u8;
         data.extend_from_slice(&[
             rgb(ambient[0], r),
             rgb(ambient[1], g),
@@ -212,6 +295,47 @@ fn hole_image() -> Image {
     )
 }
 
+/// The lamps a room places (`LightSource`), in the room's order.
+pub(crate) fn room_lamps(spec: &RoomSpec) -> Vec<Lamp> {
+    spec.lights
+        .iter()
+        .map(|light| Lamp {
+            at: ambition_platformer2d_core::config::world_to_bevy(&spec.world, light.payload.position, 0.0).truncate(),
+            radius: light.payload.radius,
+            intensity: light.payload.intensity,
+            color: light.payload.color,
+        })
+        .collect()
+}
+
+impl RoomShadows {
+    /// Keep `kept` the shadows of `spec`'s room, built again only for another
+    /// room (or the same room changed).
+    pub(crate) fn keep_for(kept: &mut Option<RoomShadows>, spec: &RoomSpec) {
+        let world = &spec.world;
+        let key = (spec.id.to_string(), world.size, world.blocks.iter().count(), world.chains.iter().count());
+        if kept.as_ref().map(|built| &built.key) == Some(&key) {
+            return;
+        }
+        let grid = SolidGrid::of_world(world);
+        // The room's lamps do not move: their reach is measured once.
+        let lamps = room_lamps(spec).iter().map(|lamp| grid.reach(lamp.at, lamp.radius.max(1.0))).collect();
+        *kept = Some(RoomShadows { key, grid, lamps });
+    }
+
+    /// The reach of the room's lamps, then of `moving` (lights that move,
+    /// measured now), in that order.
+    pub(crate) fn reaches(&self, moving: &[Lamp]) -> Vec<Vec<f32>> {
+        let mut reaches = self.lamps.clone();
+        reaches.extend(moving.iter().map(|lamp| self.grid.reach(lamp.at, lamp.radius.max(1.0))));
+        reaches
+    }
+
+    pub(crate) fn key(&self) -> &GridKey {
+        &self.key
+    }
+}
+
 /// The darkness of the primary live room, as a veil colour, and its lamps;
 /// or `None` when the room is not dark. With `solid`, the room's solid grid
 /// is kept there, built again only for another room.
@@ -226,21 +350,7 @@ fn room_darkness(
     let profile = &spec.metadata.visual_profile;
     let pct = profile.darkness_pct.filter(|pct| *pct > 0)?;
     if let Some(solid) = solid {
-        let world = &spec.world;
-        let key = (spec.id.to_string(), world.size, world.blocks.iter().count(), world.chains.iter().count());
-        if solid.as_ref().map(|built| &built.key) != Some(&key) {
-            let grid = SolidGrid::of_world(world);
-            // The room's lamps do not move: their reach is measured once.
-            let lamps = spec
-                .lights
-                .iter()
-                .map(|light| {
-                    let at = ambition_platformer2d_core::config::world_to_bevy(world, light.payload.position, 0.0);
-                    grid.reach(at.truncate(), light.payload.radius.max(1.0))
-                })
-                .collect();
-            *solid = Some(RoomShadows { key, grid, lamps });
-        }
+        RoomShadows::keep_for(solid, spec);
     }
     let ambient = profile
         .ambient
@@ -248,17 +358,7 @@ fn room_darkness(
         .and_then(|hex| Srgba::hex(hex).ok())
         .map(Color::from)
         .unwrap_or(DEFAULT_AMBIENT);
-    let lamps = spec
-        .lights
-        .iter()
-        .map(|light| Lamp {
-            at: ambition_platformer2d_core::config::world_to_bevy(&spec.world, light.payload.position, 0.0).truncate(),
-            radius: light.payload.radius,
-            intensity: light.payload.intensity,
-            color: light.payload.color,
-        })
-        .collect();
-    Some((ambient.with_alpha(f32::from(pct) / 100.0), lamps))
+    Some((ambient.with_alpha(f32::from(pct) / 100.0), room_lamps(spec)))
 }
 
 /// The veil's alpha that makes the room look `perceived` dark. The veil is
@@ -304,11 +404,16 @@ pub fn darken_the_room(
     players: Query<&GlobalTransform, (With<PlayerVisual>, Without<DarknessVeil>)>,
     casters: Query<(&GlobalTransform, &CastsLight, &InheritedVisibility)>,
     player_light: Option<Res<PlayerLight>>,
-    mut veils: Query<(&DarknessVeil, &mut Transform, &mut Sprite, &mut Visibility)>,
+    mut veils: Query<(&DarknessVeil, &mut Transform, Option<&mut Sprite>, &mut Visibility)>,
     // What the light map was last drawn from: a still frame draws nothing.
     mut drawn: Local<Option<(Vec2, Vec2, f32, [f32; 3], Vec<Lamp>, Option<GridKey>)>>,
     // The room's solid ground, when the light map is shadowed.
     mut solid: Local<Option<RoomShadows>>,
+    (gpu, mut materials, mut writes): (
+        Option<Res<DarknessVeilAssets>>,
+        Option<ResMut<Assets<DarknessMaterial>>>,
+        Option<ResMut<ReachWrites>>,
+    ),
 ) {
     let quality = quality.map_or(DarknessQuality::default(), |q| q.budget.glow.darkness);
     let shadowed = quality == DarknessQuality::ShadowedLightMap;
@@ -340,9 +445,18 @@ pub fn darken_the_room(
                 DarknessVeil::Map => map_texture.clone(),
                 _ => Handle::default(),
             };
-            commands.spawn((
+            let mut veil = commands.spawn_empty();
+            match (piece, gpu.as_deref()) {
+                // The map summed per pixel: its mesh covers every view.
+                (DarknessVeil::Map, Some(gpu)) => {
+                    veil.insert((Mesh2d(gpu.mesh.clone()), MeshMaterial2d(gpu.material.clone())));
+                }
+                _ => {
+                    veil.insert(Sprite { image, color: Color::NONE, custom_size: Some(Vec2::ONE), ..Default::default() });
+                }
+            }
+            veil.insert((
                 piece,
-                Sprite { image, color: Color::NONE, custom_size: Some(Vec2::ONE), ..Default::default() },
                 Transform::from_translation(Vec3::new(0.0, 0.0, DARKNESS_VEIL_Z)),
                 Visibility::Hidden,
                 // The daylight veil's layer: the main cameras draw it, and no
@@ -395,39 +509,56 @@ pub fn darken_the_room(
         }));
         let shadows = solid.as_ref().filter(|_| shadowed);
         let inputs = (camera, size, perceived, ambient, all, shadows.map(|shadows| shadows.key.clone()));
-        if drawn.as_ref() != Some(&inputs) {
+        if let (Some(gpu), Some(materials)) = (gpu.as_deref(), materials.as_deref_mut()) {
+            if drawn.as_ref() != Some(&inputs) {
+                let reaches = shadows.map(|shadows| shadows.reaches(&inputs.4[room_lamps..]));
+                let (lamps, rows) = pack(&inputs.4, reaches.as_deref(), camera, size);
+                if let (Some(rows), Some(writes)) = (rows, writes.as_deref_mut()) {
+                    writes.0.insert(gpu.reach.id(), rows);
+                }
+                let veil = Vec4::new(ambient[0], ambient[1], ambient[2], perceived);
+                if materials.get(&gpu.material).is_some_and(|material| material.veil != veil || material.lamps != lamps) {
+                    if let Some(mut material) = materials.get_mut(&gpu.material) {
+                        material.veil = veil;
+                        material.lamps = lamps;
+                    }
+                }
+                *drawn = Some(inputs);
+            }
+        } else if drawn.as_ref() != Some(&inputs) {
             if let Some(mut image) = map.as_ref().and_then(|map| images.get_mut(&map.0)) {
                 // The room's lamps' reach was measured with the room; the
                 // lights that move are measured now.
-                let reaches = shadows.map(|shadows| {
-                    let mut reaches = shadows.lamps.clone();
-                    reaches.extend(inputs.4[room_lamps..].iter().map(|lamp| shadows.grid.reach(lamp.at, lamp.radius.max(1.0))));
-                    reaches
-                });
+                let reaches = shadows.map(|shadows| shadows.reaches(&inputs.4[room_lamps..]));
                 image.data = Some(light_map(MAP_TEXELS, camera, size, perceived, ambient, &inputs.4, reaches.as_deref()));
                 *drawn = Some(inputs);
             }
         }
-        for (piece, mut transform, mut sprite, mut visibility) in &mut veils {
+        for (piece, mut transform, sprite, mut visibility) in &mut veils {
             if *piece != DarknessVeil::Map {
                 visibility.set_if_neq(Visibility::Hidden);
                 continue;
             }
             transform.translation = camera.extend(DARKNESS_VEIL_Z);
-            sprite.custom_size = Some(size);
-            // The colour is in the texture.
-            sprite.color = Color::WHITE;
+            if let Some(mut sprite) = sprite {
+                sprite.custom_size = Some(size);
+                // The colour is in the texture.
+                sprite.color = Color::WHITE;
+            }
             visibility.set_if_neq(Visibility::Inherited);
         }
         return;
     }
     let darkness = darkness.with_alpha(veil_alpha(perceived));
-    for (piece, mut transform, mut sprite, mut visibility) in &mut veils {
+    for (piece, mut transform, sprite, mut visibility) in &mut veils {
         let Some((at, size)) = layout(*piece, quality, camera, light, player_light.radius) else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
         transform.translation = at.extend(DARKNESS_VEIL_Z);
+        let Some(mut sprite) = sprite else {
+            continue;
+        };
         sprite.custom_size = Some(size);
         sprite.color = darkness;
         visibility.set_if_neq(Visibility::Inherited);

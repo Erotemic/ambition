@@ -211,9 +211,17 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   (87 draws in a frame, over the 64 budget) and Fukuzawa (66), the cosmic
   Mary-O (a hybrid: her transformation rows carry light on the whole figure
   that no part carries, so they stay baked clips).
-- Not yet part-first: `sandbag` (its own sheet writer, an adapter-shaped
-  record) and `gnu_ton_boss`'s layered publish (full, body, hands, fist,
-  GNU2 and rider sheets; the boss road reads its body and hands layers).
+- **Sandbag (2026-11-18).** Its own sheet writer painted every frame for the
+  page and again for its flipbook; now it records the flipbook once, measures
+  the body box off its first idle frame, keeps its frames on a grid and writes
+  no page. Under the audit 17 of 17 frames replay the paint; published into
+  the local store page-less, its rollback hit tests pass. Found on the way:
+  `library.json`'s `embedded` list named the robot's, the goblin's and the
+  sandbag's pages and drops a missing name silently, so the page-less robot
+  in the store had not been embedded at all; each sheet's `_parts.png` is
+  listed beside its page.
+- Not yet part-first: `gnu_ton_boss`'s layered publish (full, body, hands,
+  fist, GNU2 and rider sheets; the boss road reads its body and hands layers).
 - **PF5 measured (2026-11-18): the 109 characters with no flipbook are not
   a switch.** Forced part-first (`build_sheet(parts=True)`), twelve of them
   (aurochs, hoplite, tiger, mummy, terracotta warrior, kraken arm, mime, art

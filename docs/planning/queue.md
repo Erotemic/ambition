@@ -77,8 +77,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ASSET-PREVIEW in that order.
    A9's completed profile proof is not an automatic invitation to rewrite the
    capability architecture. Continue AP14 ownership work before lower-priority
-   ENEMY-NOTICE (done 2026-11-18), WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS and
-   CHARGEN-SPECIES.
+   ENEMY-NOTICE (done 2026-11-18), WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS (its laser sound waits for the SFX bank) and
+   CHARGEN-SPECIES (done 2026-11-19).
 4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
 5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
    remain selected at their stated boundaries (TOOL-DISCOVERY and EDITOR-SHELL
@@ -318,7 +318,7 @@ A placeholder stays visibly unavailable until it has an admitted implementation.
 Tiers, equipment and checkpoint/save state agree. Keep quality selection out
 of gameplay authority.
 
-### CHARGEN-SPECIES — species parameters and asymmetric overlay views
+### CHARGEN-SPECIES — species parameters and asymmetric overlay views — ✅ DONE 2026-11-19
 
 **Failure:** the overlay mechanism is built, but species heads still expose
 mainly muzzle and ear choices. Mirrored left cells move asymmetric details
@@ -364,14 +364,20 @@ alligator's wide snout and four scute rows. At this scale the pigeon's cere
 and eye ring and the sea lion's whisker pads are barely there; they are
 head-crop details, not silhouette. ([knobs](game/chargen-species-knobs-and-2d-overlays.md#game-scale-check-2026-11-18))
 
-**Next action:** asymmetric details keep their side. Every species marking
-is the same on both sides, but three overlays are not (Nikobolt's and André
-Rebouças's watch chains, Coulomba's plume and roses), and three generated
-features are not (the nihongami's ornaments, the kimono's wrap). A left
-cell alone changes nothing in the game: the runtime draws a body that faces
-left by flipping its right row. The fix is a left-facing row set for a
-target that has a one-sided detail (the flipbook's `<row>~mirrored`, which
-the runtime already selects), drawn with the left cells, and published.
+**One-sided details done 2026-11-19:** a character with a detail on one
+side of the body (`rig.one_sided`: a kimono's wrap, a nihongami's
+ornaments, an overlay with `data-figure="mirrored"` cells) is also drawn as
+its mirror image (`View.mirrored`), and its sheet gains `<row>~mirrored`
+for every row: the mirror image's frame flipped, which the animator draws
+for a body facing left. Ten residents are one-sided (seven in kimono, and
+André Rebouças, Nikobolt and Coulomba, whose mirrored cells move the watch
+chains and the cocked hat's plume, bow and roses); all ten republished, 47
+mirrored rows in every quality tier and in the part flipbook. A true left
+view (negative yaw) was rejected by measurement: the house shade is on the
+screen's left and the hands are not mirror twins, so it differed from its
+right twin on 20-30 % of a symmetric resident's pixels. Items held in a
+hand stay in the far hand, as on every hand-made sheet
+([design](game/chargen-species-knobs-and-2d-overlays.md#as-built-overlays-renderer-chargenoverlaypy)).
 
 **Acceptance:** head crops and posed clips show distinct valid shapes in every
 view; heads stay attached and asymmetric features keep their side. Existing
@@ -1846,6 +1852,43 @@ Remove obsolete diagnostics only after checking their actual callers. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 
+**Workspace policy reds (found 2026-11-19, inherited):**
+`cargo test -p ambition_workspace_policy` was red in two scopes.
+
+The game scope is repaired. `ambition_app` gained `ambition_hosted_world`
+(the `hosted_world` feature) and `ambition_content_schemas` (the shipped
+validator) without its allowlist, and both are now listed with their reasons.
+
+The engine scope still fails 7 policies. Each one is a boundary call, not a
+missing list entry, so decide it at its owner:
+- `ambition_abilities` → `ambition_persistence`;
+- `ambition_portal2d` → `ambition_geometry_observation`;
+- `ambition_platformer2d_runtime` → `ambition_camera_presentation`;
+- `ambition_abilities/src/group.rs` reads `Res<CharacterCatalog>`;
+- `ambition_render/src/rendering/observed_geometry.rs` names
+  `ControlledSubject`;
+- a velocity write in `ambition_combat/src/hit_feel.rs`;
+- the hosted world's `BodyRow::write_into`, a replicated row applied to a
+  guest's body, which writes both position and velocity.
+
+**Sanic red (found 2026-11-19, inherited):**
+`sanic_it`'s `act_two_routes::the_ledge_spring_throws_him_onto_the_sky_island`
+fails at 3ff8d4e39, before the badnik module. He ends at (13616, 456), above
+the island, with no monitor spent.
+
+**Shell lifecycle reds (found 2026-11-19, inherited):** two of
+`shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the
+same way with and without it:
+- `each_experience_begins_with_its_own_bag`: the Ambition session's bag is
+  25 and its experience begins with 21.
+- `a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`:
+  the playing session's save gains `room_visited_sanic_speedway` and a day
+  clock.
+They are listed as witnesses in
+[construction and reconstitution](engine/construction-and-reconstitution.md).
+Two more fail here for the VM's missing music registry ("authored music is
+selected").
+
 **Smash fixture shared (2026-11-14):** `common::smash` holds the Smash
 setup `smash_ride` repeated in each test: `shipped_host` (the shipped
 composition, 30 frames in), `wait_for_live_round` (a cast exists and none of
@@ -2072,9 +2115,12 @@ held traversal modules; and the `body_contact` extension route. Do not
 re-enqueue the old missing-reload-family list or repeat the completed brain
 migration.
 
-**Next action:** finish the specifically named `body_contact` customers:
-Mary-O snake-shell behavior and the Sanic badnik contact behavior, including
-toucher roll/contact harm through their existing owners. The plant is a brain
+**Next action:** the named `body_contact` customers are done (2026-11-19).
+The Sanic badnik's contact is a module, and its toucher roll and
+contact-harm facts are asked of their owners through
+`sanic.contact.touchers`. The Mary-O snake shell is a module that keeps its
+phase in the snake's record and holds, withdraws, pins and runs down through
+the new `body_contact` requests. The plant is a brain
 and pose customer, not a contact rule. Recheck which customers are still native
 before migrating them.
 

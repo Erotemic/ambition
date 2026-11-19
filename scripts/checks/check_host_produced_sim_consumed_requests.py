@@ -795,6 +795,21 @@ def unresolved_message_writes(repo: Path = REPO) -> list[tuple[str, str]]:
 #: cannot read is not a population. `main()` now fails on any head not named
 #: here, so the next unreadable spelling has to be resolved or argued for.
 UNRESOLVED_ADJUDICATED: dict[str, str] = {
+    "GuestInput": (
+        "OUT OF THE POPULATION: a network message (`ambition_hosted_world`, "
+        "registered by replicon's `add_client_message`, not `add_message`). A "
+        "predicting guest writes it at its tick head (`prediction::predict_own_tick`) "
+        "and replicon sends it to the host, whose `apply_guest_inputs` reads it in "
+        "`PreUpdate` as `FromClient<GuestInput>`; no simulation of the writing App "
+        "reads it (read 2026-11-19)"
+    ),
+    "ToClients": (
+        "OUT OF THE POPULATION: replicon's server-to-client envelope "
+        "(`ToClients<SeatAssigned>`, `ToClients<InputMargin>` in "
+        "`ambition_hosted_world`), registered by `add_server_message`; the host "
+        "writes it for the link and a guest reads the inner message in `PreUpdate` "
+        "(read 2026-11-19)"
+    ),
     "AppExit": (
         "⭐ OUT OF THE POPULATION BY DEFINITION, not tolerated. `AppExit` is "
         "Bevy's own message and this workspace never calls `add_message::"

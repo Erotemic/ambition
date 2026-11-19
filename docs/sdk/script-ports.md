@@ -380,6 +380,49 @@ Port `ambition.body.defeat@1`, request: `this.requests.push(request("<alias>", #
 
 No fields: `request("defeat_body", #{})`.
 
+## `contact_cue`
+
+Port `ambition.body.contact_cue@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `toucher` | integer (u32) | required | The toucher's index in this invocation's contact. |
+
+## `contact_threat`
+
+Port `ambition.body.contact_threat@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `withdrawn` | bool | required | True: the body's touch hurts nobody. False: it hurts again. |
+
+## `control_hold`
+
+Port `ambition.body.control_hold@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `held` | bool | required | True: hold the body's control as a scripted beat. False: let this hold go. |
+
+## `pose_pin`
+
+Port `ambition.body.pose_pin@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `row` | text or () | required | The character animation row to draw the body in, or `()` to let the shared picker choose. |
+
+## `kinetic_hazard`
+
+Port `ambition.combat.kinetic_hazard@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `damage` | integer (i32) | required | The damage to each body the hazard covers; not negative. |
+| `knockback` | number | required | A multiplier over the victim's feel-tuned launch; finite and at least 0. |
+| `credit` | text or () | required | The simulation identity of the body credited, or `()` for the hazard itself. |
+| `spare` | list of text | required | The simulation identities of bodies the hazard does not hit. |
+
 ## `body_query`
 
 Port `ambition.combat.body_query@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.

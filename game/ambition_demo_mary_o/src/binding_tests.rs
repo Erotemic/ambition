@@ -230,7 +230,7 @@ fn a_carried_component_for_a_character_the_pack_does_not_state_is_refused() {
     let mut app = App::new();
     crate::pack::PACK
         .cast(crate::provider::MARY_O_EXPERIENCE, Some(crate::provider::MARY_O_CHARACTER_ID))
-        .carrying::<crate::snake::SnakeShell>("solid_snak")
+        .carrying::<ambition_platformer2d::combat::actor_tuning::ContactThreatWithdrawn>("solid_snak")
         .register(&mut app);
 }
 

@@ -59,7 +59,11 @@ pub use module_entity::{
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use ambition_world_port::geometry as world_geometry;
-pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort, ContactParticipant, ContactSurface, ContactRefusal, WorldContact};
+pub use contact::{
+    BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, ContactBody, ContactBounce, ContactBouncePort, ContactCue,
+    ContactCuePort, ContactParticipant, ContactRefusal, ContactSurface, ContactThreat, ContactThreatPort, ControlHold,
+    ControlHoldPort, KineticHazard, KineticHazardPort, PosePin, PosePinPort, WorldContact,
+};
 pub use hold::{BodyHold, BodyHoldPort};
 pub use ledge::{BodyLine, BodyLinePort, LedgeAhead, LedgeAheadPort, LedgeSight, OnGroundPort, LEDGE_SEARCH_REACH};
 pub use special::{

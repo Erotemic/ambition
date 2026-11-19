@@ -268,8 +268,9 @@ mod authority_split_tests {
 /// `body_contact_damage` says.
 ///
 /// Not a second authority: the system that owns the body's canonical state
-/// re-derives it every tick BEFORE the contact pass reads it (a Mary-O snake
-/// from its `SnakeShell` phase), so it cannot disagree with that state at a read. That keeps [`ActorTuning`] what it
+/// re-derives it every tick BEFORE the contact pass reads it (a Mary-O snake's
+/// shell module from its shell phase, `ambition.body.contact_threat`), so it
+/// cannot disagree with that state at a read. That keeps [`ActorTuning`] what it
 /// is — construction input — instead of a row a content state machine rewrites
 /// every tick. Absent means nothing has withdrawn the threat.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]

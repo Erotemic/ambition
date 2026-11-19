@@ -95,10 +95,10 @@ scope = "game"
 kind = "dependency-allowlist"
 owners = ["ambition_platformer2d"]
 watch_paths = ["game/ambition_demo_sanic/Cargo.toml"]
-rationale = "Sanic demo depends on the umbrella plus its own content only; the pure MOVE VOCABULARY is not the engine and a move table must not reach it through a crate that links Bevy (fast-iteration I1). Build scripts use the pack compiler and the shared sprite schema; normal engine dependencies still use the facade."
+rationale = "Sanic demo depends on the umbrella plus its own content only; the pure MOVE VOCABULARY is not the engine and a move table must not reach it through a crate that links Bevy (fast-iteration I1); his contact rules are his own content, as modules (fast-iteration I2/I3). Build scripts use the pack compiler and the shared sprite schema; normal engine dependencies still use the facade."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d", "ambition_entity_catalog"]
+allow = ["ambition_platformer2d", "ambition_entity_catalog", "ambition_demo_sanic_modules"]
 manifest = "game/ambition_demo_sanic/Cargo.toml"
 # `build.rs` embeds the pack `assets/pack.ron` lists (`ambition_content_pack::embed`).
 allow_build = ["ambition_content_pack", "ambition_sprite_part_format"]
@@ -165,6 +165,11 @@ allow = [
     "ambition_demo_twintrack",
     "ambition_sim_harness",
     "ambition_causal",
+    # The visible app as a hosted world's host or guest, behind the
+    # `hosted_world` feature (NET-AUTHORITY-EXPERIMENT).
+    "ambition_hosted_world",
+    # The content validator ships with the runtime (P6 step 6), off wasm.
+    "ambition_content_schemas",
 ]
 manifest = "game/ambition_app/Cargo.toml"
 # `build.rs` embeds the pack `assets/pack.ron` lists (`ambition_content_pack::embed`).
@@ -636,6 +641,21 @@ severity = "error"
 exact = true
 allow = ["ambition_extension_sdk", "ambition_combat_port"]
 manifest = "game/ambition_demo_mary_o_modules/Cargo.toml"
+
+# Sanic's contact rules that are modules (the badnik's squash), on the same
+# terms (fast-iteration I2/I3, `body_contact`).
+[[policy]]
+id = "game.ambition_demo_sanic_modules-portable-closure"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition_demo_sanic_modules"]
+watch_paths = ["game/ambition_demo_sanic_modules/Cargo.toml"]
+rationale = "a Sanic module names the SDK and the pure port values it uses; never the host, Bevy or the Sanic crate, so an edit to it compiles it alone"
+source_doc = "docs/planning/engine/fast-iteration-implementation.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_sdk", "ambition_combat_port"]
+manifest = "game/ambition_demo_sanic_modules/Cargo.toml"
 
 # Smash's specials that are modules (the riposte), on the same terms.
 [[policy]]

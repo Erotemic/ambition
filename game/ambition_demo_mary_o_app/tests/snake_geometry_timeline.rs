@@ -66,16 +66,19 @@ fn observe(app: &mut bevy::prelude::App, ticks: usize, label: &str) -> Vec<(Stri
     for tick in 0..ticks {
         app.update();
         let world = app.world_mut();
+        let shells: std::collections::BTreeMap<_, _> = ambition_demo_mary_o::snake::snakes(world).into_iter().collect();
         let mut q = world.query::<(
             bevy::prelude::Entity,
-            &ambition_demo_mary_o::snake::SnakeShell,
             Option<&BodyKinematics>,
             Option<&CenteredAabb>,
             Option<&ActorRenderSize>,
             Option<&ActorSpriteOffset>,
             Option<&SpritePosedBody>,
         )>();
-        for (e, shell, kin, aabb, render, offset, posed) in q.iter(world) {
+        for (e, kin, aabb, render, offset, posed) in q.iter(world) {
+            let Some(shell) = shells.get(&e) else {
+                continue;
+            };
             // A shell that is no longer walking has legitimately changed its
             // box (a stomp shrinks it). Nothing stomps in this composition, but
             // saying so keeps the arm about construction rather than about

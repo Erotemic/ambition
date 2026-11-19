@@ -6,6 +6,12 @@ export. Stream instance rows and bound each exporter process separately.
 Retain the raw trace if export fails. Compiler concurrency and exporter RAM
 are separate choices.
 
+The live game and collector need separate scopes too. Calculate their budget
+after the warm build. If the game reaches its limit, the collector must stay
+alive to save the trace. Lower the collector's recording threshold to leave
+space for saving inside its own hard limit. Record each scope's result so a
+timed shutdown and a scope OOM can be distinguished.
+
 A scope limit does not reserve RAM against growth in other jobs. Large exports
 and full integration-test runs can still exhaust a small VM when they overlap.
 Measure those jobs separately.

@@ -759,17 +759,23 @@ def build_summary(bundle: Bundle) -> str:
 
     if meta.get("memory_scope"):
         section(lines, "Profiling resources")
+        runtime = dict(line.split("=", 1) for line in bundle.read("tracy-runtime-memory.txt").splitlines() if "=" in line)
         lines += [
             "| setting | value |",
             "| --- | --- |",
             f"| build jobs | {meta.get('cargo_jobs', '?')} |",
             f"| memory scope | {meta['memory_scope']} |",
             f"| scope RAM limit (MiB) | {meta.get('memory_limit_mib', '?')} |",
-            f"| collector RAM limit | {meta.get('tracy_memory_percent', '?')}% of system RAM |",
+            f"| Tracy runtime budget (MiB) | {meta.get('tracy_runtime_memory_mib', '?')} |",
+            f"| Tracy game RAM limit (MiB) | {runtime.get('game_limit_mib', '?')} |",
+            f"| Tracy collector RAM limit (MiB) | {runtime.get('collector_limit_mib', '?')} |",
+            f"| collector save threshold | {runtime.get('collector_percent', meta.get('tracy_memory_percent', '?'))}% of system RAM |",
             f"| exporter RAM limit (MiB) | {meta.get('tracy_export_memory_mib', '?')} |",
             "",
-            "The scope covers profiler child processes. An attached game process",
-            "is outside this scope. Memory snapshots are in `memory-*.txt`.",
+            "Tracy runtime scopes, when enabled, cover the launched game and collector",
+            "separately after compilation. Attached games are outside these scopes.",
+            "Limits and scope results are in `tracy-runtime-memory.txt`; host memory",
+            "snapshots are in `memory-*.txt`.",
             "",
         ]
 

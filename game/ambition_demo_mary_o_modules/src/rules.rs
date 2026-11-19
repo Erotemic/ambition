@@ -60,3 +60,48 @@ impl Port for StompRulesPort {
         })
     }
 }
+
+/// The shell rules of her snakes (`shell` in `mary_o_rules.ron`).
+pub struct ShellRulesPort;
+
+/// The shell rules of her snakes, as her pack states them.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ShellRules {
+    /// The speed (px per second) of a kicked shell.
+    pub slide_speed: f32,
+    /// The damage a running shell does to what it runs down.
+    pub damage: i32,
+    /// How long (s) a freshly kicked shell spares the body that kicked it.
+    pub kick_grace_seconds: f32,
+    /// How long (s) each stage of the withdraw lasts.
+    pub retreat_seconds: f32,
+    pub boxed_seconds: f32,
+    pub peek_seconds: f32,
+    pub emerge_seconds: f32,
+}
+
+impl Port for ShellRulesPort {
+    const KEY: PortKey = PortKey::new("mary_o.rules.shell", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = ShellRules;
+
+    fn encode(v: &ShellRules, out: &mut Vec<u8>) {
+        wire::put_f32(out, v.slide_speed);
+        wire::put_i32(out, v.damage);
+        for seconds in [v.kick_grace_seconds, v.retreat_seconds, v.boxed_seconds, v.peek_seconds, v.emerge_seconds] {
+            wire::put_f32(out, seconds);
+        }
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<ShellRules, WireError> {
+        Ok(ShellRules {
+            slide_speed: r.f32()?,
+            damage: r.i32()?,
+            kick_grace_seconds: r.f32()?,
+            retreat_seconds: r.f32()?,
+            boxed_seconds: r.f32()?,
+            peek_seconds: r.f32()?,
+            emerge_seconds: r.f32()?,
+        })
+    }
+}

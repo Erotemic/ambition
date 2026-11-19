@@ -359,7 +359,9 @@ before you add a port.
 
 **Delivered migrations:** GNU-ton's conductor and its boss/mount ports,
 actor-think S1-S3 (the Void Lizard and Laden Swallow), body-contact C1/C2
-(AI Slop and Laden Swallow squash), and the fighter-special F1-F14 route
+(AI Slop and Laden Swallow squash), the Sanic badnik squash and the Mary-O
+snake shell (2026-11-19), and
+the fighter-special F1-F14 route
 (riposte, module entity/spring, sleep/song, dilation, resource refill,
 parry/counter, homing, mark, bomb/mine, steered bolt, tether, portal recovery,
 and shark ride). Their native duplicate systems were removed. The SDK/host
@@ -368,19 +370,47 @@ modules. This is completion history, **not** another list of work to redo.
 
 **Remaining customer migrations and dependencies:**
 
-1. **Mary-O snake shells:** their native `snake.rs` timers and velocities
-   still need module-owned per-body state (box timer, slide speed, kick grace),
-   wall-contact observations, and the same provider-owned stomp facts. Do not
-   duplicate those facts as module constants. Preserve room isolation and
-   body-contact ordering.
-2. **Sanic badnik:** migrate contact consequences through `body_contact`
-   using the existing owner of the toucher's rolling fact (currently the
-   demo's `ball_dash::Rolling`) and contact-harm rule
-   (`Empowerment::HARMS_ON_CONTACT`), without manufacturing a second
-   source of truth. The provider-owned `sanic_rules.ron` bounce speed and
-   stomp band must be exposed through a provider observation, following
-   Mary-O's `mary_o.rules.stomp` precedent. Its current multi-participant,
-   per-room contact behavior is already guarded; preserve it.
+1. **Mary-O snake shells: DONE 2026-11-19.**
+   `ambition_demo_mary_o_modules::shell` is the snake's `body_contact` entry.
+   That trigger invokes it for each snake every tick, touched or not, so its
+   timers run on the tick (`inv.dt()`).
+   - **State.** The phase, its time left, the slide's direction and the
+     kick's credit (a body reference, the kicker's `SimId`) are the snake's
+     record (`mary_o::snake.shell`).
+   - **Rules.** Her pack's shell timings arrive through `mary_o.rules.shell`;
+     the band, bounce and dust are the same `mary_o.rules.stomp` her squash
+     reads.
+   - **New `body_contact` requests (engine side).** The contact threat
+     withdrawn, a control hold, a pose pin, a toucher's pogo cue, and a
+     kinetic hazard: the running shell, on no side, credited to its kicker,
+     sparing it for the grace.
+   - **Reused.** `ambition.motion.velocity` is now offered in `body_contact`.
+   - **Deleted.** The native `run_snake_shells`, `SnakeShell` and
+     `ShellKickCredit` components, the cast's carried component and their
+     rollback rows. The snake's record is the host's rollback state
+     (`BodyRecords`).
+   - **Tests.** The pure step's cases are module tests. App tests read the
+     phase through `snake::shell_of` / `snake::snakes`.
+   - **Behaviour change.** A snake that dies mid-slide is never invoked
+     again, so its velocity is not zeroed. Friction stops it in about half a
+     second (measured: 67 px from 300 px/s), and it deals no hits.
+2. **Sanic badnik: DONE 2026-11-19.** `ambition_demo_sanic_modules::badnik`
+   is one `body_contact` entry for each of his six badnik kinds. It reads
+   `sanic.rules.badnik` (the stomp band, the bounce, the squash bursts and
+   the cue, projected from `sanic_rules.ron`), and `sanic.contact.touchers`.
+   That second observation is a context observation: whether each toucher of
+   this contact rolls (`ball_dash::Rolling`) and whether its touch harms
+   (`Empowerment::HARMS_ON_CONTACT`), asked of their owners at each
+   invocation. The native `defeat_badniks` is deleted. The witness
+   `ambition_demo_sanic_app/tests/badniks_are_squashed.rs` covers:
+   - a stomp on each kind, at the pack's bounce;
+   - a roll and a harming touch from the side;
+   - a plain side touch as the control;
+   - a second player of the room, and one of another room.
+
+   The touchers are the trigger's, so they need real surface contact. The
+   native rule also took feet up to `stomp.band` above the head, without
+   overlap; a falling body reaches the overlap in a tick.
 3. **Other native demo consumers:** the Snake Plant's path/pose behavior is
    an `actor_think` customer rather than a body-contact rule. Sanic ball dash
    and any remaining move-invoked technique need a concrete domain-port

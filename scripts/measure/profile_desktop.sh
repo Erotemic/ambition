@@ -117,7 +117,7 @@ smash_seconds="0"
 # nobody ever recorded.
 record_history="yes"
 cargo_jobs=""
-memory_limit_mib="auto"
+memory_limit_mib="0"
 memory_scope="disabled"
 tracy_memory_percent="10"
 
@@ -249,9 +249,9 @@ Options:
   -j, --jobs N            Cargo parallel job count, passed to ./run_game.sh for
                            both the warm build and the launch. Default: Cargo's
                            job count, including CARGO_BUILD_JOBS when set.
-  --memory-limit-mib N    Linux profile scope RAM limit. Default: auto, the
-                           smaller of half available RAM and a quarter of
-                           total RAM. Use 0 to disable the scope limit.
+  --memory-limit-mib N    Optional Linux profile scope RAM limit. Default: 0
+                           (disabled). auto uses the smaller of half available
+                           RAM and a quarter of total RAM; includes builds.
   --tracy-memory-percent N  Collector limit as percent of total RAM. Default: 10.
   -o, --out DIR           Output base directory. Default: profiles/ (untracked,
                           outside target/ so it survives `cargo clean`).

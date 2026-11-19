@@ -105,6 +105,9 @@
         frame_sample_inset: 1,
         body_centered: true,
         authored_faces_left: false,
+        // Drawn from its character's PARTS (npc_giant_gnu: the same sheet), row by
+        // row by name, where rigged sprites are admitted.
+        parts: Some("npc_giant_gnu"),
     ),
     // GNU-ton, the scholar who rides the giant: the sheet `gnu_ton_scholar_boss`
     // (the rigged scholar; 248x262 frames). The frame is drawn 96 px of basis

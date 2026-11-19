@@ -205,21 +205,13 @@ check_tracy() {
         note "it appears once a profiling build has fetched tracy-client-sys"
         return
     fi
-    local cache_dir built
-    cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ambition"
-    built="$(ls -d "$cache_dir"/tracy-* 2>/dev/null | sed 's#.*/tracy-##' | sort -V | tail -1)"
-    if [[ -z "$built" ]]; then
-        warn "no Tracy source tree in $cache_dir; cannot tell which version was built"
-        note "the client the game links is $client_version"
-    elif [[ "$client_version" == "$built" ]]; then
-        ok "Tracy versions agree on $client_version (client vendored, server built from cache)"
+    local version_check
+    if version_check="$("$(dirname "${BASH_SOURCE[0]}")/install_profiling_tools.sh" --check 2>&1)"; then
+        ok "Tracy tools match the locked client version $client_version"
     else
-        bad "Tracy MISMATCH: the game links $client_version, the built server is $built"
-        note "⚠ a mismatch does NOT error. tracy-capture connects and is REFUSED, and"
-        note "  the run loses its per-system zones. The bundle now names the reason"
-        note "  (PROTOCOL MISMATCH); before 2026-09-01 it said 'the game never"
-        note "  connected', which reads like a game bug and sent readers to the wrong half."
-        note "run: ./scripts/setup/install_profiling_tools.sh   (Tracy only — no submodules, venvs or asset regen)"
+        bad "Tracy tools do not match the locked client version $client_version"
+        note "$version_check"
+        note "run: ./scripts/setup/install_profiling_tools.sh"
     fi
 }
 

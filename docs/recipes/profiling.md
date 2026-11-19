@@ -88,6 +88,7 @@ needs additional desktop libraries.
 To install or repair only the Tracy CLI tools, run
 `./scripts/setup/install_profiling_tools.sh`. It uses one build job by default.
 Set `CMAKE_BUILD_PARALLEL_LEVEL` to select another job count.
+The version check reads the executables selected by `PATH`.
 
 Use Rust's default linker for native Linux builds. Both Rust and native
 constructors must run. After a linker configuration change, rebuild the

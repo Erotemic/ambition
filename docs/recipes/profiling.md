@@ -88,10 +88,17 @@ needs additional desktop libraries.
 To install or repair only the Tracy CLI tools, run
 `./scripts/setup/install_profiling_tools.sh`. It uses one build job by default.
 Set `CMAKE_BUILD_PARALLEL_LEVEL` to select another job count.
+The version check reads the executables selected by `PATH`.
 
-Use Rust's default linker for native Linux builds. Both Rust and native
-constructors must run. After a linker configuration change, rebuild the
-profiling binary. The first build can require a full rebuild of dependencies.
+Native x86-64 Linux builds use the pinned mold linker. Run
+`./scripts/setup/native_linker.sh --install` once on each machine. The developer
+setup also runs this step. The linker driver selects the installed binary by
+its absolute path, so an older system mold cannot take precedence.
+
+Both Rust and native constructors must run. mold 1.0.3 omitted Tracy's native
+constructor table in an observed desktop build; mold 2.42.1 passes the native
+constructor probe. After a linker configuration change, rebuild the profiling
+binary. The first build can require a full rebuild of dependencies.
 
 Two layers of in-process instrumentation are wired in:
 

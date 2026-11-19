@@ -24,18 +24,24 @@ thing, or to assemble a lighter setup than the default.
 |---|---|---|
 | `system_packages.sh` | host apt packages for a desktop build and the asset pipeline | — |
 | `rust_toolchain.sh` | rustup + stable + rustfmt/clippy/llvm-tools | — |
+| `native_linker.sh --install` | installs the pinned Linux mold linker in the user cache and checks the archive checksum | system packages |
 | `submodules.sh` | initializes the authoring submodules and keeps each on its `main` at `origin/main` when that overwrites and orphans nothing, when the superproject is on `main` (development) and moves nothing present on a detached HEAD or non-`main` branch (review; `--follow-main` overrides); `--bump-pins` stages lagging pins. Policy: [`docs/recipes/submodules.md`](../../docs/recipes/submodules.md) | — |
 | `resource_tally.sh` | arms the accounting git hook | — |
 | `python_tools.sh` | a per-machine venv for each authoring tool, plus the `scripts/` environment. `--verify` checks without installing | submodules |
 | `audio_libraries.sh` | sampled instruments + sfizz. `--status` reports what this machine has | system packages |
 | `generated_content.sh` | every runtime asset, plus the `.agent/` navigation index | python tools, audio libraries |
-| `desktop_check.sh` | `cargo fetch --locked` + checks `ambition_app` | rust, submodules |
+| `desktop_check.sh` | `cargo fetch --locked` + checks `ambition_app` | rust, native linker, submodules |
 | `profiling_tools.sh` | ⭐ the ONLY thing the default run leaves out — `--profile` | rust |
 
-The first four are independent of each other and safe to run in any order or
-concurrently; the rest follow the dependencies in the last column. The umbrella
-runs them sequentially because apt takes a machine-wide lock and the asset
-pipeline already saturates the CPU on its own.
+The phases follow the dependencies in the last column. The umbrella runs them
+in order because apt takes a machine-wide lock and the asset pipeline uses the
+available CPU capacity.
+
+Native x86-64 Linux Cargo builds use `native_linker.sh` to select mold 2.42.1
+by its absolute path. This prevents clang from selecting an older system copy.
+Run `scripts/setup/native_linker.sh --install` once on each machine, or use the
+umbrella setup. `--check` reports the installed version. A build does not download
+tools. Other Cargo targets retain their own linker configuration.
 
 ⛔ **`audio_libraries.sh` IS NOT OPTIONAL FOR A COMPLETE SETUP.** Without it
 every sampled instrument becomes a General-MIDI stand-in that nothing downstream

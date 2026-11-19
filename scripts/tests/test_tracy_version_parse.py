@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts/setup/install_profiling_tools.sh"
@@ -39,7 +40,7 @@ constexpr int Patch = 3;
 """
 
 
-def print_version_with(header: str, tmp_path: Path) -> subprocess.CompletedProcess:
+def print_version_with(header: str, tmp_path: Path, mode="--print-version") -> subprocess.CompletedProcess:
     """Run the real script against a fixture cargo registry."""
     script = tmp_path / "repo/scripts/setup/install_profiling_tools.sh"
     script.parent.mkdir(parents=True)
@@ -54,10 +55,10 @@ def print_version_with(header: str, tmp_path: Path) -> subprocess.CompletedProce
     vendored.mkdir(parents=True)
     (vendored / "TracyVersion.hpp").write_text(header)
     return subprocess.run(
-        ["bash", str(script), "--print-version"],
+        ["bash", str(script), mode],
         capture_output=True,
         text=True,
-        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "CARGO_HOME": str(tmp_path)},
+        env={"PATH": f"{tmp_path}/.local/bin:/usr/bin:/bin", "HOME": str(tmp_path), "CARGO_HOME": str(tmp_path)},
     )
 
 
@@ -77,6 +78,23 @@ def test_cached_older_clients_do_not_select_the_tool_version(tmp_path):
     proc = print_version_with(HEADER, tmp_path)
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "0.14.3"
+
+
+@pytest.mark.parametrize("capture_version,export_version,expected", [
+    ("0.14.3", "0.14.3", 0),
+    ("0.13.1", "0.13.1", 1),
+    ("0.14.3", "0.13.1", 1),
+])
+def test_check_uses_active_tools_instead_of_cached_sources(tmp_path, capture_version, export_version, expected):
+    (tmp_path / ".cache/ambition/tracy-0.14.3").mkdir(parents=True)
+    binaries = tmp_path / ".local/bin"
+    binaries.mkdir(parents=True)
+    for name, version in [("tracy-capture", capture_version), ("tracy-csvexport", export_version)]:
+        binary = binaries / name
+        binary.write_text(f"#!/bin/sh\nprintf '{name} {version} / test\\n'\n")
+        binary.chmod(0o755)
+    proc = print_version_with(HEADER, tmp_path, "--check")
+    assert proc.returncode == expected, proc.stdout + proc.stderr
 
 
 def test_a_header_it_cannot_parse_fails_loudly_instead_of_inventing_a_version(tmp_path):

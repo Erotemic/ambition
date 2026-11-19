@@ -98,11 +98,15 @@ fi
 [ "$mode" = "print" ] && { printf '%s\n' "$version"; exit 0; }
 
 installed="(none)"
-if [ -x "$bin_dir/tracy-capture" ]; then
-    installed="$(ls -d "$cache_dir"/tracy-* 2>/dev/null | sed 's#.*/tracy-##' | sort -V | tail -1)"
-    [ -n "$installed" ] || installed="(unknown)"
+if have tracy-capture && have tracy-csvexport; then
+    capture_version="$(tracy-capture -h 2>&1 | awk '$1 == "tracy-capture" { print $2; exit }' || true)"
+    export_version="$(tracy-csvexport --version 2>&1 | awk '$1 == "tracy-csvexport" { print $2; exit }' || true)"
+    installed="(unknown or mixed)"
+    if [ -n "$capture_version" ] && [ "$capture_version" = "$export_version" ]; then
+        installed="$capture_version"
+    fi
 fi
-log "the game speaks Tracy $version; installed server: $installed"
+log "the game speaks Tracy $version; active tools: $installed"
 
 if [ "$mode" = "check" ]; then
     [ "$installed" = "$version" ] && { log "versions agree"; exit 0; }
@@ -111,7 +115,7 @@ if [ "$mode" = "check" ]; then
     exit 1
 fi
 
-if [ "$installed" = "$version" ] && [ -x "$bin_dir/tracy-csvexport" ]; then
+if [ "$installed" = "$version" ]; then
     log "already installed"
     exit 0
 fi

@@ -69,11 +69,10 @@ Each schema has its own record on the invocation body or session. Give
 independent instances distinct schema keys. Modules from one provider must
 also use distinct keys for independent state. A factory can select field
 initial values and the existing transient, checkpoint, or durable save policy.
-Use ordinary parameters for behavior variation. Persistent records currently hold
-scalars, vectors, optional values, bounded sequences, and body or item
-references. Named nested records and bounded text fields still need SDK work.
-Use the [census](../planning/engine/script-first-capability-census.md) to track
-that data-composition gap.
+Use ordinary parameters for behavior variation. Persistent records support
+scalars, vectors, options, bounded sequences and text, body and item references,
+and nested records. A library can return reusable record-kind declarations.
+See [structured state](script-state.md) for composition and save rules.
 
 A behavior library can return updated state and native requests, or accept and
 return the invocation context. The entry still declares its trigger, reads,

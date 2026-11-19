@@ -141,8 +141,8 @@ Keep the full capability program open while these contracts lack evidence:
   handle competition and refusal. Prove room duplication, travel, retirement,
   replay and live edits through the real host, with portable parity and costs.
 
-References and subject payloads are under implementation. Directed calls,
-behavior attachment, general discovery and event subscriptions are not complete.
+Typed references and subject payloads are implemented. Directed calls, behavior
+attachment, general discovery and event subscriptions are not complete.
 
 The remaining contracts need more than aliases: general world-object
 activation and composition, actor lifetime, equipment/custody outcomes,
@@ -598,3 +598,19 @@ Do not treat output bounds as a fixed collection budget. Every-body Rhai
 polling still takes about 85 ms per complete debug step with 512 observers.
 Release and device budgets, the separate room-story polling cost, scoped
 script birth subscriptions, and the general object/event model remain open.
+
+## Live occurrence references
+
+Authored names could not retain one live occurrence in script state. Typed
+`ObjectRef` values now share one native resolver across object facets and
+room or session allocation. Creation and body queries return these references.
+State validation rejects checkpoint and durable capture. Commit: `97a3a16f8`.
+
+The guard is the Rhai and actual WASM reference fixture in
+[`scripted_action_results.rs`](../../../game/ambition_app/tests/scripted_action_results.rs).
+It checks equal authored IDs, travel, retirement, replacement, session state
+and GGRS replay. The focused assembled run passed 43 tests with one ignored.
+The default-feature app compiled without warnings. Five portable module
+artifacts rebuilt. Workspace policy retained its 11 baseline violations;
+this change added none. Browser, mobile and the full workspace were not run.
+See [object references](../../sdk/object-references.md).

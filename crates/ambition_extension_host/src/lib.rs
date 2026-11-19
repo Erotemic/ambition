@@ -46,6 +46,7 @@ pub use exec::{
     InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick, InTechniqueExecution,
     InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn, PendingInvocation, ScopePace,
     Submitted, Supplier, ObservationContext, ExtensionProfile, EntryProfile,
+    InvocationReceipt, InvocationEvent,
 };
 pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
 

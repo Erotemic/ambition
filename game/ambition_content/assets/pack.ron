@@ -33,6 +33,7 @@
     sources: [
         (path: "data/actor_creation_rules.ron", schema: "actor_creation_rules", version: 1),
         (path: "data/breakable_creation_rules.ron", schema: "breakable_creation_rules", version: 1),
+        (path: "data/action_delivery_rules.ron", schema: "action_delivery_rules", version: 1),
         (path: "data/dialogue_settings.ron", schema: "dialogue_settings", version: 1),
         (path: "data/cutscene_settings.ron", schema: "cutscene_settings", version: 1),
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),

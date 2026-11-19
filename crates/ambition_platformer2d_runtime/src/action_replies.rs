@@ -5,7 +5,7 @@ use ambition_extension_host::{
 };
 use ambition_extension_sdk::{action::*, phases::*};
 use ambition_platformer2d_shared_tangle::{
-    action_results::{self, ActionDispatch, ActionMailbox, ActionRecipient},
+    action_results::{self, ActionDeliveryPolicy, ActionDispatch, ActionMailbox, ActionRecipient},
     lifecycle::{ObjectOccurrence, RoomFreeze, SessionScopedEntity},
     sim_id::SimId,
 };
@@ -111,6 +111,7 @@ fn queue_replies(
         &mut ActionMailbox,
     )>,
     mut invocations: ResMut<ExtensionInvocations>,
+    policies: ambition_platformer2d_world::governing_rules::RulesOf<ActionDeliveryPolicy>,
 ) {
     let mut order: Vec<_> = scopes
         .iter()
@@ -133,7 +134,8 @@ fn queue_replies(
         if time.sim_dt() <= 0.0 || pace.scale_of(entity) <= 0.0 {
             continue;
         }
-        for (path, result) in mailbox.take_ready(tick.0, |ticket, path| {
+        let policy = policies.of(entity).copied().unwrap_or_default();
+        for (sequence, path, result) in mailbox.queue_ready(tick.0, policy, |ticket, path| {
             ambition_extension_host::reply_entry::<ActionResultPort>(
                 &admitted.0,
                 &ticket.entry,
@@ -148,14 +150,33 @@ fn queue_replies(
                 .iter()
                 .find(|entry| entry.path == path)
                 .unwrap();
-            invocations.trigger_entry::<ActionResultPort>(
+            invocations.trigger_entry_with_receipt::<ActionResultPort>(
                 &ACTOR_THINK,
                 path,
                 entry.descriptor.trigger.selector.clone(),
                 entity,
                 result,
+                ambition_extension_host::InvocationReceipt {sequence, notify: settle_delivery},
             );
         }
+    }
+}
+
+fn settle_delivery(world: &mut World, scope: Entity, sequence: u64,
+    event: ambition_extension_host::InvocationEvent) {
+    use ambition_extension_host::InvocationEvent;
+    let tick = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
+    let policy = if matches!(&event, InvocationEvent::Faulted) {
+        let mut state = bevy::ecs::system::SystemState::<
+            ambition_platformer2d_world::governing_rules::RulesOf<ActionDeliveryPolicy>>::new(world);
+        state.get(world).ok().and_then(|rules| rules.of(scope).copied()).unwrap_or_default()
+    } else { ActionDeliveryPolicy::default() };
+    let Some(mut mailbox) = world.get_mut::<ActionMailbox>(scope) else { return; };
+    match event {
+        InvocationEvent::Started => mailbox.delivery_started(sequence, tick),
+        InvocationEvent::Committed => mailbox.delivery_committed(sequence),
+        InvocationEvent::Faulted => mailbox.delivery_faulted(sequence, policy),
+        InvocationEvent::Unavailable | InvocationEvent::Retired | InvocationEvent::IdleReset => mailbox.delivery_unavailable(sequence),
     }
 }
 

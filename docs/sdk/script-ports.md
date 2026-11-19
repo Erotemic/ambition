@@ -449,13 +449,13 @@ Port `ambition.actions.result@1`, trigger: read as `this.trigger`.
 
 ## `action_history`
 
-Port `ambition.actions.history@1`, observation: read as `this.observe.<alias>`.
+Port `ambition.actions.history@2`, observation: read as `this.observe.<alias>`.
 
 | field | value | meaning |
 |---|---|---|
 | `next_sequence` | text |  |
 | `dropped` | text |  |
-| `entries` | list of { sequence: text, result: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text }, stage: one of: submitted \| admitted \| applied \| completed \| rejected \| canceled \| failed, terminal: bool, tick: text, code: text, message: text, subjects: list of text } } |  |
+| `entries` | list of { sequence: text, result: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text }, stage: one of: submitted \| admitted \| applied \| completed \| rejected \| canceled \| failed, terminal: bool, tick: text, code: text, message: text, subjects: list of text }, handler: text, delivery: one of: waiting \| queued \| invoked \| acknowledged \| faulted \| quarantined \| unbound \| retired, attempts: integer (u32), last_attempt: text or (), last_error: text or () } |  |
 
 ## `story_tick`
 

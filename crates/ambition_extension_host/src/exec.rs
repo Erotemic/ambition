@@ -35,6 +35,23 @@ use crate::store::{BodyRecords, RecordSet, SessionRecords};
 use ambition_extension_sdk::Attachment;
 use crate::AdmittedExtensions;
 
+/// Native delivery owners observe the actual invocation boundary.
+pub enum InvocationEvent {
+    Started,
+    Committed,
+    Faulted,
+    Unavailable,
+    Retired,
+    IdleReset,
+}
+
+/// A receipt stays inside one phase. It is not guest data or snapshot state.
+#[derive(Clone, Copy)]
+pub struct InvocationReceipt {
+    pub sequence: u64,
+    pub notify: fn(&mut World, Entity, u64, InvocationEvent),
+}
+
 /// One queued trigger.
 pub struct PendingInvocation {
     pub phase: Phase,
@@ -50,6 +67,15 @@ pub struct PendingInvocation {
     /// The trigger's domain says nothing is happening for this scope this
     /// tick. An entry with `IdlePolicy::ResetState` is not called.
     pub idle: bool,
+    receipt: Option<InvocationReceipt>,
+}
+
+impl PendingInvocation {
+    fn notify(&self, world: &mut World, event: InvocationEvent) {
+        if let Some(receipt) = self.receipt {
+            (receipt.notify)(world, self.scope, receipt.sequence, event);
+        }
+    }
 }
 
 /// The triggers queued in this phase.
@@ -81,6 +107,7 @@ impl ExtensionInvocations {
             value: Box::new(value),
             encode: encode_erased::<P>,
             idle,
+            receipt: None,
         });
     }
 
@@ -92,6 +119,15 @@ impl ExtensionInvocations {
     ) {
         self.trigger::<P>(phase, selector, scope, None, false, value);
         self.pending.last_mut().unwrap().entry = Some(entry.into());
+    }
+
+    /// Settle delivery after this directed entry commits or fails.
+    pub fn trigger_entry_with_receipt<P: Port>(
+        &mut self, phase: &Phase, entry: impl Into<Name>, selector: impl Into<Name>,
+        scope: Entity, value: P::Value, receipt: InvocationReceipt,
+    ) {
+        self.trigger_entry::<P>(phase, entry, selector, scope, value);
+        self.pending.last_mut().unwrap().receipt = Some(receipt);
     }
 
     pub fn is_empty(&self) -> bool {
@@ -262,6 +298,7 @@ pub struct FaultRecord {
     pub tick: u64,
     pub entry: Arc<str>,
     pub scope: Entity,
+    pub receipt_sequence: Option<u64>,
     pub fault: Fault,
 }
 
@@ -391,6 +428,16 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             .get_resource::<ambition_sim_schedule::SimulationReplayState>()
             .is_some_and(|replay| replay.replaying_history);
 
+        for invocation in pending.iter().filter(|invocation| invocation.receipt.is_some()) {
+            if !admitted.entries_in(&phase).any(|entry| {
+                invocation.entry.as_ref().is_some_and(|path| path.as_ref() == entry.path)
+                    && invocation.port == entry.descriptor.trigger.port
+                    && invocation.selector == entry.descriptor.trigger.selector
+            }) {
+                invocation.notify(world, InvocationEvent::Unavailable);
+            }
+        }
+
         for entry in admitted.entries_in(&phase) {
             let descriptor = &entry.descriptor;
             let path: Arc<str> = Arc::from(entry.path.as_str());
@@ -400,17 +447,20 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             }) {
                 let dt = dt * pace;
                 if world.get_entity(invocation.scope).is_err() {
+                    invocation.notify(world, InvocationEvent::Retired);
                     continue;
                 }
                 if invocation.idle {
                     if let Some(resets) = descriptor.on_idle.resets(&descriptor.writes) {
                         let resets: Vec<SchemaKey> = resets.cloned().collect();
                         reset_idle(world, &admitted, invocation.scope, &resets);
+                        invocation.notify(world, InvocationEvent::IdleReset);
                         continue;
                     }
                 }
                 let started = world.contains_resource::<ExtensionProfile>().then(Instant::now);
                 let mut backend_time = started.map(|_| Duration::ZERO);
+                invocation.notify(world, InvocationEvent::Started);
                 let result = read_state(world, &admitted, invocation.scope, session, &descriptor.writes)
                     .and_then(|state| match &entry.runner {
                     EntryRunner::Native(run) => {
@@ -439,6 +489,10 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                 });
 
                 let faulted = result.is_err();
+                let settlement = invocation.receipt.map(|_| match &result {
+                    Ok(_) => InvocationEvent::Committed,
+                    Err(_) => InvocationEvent::Faulted,
+                });
                 match result {
                     Ok((state, requests)) => {
                         commit(world, &admitted, invocation.scope, session, state);
@@ -466,9 +520,13 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                             tick,
                             entry: path.clone(),
                             scope: invocation.scope,
+                            receipt_sequence: invocation.receipt.map(|receipt| receipt.sequence),
                             fault,
                         });
                     }
+                }
+                if let Some(settlement) = settlement {
+                    invocation.notify(world, settlement);
                 }
                 if let Some(started) = started {
                     let total = started.elapsed();

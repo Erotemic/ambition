@@ -722,6 +722,10 @@ struct PackDerivedFamily {
 /// at the boundary.
 const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
     PackDerivedFamily {
+        domain: ambition_platformer2d_shared_tangle::action_results::ACTION_DELIVERY_RULES_SCHEMA,
+        publish: publish_action_delivery_rules,
+    },
+    PackDerivedFamily {
         domain: ambition_platformer2d_world::creation::BREAKABLE_CREATION_RULES_SCHEMA,
         publish: publish_breakable_creation_rules,
     },
@@ -1325,6 +1329,15 @@ fn publish_actor_creation_rules(world: &mut bevy::ecs::world::World,
         scoped_rules::{DeclaredRules, RulesScope}};
     let rules = pack.lowered::<ActorCreationLimits>(&ambition_content_pack::SchemaId::new(ACTOR_CREATION_RULES_SCHEMA));
     world.get_resource_or_insert_with(DeclaredRules::<ActorCreationLimits>::default)
+        .restate(RulesScope::UntaggedRooms, rules.copied());
+}
+
+fn publish_action_delivery_rules(world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack) {
+    use ambition_platformer2d_shared_tangle::action_results::{ActionDeliveryPolicy, ACTION_DELIVERY_RULES_SCHEMA};
+    use ambition_platformer2d_world::scoped_rules::{DeclaredRules, RulesScope};
+    let rules = pack.lowered::<ActionDeliveryPolicy>(&ambition_content_pack::SchemaId::new(ACTION_DELIVERY_RULES_SCHEMA));
+    world.get_resource_or_insert_with(DeclaredRules::<ActionDeliveryPolicy>::default)
         .restate(RulesScope::UntaggedRooms, rules.copied());
 }
 

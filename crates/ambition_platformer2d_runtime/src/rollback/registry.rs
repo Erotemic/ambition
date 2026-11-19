@@ -319,7 +319,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 494 -> 495: a technique transit remains on its body for the next tick.
 // 495 -> 496: object occurrence stamps and their room counters replace mailbox
 // identities. Mailboxes receive the occurrence when an action starts.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 496;
+// 496 -> 497: callback delivery retains attempts, fault status, and acknowledgement state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 497;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

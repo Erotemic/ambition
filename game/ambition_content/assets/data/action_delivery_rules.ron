@@ -1,0 +1,4 @@
+(
+    max_attempts: 3,
+    max_per_tick: 64,
+)

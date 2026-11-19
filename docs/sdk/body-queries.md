@@ -79,7 +79,7 @@ terminal rejection. Content reload replaces or removes the scoped budget.
 Removing it restores the engine defaults.
 
 The body retains at most 64 successful query results for correlated replies.
-Results and action delivery cursors are canonical rollback state. Retrying a
+Results and action delivery state are canonical rollback state. Retrying a
 request does not rerun the search at a later tick. Use a new request number
 for a new read.
 

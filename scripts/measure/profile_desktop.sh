@@ -120,6 +120,7 @@ cargo_jobs=""
 memory_limit_mib="0"
 memory_scope="disabled"
 tracy_memory_percent="10"
+tracy_export_memory_mib="auto"
 
 # Scenario markers AND the in-process censuses. A frame spike that does not
 # appear next to the chunk it happened in is a spike nobody can attribute.
@@ -253,6 +254,9 @@ Options:
                            (disabled). auto uses the smaller of half available
                            RAM and a quarter of total RAM; includes builds.
   --tracy-memory-percent N  Collector limit as percent of total RAM. Default: 10.
+  --tracy-export-memory-mib N  Exporter RAM limit, separate from builds.
+                           Default: auto (half available RAM or a quarter of
+                           total RAM, whichever is less). 0 disables it.
   -o, --out DIR           Output base directory. Default: profiles/ (untracked,
                           outside target/ so it survives `cargo clean`).
   --name NAME             Output directory suffix. Existing names are never
@@ -368,6 +372,8 @@ while [[ $# -gt 0 ]]; do
         --jobs=*) cargo_jobs="${1#--jobs=}"; is_positive_int "$cargo_jobs" || fail "--jobs must be a positive integer" ;;
         --memory-limit-mib) shift; [[ $# -gt 0 ]] || fail "--memory-limit-mib requires auto, 0, or a MiB count"; memory_limit_mib="$1" ;;
         --memory-limit-mib=*) memory_limit_mib="${1#--memory-limit-mib=}" ;;
+        --tracy-export-memory-mib) shift; [[ $# -gt 0 ]] || fail "--tracy-export-memory-mib requires auto, 0, or a MiB count"; tracy_export_memory_mib="$1" ;;
+        --tracy-export-memory-mib=*) tracy_export_memory_mib="${1#--tracy-export-memory-mib=}" ;;
         --tracy-memory-percent) shift; [[ $# -gt 0 ]] || fail "--tracy-memory-percent requires a percentage"; tracy_memory_percent="$1" ;;
         --tracy-memory-percent=*) tracy_memory_percent="${1#--tracy-memory-percent=}" ;;
         --census-hz) shift; [[ $# -gt 0 ]] || fail "--census-hz requires a value"; census_hz="$1" ;;
@@ -813,6 +819,35 @@ tracy_capture_running() {
     [[ "$state" != Z* && -n "$state" ]]
 }
 
+run_tracy_export() {
+    local out_dir="$1" stage="$2"; shift 2
+    local limit="$tracy_export_memory_mib" status
+    if [[ "$limit" == 0 ]]; then
+        tracy-csvexport "$@"
+        return $?
+    fi
+    if [[ ! -r /sys/fs/cgroup/cgroup.controllers ]] || ! have_tool systemd-run \
+            || ! systemctl --user show-environment >/dev/null 2>&1; then
+        log "Tracy export memory scope unavailable; retaining the raw trace. Use --tracy-export-memory-mib 0 to export without a limit."
+        return 1
+    fi
+    if [[ "$limit" == auto ]]; then
+        limit="$(awk '/^MemTotal:/ {total=$2} /^MemAvailable:/ {available=$2} END {a=available/2048; t=total/4096; print int(a<t?a:t)}' /proc/meminfo)"
+    fi
+    (( limit > 0 )) || { log "No RAM budget is available for Tracy export"; return 1; }
+    printf 'limit_mib=%s\n' "$limit" > "$out_dir/tracy-export-$stage-memory.txt"
+    log "Tracy $stage export RAM limit: $limit MiB (compiler and game are outside this scope)"
+    if systemd-run --user --scope --quiet --property="MemoryMax=${limit}M" \
+            tracy-csvexport "$@"; then
+        status=0
+    else
+        status=$?
+        log "Tracy $stage export failed (status $status, limit $limit MiB); the raw trace is retained"
+    fi
+    printf 'status=%s\n' "$status" >> "$out_dir/tracy-export-$stage-memory.txt"
+    return "$status"
+}
+
 finish_tracy_capture() {
     local out_dir="$1" capture_pid="${2:-}"
     [[ -n "$capture_pid" ]] || return 0
@@ -862,13 +897,13 @@ finish_tracy_capture() {
         log "Tracy produced no trace: $why"
         return 0
     fi
-    if ! tracy-csvexport "$out_dir/tracy.trace" > "$out_dir/tracy_zones.csv" 2>"$out_dir/tracy-csvexport.stderr"; then
+    if ! run_tracy_export "$out_dir" totals "$out_dir/tracy.trace" > "$out_dir/tracy_zones.csv" 2>"$out_dir/tracy-csvexport.stderr"; then
         log "tracy-csvexport failed; the raw tracy.trace is still in the bundle"
         echo "tracy-csvexport failed; see tracy-csvexport.stderr" > "$out_dir/tracy.skipped"
         return 0
     fi
     # A long trace emits millions of rows. Keep only per-window totals.
-    if tracy-csvexport --unwrap "$out_dir/tracy.trace" 2>"$out_dir/tracy-zone-export.stderr" \
+    if run_tracy_export "$out_dir" instances --unwrap "$out_dir/tracy.trace" 2>"$out_dir/tracy-zone-export.stderr" \
         | python3 "$repo_root/scripts/lib/tracy_zone_report.py" "$out_dir" "$census_hz" \
             --instances-stdin 2>"$out_dir/tracy-zone-report.stderr"; then
         rm -f "$out_dir/tracy_zone_instances.missing"
@@ -1117,6 +1152,7 @@ write_metadata() {
         echo "memory_limit_mib=$memory_limit_mib"
         echo "memory_scope=$memory_scope"
         echo "tracy_memory_percent=$tracy_memory_percent"
+        echo "tracy_export_memory_mib=$tracy_export_memory_mib"
         echo "profile_dir=$plan_profile_dir"
         echo "cargo_features=$plan_features"
         echo "package=$plan_package"
@@ -1793,6 +1829,7 @@ expose_tracy_diagnostic() {
 
 enter_memory_scope() {
     [[ "$memory_limit_mib" =~ ^(auto|0|[1-9][0-9]*)$ ]] || fail "--memory-limit-mib requires auto, 0, or a positive MiB count"
+    [[ "$tracy_export_memory_mib" =~ ^(auto|0|[1-9][0-9]*)$ ]] || fail "--tracy-export-memory-mib requires auto, 0, or a positive MiB count"
     is_positive_int "$tracy_memory_percent" && (( tracy_memory_percent <= 100 )) || fail "--tracy-memory-percent must be between 1 and 100"
     if [[ -n "${AMBITION_PROFILE_MEMORY_SCOPE_MIB:-}" ]]; then
         memory_limit_mib="$AMBITION_PROFILE_MEMORY_SCOPE_MIB"

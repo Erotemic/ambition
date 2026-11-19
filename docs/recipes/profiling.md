@@ -116,6 +116,13 @@ change the VM's settings.
 
 The Tracy collector stops recording at 10% of system RAM by default; change
 that with `--tracy-memory-percent N`. This is a percentage, not a MiB count.
+Each Tracy exporter runs in its own memory scope by default. Its RAM limit is
+the smaller of half available RAM and a quarter of total RAM, measured when
+that exporter starts. The exporter reloads the trace, so the collector's limit
+does not bound export memory. These scopes exclude the compiler and game.
+Use `--tracy-export-memory-mib N` to select another exporter limit, or `0` to
+disable it. If a user memory scope is unavailable, export is skipped and the
+raw trace is retained. `tracy-export-*-memory.txt` records limits and exit status.
 An early stop can leave a partial trace. Read the collector log and session
 span before comparing it with a complete run. `memory-*.txt` records host
 available RAM and cgroup memory events at build, capture, and report boundaries.

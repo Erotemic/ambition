@@ -175,6 +175,7 @@ fi
             "--smash", "--smash-fighters", "4", "--smash-seconds", "1",
             "--name", "unit", "--out", str(self.root / "profiles"),
             "--no-tracy", "--no-record", "--chunks", "2",
+            "--tracy-export-memory-mib", "0",
             *extra,
         ]
         # The script intentionally refuses a windowed Smash launch without a

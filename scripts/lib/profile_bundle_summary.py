@@ -766,6 +766,7 @@ def build_summary(bundle: Bundle) -> str:
             f"| memory scope | {meta['memory_scope']} |",
             f"| scope RAM limit (MiB) | {meta.get('memory_limit_mib', '?')} |",
             f"| collector RAM limit | {meta.get('tracy_memory_percent', '?')}% of system RAM |",
+            f"| exporter RAM limit (MiB) | {meta.get('tracy_export_memory_mib', '?')} |",
             "",
             "The scope covers profiler child processes. An attached game process",
             "is outside this scope. Memory snapshots are in `memory-*.txt`.",

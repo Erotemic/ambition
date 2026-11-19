@@ -80,8 +80,9 @@ pub fn queue_boss_conducts(
     live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // The authored placements of each live room: a predecessor whose body is
     // gone (its placement cleared, so not built again) is seen where it was
-    // authored.
-    specs: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    // authored. Optional: it reads the session's rooms, and a composition
+    // with no session (a bare boss under test) still conducts.
+    specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     // The tracked body, read now: `ActorTarget` holds where the boss last saw it.
     bodies: Query<(&ae::BodyKinematics, Option<&ambition_combat::moveset::MovePlayback>)>,
 ) {
@@ -112,7 +113,7 @@ pub fn queue_boss_conducts(
             })
         };
         let authored = |after: &str| {
-            let spawn = specs.spec_of(boss)?.boss_spawns.iter().find(|spawn| spawn.id == after)?;
+            let spawn = specs.as_ref()?.spec_of(boss)?.boss_spawns.iter().find(|spawn| spawn.id == after)?;
             use ae::AabbExt as _;
             let (at, size) = (spawn.aabb.center(), spawn.aabb.half_size() * 2.0);
             Some(Predecessor { position: [at.x, at.y], size: [size.x, size.y], side: 1.0, alive: false, hall: hall_at(at) })

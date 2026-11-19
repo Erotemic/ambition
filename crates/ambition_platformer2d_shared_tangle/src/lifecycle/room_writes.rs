@@ -44,6 +44,19 @@ impl RoomWrite {
     }
 }
 
+/// The host can rewind live rooms independently. A room location then defines
+/// a separate rollback authority for speculative delivery.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct RewindsGuestRooms;
+
+/// Direct delivery requires one rollback authority and one session.
+pub fn shares_simulation_island(world: &World, source: Entity, receiver: Entity) -> bool {
+    let Some(session) = world.get::<super::SessionScopedEntity>(source).map(|scope| scope.0) else { return false; };
+    if world.get::<super::SessionScopedEntity>(receiver).map(|scope| scope.0) != Some(session) { return false; }
+    !world.contains_resource::<RewindsGuestRooms>()
+        || super::object_scope_room(world, source) == super::object_scope_room(world, receiver)
+}
+
 type Retractor = fn(&mut World, LiveRoomInstance, u64);
 
 /// Every store that takes room writes, with its retractor.

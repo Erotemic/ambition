@@ -1,4 +1,4 @@
-//! One addressed delivery pass for typed action outcomes and object requests.
+//! One addressed delivery pass for typed outcomes, requests and native facts.
 
 use std::collections::BTreeMap;
 use ambition_extension_host::{AdmittedExtensions, ExtensionInvocations, ExtensionSet,
@@ -11,7 +11,7 @@ use bevy::{ecs::system::SystemState, prelude::*};
 use crate::object_behaviors::{self, BehaviorInstance};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Lane { Outcome, Request }
+pub(crate) enum Lane { Outcome, Request, Fact }
 
 /// Collection is transient. The domain journals retain all delivery progress.
 #[derive(Resource, Default)]
@@ -40,9 +40,14 @@ pub(crate) fn collect<T: Component>(lane: Lane) -> impl Fn(
     }
 }
 
-struct Candidate { written: u64, sequence: u64, path: String, origin: Option<ActionTicket>, lane: Lane }
+struct Candidate { written: u64, sequence: u64, path: String, origin: Option<ActionTicket>, event: Option<String>, lane: Lane }
 impl Candidate {
-    fn bound<'a>(&self, admitted: &'a ambition_extension_host::Admitted) -> Option<&'a ambition_extension_host::AdmittedEntry> {
+    fn bound<'a>(&self, admitted: &'a ambition_extension_host::Admitted, sources: &crate::behavior_events::NativeSources) -> Option<&'a ambition_extension_host::AdmittedEntry> {
+        if let Some(event) = &self.event {
+            let source = sources.get(event)?;
+            return admitted.entries.iter().find(|entry| entry.path == self.path && entry.descriptor.phase == ACTOR_THINK
+                && entry.descriptor.trigger.port == source.port && entry.descriptor.trigger.selector.as_ref() == source.selector);
+        }
         match &self.origin {
             Some(ticket) => ambition_extension_host::reply_entry::<ActionResultPort>(admitted, &ticket.entry, &self.path, &ACTOR_THINK),
             None => admitted.entries.iter().find(|entry| entry.path == self.path
@@ -74,11 +79,15 @@ fn deliver(world: &mut World, mut reads: Local<Option<DeliveryReads>>) {
         let mut candidates = Vec::new();
         if let Some(mailbox) = world.get::<ActionMailbox>(state) {
             candidates.extend(mailbox.deliveries().map(|(sequence, written, path, ticket)| Candidate {
-                sequence, written, path: path.into(), origin: Some(ticket.clone()), lane: Lane::Outcome }));
+                sequence, written, path: path.into(), origin: Some(ticket.clone()), event: None, lane: Lane::Outcome }));
         }
         if let Some(instance) = world.get::<BehaviorInstance>(state) {
             candidates.extend(instance.deliveries().map(|(sequence, written, path)| Candidate {
-                sequence, written, path: path.into(), origin: None, lane: Lane::Request }));
+                sequence, written, path: path.into(), origin: None, event: None, lane: Lane::Request }));
+        }
+        if let (Some(events), Some(instance)) = (world.get::<crate::behavior_events::EventMailbox>(state), world.get::<BehaviorInstance>(state)) {
+            candidates.extend(events.deliveries(instance).map(|(sequence, written, path, event)| Candidate {
+                sequence, written, path, origin: None, event: Some(event.into()), lane: Lane::Fact }));
         }
         // Admission follows age, then typed lane and local sequence. The host
         // retains its declared handler order when it executes the admitted batch.
@@ -86,7 +95,7 @@ fn deliver(world: &mut World, mut reads: Local<Option<DeliveryReads>>) {
         let mut allowance = policy.max_per_tick.get();
         for candidate in candidates {
             if allowance == 0 { break; }
-            let entry = candidate.bound(&admitted);
+            let entry = candidate.bound(&admitted, world.resource::<crate::behavior_events::NativeSources>());
             let scope = InvocationScope {subject, state};
             let queued = match candidate.lane {
                 Lane::Outcome => {
@@ -106,6 +115,19 @@ fn deliver(world: &mut World, mut reads: Local<Option<DeliveryReads>>) {
                         world.resource_mut::<ExtensionInvocations>().trigger_entry_with_receipt::<ObjectCallPort>(
                             &ACTOR_THINK, candidate.path, entry.unwrap().descriptor.trigger.selector.clone(), scope, value,
                             InvocationReceipt {sequence: candidate.sequence, notify: object_behaviors::settle});
+                        true
+                    } else { false }
+                }
+                Lane::Fact => {
+                    let source = candidate.event.as_ref().and_then(|event| world.resource::<crate::behavior_events::NativeSources>().get(event)).cloned();
+                    let value = world.get_mut::<crate::behavior_events::EventMailbox>(state).unwrap()
+                        .queue_delivery(candidate.sequence, now, entry.is_some(), policy.max_attempts.get());
+                    if let Some(value) = value {
+                        let source = source.unwrap();
+                        if (source.dispatch)(&mut world.resource_mut::<ExtensionInvocations>(), &candidate.path, &source.selector,
+                            scope, &value, InvocationReceipt {sequence: candidate.sequence, notify: crate::behavior_events::settle}).is_err() {
+                            world.get_mut::<crate::behavior_events::EventMailbox>(state).unwrap().invalid_payload(candidate.sequence);
+                        }
                         true
                     } else { false }
                 }

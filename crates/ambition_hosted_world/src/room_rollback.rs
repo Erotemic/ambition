@@ -41,11 +41,7 @@ use crate::GuestSeat;
 /// admitted input without a saved tick applies from the next host tick.
 pub const REWIND_HORIZON: u64 = 60;
 
-/// On a host: predict each guest's input and rewind the guest's room when its
-/// input for a past tick arrives and differs (see the module docs). Without
-/// it, a guest's input drives its seat when it arrives.
-#[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct RewindsGuestRooms;
+pub use ambition_platformer2d_shared_tangle::lifecycle::RewindsGuestRooms;
 
 /// What the room rollback host did, for a caller to read.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]

@@ -96,5 +96,5 @@ mod attempt;
 pub use attempt::SpawnedThisAttempt;
 
 pub use room_writes::{
-    RoomReplay, RoomReplayRefusals, begin_room_replay, end_room_replay, register_room_replay_refusal, room_replay_refusal,
+    RewindsGuestRooms, shares_simulation_island, RoomReplay, RoomReplayRefusals, begin_room_replay, end_room_replay, register_room_replay_refusal, room_replay_refusal,
 };

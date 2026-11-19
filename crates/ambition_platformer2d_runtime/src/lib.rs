@@ -16,6 +16,7 @@ mod body_feedback;
 mod actor_creation;
 mod object_behaviors;
 mod behavior_inbox;
+pub mod behavior_events;
 mod breakable_creation;
 mod contact_consumption;
 pub mod authored_verdict_timeline;

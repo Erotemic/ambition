@@ -413,13 +413,13 @@ Port `ambition.actions.cancel@3`, request: `this.requests.push(request("<alias>"
 
 ## `attach_behaviors`
 
-Port `ambition.objects.attach_behaviors@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.objects.attach_behaviors@3`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `reply` | { request: integer (u32), selector: text } | required |  |
 | `target` | { session: text, allocation_room: integer (u32) or (), sequence: text } | required |  |
-| `bindings` | list of { key: text, methods: list of { name: text, entry: text }, references: table of text to one of: an object reference \| #{local: "node_key"}, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } | required |  |
+| `bindings` | list of { key: text, methods: list of { name: text, entry: text }, subscriptions: list of { key: text, source: text, method: text }, references: table of text to one of: an object reference \| #{local: "node_key"}, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } | required |  |
 
 ## `call_object`
 
@@ -443,6 +443,23 @@ Port `ambition.objects.method@1`, trigger: read as `this.trigger`.
 | `caller` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
 | `method` | text |  |
 | `data` | schema-selected data |  |
+
+## `object_born`
+
+Port `ambition.objects.born@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+
+## `behavior_events`
+
+Port `ambition.objects.events@1`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `deliveries` | list of { sequence: text, subscription: text, source: { session: text, allocation_room: integer (u32) or (), sequence: text }, event: text, tick: text, progress: { status: one of: waiting \| queued \| invoked \| acknowledged \| faulted \| quarantined \| unbound \| retired, attempts: integer (u32), last_attempt: text or (), last_error: text or () } } |  |
+| `dropped` | text |  |
 
 ## `complete_object_call`
 
@@ -470,22 +487,22 @@ Value: { ticket: { entry: text, domain: text, request: integer (u32), occurrence
 
 ## `create_actors`
 
-Port `ambition.world.create_actors@4`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.world.create_actors@5`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `reply` | { request: integer (u32), selector: text } | required | Report completed construction or refusal to this entry. |
-| `actors` | list of { key: text, character: text, at: [x, y], half_extents: [x, y], allegiance: one of: inherit \| player \| enemy \| npc \| boss \| neutral, face_left: bool, starting_wallet: integer (i32) or (), holds: list of text, state: list of { schema: text, value: schema-selected data }, bindings: list of { key: text, methods: list of { name: text, entry: text }, references: table of text to one of: an object reference \| #{local: "node_key"}, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } } | required | Build these roots and each character's required internal cluster. |
+| `actors` | list of { key: text, character: text, at: [x, y], half_extents: [x, y], allegiance: one of: inherit \| player \| enemy \| npc \| boss \| neutral, face_left: bool, starting_wallet: integer (i32) or (), holds: list of text, state: list of { schema: text, value: schema-selected data }, bindings: list of { key: text, methods: list of { name: text, entry: text }, subscriptions: list of { key: text, source: text, method: text }, references: table of text to one of: an object reference \| #{local: "node_key"}, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } } | required | Build these roots and each character's required internal cluster. |
 | `links` | list of { from: text, to: text, kind: one of: grudge \| mount } | `[]` | Native relations between actor keys in this batch. |
 
 ## `create_breakables`
 
-Port `ambition.world.create_breakables@3`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.world.create_breakables@4`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `reply` | { request: integer (u32), selector: text } | required |  |
-| `objects` | list of { key: text, label: text or (), at: [x, y], size: [x, y], health: integer (i32), collision: one of: none \| solid \| one_way, trigger: one of: hit \| stand \| either, respawn_after: number or (), pogo_refresh: bool, look: text or (), bindings: list of { key: text, methods: list of { name: text, entry: text }, references: table of text to one of: an object reference \| #{local: "node_key"}, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } } | required |  |
+| `objects` | list of { key: text, label: text or (), at: [x, y], size: [x, y], health: integer (i32), collision: one of: none \| solid \| one_way, trigger: one of: hit \| stand \| either, respawn_after: number or (), pogo_refresh: bool, look: text or (), bindings: list of { key: text, methods: list of { name: text, entry: text }, subscriptions: list of { key: text, source: text, method: text }, references: table of text to one of: an object reference \| #{local: "node_key"}, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } } | required |  |
 
 ## `action_result`
 

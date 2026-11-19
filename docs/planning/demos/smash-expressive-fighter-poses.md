@@ -384,7 +384,27 @@ Every character gets the reaction vocabulary and the turn. Each art family takes
 | Character generator: Alice v2, the townsfolk, every later generated character | `chargen/motion.py` `build_library` (the twelve anchors as `Kit` poses); `chargen/sheets.py` `COMPOSED` (the turns, made from the views) | Anchors and turns in the library. Alice publishes them (`_alice_v2_motion.FIGHTER_ROWS`, `TURN_ROWS`). |
 | Player robot v3 | `player_robot_v3_reactions.py` (its own rig) | Done, with its own turnaround. |
 | The rest of the Smash roster: Bob, PCA, Ramen-nujan, Shadow Oni Leader, Goblin (and skins), GNU-ton, Patent Clerk, Carl Stargan, Noether, Mary-O (tall), Sanic, Pirate Admiral, Oiler, George Booul | Each rig's own motion module | Done 2026-10-31: every Smash fighter's published sheet has the twelve anchors, the floor game and the turn (MEASURED by sheet rows). The small sheets also gained the whole `fighter_core` vocabulary. |
-| Campaign-only characters | Each rig's own motion module | Not started. Measure the gaps first (sheet rows against `body_state_clip`). |
+| Campaign-only characters | Each rig's own motion module | Gaps measured 2026-11-19 (`scripts/measure/campaign_sheet_gaps.py`, below). No rows authored yet. |
+
+**Campaign gaps, measured 2026-11-19** (`python3 scripts/measure/campaign_sheet_gaps.py`):
+the 28 preference chains of `body_state_clip` against the newest published
+record of each catalog sheet that no Smash fighter draws: 510 sheets, all
+published here.
+- No campaign sheet draws every first choice. Each state's own pose is
+  missing from 497 to 510 of them (`pet` from all 510, `tumble` from 497).
+- Where the chain lands is the finding. 329 sheets have no `hit` row, so a
+  struck, launched, grabbed or knocked-down body on them is drawn in
+  `idle`. All 244 character-generator townsfolk sheets are among them;
+  the other 86 are hand-made rigs.
+- Nine sheets have no `idle` either: boss sheets drawn by their conductors
+  (`rest` rows: the bossofthegame, Galwah, the gradient sentinel, the
+  Mockingbird, the Smirking Behemoth, the three GNU-ton sheets and GNU2).
+  The chains do not apply to them.
+
+The cheapest first authoring step is therefore the character generator: one
+change to the townsfolk target's rows (the motion library already has the
+anchors; Alice publishes them) covers 244 of the 329 sheets that draw a hit
+as `idle`.
 
 The game already draws `turnaround` in the new facing over `TURN_SECS` (`ambition_sim_view::pose_view`) on the player road. A sheet's turn row must therefore END on its side view.
 

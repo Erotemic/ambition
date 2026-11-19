@@ -40,8 +40,8 @@ bus and avoids changes to unrelated working gameplay.
 ## Read cuts and budgets
 
 Each source must declare its first eligible read cut. Calls and outcomes now
-wait for a later `actor_think` cut. A damage fact can enter its declared
-`hit_reaction` cut after the native damage decision. Separate that eligibility
+wait for a later `actor_think` cut. Deferred notifications remain in `actor_think`. Existing synchronous native
+hooks handle decisions that must affect the current physics/combat phase. Separate that eligibility
 from the retry rule that prevents a second attempt in the same tick.
 
 The current single-phase pass needs no persistent budget counter. Before adding
@@ -74,35 +74,43 @@ if it cannot admit the full set. The sender needs an actual admission result.
 Signal names cannot forge native event types. Admission must not expose raw ECS
 writes or bypass native collision, damage, inventory or interaction decisions.
 
-## Confirmed transactions between islands
+## Committed world boundary between islands
 
-A live room is a location. It is not sufficient evidence of an independent
-rollback island. Determine the actual rollback authority before a delivery
-crosses an island boundary. The [island plan](island-rollback-and-compact-peer-input.md)
-requires confirmed, idempotent world transactions at that boundary.
+A live room is a location. The host declares the actual rollback authority.
+Direct behavior calls, results and notifications are local to one authority.
+Unsupported foreign calls must refuse before target mutation. Scope departure
+ends the local call lifetime; it does not forward the method or its futures.
 
-The existing [confirmation boundary](../../../crates/ambition_platformer2d_core/src/confirmed_frame.rs)
-reports confirmation. [Source-owned room writes](../../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/room_writes.rs)
-can be retracted during room replay. These mechanisms do not yet form a
-complete addressed-message transport. A fully confirmed test in an `Update`
-system, followed by a direct destination write, is insufficient: the destination
-can restore an earlier snapshot and lose that write.
+Cross-island consequences go through a native world domain. This domain admits
+confirmed, identified transactions, not arbitrary remote methods. It can own
+persistent state or typed transient transactions. Do not encode every operation
+as a quest flag. General remote RPC is outside the current completion contract.
 
-A transport must retain a source-owned intent until confirmation, give each
-transaction a stable idempotence key, admit it at an agreed destination input
-cut, and replay that admission when the destination rewinds. It must define
-refusal, source retirement, recipient travel, pending-call cancellation and
-result delivery. Capture the island that owns the admitted native work; the
-occurrence's allocation room is not its current location. Resolve a traveling
-recipient by its stable occurrence at destination admission. Peer ingress must
-follow agreed frame input or the existing confirmed lifecycle protocol. The local-only `HostIntentLedger` is not peer
-agreement. Presentation-only external-effect quarantine is not a simulation
-message transport.
+The existing confirmation boundary and source-owned room writes supply parts
+of this road. A bridge retains an intent until source confirmation, assigns a
+stable transaction identity, admits at a deterministic destination input cut
+and replays that admission when the destination rewinds. Check idempotence,
+source retirement and a traveling recipient. A confirmed `Update` write alone
+is insufficient. Local `HostIntentLedger` input is not peer agreement, and
+presentation quarantine is not a simulation transaction service.
 
-Do not let a speculative source write a foreign inbox. Apply this restriction
-to calls and action outcomes as well as signals. Existing direct cross-room
-calls and traveling replies still need this audit before the general model can
-be called safe for independent room replay.
+Existing deferred native action publishers still need their work ownership
+and traveling-recipient audit. A stable occurrence reference alone does not
+authorize a speculative write into another island.
+
+## State and notifications
+
+Native state and transaction outcomes are the recovery authority. Notifications
+wake scripts. Each source declares its retention and reconciliation contract.
+A bounded notification can coalesce or drop only when its owning domain still
+supplies the state needed for reconciliation. A transient fact needs retained
+occurrence evidence or a reliable policy. Capture the source occurrence and
+simulation scope at production; receipt must not require a living source.
+
+The current birth mailbox reports overflow and retains delivery diagnostics.
+It is a bounded notification path, not a guaranteed history of every birth.
+Creation results and native live identity remain separate. Other source
+families must establish recovery before they depend on this policy.
 
 ## Local construction references
 
@@ -119,17 +127,13 @@ connect them through later script callbacks.
 
 ## Next proof
 
-Use one relay prop and one actor behavior. Create their mutual references in
-one native batch. A native fact activates the relay's declared method. It asks
-the actor to perform a native action. The actor observes the actual accepted or
-refused result and responds through its declared behavior. Check a competing
-request, a handler fault, room duplication, travel, retirement, live replacement
-and replay with the same small composition. Add a focused two-island check that
-proves speculative work cannot mutate the destination and confirmed delivery
-survives destination replay. Keep native authority and portable parity.
+Complete a playable switch/door/actor interaction in Ambition before further
+generic delivery infrastructure. Use native interaction arbitration, a scoped
+authored locator, native inspections and actions with acceptance/refusal. Check
+state changes, duplicate live rooms, hot reload and rollback. Then add signals
+and essential lifecycle sources needed by the composition.
 
-Runtime birth subscriptions use the common pass. Additional native sources,
-signal admission, live subscription replacement, mixed actor/prop factory
-batches and confirmed transport remain implementation work. Actor and prop factories now
-resolve typed local references in their own native construction batches. This evaluation does not close the
-[script-first program](script-first-ambition-gameplay.md).
+The next cross-island proof is one committed world-domain consequence with
+stable identity and replayable destination admission. Arbitrary remote object
+calls and mixed actor/prop factories are not prerequisites for the local room.
+The [script-first program](script-first-ambition-gameplay.md) remains open.

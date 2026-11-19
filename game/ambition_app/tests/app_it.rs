@@ -77,6 +77,7 @@ mod a_hit_in_one_room_does_not_freeze_the_other;
 mod a_guest_app_applies_the_host;
 mod a_hosted_guest_shows_the_hosts_bodies;
 mod a_guests_room_rewinds_on_the_host;
+mod a_guest_predicts_its_own_body;
 mod f1_blocks_against_collision;
 mod observed_geometry;
 mod the_guitar_answers_a_climb;

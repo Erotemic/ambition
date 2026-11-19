@@ -42,6 +42,32 @@ pub(crate) struct GuestInputClock {
 impl GuestInputClock {
     /// The sample's sequence and the tick it is stamped for.
     pub(crate) fn sample(&mut self, host: u64, elapsed: Duration, step: Duration) -> (u64, u64) {
+        let tick = self.estimate(host, elapsed, step);
+        // A lead that shrinks does not stamp a tick already stamped: the
+        // estimate catches up with the stamps instead.
+        let stamp = tick.saturating_add(self.lead).max(self.last_stamp);
+        (self.taken(stamp, self.lead), stamp)
+    }
+
+    /// On a guest that predicts its own body, whose own tick is its stamp
+    /// (`prediction`): its estimate of the host tick and the tick its next
+    /// input should name (the estimate and the lead).
+    pub(crate) fn wanted(&mut self, host: u64, elapsed: Duration, step: Duration) -> (u64, u64) {
+        let tick = self.estimate(host, elapsed, step);
+        (tick, tick.saturating_add(self.lead))
+    }
+
+    /// On a guest that predicts its own body: a sample stamped with its own
+    /// tick `stamp`, against the estimate `wanted` gave. A report is read
+    /// against the lead the stamp had in fact (the stamp past the
+    /// estimate), so a guest a tick ahead of its lead is not moved for it.
+    pub(crate) fn sample_at(&mut self, stamp: u64, estimate: u64) -> u64 {
+        self.taken(stamp, stamp.saturating_sub(estimate))
+    }
+
+    /// The host tick as this guest estimates it: the last one it saw, plus
+    /// the steps since, at most [`MAX_INPUT_LEAD`].
+    fn estimate(&mut self, host: u64, elapsed: Duration, step: Duration) -> u64 {
         if self.seen != Some(host) {
             self.seen = Some(host);
             self.base_tick = host.max(self.last_tick);
@@ -51,16 +77,17 @@ impl GuestInputClock {
             .min(u128::from(MAX_INPUT_LEAD)) as u64;
         let tick = self.base_tick.saturating_add(advance).min(host.saturating_add(MAX_INPUT_LEAD));
         self.last_tick = tick;
-        // A lead that shrinks does not stamp a tick already stamped: the
-        // estimate catches up with the stamps instead.
-        let stamp = tick.saturating_add(self.lead).max(self.last_stamp);
+        tick
+    }
+
+    fn taken(&mut self, stamp: u64, lead: u64) -> u64 {
         self.last_stamp = stamp;
         self.sequence = self.sequence.checked_add(1).expect("guest input sequence exhausted");
         if self.leads.len() == REMEMBERED {
             self.leads.pop_front();
         }
-        self.leads.push_back((self.sequence, self.lead));
-        (self.sequence, stamp)
+        self.leads.push_back((self.sequence, lead));
+        self.sequence
     }
 
     /// The host's report: the sample `sequence` arrived `margin` ticks before

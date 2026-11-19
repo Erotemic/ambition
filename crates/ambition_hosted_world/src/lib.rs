@@ -227,6 +227,13 @@ pub struct GuestInput {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HostTick(pub u64);
 
+/// The host tick a guest-driven body's rows were written at, on that body, so
+/// a guest that predicts its own body ([`PredictsOwnBody`]) compares the rows
+/// with its prediction for that tick. On the body itself, so it arrives with
+/// the rows it dates.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RowTick(pub u64);
+
 /// The seat the host gave this guest (its number). The guest takes it as its
 /// [`LocalSeat`].
 #[derive(Message, Clone, Copy, Debug, Serialize, Deserialize)]
@@ -286,6 +293,7 @@ impl Plugin for HostedWorldPlugin {
             .replicate::<RoomNamed>()
             .replicate::<PlanRow>()
             .replicate::<HostTick>()
+            .replicate::<RowTick>()
             .add_client_message::<GuestInput>(Channel::Ordered)
             .add_client_message::<GuestRoom>(Channel::Ordered)
             .add_server_message::<SeatAssigned>(Channel::Ordered)
@@ -321,12 +329,38 @@ impl Plugin for HostedWorldPlugin {
                 );
                 app.add_systems(
                     PostUpdate,
-                    (write_body_rows, write_life_rows, write_plan_rows, place_bodies, name_body_rooms, place_guests, write_host_tick)
+                    (
+                        write_body_rows,
+                        write_life_rows,
+                        write_plan_rows,
+                        place_bodies,
+                        name_body_rooms,
+                        place_guests,
+                        write_host_tick,
+                        write_row_ticks,
+                    )
                         .before(ServerSystems::Send),
                 );
             }
             HostedRole::Guest => {
+                use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
                 app.init_resource::<input_clock::GuestInputClock>();
+                // A guest that predicts its own body (`PredictsOwnBody`)
+                // replays its room on the host's word, presenting nothing.
+                app.init_resource::<prediction::GuestPrediction>().init_resource::<GuestPredictionStats>();
+                room_rollback::register_presentation_replay_channels(app);
+                let sim = app.sim_schedule();
+                app.add_systems(
+                    sim,
+                    prediction::predict_own_tick
+                        .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
+                        .before(ambition_platformer2d_shared_tangle::schedule::SimClockHead),
+                );
+                app.add_systems(PreUpdate, prediction::reconcile_own_body.after(apply_body_rows).after(apply_life_rows));
+                // A predicting guest's simulation names the primary seat its
+                // subject each tick, as the host's does; its view follows its
+                // own seat again after the ticks.
+                app.add_systems(Update, view_own_seat);
                 // Signed before each receive as well: a body the guest's own
                 // room construction made late in a frame must carry its
                 // signature before the host's copy of it arrives.
@@ -419,13 +453,16 @@ pub fn put_the_simulation_to_sleep(app: &mut App) {
 
 /// A guest's simulation goes to sleep once it is connected and holds a live
 /// room: until then it is a game of its own, from then on it shows the host's.
+/// A guest that predicts its own body ([`PredictsOwnBody`]) stays awake.
 pub fn sleep_once_connected(
     mut commands: Commands,
     state: Res<State<ClientState>>,
     rooms: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>,
     asleep: Option<Res<SimulationAsleep>>,
+    predicts: Option<Res<PredictsOwnBody>>,
 ) {
-    if asleep.is_none() && *state.get() == ClientState::Connected && !rooms.is_empty() {
+    let predicts = predicts.is_some();
+    if asleep.is_none() && !predicts && *state.get() == ClientState::Connected && !rooms.is_empty() {
         commands.insert_resource(SimulationAsleep);
     }
 }
@@ -704,10 +741,11 @@ fn seat_connecting_guests(
 fn view_own_seat(
     seat: Option<Res<LocalSeat>>,
     asleep: Option<Res<SimulationAsleep>>,
+    predicts: Option<Res<PredictsOwnBody>>,
     drivers: Query<(Entity, &DrivingParticipant)>,
     mut subject: ResMut<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
 ) {
-    let (Some(seat), Some(_)) = (seat, asleep) else {
+    let Some(seat) = seat.filter(|_| asleep.is_some() || predicts.is_some()) else {
         return;
     };
     let own = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, seat.0);
@@ -961,7 +999,13 @@ fn send_local_input(
     fixed: Res<Time<Fixed>>,
     mut clock_state: ResMut<input_clock::GuestInputClock>,
     mut inputs: MessageWriter<GuestInput>,
+    predicts: Option<Res<PredictsOwnBody>>,
 ) {
+    // A predicting guest sends one input a tick, from the tick
+    // (`prediction::predict_own_tick`).
+    if predicts.is_some() {
+        return;
+    }
     let Some(host) = clock.iter().next().map(|tick| tick.0) else { return };
     if let (Some(seat), Some(raw)) = (seat, raw) {
         let frame = raw.get(from.map_or(seat.0, |from| from.0));
@@ -1079,15 +1123,50 @@ fn apply_life_rows(
     }
 }
 
-/// Put each received row on the guest's body.
-fn apply_body_rows(mut bodies: Query<(&BodyRow, &mut BodyKinematics), Or<(Changed<BodyRow>, Added<BodyKinematics>)>>) {
-    for (row, mut body) in &mut bodies {
+/// Put each received row on the guest's body. A guest that predicts its own
+/// body corrects that one by replaying (`prediction::reconcile_own_body`).
+fn apply_body_rows(
+    mut bodies: Query<(&BodyRow, &mut BodyKinematics, Option<&DrivingParticipant>), Or<(Changed<BodyRow>, Added<BodyKinematics>)>>,
+    predicts: Option<Res<PredictsOwnBody>>,
+    seat: Option<Res<LocalSeat>>,
+) {
+    let own = seat.filter(|_| predicts.is_some()).map(|seat| seat.0);
+    for (row, mut body, driver) in &mut bodies {
+        if own.is_some() && driver.map(|driver| driver.0) == own {
+            continue;
+        }
         row.write_into(&mut body);
+    }
+}
+
+/// Date each body a guest's seat drives with the tick its rows were written
+/// at ([`RowTick`]).
+fn write_row_ticks(
+    mut commands: Commands,
+    tick: Option<Res<ambition_time::SimTick>>,
+    guests: Query<&GuestSeat>,
+    mut bodies: Query<(Entity, &DrivingParticipant, Option<&mut RowTick>), With<Replicated>>,
+) {
+    let Some(tick) = tick else { return };
+    for (body, driver, row) in &mut bodies {
+        if !guests.iter().any(|seat| seat.0 == driver.0) {
+            continue;
+        }
+        match row {
+            Some(mut row) => {
+                row.set_if_neq(RowTick(tick.0));
+            }
+            None => {
+                commands.entity(body).insert(RowTick(tick.0));
+            }
+        }
     }
 }
 
 pub mod room_rollback;
 mod input_clock;
+mod prediction;
+pub use prediction::{GuestPredictionStats, PredictsOwnBody};
 pub use room_rollback::{RewindsGuestRooms, RoomRollbackStats, REWIND_HORIZON};
 
 /// `bevy_replicon` itself, so a caller names the version this crate replicates with.

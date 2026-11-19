@@ -14,10 +14,11 @@
 //! ## Exit gating
 //!
 //! The arena is one encounter. Its ladder and its `ladder_floor_gate` follow
-//! the RECORDED OUTCOME: the ladder opens when every GNU-ton of the arena is
-//! `Cleared` in the save (`boss.cleared`, the boss domain's one answer), and
-//! not when a body is found dead. The members are the GNU-ton placements the
-//! room authors, and any GNU-ton body that is live in the room. A corpse that
+//! the RECORDED OUTCOME: the ladder opens when every boss of the arena's fight
+//! (GNU-ton and GNU2) is `Cleared` in the save (`boss.cleared`, the boss
+//! domain's one answer), and not when a body is found dead. The members are
+//! the fight's placements the room authors, and any of its bodies that is
+//! live in the room. A corpse that
 //! goes, a room that is entered again (a cleared placement is not built
 //! again), and a rewind before the defeat each read the same record.
 
@@ -33,7 +34,7 @@ pub mod prelude;
 #[cfg(feature = "portal_render")]
 pub mod fist_lines;
 
-pub use conductor::{ascent_of, birth, conductor_of, Arm, Blow, Exit, GnuTonView, Move, GNU_TON_ID};
+pub use conductor::{birth, conductor_of, Arm, Blow, Exit, GnuTonView, Move, GNU_TON_ID};
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates (`sandbox.ldtk`; LDtk-owned).
@@ -44,24 +45,31 @@ const ARENA_ROOM_NAME: &str = "gnu_ton_arena";
 /// `Solid` entity with `fields.name = "ladder_floor_gate"`.
 const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
 
-/// Recognize the encounter rider by authored id/name. The `giant_gnu` mount is
-/// excluded because its death is a phase transition, not encounter completion.
+/// The behaviours of the arena's fight: the rider, and GNU2, the sequel he
+/// calls in at his enrage (`ambition_content_modules::gnu2`). Each is a
+/// member of the gate.
+const FIGHT_IDS: [&str; 2] = [GNU_TON_ID, ambition_content_modules::gnu2::GNU2_ID];
+
+/// Recognize a boss of the arena's fight by authored id/name. The `giant_gnu`
+/// mount is excluded because its death is a phase transition, not encounter
+/// completion.
 fn boss_is_gnu_ton(
     boss: &ambition_boss_encounter::BossRef<'_>,
 ) -> bool {
-    boss.config.behavior.id == GNU_TON_ID
+    FIGHT_IDS.contains(&boss.config.behavior.id.as_str())
         || boss.config.name.eq_ignore_ascii_case("gnu_ton")
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
 }
 
-/// Whether an authored boss placement is GNU-ton (the rider; the `giant_gnu`
-/// mount is an actor, and its death is a phase of the fight).
+/// Whether an authored boss placement is of the arena's fight (the rider or
+/// GNU2; the `giant_gnu` mount is an actor, and its death is a phase of the
+/// fight).
 fn placement_is_gnu_ton(
     spawn: &ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
 ) -> bool {
     let scripted = matches!(
         &spawn.payload,
-        ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id } if script_id == GNU_TON_ID
+        ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id } if FIGHT_IDS.contains(&script_id.as_str())
     );
     scripted || spawn.name.eq_ignore_ascii_case("gnu_ton") || spawn.name.eq_ignore_ascii_case("gnu-ton")
 }

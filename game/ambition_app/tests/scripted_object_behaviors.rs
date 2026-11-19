@@ -556,27 +556,91 @@ fn ack() { if this.trigger.stage == "rejected" { throw this.trigger.code; } }
 "#;
 
 #[test]
-fn local_factory_references_connect_independent_objects_before_publication_and_replay() { exercise_local_references(false); }
+fn local_factory_references_connect_independent_objects_before_publication_and_replay() { exercise_local_references(false, false); }
 
 #[test]
-fn local_factory_references_reach_portable_workers_with_native_outcomes_and_replay() { exercise_local_references(true); }
+fn local_factory_references_reach_portable_workers_with_native_outcomes_and_replay() { exercise_local_references(true, false); }
 
-fn exercise_local_references(portable: bool) {
+#[test]
+fn native_births_activate_named_relay_methods_and_faults_are_inspectable_through_replay() {
+    exercise_local_references(false, true);
+}
+#[test]
+fn native_birth_relays_call_portable_workers_and_replay() { exercise_local_references(true, true); }
+
+fn native_birth_source() -> String {
+    LOCAL_SOURCE.replace(
+        r##"#{tag: 3, name: "completed", kind: "u32"}]}"##,
+        r##"#{tag: 3, name: "completed", kind: "u32"}, #{tag: 4, name: "birth_done", kind: "u32"}]}"##)
+        .replace("fn build() {", r##"fn born() {
+    let context = this.observe.behavior;
+    if context.references.peer != this.trigger.object || this.observe.inventory.wallet != 3 {
+        throw "a native birth exposed incomplete or crossed state";
+    }
+    this.requests.push(request("call_object", #{reply: #{request: 0, selector: "objects_probe::locals/birth_done"},
+        target: context.object, binding: "logic", method: "use"}));
+}
+fn birth_fault() {
+    this.state.relay.forwarded += 99;
+    this.requests.push(request("inventory_exchange", #{reply: #{request: 99, selector: "objects_probe::locals/ack"},
+        exchange: #{receive_coins: 99}}));
+    throw "native birth deliberate staged fault";
+}
+fn birth_done() {
+    if !this.trigger.terminal { return; }
+    let history = this.observe.behavior_events;
+    let acknowledged = 0; let quarantined = 0;
+    if history.dropped != "0" { throw "birth facts were dropped"; }
+    for row in history.deliveries {
+        if row.source != this.observe.behavior.references.peer { throw "native source identity crossed"; }
+        if row.progress.status == "acknowledged" { acknowledged += 1; }
+        if row.progress.status == "quarantined" && row.progress.attempts == 3 { quarantined += 1; }
+    }
+    if acknowledged != 1 || quarantined != 1 { throw "native delivery did not retain acknowledgement and bounded fault"; }
+    this.state.relay.birth_done += 1;
+}
+fn build() {"##)
+        .replace(r##"#{key: "build", phase:"##, r##"#{key: "born", phase: "actor_think", trigger: #{port: "object_born", selector: "born"},
+          reads: ["behavior", "inventory"], requests: ["call_object"], limit: 1},
+        #{key: "birth_fault", phase: "actor_think", trigger: #{port: "object_born", selector: "born"},
+          writes: ["relay"], requests: ["inventory_exchange"], limit: 1},
+        #{key: "birth_done", phase: "actor_think", trigger: #{port: "action_result", selector: "birth_done"},
+          reads: ["behavior", "behavior_events"], writes: ["relay"]},
+        #{key: "build", phase:"##)
+        .replace("    actors[0].character =", r##"    for index in [0, 2] {
+        actors[index].bindings[0].methods.push(#{name: "ready", entry: "objects_probe::locals/born"});
+        actors[index].bindings[0].methods.push(#{name: "broken", entry: "objects_probe::locals/birth_fault"});
+        actors[index].bindings[0].subscriptions = [
+            #{key: "ready", source: "peer", method: "ready"},
+            #{key: "broken", source: "peer", method: "broken"}];
+    }
+    actors[0].character ="##)
+        .replace(r##"    broken[3].bindings[0].references.peer = #{local: "absent"};"##,
+            r##"    broken[3].bindings[0].subscriptions = [#{key: "invalid", source: "owner", method: "use"}];"##)
+        .replace(r##"    for i in 0..2 {
+        this.requests.push(request("call_object", #{reply: #{request: i, selector: "objects_probe::locals/done"},
+            target: this.trigger.subjects[i * 2].object, binding: "logic", method: "use"}));
+    }"##, "")
+}
+
+fn exercise_local_references(portable: bool, birth: bool) {
     use ambition_platformer2d::platformer::{lifecycle::*, sim_id::SimIdCounter};
+    let source = if birth { native_birth_source() } else { LOCAL_SOURCE.into() };
     let (mut sim, roots, path) = if portable {
         let guest = ambition_platformer2d::extension::build_module_crate(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap(),
             "ambition_extension_fixture_modules").unwrap();
-        let source = LOCAL_SOURCE.replace("\"objects_probe::locals/work\",", "\"fixture::object_worker/work\",");
-        prepared_with_modules(&source, "local_wasm", vec![guest])
-    } else { prepared(LOCAL_SOURCE, "locals") };
+        let mut source = source.replace("\"objects_probe::locals/work\",", "\"fixture::object_worker/work\",");
+        if birth { source = source.replace("objects_probe::locals/born", "fixture::object_worker/born"); }
+        prepared_with_modules(&source, if birth { "birth_wasm" } else { "local_wasm" }, vec![guest])
+    } else { prepared(&source, if birth { "birth_relays" } else { "locals" }) };
     let counters = roots.map(|entity| sim.world().get::<SimIdCounter>(entity).unwrap().0);
     sim.step_n(AgentAction::default(), 80);
     let factory = SchemaKey::new("objects_probe", "factory", 1);
     for (index, root) in roots.into_iter().enumerate() {
         let record = sim.world().get::<BodyRecords>(root).unwrap().get(&factory).unwrap();
         for field in 1..=4 {
-            assert_eq!(record.get(FieldRef(field)).unwrap(), &Value::U32(1),
+            assert_eq!(record.get(FieldRef(field)).unwrap(), &Value::U32(u32::from(!birth || field < 3)),
                 "field {field}: {record:?}; faults: {:?}", sim.world().resource::<ExtensionFaults>());
         }
         assert_eq!(sim.world().get::<SimIdCounter>(root).unwrap().0, counters[index] + 4);
@@ -596,7 +660,26 @@ fn exercise_local_references(portable: bool) {
         let entity = resolve_object(world, SessionScopeId(owner.session), owner).unwrap();
         assert_eq!(world.get::<BodyWallet>(entity).unwrap().balance, if applied { 5 } else { 3 });
     }
-    assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
+    if birth {
+        let world = sim.world_mut();
+        let relay = if portable { SchemaKey::new("fixture", "object_worker.birth", 1) }
+            else { SchemaKey::new("objects_probe", "relay", 1) };
+        let records = world.query::<(&ObjectScopeOwner, &BodyRecords)>().iter(world)
+            .filter_map(|(owner, records)| records.get(&relay).map(|record| (owner.0, record.clone()))).collect::<Vec<_>>();
+        assert_eq!(records.len(), 4);
+        for (owner, record) in records {
+            if portable {
+                assert_eq!(record.get(FieldRef(0)).unwrap(), &Value::U32(1));
+                assert_eq!(record.get(FieldRef(1)).unwrap(), &Value::U32(1));
+                let Value::U32(accepted) = record.get(FieldRef(2)).unwrap() else { panic!("accepted count"); };
+                let Value::U32(refused) = record.get(FieldRef(3)).unwrap() else { panic!("refused count"); };
+                assert_eq!(accepted + refused, 1);
+            } else { for field in 1..=3 { assert_eq!(record.get(FieldRef(field)).unwrap(), &Value::U32(1), "relay {record:?}"); } }
+            let entity = resolve_object(world, SessionScopeId(owner.session), owner).unwrap();
+            assert_eq!(world.get::<BodyWallet>(entity).unwrap().balance, 3);
+        }
+        assert!(sim.world().resource::<ExtensionFaults>().total >= 12);
+    } else { assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0); }
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_file(path);
 }

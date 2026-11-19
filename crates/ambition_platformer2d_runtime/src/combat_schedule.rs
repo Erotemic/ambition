@@ -379,13 +379,14 @@ impl Plugin for CombatSchedulePlugin {
                 .chain()
                 .in_set(CombatSet::Playback),
         );
-        // What the projectile queue carries into each tick, for a room rewind
-        // to set its room's rows back to (`retract_room_projectile_emissions`).
+        // Guest prediction can align the tick before the clock advances it.
+        // Record pending work after that cut and before native producers run.
         app.add_systems(
             sim,
             ambition_combat::projectile_spawn::carry_pending_projectile_emissions
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .before(ambition_platformer2d_shared_tangle::schedule::SimClockHead),
+                .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         );
         app.add_systems(
             sim,

@@ -19,6 +19,7 @@ const APPROACH: &str = "gnu_ton_works_approach";
 const ARENA: &str = "gnu_ton_shoulders";
 const SPOKE: &str = "orbital_station_spoke";
 const PLACEMENT: &str = "gnu_ton_handle.gnu_ton";
+const GNU2_PLACEMENT: &str = "gnu_ton_handle.gnu2";
 
 fn room(id: &str) -> Platformer2dSimHarness {
     room_with(id, Default::default())
@@ -333,7 +334,8 @@ fn the_inversion_gallery_is_crossed_on_its_ceiling() {
 }
 
 /// THE SHOULDERS. GNU-ton rides his giant here under his own placement, and
-/// the grille of the way home stands until his defeat is recorded.
+/// the way home has two grilles: each stands until its boss's defeat (his,
+/// and GNU2's) is recorded.
 #[test]
 fn gnu_ton_waits_at_the_end_and_his_defeat_opens_the_way_home() {
     use ambition_platformer2d::boss_encounter::BossConfig;
@@ -351,10 +353,19 @@ fn gnu_ton_waits_at_the_end_and_his_defeat_opens_the_way_home() {
     assert_eq!(gnu_tons(&mut sim), [(PLACEMENT.to_string(), true)], "GNU-ton, alive, at the handle's placement");
     assert!(standing(&mut sim).contains(&"gated_lock:shoulders_exit_grille".to_string()), "{:?}", standing(&mut sim));
 
+    assert!(standing(&mut sim).contains(&"gated_lock:shoulders_exit_grille_gnu2".to_string()), "{:?}", standing(&mut sim));
+
+    // His defeat opens his grille; GNU2's grille waits for GNU2's.
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_boss(PLACEMENT, ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
+    let mut half = room_with(ARENA, save.clone());
+    assert!(!gnu_tons(&mut half).iter().any(|(_, alive)| *alive), "a cleared placement is not built alive");
+    assert_eq!(
+        standing(&mut half).into_iter().filter(|name| name.contains("shoulders_exit_grille")).collect::<Vec<_>>(),
+        ["gated_lock:shoulders_exit_grille_gnu2".to_string()]
+    );
+    save.set_boss(GNU2_PLACEMENT, ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
     let mut won = room_with(ARENA, save);
-    assert!(!gnu_tons(&mut won).iter().any(|(_, alive)| *alive), "a cleared placement is not built alive");
     assert!(!standing(&mut won).iter().any(|name| name.contains("shoulders_exit_grille")), "{:?}", standing(&mut won));
 }
 

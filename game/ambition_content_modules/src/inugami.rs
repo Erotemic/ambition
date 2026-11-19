@@ -2097,7 +2097,7 @@ mod tests {
     /// It rises from his dead head at his head's size: smaller than its own.
     #[test]
     fn it_rises_from_his_head_at_his_heads_size() {
-        let p = Predecessor { position: [600.0, 760.0], size: [84.0, 140.0], side: 1.0, alive: false };
+        let p = Predecessor { position: [600.0, 760.0], size: [84.0, 140.0], side: 1.0, alive: false, hall: None };
         let (at, head_px) = dead_head_of(&p);
         assert!(at.x > 600.0, "his head lies ahead of his middle when he faces right: {at:?}");
         let scale = head_px / Head::of_height(212.0).k;

@@ -77,9 +77,9 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ASSET-PREVIEW in that order.
    A9's completed profile proof is not an automatic invitation to rewrite the
    capability architecture. Continue AP14 ownership work before lower-priority
-   ENEMY-NOTICE (done 2026-11-18), WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS and
-   CHARGEN-SPECIES.
-4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
+   ENEMY-NOTICE (done 2026-11-18), WORLD-LAYERS (done 2026-11-18) and POSE-CONTINUITY; then ABILITY-VARIANTS (its laser sound waits for the SFX bank) and
+   CHARGEN-SPECIES (done 2026-11-19).
+4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro---done-2026-11-17), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal---done-2026-11-19), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
 5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17) is complete: F1 and headless reports expose effective collision, combat, interaction, portal and navigation geometry. Its contract is in the developer-tools system document. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
    remain selected at their stated boundaries (TOOL-DISCOVERY and EDITOR-SHELL
    are complete: [tooling layout](engine/tooling-layout-and-editor-consolidation.md),
@@ -196,13 +196,17 @@ or updating their source. Check with
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 
-### GNUTON-GNU2-FINALE — summon a second GNU through a real portal
+### GNUTON-GNU2-FINALE — summon a second GNU through a real portal — ✅ DONE 2026-11-19
 
 **Failure:** GNU-ton's phase-3 well uses a real floor/overhead portal pair but changes the existing hall's sky and gravity to represent space. The preferred new finale is a large live portal summoning physically present GNU2, followed by simultaneous GNU and GNU2 combat. GNU2 is published and catalogued (`npc_giant_gnu2`, 2026-11-18): the giant's rows, seams and surfaces in its harness.
 
 **Owner:** [boss finale and acceptance](game/boss-cinematics-gnu2-and-motion.md) and [GNU-ton debts](game/gnu-ton-fight-debts.md).
 
-**Next action:** author a same-active-area portal staging source, actual through-aperture entrance, combined fight and multi-boss victory policy. Replace obsolete sky/space-phase authority only after replay, reset and exit gating pass.
+**Steps 2-6 done 2026-11-19 ([owner](game/boss-cinematics-gnu2-and-motion.md#gnu2s-finale-gnuton-gnu2-finale)):** GNU2 sleeps in a sealed cell under each arena's floor, wakes when GNU-ton enrages (`successors_wake: Enraged`), opens its own held pair and walks through it into the hall. It has its own conductor (`gnu2`: walk, stomp shocks, buck), the boss bar stacks every fought boss, and each arena's way out waits on both (the handle has a grille for each). The scholar's enrage now calls GNU2 instead of launching to space.
+
+**Step 7 done 2026-11-19:** space is retired. The well, the ascent, the tides, the helmets and the space sky (`presentation/gnu_ton_sky.rs`) are gone, and the conductor's record is v2 (its call clock replaces the launch's).
+
+**Next action:** none; watch the two-giant fight on Jon's displays.
 
 **Acceptance:** physically observed GNU2 portal emergence, simultaneous independently damageable GNU/GNU2 giants with readable counters, either defeat order supported, door gating on both plus rider yield, no duplicate spawn on retries, and both bosses safely cleaned on teardown. Keep intra-island portal semantics and existing phase 1/2 gameplay.
 
@@ -318,7 +322,7 @@ A placeholder stays visibly unavailable until it has an admitted implementation.
 Tiers, equipment and checkpoint/save state agree. Keep quality selection out
 of gameplay authority.
 
-### CHARGEN-SPECIES — species parameters and asymmetric overlay views
+### CHARGEN-SPECIES — species parameters and asymmetric overlay views — ✅ DONE 2026-11-19
 
 **Failure:** the overlay mechanism is built, but species heads still expose
 mainly muzzle and ear choices. Mirrored left cells move asymmetric details
@@ -364,14 +368,20 @@ alligator's wide snout and four scute rows. At this scale the pigeon's cere
 and eye ring and the sea lion's whisker pads are barely there; they are
 head-crop details, not silhouette. ([knobs](game/chargen-species-knobs-and-2d-overlays.md#game-scale-check-2026-11-18))
 
-**Next action:** asymmetric details keep their side. Every species marking
-is the same on both sides, but three overlays are not (Nikobolt's and André
-Rebouças's watch chains, Coulomba's plume and roses), and three generated
-features are not (the nihongami's ornaments, the kimono's wrap). A left
-cell alone changes nothing in the game: the runtime draws a body that faces
-left by flipping its right row. The fix is a left-facing row set for a
-target that has a one-sided detail (the flipbook's `<row>~mirrored`, which
-the runtime already selects), drawn with the left cells, and published.
+**One-sided details done 2026-11-19:** a character with a detail on one
+side of the body (`rig.one_sided`: a kimono's wrap, a nihongami's
+ornaments, an overlay with `data-figure="mirrored"` cells) is also drawn as
+its mirror image (`View.mirrored`), and its sheet gains `<row>~mirrored`
+for every row: the mirror image's frame flipped, which the animator draws
+for a body facing left. Ten residents are one-sided (seven in kimono, and
+André Rebouças, Nikobolt and Coulomba, whose mirrored cells move the watch
+chains and the cocked hat's plume, bow and roses); all ten republished, 47
+mirrored rows in every quality tier and in the part flipbook. A true left
+view (negative yaw) was rejected by measurement: the house shade is on the
+screen's left and the hands are not mirror twins, so it differed from its
+right twin on 20-30 % of a symmetric resident's pixels. Items held in a
+hand stay in the far hand, as on every hand-made sheet
+([design](game/chargen-species-knobs-and-2d-overlays.md#as-built-overlays-renderer-chargenoverlaypy)).
 
 **Acceptance:** head crops and posed clips show distinct valid shapes in every
 view; heads stay attached and asymmetric features keep their side. Existing
@@ -1869,6 +1879,21 @@ missing list entry, so decide it at its owner:
 `sanic_it`'s `act_two_routes::the_ledge_spring_throws_him_onto_the_sky_island`
 fails at 3ff8d4e39, before the badnik module. He ends at (13616, 456), above
 the island, with no monitor spent.
+
+**Two more inherited reds (found 2026-11-19, GNU2 slice):** both fail the
+same way with the slice stashed.
+- `app_it`'s `gnu_ton_in_a_match::each_ground_strike_of_gnu_ton_hits_a_short_foe_beside_him`:
+  "the match of special_patent_clerk and sandbag_infinite did not start", as
+  every live-round Smash arm here (below).
+- `ambition_boss_encounter`'s
+  `sprite_sheet_tests::giant_gnu_baked_record_drives_the_packed_pixels`:
+  the published `giant_gnu` record is not trimmed ("alpha-trimmed/packed, not
+  a raw grid"). The record-only part-first publish (PF1) is the first
+  suspect: read the published record before republishing.
+- `scripts/checks/check_session_authority_none_arms.py`: two optional
+  reads from upstream have no `none-arm:` row,
+  `gravity.rs::retract_room_gravity_turns` (`BaseGravity`) and
+  `gate_portal.rs::retract_room_gate_portal_phases` (`GatePortalPhases`).
 
 **Shell lifecycle reds (found 2026-11-19, inherited):** two of
 `shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the

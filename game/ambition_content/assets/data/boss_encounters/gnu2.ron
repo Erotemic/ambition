@@ -1,0 +1,23 @@
+// Boss encounter spec — GNU2, the giant's armored sequel (GNUTON-GNU2-FINALE).
+//
+// It waits in a containment cell under GNU-ton's arena, asleep: it wakes
+// after GNU-ton (`wakes_after`), and GNU-ton calls his successors at his
+// enrage (`successors_wake: Enraged` in `gnu_ton_rider.ron`), through a pair
+// of portals from the cell's floor to the air over the hall. It fights in
+// one phase: it walks the hall, stomps, and bucks a body off its back. See
+// the `gnu2` row in `boss_profiles.ron`.
+(
+    id: "gnu2",
+    name: "GNU2",
+    max_hp: 30,
+    // One phase: it never reaches a transition or an enrage.
+    phase1_to_transition_hp: 0.0,
+    phase2_to_enrage_hp: 0.0,
+    // It falls through the pair as it wakes; its intro is its landing.
+    intro_seconds: 1.4,
+    transition_seconds: 0.0,
+    music_intro: "",
+    music_phase1: "",
+    music_phase2: "",
+    music_enrage: "",
+)

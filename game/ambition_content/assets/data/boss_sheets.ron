@@ -109,6 +109,51 @@
         // row by name, where rigged sprites are admitted.
         parts: Some("npc_giant_gnu"),
     ),
+    // GNU2 (GNUTON-GNU2-FINALE): the giant's sheet in its harness
+    // (`giant_gnu2`, 840x680), the same rows as `giant_gnu` above, so the six
+    // a boss sheet reads by index are its rest, slams, hit and death, and its
+    // conductor pins `walk`, `buck` and `stomp` by name.
+    "gnu2": (
+        label_width: 0,
+        frame_width: 840,
+        frame_height: 680,
+        rows: [
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.11,
+            )),
+            (FloorSlam, (
+                frame_count: 10,
+                duration_secs: 0.072,
+            )),
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.065,
+            )),
+            (SpikeHalo, (
+                frame_count: 9,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 10,
+                duration_secs: 0.105,
+            )),
+        ],
+        // Drawn as its character is (`WorldPerPixel(1.3)`): 680 px x 1.3 =
+        // 884 world units tall, over the authored box's 630 (its larger side).
+        collision_scale: 1.4032,
+        feet_anchor_y: 0.0034722222,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+        // Drawn from its character's PARTS (npc_giant_gnu2: the same sheet), row by
+        // row by name, where rigged sprites are admitted.
+        parts: Some("npc_giant_gnu2"),
+    ),
     // GNU-ton, the scholar who rides the giant: the sheet `gnu_ton_scholar_boss`
     // (the rigged scholar; 248x262 frames). The frame is drawn 96 px of basis
     // (the arena's 54x96 BossSpawn) x 1.687 = 162 world units tall, so his

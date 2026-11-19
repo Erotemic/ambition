@@ -176,6 +176,7 @@ pub fn install_emission(app: &mut bevy::prelude::App) {
     app.init_resource::<PendingProjectileEmissions>()
         .init_resource::<CarriedProjectileEmissions>()
         .add_message::<ProjectileEmission>();
+    ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<CarriedProjectileEmissions>(app);
     // A rewound room's rows of the queue go back to what it carried into the
     // saved tick (`carry_pending_projectile_emissions`, at each tick's head).
     ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(

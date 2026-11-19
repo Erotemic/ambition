@@ -120,7 +120,7 @@ and later exchanges rewind through the existing native snapshot path. Existing
 session restore policies still own saved balances. This does not add durable
 NPC wallets or durable dynamic actors.
 
-The portable request is `ambition.world.create_actors@4`.
+The portable request is `ambition.world.create_actors@5`.
 
 ## Placement, allegiance and relations
 

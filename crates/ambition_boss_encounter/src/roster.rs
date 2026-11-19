@@ -39,6 +39,7 @@ impl BossSpecRoster for BossEncounterSpec {
             wake_radius: None,
             slow_motion_finish: false,
             name_card: Default::default(),
+            successors_wake: Default::default(),
         }
     }
 }

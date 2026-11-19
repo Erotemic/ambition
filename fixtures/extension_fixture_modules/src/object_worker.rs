@@ -4,7 +4,7 @@ use ambition_extension_sdk::{action::{ActionResultPort, ActionStage, ReplyTo}, p
     record, script::ScriptValue, structure::Field, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy,
     Invocation, Limits, ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION};
 use ambition_world_port::{behavior::{BehaviorContext, BehaviorContextPort, CompleteObjectCall,
-    CompleteObjectCallPort, ObjectCallPort}, inventory::{InventoryExchange, InventoryExchangePort, InventoryTerms}};
+    CompleteObjectCallPort, ObjectCallPort, ObjectBornPort, BehaviorEventsPort, CallObject, CallObjectPort, ObjectCallResultPort}, inventory::{InventoryExchange, InventoryExchangePort, InventoryTerms, InventoryViewPort}};
 
 record! {
     pub struct Memory = SchemaKey::new("fixture", "object_worker.memory", 1);
@@ -14,6 +14,14 @@ record! {
     4 refused: u32,
     5 busy: bool,
     6 completions: u32,
+}
+
+record! {
+    pub struct BirthMemory = SchemaKey::new("fixture", "object_worker.birth", 1);
+    1 started: u32,
+    2 finished: u32,
+    3 accepted: u32,
+    4 refused: u32,
 }
 
 pub fn module() -> ModuleDescriptor {
@@ -26,11 +34,15 @@ pub fn module() -> ModuleDescriptor {
     };
     ModuleDescriptor {key: ModuleKey::new("fixture", "object_worker"), api: API_VERSION,
         code: CodeIdentity::StaticNative {build: None, crate_name: env!("CARGO_PKG_NAME").into(), version: env!("CARGO_PKG_VERSION").into()},
-        schemas: vec![Memory::schema()], entries: vec![
+        schemas: vec![Memory::schema(), BirthMemory::schema()], entries: vec![
             entry("work", ObjectCallPort::KEY, work, vec![InventoryExchangePort::KEY, CompleteObjectCallPort::KEY],
                 vec!["fixture::object_worker/trade".into(), "fixture::object_worker/ack".into()]),
             entry("trade", ActionResultPort::KEY, trade, vec![CompleteObjectCallPort::KEY], vec!["fixture::object_worker/ack".into()]),
             entry("ack", ActionResultPort::KEY, ack, Vec::new(), Vec::new()),
+            EntryDescriptor {reads: vec![BehaviorContextPort::KEY, InventoryViewPort::KEY], writes: vec![BirthMemory::KEY],
+                ..entry("born", ObjectBornPort::KEY, born, vec![CallObjectPort::KEY], vec!["fixture::object_worker/birth_done".into()])},
+            EntryDescriptor {reads: vec![BehaviorContextPort::KEY, BehaviorEventsPort::KEY, ObjectCallResultPort::KEY], writes: vec![BirthMemory::KEY],
+                ..entry("birth_done", ActionResultPort::KEY, birth_done, Vec::new(), Vec::new())},
         ]}
 }
 fn context(inv: &Invocation<'_>) -> Result<BehaviorContext, Fault> {
@@ -87,4 +99,42 @@ fn ack(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let result = inv.trigger::<ActionResultPort>()?;
     if result.stage == ActionStage::Rejected { return Err(Fault::Module(result.code.clone().into())); }
     Ok(())
+}
+
+fn born(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let source = inv.trigger::<ObjectBornPort>()?.object;
+    let context = context(inv)?;
+    let peer = context.references.iter().find(|(key, _)| key == "peer")
+        .map(|(_, value)| *value).ok_or_else(|| Fault::Module("missing birth peer".into()))?;
+    if source != peer || inv.observe::<InventoryViewPort>()?.wallet != Some(3) {
+        return Err(Fault::Module("a native birth exposed incomplete or crossed state".into()));
+    }
+    let mut state = BirthMemory::load(inv)?;
+    state.started += 1;
+    inv.submit::<CallObjectPort>(CallObject {reply: ReplyTo {request: state.started, selector: "fixture::object_worker/birth_done".into()},
+        target: peer, binding: "logic".into(), method: "use".into(), data: ScriptValue::Unit})?;
+    state.store(inv)
+}
+fn birth_done(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let result = inv.trigger::<ActionResultPort>()?;
+    if !result.terminal { return Ok(()); }
+    let context = context(inv)?;
+    let data = inv.observe::<ObjectCallResultPort>()?.as_ref().ok_or_else(|| Fault::Module("missing native call result".into()))?;
+    let returned = data.data.field("object").and_then(ambition_extension_sdk::ObjectRef::from_script)
+        .map_err(|error| Fault::Module(error.into()))?;
+    if data.ticket != result.ticket || !context.references.iter().any(|(key, value)| key == "peer" && *value == returned) {
+        return Err(Fault::Module("the native call result crossed an occurrence".into()));
+    }
+    let history = inv.observe::<BehaviorEventsPort>()?;
+    use ambition_extension_sdk::action::ActionDelivery;
+    let acknowledged = history.deliveries.iter().filter(|row| row.progress.status == ActionDelivery::Acknowledged).count();
+    let quarantined = history.deliveries.iter().filter(|row| row.progress.status == ActionDelivery::Quarantined && row.progress.attempts == 3).count();
+    if history.dropped != 0 || acknowledged != 1 || quarantined != 1 {
+        return Err(Fault::Module("native delivery did not retain acknowledgement and bounded fault".into()));
+    }
+    let accepted = result.stage == ActionStage::Completed;
+    let mut state = BirthMemory::load(inv)?;
+    state.finished += 1;
+    if accepted { state.accepted += 1; } else { state.refused += 1; }
+    state.store(inv)
 }

@@ -41,9 +41,7 @@ use crate::GuestSeat;
 /// admitted input without a saved tick applies from the next host tick.
 pub const REWIND_HORIZON: u64 = 60;
 
-/// On a host: predict each guest's input and rewind the guest's room when its
-/// input for a past tick arrives and differs (see the module docs). Without
-/// it, a guest's input drives its seat when it arrives.
+/// Predict guest controls on the host and correct them with room replay.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct RewindsGuestRooms;
 

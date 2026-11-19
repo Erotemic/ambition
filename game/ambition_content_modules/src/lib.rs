@@ -20,6 +20,7 @@ pub mod echo_fan;
 pub mod eye_beam;
 pub mod eye_laser;
 pub mod fsm;
+pub mod gnu2;
 pub mod gnu_ton;
 pub mod gradient_cascade;
 pub mod grapple;
@@ -60,6 +61,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     eye_beam::module,
     eye_laser::module,
     fsm::module,
+    gnu2::module,
     gnu_ton::conductor::module,
     gradient_cascade::module,
     grapple::module,

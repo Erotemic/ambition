@@ -322,6 +322,12 @@ fn on_floor(kin: &ae::BodyKinematics, floor: f32) -> bool {
     (kin.pos.y + kin.size().y * 0.5 - floor).abs() < 1.0
 }
 
+/// GNU2 does not fall: it walks a hair over its floors (the conductor's
+/// `EXIT_LIFT`), so its feet are over the floor, not on it.
+fn over_floor(kin: &ae::BodyKinematics, floor: f32) -> bool {
+    (0.0..=3.0).contains(&(floor - (kin.pos.y + kin.size().y * 0.5)))
+}
+
 /// Step until `until` holds, or panic naming what it was waiting for.
 fn step_until(
     sim: &mut Platformer2dSimHarness,
@@ -2051,8 +2057,8 @@ fn gnu_ton_bodies(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     q.iter(world).filter(|(_, config)| config.behavior.id == GNU_TON_ID).map(|(entity, _)| entity).collect()
 }
 
-/// ⭐ DEBT 13, IN THE REAL ARENA: his defeat opens the way out, and the way
-/// stays open when his body goes. The gate read a dead body, so the body
+/// ⭐ DEBT 13, IN THE REAL ARENA: his defeat and GNU2's open the way out, and
+/// the way stays open when his body goes. The gate read a dead body, so the body
 /// going closed the arena again.
 #[test]
 fn defeating_him_opens_the_arena_and_his_body_going_does_not_close_it() {
@@ -2105,7 +2111,33 @@ fn defeating_him_opens_the_arena_and_his_body_going_does_not_close_it() {
         ticks += 1;
     }
     sim.step(AgentAction::default());
-    assert_eq!(arena_exit(&mut sim), (0, true), "beaten (recorded after {ticks} ticks): the ladder and the gap are open");
+    // GNU2 is a member of the fight: beaten alone, he leaves the way shut,
+    // and GNU2 (woken by his defeat) is still to beat.
+    assert_ne!(arena_exit(&mut sim).1, true, "beaten alone (recorded after {ticks} ticks): GNU2 holds the way");
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut ambition_platformer2d::boss_encounter::BossEncounter, &mut BodyHealth)>();
+        for (config, mut status, mut health) in q.iter_mut(world) {
+            if config.behavior.id == "gnu2" {
+                health.health.current = 0;
+                if let Some(phase) = status.encounter.as_mut() {
+                    let _ = phase.kill();
+                }
+            }
+        }
+    }
+    let gnu2_recorded = |sim: &mut Platformer2dSimHarness| {
+        sim.world().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().boss("hall.gnu2")
+            == ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared
+    };
+    let mut gnu2_ticks = 0;
+    while !gnu2_recorded(&mut sim) {
+        assert!(gnu2_ticks < 1800, "the premise: GNU2's death settles and the boss domain records it");
+        sim.step(AgentAction::default());
+        gnu2_ticks += 1;
+    }
+    sim.step(AgentAction::default());
+    assert_eq!(arena_exit(&mut sim), (0, true), "both beaten: the ladder and the gap are open");
     let bodies = gnu_ton_bodies(&mut sim);
     assert!(!bodies.is_empty(), "the premise: his body is still there");
     for body in bodies {
@@ -2124,6 +2156,7 @@ fn defeating_him_opens_the_arena_and_his_body_going_does_not_close_it() {
 fn a_won_fight_leaves_the_arena_open_when_you_come_back() {
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_boss("hall.gnu_ton", ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
+    save.set_boss("hall.gnu2", ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
     let opts = crate::common::sandbox_options()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room(ARENA)
@@ -2554,56 +2587,69 @@ fn a_blow_that_meets_the_fist_as_it_comes_out_throws_both_back() {
     assert!(thrown > 400.0, "the player was thrown back: {thrown}");
 }
 
-/// ⭐ THE WELL (Jon, 2026-10-24: "gnuton opens a huge portal and then a
-/// gravity well that causes everyone to fall into it and into space"). In
-/// the launch the floor of the hall opens into a portal, a well of gravity
-/// pulls every body into it, and a body that falls in comes out of the
-/// portal over it, falling. It is all simulation: the giant, the scholar on
-/// it and the player go through the pair, as bodies, and after it closes they
-/// are in the hall, in space, and none fell out of it.
+/// GNU2's body and its encounter's phase.
+fn gnu2(sim: &mut Platformer2dSimHarness) -> (ae::BodyKinematics, ambition_platformer2d::boss_encounter::BossEncounterPhase, i32) {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&BossConfig, &ae::BodyKinematics, &ambition_platformer2d::boss_encounter::BossEncounter, &BodyHealth)>();
+    q.iter(world)
+        .find(|(config, ..)| config.behavior.id == "gnu2")
+        .map(|(_, kin, encounter, health)| (kin.clone(), encounter.encounter_phase(), health.current()))
+        .expect("GNU2 is in the arena")
+}
+
+/// ⭐ GNUTON-GNU2-FINALE. GNU2 sleeps in its cell under the hall's floor
+/// while he fights. In the beat before his enrage he calls it; at his
+/// enrage it wakes, opens a pair of portals (one in the cell's wall, one in
+/// the hall's west wall), and walks through it into the hall, on the hall's
+/// floor. The pair closes behind it, and it fights: its own hits hurt it.
 #[test]
-fn the_well_pulls_the_hall_through_its_portals_into_space() {
+fn at_his_enrage_gnu2_walks_into_the_hall_through_its_pair() {
+    use ambition_platformer2d::boss_encounter::BossEncounterPhase;
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
     let mut sim = arena_with_free_fists();
     untouchable_player(&mut sim);
     step_until(&mut sim, 600, "the free fists", |sim| scene(sim).fists.len() == 2);
-    place_player(&mut sim, ae::Vec2::new(700.0, 1200.0));
-    scholar_health_to(&mut sim, 0.2);
+    place_player(&mut sim, ae::Vec2::new(900.0, 1200.0));
     let floor = scene(&mut sim).floor;
-    let mut trail = Vec::new();
-    for tick in 0..(60.0 * 6.0) as usize {
+    let (asleep, phase, _) = gnu2(&mut sim);
+    assert_eq!(phase, BossEncounterPhase::Dormant, "the premise: GNU2 sleeps while he fights");
+    assert!(asleep.pos.y - asleep.size().y * 0.5 > floor, "the premise: its cell is under the floor: {:?} {:?} floor {floor}", asleep.pos, asleep.size());
+    scholar_health_to(&mut sim, 0.2);
+    let held = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world.query_filtered::<(), With<HeldPortalOf>>().iter(world).count()
+    };
+    let mut opened = false;
+    step_until(&mut sim, 60 * 20, "GNU2 in the hall", |sim| {
+        // Its pair is two lines more than his own pairs hold.
+        opened |= gnu2(sim).1 != BossEncounterPhase::Dormant && held(sim) >= 2;
+        let (kin, ..) = gnu2(sim);
+        over_floor(&kin, floor) && kin.pos.x - kin.size().x * 0.5 > 32.0
+    });
+    assert!(opened, "it came through a pair it opened");
+    // Wholly in the hall, it closes its pair, and walks the hall's floor.
+    step_until(&mut sim, 60 * 6, "GNU2 clear of the wall", |sim| {
+        let (kin, ..) = gnu2(sim);
+        kin.pos.x - kin.size().x * 0.5 > 64.0
+    });
+    for _ in 0..30 {
         sim.step(AgentAction::default());
-        let s = scene(&mut sim);
-        let (me, _) = player(&mut sim);
-        trail.push((tick, s.giant.clone(), s.scholar.pos, me.clone()));
     }
-    let shown = || {
-        trail.iter().step_by(6).map(|(t, g, s, p)| format!("{t} giant {:?} {:?} scholar {s:?} player {:?}", g.pos, g.vel, p.pos)).collect::<Vec<_>>().join("\n")
-    };
-    // Each went down into the floor and came out high over it: a jump up of
-    // most of the hall in one tick, with the fall kept.
-    let through = |body: &dyn Fn(&(usize, ae::BodyKinematics, ae::Vec2, ae::BodyKinematics)) -> ae::BodyKinematics| {
-        trail.windows(2).filter(|w| body(&w[0]).pos.y - body(&w[1]).pos.y > 700.0 && body(&w[1]).vel.y > 0.0).count()
-    };
-    assert!(through(&|row| row.1.clone()) >= 1, "the giant did not fall through the well:\n{}", shown());
-    assert!(through(&|row| row.3.clone()) >= 1, "the player did not fall through the well:\n{}", shown());
-    // Nothing fell out of the hall (a body in the floor's portal is partly
-    // under the floor, and never all of it), and the scholar stayed on his
-    // giant.
-    for (k, (tick, giant, scholar, me)) in trail.iter().enumerate() {
-        assert!(giant.pos.y - giant.size().y * 0.5 < floor, "tick {tick}: the giant fell out of the hall:\n{}", shown());
-        assert!(me.pos.y - me.size().y * 0.5 < floor, "tick {tick}: the player fell out of the hall:\n{}", shown());
-        // The rider is put on his mount after the mount moves: on the tick
-        // the giant goes through, he follows it on the next.
-        let giant_went_through = k > 0 && trail[k - 1].1.pos.y - giant.pos.y > 700.0;
-        assert!(
-            giant_went_through || scholar.y < giant.pos.y,
-            "tick {tick}: the scholar fell off his giant:\n{}",
-            shown()
-        );
+    let (kin, phase, before) = gnu2(&mut sim);
+    assert!(over_floor(&kin, floor), "it stands on the hall's floor: {:?}", kin.pos);
+    assert_ne!(phase, BossEncounterPhase::Dormant);
+    // It is fought: a hit on it lands.
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut BodyHealth)>();
+        for (config, mut health) in q.iter_mut(world) {
+            if config.behavior.id == "gnu2" {
+                health.health.current -= 1;
+            }
+        }
     }
-    // In space, after the launch: the giant stands on the floor of the hall.
-    let s = scene(&mut sim);
-    assert!(on_floor(&s.giant, floor), "the giant is not down in space:\n{}", shown());
+    sim.step(AgentAction::default());
+    assert_eq!(gnu2(&mut sim).2, before - 1);
 }
 
 /// The scholar's drawn row and its clock, when one is pinned.
@@ -2625,8 +2671,8 @@ fn rider_pin(sim: &mut Platformer2dSimHarness) -> Option<(String, f32)> {
 /// contract: the fight's pattern decides what happens in the window.
 ///
 /// Three runs: phase 1; phase 2 (its arms free, `free_fists`); and phase 3,
-/// the scholar brought to a fifth of his health, so the well opens and the
-/// fight goes on in space.
+/// the scholar brought to a fifth of his health, so he calls GNU2 and the
+/// two giants fight on in the hall.
 #[test]
 #[ignore = "measurement: prints the giant's motion discontinuities; run with --ignored --nocapture"]
 fn how_the_giant_moves_frame_by_frame() {

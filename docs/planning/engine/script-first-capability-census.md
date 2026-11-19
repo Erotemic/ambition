@@ -111,7 +111,7 @@ behavioral witnesses. Do not migrate working demo gameplay for coverage.
 | P1 | A callback acknowledges delivery only after its state and requests commit. Faults need bounded deterministic retry or an inspectable terminal diagnostic. Include unavailable subscribers and paused rooms. Implemented: [delivery receipt](#action-callback-acknowledgement-receipt). |
 | P1 | Each domain declares cancellation support and its suppression mechanism. Unsupported or late cancellation must be refused. A canceled operation cannot later mutate the world. Implemented: [cancellation receipt](#native-cancellation-contract-receipt). |
 | P2 | Invalid callback wiring must be caught at preparation or reported through a guaranteed observation of the submitting scope. Reload must not leave silent orphan work. Implemented: [callback receipt](#callback-preparation-receipt). |
-| P2 | Completed object publication follows all native and script initialization. A creation listener must see wallet, statuses, records, relations, and the stable occurrence together. Refused preflight must create nothing. Native boundary implemented: [publication receipt](#completed-native-publication-receipt). Scoped script birth delivery remains open. |
+| P2 | Completed object publication follows all native and script initialization. A creation listener must see wallet, statuses, records, relations, and the stable occurrence together. Refused preflight must create nothing. Native boundary implemented: [publication receipt](#completed-native-publication-receipt). Runtime actor/prop birth subscriptions are implemented; authored room births remain open. |
 | P2 | Measure native contact collection and frame cost with few and many subscribers in crowded rooms, including two live rooms. Use the native spatial broadphase or confirmed contact stream when the measurements justify a change. Preserve ordering and replay. Local benchmark and native spatial candidates implemented: [contact receipt](#contact-observer-scaling-receipt). Release and device budgets remain unverified. |
 
 Then implement two distinct reusable object behaviors whose events cause each
@@ -137,8 +137,8 @@ Calls and action callbacks had separate routing and receiver budgets.
 Typed native journals keep ticket ownership and explicit call completion.
 The loaded `requests_and_native_outcomes_share_one_private_receiver_budget_through_replay`
 guard checks their shared budget. The existing Rhai and WASM witnesses cover
-native outcomes, private state, faults, cancellation and replay. Subscriptions,
-signals, mixed factory batches and confirmed cross-island delivery remain
+native outcomes, private state, faults, cancellation and replay. Additional
+native sources, signals, mixed factory batches and confirmed delivery remain
 open under the [delivery evaluation](addressed-behavior-inbox.md).
 
 ### Local construction reference receipt
@@ -150,8 +150,30 @@ reference without births or spent creation IDs, and check actual native outcomes
 through Rhai, WASM and GGRS. Actor/prop publication and live attachment guards
 also pass. `abaa59138` stores external addresses without reading foreign liveness.
 Native operations retain liveness and scope checks. `6056d42a1` adds bounded Rhai
-composite values and fingerprints their execution budgets. Native facts, authored signals and confirmed cross-island
-transport remain open. Do not treat local names as durable object addresses.
+composite values and fingerprints their execution budgets. Authored signals and
+confirmed cross-island transport remain open. Do not treat local names as
+durable object addresses.
+
+### Native birth subscription receipt
+
+`bf213248f` routes typed birth facts through the common inbox to named methods.
+Construction checks source references, trigger type, phase and selector before
+publication. The `native_birth` guards check actual Rhai/WASM handlers and
+workers, accepted/refused native inventory, bounded quarantine and GGRS.
+The native guard checks occurrence isolation, queue overflow, reconstruction
+and travel. `e456dde26` declares island policy for host room replay and guest
+prediction. Both guest prediction guards pass after the merge. Other native
+sources, signals, live subscription replacement and confirmed transport remain
+open. Do not publish a native fact before its owning domain commits it.
+
+### Pending projectile room ownership receipt
+
+`c2fa7ad6c` selects pending births by captured emitter scope, preserves other
+rooms' saved history and captures work after the clock names the tick. It uses
+the shared rewind horizon and clears history on session activation. The native
+`room_replay_owns_pending_births_by_emitter` guard failed before the fix and now
+passes. Loaded credit, native birth and guest prediction guards also passed.
+Combat credit must not select the room that owns pending physics work.
 
 ### Unified object model in progress
 
@@ -173,7 +195,8 @@ Keep the full capability program open while these contracts lack evidence:
 - Methods and event handlers need the appropriate native read cuts. Directed
   calls currently run in `actor_think`; technique and reaction phases remain
   separate capability work. Reach and scope rules belong to native owners.
-- Typed native facts and authored signals need bounded scoped subscriptions.
+- Runtime birth facts now use bounded subscriptions to named methods through
+  the shared inbox. Additional native facts and authored signals remain open.
   Birth, retirement and important state changes must retain provenance. Delivery
   must reuse host commit receipts, with inspectable retry or terminal failure.
   Component removal during rollback reconstruction is not gameplay retirement.
@@ -184,9 +207,10 @@ Keep the full capability program open while these contracts lack evidence:
 Typed references, subject payloads and private behavior bindings are implemented.
 Directed calls and actor/prop bindings at birth have loaded replay witnesses.
 Typed local references within actor and prop factory batches have loaded Rhai
-and WASM witnesses. Mixed construction batches, general discovery, native event
-subscriptions and cross-room message causality during independent room replay
-remain open. See
+and WASM witnesses. Runtime birth subscriptions have a cross-object witness.
+Mixed construction batches, general discovery, live subscription replacement,
+other native sources, authored signals and cross-room message causality during
+independent room replay remain open. See
 [object behaviors](../../sdk/object-behaviors.md).
 
 The remaining contracts need more than aliases: general world-object

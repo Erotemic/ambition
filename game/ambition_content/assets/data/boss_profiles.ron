@@ -627,6 +627,80 @@
         ),
     ),
     // ============================================================
+    // GNU2 (GNUTON-GNU2-FINALE) — the giant's armored sequel, called by
+    // GNU-ton through a pair of portals at his enrage (`gnu2.ron`). No
+    // rider: the giant is the boss, and the body that takes the hits. Its
+    // conductor (`ambition_content_modules::gnu2`) walks it to the player
+    // (`ambition.boss.walk`) between its moves, and performs them:
+    //   * stomp — a shock along the floor each way; jump it.
+    //   * buck — it throws whoever stands on its back.
+    // Its body is the giant's (`npc_giant_gnu2`, the same rows and scale).
+    // ============================================================
+    "gnu2": (
+        bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
+        id: "gnu2",
+        reward_ability: None,
+        signature_gauntlet: None,
+        // The giant's authored body box at its scale (`npc_giant_gnu`).
+        combat_size: Some((630.0, 464.0)),
+        pilotable_mount_classes: [],
+        movement: StationaryGiant(
+            sway_amplitude: 0.0,
+            sway_frequency: 0.0,
+            speed: 0.0,
+        ),
+        movement_phase2: None,
+        movement_enrage: None,
+        strike_speed_scale: 1.0,
+        self_dodge: None,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+            // It stays where its walk left it: its pattern's own target
+            // would be its spawn, in the cell.
+            hold_position_while_engaged: true,
+        ),
+        attacks: [
+            Special("stomp"),
+            Special("buck"),
+        ],
+        attack_cooldown: 0.0,
+        attack_windup: 0.0,
+        attack_active: 0.0,
+        attack_damage: 2,
+        // A giant walking into you hurts.
+        body_damage: 1,
+        attack_pattern: Scripted(
+            // It walks while it rests (its conductor), and between: a stomp
+            // when you are far, a buck when you are on it or near.
+            phase1: (steps: [
+                Rest(duration: 1.6),
+                Select(table: [
+                    (weight: 1.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("buck"), duration: 0.6,
+                            telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("buck"), duration: 0.5),
+                    ]),
+                    (weight: 1.0, when: None, steps: [
+                        Telegraph(profile: Special("stomp"), duration: 0.8,
+                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("stomp"), duration: 0.5),
+                    ]),
+                ]),
+            ]),
+            phase2: (steps: [Rest(duration: 1.0)]),
+            enrage: (steps: [Rest(duration: 1.0)]),
+        ),
+        reward: None,
+    ),
+    // ============================================================
     // The bossofthegame — the final boss (`docs/planning/game/final-boss.md`).
     //
     // He stands on the shoulders of Full Stack (`npc_full_stack`), the

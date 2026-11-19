@@ -31,11 +31,19 @@ pub struct DrawnBossBar {
     view: Option<Entity>,
     /// That view's rectangle (min, size), when it has one.
     rect: Option<(BVec2, BVec2)>,
+    /// Its place in the view's stack: two bosses fought at once (GNU-ton
+    /// and GNU2) each have a bar, one under the other.
+    slot: usize,
 }
 
-/// The player-facing boss health bar, at the top of each local view, for
-/// the boss being fought in that view's live room; with no local views, the
-/// boss being fought across the whole gameplay area.
+/// How far each bar of a stack is under the one before it, in UI pixels:
+/// a panel's least height and a gap.
+const BAR_STACK_STEP: f32 = 66.0;
+
+/// The player-facing boss health bars, at the top of each local view, one for
+/// each boss being fought in that view's live room (in the order of their
+/// ids, so a stack keeps its order); with no local views, the bosses being
+/// fought across the whole gameplay area.
 ///
 /// The debug `sync_health_overlays` system draws small bars above every
 /// actor only when developer health bars are enabled.
@@ -60,14 +68,14 @@ pub fn sync_boss_health_bar_overlay(
     active_session: Option<Res<ActiveSessionScope>>,
 ) {
     let session_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
-    // The boss being fought in `room` (any room for `None`): alive and past
-    // its intro. A successor that sleeps until its predecessor falls stands
-    // in the room at full health the whole time, and a boss in its intro is
-    // not fought yet.
+    // The bosses being fought in `room` (any room for `None`): alive and
+    // past their intro. A successor that sleeps until its predecessor falls
+    // stands in the room at full health the whole time, and a boss in its
+    // intro is not fought yet.
     let fought_in = |room: Option<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>,
                      view: Option<Entity>,
                      rect: Option<(BVec2, BVec2)>| {
-        boss_render.iter().find_map(|(id, ident)| {
+        let mut fought: Vec<(&str, DrawnBossBar)> = boss_render.iter().filter_map(|(id, ident)| {
             let row = feature_views.get(id)?;
             if room.is_some_and(|room| room.is_none() || row.room != room) {
                 return None;
@@ -84,9 +92,12 @@ pub fn sync_boss_health_bar_overlay(
                     fill_percent: health.ratio().clamp(0.0, 1.0) * 100.0,
                     view,
                     rect,
+                    slot: 0,
                 }
-            })
-        })
+            }).map(|bar| (id, bar))
+        }).collect();
+        fought.sort_unstable_by(|a, b| a.0.cmp(b.0));
+        fought.into_iter().enumerate().map(|(slot, (_, bar))| DrawnBossBar { slot, ..bar }).collect::<Vec<_>>()
     };
     let mut wanted: Vec<DrawnBossBar> = Vec::new();
     if session_scope.is_some() {
@@ -127,9 +138,10 @@ fn spawn_boss_bar(
     ui_fonts: Option<&UiFonts>,
     bar: DrawnBossBar,
 ) {
+    let below = bar.slot as f32 * BAR_STACK_STEP;
     let (left, right, top, panel_width) = match bar.rect {
-        Some((min, size)) => (Val::Px(min.x), Val::Auto, Val::Px(min.y + 18.0), (size.x - 32.0).clamp(160.0, 560.0)),
-        None => (Val::Px(0.0), Val::Px(0.0), Val::Px(18.0), 560.0),
+        Some((min, size)) => (Val::Px(min.x), Val::Auto, Val::Px(min.y + 18.0 + below), (size.x - 32.0).clamp(160.0, 560.0)),
+        None => (Val::Px(0.0), Val::Px(0.0), Val::Px(18.0 + below), 560.0),
     };
     let width = bar.rect.map_or(Val::Auto, |(_, size)| Val::Px(size.x));
     let root = (

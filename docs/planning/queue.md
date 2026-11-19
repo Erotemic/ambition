@@ -732,9 +732,14 @@ landing, a brake or a blow swings the arms (about the shoulders, the
 forearm lagging) and nods or snaps the head for 0.18 s, from and back to
 the authored pose; a strike or a clip cancels it
 ([Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish)).
-Left: watch the swing amplitudes in the game at 60 and 144 Hz, and give the
-campaign sheets the same rig (measure their gaps before authoring rows).
-Measure campaign sheet gaps before authoring more rows.
+**Campaign gaps measured 2026-11-19**
+([table](demos/smash-expressive-fighter-poses.md#roster-rollout-jon-2026-10-31-everyone-really),
+`scripts/measure/campaign_sheet_gaps.py`): of 510 sheets no Smash fighter
+draws, none draws the state poses, and 329 have no `hit` row, so a struck
+body on them is drawn `idle`. That includes all 244 townsfolk from the
+character generator. Left: watch the swing amplitudes in the game at 60 and
+144 Hz; then give the townsfolk target the motion library's reaction anchors
+(one change, 244 sheets), and the 86 hand-made rigs theirs.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp
 attack poses remain readable. Check interruptions, rollback resets, quality

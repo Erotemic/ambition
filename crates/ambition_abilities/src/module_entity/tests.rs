@@ -109,6 +109,7 @@ fn app() -> App {
         ExtensionSet::Phase(TECHNIQUE_EXECUTION).after(ExtensionSet::Phase(MODULE_ENTITY_TICK)),
     );
     let entry = |key: &'static str, phase, port, selector: &'static str, reads, writes, requests, run| EntryDescriptor {
+        replies: Vec::new(),
         key: key.into(),
         phase,
         trigger: TriggerBinding { port, selector: selector.into() },

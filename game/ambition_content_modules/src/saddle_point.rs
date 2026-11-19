@@ -49,6 +49,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: vec![Cross::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "cross".into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding {

@@ -67,6 +67,7 @@ fn velocities_in(min: [f32; 2], max: [f32; 2]) -> [Vec2; 5] {
             },
             schemas: vec![],
             entries: vec![EntryDescriptor {
+                replies: Vec::new(),
                 key: "hold".into(),
                 phase: BOSS_CONDUCT,
                 trigger: TriggerBinding {

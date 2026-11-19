@@ -39,6 +39,7 @@ fn probe() -> ModuleDescriptor {
         code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
         schemas: Vec::new(),
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "conduct".into(),
             phase: BOSS_CONDUCT,
             trigger: TriggerBinding { port: BossConductPort::KEY, selector: BEHAVIOUR.into() },

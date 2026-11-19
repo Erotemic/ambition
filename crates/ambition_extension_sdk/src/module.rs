@@ -204,6 +204,8 @@ pub struct EntryDescriptor {
     /// Entries (`provider::module/entry`) that must run before this one in the
     /// same phase. Admission refuses a cycle.
     pub after: Vec<Name>,
+    /// Statically required action_result entry paths in this module.
+    pub replies: Vec<Name>,
     pub limits: Limits,
     pub on_idle: IdlePolicy,
     pub run: EntryCode,
@@ -269,6 +271,8 @@ impl ModuleDescriptor {
             for after in &entry.after {
                 d.str(after);
             }
+            d.u32(entry.replies.len() as u32);
+            for reply in &entry.replies { d.str(reply); }
             d.u32(entry.limits.max_requests);
             match &entry.on_idle {
                 IdlePolicy::Invoke => {
@@ -322,6 +326,8 @@ impl ModuleDescriptor {
             for after in &entry.after {
                 put_str(out, after);
             }
+            put_u32(out, entry.replies.len() as u32);
+            for reply in &entry.replies { put_str(out, reply); }
             put_u32(out, entry.limits.max_requests);
             match &entry.on_idle {
                 IdlePolicy::Invoke => put_u8(out, 0),
@@ -371,6 +377,9 @@ impl ModuleDescriptor {
             let after = (0..m)
                 .map(|_| r.str().map(|s| Name::from(s.to_owned())))
                 .collect::<Result<_, _>>()?;
+            let m = r.read_len()?;
+            let replies = (0..m).map(|_| r.str().map(|s| Name::from(s.to_owned())))
+                .collect::<Result<_, _>>()?;
             let limits = Limits {
                 max_requests: r.u32()?,
             };
@@ -391,6 +400,7 @@ impl ModuleDescriptor {
                 writes,
                 requests,
                 after,
+                replies,
                 limits,
                 on_idle,
                 run: EntryCode::Loaded {

@@ -77,6 +77,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: vec![Burn::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "burn".into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding { port: TechniqueUsePort::KEY, selector: TECHNIQUE.into() },

@@ -123,6 +123,7 @@ pub fn describe_composition(world: &World) -> String {
         let _ = writeln!(out, "    reads {}", list(d.reads.iter().map(ToString::to_string).collect()));
         let _ = writeln!(out, "    writes {}", list(d.writes.iter().map(ToString::to_string).collect()));
         let _ = writeln!(out, "    requests {}", list(d.requests.iter().map(ToString::to_string).collect()));
+        let _ = writeln!(out, "    replies {}", list(d.replies.iter().map(ToString::to_string).collect()));
     }
     if !admitted.replaced.is_empty() {
         let _ = writeln!(out, "replaced: {}", admitted.replaced.join(", "));

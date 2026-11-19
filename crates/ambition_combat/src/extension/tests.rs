@@ -83,6 +83,7 @@ fn seizes(down: ae::Vec2, facing: f32, victim_at: ae::Vec2) -> bool {
             },
             schemas: vec![],
             entries: vec![EntryDescriptor {
+                replies: Vec::new(),
                 key: "seize".into(),
                 phase: BOSS_CONDUCT,
                 trigger: TriggerBinding {
@@ -280,6 +281,7 @@ fn held_from_the_captor(captor: JawCaptor, hold_at: Option<&str>, hold_offset: [
             },
             schemas: vec![],
             entries: vec![EntryDescriptor {
+                replies: Vec::new(),
                 key: "seize".into(),
                 phase: BOSS_CONDUCT,
                 trigger: TriggerBinding {

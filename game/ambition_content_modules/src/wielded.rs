@@ -19,6 +19,7 @@ pub fn module(key: &'static str, item: &'static str, requests: Vec<PortKey>, max
         },
         schemas: Vec::new(),
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "use".into(),
             phase: WIELDED_USE,
             trigger: TriggerBinding {

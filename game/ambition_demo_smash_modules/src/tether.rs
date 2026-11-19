@@ -53,6 +53,7 @@ record! {
 
 pub fn module() -> ModuleDescriptor {
     let entry = |key: &'static str, trigger, selector: &'static str, reads, run| EntryDescriptor {
+        replies: Vec::new(),
         key: key.into(),
         phase: TECHNIQUE_EXECUTION,
         trigger: TriggerBinding { port: trigger, selector: selector.into() },

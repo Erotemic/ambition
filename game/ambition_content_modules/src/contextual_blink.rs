@@ -60,6 +60,7 @@ pub fn module() -> ModuleDescriptor {
         entries: [("blink", 0usize, blink_near as fn(&mut Invocation<'_>) -> Result<(), Fault>), ("blink_far", 1, blink_far)]
             .into_iter()
             .map(|(key, level, run)| EntryDescriptor {
+                replies: Vec::new(),
                 key: key.into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: TechniqueUsePort::KEY, selector: LEVELS[level].0.into() },

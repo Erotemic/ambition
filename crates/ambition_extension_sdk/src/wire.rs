@@ -9,6 +9,8 @@
 /// Why bytes could not be decoded.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WireError {
+    /// The descriptor uses a different loaded-module ABI.
+    UnsupportedAbi,
     /// The bytes ended before the value did.
     Truncated,
     /// A string is not UTF-8.

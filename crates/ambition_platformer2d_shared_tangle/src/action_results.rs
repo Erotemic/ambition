@@ -2,6 +2,7 @@
 
 use ambition_extension_sdk::action::{
     ActionDelivery, ActionJournalEntry, ActionResult, ActionResults, ActionStage, ActionTicket, ReplyTo,
+    ActionSubmission, ActionSubmissionRefusal,
 };
 use bevy::prelude::*;
 
@@ -69,6 +70,7 @@ pub struct ActionMailbox {
     dropped: u64,
     producers: Vec<Producer>,
     journal: Vec<JournalRow>,
+    refusals: Vec<ActionSubmissionRefusal>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -205,6 +207,37 @@ pub fn begin_action(
         execute: true,
         reply: Some(ActionReply { recipient, ticket }),
     }
+}
+
+/// Extension requests reach this adapter only after host preparation succeeds.
+pub fn begin_action_request<P: ambition_extension_sdk::Port>(world: &mut World, scope: Entity,
+    entry: &str, value: &P::Value) -> ActionDispatch {
+    match P::action(value) {
+        Some(action) => begin_action(world, scope, entry, action.domain, Some(action.reply), action.signature()),
+        None => ActionDispatch {execute: true, reply: None},
+    }
+}
+
+/// A failed preparation does not reserve a request number or pending work.
+pub fn refuse_action_submission(world: &mut World, scope: Entity, entry: &str,
+    action: &ActionSubmission<'_>) {
+    if ensure_object_occurrence(world, scope).is_none() { return; }
+    let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
+    let mut scope = world.entity_mut(scope);
+    let mut mailbox = scope.entry::<ActionMailbox>().or_default().into_mut();
+    let signature = action.signature();
+    if mailbox.refusals.iter().any(|row| row.entry == entry && row.domain == action.domain
+        && row.request == action.reply.request && row.handler == action.reply.selector
+        && row.signature == signature && row.code == "invalid_reply_entry") { return; }
+    if mailbox.refusals.len() == PENDING_LIMIT {
+        mailbox.refusals.remove(0);
+        mailbox.dropped = mailbox.dropped.saturating_add(1);
+    }
+    let sequence = mailbox.next_sequence;
+    mailbox.next_sequence = mailbox.next_sequence.saturating_add(1);
+    mailbox.refusals.push(ActionSubmissionRefusal {sequence, entry: entry.into(), domain: action.domain.into(),
+        request: action.reply.request, handler: action.reply.selector.clone(), signature,
+        tick: now, code: "invalid_reply_entry".into()});
 }
 
 pub fn action_is_pending(world: &World, reply: Option<&ActionReply>) -> bool {
@@ -575,6 +608,7 @@ impl ActionMailbox {
         ActionResults {
             next_sequence: self.next_sequence,
             dropped: self.dropped,
+            refusals: self.refusals.clone(),
             entries: self
                 .journal
                 .iter()
@@ -626,7 +660,7 @@ ambition_extension_sdk::port_record! {
         delivery: ActionDelivery, attempts: u32, last_attempt: Option<u64>, last_error: Option<String> }
 }
 ambition_extension_sdk::port_record! {
-    ActionMailbox { next_occurrence: u64, next_sequence: u64, dropped: u64, producers: Vec<Producer>, journal: Vec<JournalRow> }
+    ActionMailbox { next_occurrence: u64, next_sequence: u64, dropped: u64, producers: Vec<Producer>, journal: Vec<JournalRow>, refusals: Vec<ActionSubmissionRefusal> }
 }
 
 impl ambition_platformer2d_core::snapshot::SnapshotState for ActionMailbox {

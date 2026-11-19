@@ -202,6 +202,7 @@ pub fn module() -> ModuleDescriptor {
         entries: [("visit", VISIT, visit as fn(&mut Invocation<'_>) -> Result<(), Fault>), ("great_seal", GREAT_SEAL, great_seal)]
             .into_iter()
             .map(|(key, hold, run)| EntryDescriptor {
+                replies: Vec::new(),
             key: key.into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding { port: StatusTickPort::KEY, selector: hold.into() },

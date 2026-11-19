@@ -1,10 +1,9 @@
 //! Script exchange admission and native inventory history publication.
 
 use ambition_characters::{actor::BodyWallet, control::DrivingParticipant};
-use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionOutbox, LowersIn};
+use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox, LowersIn};
 use ambition_extension_sdk::{
-    Port,
-    action::{ActionResultPort, ActionStage},
+    action::ActionStage,
     phases::*,
 };
 use ambition_items::{
@@ -12,7 +11,7 @@ use ambition_items::{
     transaction::ExchangeRefusal,
 };
 use ambition_platformer2d_shared_tangle::{
-    action_results::{begin_action, publish_action_result},
+    action_results::publish_action_result,
     lifecycle::{InRoomInstance, LiveRoomInstance, RoomWrite, SessionScopedEntity, live_room_of},
     sim_id::SimId,
 };
@@ -177,31 +176,12 @@ fn lower<L: LowersIn>(world: &mut World) {
         .resource_mut::<ExtensionOutbox>()
         .drain::<InventoryExchangePort>(&L::PHASE);
     for submitted in requests {
-        let mut bytes = Vec::new();
-        InventoryExchangePort::encode(&submitted.value, &mut bytes);
-        let dispatch = begin_action(
-            world,
-            submitted.scope,
-            &submitted.entry,
-            EXCHANGE_DOMAIN,
-            Some(&submitted.value.reply),
-            ambition_extension_sdk::digest::digest_bytes(&bytes),
-        );
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<InventoryExchangePort>(
+            world, submitted.scope, &submitted.entry, &submitted.value);
         if !dispatch.execute {
             continue;
         }
-        let valid = ambition_extension_host::reply_entry::<ActionResultPort>(
-            &world.resource::<AdmittedExtensions>().0,
-            &submitted.entry,
-            &submitted.value.reply.selector,
-            &ACTOR_THINK,
-        )
-        .is_some();
-        let outcome = if !valid {
-            Err("invalid_reply_entry")
-        } else {
-            lower_one(world, submitted.scope, &submitted.value)
-        };
+        let outcome = lower_one(world, submitted.scope, &submitted.value);
         let (stage, code, subjects) = match outcome {
             Ok(subjects) => (ActionStage::Applied, "inventory_exchanged", subjects),
             Err(code) => (ActionStage::Rejected, code, Vec::new()),

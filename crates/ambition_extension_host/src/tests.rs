@@ -98,6 +98,7 @@ fn count_and_emit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
 fn entry(key: &'static str, after: Vec<&'static str>) -> EntryDescriptor {
     EntryDescriptor {
+        replies: Vec::new(),
         key: key.into(),
         phase: PHASE,
         trigger: TriggerBinding {
@@ -157,6 +158,76 @@ fn a_complete_composition_is_admitted() {
     assert_eq!(admitted.entries.len(), 1);
     assert!(admitted.wants(&Poke::KEY, "go"));
     assert!(!admitted.wants(&Poke::KEY, "stop"));
+}
+
+#[test]
+fn declared_reply_paths_require_owned_action_handlers() {
+    use ambition_extension_sdk::{action::ActionResultPort, phases::ACTOR_THINK};
+    let mut source = entry("a", vec![]);
+    source.replies = vec!["test::counter/result".into()];
+    let mut callback = entry("result", vec![]);
+    callback.phase = ACTOR_THINK;
+    callback.trigger.port = ActionResultPort::KEY;
+    callback.reads.clear();
+    callback.requests.clear();
+    let mut installed = offers();
+    installed.push(PortOffer {key: ActionResultPort::KEY, role: PortRole::Trigger,
+        phase: ACTOR_THINK, owner: "test"});
+    let good = module(vec![source, callback]);
+    admit(API_VERSION, &installed, &[good.clone().into()]).unwrap();
+    let decoded = ambition_extension_sdk::abi::read_description(
+        &ambition_extension_sdk::abi::describe(&[good.clone()])).unwrap();
+    assert_eq!(good.semantic_bytes(), decoded[0].semantic_bytes());
+    for broken in ["test::counter/missing", "other::module/result", "test::counter/a"] {
+        let mut bad = good.clone();
+        bad.entries[0].replies = vec![broken.to_owned().into()];
+        let refusals = admit(API_VERSION, &installed, &[bad.into()]).unwrap_err();
+        assert!(refusals.iter().any(|refusal| matches!(refusal, Refusal::InvalidReplyEntry {entry, handler}
+            if entry == "test::counter/a" && handler == broken)));
+    }
+}
+
+#[test]
+fn an_invalid_dynamic_callback_discards_native_and_portable_output() {
+    use ambition_extension_sdk::action::{CancelAction, CancelActionPort, ActionTicket, ReplyTo};
+    fn run(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+        inv.state(&COUNTER)?.set(COUNT, Value::U32(7)).unwrap();
+        inv.submit::<Emit>((1, 2, 3.0))?;
+        inv.submit::<CancelActionPort>(CancelAction {
+            ticket: ActionTicket {entry: "test::counter/a".into(), domain: "test".into(),
+                request: 0, occurrence: 0, room: 0, generation: 0},
+            reply: ReplyTo {request: 0, selector: "test::counter/missing".into()},
+        })?;
+        Ok(())
+    }
+    for portable in [false, true] {
+        let mut app = App::new();
+        app.init_schedule(Sim);
+        app.add_plugins(ExtensionHostPlugin::new(Sim))
+            .init_resource::<Lowered>().init_resource::<SimTick>()
+            .init_resource::<ambition_time::WorldTime>()
+            .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+            .install_extension_observation::<Height>(PHASE, "test", height_of)
+            .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
+            .install_extension_request::<CancelActionPort, _>(PHASE, "test", || {});
+        let mut source = entry("a", vec![]);
+        source.requests.push(CancelActionPort::KEY);
+        source.limits.max_requests = 2;
+        source.run = EntryCode::Native(run);
+        let declared = module(vec![source]);
+        if portable {
+            let (backend, modules) = loaded(vec![declared]);
+            app.add_loaded_extension_modules("callback.wasm", backend, modules, false);
+        } else { app.add_extension_module(declared); }
+        app.finish();
+        let body = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+        step(&mut app);
+        assert!(app.world().get::<BodyRecords>(body).is_none());
+        assert!(app.world().resource::<Lowered>().0.is_empty());
+        assert!(!app.world().resource::<ExtensionOutbox>().holds_phase(&PHASE));
+        assert!(matches!(app.world().resource::<ExtensionFaults>().recent[0].fault,
+            Fault::InvalidReply {..}));
+    }
 }
 
 #[test]
@@ -503,6 +574,7 @@ fn each_phase_lowers_only_the_requests_its_own_invocations_submitted() {
         }
     }
     let entry_in = |key: &'static str, phase: Phase| EntryDescriptor {
+        replies: Vec::new(),
         key: key.into(),
         phase,
         trigger: TriggerBinding {
@@ -660,7 +732,7 @@ fn a_hand_driven_app_is_admitted_on_its_first_tick_and_a_second_finish_is_harmle
     assert_eq!(app.world().resource::<Lowered>().0.len(), 2);
 }
 
-/// The guest half of `ambition-ext-1`, run in this process: the same bytes a
+/// The guest half of `ambition-ext-2`, run in this process: the same bytes a
 /// WebAssembly module would receive and return, without an interpreter.
 struct InProcess(Vec<ModuleDescriptor>);
 

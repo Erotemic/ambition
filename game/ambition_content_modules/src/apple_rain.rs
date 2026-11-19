@@ -49,6 +49,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: vec![Beat::schema(), Lanes::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "rain".into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding {

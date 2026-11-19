@@ -44,7 +44,7 @@ impl SaveRoad {
 }
 
 /// The code of a loaded module file: something that runs entry `entry` of
-/// module `module` from `ambition-ext-1` input bytes and returns output bytes.
+/// module `module` from `ambition-ext-2` input bytes and returns output bytes.
 /// An `Err` is a deterministic fault of that invocation (a trap, fuel run
 /// out), never a reason to skip it on one peer.
 pub trait ModuleBackend: Send + Sync + 'static {
@@ -197,6 +197,7 @@ pub enum Refusal {
         entry: String,
         schema: SchemaKey,
     },
+    InvalidReplyEntry { entry: String, handler: String },
     UnknownOrderTarget {
         entry: String,
         after: String,
@@ -243,13 +244,14 @@ pub fn reply_entry<'a, P: ambition_extension_sdk::Port>(
     path: &str,
     phase: &Phase,
 ) -> Option<&'a AdmittedEntry> {
-    let source = admitted.entries.iter().find(|entry| entry.path == source)?;
-    admitted.entries.iter().find(|entry| {
-        entry.path == path
-            && entry.module == source.module
-            && entry.descriptor.phase == *phase
-            && entry.descriptor.trigger.port == P::KEY
-    })
+    reply_entry_in::<P>(&admitted.entries, source, path, phase)
+}
+
+fn reply_entry_in<'a, P: ambition_extension_sdk::Port>(entries: &'a [AdmittedEntry],
+    source: &str, path: &str, phase: &Phase) -> Option<&'a AdmittedEntry> {
+    let source = entries.iter().find(|entry| entry.path == source)?;
+    entries.iter().find(|entry| entry.path == path && entry.module == source.module
+        && entry.descriptor.phase == *phase && entry.descriptor.trigger.port == P::KEY)
 }
 
 /// One admitted schema with its shape digest.
@@ -418,6 +420,15 @@ pub fn admit_selected(
                 descriptor: entry.clone(),
                 runner,
             });
+        }
+    }
+
+    for entry in &entries {
+        for handler in &entry.descriptor.replies {
+            if reply_entry_in::<ambition_extension_sdk::action::ActionResultPort>(
+                &entries, &entry.path, handler, &ambition_extension_sdk::phases::ACTOR_THINK).is_none() {
+                refusals.push(Refusal::InvalidReplyEntry {entry: entry.path.clone(), handler: handler.to_string()});
+            }
         }
     }
 

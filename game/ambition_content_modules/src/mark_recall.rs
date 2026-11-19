@@ -27,6 +27,7 @@ const EFFECT: &str = "classic_burst";
 
 fn entry(key: &'static str, trigger: PortKey, reads: Vec<PortKey>, requests: Vec<PortKey>, run: EntryFn) -> EntryDescriptor {
     EntryDescriptor {
+        replies: Vec::new(),
         key: key.into(),
         phase: WIELDED_USE,
         trigger: TriggerBinding {

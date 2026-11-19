@@ -84,6 +84,7 @@ fn app() -> App {
     crate::extension::install_for_specials(&mut app);
     let key = ModuleKey::new("test", "status");
     let entry = |name: &'static str, port, selector: &'static str, requests, after: Vec<String>, run| EntryDescriptor {
+        replies: Vec::new(),
         key: name.into(),
         phase: TECHNIQUE_EXECUTION,
         trigger: TriggerBinding { port, selector: selector.into() },

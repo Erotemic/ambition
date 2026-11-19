@@ -123,6 +123,7 @@ pub fn descriptor(table: &Dynamic, ports: &ScriptPorts) -> Result<ModuleDescript
             writes,
             requests,
             after,
+            replies: names("replies")?.into_iter().map(Name::Owned).collect(),
             limits: Limits { max_requests: u32::try_from(limit).map_err(|_| format!("{at}.limit: {limit} is out of range"))? },
             on_idle,
             run: EntryCode::Loaded { index: index as u32 },

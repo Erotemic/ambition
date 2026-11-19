@@ -649,6 +649,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: vec![Conductor::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "conduct".into(),
             phase: BOSS_CONDUCT,
             trigger: TriggerBinding { port: BossConductPort::KEY, selector: GNU_TON_ID.into() },

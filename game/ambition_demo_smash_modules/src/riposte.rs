@@ -31,6 +31,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: Vec::new(),
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: RIPOSTE_STRIKE.into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding { port: FighterSpecialPort::KEY, selector: RIPOSTE_STRIKE.into() },

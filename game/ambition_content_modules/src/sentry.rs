@@ -49,6 +49,7 @@ pub fn module() -> ModuleDescriptor {
     module.entries[0].key = "deploy".into();
     module.schemas.push(Cadence::schema());
     module.entries.push(EntryDescriptor {
+        replies: Vec::new(),
         key: "turret".into(),
         phase: MODULE_ENTITY_TICK,
         trigger: TriggerBinding {

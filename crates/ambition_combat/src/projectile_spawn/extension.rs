@@ -12,18 +12,15 @@ use ambition_extension_host::{
 use ambition_extension_sdk::phases::{
     BOSS_CONDUCT, HIT_REACTION, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE,
 };
-use ambition_extension_sdk::{
-    Port,
-    action::{ActionResultPort, ActionStage},
-};
+use ambition_extension_sdk::action::ActionStage;
 use ambition_platformer2d_shared_tangle::{
-    action_results::{begin_action, publish_action_result},
+    action_results::publish_action_result,
     sim_id::{SimId, SimIdCounter},
 };
 use ambition_projectile_spec::ProjectileSpawnPort;
 use bevy::{ecs::system::SystemState, prelude::*};
 
-use super::{ProjectileSpawnRequest, ProjectileStart, SPAWN_DOMAIN};
+use super::{ProjectileSpawnRequest, ProjectileStart};
 
 /// Install the request port in `technique_execution`, where a spawn
 /// materializes before this tick's projectile step.
@@ -88,30 +85,11 @@ fn lower_projectile_spawns<L: LowersIn>(world: &mut World, mut state: Local<Opti
     }
     let state = state.get_or_insert_with(|| SystemState::new(world));
     for submitted in requests {
-        let mut bytes = Vec::new();
-        ProjectileSpawnPort::encode(&submitted.value, &mut bytes);
-        let dispatch = begin_action(
-            world,
-            submitted.scope,
-            &submitted.entry,
-            SPAWN_DOMAIN,
-            submitted.value.reply.as_ref(),
-            ambition_extension_sdk::digest::digest_bytes(&bytes),
-        );
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<ProjectileSpawnPort>(
+            world, submitted.scope, &submitted.entry, &submitted.value);
         if !dispatch.execute {
             continue;
         }
-        let invalid_callback = submitted.value.reply.as_ref().is_some_and(|reply| {
-            ambition_extension_host::reply_entry::<ActionResultPort>(
-                &world
-                    .resource::<ambition_extension_host::AdmittedExtensions>()
-                    .0,
-                &submitted.entry,
-                &reply.selector,
-                &ambition_extension_sdk::phases::ACTOR_THINK,
-            )
-            .is_none()
-        });
         let missing_identity = dispatch.reply.is_some()
             && (world.get::<SimId>(submitted.scope).is_none()
                 || world.get::<SimIdCounter>(submitted.scope).is_none());
@@ -127,10 +105,8 @@ fn lower_projectile_spawns<L: LowersIn>(world: &mut World, mut state: Local<Opti
             || value
                 .boomerang_return_s
                 .is_some_and(|time| !time.is_finite());
-        if invalid_callback || missing_identity || invalid_shape {
-            let code = if invalid_callback {
-                "invalid_reply_entry"
-            } else if missing_identity {
+        if missing_identity || invalid_shape {
+            let code = if missing_identity {
                 "unidentified_emitter"
             } else {
                 "invalid_projectile_shape"
@@ -177,9 +153,10 @@ fn lower_projectile_spawns<L: LowersIn>(world: &mut World, mut state: Local<Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::SPAWN_DOMAIN;
     use ambition_extension_sdk::action::ReplyTo;
     use ambition_platformer2d_shared_tangle::{
-        action_results::{ActionMailbox, cancel_action},
+        action_results::{ActionMailbox, begin_action, cancel_action},
         lifecycle::{
             InRoomInstance, LiveRoomInstance, RoomInstanceRoot, SessionScopeId, SessionScopedEntity,
         },

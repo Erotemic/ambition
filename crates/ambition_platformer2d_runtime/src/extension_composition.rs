@@ -89,6 +89,7 @@ pub fn install_ports(app: &mut App) {
     crate::story_script::install(app);
     crate::action_replies::install(app);
     crate::object_behaviors::install(app);
+    crate::behavior_inbox::install(app);
     crate::actor_creation::install(app);
     crate::breakable_creation::install(app);
     crate::contact_consumption::install(app);

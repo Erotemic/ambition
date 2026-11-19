@@ -1,5 +1,8 @@
 //! Scoped replies from domain actions. Submission does not prove application.
 
+mod delivery;
+pub use delivery::{DeliveryEvent, DeliveryProgress};
+
 use crate::wire::{WireError, WireReader};
 use crate::{Port, PortKey, PortRole};
 

@@ -61,6 +61,8 @@ pub enum ExtensionSet {
     Phase(Phase),
     /// Trigger adapters queue invocations.
     Collect(Phase),
+    /// Addressed inboxes reserve invocations after all sources collect.
+    Deliver(Phase),
     /// The host runs the admitted entries.
     Invoke(Phase),
     /// The domains settle each invocation's costs (its cost ports, see
@@ -501,6 +503,7 @@ fn ensure_phase(app: &mut App, schedule: Interned<dyn ScheduleLabel>, phase: &Ph
         schedule,
         (
             ExtensionSet::Collect(phase.clone()),
+            ExtensionSet::Deliver(phase.clone()),
             ExtensionSet::Invoke(phase.clone()),
             ExtensionSet::Settle(phase.clone()),
             ExtensionSet::Reject(phase.clone()),

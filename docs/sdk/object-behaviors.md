@@ -128,7 +128,11 @@ Do not overwrite the first sequence while its native action is outstanding.
 
 ## Delivery, cancellation and retirement
 
-Method delivery uses the same `DeliveryProgress` as action-result delivery.
+Method calls and action results use one addressed delivery pass. Each private
+receiver shares `action_delivery_rules.max_per_tick` across both payload types.
+Admission orders candidates by publish tick, then outcome before request, then
+local sequence. The host keeps its declared handler order for execution.
+Delivery uses the same `DeliveryProgress` for both payload types.
 Only successful host commit acknowledges a handler. A fault discards staged
 state and requests. Bounded retries end in an explicit `object_handler_fault`
 result. An unavailable method waits for repair until the call's active wait

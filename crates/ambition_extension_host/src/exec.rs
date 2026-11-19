@@ -4,14 +4,16 @@
 //!
 //! 1. `ExtensionSet::Collect(phase)` — trigger adapters queue
 //!    [`PendingInvocation`]s with a read-cut value for each scope.
-//! 2. `ExtensionSet::Invoke(phase)` — [`run_phase`] calls each admitted entry,
+//! 2. `ExtensionSet::Deliver(phase)` reserves addressed invocations from
+//!    the collected domain journals.
+//! 3. `ExtensionSet::Invoke(phase)` — [`run_phase`] calls each admitted entry,
 //!    in admitted order, for each queued trigger it is bound to, in queue
 //!    order. It checks the staged output and commits it, or discards all of
 //!    it on a fault.
-//! 3. `ExtensionSet::Settle(phase)` settles costs before requests apply.
-//! 4. `ExtensionSet::Lower(phase)` — request adapters drain
+//! 4. `ExtensionSet::Settle(phase)` settles costs before requests apply.
+//! 5. `ExtensionSet::Lower(phase)` — request adapters drain
 //!    [`ExtensionOutbox`] and give each request to the owning domain.
-//! 5. `ExtensionSet::Retire(phase)` removes sources after request lowering.
+//! 6. `ExtensionSet::Retire(phase)` removes sources after request lowering.
 //!
 //! The queue and the outbox are empty at the end of the phase. They hold no
 //! state from one tick to the next, so they are not rollback state.
@@ -35,15 +37,7 @@ use crate::store::{BodyRecords, RecordSet, SessionRecords};
 use ambition_extension_sdk::Attachment;
 use crate::AdmittedExtensions;
 
-/// Native delivery owners observe the actual invocation boundary.
-pub enum InvocationEvent {
-    Started,
-    Committed,
-    Faulted,
-    Unavailable,
-    Retired,
-    IdleReset,
-}
+pub use ambition_extension_sdk::action::DeliveryEvent as InvocationEvent;
 
 /// A receipt stays inside one phase. It is not guest data or snapshot state.
 #[derive(Clone, Copy)]

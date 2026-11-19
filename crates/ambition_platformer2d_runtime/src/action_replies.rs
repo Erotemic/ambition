@@ -1,13 +1,11 @@
 //! Deliver native action results at the next actor read cut.
 
 use ambition_extension_host::{
-    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, ExtensionSet,
+    AdmittedExtensions, ExtensionAppExt, ExtensionOutbox, ExtensionSet,
 };
 use ambition_extension_sdk::{action::*, phases::*};
 use ambition_platformer2d_shared_tangle::{
-    action_results::{self, ActionDeliveryPolicy, ActionMailbox, ActionRecipient},
-    lifecycle::{ObjectOccurrence, RoomFreeze, SessionScopedEntity},
-    sim_id::SimId,
+    action_results::{self, ActionMailbox},
 };
 use bevy::prelude::*;
 
@@ -30,7 +28,7 @@ pub fn install(app: &mut App) {
     app.install_extension_trigger::<ActionResultPort, _>(
         ACTOR_THINK,
         "ambition_platformer2d_runtime",
-        queue_replies,
+        crate::behavior_inbox::collect::<ActionMailbox>(crate::behavior_inbox::Lane::Outcome),
     );
     app.install_extension_submitted_request::<CancelActionPort, _>(
         ACTOR_THINK,
@@ -57,103 +55,6 @@ pub fn install(app: &mut App) {
                 )
             },
         );
-    }
-}
-
-#[allow(clippy::type_complexity)]
-fn queue_replies(
-    admitted: Res<AdmittedExtensions>,
-    tick: Res<ambition_time::SimTick>,
-    time: Res<ambition_time::WorldTime>,
-    pace: RoomFreeze,
-    mut scopes: Query<(
-        Entity,
-        &SessionScopedEntity,
-        Option<&SimId>,
-        &ObjectOccurrence,
-        &mut ActionMailbox,
-        Option<&ambition_platformer2d_shared_tangle::lifecycle::ObjectScopeOwner>,
-    )>,
-    objects: ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
-    mut invocations: ResMut<ExtensionInvocations>,
-    policies: ambition_platformer2d_world::governing_rules::RulesOf<ActionDeliveryPolicy>,
-) {
-    let mut order: Vec<_> = scopes
-        .iter()
-        .map(|(entity, session, id, room, _, _)| {
-            (
-                ActionRecipient {
-                    session: session.0.0,
-                    occurrence: *room,
-                    subject: id.map(|id| id.as_str().to_owned()),
-                },
-                entity,
-            )
-        })
-        .collect();
-    order.sort_by(|a, b| a.0.cmp(&b.0));
-    let objects = scopes.iter().any(|(_, _, _, _, _, instance)| instance.is_some()).then(|| objects.index());
-    for (_, entity) in order {
-        let Ok((_, session, _, _, mut mailbox, behavior)) = scopes.get_mut(entity) else {
-            continue;
-        };
-        let subject = match behavior {
-            Some(behavior) => objects.as_ref().unwrap().resolve(session.0, behavior.0).ok(),
-            None => Some(entity),
-        };
-        let Some(subject) = subject else { continue; };
-        if time.sim_dt() <= 0.0 || pace.scale_of(subject) <= 0.0 {
-            continue;
-        }
-        let policy = policies.of(subject).copied().unwrap_or_default();
-        for (sequence, path, result) in mailbox.queue_ready(tick.0, policy, |ticket, path| {
-            ambition_extension_host::reply_entry::<ActionResultPort>(
-                &admitted.0,
-                &ticket.entry,
-                path,
-                &ACTOR_THINK,
-            )
-            .is_some()
-        }) {
-            let entry = admitted
-                .0
-                .entries
-                .iter()
-                .find(|entry| entry.path == path)
-                .unwrap();
-            invocations.trigger_entry_with_receipt::<ActionResultPort>(
-                &ACTOR_THINK,
-                path,
-                entry.descriptor.trigger.selector.clone(),
-                ambition_extension_host::InvocationScope {subject, state: entity},
-                result,
-                ambition_extension_host::InvocationReceipt {sequence, notify: settle_delivery},
-            );
-        }
-    }
-}
-
-fn settle_delivery(world: &mut World, scope: Entity, sequence: u64,
-    event: ambition_extension_host::InvocationEvent) {
-    use ambition_extension_host::InvocationEvent;
-    let tick = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
-    let policy = if matches!(&event, InvocationEvent::Faulted) {
-        let mut state = bevy::ecs::system::SystemState::<
-            ambition_platformer2d_world::governing_rules::RulesOf<ActionDeliveryPolicy>>::new(world);
-        {
-            let subject = world.get::<ambition_platformer2d_shared_tangle::lifecycle::ObjectScopeOwner>(scope)
-                .and_then(|instance| ambition_platformer2d_shared_tangle::lifecycle::resolve_object(world,
-                    ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(instance.0.session), instance.0).ok())
-                .unwrap_or(scope);
-            state.get(world).ok().and_then(|rules| rules.of(subject).copied()).unwrap_or_default()
-        }
-    } else { ActionDeliveryPolicy::default() };
-    let Some(mut mailbox) = world.get_mut::<ActionMailbox>(scope) else { return; };
-    match event {
-        InvocationEvent::Started => mailbox.delivery_started(sequence, tick),
-        InvocationEvent::Committed => mailbox.delivery_committed(sequence),
-        InvocationEvent::Faulted => mailbox.delivery_faulted(sequence, policy),
-        InvocationEvent::Unavailable | InvocationEvent::Retired | InvocationEvent::IdleReset => mailbox.delivery_unavailable(sequence),
     }
 }
 

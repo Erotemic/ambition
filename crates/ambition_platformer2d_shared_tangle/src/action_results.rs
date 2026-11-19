@@ -2,7 +2,7 @@
 
 use ambition_extension_sdk::action::{
     ActionDelivery, ActionJournalEntry, ActionResult, ActionResults, ActionStage, ActionTicket, ReplyTo,
-    ActionSubmission, ActionSubmissionRefusal, ActionSubject,
+    ActionSubmission, ActionSubmissionRefusal, ActionSubject, DeliveryEvent, DeliveryProgress,
 };
 use bevy::prelude::*;
 
@@ -15,7 +15,7 @@ use crate::sim_id::SimId;
 const HISTORY_LIMIT: usize = 64;
 const PENDING_LIMIT: usize = 32;
 
-/// Room rules for bounded callback attempts and work at each read cut.
+/// Room rules for handler attempts and addressed work at each read cut.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ActionDeliveryPolicy {
@@ -31,8 +31,6 @@ impl Default for ActionDeliveryPolicy {
 }
 pub const ACTION_DELIVERY_RULES_SCHEMA: &str = "action_delivery_rules";
 
-mod delivery;
-pub use delivery::DeliveryProgress;
 mod cancellation;
 pub use cancellation::*;
 
@@ -549,46 +547,32 @@ impl ActionMailbox {
         true
     }
 
-    /// Results enter a later read cut. An absent subscriber does not consume
-    /// a result, and a paused scope does not call this method.
-    pub fn queue_ready(
-        &mut self,
-        now: u64,
-        policy: ActionDeliveryPolicy,
-        mut bound: impl FnMut(&ActionTicket, &str) -> bool,
-    ) -> Vec<(u64, String, ActionResult)> {
-        let mut ready = Vec::new();
-        for row in &mut self.journal {
-            if ready.len() >= policy.max_per_tick.get() as usize { break; }
-            if !row.progress.queue(now, row.result.tick, bound(&row.result.ticket, &row.selector), "reply_entry_unbound") { continue; }
-            ready.push((row.sequence, row.selector.clone(), row.result.clone()));
-        }
-        ready
+    /// The common inbox orders these candidates before it reserves an invocation.
+    pub fn deliveries(&self) -> impl Iterator<Item = (u64, u64, &str, &ActionTicket)> {
+        self.journal.iter().filter(|row| row.progress.pending())
+            .map(|row| (row.sequence, row.result.tick, row.selector.as_str(), &row.result.ticket))
     }
 
-    pub fn delivery_started(&mut self, sequence: u64, now: u64) {
+    pub fn queue_delivery(&mut self, sequence: u64, now: u64, bound: bool) -> Option<ActionResult> {
+        let row = self.journal.iter_mut().find(|row| row.sequence == sequence)?;
+        row.progress.queue(now, row.result.tick, bound, "reply_entry_unbound").then(|| row.result.clone())
+    }
+
+    /// The host acknowledges delivery only after handler state and requests commit.
+    pub fn settle_delivery(&mut self, sequence: u64, now: u64, event: DeliveryEvent, max_attempts: u32) {
         if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence) {
-            row.progress.started(now);
+            row.progress.settle(now, event, max_attempts);
         }
     }
 
-    /// The host calls this only after handler state and requests commit.
-    pub fn delivery_committed(&mut self, sequence: u64) {
-        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence) {
-            row.progress.committed();
-        }
-    }
-
-    pub fn delivery_faulted(&mut self, sequence: u64, policy: ActionDeliveryPolicy) {
-        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence) {
-            row.progress.faulted(policy.max_attempts.get());
-        }
-    }
-
-    pub fn delivery_unavailable(&mut self, sequence: u64) {
-        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence) {
-            row.progress.unavailable();
-        }
+    #[cfg(test)]
+    fn queue_ready(&mut self, now: u64, policy: ActionDeliveryPolicy,
+        mut bound: impl FnMut(&ActionTicket, &str) -> bool) -> Vec<(u64, String, ActionResult)> {
+        let candidates = self.deliveries().map(|(sequence, _, path, ticket)|
+            (sequence, path.to_owned(), bound(ticket, path))).collect::<Vec<_>>();
+        candidates.into_iter().filter_map(|(sequence, path, bound)|
+            self.queue_delivery(sequence, now, bound).map(|result| (sequence, path, result)))
+            .take(policy.max_per_tick.get() as usize).collect()
     }
 
     /// Keep domain payloads while their callback can still run or recover.
@@ -635,8 +619,7 @@ impl ActionMailbox {
         self.producers.retain(|p| p.entry != entry);
         for row in &mut self.journal {
             if row.result.ticket.entry == entry && row.progress.status != ActionDelivery::Acknowledged {
-                row.progress.status = ActionDelivery::Retired;
-                row.progress.last_error = Some("source_entry_retired".into());
+                row.progress.retire("source_entry_retired");
             }
         }
     }
@@ -900,19 +883,19 @@ mod tests {
         assert!(mailbox.history().entries.iter().all(|row| row.delivery == ActionDelivery::Queued));
         let mut terminal = None;
         for (sequence, _, result) in ready {
-            mailbox.delivery_started(sequence, 11);
+            mailbox.settle_delivery(sequence, 11, DeliveryEvent::Started, 1);
             if result.terminal {
                 terminal = Some(sequence);
-                mailbox.delivery_faulted(sequence, policy);
-            } else { mailbox.delivery_committed(sequence); }
+                mailbox.settle_delivery(sequence, 0, DeliveryEvent::Faulted, policy.max_attempts.get());
+            } else { mailbox.settle_delivery(sequence, 0, DeliveryEvent::Committed, 1); }
         }
         let terminal = terminal.unwrap();
         assert!(mailbox.queue_ready(11, policy, |_, _| true).is_empty());
         let retry = mailbox.queue_ready(12, policy, |_, _| true);
         assert_eq!(retry.len(), 1);
         assert_eq!(retry[0].0, terminal);
-        mailbox.delivery_started(terminal, 12);
-        mailbox.delivery_faulted(terminal, policy);
+        mailbox.settle_delivery(terminal, 12, DeliveryEvent::Started, 1);
+        mailbox.settle_delivery(terminal, 0, DeliveryEvent::Faulted, policy.max_attempts.get());
         let row = mailbox.history().entries.into_iter().find(|row| row.sequence == terminal).unwrap();
         assert_eq!(row.delivery, ActionDelivery::Quarantined);
         assert_eq!(row.attempts, policy.max_attempts.get());
@@ -924,8 +907,8 @@ mod tests {
         assert_eq!(mailbox.begin(ObjectOccurrence {room: Some(0), generation: 0},
             "test::actions/ask", "test.domain", &reply(0), 0, 20), ActionStart::Existing(ticket.clone()));
         assert_eq!(mailbox.queue_ready(21, policy, |_, _| true).len(), 1);
-        mailbox.delivery_started(terminal, 21);
-        mailbox.delivery_committed(terminal);
+        mailbox.settle_delivery(terminal, 21, DeliveryEvent::Started, 1);
+        mailbox.settle_delivery(terminal, 0, DeliveryEvent::Committed, 1);
         assert_eq!(mailbox.begin(ObjectOccurrence {room: Some(0), generation: 0},
             "test::actions/ask", "test.domain", &reply(0), 0, 22), ActionStart::Existing(ticket));
         assert!(mailbox.queue_ready(23, policy, |_, _| true).is_empty());
@@ -936,8 +919,8 @@ mod tests {
         assert!(mailbox.history().entries.iter().filter(|row| row.result.ticket.request == 1)
             .all(|row| row.delivery == ActionDelivery::Unbound && row.attempts == 0));
         for (sequence, _, _) in mailbox.queue_ready(25, policy, |_, _| true) {
-            mailbox.delivery_started(sequence, 25);
-            mailbox.delivery_committed(sequence);
+            mailbox.settle_delivery(sequence, 25, DeliveryEvent::Started, 1);
+            mailbox.settle_delivery(sequence, 0, DeliveryEvent::Committed, 1);
         }
         mailbox.retire_entry("test::actions/ask");
         assert!(mailbox.history().entries.iter().all(|row| row.delivery == ActionDelivery::Acknowledged));
@@ -960,11 +943,10 @@ mod payload_retention_tests {
             mailbox.publish(ActionResult {ticket: ticket.clone(), stage: ActionStage::Applied,
                 terminal: true, tick: request.into(), code: "applied".into(), message: String::new(), subjects: Vec::new()});
             for (sequence, _, result) in mailbox.queue_ready(u64::from(request) + 1, ActionDeliveryPolicy::default(), |_, _| true) {
-                mailbox.delivery_started(sequence, u64::from(request) + 1);
+                mailbox.settle_delivery(sequence, u64::from(request) + 1, DeliveryEvent::Started, 1);
                 if request == 0 && result.terminal {
-                    mailbox.delivery_faulted(sequence, ActionDeliveryPolicy {
-                        max_attempts: std::num::NonZeroU32::new(1).unwrap(), ..Default::default()});
-                } else { mailbox.delivery_committed(sequence); }
+                    mailbox.settle_delivery(sequence, 0, DeliveryEvent::Faulted, 1);
+                } else { mailbox.settle_delivery(sequence, 0, DeliveryEvent::Committed, 1); }
             }
         }
         assert_eq!(mailbox.payload_tickets().collect::<Vec<_>>(), vec![first.as_ref().unwrap()]);

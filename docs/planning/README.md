@@ -155,6 +155,9 @@ links to.
 
 ### Engine: fast iteration and extensions
 
+- [`engine/addressed-behavior-inbox.md`](engine/addressed-behavior-inbox.md) —
+  shared delivery and the remaining subscription, signal and transaction contracts.
+
 - [`engine/first-class-procedural-game-authoring.md`](engine/first-class-procedural-game-authoring.md) — completion contract for Rhai, WASM Rust, and linked Rust game modules.
 - [`engine/extension-model.md`](engine/extension-model.md) — the model and its
   tiers.

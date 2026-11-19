@@ -9,6 +9,7 @@
 | [`action_replies`](src/action_replies.rs) | Deliver native action results at the next actor read cut. |
 | [`actor_creation`](src/actor_creation.rs) | Native character construction with declared script-state initialization. |
 | [`authored_verdict_timeline`](src/authored_verdict_timeline.rs) | Reconcile the authored-verdict ring with the host's rollback timeline. |
+| [`behavior_inbox`](src/behavior_inbox.rs) | One addressed delivery pass for typed action outcomes and object requests. |
 | [`body_feedback`](src/body_feedback.rs) | Emit movement feedback for every integrated body. |
 | [`breakable_creation`](src/breakable_creation.rs) | Correlated native breakable creation in every body request phase. |
 | [`causal`](src/causal.rs) | Bevy host adapter for `ambition_causal` recording and frame stamps. |
@@ -64,7 +65,7 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_57 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_58 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

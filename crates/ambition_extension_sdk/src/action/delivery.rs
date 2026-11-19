@@ -1,6 +1,10 @@
 //! Bounded delivery progress, separate from domain application and completion.
 
-use ambition_extension_sdk::action::ActionDelivery;
+use super::ActionDelivery;
+
+/// The host reports one transition for an addressed invocation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeliveryEvent { Started, Committed, Faulted, Unavailable, Retired, IdleReset }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeliveryProgress {
@@ -15,6 +19,24 @@ impl Default for DeliveryProgress {
     }
 }
 impl DeliveryProgress {
+    pub fn settle(&mut self, now: u64, event: DeliveryEvent, max_attempts: u32) {
+        match event {
+            DeliveryEvent::Started => self.started(now),
+            DeliveryEvent::Committed => self.committed(),
+            DeliveryEvent::Faulted => self.faulted(max_attempts),
+            DeliveryEvent::Unavailable | DeliveryEvent::Retired | DeliveryEvent::IdleReset => self.unavailable(),
+        }
+    }
+    pub fn pending(&self) -> bool {
+        !matches!(self.status, ActionDelivery::Acknowledged | ActionDelivery::Quarantined | ActionDelivery::Retired)
+    }
+    pub fn retire(&mut self, reason: &str) {
+        if self.status != ActionDelivery::Acknowledged {
+            self.status = ActionDelivery::Retired;
+            self.last_error = Some(reason.into());
+        }
+    }
+
     pub fn queue(&mut self, now: u64, written: u64, bound: bool, unbound: &str) -> bool {
         if matches!(self.status, ActionDelivery::Queued | ActionDelivery::Invoked |
             ActionDelivery::Acknowledged | ActionDelivery::Quarantined | ActionDelivery::Retired) { return false; }
@@ -50,6 +72,6 @@ impl DeliveryProgress {
         self.last_error = Some("handler_not_invoked".into());
     }
 }
-ambition_extension_sdk::port_record! {
+crate::port_record! {
     DeliveryProgress { status: ActionDelivery, attempts: u32, last_attempt: Option<u64>, last_error: Option<String> }
 }

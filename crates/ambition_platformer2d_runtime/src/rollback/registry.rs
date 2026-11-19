@@ -327,7 +327,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 501 -> 502: object method completions retain bounded return data with their caller.
 // 502 -> 503: cost-refused invocations publish correlated native rejection before request retirement.
 // 503 -> 504: runtime publication includes private state in the occurrence range and visibility boundary.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 504;
+// 504 -> 505: addressed calls and outcomes share age order and one receiver budget.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 505;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

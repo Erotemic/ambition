@@ -132,6 +132,12 @@ separate from native action application.
 
 ### Unified object model in progress
 
+Delivery direction: use the [addressed behavior inbox](addressed-behavior-inbox.md)
+for outcomes, calls and future subscriptions. Keep native fact, request and
+outcome meanings distinct. Symbolic factory references and a confirmed
+cross-island transport remain required; direct foreign inbox writes do not
+satisfy independent room replay.
+
 Keep the full capability program open while these contracts lack evidence:
 
 - Typed occurrence references, bounded discovery and domain-owned inspection

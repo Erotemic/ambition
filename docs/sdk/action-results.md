@@ -186,7 +186,10 @@ Cancellation does not reverse changes that already committed.
 ## Delivery and lifetime
 
 Results become eligible in the next `actor_think` read cut after their publish
-tick. A held room does not consume its replies. Canonical snapshots contain the
+tick. Replies and directed object methods share one addressed delivery pass and
+one `action_delivery_rules.max_per_tick` budget per receiver. Admission follows
+publish tick, then outcome before request, then local sequence. Execution keeps
+the host's declared handler order. A held room does not consume its replies. Canonical snapshots contain the
 pending actions, caller sequence, history, and delivery state. Rewind restores
 all of them. Queuing a callback does not acknowledge it. The host acknowledges
 it only after its state and staged requests commit. A handler fault commits

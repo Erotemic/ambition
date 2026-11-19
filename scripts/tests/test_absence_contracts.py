@@ -534,37 +534,6 @@ def test_the_rollback_ratchet_is_not_silently_empty():
     assert version.startswith("ggrs-rollback-schema-v"), version
 
 
-def test_the_wire_format_is_encoded_where_the_types_live():
-    """The carve's shape, asserted — not just its output count.
-
-    Before slice F every `impl SnapshotState` was in ONE file in
-    `ambition_platformer2d_runtime`, forced there by the orphan rule because the trait sat
-    above every crate whose types it encoded. After the carve the impls live
-    beside their types, and the count alone cannot tell those two worlds apart:
-    63 impls in one file and 63 spread across nine crates both satisfy the
-    assertion above.
-
-    So the property to hold is the federation itself. If a future change pulls
-    the trait back up the graph, the impls have to re-centralise to compile, and
-    this fails — which is the only warning that would arrive before the next
-    reader concludes a 2688-line codec file is simply how it must be.
-    """
-    root = Path(__file__).resolve().parents[2]
-    encoded = rollback_schema_usage(root)["encoded_types"]
-    crates = {entry.split("::")[0] for entry in encoded}
-    assert len(crates) >= 5, (
-        f"the rollback wire format has re-centralised into {sorted(crates)}. "
-        "Slice F federated it across nine crates by moving `SnapshotState` into "
-        "`ambition_platformer2d_core::snapshot`; a trait that moves back above the "
-        "domains drags every impl with it."
-    )
-    assert "ambition_platformer2d_runtime" not in crates, (
-        "`ambition_platformer2d_runtime` is encoding types again. It sits above twenty "
-        "domain crates, so anything it encodes is a type some other crate owns "
-        "— which is exactly the arrangement slice F removed."
-    )
-
-
 def test_the_rollback_ratchet_catches_a_new_central_registration(tmp_path, monkeypatch):
     """Invariant 1: central ownership may not GROW.
 

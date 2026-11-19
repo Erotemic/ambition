@@ -28,8 +28,9 @@ adjudicated.py` scans) is one of:
                     `room_rollback.rs`) saves and sets back its type around a
                     replay: the shared clock in `struct Clock(..)`, which a
                     rewind sets to the saved tick and the replay runs forward
-                    again, and the seat inputs `rewind_room` copies out
-                    before the replay and puts back after it
+                    again, and the seat inputs `replay_room` (the replay the
+                    host's `rewind_room` and a predicting guest share) copies
+                    out before the replay and puts back after it
     derived         the system overwrites its own section of a store from
                     live state (`MIRRORS`), or
                     its type is rebuilt from live state each run, and the scan
@@ -416,9 +417,9 @@ def host_rewound_types(repo: Path = REPO) -> frozenset[str]:
     match = re.search(r"struct\s+Clock\s*\(([^;]*)\)\s*;", text)
     if match:
         found |= {part.strip().rsplit("::", 1)[-1] for part in match.group(1).split(",") if part.strip()}
-    # The seat inputs `rewind_room` copies out before the replay drives the
+    # The seat inputs `replay_room` copies out before the replay drives the
     # seats with their records, and puts back after it.
-    body = re.search(r"fn\s+rewind_room\b.*?\n}\n", text, re.S)
+    body = re.search(r"fn\s+replay_room\b.*?\n}\n", text, re.S)
     if body:
         found |= set(re.findall(r"get_resource::<(?:[\w:]+::)?(\w+)>\(\)\.copied\(\)", body.group(0)))
     return frozenset(found)

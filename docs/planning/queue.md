@@ -1880,20 +1880,19 @@ missing list entry, so decide it at its owner:
 fails at 3ff8d4e39, before the badnik module. He ends at (13616, 456), above
 the island, with no monitor spent.
 
-**Two more inherited reds (found 2026-11-19, GNU2 slice):** both fail the
+**Inherited reds found with the GNU2 slice (2026-11-19):** each failed the
 same way with the slice stashed.
 - `app_it`'s `gnu_ton_in_a_match::each_ground_strike_of_gnu_ton_hits_a_short_foe_beside_him`:
   "the match of special_patent_clerk and sandbag_infinite did not start", as
-  every live-round Smash arm here (below).
-- `ambition_boss_encounter`'s
-  `sprite_sheet_tests::giant_gnu_baked_record_drives_the_packed_pixels`:
-  the published `giant_gnu` record is not trimmed ("alpha-trimmed/packed, not
-  a raw grid"). The record-only part-first publish (PF1) is the first
-  suspect: read the published record before republishing.
-- `scripts/checks/check_session_authority_none_arms.py`: two optional
-  reads from upstream have no `none-arm:` row,
-  `gravity.rs::retract_room_gravity_turns` (`BaseGravity`) and
-  `gate_portal.rs::retract_room_gate_portal_phases` (`GatePortalPhases`).
+  every live-round Smash arm here (below). Open.
+- Fixed 2026-11-19: `ambition_boss_encounter`'s giant record test asked for
+  an alpha-trimmed page, but the giant mount has published page-less since
+  PART-FIRST (2026-11-18): its record says `drawn_from_parts` with whole-frame
+  rects. It now asserts that (`giant_gnu_baked_record_drives_the_drawn_parts`).
+- Fixed 2026-11-19: `check_session_authority_none_arms.py` was red at 12
+  sites, one stale row (the projectile writer's read moved from `write_from`
+  to its `SystemParam`) and eleven optional reads with no row. Each now has a
+  row read from its code: nine `reduced-composition`, two `refuses`.
 
 **Shell lifecycle reds (found 2026-11-19, inherited):** two of
 `shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the

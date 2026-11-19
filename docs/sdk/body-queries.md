@@ -89,3 +89,16 @@ the sibling `targets` module. The assembled
 [headless fixture](../../game/ambition_app/tests/scripted_body_queries.rs)
 uses the loaded Rhai host for a controlled body and an NPC. It checks bounded
 selection, retained identities, relationship changes, refusal, and replay.
+
+## Exact occurrence follow-up
+
+Each target now supplies `object`, an exact [object reference](object-references.md).
+Retain this value in an `opt object` or bounded `seq N object` field. A follow-up
+request can set `references: [saved_target]` and `require_all: true`. The native
+owner applies the same room, range and relationship filters. Retirement or a
+failed filter refuses the request. An equal authored replacement does not match.
+
+`identities` remains an authored-name filter. Do not combine it with `references`.
+Discovery can return equal authored IDs when their occurrence stamps are distinct.
+An ambiguous authored-name selection refuses. The request and result ports are
+version 2. Rebuild portable modules that declare version 1.

@@ -14,6 +14,7 @@
 | [`digest`](src/digest.rs) | A small deterministic 64-bit digest (FNV-1a). |
 | [`invoke`](src/invoke.rs) | The invocation an entry receives. |
 | [`module`](src/module.rs) | Module and entry descriptors. |
+| [`object`](src/object.rs) | References to one live object occurrence in a gameplay session. |
 | [`port`](src/port.rs) | Ports: the typed doors between a module and a domain. |
 | [`schema`](src/schema.rs) | State schemas, logical values and records. |
 | [`script`](src/script.rs) | What a script sees: one neutral value for an invocation, and the conversions that make it. |
@@ -21,7 +22,7 @@
 | [`typed`](src/typed.rs) | Typed records: a Rust struct for a state schema, with no handwritten codec. |
 | [`wire`](src/wire.rs) | The portable wire encoding: little-endian, length-prefixed, no type tags. |
 
-_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_15 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

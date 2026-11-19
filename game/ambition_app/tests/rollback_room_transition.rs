@@ -215,7 +215,7 @@ fn result() {
     if !this.trigger.terminal { return; }
     if this.trigger.stage != "applied" { throw this.trigger.code; }
     this.state.room.created += 1;
-    this.state.room.actor = this.trigger.subjects[0];
+    this.state.room.actor = this.trigger.subjects[0].key;
 }
 "#;
     fn records(sim: &mut Platformer2dSimHarness, visits: u32) -> (Entity, String) {

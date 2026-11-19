@@ -57,7 +57,7 @@ fn declare() {
             #{tag: 1, name: "sent", kind: "bool"},
             #{tag: 2, name: "created", kind: "u32"},
             #{tag: 3, name: "refused", kind: "u32"},
-            #{tag: 4, name: "children", kind: "seq 4 body"},
+            #{tag: 4, name: "children", kind: "seq 4 object"},
         ]}, factory::memory()
     ], entries: [
         #{key: "build_team", phase: "technique_execution", trigger: #{port: "status_tick", selector: "creation_probe.parent"},
@@ -99,7 +99,7 @@ fn result() {
     if this.trigger.stage == "applied" {
         if this.trigger.code != "actors_created" || this.trigger.subjects.len() != 2 { throw "phantom creation"; }
         this.state.parent.created += 1;
-        this.state.parent.children = this.trigger.subjects;
+        this.state.parent.children = this.trigger.subjects.map(|subject| subject.object);
     } else if this.trigger.stage == "rejected" {
         if this.trigger.code != "actor_creation_refused" { throw "wrong refusal"; }
         this.state.parent.refused += 1;
@@ -175,6 +175,12 @@ fn setup(sim: &mut Platformer2dSimHarness) -> [Entity; 2] {
     [primary, creator]
 }
 
+fn resolve_child(sim: &Platformer2dSimHarness, value: &Value) -> Entity {
+    use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, resolve_object};
+    resolve_object(sim.world(), sim.world().resource::<ActiveSessionScope>().current().unwrap(),
+        value.as_object().unwrap()).unwrap()
+}
+
 fn parent_record(sim: &Platformer2dSimHarness, body: Entity) -> &extension::sdk::Record {
     sim.world().get::<BodyRecords>(body).unwrap().get(&SchemaKey::new("creation_probe", "parent", 1)).unwrap()
 }
@@ -204,11 +210,7 @@ fn a_behavior_factory_builds_real_body_clusters_with_state_and_replays() {
         assert_eq!(sim.world().get::<SimIdCounter>(parent).unwrap().0, before[index] + 2,
             "refused batches must not spend identities");
         for (child, id) in ids.iter().enumerate() {
-            let id = id.as_ref_id().unwrap();
-            let mut query = sim.world().try_query::<(Entity, &SimId)>().unwrap();
-            let found: Vec<_> = query.iter(sim.world()).filter(|(_, actual)| actual.as_str() == id).collect();
-            assert_eq!(found.len(), 1, "one live birth per returned identity");
-            let entity = found[0].0;
+            let entity = resolve_child(&sim, id);
             assert!(sim.world().get::<RuntimeStagedActor>(entity).is_some());
             assert!(matches!(sim.world().get::<SpawnOrigin>(entity), Some(SpawnOrigin::Dynamic {parent: source, ..})
                 if Some(source) == sim.world().get::<SimId>(parent)));
@@ -297,8 +299,7 @@ fn an_edit_to_the_factory_library_changes_live_bodies_without_recreating_them() 
         assert_eq!(state.get(FieldRef(3)).unwrap(), &before);
         let Value::Seq(ids) = before else { panic!("identities") };
         for id in ids {
-            let mut query = sim.world().try_query::<(Entity, &SimId)>().unwrap();
-            let entity = query.iter(sim.world()).find(|(_, actual)| Some(actual.as_str()) == id.as_ref_id()).unwrap().0;
+            let entity = resolve_child(&sim, &id);
             let child = sim.world().get::<BodyRecords>(entity).unwrap()
                 .get(&SchemaKey::new("creation_probe", "child", 1)).unwrap();
             assert_eq!(child.get(FieldRef(1)).unwrap().as_f32(), Some(0.2));
@@ -320,8 +321,7 @@ fn an_edit_to_the_factory_library_changes_live_bodies_without_recreating_them() 
     let Value::Seq(ids) = state.get(FieldRef(3)).unwrap() else { panic!("new child identities") };
     assert_eq!(ids.len(), 2);
     for id in ids {
-        let mut query = sim.world().try_query::<(Entity, &SimId)>().unwrap();
-        let entity = query.iter(sim.world()).find(|(_, actual)| Some(actual.as_str()) == id.as_ref_id()).unwrap().0;
+        let entity = resolve_child(&sim, id);
         assert_eq!(sim.world().get::<BodyWallet>(entity).unwrap().balance, 29);
         assert_eq!(sim.world().get::<BodyRecords>(entity).unwrap()
             .get(&SchemaKey::new("creation_probe", "child", 1)).unwrap()

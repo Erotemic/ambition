@@ -23,6 +23,8 @@
 pub mod digest;
 mod data;
 pub mod action;
+pub mod object;
+pub use object::ObjectRef;
 mod choices;
 pub mod contract;
 pub mod invoke;
@@ -57,7 +59,7 @@ pub struct ApiVersion {
 
 /// The API version of this SDK. A module records the version it was built
 /// against in its descriptor.
-pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 3 };
+pub const API_VERSION: ApiVersion = ApiVersion { major: 0, minor: 4 };
 
 /// A name in a descriptor. Static modules use `&'static str`; a loaded module
 /// can own its strings.

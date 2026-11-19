@@ -193,7 +193,7 @@ fn lower<L: LowersIn>(world: &mut World) {
             true,
             code,
             "",
-            subjects,
+            subjects.into_iter().map(ambition_extension_sdk::action::ActionSubject::named).collect(),
         );
     }
 }

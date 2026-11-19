@@ -263,7 +263,9 @@ mod tests {
                     .query_filtered::<&SimId, With<ambition_projectiles::LiveProjectile>>()
                     .single(world)
                     .unwrap();
-                assert_eq!(result.subjects, vec![id.as_str()]);
+                assert_eq!(result.subjects.len(), 1);
+                assert_eq!(result.subjects[0].key, id.as_str());
+                assert!(result.subjects[0].object.is_some());
                 assert_eq!(cancel_action(app.world_mut(), emitter, &reply.ticket),
                     Err(ambition_platformer2d_shared_tangle::action_results::ActionCancellationRefusal::AlreadyTerminal));
             }

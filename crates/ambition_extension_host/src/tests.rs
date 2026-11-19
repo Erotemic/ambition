@@ -195,7 +195,7 @@ fn an_invalid_dynamic_callback_discards_native_and_portable_output() {
         inv.submit::<Emit>((1, 2, 3.0))?;
         inv.submit::<CancelActionPort>(CancelAction {
             ticket: ActionTicket {entry: "test::counter/a".into(), domain: "test".into(),
-                request: 0, occurrence: 0, room: 0, generation: 0},
+                request: 0, occurrence: 0, room: Some(0), generation: 0},
             reply: ReplyTo {request: 0, selector: "test::counter/missing".into()},
         })?;
         Ok(())

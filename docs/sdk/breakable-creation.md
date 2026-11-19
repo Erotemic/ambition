@@ -29,7 +29,7 @@ a semantic identity, and a native identity counter.
 The action domain is `world.create_breakables`. A normal
 [`action_result`](action-results.md) entry receives the terminal outcome at its
 next eligible read cut. Stage `applied`, code `breakables_created`, supplies the
-actual prop identities in request order. Stage `rejected`, code
+actual prop keys and live object references in request order. Stage `rejected`, code
 `breakable_creation_refused`, supplies the reason and no subjects. An invalid
 batch creates no props and spends no identity counter. Exact retries use the
 existing action ticket and do not create another batch.
@@ -39,8 +39,9 @@ source's identity counter. Within each request phase, the actor adapter runs
 before the breakable adapter. Scripts must retain returned identities; they
 must not predict counter values or infer identity from a display label.
 Native identities are qualified by live room. Independent room creators can
-return equal text IDs in different rooms. Keep the creation scope with a
-reference; a text ID alone is not a global or durable object address.
+return equal text IDs in different rooms. Retain `subject.object` as an
+[object reference](object-references.md). A text ID alone is not a global or
+durable object address.
 
 ## Prop data
 

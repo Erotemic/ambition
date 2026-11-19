@@ -2,13 +2,14 @@
 
 use ambition_extension_sdk::action::{
     ActionDelivery, ActionJournalEntry, ActionResult, ActionResults, ActionStage, ActionTicket, ReplyTo,
-    ActionSubmission, ActionSubmissionRefusal,
+    ActionSubmission, ActionSubmissionRefusal, ActionSubject,
 };
 use bevy::prelude::*;
 
-use crate::lifecycle::{SessionScopedEntity, ObjectOccurrence, ensure_object_occurrence};
+use crate::lifecycle::{ObjectOccurrence, ensure_object_occurrence,
+    LiveObjects, SessionScopeId, object_reference, resolve_object};
 #[cfg(test)]
-use crate::lifecycle::{InRoomInstance, LiveRoomInstance};
+use crate::lifecycle::{InRoomInstance, LiveRoomInstance, SessionScopedEntity};
 use crate::sim_id::SimId;
 
 const HISTORY_LIMIT: usize = 64;
@@ -90,25 +91,23 @@ pub struct ActionRecipient {
 
 impl ActionRecipient {
     pub fn of(world: &World, scope: Entity) -> Option<Self> {
+        let reference = object_reference(world, scope)?;
         Some(Self {
-            session: world.get::<SessionScopedEntity>(scope)?.0.0,
+            session: reference.session,
             occurrence: *world.get::<ObjectOccurrence>(scope)?,
             subject: world.get::<SimId>(scope).map(|id| id.as_str().to_owned()),
         })
     }
 
-    fn matches(&self, session: &SessionScopedEntity, occurrence: &ObjectOccurrence) -> bool {
-        session.0.0 == self.session && self.occurrence == *occurrence
+    pub fn reference(&self) -> ambition_extension_sdk::ObjectRef {
+        self.occurrence.reference(SessionScopeId(self.session))
     }
 
     pub fn resolve(&self, world: &World) -> Option<Entity> {
-        let mut query = world.try_query_filtered::<(Entity, &SessionScopedEntity, &ObjectOccurrence), With<ActionMailbox>>()?;
-        let mut found = query.iter(world)
-            .filter(|(_, session, occurrence)| self.matches(session, occurrence))
-            .map(|(entity, ..)| entity);
-        let only = found.next()?;
-        found.next().is_none().then_some(only)
+        resolve_object(world, SessionScopeId(self.session), self.reference()).ok()
+            .filter(|entity| world.get::<ActionMailbox>(*entity).is_some())
     }
+
 }
 
 /// A domain can complete only the occurrence that its adapter admitted.
@@ -250,6 +249,13 @@ pub fn action_is_pending(world: &World, reply: Option<&ActionReply>) -> bool {
     })
 }
 
+/// Capture a domain's live subject before publishing its result.
+pub fn object_action_subject(world: &mut World, entity: Entity) -> Option<ActionSubject> {
+    ensure_object_occurrence(world, entity)?;
+    Some(ActionSubject {key: world.get::<SimId>(entity)?.as_str().to_owned(),
+        object: Some(object_reference(world, entity)?)})
+}
+
 pub fn publish_action_result(
     world: &mut World,
     reply: Option<&ActionReply>,
@@ -257,7 +263,7 @@ pub fn publish_action_result(
     terminal: bool,
     code: impl Into<String>,
     message: impl Into<String>,
-    subjects: Vec<String>,
+    subjects: Vec<ActionSubject>,
 ) -> bool {
     let Some(reply) = reply else {
         return true;
@@ -286,18 +292,15 @@ pub fn publish_action_result(
 /// Typed consumers can publish without taking exclusive access to the world.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ActionReplies<'w, 's> {
-    scopes: Query<'w, 's, (Entity, &'static SessionScopedEntity, &'static ObjectOccurrence), With<ActionMailbox>>,
+    objects: LiveObjects<'w, 's>,
     mailboxes: Query<'w, 's, &'static mut ActionMailbox>,
     tick: Option<Res<'w, ambition_time::SimTick>>,
 }
 
 impl ActionReplies<'_, '_> {
     fn receiver(&self, reply: &ActionReply) -> Option<Entity> {
-        let mut found = self.scopes.iter()
-            .filter(|(_, session, occurrence)| reply.recipient.matches(session, occurrence))
-            .map(|(entity, ..)| entity);
-        let only = found.next()?;
-        found.next().is_none().then_some(only)
+        self.objects.resolve(SessionScopeId(reply.recipient.session), reply.recipient.reference()).ok()
+            .filter(|entity| self.mailboxes.get(*entity).is_ok())
     }
     pub fn is_pending(&self, reply: Option<&ActionReply>) -> bool {
         reply.is_none_or(|reply| {
@@ -313,7 +316,7 @@ impl ActionReplies<'_, '_> {
         terminal: bool,
         code: impl Into<String>,
         message: impl Into<String>,
-        subjects: Vec<String>,
+        subjects: Vec<ActionSubject>,
     ) -> bool {
         let Some(reply) = reply else {
             return true;
@@ -691,7 +694,7 @@ mod tests {
     }
     fn start(mailbox: &mut ActionMailbox, request: u32) -> ActionTicket {
         match mailbox.begin(
-            ObjectOccurrence { room: 0, generation: 0 },
+            ObjectOccurrence { room: Some(0), generation: 0 },
             "test::actions/ask",
             "test.domain",
             &reply(request),
@@ -710,7 +713,7 @@ mod tests {
             tick: 10,
             code: "applied".into(),
             message: String::new(),
-            subjects: vec!["body:recipient".into()],
+            subjects: vec![ActionSubject::named("body:recipient")],
         }
     }
 
@@ -719,7 +722,7 @@ mod tests {
         let mut mailbox = ActionMailbox::default();
         let ticket = start(&mut mailbox, 0);
         assert_eq!(
-            mailbox.begin(ObjectOccurrence { room: 0, generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 10),
+            mailbox.begin(ObjectOccurrence { room: Some(0), generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 10),
             ActionStart::Existing(ticket.clone())
         );
         assert!(mailbox.publish(applied(ticket.clone())));
@@ -736,7 +739,7 @@ mod tests {
         assert_eq!(restored.queue_ready(11, ActionDeliveryPolicy::default(), |_, _| true), expected);
         assert_eq!(encode_state(&restored), encode_state(&mailbox));
         assert_eq!(
-            mailbox.begin(ObjectOccurrence { room: 0, generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 12),
+            mailbox.begin(ObjectOccurrence { room: Some(0), generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 12),
             ActionStart::Existing(ticket)
         );
     }
@@ -751,7 +754,7 @@ mod tests {
         let history = mailbox.history();
         assert!(history.dropped > 0 && history.entries.len() <= HISTORY_LIMIT);
         assert_eq!(
-            mailbox.begin(ObjectOccurrence { room: 0, generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 20),
+            mailbox.begin(ObjectOccurrence { room: Some(0), generation: 0 }, "test::actions/ask", "test.domain", &reply(0), 0, 20),
             ActionStart::Rejected
         );
         assert_eq!(
@@ -787,7 +790,7 @@ mod tests {
             .collect();
         assert_eq!(
             mailbox.begin(
-            ObjectOccurrence { room: 0, generation: 0 },
+            ObjectOccurrence { room: Some(0), generation: 0 },
                 "test::actions/ask",
                 "test.domain",
                 &reply(PENDING_LIMIT as u32),
@@ -928,12 +931,12 @@ mod tests {
         let saved = encode_state(&mailbox);
         let mut mailbox: ActionMailbox = decode_state(&saved).unwrap();
         assert_eq!(encode_state(&mailbox), saved);
-        assert_eq!(mailbox.begin(ObjectOccurrence {room: 0, generation: 0},
+        assert_eq!(mailbox.begin(ObjectOccurrence {room: Some(0), generation: 0},
             "test::actions/ask", "test.domain", &reply(0), 0, 20), ActionStart::Existing(ticket.clone()));
         assert_eq!(mailbox.queue_ready(21, policy, |_, _| true).len(), 1);
         mailbox.delivery_started(terminal, 21);
         mailbox.delivery_committed(terminal);
-        assert_eq!(mailbox.begin(ObjectOccurrence {room: 0, generation: 0},
+        assert_eq!(mailbox.begin(ObjectOccurrence {room: Some(0), generation: 0},
             "test::actions/ask", "test.domain", &reply(0), 0, 22), ActionStart::Existing(ticket));
         assert!(mailbox.queue_ready(23, policy, |_, _| true).is_empty());
         assert_eq!(mailbox.history().entries.iter().filter(|row| row.result.stage == ActionStage::Applied).count(), 1);

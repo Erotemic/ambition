@@ -31,6 +31,6 @@ fn lower(world: &mut World) {
             Ok(receipt) => (ActionStage::Applied, "contact_consumed", vec![receipt.object.as_str().to_owned()]),
             Err(code) => (ActionStage::Rejected, code, Vec::new()),
         };
-        publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, "", subjects);
+        publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, "", subjects.into_iter().map(ambition_extension_sdk::action::ActionSubject::named).collect());
     }
 }

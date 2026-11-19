@@ -69,6 +69,12 @@ do not report every crossing along a motion path. They do not prove accepted
 damage, a shield result, or a projectile hit. Those facts belong to their
 combat consumers.
 
+The native collector indexes physical material pieces with the engine's spatial
+broadphase. Each session and live room has a separate index. Portal pieces use
+their actual projected bounds. Candidate order returns to simulation identity
+order before exact contact checks. Refused material remains an incomplete read,
+even when it has no usable spatial bounds.
+
 An empty sample can establish separation from previously observed bodies.
 When `truncated` or `incomplete` is true, absence cannot establish separation
 from an omitted or unresolved identity. A geometry refusal supplies its body
@@ -143,6 +149,11 @@ A game's `room_rules` content can set:
 
 The defaults are 32 touching bodies, 8 surface points per toucher, and 32
 world contacts. All limits must be positive. Content reload replaces or removes the declaration.
+These limits bound returned facts, not all collection work. Dense overlaps,
+large material pieces and refused geometry can retain many candidates. The
+collector builds its derived index again on each step, including replay. See
+[observer cost](../../dev/benchmark-candidates/scripted-contact-observer-scaling.md)
+for a local sample and its limits.
 Removing it restores the defaults. Returned facts and native response indices
 use the same bounded selection.
 

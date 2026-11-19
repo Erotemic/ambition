@@ -314,11 +314,12 @@ fn overlapping_envelopes_do_not_report_contact_outside_rotated_material() {
 fn a_carried_piece_does_not_leave_a_phantom_contact_behind_its_aperture() {
     use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
     use ae::frame::{PortalAperture, PortalFrame};
-    for (y, contacts) in [(-2.5, true), (0.5, false)] {
+    for (at, contacts) in [(ae::Vec2::new(0.0, -2.5), true),
+        (ae::Vec2::new(0.0, 0.5), false), (ae::Vec2::new(100.0, -49.5), true)] {
         let mut app = app();
         let recipient = walker(&mut app, WALKER, ae::Vec2::new(0.0, -1.0));
         app.world_mut().get_mut::<ae::BodyKinematics>(recipient).unwrap().canonical_size = ae::Vec2::splat(4.0);
-        let toucher = player(&mut app, "toucher", ae::Vec2::new(0.0, y), ae::Vec2::ZERO);
+        let toucher = player(&mut app, "toucher", at, ae::Vec2::ZERO);
         app.world_mut().get_mut::<ae::BodyKinematics>(toucher).unwrap().canonical_size = ae::Vec2::splat(0.2);
         let mut geometry = BodyGeometry::default();
         geometry.add_pair(None, (
@@ -347,7 +348,7 @@ fn a_geometry_refusal_is_not_published_as_a_proven_empty_contact_sample() {
     }
     let mut app = app_with(observe);
     let recipient = walker(&mut app, WALKER, ae::Vec2::new(100.0, 900.0));
-    let broken = player(&mut app, "broken", on_head(100.0), ae::Vec2::ZERO);
+    let broken = player(&mut app, "broken", ae::Vec2::splat(10_000.0), ae::Vec2::ZERO);
     app.world_mut().get_mut::<ae::BodyKinematics>(broken).unwrap().canonical_size = ae::Vec2::ZERO;
     app.world_mut().run_schedule(Sim);
     assert!(app.world().get::<crate::extension::status::BodyStatuses>(recipient).unwrap().holds("test.saw_refusal"));

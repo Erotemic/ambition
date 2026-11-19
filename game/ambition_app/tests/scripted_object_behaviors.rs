@@ -180,6 +180,35 @@ fn exercise_instances(portable: bool) {
 }
 
 #[test]
+fn requests_and_native_outcomes_share_one_private_receiver_budget_through_replay() {
+    let source = SOURCE.replace("[\"credit\", 4]", "[\"credit\", 4], [\"credit\", 5], [\"credit\", 6], [\"credit\", 7]")
+        .replace("limit: 6}", "limit: 9}");
+    let (mut sim, bodies, path) = prepared(&source, "shared_inbox");
+    let worker = SchemaKey::new("objects_probe", "worker", 1);
+    let mut previous = std::collections::BTreeMap::new();
+    for _ in 0..80 {
+        sim.step_n(AgentAction::default(), 1);
+        let world = sim.world_mut();
+        let mut records = world.query::<(Entity, &BodyRecords)>();
+        for (entity, records) in records.iter(world) {
+            let Some(record) = records.get(&worker) else { continue; };
+            let Value::U32(requests) = record.get(FieldRef(0)).unwrap() else { panic!("request count"); };
+            let Value::U32(completions) = record.get(FieldRef(5)).unwrap() else { panic!("completion count"); };
+            let receiver = ambition_platformer2d::platformer::lifecycle::object_reference(world, entity).unwrap();
+            let count = requests + completions;
+            let before = previous.insert(receiver, count).unwrap_or(0);
+            assert!(count - before <= 1, "a method and an outcome consumed separate delivery budgets");
+        }
+    }
+    for body in bodies {
+        assert_eq!(sim.world().get::<BodyWallet>(body).unwrap().balance, 5);
+    }
+    assert!(!previous.is_empty());
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn canceling_a_queued_method_prevents_its_native_action_and_a_committed_method_refuses_cancel() {
     use ambition_platformer2d::{extension::sdk::action::{ActionStage, ActionTicket},
         platformer::action_results::{ActionMailbox, cancel_action, ActionCancellationRefusal}};
@@ -192,7 +221,7 @@ fn canceling_a_queued_method_prevents_its_native_action_and_a_committed_method_r
     };
     for _ in 0..20 {
         if admitted(&sim, player).is_some() && admitted(&sim, teacher).is_some() { break; }
-        sim.step(AgentAction::default());
+        sim.step_n(AgentAction::default(), 1);
     }
     let player_ticket = admitted(&sim, player).unwrap();
     let teacher_ticket = admitted(&sim, teacher).unwrap();
@@ -220,7 +249,7 @@ fn room_snapshots_restore_private_callbacks_and_scope_follows_the_subject() {
     let (mut sim, [player, teacher], path) = prepared(SOURCE, "room_snapshot");
     for _ in 0..20 {
         if sim.world().get::<BodyWallet>(player).unwrap().balance == 5 { break; }
-        sim.step(AgentAction::default());
+        sim.step_n(AgentAction::default(), 1);
     }
     assert_eq!(sim.world().get::<BodyWallet>(player).unwrap().balance, 5);
     let session_scope = |reference: ambition_platformer2d::extension::sdk::ObjectRef|

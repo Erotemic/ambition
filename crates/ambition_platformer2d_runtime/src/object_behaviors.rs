@@ -1,11 +1,11 @@
 //! Private reusable behavior instances and bounded directed object calls.
 
 use std::collections::{BTreeMap, BTreeSet};
-use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionAppExt, ExtensionInvocations,
-    ExtensionOutbox, InvocationEvent, InvocationReceipt, InvocationScope, ObservationContext};
+use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionAppExt,
+    ExtensionOutbox, InvocationEvent, ObservationContext};
 use ambition_extension_sdk::{Attachment, ObjectRef, Port, action::*, phases::ACTOR_THINK, script::ScriptValue};
 use ambition_platformer2d_core::snapshot::{SnapshotState, Reader, put_bytes};
-use ambition_platformer2d_shared_tangle::{action_results::{self, ActionReply, ActionDeliveryPolicy, DeliveryProgress},
+use ambition_platformer2d_shared_tangle::{action_results::{self, ActionReply, ActionDeliveryPolicy},
     lifecycle::*};
 use ambition_platformer2d_world::{creation::ObjectBehaviorLimits, governing_rules::RulesOf};
 use ambition_world_port::behavior::*;
@@ -72,7 +72,8 @@ pub(crate) fn install(app: &mut App) {
     action_results::register_action_domain(app, "objects.attach_behaviors", action_results::ActionCancellationPolicy::Unsupported);
     action_results::register_action_domain(app, "objects.complete_call", action_results::ActionCancellationPolicy::Unsupported);
     action_results::register_action_domain(app, "objects.call", action_results::ActionCancellationPolicy::Handler(cancel_call));
-    app.install_extension_trigger::<ObjectCallPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", queue_calls);
+    app.install_extension_trigger::<ObjectCallPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime",
+        crate::behavior_inbox::collect::<BehaviorInstance>(crate::behavior_inbox::Lane::Request));
     app.install_extension_submitted_request::<AttachBehaviorsPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", attach);
     app.install_extension_submitted_request::<CallObjectPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", call);
     app.install_extension_submitted_request::<CompleteObjectCallPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", complete);
@@ -317,88 +318,63 @@ fn cancel_call(world: &mut World, reply: &ActionReply) -> bool {
             && row.origin.ticket == reply.ticket && !row.terminal) {
             if matches!(row.progress.status, ActionDelivery::Invoked | ActionDelivery::Acknowledged) { return false; }
             row.terminal = true;
-            row.progress.status = ActionDelivery::Retired;
+            row.progress.retire("object_call_canceled");
             return true;
         }
     }
     false
 }
-fn settle(world: &mut World, state: Entity, sequence: u64, event: InvocationEvent) {
+pub(crate) fn settle(world: &mut World, state: Entity, sequence: u64, event: InvocationEvent) {
     let now = tick(world);
     let Some(mut instance) = world.get_mut::<BehaviorInstance>(state) else { return; };
     let Some(row) = instance.calls.iter_mut().find(|row| row.call.sequence == sequence && !row.terminal) else { return; };
-    match event {
-        InvocationEvent::Started => row.progress.started(now),
-        InvocationEvent::Committed => row.progress.committed(),
-        InvocationEvent::Faulted => row.progress.faulted(row.max_attempts),
-        InvocationEvent::Unavailable | InvocationEvent::Retired | InvocationEvent::IdleReset => row.progress.unavailable(),
-    }
+    row.progress.settle(now, event, row.max_attempts);
     if row.progress.status == ActionDelivery::Quarantined {
         row.terminal = true;
         let origin = row.origin.clone();
         publish(world, &origin, ActionStage::Failed, "object_handler_fault", None);
     }
 }
-type QueueReads = SystemState<(RoomFreeze<'static, 'static>, RulesOf<'static, 'static, ActionDeliveryPolicy>)>;
-fn queue_calls(world: &mut World, mut reads: Local<Option<QueueReads>>,
-    mut instances: Local<Option<QueryState<(Entity, &'static ObjectScopeOwner, &'static BehaviorInstance)>>>) {
-    let query = instances.get_or_insert_with(|| world.query());
-    let mut order: Vec<_> = query.iter(world).map(|(entity, owner, instance)| (owner.0, instance.key.clone(), entity)).collect();
-    if order.is_empty() { return; }
-    let reads = reads.get_or_insert_with(|| SystemState::new(world));
-    let objects = ObjectIndex::capture(world);
-    let now = tick(world);
-    let admitted = world.resource::<AdmittedExtensions>().0.clone();
-    order.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
-    for (reference, _, state) in order {
-        let subject = objects.resolve(SessionScopeId(reference.session), reference).ok()
-            .filter(|entity| world.get_entity(*entity).is_ok());
-        let Some(subject) = subject else {
-            let origins = world.get::<BehaviorInstance>(state).unwrap().calls.iter().filter(|row| !row.terminal)
-                .map(|row| row.origin.clone()).collect::<Vec<_>>();
-            for origin in origins { publish(world, &origin, ActionStage::Failed, "object_retired", None); }
-            world.despawn(state);
-            continue;
-        };
-        let (pace, policies) = reads.get(world).expect("object delivery readers are installed");
-        if world.resource::<ambition_time::WorldTime>().sim_dt() <= 0.0 || pace.scale_of(subject) <= 0.0 { continue; }
-        let policy = policies.of(subject).copied().unwrap_or_default();
-        let live_origins: BTreeSet<_> = world.get::<BehaviorInstance>(state).unwrap().calls.iter()
-            .filter(|row| !row.terminal).filter(|row| {
-                objects.resolve(SessionScopeId(row.origin.recipient.session), row.origin.recipient).ok()
-                    .and_then(|entity| world.get::<action_results::ActionMailbox>(entity))
-                    .is_some_and(|mailbox| mailbox.is_pending(&row.origin.ticket))
-            }).map(|row| row.call.sequence).collect();
-        let mut ready = Vec::new();
-        let mut expired = Vec::new();
-        let mut instance = world.get_mut::<BehaviorInstance>(state).unwrap();
-        for row in instance.calls.iter_mut().filter(|row| !row.terminal) {
-            if !live_origins.contains(&row.call.sequence) {
-                row.terminal = true;
-                row.progress.status = ActionDelivery::Retired;
-                row.progress.last_error = Some("object_caller_retired".into());
-                continue;
-            }
-            if row.written >= now { continue; }
+
+pub(crate) fn retire(world: &mut World, state: Entity) {
+    let origins = world.get::<BehaviorInstance>(state).into_iter().flat_map(|instance|
+        instance.calls.iter().filter(|row| !row.terminal).map(|row| row.origin.clone())).collect::<Vec<_>>();
+    for origin in origins { publish(world, &origin, ActionStage::Failed, "object_retired", None); }
+}
+
+/// Call completion and caller lifetime remain with the request owner.
+pub(crate) fn maintain(world: &mut World, state: Entity, objects: &ObjectIndex, now: u64) {
+    let Some(instance) = world.get::<BehaviorInstance>(state) else { return; };
+    let live_origins: BTreeSet<_> = instance.calls.iter().filter(|row| !row.terminal).filter(|row| {
+        objects.resolve(SessionScopeId(row.origin.recipient.session), row.origin.recipient).ok()
+            .and_then(|entity| world.get::<action_results::ActionMailbox>(entity))
+            .is_some_and(|mailbox| mailbox.is_pending(&row.origin.ticket))
+    }).map(|row| row.call.sequence).collect();
+    let mut expired = Vec::new();
+    let mut instance = world.get_mut::<BehaviorInstance>(state).unwrap();
+    for row in instance.calls.iter_mut().filter(|row| !row.terminal) {
+        if !live_origins.contains(&row.call.sequence) {
+            row.terminal = true;
+            row.progress.retire("object_caller_retired");
+        } else if row.written < now {
             if row.remaining == 0 {
                 row.terminal = true;
+                row.progress.retire("object_call_expired");
                 expired.push(row.origin.clone());
-                continue;
-            }
-            row.remaining -= 1;
-            if ready.len() >= policy.max_per_tick.get() as usize { continue; }
-            if row.progress.queue(now, row.written, method_bound(&admitted, &row.entry), "object_method_unbound") {
-                row.max_attempts = policy.max_attempts.get();
-                ready.push((row.call.clone(), row.entry.clone()));
-            }
+            } else { row.remaining -= 1; }
         }
-        for origin in expired { publish(world, &origin, ActionStage::Failed, "object_call_expired", None); }
-        for (value, path) in ready {
-            let sequence = value.sequence;
-            let entry = admitted.entries.iter().find(|entry| entry.path == path).unwrap();
-            world.resource_mut::<ExtensionInvocations>().trigger_entry_with_receipt::<ObjectCallPort>(
-                &ACTOR_THINK, path, entry.descriptor.trigger.selector.clone(), InvocationScope {subject, state}, value,
-                InvocationReceipt {sequence, notify: settle});
-        }
+    }
+    for origin in expired { publish(world, &origin, ActionStage::Failed, "object_call_expired", None); }
+}
+impl BehaviorInstance {
+    pub(crate) fn deliveries(&self) -> impl Iterator<Item = (u64, u64, &str)> {
+        self.calls.iter().filter(|row| !row.terminal && row.progress.pending())
+            .map(|row| (row.call.sequence, row.written, row.entry.as_str()))
+    }
+    pub(crate) fn queue_delivery(&mut self, sequence: u64, now: u64, bound: bool, attempts: u32) -> Option<ObjectCall> {
+        let row = self.calls.iter_mut().find(|row| row.call.sequence == sequence && !row.terminal)?;
+        if !row.progress.queue(now, row.written, bound, "object_method_unbound") { return None; }
+        row.max_attempts = attempts;
+        Some(row.call.clone())
     }
 }

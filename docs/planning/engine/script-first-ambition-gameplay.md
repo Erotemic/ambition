@@ -76,6 +76,10 @@ Keep the inventory short, evidence-linked, and prioritized; do not exhaustively 
 
 ## Capability work
 
+The [addressed behavior inbox evaluation](addressed-behavior-inbox.md) defines
+the shared delivery seam for calls, outcomes and future native subscriptions.
+It also records the open confirmed transaction and local construction work.
+
 The maintainer clarified the scope on 2026-11-17: a current game consumer is
 not required. Implement capabilities that have clear semantics and plausible
 expressive value. A mechanic can supply an example. It does not limit the

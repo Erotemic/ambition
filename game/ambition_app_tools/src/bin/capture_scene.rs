@@ -2973,12 +2973,19 @@ fn setup_capture_target(
 /// only the target is adopted here — every frame, because the menu may spawn it
 /// after `Startup`. Its sample count must match the other cameras on the target
 /// (`Msaa::Off`), or it draws its clear and drops every mesh.
+///
+/// ⛔ Bevy measures a camera's target only when the camera is added or its
+/// projection, viewport or window changes, never when its `RenderTarget` is
+/// replaced. The cube camera was measured against the window before it was
+/// adopted, so it kept no target size and the renderer skipped it: every
+/// capture of the open cube showed the world alone. Touching the projection
+/// makes Bevy measure the capture image instead.
 fn adopt_menu_camera(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
     target: Option<Res<SceneCaptureTarget>>,
-    cameras: Query<
-        Entity,
+    mut cameras: Query<
+        (Entity, &mut Projection),
         (
             With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
             Without<AdoptedMenuCamera>,
@@ -2989,7 +2996,8 @@ fn adopt_menu_camera(
         return;
     };
     let want = RenderTarget::Image(ImageRenderTarget::from(target.image.clone()));
-    for entity in &cameras {
+    for (entity, mut projection) in &mut cameras {
+        projection.set_changed();
         commands
             .entity(entity)
             .insert((want.clone(), Msaa::Off, AdoptedMenuCamera));

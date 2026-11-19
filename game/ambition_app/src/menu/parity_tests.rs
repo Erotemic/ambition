@@ -46,6 +46,7 @@ const ALL_SYSTEM_MENU_ENTRY_IDS: &[SystemMenuEntryId] = &[
     SystemMenuEntryId::Developer,
     SystemMenuEntryId::ResetNewGame,
     SystemMenuEntryId::Rebind,
+    SystemMenuEntryId::Layout,
     SystemMenuEntryId::LeaveSeat(1),
 ];
 
@@ -64,6 +65,7 @@ fn assert_all_system_menu_entry_ids_listed(id: SystemMenuEntryId) {
         | SystemMenuEntryId::Developer
         | SystemMenuEntryId::ResetNewGame
         | SystemMenuEntryId::Rebind
+        | SystemMenuEntryId::Layout
         | SystemMenuEntryId::LeaveSeat(_) => {}
     }
 }
@@ -133,10 +135,12 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
             // stack has nothing to rebind and should show no row rather than an
             // empty screen. `build` alone must therefore NOT surface it — and
             // the sibling test below pins that attaching does.
-            SystemMenuEntryId::Rebind => assert!(
+            // The controller layout is attached the same way, by `with_layout`,
+            // once the seat's device picture has loaded.
+            SystemMenuEntryId::Rebind | SystemMenuEntryId::Layout => assert!(
                 !surfaced.contains(id),
-                "Rebind is attached by `with_rebind`, never built — a bare \
-                 `build` surfacing it means the capability gate was lost"
+                "{id:?} is attached by `with_rebind`/`with_layout`, never built — \
+                 a bare `build` surfacing it means the capability gate was lost"
             ),
             // DOCUMENTED EXCLUSION: a seat's departure is ATTACHED for the
             // seats a session has joined (`with_seat_departure`); `build`

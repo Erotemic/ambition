@@ -20,7 +20,7 @@ mod regions;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 pub(crate) mod lifecycle;
 #[cfg(feature = "input")]
-mod bindings;
+pub(crate) mod bindings;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 mod departure;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]

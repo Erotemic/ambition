@@ -71,7 +71,7 @@ pub use control::{
     read_gameplay_control_frame, read_gameplay_control_frame_with_settings, read_menu_control_frame,
 };
 #[cfg(feature = "input")]
-pub use glyphs::{glyph_for, GLYPH_FOLDER};
+pub use glyphs::{device_picture, glyph_for, GLYPH_FOLDER};
 #[cfg(feature = "input")]
 pub use local_seats::{
     assign_local_seat_devices, claim_local_seats, track_local_device_order, LocalSeatClaims,

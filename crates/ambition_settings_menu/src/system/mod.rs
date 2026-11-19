@@ -294,6 +294,10 @@ pub enum SystemMenuEntryId {
     /// `curated_options`: a build with no input stack has nothing to list and
     /// should show no row rather than an empty one.
     Rebind,
+    /// The picture of the device the seat holds, with each bound action named
+    /// on its control. Present where a composition attaches it
+    /// ([`SystemMenuModel::with_layout`]), as `Rebind` is.
+    Layout,
     /// End this local seat's play: the seat leaves, or the primary player
     /// removes it. The seat it names is the one that leaves. It appears only
     /// where a composition attaches it ([`SystemMenuModel::with_seat_departure`]),
@@ -309,6 +313,7 @@ impl SystemMenuEntryId {
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Rebind => "Rebind Controls",
+            Self::Layout => "Controller Layout",
             Self::LeaveSeat(_) => "Leave",
             Self::Gameplay => "Gameplay",
             Self::Language => "Language",
@@ -327,6 +332,7 @@ impl SystemMenuEntryId {
             Self::Audio => "Master / music / SFX volume and mute.",
             Self::Controls => "Touch overlay, burst input, and stick deadzone.",
             Self::Rebind => "Put an action on a different key or button.",
+            Self::Layout => "Every action, on the control it is bound to.",
             Self::LeaveSeat(_) => "This player stops playing; the others play on.",
             Self::Gameplay => "Debug and quest HUD overlays.",
             Self::Language => "Interface language (English only for now).",
@@ -398,6 +404,8 @@ pub enum SystemMenuTarget {
     Developer(Vec<DevRow>),
     /// Drill into the per-action rebind list.
     Rebind(Vec<RebindRow>),
+    /// Drill into the picture of the seat's device.
+    Layout(LayoutPage),
     /// Fire an immediate action (no screen).
     Action(SystemMenuAction),
 }
@@ -423,6 +431,26 @@ pub struct RebindRow {
     /// Other actions this control also drives. Reported, never refused — Escape
     /// is deliberately both `Start` and `MenuBack`.
     pub also: Vec<String>,
+}
+
+/// The controller-layout screen: a device picture and what each control does.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LayoutPage {
+    /// The device picture's asset path.
+    pub image: String,
+    /// The picture's full size in pixels, the space `spots` are in.
+    pub size: (f32, f32),
+    /// Each bound control the picture places, and the actions on it.
+    pub spots: Vec<LayoutSpot>,
+}
+
+/// One control on the layout screen.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LayoutSpot {
+    /// The actions bound to this control, as shown (`Jump, Menu Select`).
+    pub label: String,
+    /// The control's centre in the picture, in its full-size pixels.
+    pub center: (f32, f32),
 }
 
 /// One radio station row in the Radio screen.
@@ -603,6 +631,29 @@ impl SystemMenuModel {
     /// Placed immediately after `Controls`, because that is where a player looks
     /// for it; appended if this build has no Controls entry.
     /// for it; appended if this build has no Controls entry.
+    /// Attach the controller-layout screen, after the rebind screen (or after
+    /// Controls when there is none). A page that places no action is not
+    /// attached.
+    pub fn with_layout(mut self, page: LayoutPage) -> Self {
+        if page.spots.is_empty() {
+            return self;
+        }
+        let entry = SystemMenuEntry {
+            id: SystemMenuEntryId::Layout,
+            label: SystemMenuEntryId::Layout.label().to_string(),
+            description: SystemMenuEntryId::Layout.description().to_string(),
+            target: SystemMenuTarget::Layout(page),
+        };
+        let after = [SystemMenuEntryId::Rebind, SystemMenuEntryId::Controls]
+            .into_iter()
+            .find_map(|id| self.entries.iter().position(|e| e.id == id));
+        match after {
+            Some(index) => self.entries.insert(index + 1, entry),
+            None => self.entries.push(entry),
+        }
+        self
+    }
+
     pub fn with_rebind(mut self, rows: Vec<RebindRow>) -> Self {
         if rows.is_empty() {
             return self;

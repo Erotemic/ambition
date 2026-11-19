@@ -94,6 +94,21 @@ pub(super) fn spawn_node<Action>(
             active,
             None,
         ),
+        MenuNode::Image { rect, image } => {
+            let handle = asset_server.load::<Image>(image.clone());
+            let material = materials.add(icon_material(handle, Color::WHITE));
+            ui.spawn((
+                Name::new("menu picture"),
+                KaleidoscopeFade { base_alpha: 1.0 },
+                rect_layout(*rect),
+                // Behind the text that names its parts, in front of the page.
+                plane_depth(DEPTH_CARD, active),
+                UiMeshPlane3d,
+                MeshMaterial3d(material),
+                Pickable::IGNORE,
+            ))
+            .id()
+        }
         MenuNode::DynamicText {
             slot,
             x,

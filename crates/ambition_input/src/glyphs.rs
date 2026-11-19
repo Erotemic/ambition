@@ -382,6 +382,35 @@ impl PhysicalControl {
 /// Where the renderer's `input_glyphs` target publishes its pictures.
 pub const GLYPH_FOLDER: &str = "sprites/input_glyphs";
 
+impl PhysicalControl {
+    /// The name the published device layouts key this control by: Bevy's own
+    /// `KeyCode` / `GamepadButton` name (`KeyF`, `South`). `None` for a
+    /// control no layout places.
+    pub fn layout_name(&self) -> Option<String> {
+        match self {
+            Self::Key(key) => Some(format!("{key:?}")),
+            Self::Button(button) => Some(format!("{button:?}")),
+            Self::Other(_) => None,
+        }
+    }
+}
+
+/// The published picture of the whole device a seat holds, and the layout
+/// that places each of its controls in that picture at full size
+/// (`input_device_{keyboard|xbox|playstation|switch|generic}[_layout.ron]`,
+/// the renderer's `input_glyphs` target).
+pub fn device_picture(device: crate::ActiveDevice) -> (String, String) {
+    let word = if device.draws_keyboard_glyphs() {
+        "keyboard"
+    } else {
+        style_word(device.gamepad_style())
+    };
+    (
+        format!("{GLYPH_FOLDER}/input_device_{word}.png"),
+        format!("{GLYPH_FOLDER}/input_device_{word}_layout.ron"),
+    )
+}
+
 /// The word a glyph file names a pad family by.
 fn style_word(style: crate::GamepadStyle) -> &'static str {
     match style {

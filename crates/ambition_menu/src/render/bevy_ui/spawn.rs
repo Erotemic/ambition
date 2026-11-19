@@ -41,6 +41,17 @@ pub(super) fn spawn_node<Action>(
         } => {
             spawn_text_line(body, menu, *x, *y, *size, text, *align, *color, font, None);
         }
+        MenuNode::Image { rect, image } => {
+            // No asset server (a headless app) draws no picture.
+            if let Some(assets) = assets {
+                body.spawn((
+                    node_from_rect(*rect),
+                    ImageNode::new(assets.load(image.clone())),
+                    ZIndex(panel_layer(rect)),
+                    Name::new("picture"),
+                ));
+            }
+        }
         MenuNode::DynamicText {
             slot,
             x,

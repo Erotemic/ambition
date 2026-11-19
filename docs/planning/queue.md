@@ -1825,7 +1825,7 @@ narrows its field of view so the active face fills 96% of the height, not
 about 13 px. The inventory face is next. Maintainer 2026-11-17: mobile UX
 waits behind higher-value queue items, so the rest of this row is deferred.
 
-### INPUT-GLYPH-ART — draw prompts and a controller layout from the published glyphs
+### INPUT-GLYPH-ART — draw prompts and a controller layout from the published glyphs — ✅ DONE 2026-11-19
 
 **Art done 2026-11-18** (renderer target `input_glyphs`, published under `sprites/input_glyphs/`): gamepad glyphs for each `GamepadStyle` (xbox, playstation, switch, generic), keycaps named by `key_label`, mouse glyphs, and xbox/playstation/switch/generic pad, keyboard and mouse pictures, each with a `_layout.ron` that places every control (Bevy `GamepadButton`/`KeyCode`/`MouseButton` names) in the full-size picture. The naming rule (style, control) → file is in the target's docstring; ⚠ Bevy's `LeftTrigger` is the bumper and `LeftTrigger2` the trigger.
 
@@ -1856,7 +1856,28 @@ Cross paths; `capture_scene basement_treasure player OUT 1280x720 --warmup
 120 --player-at 1100,600 [--device xbox|playstation]` shows the F keycap, RB
 and R1 (`--device` is new).
 
-**Next action:** add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
+**Done 2026-11-19, the controller-layout page:** System → Controller Layout
+(after Rebind Controls) draws the seat's device picture with each gameplay
+action it binds on that device named in a column beside the picture, joined
+to its control by a leader line. Controls on the picture's left half are
+named in the left column and the others in the right; a column spreads its
+labels so none overlaps. The app loads every device's `_layout.ron`
+(`DeviceLayout`, `bindings.rs`). The page reads the live `SeatBindings`, so
+a rebind moves the label, and the seat's device chooses the picture. Menu-only
+actions (`is_menu_only`) are left out: they share the play buttons and would
+crowd them. The entry is absent until the device's layout has loaded. The
+menu model gained `MenuNode::Image`, drawn by the cube and by `bevy_ui`.
+Witness: `capture_scene crawl_lab player OUT 1280x720 --include-ui --press
+"i,wait:60,e,wait:90,down,down,down,down,down,enter,wait:60"` (keyboard), or
+`--device xbox|playstation --press
+"i,wait:60,touch:1023x360,wait:90,touch:640x455,wait:60"`.
+
+⛔ Before this page, `capture_scene --include-ui` had not drawn the open cube
+menu at all. Bevy measures a camera's target only when the camera is added
+or its projection, viewport or window changes. The cube camera was measured
+against the window, then retargeted to the capture image, so it had no target
+size and the renderer skipped it. `adopt_menu_camera` now touches the
+projection, so the cube films again.
 
 **Acceptance:** a prompt shows the pressed button's glyph for keyboard, an Xbox-like and a PlayStation-like pad; a rebind moves the glyph; the layout page names every bound action on its control.
 

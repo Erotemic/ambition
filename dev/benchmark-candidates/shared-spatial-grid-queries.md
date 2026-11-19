@@ -9,6 +9,12 @@ tree, then store them in a sorted table for lookup. Keep a list of all indexed
 entries in source order for queries that use the global fallback. Such a query
 must not gather repeated entries from every cell and sort them again.
 
+For a rectangular query, find the first row in each column once, then visit
+the occupied cells until that column leaves the query. A single-row query can
+use its exact cell lookup directly. Do not repeat a binary search for each
+possible row, including empty rows. Keep source-index sorting and deduplication
+after cell lookup.
+
 The result must retain visible list order. Check local and global regions,
 point contacts, hidden base entries, added entries, and swept bounds against a
 linear scan. Unbounded geometry must remain a candidate.

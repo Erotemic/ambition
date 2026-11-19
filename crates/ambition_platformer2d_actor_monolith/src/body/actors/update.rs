@@ -1076,21 +1076,15 @@ fn integrate_actor_body(
     // function takes clusters, not a `World`.
     authored_tuning: Option<ae::MovementTuning>,
     frame_out: &mut crate::body::BodyFrameOutput,
-    hit_events: &mut ambition_combat::HitWriter<'_, '_>,
-    // The kernel's own operation list, for the causal instrument only. `Option`
-    // for the reason the damage path documents: an instrument that can take
-    // down a composition is worse than no instrument. See
-    // `crate::causal::BodyMovementOps`.
-    #[cfg(feature = "causal")] movement_ops: Option<
-        &mut MessageWriter<crate::causal::BodyMovementOps>,
-    >,
+    #[cfg(feature = "causal")] record_operations: bool,
     // The other solid bodies this one may not walk through, resolved from
     // the pre-integration snapshot by the caller. Inert for a body whose
     // composition never granted the capability, which is every body outside a
     // ruleset that opted its cast in.
     contact_field: ae::BodyContactField<'_>,
     portal: Option<ae::frame::thread::MotionAdmission<'_>>,
-) {
+) -> BodyIntegrationEffects {
+    let mut effects = BodyIntegrationEffects::default();
     // The brain's intent for this body, produced upstream in `tick_actor_brains`.
     let brain_frame = control
         .as_deref()
@@ -1175,7 +1169,7 @@ fn integrate_actor_body(
             "charge crash DETONATES: entity={actor_entity:?} being_ridden={is_being_ridden}              health_spent={}",
             em.health.current().max(1),
         );
-        hit_events.write(HitEvent {
+        effects.hits.push(HitEvent {
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -1211,7 +1205,7 @@ fn integrate_actor_body(
     // Gated on ALIVE, because the gate is a position test and re-fires every tick the body is
     // past the margin.
     if em.health.alive() && move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
-        hit_events.write(HitEvent {
+        effects.hits.push(HitEvent {
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -1239,13 +1233,11 @@ fn integrate_actor_body(
     // covers every kernel velocity writer, which is why this is not sixty-eight
     // instrumentations.
     #[cfg(feature = "causal")]
-    if let Some(writer) = movement_ops {
-        if !move_events.operations.is_empty() {
-            writer.write(crate::causal::BodyMovementOps {
-                body: actor_entity,
-                ops: move_events.operations.clone(),
-            });
-        }
+    if record_operations && !move_events.operations.is_empty() {
+        effects.movements = Some(crate::causal::BodyMovementOps {
+            body: actor_entity,
+            ops: move_events.operations.clone(),
+        });
     }
     // Canonical composite envelopes and collision bodies use the same material map.
     let footprint = envelope.unwrap_or(em.kin.canonical_size);
@@ -1257,6 +1249,7 @@ fn integrate_actor_body(
         control.0 = frame;
     }
     *frame_out = crate::body::BodyFrameOutput { events: move_events, reset: None, stamp: None };
+    effects
 }
 
 /// Snapshot grounded solid-body contact boxes before any body integrates.
@@ -1381,6 +1374,35 @@ pub struct BodyIntegrationMessages<'w, 's> {
     pub movement_ops: Option<MessageWriter<'w, crate::causal::BodyMovementOps>>,
 }
 
+#[derive(Default)]
+struct BodyIntegrationEffects {
+    hits: Vec<HitEvent>,
+    #[cfg(feature = "causal")]
+    movements: Option<crate::causal::BodyMovementOps>,
+}
+
+impl BodyIntegrationEffects {
+    fn is_empty(&self) -> bool {
+        let empty = self.hits.is_empty();
+        #[cfg(feature = "causal")]
+        let empty = empty && self.movements.is_none();
+        empty
+    }
+}
+
+#[derive(Default)]
+struct BodyIntegrationWorker {
+    contacts: Vec<ae::BodyContactBlocker>,
+    effects: Vec<(Entity, BodyIntegrationEffects)>,
+}
+
+/// Scratch storage for independent body steps and their ordered effects.
+#[derive(Default)]
+pub struct BodyIntegrationBuffers {
+    workers: bevy::utils::Parallel<BodyIntegrationWorker>,
+    completed: Vec<(Entity, BodyIntegrationEffects)>,
+}
+
 /// Advance all live bodies in the shared integration phase.
 /// Brains publish accepted control before this phase. Each body reads the
 /// collision world for its room and its own contact, tuning, and envelope data.
@@ -1390,16 +1412,14 @@ pub fn integrate_sim_bodies(
     // Empty in every composition that has not granted the capability, and an empty snapshot
     // answers `BodyContactField::NONE` for every body.
     contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
-    // The per-body blocker list, reused across bodies and across ticks. a
-    // `Local` rather than a fresh `Vec` per body: this is the innermost loop of
-    // the movement phase.
-    mut contact_scratch: Local<Vec<ae::BodyContactBlocker>>,
+    mut buffers: Local<BodyIntegrationBuffers>,
     // The sim clock, and the pace of each body's room: a connect holds its
     // own room's bodies while another room plays on (ISL-1b).
-    (world_time, freeze, tick, sessions): (
+    (world_time, freeze, tick, sessions, sim_ids): (
         Res<WorldTime>, ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
         Option<Res<ambition_time::SimTick>>,
         Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
+        Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     ),
     // The one composer of the collision world: the room, its moving platforms
     // and the feature overlay, as every other simulated collider reads it.
@@ -1522,13 +1542,19 @@ pub fn integrate_sim_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    // Each live room is composed once per step, the first time a body in it
-    // asks. A body with no live room (no room loaded, or a room that is not
-    // live) is not integrated: there is nothing to integrate it against.
-    let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
+    // Compose before the parallel reads. Every body reads the same entry
+    // geometry and contact snapshot; only its own components can change.
+    let composed = ambition_platformer2d_world::collision::ComposedRooms::default().prepare(
+        &collision,
+        actors.iter().map(|body| body_rooms.get(body.0).ok().copied())
+            .chain(players.iter().map(|body| body_rooms.get(body.0).ok().copied())),
+    );
+    let BodyIntegrationBuffers { workers, completed } = &mut *buffers;
+    #[cfg(feature = "causal")]
+    let record_operations = cues.movement_ops.is_some();
     let combat_tuning = feel_tuning.feature_combat_tuning();
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
-    for (
+    actors.par_iter_mut().for_each_init(|| workers.borrow_local_mut(), |scratch, (
         actor_entity,
         mut aabb,
         mut combat,
@@ -1544,20 +1570,19 @@ pub fn integrate_sim_bodies(
         authored_tuning,
         envelope,
         out_of_play,
-    ) in &mut actors
-    {
+    )| {
         let Some(mut cq) = clusters else {
-            continue;
+            return;
         };
         // The walls as they stand for this body: a gate open for it (Q54) is
         // not among them.
         let Some(feature_world) = composed.physical_for(&collision, body_rooms.get(actor_entity).ok(), actor_entity)
         else {
-            continue;
+            return;
         };
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut em = cq.as_actor_mut();
-        integrate_actor_body(
+        let effects = integrate_actor_body(
             actor_entity,
             &mut em,
             &mut aabb,
@@ -1585,10 +1610,9 @@ pub fn integrate_sim_bodies(
             *feel_tuning,
             authored_tuning.map(|t| t.0),
             &mut frame_out,
-            &mut cues.hit_events,
             #[cfg(feature = "causal")]
-            cues.movement_ops.as_mut(),
-            contact.field_for(actor_entity, &mut contact_scratch),
+            record_operations,
+            contact.field_for(actor_entity, &mut scratch.contacts),
             passages.as_deref().and_then(|p| p.motion_for(actor_entity, body_rooms.get(actor_entity).ok().map(|room| room.0))),
         );
         frame_out.stamp = tick.as_ref().map(|tick| ae::BodyStepStamp {
@@ -1599,7 +1623,10 @@ pub fn integrate_sim_bodies(
         // Publish the semantic movement facts this step produced (ADR 0024):
         // presentation/combat consumers read THESE, never policy internals.
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, em.effects);
-    }
+        if !effects.is_empty() {
+            scratch.effects.push((actor_entity, effects));
+        }
+    });
 
     // ── HOME/PLAYER bodies, integrated in this SAME phase ──────────────────────
     // The home body is not a separate gameplay species: it runs the LITERAL same
@@ -1615,7 +1642,7 @@ pub fn integrate_sim_bodies(
     let player_feel = *feel_tuning;
     let frame_dt = world_time.wall_dt();
     let scaled_dt = world_time.sim_dt();
-    for (
+    players.par_iter_mut().for_each_init(|| workers.borrow_local_mut(), |scratch, (
         player_entity,
         mut cluster_item,
         mut combat,
@@ -1629,8 +1656,7 @@ pub fn integrate_sim_bodies(
         playback,
         authored_tuning,
         (out_of_play, pose_owned_externally),
-    ) in &mut players
-    {
+    )| {
         // Per-body feel: an authored protagonist keeps its own tuning; the
         // sandbox protagonist tracks the live inspector sliders. This is the
         // axis-path twin of a SurfaceMomentum body's params escaping the refresh.
@@ -1640,7 +1666,7 @@ pub fn integrate_sim_bodies(
         let Some(feature_world) = composed.physical_for(&collision, body_rooms.get(player_entity).ok(), player_entity,
         )
         else {
-            continue;
+            return;
         };
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut clusters = cluster_item.as_clusters_mut();
@@ -1670,7 +1696,7 @@ pub fn integrate_sim_bodies(
             // RECOVERY postpones helplessness, which is why the derivation reads
             // the spec's gate rather than the component's presence.
             playback.map(|pb| &*pb),
-            contact.field_for(player_entity, &mut contact_scratch),
+            contact.field_for(player_entity, &mut scratch.contacts),
             passages.as_deref().and_then(|p| p.motion_for(player_entity, body_rooms.get(player_entity).ok().map(|room| room.0))),
         );
         frame_out.stamp = tick.as_ref().map(|tick| ae::BodyStepStamp {
@@ -1684,6 +1710,31 @@ pub fn integrate_sim_bodies(
         // this integration; the roll reflex and the anim picker consume them).
         motion_facts.skidding =
             crate::body::integration::surface_skidding(&motion_model, control.0.locomotion.x);
+    });
+
+    for worker in workers.iter_mut() {
+        completed.append(&mut worker.effects);
+    }
+    if !completed.is_empty() {
+        // Stable identities order effects across workers and rollback spawns.
+        // Anonymous fixture bodies retain their serial query order. Each
+        // body's own effects keep their local order.
+        let order: std::collections::HashMap<_, _> = actors.iter().enumerate()
+            .map(|(index, body)| (body.0, index)).collect();
+        completed.sort_by_cached_key(|(entity, _)| {
+            let id = sim_ids.get(*entity).ok().cloned();
+            (id.is_none(), sessions.get(*entity).ok().map(|scope| scope.0.0),
+                body_rooms.get(*entity).ok().map(|room| room.0.ordinal()), id, order[entity])
+        });
+        for (_, effects) in completed.drain(..) {
+            for hit in effects.hits {
+                cues.hit_events.write(hit);
+            }
+            #[cfg(feature = "causal")]
+            if let (Some(writer), Some(movements)) = (cues.movement_ops.as_mut(), effects.movements) {
+                writer.write(movements);
+            }
+        }
     }
 }
 

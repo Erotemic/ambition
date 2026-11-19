@@ -73,4 +73,7 @@ pub use update::*;
 mod tests;
 
 #[cfg(test)]
+mod active_crowd_tests;
+
+#[cfg(test)]
 mod scored_move_tests;

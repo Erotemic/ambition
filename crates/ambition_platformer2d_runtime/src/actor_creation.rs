@@ -3,7 +3,7 @@
 use bevy::{ecs::system::SystemState, prelude::*};
 use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionAppExt, ExtensionOutbox, LowersIn};
 use ambition_extension_sdk::{Attachment, Record, SchemaKey, action::ActionStage};
-use ambition_platformer2d_construction::runtime::{ActorCreationLimits, RuntimeActor, RuntimeLink};
+use ambition_platformer2d_construction::runtime::{ActorCreationLimits, RuntimeActor, RuntimeLink, ComposedInitialization};
 use ambition_platformer2d_shared_tangle::action_results::publish_action_result;
 use ambition_platformer2d_world::governing_rules::RulesOf;
 use ambition_world_port::creation::*;
@@ -37,7 +37,9 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
         let result = prepare_state(world, &submitted.entry, &request, limits).and_then(|states| {
             let inherit = world.get::<ambition_characters::actor::ActorFaction>(submitted.scope)
                 .copied().unwrap_or(ambition_characters::actor::ActorFaction::Neutral);
-            let actors = request.actors.iter().zip(states).map(|(actor, states)| RuntimeActor {
+            let bindings = crate::object_behaviors::prepare_creation(world, submitted.scope,
+                &request.actors.iter().map(|actor| actor.bindings.as_slice()).collect::<Vec<_>>())?;
+            let actors = request.actors.iter().zip(states).zip(bindings).map(|((actor, states), bindings)| RuntimeActor {
                 key: actor.key.clone(), character: actor.character.clone(),
                 aabb: ambition_platformer2d_core::Aabb::new(actor.at.into(), actor.half_extents.into()),
                 faction: faction(actor.allegiance, inherit), face_left: actor.face_left,
@@ -45,7 +47,7 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
                 initialization: {
                     let mut records = BodyRecords::default();
                     for (key, shape, record) in states { records.put(key, shape, record); }
-                    records
+                    ComposedInitialization {root: records, owned: bindings}
                 },
             }).collect::<Vec<_>>();
             let links = request.links.iter().map(|link| RuntimeLink {

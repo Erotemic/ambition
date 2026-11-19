@@ -267,3 +267,148 @@ fn room_snapshots_restore_private_callbacks_and_scope_follows_the_subject() {
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_file(path);
 }
+
+const BIRTH_SOURCE: &str = r#"
+fn declare() {
+    #{provider: "objects_probe", key: "birth", schemas: [
+        #{key: "factory", fields: [
+            #{tag: 1, name: "sent", kind: "bool"}, #{tag: 2, name: "created", kind: "u32"},
+            #{tag: 3, name: "refused", kind: "u32"}, #{tag: 4, name: "completed", kind: "u32"},
+            #{tag: 5, name: "objects", kind: "seq 2 object"}
+        ]},
+        #{key: "instance", fields: [
+            #{tag: 1, name: "born", kind: "u32"}, #{tag: 2, name: "called", kind: "u32"},
+            #{tag: 3, name: "seed", kind: "u32"}
+        ]}
+    ], entries: [
+        #{key: "build", phase: "technique_execution", trigger: #{port: "status_tick", selector: "objects_probe.start"},
+          writes: ["factory"], requests: ["create_actors", "create_breakables"], limit: 4},
+        #{key: "created", phase: "actor_think", trigger: #{port: "action_result", selector: "created"},
+          writes: ["factory"], requests: ["call_object"], limit: 2},
+        #{key: "done", phase: "actor_think", trigger: #{port: "action_result", selector: "done"}, writes: ["factory"]},
+        #{key: "work", phase: "actor_think", trigger: #{port: "object_method", selector: "use"},
+          writes: ["instance"], requests: ["complete_object_call"], limit: 1},
+        #{key: "ack", phase: "actor_think", trigger: #{port: "action_result", selector: "ack"}}
+    ]}
+}
+fn bindings() {
+    let result = [];
+    for pair in [["first", 17], ["second", 29]] {
+        result.push(#{key: pair[0], methods: [#{name: "use", entry: "objects_probe::birth/work"}],
+            state: [#{schema: "instance", value: #{born: 0, called: 0, seed: pair[1]}}]});
+    }
+    result
+}
+fn build() {
+    if this.state.factory.sent { return; }
+    this.state.factory.sent = true;
+    let p = this.trigger.position;
+    let actor = #{key: "actor", character: "practice_sandbag", at: [p[0] + 800.0, p[1] - 500.0],
+        starting_wallet: 3, holds: ["birth_probe.child"], bindings: bindings()};
+    let prop = #{key: "prop", at: [p[0] + 900.0, p[1] - 500.0], size: [12.0, 12.0],
+        health: 2, collision: "none", bindings: bindings()};
+    this.requests.push(request("create_actors", #{reply: #{request: 1, selector: "objects_probe::birth/created"}, actors: [actor]}));
+    this.requests.push(request("create_breakables", #{reply: #{request: 1, selector: "objects_probe::birth/created"}, objects: [prop]}));
+    let broken_actor = actor;
+    broken_actor.key = "broken_actor";
+    broken_actor.bindings[1].state[0].value.typo = 1;
+    this.requests.push(request("create_actors", #{reply: #{request: 2, selector: "objects_probe::birth/created"}, actors: [actor, broken_actor]}));
+    let broken_prop = prop;
+    broken_prop.key = "broken_prop";
+    broken_prop.bindings[1].methods[0].entry = "objects_probe::birth/missing";
+    this.requests.push(request("create_breakables", #{reply: #{request: 2, selector: "objects_probe::birth/created"}, objects: [prop, broken_prop]}));
+}
+fn created() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage == "rejected" { this.state.factory.refused += 1; return; }
+    if this.trigger.stage != "applied" { throw "unexpected creation outcome"; }
+    this.state.factory.created += 1;
+    let object = this.trigger.subjects[0].object;
+    this.state.factory.objects.push(object);
+    for pair in [["first", 0], ["second", 1]] {
+        this.requests.push(request("call_object", #{reply: #{request: this.state.factory.created * 2 + pair[1], selector: "objects_probe::birth/done"},
+            target: object, binding: pair[0], method: "use"}));
+    }
+}
+fn work() {
+    if this.state.instance.born != 1 { throw "publication missed initialized private state"; }
+    this.state.instance.called += 1;
+    this.requests.push(request("complete_object_call", #{reply: #{request: 1, selector: "objects_probe::birth/ack"},
+        sequence: this.trigger.sequence, accepted: true, code: "used"}));
+}
+fn done() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage != "completed" { throw "published behavior could not complete"; }
+    this.state.factory.completed += 1;
+}
+fn ack() { if this.trigger.terminal && this.trigger.stage != "applied" { throw "completion refused"; } }
+"#;
+
+fn observe_composed_birth(
+    event: On<ambition_platformer2d::platformer::lifecycle::ObjectPublished>,
+    mut states: Query<(&ambition_platformer2d::platformer::lifecycle::ObjectScopeOwner,
+        &ambition_platformer2d::platformer::lifecycle::ObjectOccurrence, &mut BodyRecords)>,
+    bodies: Query<(Option<&BodyWallet>, Option<&BodyStatuses>)>,
+) {
+    let reference = event.occurrence.reference(event.session);
+    let key = SchemaKey::new("objects_probe", "instance", 1);
+    let mut found = 0;
+    for (owner, _, mut records) in &mut states {
+        if owner.0 != reference { continue; }
+        let Some(record) = records.get(&key) else { continue; };
+        assert_eq!(record.get(FieldRef(0)).unwrap(), &Value::U32(0));
+        let mut record = record.clone();
+        record.set(FieldRef(0), Value::U32(1)).unwrap();
+        let shape = records.get_stored(&key).unwrap().shape;
+        records.put(key.clone(), shape, record);
+        found += 1;
+    }
+    if found == 0 { return; }
+    assert_eq!(found, 2, "both private instances must be visible at the first birth notice");
+    let (wallet, statuses) = bodies.get(event.subject).unwrap();
+    if let Some(wallet) = wallet {
+        assert_eq!(wallet.balance, 3);
+        assert!(statuses.unwrap().0.iter().any(|key| key == "birth_probe.child"));
+    }
+}
+
+#[test]
+fn actor_and_prop_births_publish_complete_private_instances_and_refuse_incomplete_batches_after_replay() {
+    use ambition_platformer2d::platformer::{lifecycle::*, sim_id::SimIdCounter};
+    let (mut sim, subjects, path) = prepared(BIRTH_SOURCE, "birth");
+    sim.world_mut().add_observer(observe_composed_birth);
+    let counters = subjects.map(|body| sim.world().get::<SimIdCounter>(body).unwrap().0);
+    sim.step_n(AgentAction::default(), 48);
+    let factory = SchemaKey::new("objects_probe", "factory", 1);
+    let private = SchemaKey::new("objects_probe", "instance", 1);
+    let mut references = Vec::new();
+    for (index, body) in subjects.into_iter().enumerate() {
+        let record = sim.world().get::<BodyRecords>(body).unwrap().get(&factory).unwrap();
+        for (field, expected) in [(1, 2), (2, 2), (3, 4)] {
+            assert_eq!(record.get(FieldRef(field)).unwrap(), &Value::U32(expected),
+                "field {field}: {record:?}; faults: {:?}; actions: {:?}",
+                sim.world().resource::<ExtensionFaults>(),
+                sim.world().get::<ambition_platformer2d::platformer::action_results::ActionMailbox>(body).map(|mailbox| mailbox.history()));
+        }
+        let Value::Seq(objects) = record.get(FieldRef(4)).unwrap() else { panic!("object references"); };
+        for value in objects {
+            let Value::Object(reference) = value else { panic!("typed reference"); };
+            references.push(*reference);
+        }
+        assert_eq!(sim.world().get::<SimIdCounter>(body).unwrap().0, counters[index] + 2);
+    }
+    let world = sim.world_mut();
+    let mut count = 0;
+    for (owner, records) in world.query::<(&ObjectScopeOwner, &BodyRecords)>().iter(world) {
+        if !references.contains(&owner.0) { continue; }
+        let record = records.get(&private).unwrap();
+        assert_eq!(record.get(FieldRef(0)).unwrap(), &Value::U32(1));
+        assert_eq!(record.get(FieldRef(1)).unwrap(), &Value::U32(1));
+        assert!(matches!(record.get(FieldRef(2)).unwrap(), Value::U32(17 | 29)));
+        count += 1;
+    }
+    assert_eq!(count, 8);
+    assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(path);
+}

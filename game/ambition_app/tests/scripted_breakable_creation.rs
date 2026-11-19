@@ -612,7 +612,7 @@ fn independent_room_creators_can_use_their_own_identity_ranges() {
     let mut spec = ambition_platformer2d::world::rooms::BreakableSpec::new(2);
     spec.collision = ambition_platformer2d::world::rooms::BreakableCollisionSpec::Solid;
     let objects = [RuntimeBreakable {key: "shared".into(), label: "shared".into(),
-        aabb: ae::Aabb::new(ae::Vec2::new(600.0, 100.0), ae::Vec2::new(20.0, 8.0)), spec}];
+        aabb: ae::Aabb::new(ae::Vec2::new(600.0, 100.0), ae::Vec2::new(20.0, 8.0)), spec, initialization: ()}];
     let a = create_breakables(world, first, &objects, Default::default()).unwrap().remove(0);
     let b = create_breakables(world, second, &objects, Default::default()).unwrap().remove(0);
     assert_ne!(a.id, b.id, "room factories have separate creation namespaces");

@@ -59,6 +59,13 @@ Each object has these fields:
 | `respawn_after` | Optional positive, finite delay in seconds after consumption. Omitted means no timed respawn. |
 | `pogo_refresh` | Native pogo refresh policy. Defaults to false. |
 | `look` | Optional prop sheet identity, at most 128 UTF-8 bytes. Missing or unavailable art uses the ordinary breakable fallback. |
+| `bindings` | Private behavior instances. Defaults to an empty list. |
+
+A prop uses the same [behavior binding records](object-behaviors.md) as an actor.
+The native transaction validates every method, seed and binding bound before it
+materializes the batch. It publishes initialized private instances with the prop.
+A native birth listener can inspect their records immediately. An invalid binding
+on any node refuses the complete batch without a partial prop or private instance.
 
 Props expose normal native damage volumes and collision geometry. Creation
 completes before its applied result. Movement and collision observations use

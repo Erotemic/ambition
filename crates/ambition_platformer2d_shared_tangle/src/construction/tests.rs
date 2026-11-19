@@ -276,7 +276,7 @@ fn the_plan_dump_has_a_stable_shape() {
 
     assert_eq!(
         plan.deterministic_dump(),
-        "construction-plan-v5\n\
+        "construction-plan-v6\n\
          epoch:7\n\
          expects\tepoch:7\n\
          room\troom_a\n\

@@ -1397,6 +1397,8 @@ impl<D: ConstructionDomain> PlannedRelation<D> {
 /// re-executed. Every variant is detected before any world mutation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ConstructionError {
+    /// A private state declaration does not have a valid owner or session.
+    InvalidOwnedState { owner: SimId, key: String, reason: &'static str },
     /// Two rows claim the same identity.
     DuplicateIdentity { sim_id: SimId },
     /// A row claims an identity that a live entity already holds.
@@ -1458,6 +1460,7 @@ pub enum ConstructionError {
 impl std::fmt::Display for ConstructionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::InvalidOwnedState {owner, key, reason} => write!(f, "private state `{key}` of `{owner}`: {reason}"),
             Self::DuplicateIdentity { sim_id } => {
                 write!(f, "two planned entities claim identity `{sim_id}`")
             }
@@ -1611,10 +1614,15 @@ impl<'w, 's, 'a, D: ConstructionDomain> RelationScope<'w, 's, 'a, D> {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConstructionReceipt {
     committed: BTreeMap<SimId, Entity>,
+    owned_states: BTreeMap<SimId, Entity>,
     relations_wired: BTreeSet<(SimId, RelationKind, SimId)>,
 }
 
 impl ConstructionReceipt {
+    pub fn owned_state(&self, owner: ambition_extension_sdk::ObjectRef, key: &str) -> Option<Entity> {
+        self.owned_states.get(&crate::lifecycle::owned_object_state_id(owner, key)).copied()
+    }
+
     pub fn committed_ids(&self) -> BTreeSet<SimId> {
         self.committed.keys().cloned().collect()
     }
@@ -1636,6 +1644,18 @@ impl ConstructionReceipt {
     }
 }
 
+/// A named private state instance allocated with its declared physical owner.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OwnedStateSpec {
+    pub owner: SimId,
+    /// The reserved occurrence reference of the physical owner.
+    pub reference: ambition_extension_sdk::ObjectRef,
+    pub key: String,
+}
+impl OwnedStateSpec {
+    pub fn sim_id(&self) -> SimId { crate::lifecycle::owned_object_state_id(self.reference, &self.key) }
+}
+
 /// The one prepared artifact for a set of entities and the relations between
 /// them. Immutable once prepared: every fallible decision is already made.
 pub struct ConstructionPlan<D: ConstructionDomain> {
@@ -1643,6 +1663,7 @@ pub struct ConstructionPlan<D: ConstructionDomain> {
     scope: ConstructionScope,
     lane: ConstructionLane,
     entities: Vec<PlannedEntity<D>>,
+    owned_states: Vec<OwnedStateSpec>,
     relations: Vec<PlannedRelation<D>>,
 }
 
@@ -1653,6 +1674,7 @@ impl<D: ConstructionDomain> Clone for ConstructionPlan<D> {
             scope: self.scope.clone(),
             lane: self.lane.clone(),
             entities: self.entities.clone(),
+            owned_states: self.owned_states.clone(),
             relations: self.relations.clone(),
         }
     }
@@ -1821,8 +1843,29 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             scope,
             lane,
             entities,
+            owned_states: Vec::new(),
             relations,
         })
+    }
+
+    /// Freeze private state declarations before the executor allocates any entity.
+    pub fn with_owned_states(mut self, mut states: Vec<OwnedStateSpec>) -> Result<Self, ConstructionError> {
+        states.sort_by(|a, b| (&a.owner, &a.key).cmp(&(&b.owner, &b.key)));
+        let mut ids: BTreeSet<_> = self.entities.iter().map(|root| root.sim_id.clone()).collect();
+        let mut owners = BTreeMap::new();
+        for state in &states {
+            let valid = self.entities.iter().any(|root| root.sim_id == state.owner)
+                && state.reference.is_bound() && !state.key.is_empty() && state.key.len() <= 64
+                && ids.insert(state.sim_id())
+                && owners.get(&state.reference).is_none_or(|owner| *owner == &state.owner);
+            if !valid {
+                return Err(ConstructionError::InvalidOwnedState {owner: state.owner.clone(),
+                    key: state.key.clone(), reason: "the owner, key or identity is invalid or repeated"});
+            }
+            owners.insert(state.reference, &state.owner);
+        }
+        self.owned_states = states;
+        Ok(self)
     }
 
     pub fn scope(&self) -> &ConstructionScope {
@@ -1847,6 +1890,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             scope: self.scope.clone(),
             lane: self.lane.clone(),
             entities: Vec::new(),
+            owned_states: Vec::new(),
             relations: Vec::new(),
         }
     }
@@ -1873,6 +1917,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         self.entities
             .iter()
             .map(|entity| entity.sim_id.clone())
+            .chain(self.owned_states.iter().map(OwnedStateSpec::sim_id))
             .collect()
     }
 
@@ -2118,10 +2163,25 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             }
         }
 
+        for state in self.owned_states.iter().filter(|state| included(&state.owner)) {
+            if ctx.session.id().map(|session| session.0) != Some(state.reference.session) {
+                return Err(ConstructionError::InvalidOwnedState {owner: state.owner.clone(),
+                    key: state.key.clone(), reason: "the declared owner reference belongs to another session"});
+            }
+        }
         let mut receipt = ConstructionReceipt::default();
         for planned in self.entities.iter().filter(|e| included(&e.sim_id)) {
             let entity = self.commit_entity(planned, ctx, hidden);
             receipt.committed.insert(planned.sim_id.clone(), entity);
+        }
+        for state in self.owned_states.iter().filter(|state| included(&state.owner)) {
+            let entity = if hidden { ctx.commands.spawn(InactiveCandidate::default()).id() }
+                else { ctx.commands.spawn_empty().id() };
+            let id = state.sim_id();
+            ctx.commands.entity(entity).insert((id.clone(), self.transaction(ctx.session),
+                crate::lifecycle::SessionScopedEntity(ctx.session.id().expect("owned state has a checked session")),
+                crate::lifecycle::ObjectScopeOwner(state.reference)));
+            receipt.owned_states.insert(id, entity);
         }
         for relation in self.relations.iter().filter(|r| included(&r.from)) {
             // It must not be swallowed.
@@ -2219,9 +2279,11 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         let relations: Vec<_> = self.relations.iter().map(|relation| (
             relation.from.as_str(), relation.kind.as_str(), relation.to.as_str(), &relation.relation,
         )).collect();
+        let owned: Vec<_> = self.owned_states.iter().map(|state| (state.owner.as_str(),
+            state.reference.session, state.reference.allocation_room, state.reference.sequence, state.key.as_str())).collect();
         ambition_platformer2d_core::snapshot::canonical::encode(&(
-            "construction-payload-v2", CONSTRUCTION_PLAN_SCHEMA_VERSION, &self.schemas,
-            self.scope.room.as_deref(), self.lane.as_str(), entities, relations,
+            "construction-payload-v3", CONSTRUCTION_PLAN_SCHEMA_VERSION, &self.schemas,
+            self.scope.room.as_deref(), self.lane.as_str(), entities, owned, relations,
         ))
     }
 
@@ -2249,6 +2311,9 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                 entity.origin.canonical_summary(),
                 D::canonical_summary(&entity.parameters),
             );
+        }
+        for state in &self.owned_states {
+            let _ = writeln!(out, "owned\t{}\t{}\t{:?}", state.owner, state.key, state.reference);
         }
         for relation in &self.relations {
             let _ = writeln!(
@@ -2470,6 +2535,30 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
         }
     }
 
+    for state in &plan.owned_states {
+        if receipt.entity(&state.owner).is_none() { continue; }
+        let id = state.sim_id();
+        let expected = receipt.owned_state(state.reference, &state.key);
+        match occupants_of(&id) {
+            [] => violations.push(RosterViolation::Missing {sim_id: id.clone()}),
+            [found] if expected == Some(*found) => {},
+            [_] => violations.push(RosterViolation::MovedRoot {sim_id: id.clone()}),
+            found => violations.push(RosterViolation::Duplicated {sim_id: id.clone(), count: found.len()}),
+        }
+        if let Some(entity) = expected {
+            let owner = receipt.entity(&state.owner).unwrap();
+            let expected_session = world.get::<crate::lifecycle::SessionScopedEntity>(owner);
+            if expected_session.map(|session| session.0.0) != Some(state.reference.session)
+                || world.get::<crate::lifecycle::SessionScopedEntity>(entity) != expected_session
+                || world.get::<crate::lifecycle::ObjectScopeOwner>(entity).map(|owner| owner.0) != Some(state.reference)
+                || world.get::<crate::lifecycle::InRoomInstance>(entity).is_some()
+                || world.get::<TransactionId>(entity) != Some(scope.transaction()) {
+                violations.push(RosterViolation::InvalidOwnedState {sim_id: id,
+                    reason: "the owner reference, session, residency or transaction changed"});
+            }
+        }
+    }
+
     // ── Everything else the world holds in this scope ────────────────────────
     for member in scope.members() {
         if member.classification == ScopeClassification::PresentationOnly {
@@ -2594,6 +2683,8 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
 /// refuse the transaction, not to carry on with a world it cannot describe.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RosterViolation {
+    /// A declared private state instance lost its ownership contract.
+    InvalidOwnedState { sim_id: SimId, reason: &'static str },
     /// A planned row produced no live entity carrying its identity.
     Missing { sim_id: SimId },
     /// More than one live entity carries one identity. This is the case a
@@ -2720,6 +2811,7 @@ pub enum RosterViolation {
 impl std::fmt::Display for RosterViolation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::InvalidOwnedState {sim_id, reason} => write!(f, "private state `{sim_id}`: {reason}"),
             Self::Missing { sim_id } => {
                 write!(f, "planned identity `{sim_id}` is not in the world")
             }
@@ -4233,4 +4325,4 @@ pub fn verify_projected_roster(
 
 /// Bumped when the plan dump's shape changes. The dump is an inspection and
 /// comparison surface, so its shape is a compatibility contract.
-pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 5;
+pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 6;

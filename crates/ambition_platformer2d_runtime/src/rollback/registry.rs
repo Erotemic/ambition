@@ -326,7 +326,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 500 -> 501: private object state inherits owner scope; behavior ownership has one canonical link.
 // 501 -> 502: object method completions retain bounded return data with their caller.
 // 502 -> 503: cost-refused invocations publish correlated native rejection before request retirement.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 503;
+// 503 -> 504: runtime publication includes private state in the occurrence range and visibility boundary.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 504;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

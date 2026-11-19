@@ -46,8 +46,29 @@ the same data order before and after rollback. `this.observe.behavior` supplies
 when the method changes its records. Normal schema reload rules apply to each
 instance's `BodyRecords`.
 
-Attachment is a separate action on an existing object. Creation-time behavior
-attachment through the actor and prop construction transaction remains open.
+`attach_behaviors` adds instances to an existing object. Actor and prop factories
+can instead put the same binding records in each node's `bindings` list:
+
+```rhai
+#{key: "guard", character: "practice_sandbag", at: [200.0, 100.0],
+  bindings: [#{key: "shop", params: #{price: 3},
+      methods: [#{name: "buy", entry: "example::shop/use"}]}]}
+```
+
+The complete batch validates method addresses, private state and game bounds
+before native materialization. The constructor reserves one occurrence range
+for roots and their private instances. The native plan declares private instances
+with their owners before it allocates them. Roster verification checks their
+identity and ownership. All remain hidden until native
+verification and occurrence assignment succeed. The first native birth notice
+can read every initialized instance. Invalid state or a missing method refuses
+the entire creation batch. The creation result returns the physical roots.
+
+Actor root `state` seeds still require the factory entry's write permission.
+Private binding seeds require the declared methods' write permissions. The
+private instances are separate state owners, even when they use the same schema.
+Creation ports are `create_actors` version 3 and `create_breakables` version 2.
+Rebuild portable module files that use these ports.
 
 ## Call and complete a method
 
@@ -149,7 +170,7 @@ It checks private instances on controlled and autonomous bodies, actual native
 wallet application and refusal, busy refusal, fault exhaustion without a staged
 reward, cancellation, GGRS, and private-state reconstruction through room
 snapshots. General discovery and inspection, native event subscriptions,
-authored signals, creation-time composition and a cross-object
-event composition witness remain open. Cross-room message causality under
+authored signals, local references between nodes in a factory batch, and a
+cross-object event composition witness remain open. Cross-room message causality under
 independent room replay also remains open; snapshot membership alone does not
 prove that contract.

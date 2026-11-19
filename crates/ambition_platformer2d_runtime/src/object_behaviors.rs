@@ -6,7 +6,7 @@ use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionAppExt, 
 use ambition_extension_sdk::{Attachment, ObjectRef, Port, action::*, phases::ACTOR_THINK, script::ScriptValue};
 use ambition_platformer2d_core::snapshot::{SnapshotState, Reader, put_bytes};
 use ambition_platformer2d_shared_tangle::{action_results::{self, ActionReply, ActionDeliveryPolicy, DeliveryProgress},
-    lifecycle::*, sim_id::SimId};
+    lifecycle::*};
 use ambition_platformer2d_world::{creation::ObjectBehaviorLimits, governing_rules::RulesOf};
 use ambition_world_port::behavior::*;
 use bevy::{ecs::system::SystemState, prelude::*};
@@ -106,13 +106,13 @@ fn method_bound(admitted: &ambition_extension_host::Admitted, path: &str) -> boo
         && entry.descriptor.trigger.port == ObjectCallPort::KEY)
 }
 
-struct PreparedBinding { instance: BehaviorInstance, records: BodyRecords }
-fn prepare_bindings(world: &World, request: &AttachBehaviors,
-    limits: ObjectBehaviorLimits) -> Result<Vec<PreparedBinding>, String> {
+pub(crate) type PreparedBehaviorState = ambition_platformer2d_construction::runtime::OwnedObjectState<(BehaviorInstance, BodyRecords)>;
+fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
+    limits: ObjectBehaviorLimits) -> Result<Vec<PreparedBehaviorState>, String> {
     let admitted = &world.resource::<AdmittedExtensions>().0;
     let mut keys = BTreeSet::new();
     let mut bytes = 0usize;
-    request.bindings.iter().map(|binding| {
+    bindings.iter().map(|binding| {
         let params = checked_data(&binding.params, limits.max_data_bytes)
             .ok_or("Behavior parameters exceed their bound or contain invalid data.")?;
         if binding.key.is_empty() || binding.key.len() > 64 || !keys.insert(&binding.key)
@@ -150,10 +150,27 @@ fn prepare_bindings(world: &World, request: &AttachBehaviors,
             if bytes > limits.max_state_bytes as usize { return Err("Behavior state exceeds the byte bound.".into()); }
             records.put(key.clone(), declared.shape, record);
         }
-        Ok(PreparedBinding {instance: BehaviorInstance {key: binding.key.clone(),
-            methods: binding.methods.clone(), params, next_sequence: 0, calls: Vec::new()}, records})
+        Ok(PreparedBehaviorState {key: binding.key.clone(), bundle: (BehaviorInstance {key: binding.key.clone(),
+            methods: binding.methods.clone(), params, next_sequence: 0, calls: Vec::new()}, records)})
     }).collect()
 }
+/// Validate the complete creation batch before the native owner mints any root.
+pub(crate) fn prepare_creation(world: &mut World, caller: Entity, groups: &[&[BehaviorBinding]])
+    -> Result<Vec<Vec<PreparedBehaviorState>>, String> {
+    let session = world.get::<SessionScopedEntity>(caller).ok_or("The creator has no session.")?.0;
+    let limits = limits(world, caller);
+    let count = groups.iter().try_fold(0usize, |count, group| count.checked_add(group.len()))
+        .ok_or("Too many requested behavior instances.")?;
+    if count == 0 { return Ok(groups.iter().map(|_| Vec::new()).collect()); }
+    let population = world.query::<(&SessionScopedEntity, &BehaviorInstance)>().iter(world)
+        .filter(|(owner, _)| owner.0 == session).count();
+    if population.saturating_add(count) > limits.max_bindings_per_session as usize
+        || groups.iter().any(|group| group.len() > limits.max_bindings_per_object as usize) {
+        return Err("The object or session behavior bound cannot admit this creation batch.".into());
+    }
+    groups.iter().map(|group| prepare_bindings(world, group, limits)).collect()
+}
+
 fn attach(world: &mut World) {
     let requests = world.resource_mut::<ExtensionOutbox>().drain::<AttachBehaviorsPort>(&ACTOR_THINK);
     for submitted in requests {
@@ -176,7 +193,7 @@ fn attach(world: &mut World) {
                 || request.bindings.iter().any(|binding| existing.contains(&binding.key)) {
                 return Err("Behavior keys must be new and the object and session bounds must permit the batch.".into());
             }
-            let prepared = prepare_bindings(world, &request, limits)?;
+            let prepared = prepare_bindings(world, &request.bindings, limits)?;
             let room = object_scope_room(world, entity);
             let allocation = match room {
                 Some(room) => PreparedObjectOccurrences::prepare(world, session, room, prepared.len())?,
@@ -184,18 +201,14 @@ fn attach(world: &mut World) {
             };
             let mut entities = Vec::new();
             for binding in prepared {
-                let id = SimId::singleton("behavior", &format!("{}:{:?}:{}:{}", request.target.session,
-                    request.target.allocation_room, request.target.sequence, binding.instance.key));
-                let mut state = world.spawn((SessionScopedEntity(session), id,
-                    ObjectScopeOwner(request.target), binding.instance, binding.records));
-                if let Some(room) = room { state.insert(InRoomInstance(room)); }
-                entities.push(state.id());
+                let id = owned_object_state_id(request.target, &binding.key);
+                entities.push(world.spawn((SessionScopedEntity(session), id,
+                    ObjectScopeOwner(request.target), binding.bundle)).id());
             }
             if let Err(problem) = allocation.assign(world, &entities) {
                 for entity in entities { world.despawn(entity); }
                 return Err(problem.into());
             }
-            for entity in entities { world.entity_mut(entity).remove::<InRoomInstance>(); }
             Ok(())
         })();
         let (stage, code, message) = match result {

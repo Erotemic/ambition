@@ -31,6 +31,7 @@ pub struct ActorNode {
     pub starting_wallet: Option<i32>,
     pub holds: Vec<String>,
     pub state: Vec<StateSeed>,
+    pub bindings: Vec<crate::behavior::BehaviorBinding>,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorLink { pub from: String, pub to: String, pub kind: ActorLinkKind }
@@ -53,6 +54,8 @@ ambition_extension_sdk::port_record! {
         /// Status selectors held from birth, through the native status owner.
         holds: Vec<String> = Vec::new(),
         state: Vec<StateSeed> = Vec::new(),
+        /// Private behavior instances initialized before object publication.
+        bindings: Vec<crate::behavior::BehaviorBinding> = Vec::new(),
     }
 }
 ambition_extension_sdk::port_record! { ActorLink { from: String, to: String, kind: ActorLinkKind } }
@@ -68,7 +71,7 @@ ambition_extension_sdk::port_record! {
 }
 pub struct CreateActorsPort;
 impl Port for CreateActorsPort {
-    const KEY: PortKey = PortKey::new("ambition.world.create_actors", 2);
+    const KEY: PortKey = PortKey::new("ambition.world.create_actors", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = CreateActors;
     fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {

@@ -679,3 +679,23 @@ The default app warning check and 53 absence contracts passed. Workspace policy
 retained its 11 baseline violations. Native event subscriptions and cross-room message causality remain open.
 The merged-tree check also passed the Smash app tests (74 passed, six ignored)
 and the assembled app all-targets compile.
+
+## Private behavior initialization at birth
+
+Actor and prop factories required a later attachment action. They now preflight
+bindings and initialize private instances through one native construction plan.
+The plan declares their identities and owners before allocation. Publication
+follows native verification and one occurrence assignment. Commit: `aef9e7ac8`.
+
+The loaded `scripted_object_behaviors` birth guard checks both controllers, actor
+and prop roots, independent private seeds, immediate birth inspection, method
+completion, refused batches and GGRS. Checks passed: 355 shared tests, 195 native
+construction/publication tests, and 23 app tests. After the spatial-grid merge,
+the same 23 app tests, four grid checks and the default app warning gate passed.
+The wasm32 world-port check and 53 absence contracts passed. Smash passed 74
+tests with six ignored before that merge. Policy retains its 11 baseline
+violations. Full workspace and optional-feature union checks were omitted.
+
+Do not use component-add hooks as completed birth notices. Scoped native event
+subscriptions, local factory references and cross-room replay causality remain
+open with the other contracts in the active queue above.

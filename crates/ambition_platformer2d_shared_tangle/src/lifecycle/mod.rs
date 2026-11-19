@@ -18,6 +18,8 @@ mod reset_slots;
 mod room_instance;
 mod object_occurrence;
 mod object_refs;
+mod authored_objects;
+pub use authored_objects::{AuthoredObjectIndex, AuthoredLookupError};
 mod object_scope;
 pub use object_scope::{owned_object_state_id, ObjectScopeOwner, object_scope_room, room_scope_members, include_owned_object_state};
 pub use object_refs::{LiveObjects, ObjectIndex, ObjectLookupError, object_reference, resolve_object};

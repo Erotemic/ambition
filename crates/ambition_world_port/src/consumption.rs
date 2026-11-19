@@ -36,3 +36,35 @@ impl Port for ConsumeContactPort {
     }
 }
 ambition_extension_sdk::script_port!(ConsumeContactPort);
+
+
+/// Spend this behavior's destructible and exchange with an exact local body.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ConsumeSelf { pub reply: ReplyTo, pub recipient: ambition_extension_sdk::ObjectRef, pub exchange: InventoryTerms }
+ambition_extension_sdk::port_record! { ConsumeSelf { reply: ReplyTo, recipient: ambition_extension_sdk::ObjectRef,
+    exchange: InventoryTerms = InventoryTerms::default() } }
+pub struct ConsumeSelfPort;
+impl Port for ConsumeSelfPort {
+    const KEY: PortKey = PortKey::new("ambition.world.consume_self", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = ConsumeSelf;
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(value, "world.consume_self", &value.reply))
+    }
+    fn encode(value: &Self::Value, out: &mut Vec<u8>) { ambition_extension_sdk::structure::put(value, out); }
+    fn decode(reader: &mut WireReader<'_>) -> Result<Self::Value, WireError> { ambition_extension_sdk::structure::read(reader) }
+}
+ambition_extension_sdk::script_port!(ConsumeSelfPort);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DestructibleState { pub health: i32, pub maximum: i32, pub consumed: bool }
+ambition_extension_sdk::port_record! { DestructibleState { health: i32, maximum: i32, consumed: bool } }
+pub struct DestructibleStatePort;
+impl Port for DestructibleStatePort {
+    const KEY: PortKey = PortKey::new("ambition.world.destructible", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = Option<DestructibleState>;
+    fn encode(value: &Self::Value, out: &mut Vec<u8>) { ambition_extension_sdk::structure::put(value, out); }
+    fn decode(reader: &mut WireReader<'_>) -> Result<Self::Value, WireError> { ambition_extension_sdk::structure::read(reader) }
+}
+ambition_extension_sdk::script_port!(DestructibleStatePort);

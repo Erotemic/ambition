@@ -7,6 +7,7 @@ authors.workspace = true
 description = "Live-room interaction reach and body gestures."
 
 [dependencies]
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }

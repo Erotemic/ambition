@@ -206,12 +206,13 @@ pub fn interact_ecs_actors_and_switches(
     // `drain_switch_activations` performs the toggle; this system only reports
     // the press. Writing a state at press time is wrong for a toggle that has
     // just turned the switch off.
-    switches: Query<
+    mut switches: Query<
         (
             Entity,
             &FeatureName,
             &CenteredAabb,
             &SwitchFeature,
+            &mut ambition_platformer2d_interaction::ActivationState,
             bevy::prelude::Has<ambition_combat::components::RequiresFacing>,
         ),
         With<FeatureSimEntity>,
@@ -224,12 +225,14 @@ pub fn interact_ecs_actors_and_switches(
     // than a body to talk to, or not.
     // And the tick and the quest-cause log, which date a talk in the talker's
     // room (ISL-2d).
-    (mut switch_activated, rooms, seats, tick, mut quest_causes): (
+    (mut switch_activated, rooms, seats, tick, mut quest_causes, objects, mut committed): (
         MessageWriter<SwitchActivated>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<&ambition_characters::control::DrivingParticipant>,
         Option<Res<ambition_time::SimTick>>,
         Option<ResMut<ambition_combat::events::QuestCausesInRooms>>,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
+        MessageWriter<ambition_platformer2d_interaction::ActivationCommitted>,
     ),
     mut vfx: VfxWriter,
 ) {
@@ -295,7 +298,7 @@ pub fn interact_ecs_actors_and_switches(
         talkers.sort_by(|a, b| a.0.total_cmp(&b.0));
         let mut touched: Vec<(f32, Entity)> = switches
             .iter()
-            .filter(|(entity, _, aabb, _, requires_facing)| reach.touches(live_rooms.of(*entity), aabb, *requires_facing))
+            .filter(|(entity, _, aabb, _, _, requires_facing)| reach.touches(live_rooms.of(*entity), aabb, *requires_facing))
             .map(|(entity, _, aabb, ..)| (reach.preference(aabb.center), entity))
             .collect();
         touched.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -422,10 +425,16 @@ pub fn interact_ecs_actors_and_switches(
             // flipped. Unlike the switch loop below, that is the right scope.
             return;
         }
-        for (switch_entity, name, aabb, switch, requires_facing) in touched.iter().filter_map(|(_, entity)| switches.get(*entity).ok()) {
+        for (_, switch_entity) in &touched {
+            let Ok((switch_entity, name, aabb, switch, mut activation_state, requires_facing)) = switches.get_mut(*switch_entity) else { continue; };
             let room = live_rooms.of(switch_entity);
             if !reach.touches(room, aabb, requires_facing) {
                 continue;
+            }
+            if let (Some(object), actor, Some(source_room)) = (objects.reference(switch_entity), objects.reference(subject), live_rooms.stamped(switch_entity)) {
+                // Native arbitration has selected one reachable target for this press.
+                let Some(fact) = activation_state.accept(object, actor, source_room) else { continue; };
+                committed.write(fact);
             }
             acting.consume_interact(subject);
             pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);

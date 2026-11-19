@@ -986,6 +986,10 @@
           "name": "action",
           "presence": "optional",
           "values": [
+            "Activate",
+            "ToggleFlag",
+            "BossLife",
+            "GateTerminal",
             "ResetEncounter",
             "FlipGravity",
             "SetGravityUp",

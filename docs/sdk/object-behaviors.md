@@ -74,7 +74,9 @@ Rebuild portable module files that use these ports.
 ## Local call authority
 
 Direct calls and live attachment require one rollback authority. Native
-admission returns `cross_island_behavior_unsupported` before target mutation.
+admission returns `object_not_live_in_authority` before target mutation.
+Missing and foreign targets share this refusal. A caller must not infer foreign
+speculative liveness from an outcome code.
 Whole-app GGRS can include several live rooms in one authority. Independent
 host/guest room replay gives each room a separate authority.
 
@@ -82,8 +84,8 @@ A call captures its admitting authority. If an endpoint leaves it, the caller's
 own mailbox records `local_call_authority_ended`. This ends the orchestration;
 it does not undo native child actions that already applied. A foreign callee
 cannot complete or cancel the old local call by writing into the caller's
-mailbox. A vanished endpoint has a bounded wait. A live callee retains its
-own active-time deadline. Crossing a world boundary requires a world-domain
+mailbox. A missing or hidden endpoint ends the local wait with the same result
+as a foreign endpoint. A live local callee retains its own active-time deadline. Crossing a world boundary requires a world-domain
 transaction, not method forwarding.
 
 ## Subscribe named methods to native facts
@@ -273,3 +275,5 @@ GGRS replay. General discovery, authored signals, mixed actor/prop batches,
 live subscription replacement and other native event families remain open.
 Message causality under independent room replay also remains open; refusing a
 foreign speculative write does not implement confirmed transport.
+
+See [reactive local mechanisms](reactive-mechanisms.md) for authored placement lookup, native activation, inspection and a playable toll barrier.

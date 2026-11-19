@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v510
+ggrs-rollback-schema-v511
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -319,6 +319,7 @@ frame_env.force_zone	component-canonical	ForceZone	bevy_ggrs canonical codec sna
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+interaction.activation	component-canonical	ActivationState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 item.bag_uses_in_rooms	resource-clone-custom-checksum	BagUsesInRooms	bevy_ggrs clone snapshot + the cells bodies used from the shared bag, and what a room's conversation added to it or sold from it, within the rewind horizon, with the room and tick of each, which a room rewind takes back (ISL-2d)
 item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; not in the session checksum
 item.hanging_item	component-clone	HangingItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -374,6 +375,7 @@ marker.primary_body	component-clone	PrimaryBody	bevy_ggrs clone snapshot; not in
 marker.primary_player	component-clone	PrimaryPlayer	bevy_ggrs clone snapshot; not in the session checksum
 marker.runtime_staged_actor	component-clone	RuntimeStagedActor	bevy_ggrs clone snapshot; not in the session checksum
 match.scoped	component-clone	MatchScoped	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+message.activation_committed	message-clear	ActivationCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_action	message-clear	ActorActionMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_died	message-clear	ActorDiedMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_stimulus	message-clear	ActorStimulus	clear abandoned-future message buffer in LoadWorld::Mapping

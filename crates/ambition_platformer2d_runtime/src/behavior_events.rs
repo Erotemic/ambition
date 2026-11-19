@@ -143,12 +143,25 @@ pub fn publish_native<P: Port>(world: &mut World, source: ObjectRef, value: &P::
 fn publish_deferred<P: Port>(world: &mut DeferredWorld<'_>, source: ObjectRef, value: &P::Value) -> NativePublication {
     let event = P::KEY.to_string();
     assert!(world.resource::<NativeSources>().get(&event).is_some(), "the native fact source must be installed");
+    if world.resource::<EventRoutes>().routes.get(&(source, event)).is_none_or(Vec::is_empty) {
+        return NativePublication::default();
+    }
+    let objects = ObjectIndex::capture(world);
+    let Ok(entity) = objects.resolve(SessionScopeId(source.session), source) else {
+        return NativePublication {unavailable: 1, ..Default::default()};
+    };
+    let Some(authority) = simulation_island(world, entity) else {
+        return NativePublication {unavailable: 1, ..Default::default()};
+    };
+    publish_captured::<P>(world, source, authority, value)
+}
+fn publish_captured<P: Port>(world: &mut DeferredWorld<'_>, source: ObjectRef, authority: SimulationIsland,
+    value: &P::Value) -> NativePublication {
+    let event = P::KEY.to_string();
+    assert!(world.resource::<NativeSources>().get(&event).is_some(), "the native fact source must be installed");
     let routes = world.resource::<EventRoutes>().routes.get(&(source, event.clone())).cloned().unwrap_or_default();
     if routes.is_empty() { return NativePublication::default(); }
     let objects = ObjectIndex::capture(world);
-    let Ok(source_entity) = objects.resolve(SessionScopeId(source.session), source) else {
-        return NativePublication {unavailable: 1, ..Default::default()};
-    };
     let mut recipients: Vec<_> = routes.into_iter().filter_map(|(entity, key)| {
         let reference = object_reference(world, entity)?;
         (objects.resolve(SessionScopeId(source.session), reference) == Ok(entity)).then_some((reference, entity, key))
@@ -158,7 +171,7 @@ fn publish_deferred<P: Port>(world: &mut DeferredWorld<'_>, source: ObjectRef, v
     let now = world.resource::<ambition_time::SimTick>().0;
     let mut report = NativePublication::default();
     for (_, entity, key) in recipients {
-        if !ambition_platformer2d_shared_tangle::lifecycle::shares_simulation_island(world, source_entity, entity) {
+        if simulation_island(world, entity) != Some(authority) {
             report.cross_island += 1;
             continue;
         }
@@ -222,6 +235,16 @@ pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d
 }
 pub(crate) fn install(app: &mut App) {
     app.init_resource::<EventRoutes>();
+    app.add_message::<ambition_platformer2d_interaction::ActivationCommitted>();
+    clear_message_at_session_activation::<ambition_platformer2d_interaction::ActivationCommitted>(app);
+    install_native_source::<ObjectActivatedPort>(app, "ambition_platformer2d_interaction", "activated");
+    app.install_extension_context_observation::<ObjectActivationPort>(ACTOR_THINK, "ambition_platformer2d_interaction",
+        |world, context| Some(world.get::<ambition_platformer2d_interaction::ActivationState>(context.scope).and_then(|state|
+            Some(ObjectActivated {object: object_reference(world, context.scope)?, actor: state.actor, revision: state.revision}))));
+    use ambition_platformer2d_shared_tangle::schedule::{SimScheduleExt, Platformer2dSimulationPhase};
+    let schedule = app.sim_schedule();
+    app.add_systems(schedule, publish_activations.in_set(Platformer2dSimulationPhase::GameplayEffects)
+        .after(Platformer2dSimulationPhase::FeatureInteraction));
     install_native_source::<ObjectBornPort>(app, "ambition_platformer2d_runtime", "born");
     app.install_extension_context_observation::<BehaviorEventsPort>(ACTOR_THINK, "ambition_platformer2d_runtime",
         |world, context| Some(world.get::<EventMailbox>(context.state_scope).map_or_else(BehaviorEventHistory::default, EventMailbox::history)));
@@ -284,5 +307,29 @@ mod tests {
         let report = publish_native::<ObjectBornPort>(&mut world, source, &ObjectBorn {object: source});
         assert_eq!((report.queued, report.overflow, report.cross_island), (1, 1, 0));
         assert_eq!(world.get::<EventMailbox>(receivers[0]).unwrap().rows[0].delivery.source, source);
+        let authority = simulation_island(&world, bodies[0]).unwrap();
+        world.entity_mut(receivers[1]).insert(decode_state::<EventMailbox>(&baseline).unwrap());
+        world.despawn(bodies[0]);
+        let report = publish_captured::<ObjectBornPort>(&mut DeferredWorld::from(&mut world), source, authority, &ObjectBorn {object: source});
+        assert_eq!(report.queued, 1, "captured birth provenance survives source retirement");
+        assert_eq!(world.get::<EventMailbox>(receivers[1]).unwrap().rows[0].delivery.source, source);
+
+    }
+}
+
+
+type ActivationReads = bevy::ecs::system::SystemState<ambition_platformer2d_core::replay_messages::ReplayMessageReader<'static, 'static, ambition_platformer2d_interaction::ActivationCommitted>>;
+fn publish_activations(world: &mut World, mut reader: Local<Option<ActivationReads>>) {
+    let reader = reader.get_or_insert_with(|| ActivationReads::new(world));
+    let facts: Vec<_> = reader.get_mut(world).expect("activation messages are installed").read().cloned().collect();
+    for fact in facts {
+        let authority = if world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world)) {
+            SimulationIsland::Room(SessionScopeId(fact.object.session), fact.room)
+        } else { SimulationIsland::Session(SessionScopeId(fact.object.session)) };
+        let value = ObjectActivated {object: fact.object, actor: fact.actor, revision: fact.revision};
+        let report = publish_captured::<ObjectActivatedPort>(&mut DeferredWorld::from(&mut *world), fact.object, authority, &value);
+        if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
+            warn!(?report, object = ?fact.object, "Native activation notification delivery was limited; inspect its activation state to reconcile.");
+        }
     }
 }

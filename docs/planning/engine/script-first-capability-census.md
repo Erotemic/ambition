@@ -6,6 +6,12 @@ Date: 2026-11-17. This audit reads Ambition, Mary-O, and Sanic. It does not chan
 
 ## Current capability route
 
+The [playable toll mechanism](../../sdk/reactive-mechanisms.md) now combines scoped
+authored lookup, native switch activation, private methods, native inspection and
+atomic destructible/inventory outcomes. This is a local proof. Signals, accepted
+defeat and retirement facts, full duplicated-room gameplay and committed
+world-domain communication remain open.
+
 The [program](script-first-ambition-gameplay.md#reactive-capability-direction)
 now selects an island-local reactive model. This census supplies owner and
 coverage evidence. Do not implement its ports as an independent checklist.

@@ -333,7 +333,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 507 -> 508: private instances retain declarative subscriptions and typed native fact delivery.
 // 508 -> 509: the combined schema includes native fact journals and scripted snake shell state.
 // 509 -> 510: local calls retain their admitting authority and caller-owned lifetime watches.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 510;
+// 510 -> 511: native activation revisions and local call closure use replay-safe provenance.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 511;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

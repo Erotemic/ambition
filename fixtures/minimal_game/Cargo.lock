@@ -399,6 +399,7 @@ dependencies = [
  "ambition_interaction",
  "ambition_persistence",
  "ambition_platformer2d_core",
+ "ambition_platformer2d_interaction",
  "ambition_platformer2d_shared_tangle",
  "ambition_time",
  "bevy",
@@ -849,6 +850,7 @@ name = "ambition_platformer2d_interaction"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
+ "ambition_extension_sdk",
  "ambition_interaction",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
@@ -991,6 +993,7 @@ dependencies = [
  "ambition_platformer2d_assets",
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
+ "ambition_platformer2d_interaction",
  "ambition_platformer2d_items",
  "ambition_platformer2d_physics_debris",
  "ambition_platformer2d_publication",

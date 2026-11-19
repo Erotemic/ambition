@@ -75,6 +75,44 @@ pub fn consume_contact(world: &mut World, caller: Entity, contact: u32,
         ambition_interaction::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
     };
     if kind != expected || feature.state().pogo_refresh { return Err("unowned_contact_geometry"); }
+    commit(world, caller, ConsumptionTarget {entity: target, position, feature, object, origin, room, session, tick: tick.0}, exchange)
+}
+
+/// A behavior can spend its own destructible and exchange with one local body.
+/// Contact admission and behavior admission use the same native transaction.
+pub fn consume_self(world: &mut World, target: Entity, caller: Entity,
+    exchange: &InventoryExchange) -> Result<ConsumptionReceipt, &'static str> {
+    let session = world.get::<SessionScopedEntity>(target).ok_or("invalid_scope")?.0;
+    if world.get::<SessionScopedEntity>(caller).map(|owner| owner.0) != Some(session) { return Err("invalid_recipient"); }
+    if world.get_resource::<ActiveSessionScope>().is_some_and(|active| active.current() != Some(session)) { return Err("inactive_scope"); }
+    let room = world.get::<InRoomInstance>(target).ok_or("unscoped_object")?.0;
+    if world.get::<InRoomInstance>(caller).map(|at| at.0) != Some(room)
+        || !shares_simulation_island(world, target, caller) { return Err("recipient_not_local"); }
+    if ambition_combat::util::body_is_untouchable(world.get::<BodyHealth>(caller),
+        world.get::<ambition_combat::death_rules::OutOfPlay>(caller).is_some(), world.get::<ae::DepthPlane>(caller)) {
+        return Err("inactive_body");
+    }
+    if world.get::<ae::BodyKinematics>(caller).is_none() { return Err("recipient_not_a_body"); }
+    if world.get_resource::<ambition_time::WorldTime>().is_none_or(|time| time.sim_dt() <= 0.0) { return Err("simulation_held"); }
+    if live_room_root_for(world, session, room).is_none() { return Err("inactive_room"); }
+    let mut context = SystemState::<RoomFreeze>::new(world);
+    let pace = context.get(world).map_err(|_| "room_pace_unavailable")?;
+    if pace.scale_of(target) <= 0.0 || pace.scale_of(caller) <= 0.0 { return Err("room_held"); }
+    let position = world.get::<CenteredAabb>(target).ok_or("object_without_geometry")?.center;
+    let feature = world.get::<BreakableFeature>(target).ok_or("object_not_destructible")?.clone();
+    let object = world.get::<SimId>(target).ok_or("object_without_identity")?.clone();
+    let origin = world.get::<SpawnOrigin>(target).cloned();
+    let tick = world.resource::<ambition_time::SimTick>().0;
+    commit(world, caller, ConsumptionTarget {entity: target, position, feature, object, origin, room, session, tick}, exchange)
+}
+
+struct ConsumptionTarget {
+    entity: Entity, position: ae::Vec2, feature: BreakableFeature, object: SimId,
+    origin: Option<SpawnOrigin>, room: LiveRoomInstance, session: SessionScopeId, tick: u64,
+}
+fn commit(world: &mut World, caller: Entity, target: ConsumptionTarget,
+    exchange: &InventoryExchange) -> Result<ConsumptionReceipt, &'static str> {
+    let ConsumptionTarget {entity: target, position, feature, object, origin, room, session, tick} = target;
     let prepared = simulation::prepare_consumption(&feature)?;
     let persistent = if feature.state().respawn == ambition_entity_catalog::placements::HazardRespawn::Persistent {
         let Some(SpawnOrigin::Authored { source, .. }) = origin else {
@@ -106,7 +144,7 @@ pub fn consume_contact(world: &mut World, caller: Entity, contact: u32,
         let written = world.resource_mut::<AuthoredOccurrences>().spend([object.clone()]);
         assert_eq!(written, 1, "the inventory step preserves the checked occurrence");
         world.resource_mut::<ConsumedSinceCheckpoint>().record_spent(object.clone(), source, owners,
-            Some(ConsumedWrite { at: RoomWrite { room, tick: tick.0 }, replaced: None }));
+            Some(ConsumedWrite { at: RoomWrite { room, tick }, replaced: None }));
     }
     Ok(ConsumptionReceipt { object, exchange: applied })
 }

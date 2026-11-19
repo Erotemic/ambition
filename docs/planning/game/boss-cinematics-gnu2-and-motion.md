@@ -105,6 +105,55 @@ duplicate spawn on retries; both cleaned on teardown), and readable counters
 for two giants. Keep phases 1 and 2 as they are until the replacement passes
 replay, reset and exit gating.
 
+### The plan (decided 2026-11-19)
+
+Measured first: the arena (both the hall's, `sandbox.ldtk`, and the handle's,
+`generators/gnu_ton_gravity`) has no off-camera space, its camera zone is the
+whole room, and the boss summon (`ambition.boss.summon`) makes a *minion*,
+which is not a boss: it has no bar, no save record and is not a member of
+the arena's gate. The boss bar draws one boss a view.
+
+Decisions, each the shape that makes the acceptance follow from what exists
+rather than from new bookkeeping:
+
+- **GNU2 is a boss placement, not a summon.** It is authored in the arena
+  room, in a sealed **containment cell** past the arena's wall, outside the
+  camera zone, held (no conduct, no bar, no harm) until it is called. One
+  placement gives the rest for free: a retry or a re-entry builds it once
+  (no duplicate), the room's teardown takes it, its defeat is recorded
+  `Cleared` under its own id, and the gate already counts every GNU-ton-kind
+  placement of the arena (debt 13): GNU2 joins that set by its brain.
+- **The call is a real pair.** In the beat that now starts the launch, the
+  scholar opens a held pair (`ambition.portal.held_pair`): one end upright in
+  the cell's inner wall, the other upright in the arena's wall, each wider
+  than the giant. GNU2 walks into the cell's end and out of the arena's: it
+  is never placed, only walked, and the pair closes behind it.
+- **Its own conductor.** A `gnu2` conduct module: it walks the hall at the
+  giant's stride, stomps (the giant's floor shocks), bucks a body off its
+  back, and is hurt on its head and back. Its health is its own.
+- **Two bars.** The boss bar draws every boss being fought in the view's
+  room, stacked, each with its name.
+- **Victory.** Either order. The rider yields when he is beaten (his finale
+  plays, the giant he rode stands down) while GNU2 fights on; the gate opens
+  when both are `Cleared`.
+- **Then retire space.** The well, the sky's ascent and the tides go when
+  the replacement passes replay, reset (a death mid-finale) and exit gating.
+
+Steps: (2) the cell and GNU2's held placement in both arenas; (3) the call
+through the pair; (4) GNU2's conductor; (5) two bars; (6) the victory and
+the rider's yield; (7) retire space.
+
+What step 2 needs first, measured 2026-11-19: no boss takes its body from a
+character entry (`BossSpawn` has no `character_id`; `BossProfile` names
+none), so GNU2 as a boss needs a boss sheet (`boss_sheets.ron`, its rows as
+`BossAnim`s: `Rest` from `armed_rest`, a walk, `Hit`, `Death`) drawn from
+`npc_giant_gnu2`'s parts the way PF2b draws nine boss sheets from their
+characters' (`BossSheetSpec::parts`), published by the renderer's
+`gnu_ton_boss` target beside `giant_gnu2`. Step 5 is small: the bar's
+`find_map` over `BossRenderIndex` becomes every fought boss of the room,
+sorted by id (the index is a hash map) and stacked one panel height apart;
+it waits for a two-boss fight to witness it.
+
 ## The giant's motion (GNU-MOTION-PARTS)
 
 **Measured 2026-11-10** with `gnu_ton_fight::how_the_giant_moves_frame_by_frame`

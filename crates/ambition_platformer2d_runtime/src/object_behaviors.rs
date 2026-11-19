@@ -64,8 +64,8 @@ impl SnapshotState for BehaviorInstance {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct LocalCallWatch { ticket: ActionTicket, receiver: ObjectRef, authority: CallAuthority, remaining: u32 }
-ambition_extension_sdk::port_record! { LocalCallWatch { ticket: ActionTicket, receiver: ObjectRef, authority: CallAuthority, remaining: u32 } }
+struct LocalCallWatch { ticket: ActionTicket, receiver: ObjectRef, authority: CallAuthority }
+ambition_extension_sdk::port_record! { LocalCallWatch { ticket: ActionTicket, receiver: ObjectRef, authority: CallAuthority } }
 
 /// Caller-owned lifetime metadata. Request payloads stay in the callee journal.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
@@ -87,19 +87,15 @@ pub(crate) fn maintain_watches(world: &mut World, state: Entity, objects: &Objec
     let mailbox = world.get::<action_results::ActionMailbox>(state);
     let mut retained = Vec::new();
     let mut failed = Vec::new();
-    for mut row in watches.rows.clone() {
+    for row in watches.rows.clone() {
         if !mailbox.is_some_and(|mailbox| mailbox.is_pending(&row.ticket)) { continue; }
         let receiver = objects.resolve(SessionScopeId(row.receiver.session), row.receiver).ok();
-        let changed = authority.as_ref() != Some(&row.authority)
-            || receiver.is_some_and(|entity| CallAuthority::of(world, entity).as_ref() != Some(&row.authority));
-        if changed || row.remaining == 0 {
-            failed.push((row.ticket, if changed { "local_call_authority_ended" } else { "object_call_expired" }));
-        } else {
-            // A live callee owns its active-time deadline. The caller bounds
-            // only an unavailable endpoint, whose journal cannot answer.
-            if receiver.is_none() { row.remaining -= 1; }
-            retained.push(row);
-        }
+        let local = authority.as_ref() == Some(&row.authority)
+            && receiver.is_some_and(|entity| CallAuthority::of(world, entity).as_ref() == Some(&row.authority));
+        // A foreign room is hidden during replay. Its presence must not
+        // change the caller's result or wait clock.
+        if local { retained.push(row); }
+        else { failed.push((row.ticket, "local_call_authority_ended")); }
     }
     world.get_mut::<LocalCallWatches>(state).unwrap().rows = retained;
     for (ticket, code) in failed {
@@ -132,6 +128,8 @@ fn call_result(world: &World, context: ObservationContext<'_>) -> Option<Option<
 }
 
 pub(crate) fn install(app: &mut App) {
+    action_results::register_action_domain(app, "objects.resolve_authored", action_results::ActionCancellationPolicy::Unsupported);
+    app.install_extension_submitted_request::<ResolveAuthoredObjectsPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", resolve_authored);
     action_results::register_action_domain(app, "objects.attach_behaviors", action_results::ActionCancellationPolicy::Unsupported);
     action_results::register_action_domain(app, "objects.complete_call", action_results::ActionCancellationPolicy::Unsupported);
     action_results::register_action_domain(app, "objects.call", action_results::ActionCancellationPolicy::Handler(cancel_call));
@@ -157,8 +155,8 @@ fn limits(world: &mut World, subject: Entity) -> ObjectBehaviorLimits {
 }
 fn target(world: &World, caller: Entity, reference: ObjectRef) -> Result<Entity, &'static str> {
     let scope = world.get::<SessionScopedEntity>(caller).ok_or("caller_without_session")?.0;
-    let target = resolve_object(world, scope, reference).map_err(|_| "object_not_live")?;
-    if !shares_simulation_island(world, caller, target) { return Err("cross_island_behavior_unsupported"); }
+    let target = resolve_object(world, scope, reference).map_err(|_| "object_not_live_in_authority")?;
+    if !shares_simulation_island(world, caller, target) { return Err("object_not_live_in_authority"); }
     Ok(target)
 }
 fn checked_data(data: &ScriptValue, max: u32) -> Option<ScriptValue> {
@@ -381,7 +379,7 @@ fn call(world: &mut World) {
             let origin = dispatch.reply.as_ref().unwrap();
             let authority = CallAuthority::of(world, submitted.state_scope).ok_or("caller_without_authority")?;
             let watch = LocalCallWatch {ticket: origin.ticket.clone(), receiver: request.target,
-                authority: authority.clone(), remaining: limits.max_active_wait_ticks};
+                authority: authority.clone()};
             let mut instance = world.get_mut::<BehaviorInstance>(state).unwrap();
             if instance.calls.len() >= limits.max_calls_per_binding as usize {
                 instance.calls.retain(|row| !row.terminal);
@@ -534,6 +532,7 @@ impl BehaviorInstance {
 #[cfg(test)]
 mod local_authority_tests {
     use super::*;
+    use bevy::ecs::entity_disabling::Disabled;
     use ambition_platformer2d_core::snapshot::{encode_state, decode_state};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
@@ -549,7 +548,10 @@ mod local_authority_tests {
         let receiver = world.spawn((SessionScopedEntity(session), InRoomInstance(rooms[1]), SimId::placement("receiver"))).id();
         for entity in [caller, receiver] { ensure_object_occurrence(&mut world, entity).unwrap(); }
         let receiver_ref = object_reference(&world, receiver).unwrap();
-        assert_eq!(target(&world, caller, receiver_ref), Err("cross_island_behavior_unsupported"));
+        assert_eq!(target(&world, caller, receiver_ref), Err("object_not_live_in_authority"));
+        world.entity_mut(receiver).insert(Disabled);
+        assert_eq!(target(&world, caller, receiver_ref), Err("object_not_live_in_authority"));
+        world.entity_mut(receiver).remove::<Disabled>();
         world.remove_resource::<SimulationIslands>();
         assert_eq!(target(&world, caller, receiver_ref), Ok(receiver), "whole-app authority can span rooms");
         world.insert_resource(SimulationIslands(|_| true));
@@ -566,7 +568,7 @@ mod local_authority_tests {
                 remaining: 10, max_attempts: 3}],
         })).id();
         world.entity_mut(caller).insert(LocalCallWatches {rows: vec![LocalCallWatch {
-            ticket: reply.ticket.clone(), receiver: receiver_ref, authority, remaining: 10}]});
+            ticket: reply.ticket.clone(), receiver: receiver_ref, authority}]});
         let caller_before = world.get::<action_results::ActionMailbox>(caller).unwrap().clone();
         let watches_before = world.get::<LocalCallWatches>(caller).unwrap().clone();
         let callee_before = encode_state(world.get::<BehaviorInstance>(state).unwrap());
@@ -591,11 +593,58 @@ mod local_authority_tests {
         assert_eq!(world.get::<action_results::ActionMailbox>(caller).unwrap().history().entries.last().unwrap().result.code,
             "local_call_authority_ended", "receiver departure ends the local wait too");
         assert_eq!(encode_state(world.get::<BehaviorInstance>(state).unwrap()), callee_before);
+        world.entity_mut(caller).insert((caller_before.clone(), watches_before.clone()));
+        world.entity_mut(receiver).insert(Disabled);
+        let objects = ObjectIndex::capture(&world);
+        maintain_watches(&mut world, caller, &objects, 12);
+        assert_eq!(world.get::<action_results::ActionMailbox>(caller).unwrap().history().entries.last().unwrap().result.code,
+            "local_call_authority_ended", "hidden and visible foreign endpoints have the same local outcome");
+        world.entity_mut(receiver).remove::<Disabled>();
         world.entity_mut(receiver).insert(InRoomInstance(rooms[0]));
         world.entity_mut(caller).insert((caller_before, watches_before));
         world.entity_mut(state).insert(decode_state::<BehaviorInstance>(&callee_before).unwrap());
         publish(&mut world, state, &origin, ActionStage::Completed, "local", Some(ScriptValue::Unit));
         assert_eq!(world.get::<action_results::ActionMailbox>(caller).unwrap().history().entries.last().unwrap().result.code, "local");
         assert_eq!(target(&world, caller, receiver_ref), Ok(receiver));
+    }
+}
+
+fn resolve_authored(world: &mut World) {
+    let requests = world.resource_mut::<ExtensionOutbox>().drain::<ResolveAuthoredObjectsPort>(&ACTOR_THINK);
+    if requests.is_empty() { return; }
+    let objects = AuthoredObjectIndex::capture(world);
+    for submitted in requests {
+        let request = submitted.value;
+        let dispatch = action_results::begin_action_request::<ResolveAuthoredObjectsPort>(world, submitted.state_scope, &submitted.entry, &request);
+        if !dispatch.execute { continue; }
+        let cap = limits(world, submitted.scope).max_authored_lookups;
+        let result = (|| -> Result<Vec<ActionSubject>, (&str, String)> {
+            if request.placements.is_empty() || request.placements.len() > cap as usize
+                || request.placements.iter().any(|key| key.is_empty() || key.len() > 256) {
+                return Err(("authored_lookup_bound", "Use nonempty placement keys within the room lookup bound.".into()));
+            }
+            let session = world.get::<SessionScopedEntity>(submitted.scope)
+                .ok_or(("caller_without_session", String::new()))?.0;
+            let room = object_scope_room(world, submitted.scope).ok_or(("caller_without_room", String::new()))?;
+            let root = live_room_root_for(world, session, room).ok_or(("room_not_live", String::new()))?;
+            let definition = world.get::<ambition_platformer2d_world::rooms::LiveRoomDefinition>(root)
+                .ok_or(("room_without_definition", String::new()))?;
+            let room_set = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(world)
+                .ok_or(("room_without_definition", String::new()))?;
+            let source = &room_set.spec(*definition).id;
+            request.placements.iter().map(|key| {
+                objects.resolve(session, room, source, key).map(|object| ActionSubject {key: key.clone(), object: Some(object)})
+                    .map_err(|problem| (match problem {
+                        AuthoredLookupError::Absent => "authored_object_absent",
+                        AuthoredLookupError::Ambiguous => "authored_object_ambiguous",
+                        AuthoredLookupError::Unpublished => "authored_object_unpublished",
+                    }, format!("Placement {key} in live room {} ({source}): {problem:?}.", room.ordinal())))
+            }).collect()
+        })();
+        let (stage, code, message, subjects) = match result {
+            Ok(subjects) => (ActionStage::Applied, "authored_objects_resolved", String::new(), subjects),
+            Err((code, message)) => (ActionStage::Rejected, code, message, Vec::new()),
+        };
+        action_results::publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, message, subjects);
     }
 }

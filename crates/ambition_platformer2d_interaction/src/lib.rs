@@ -1,6 +1,6 @@
 //! Live-room interaction reach and body gestures.
 
-use ambition_platformer2d_core::{AabbExt, CenteredAabb};
+use ambition_platformer2d_core::{AabbExt, CenteredAabb, snapshot::{SnapshotState, Reader, put_bytes}};
 use bevy::prelude::*;
 
 /// What one body's Interact press reaches. The one rule for the press
@@ -164,4 +164,41 @@ pub fn pose_interact(
     if let Ok(mut anim) = anims.get_mut(body) {
         anim.interact_anim_timer = hold_secs;
     }
+}
+
+
+/// Recoverable, occurrence-owned evidence of native activation arbitration.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ActivationState { pub revision: u64, pub actor: Option<ambition_extension_sdk::ObjectRef> }
+ambition_extension_sdk::port_record! { ActivationState { revision: u64, actor: Option<ambition_extension_sdk::ObjectRef> } }
+impl SnapshotState for ActivationState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let mut bytes = Vec::new(); ambition_extension_sdk::structure::put(self, &mut bytes);
+        put_bytes(out, &bytes);
+    }
+    fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+        ambition_extension_sdk::wire::decode_all(reader.bytes()?, ambition_extension_sdk::structure::read).ok()
+    }
+}
+impl ActivationState {
+    pub fn accept(&mut self, object: ambition_extension_sdk::ObjectRef, actor: Option<ambition_extension_sdk::ObjectRef>,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> Option<ActivationCommitted> {
+        self.revision = self.revision.checked_add(1)?;
+        self.actor = actor;
+        Some(ActivationCommitted {object, actor, revision: self.revision, room})
+    }
+}
+
+/// Capture provenance at application. The source need not survive notification.
+#[derive(Message, Clone, Debug)]
+pub struct ActivationCommitted {
+    pub object: ambition_extension_sdk::ObjectRef,
+    pub actor: Option<ambition_extension_sdk::ObjectRef>,
+    pub revision: u64,
+    pub room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+}
+
+pub fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+    registrar.rollback_component_canonical::<ActivationState>(env!("CARGO_PKG_NAME"), "interaction.activation");
+    registrar.clear_message_on_rollback::<ActivationCommitted>(env!("CARGO_PKG_NAME"), "message.activation_committed");
 }

@@ -82,6 +82,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
+    app.add_message::<ambition_platformer2d_interaction::ActivationCommitted>();
     app.add_message::<VfxInRoom>();
     spawn_interaction_player(&mut app, center);
 
@@ -147,6 +148,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
+    app.add_message::<ambition_platformer2d_interaction::ActivationCommitted>();
     app.add_message::<VfxInRoom>();
 
     // Slot-0 input surface: the home avatar, far from the switch, with a
@@ -269,6 +271,7 @@ fn dialogue_app(nodes: &[&str]) -> App {
     app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
+    app.add_message::<ambition_platformer2d_interaction::ActivationCommitted>();
     app.add_message::<VfxInRoom>();
     app
 }
@@ -440,6 +443,7 @@ fn interaction_app() -> App {
     app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
+    app.add_message::<ambition_platformer2d_interaction::ActivationCommitted>();
     app.add_message::<VfxInRoom>();
     //  the SEAT is spawned on the body, because it IS the input road. `ActingParticipant`
     // answers *which seat drives this body* off `DrivingParticipant`, and a fixture whose

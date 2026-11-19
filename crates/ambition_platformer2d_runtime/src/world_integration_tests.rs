@@ -381,6 +381,7 @@ fn interact_buffered_starts_npc_dialogue() {
     app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
+    app.add_message::<ambition_platformer2d_interaction::ActivationCommitted>();
     app.add_message::<VfxInRoom>();
 
     spawn_interaction_player(&mut app, center);

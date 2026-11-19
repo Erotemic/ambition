@@ -20,6 +20,9 @@ impl Plugin for AmbitionContentPlugin {
         let pack = crate::pack::select(app.world_mut());
         crate::dialogue::settings::register(app, &pack);
 
+        ambition_platformer2d::extension::add_shipped_script(app,
+            "game/ambition_content/rhai/switch_lab.rhai", include_str!("../rhai/switch_lab.rhai"));
+
         // Named projectile presentation used by Ambition content.
         super::projectiles::register(app);
 

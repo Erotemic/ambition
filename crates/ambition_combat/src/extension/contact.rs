@@ -1,7 +1,10 @@
 //! Native responses and shared samples for body contact rules.
 
 use ambition_characters::actor::BodyHealth;
-use ambition_combat_port::{BodyContact, BodyContactPort, BodyDefeatPort, ContactBody, ContactBouncePort};
+use ambition_combat_port::{
+    BodyContact, BodyContactPort, BodyDefeatPort, ContactBody, ContactBouncePort, ContactCuePort, ContactThreatPort,
+    ControlHoldPort, KineticHazardPort, PosePinPort,
+};
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
 use ambition_extension_sdk::phases::BODY_CONTACT;
 use ambition_extension_sdk::Port;
@@ -24,6 +27,11 @@ pub fn install_for_body_contact(app: &mut App) {
         queue_body_contacts.run_if(ambition_extension_host::trigger_is_bound::<BodyContactPort>),
     );
     app.install_extension_submitted_request::<ContactBouncePort, _>(BODY_CONTACT, "ambition_combat", lower_contact_bounces);
+    app.install_extension_submitted_request::<ContactCuePort, _>(BODY_CONTACT, "ambition_combat", lower_contact_cues);
+    app.install_extension_submitted_request::<ContactThreatPort, _>(BODY_CONTACT, "ambition_combat", lower_contact_threats);
+    app.install_extension_submitted_request::<ControlHoldPort, _>(BODY_CONTACT, "ambition_combat", lower_control_holds);
+    app.install_extension_submitted_request::<PosePinPort, _>(BODY_CONTACT, "ambition_combat", lower_pose_pins);
+    app.install_extension_submitted_request::<KineticHazardPort, _>(BODY_CONTACT, "ambition_combat", lower_kinetic_hazards);
     app.install_extension_retirement_request::<BodyDefeatPort, _>(BODY_CONTACT, "ambition_combat", lower_body_defeats);
 }
 
@@ -81,6 +89,132 @@ pub fn lower_contact_bounces(
         }
         if bounce.pogo_cue {
             sfx.in_space(ambition_vfx::sfx_space(live.of(toucher))).write_for(toucher, ambition_sfx::SfxMessage::Pogo { pos: at });
+        }
+    }
+}
+
+/// A toucher plays its pogo cue at the touched body: the touch was its verb.
+pub fn lower_contact_cues(
+    mut outbox: ResMut<ExtensionOutbox>,
+    table: Res<ContactTouchers>,
+    mut sfx: ambition_sfx::BodySfxWriter,
+    live: LiveRooms,
+) {
+    for submitted in outbox.drain::<ContactCuePort>(&BODY_CONTACT) {
+        let cue = submitted.value;
+        let toucher = table
+            .0
+            .iter()
+            .find(|(body, ..)| *body == submitted.scope)
+            .and_then(|(_, at, touchers)| Some((*at, *touchers.get(cue.toucher as usize)?)));
+        let Some((at, toucher)) = toucher else {
+            warn!(
+                "extension entry {} asked toucher {} of {:?} for its cue, which is not a toucher of its contact; refused",
+                submitted.entry, cue.toucher, submitted.scope
+            );
+            continue;
+        };
+        sfx.in_space(ambition_vfx::sfx_space(live.of(toucher))).write_for(toucher, ambition_sfx::SfxMessage::Pogo { pos: at });
+    }
+}
+
+/// The body's touch hurts nobody, or hurts again. The shared contact damage
+/// of this tick reads it.
+pub fn lower_contact_threats(
+    mut commands: Commands,
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut bodies: Query<Option<&mut crate::actor_tuning::ContactThreatWithdrawn>>,
+) {
+    for submitted in outbox.drain::<ContactThreatPort>(&BODY_CONTACT) {
+        let withdrawn = submitted.value.withdrawn;
+        match bodies.get_mut(submitted.scope) {
+            Ok(Some(mut threat)) => threat.0 = withdrawn,
+            Ok(None) => {
+                commands.entity(submitted.scope).try_insert(crate::actor_tuning::ContactThreatWithdrawn(withdrawn));
+            }
+            Err(_) => {}
+        }
+    }
+}
+
+/// The body holds its control as a scripted beat, or lets that hold go.
+pub fn lower_control_holds(
+    mut commands: Commands,
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut holds: Query<Option<&mut ambition_characters::control::ControlHolds>>,
+) {
+    use ambition_characters::control::{claim_control_hold, release_control_hold, ControlHold};
+    for submitted in outbox.drain::<ControlHoldPort>(&BODY_CONTACT) {
+        let Ok(mut held) = holds.get_mut(submitted.scope) else {
+            continue;
+        };
+        if submitted.value.held {
+            claim_control_hold(&mut commands, submitted.scope, ControlHold::Sequence);
+        } else {
+            release_control_hold(&mut commands, submitted.scope, held.as_deref_mut(), ControlHold::Sequence);
+        }
+    }
+}
+
+/// The body is drawn in one row of its sheet, or as the shared picker
+/// chooses. A row the game does not know is refused.
+pub fn lower_pose_pins(mut commands: Commands, mut outbox: ResMut<ExtensionOutbox>) {
+    use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
+    for submitted in outbox.drain::<PosePinPort>(&BODY_CONTACT) {
+        match submitted.value.row.as_deref() {
+            None => {
+                commands.entity(submitted.scope).try_remove::<ActorAnimOverride>();
+            }
+            Some(row) => match CharacterAnim::from_name(row) {
+                Some(anim) => {
+                    commands.entity(submitted.scope).try_insert(ActorAnimOverride(anim));
+                }
+                None => warn!("extension entry {} asked to pin the row {row:?}, which no sheet has; refused", submitted.entry),
+            },
+        }
+    }
+}
+
+/// The body is a hazard this tick: a contact hit of its own extent where it
+/// is, on no side, credited to the body named or to itself, sparing itself
+/// and the bodies named.
+pub fn lower_kinetic_hazards(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut strikes: crate::damage_box::DamageBoxSpawner,
+    bodies: Query<&ae::BodyKinematics>,
+    identities: Query<(Entity, &SimId)>,
+) {
+    for submitted in outbox.drain::<KineticHazardPort>(&BODY_CONTACT) {
+        let hazard = submitted.value;
+        if hazard.damage < 0 || !(hazard.knockback.is_finite() && hazard.knockback >= 0.0) {
+            warn!("extension entry {} asked for a kinetic hazard {hazard:?}; refused", submitted.entry);
+            continue;
+        }
+        let Ok(kin) = bodies.get(submitted.scope) else {
+            continue;
+        };
+        let named = |id: &str| identities.iter().find(|(_, identity)| identity.as_str() == id).map(|(body, _)| body);
+        let owner = hazard.credit.as_deref().and_then(named).unwrap_or(submitted.scope);
+        let mut excluded = crate::strike::HitboxExclusions::default();
+        excluded.bodies.insert(submitted.scope);
+        excluded.bodies.extend(hazard.spare.iter().filter_map(|id| named(id)));
+        if let Some(mut strike) = strikes.spawn(
+            submitted.scope,
+            owner,
+            ambition_vfx::HitSide::Environment,
+            kin.pos,
+            crate::strike::DamageBox {
+                cause: crate::events::HitSource::Contact,
+                move_instance: None,
+                half_extent: kin.size() * 0.5,
+                shape: None,
+                damage: hazard.damage,
+                knockback: crate::strike::HitboxKnockback::FeelScale(hazard.knockback),
+                lifetime_s: 0.0,
+                name: Some("kinetic hazard"),
+            },
+        ) {
+            strike.insert(excluded);
         }
     }
 }

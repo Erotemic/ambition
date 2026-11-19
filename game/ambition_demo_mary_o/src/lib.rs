@@ -1151,8 +1151,6 @@ pub fn register_mary_o_cast(app: &mut App) {
         .with_actor_default_abilities(
             ambition_platformer2d::engine_core::AbilitySet::classic_actor(),
         )
-        // A Solid Snake is built walking, in the batch that builds it.
-        .carrying::<snake::SnakeShell>(snake::SNAKE_SHEET_TARGET)
         .register(app);
 }
 
@@ -1238,22 +1236,8 @@ pub fn install_mary_o_content(app: &mut App) {
             )
             // It is engine state now — `DeathInterlude` / `OutOfPlay` on the body — and the engine
             // registers it, so a game that states death rules cannot forget to make them
-            // rollback-safe. ADR 0033.) A snake's shell phase (and its stage timers) is
-            // authoritative sim state — two sims that disagree on where a shell is in its withdraw
-            // are in different states. It rides on the snake BODY, which the engine already
-            // anchors, so a plain component clone snapshots it.
-            .rollback_component_clone_probed::<snake::SnakeShell>(
-                "ambition_demo_mary_o",
-                "content.mary_o_snake_shell",
-                rollback_probes::snake_shell,
-            )
-            .rollback_component_clone_entity_set::<snake::ShellKickCredit>(
-                "ambition_demo_mary_o", "content.mary_o_shell_kick_credit",
-                |credit| credit.0.into_iter().collect(),
-            )
-            .rollback_map_entities::<snake::ShellKickCredit>(
-                "ambition_demo_mary_o", "map.mary_o_shell_kick_credit",
-            )
+            // rollback-safe. ADR 0033.) A snake's shell phase is the shell module's record on
+            // the snake body, which the extension host registers (`BodyRecords`).
             // A burning star is authoritative sim state by the strictest reading
             // of it: while it runs, hits do not land, and anything that can make
             // a hit be IGNORED has to survive a rewind or the two sims disagree
@@ -1414,6 +1398,11 @@ impl Plugin for MaryORulesPlugin {
             >(app, ambition_platformer2d::extension::sdk::phases::BODY_CONTACT, "ambition_demo_mary_o", |_, _| {
                 Some(rules::mary_o_rules().stomp.observed())
             });
+            ambition_platformer2d::extension::ExtensionAppExt::install_extension_observation::<
+                ambition_demo_mary_o_modules::rules::ShellRulesPort,
+            >(app, ambition_platformer2d::extension::sdk::phases::BODY_CONTACT, "ambition_demo_mary_o", |_, _| {
+                Some(rules::mary_o_rules().shell.observed())
+            });
         }
         for module in ambition_demo_mary_o_modules::modules() {
             ambition_platformer2d::extension::ExtensionAppExt::add_extension_module(app, module);
@@ -1455,8 +1444,8 @@ impl Plugin for MaryORulesPlugin {
         // The dormancy rule has the same scope. Her enemies patrol, and none of
         // them is worth a brain on the far side of the level. A kicked shell
         // still slides when it is far: dormancy sleeps the brain and clears the
-        // control frame, and `run_snake_shells` writes the body's velocity on a
-        // different channel.
+        // control frame, and the shell module asks for the body's velocity on
+        // a different channel.
         {
             use ambition_platformer2d::world::scoped_rules::DeclareRulesExt as _;
             let scope = self.scope;
@@ -1502,7 +1491,7 @@ impl Plugin for MaryORulesPlugin {
         // rules-only harness may not. `add_message` is idempotent.
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         // A sliding snake shell deals damage through the shared `HitEvent` pipeline
-        // (`run_snake_shells`); the full app registers this via the engine's damage
+        // (the shell module's kinetic hazard); the full app registers this via the engine's damage
         // plugin, but a thin rules-only harness may not. `add_message` is idempotent.
         app.add_message::<ambition_platformer2d::combat::events::HitEvent>();
         // Level progression lives in the canonical gameplay-effects phase. The
@@ -1597,13 +1586,10 @@ impl Plugin for MaryORulesPlugin {
         //   (snake → inert shell) in time for that pass to skip it, so the
         //   stomper is never also hurt. The AI Slop's squash is a module in
         //   `body_contact`, which has the same two edges.
-        let cronies = (
-            snake::run_snake_shells,
-            // After the movement step, so the path of the plant wins, and
-            // before the contact pass, so a hidden plant hurts nobody.
-            plant::run_snake_plants,
-        )
-            .chain()
+        // The snake's shell is a module in `body_contact`, which has the same
+        // two edges. The plant runs after the movement step, so its path wins,
+        // and before the contact pass, so a hidden plant hurts nobody.
+        let cronies = plant::run_snake_plants
             // Both edges are PHASES now, which is the same statement without a
             // game crate reaching for two engine function names.
             .in_set(ambition_platformer2d::platformer::schedule::WorldPrepSet::AfterIntegrate)
@@ -4083,19 +4069,6 @@ mod rollback_probes {
             .map(|at| (at.x.to_bits() as u64) ^ ((at.y.to_bits() as u64) << 32))
             .unwrap_or(0);
         phase ^ driven.rotate_left(17)
-    }
-
-    pub(super) fn snake_shell(shell: &snake::SnakeShell) -> u64 {
-        match shell {
-            snake::SnakeShell::Walking => 1,
-            snake::SnakeShell::Retreating(t) => 2 ^ ((t.to_bits() as u64) << 8),
-            snake::SnakeShell::Boxed(t) => 3 ^ ((t.to_bits() as u64) << 8),
-            snake::SnakeShell::Sliding { dir, grace, .. } => {
-                4 ^ ((dir.to_bits() as u64) << 8) ^ ((grace.to_bits() as u64) << 32)
-            }
-            snake::SnakeShell::Peeking(t) => 5 ^ ((t.to_bits() as u64) << 8),
-            snake::SnakeShell::Emerging(t) => 6 ^ ((t.to_bits() as u64) << 8),
-        }
     }
 
     pub(super) fn pipe_entry_latch(latch: &pipe::PipeEntryLatch) -> u64 {

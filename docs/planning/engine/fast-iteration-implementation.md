@@ -359,7 +359,8 @@ before you add a port.
 
 **Delivered migrations:** GNU-ton's conductor and its boss/mount ports,
 actor-think S1-S3 (the Void Lizard and Laden Swallow), body-contact C1/C2
-(AI Slop and Laden Swallow squash), the Sanic badnik squash (2026-11-19), and
+(AI Slop and Laden Swallow squash), the Sanic badnik squash and the Mary-O
+snake shell (2026-11-19), and
 the fighter-special F1-F14 route
 (riposte, module entity/spring, sleep/song, dilation, resource refill,
 parry/counter, homing, mark, bomb/mine, steered bolt, tether, portal recovery,
@@ -369,11 +370,30 @@ modules. This is completion history, **not** another list of work to redo.
 
 **Remaining customer migrations and dependencies:**
 
-1. **Mary-O snake shells:** their native `snake.rs` timers and velocities
-   still need module-owned per-body state (box timer, slide speed, kick grace),
-   wall-contact observations, and the same provider-owned stomp facts. Do not
-   duplicate those facts as module constants. Preserve room isolation and
-   body-contact ordering.
+1. **Mary-O snake shells: DONE 2026-11-19.**
+   `ambition_demo_mary_o_modules::shell` is the snake's `body_contact` entry.
+   That trigger invokes it for each snake every tick, touched or not, so its
+   timers run on the tick (`inv.dt()`).
+   - **State.** The phase, its time left, the slide's direction and the
+     kick's credit (a body reference, the kicker's `SimId`) are the snake's
+     record (`mary_o::snake.shell`).
+   - **Rules.** Her pack's shell timings arrive through `mary_o.rules.shell`;
+     the band, bounce and dust are the same `mary_o.rules.stomp` her squash
+     reads.
+   - **New `body_contact` requests (engine side).** The contact threat
+     withdrawn, a control hold, a pose pin, a toucher's pogo cue, and a
+     kinetic hazard: the running shell, on no side, credited to its kicker,
+     sparing it for the grace.
+   - **Reused.** `ambition.motion.velocity` is now offered in `body_contact`.
+   - **Deleted.** The native `run_snake_shells`, `SnakeShell` and
+     `ShellKickCredit` components, the cast's carried component and their
+     rollback rows. The snake's record is the host's rollback state
+     (`BodyRecords`).
+   - **Tests.** The pure step's cases are module tests. App tests read the
+     phase through `snake::shell_of` / `snake::snakes`.
+   - **Behaviour change.** A snake that dies mid-slide is never invoked
+     again, so its velocity is not zeroed. Friction stops it in about half a
+     second (measured: 67 px from 300 px/s), and it deals no hits.
 2. **Sanic badnik: DONE 2026-11-19.** `ambition_demo_sanic_modules::badnik`
    is one `body_contact` entry for each of his six badnik kinds. It reads
    `sanic.rules.badnik` (the stomp band, the bounce, the squash bursts and

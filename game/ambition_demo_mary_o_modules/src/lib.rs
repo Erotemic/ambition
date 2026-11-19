@@ -14,6 +14,7 @@
 
 pub mod laden_swallow;
 pub mod rules;
+pub mod shell;
 pub mod squash;
 pub mod stomp;
 pub mod void_lizard;
@@ -22,7 +23,7 @@ pub mod void_lizard;
 pub const PROVIDER: &str = "mary_o";
 
 /// Every module this crate provides, as constructors.
-pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[laden_swallow::module, squash::module, void_lizard::module];
+pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[laden_swallow::module, shell::module, squash::module, void_lizard::module];
 
 /// Every module this crate provides.
 pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {

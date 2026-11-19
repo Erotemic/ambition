@@ -276,6 +276,21 @@ pub struct Stomp {
     pub dust: Burst,
 }
 
+impl Shell {
+    /// The value of the module observation `mary_o.rules.shell`.
+    pub fn observed(&self) -> ambition_demo_mary_o_modules::rules::ShellRules {
+        ambition_demo_mary_o_modules::rules::ShellRules {
+            slide_speed: self.slide_speed,
+            damage: self.damage,
+            kick_grace_seconds: self.kick_grace_seconds,
+            retreat_seconds: self.retreat_seconds,
+            boxed_seconds: self.boxed_seconds,
+            peek_seconds: self.peek_seconds,
+            emerge_seconds: self.emerge_seconds,
+        }
+    }
+}
+
 impl Stomp {
     /// The value of the module observation `mary_o.rules.stomp`.
     pub fn observed(&self) -> ambition_demo_mary_o_modules::rules::StompRules {

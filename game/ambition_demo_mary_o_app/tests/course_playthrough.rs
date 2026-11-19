@@ -274,10 +274,9 @@ fn world_items(app: &mut App) -> Vec<(String, ae::Vec2)> {
 /// The unmarked twin carries no shell mechanic at all, so "did the snake react"
 /// has to be asked of the body that carries the mechanic.
 fn shelled_snake(app: &mut App) -> Option<(ae::Aabb, SnakeShell)> {
-    let mut q = app.world_mut().query::<(&CenteredAabb, &SnakeShell)>();
-    q.iter(app.world())
-        .map(|(aabb, shell)| (aabb.aabb(), *shell))
-        .next()
+    let snakes = ambition_demo_mary_o::snake::snakes(app.world_mut());
+    let mut q = app.world_mut().query::<&CenteredAabb>();
+    snakes.into_iter().find_map(|(snake, shell)| Some((q.get(app.world(), snake).ok()?.aabb(), shell)))
 }
 
 fn wears_wand(app: &mut App) -> bool {

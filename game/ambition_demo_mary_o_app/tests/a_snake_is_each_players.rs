@@ -3,9 +3,8 @@
 
 use bevy::prelude::*;
 
-use ambition_demo_mary_o::snake::{is_snake_brain, SnakeShell};
+use ambition_demo_mary_o::snake::{set_shell, shell_credit, shell_of, snakes, SnakeShell};
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
-use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
@@ -24,19 +23,19 @@ fn a_walking_snake() -> (App, Entity) {
             app.update();
             let world = app.world_mut();
             let seated = world.query_filtered::<(), With<PrimaryPlayer>>().iter(world).next().is_some();
-            let mut q = world.query::<(Entity, &ActorConfig, &SnakeShell)>();
-            let snake = q
-                .iter(world)
-                .filter(|(_, config, shell)| is_snake_brain(&config.brain) && matches!(shell, SnakeShell::Walking))
-                .map(|(entity, ..)| entity)
-                .min();
+            let snake = snakes(world).into_iter().find(|(_, shell)| *shell == SnakeShell::Walking).map(|(snake, _)| snake);
             snake.filter(|_| seated)
         })
         .expect("1-1 builds a snake and seats Mary-O");
     (app, snake)
 }
 
+/// A second player body in `room`, driven by a seat.
 fn a_player_body(app: &mut App, room: LiveRoomInstance) -> Entity {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::platformer::{frame_env::ResolvedMotionFrame, lifecycle::SessionScopedEntity, sim_id::SimId};
+    let first = her(app);
+    let session = *app.world().get::<SessionScopedEntity>(first).unwrap();
     app.world_mut()
         .spawn((
             ae::BodyKinematics { material: Default::default(),
@@ -46,6 +45,10 @@ fn a_player_body(app: &mut App, room: LiveRoomInstance) -> Entity {
                 facing: 1.0,
             },
             PlayerEntity,
+            DrivingParticipant(PlayerSlot(1)),
+            SimId::placement(&format!("fixture_second_player_{}", room.ordinal())),
+            session,
+            ResolvedMotionFrame::default(),
             InRoomInstance(room),
         ))
         .id()
@@ -71,7 +74,7 @@ fn still_walking_after_a_stomp(app: &mut App, snake: Entity, stomper: Entity) ->
         kin.pos = on_head;
         kin.vel = Vec2::ZERO;
         app.update();
-        if !matches!(app.world().get::<SnakeShell>(snake), Some(SnakeShell::Walking)) {
+        if !matches!(shell_of(app.world(), snake), Some(SnakeShell::Walking)) {
             return false;
         }
     }
@@ -101,6 +104,45 @@ fn a_snake_is_stomped_by_each_player_of_its_room_and_by_no_other() {
     assert!(still_walking_after_a_stomp(&mut app, snake, elsewhere), "a player of another live room does not");
 }
 
+/// A stomp SHELLS a snake; it never kills it. The shelled snake keeps its
+/// full health (so it is never hidden as a dead hostile actor), its control is
+/// held as a scripted beat rather than stamped as a hit's recoil lock, its
+/// touch hurts nobody, and its authored contact tuning is not rewritten.
+#[test]
+fn a_stomp_shells_a_snake_alive_it_never_dies() {
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    use ambition_platformer2d::characters::control::{ControlHold, ControlHolds};
+    use ambition_platformer2d::combat::actor_tuning::{ActorConfig, ContactThreatWithdrawn};
+    let (mut app, snake) = a_walking_snake();
+    let threat = |app: &App| app.world().get::<ContactThreatWithdrawn>(snake).is_some_and(|withdrawn| withdrawn.0);
+    assert!(!threat(&app), "the premise: a walker is a contact threat");
+    let mary_o = her(&mut app);
+    assert!(!still_walking_after_a_stomp(&mut app, snake, mary_o), "the premise: her stomp makes a shell");
+    let body = app.world().entity(snake);
+    assert!(
+        matches!(shell_of(app.world(), snake), Some(SnakeShell::Retreating(_))),
+        "the stomp starts the in-place withdraw: {:?}",
+        shell_of(app.world(), snake)
+    );
+    let health = body.get::<BodyHealth>().unwrap();
+    assert!(
+        health.alive() && health.health.current == health.health.max,
+        "a stomp does not hurt the snake (current {}, max {})",
+        health.health.current,
+        health.health.max
+    );
+    assert!(
+        body.get::<ControlHolds>().is_some_and(|holds| holds.holds(ControlHold::Sequence)),
+        "the shelled snake is held in place: its shell cycle holds its control"
+    );
+    assert_eq!(body.get::<BodyCombat>().unwrap().recoil_lock_timer, 0.0, "the shell wrote the hit reaction's recoil lock");
+    assert!(threat(&app), "and inert: a resting shell is safe to walk up to and kick");
+    assert!(
+        body.get::<ActorConfig>().unwrap().tuning.body_contact_damage,
+        "the shell rewrote the snake's authored contact tuning"
+    );
+}
+
 /// A stomp plays the burst Mary-O's rules file states
 /// (`stomp.dust`).
 #[test]
@@ -121,8 +163,9 @@ fn joined_shell_party() -> (App, Entity, [Entity; 2]) {
     app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(
         ambition_demo_mary_o::test_course::TEST_COURSE_ROOM_ID.into()));
     for _ in 0..120 { app.update(); }
-    let mut snakes = app.world_mut().query_filtered::<Entity, With<SnakeShell>>();
-    let snake = snakes.single(app.world()).expect("the fixture course has one snake");
+    let found = snakes(app.world_mut());
+    assert_eq!(found.len(), 1, "the fixture course has one snake");
+    let snake = found[0].0;
     let alice = her(&mut app);
     let mut bob = None;
     for _ in 0..60 {
@@ -164,7 +207,7 @@ fn shell_contacts(app: &mut App, snake: Entity, bodies: [Entity; 2]) -> Vec<ambi
 fn a_sliding_shell_uses_body_contacts_for_both_local_participants() {
     use ambition_platformer2d::combat::events::HitTarget;
     let (mut app, snake, bodies) = joined_shell_party();
-    app.world_mut().entity_mut(snake).insert(SnakeShell::Sliding { dir: 1.0, grace: 0.0 });
+    set_shell(app.world_mut(), snake, SnakeShell::Sliding { dir: 1.0, grace: 0.0 }, None);
     let hits = shell_contacts(&mut app, snake, bodies);
     for body in bodies {
         assert_eq!(app.world().get::<BodyHealth>(body).unwrap().current(), 99,
@@ -179,12 +222,11 @@ fn a_sliding_shell_uses_body_contacts_for_both_local_participants() {
 
 #[test]
 fn a_fresh_shell_kick_protects_only_the_body_that_kicked_it() {
-    use ambition_demo_mary_o::snake::ShellKickCredit;
     use ambition_platformer2d::combat::events::HitTarget;
     let (mut app, snake, bodies) = joined_shell_party();
-    app.world_mut().entity_mut(snake).insert(SnakeShell::Boxed(100.0));
+    set_shell(app.world_mut(), snake, SnakeShell::Boxed(100.0), None);
     let hits = shell_contacts(&mut app, snake, bodies);
-    let kicker = app.world().get::<ShellKickCredit>(snake).unwrap().0.expect("the kick names its body");
+    let kicker = shell_credit(app.world_mut(), snake).expect("the kick names its body");
     assert!(bodies.contains(&kicker));
     for body in bodies {
         let expected = if body == kicker { 100 } else { 99 };
@@ -197,7 +239,6 @@ fn a_fresh_shell_kick_protects_only_the_body_that_kicked_it() {
 
 #[test]
 fn a_shell_stays_in_its_emission_room_when_its_kicker_is_in_another_room() {
-    use ambition_demo_mary_o::snake::ShellKickCredit;
     use ambition_platformer2d::combat::events::HitTarget;
     use ambition_platformer2d::world::rooms::LiveRoomDefinition;
     let (mut app, snake, bodies @ [alice, bob]) = joined_shell_party();
@@ -208,8 +249,7 @@ fn a_shell_stays_in_its_emission_room_when_its_kicker_is_in_another_room() {
     let (geometry, definition) = (geometry.clone(), *definition);
     app.world_mut().spawn((RoomInstanceRoot, other, geometry, definition));
     app.world_mut().entity_mut(alice).insert(InRoomInstance(other));
-    app.world_mut().entity_mut(snake).insert((
-        SnakeShell::Sliding { dir: 1.0, grace: 0.0 }, ShellKickCredit(Some(alice))));
+    set_shell(app.world_mut(), snake, SnakeShell::Sliding { dir: 1.0, grace: 0.0 }, Some(alice));
     let hits = shell_contacts(&mut app, snake, bodies);
     assert_eq!(app.world().get::<BodyHealth>(alice).unwrap().current(), 100);
     assert_eq!(app.world().get::<BodyHealth>(bob).unwrap().current(), 99);

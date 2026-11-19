@@ -136,6 +136,113 @@ pub struct BodyDefeatPort;
 pub struct BodyDefeat;
 ambition_extension_sdk::port_record! { BodyDefeat {} }
 
+/// Withdraw this invocation's recipient's contact threat, or give it back.
+///
+/// * **Operation** — while withdrawn, the body's touch hurts nobody in the
+///   shared contact damage (`ContactThreatWithdrawn`). The body keeps its
+///   health and stays drawn: a snake in its shell is a body at rest, not a
+///   dead one.
+/// * **Owner** — `ambition_combat::extension::contact`.
+/// * **Time** — `body_contact`, before the shared contact damage of the same
+///   tick. The value holds until a later request changes it.
+pub struct ContactThreatPort;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ContactThreat {
+    pub withdrawn: bool,
+}
+ambition_extension_sdk::port_record! {
+    ContactThreat {
+        /// True: the body's touch hurts nobody. False: it hurts again.
+        withdrawn: bool,
+    }
+}
+
+/// Hold this invocation's recipient's control, or let it go.
+///
+/// * **Operation** — a held body is a scripted beat: its brain does not
+///   drive it (`ControlHold::Sequence`). Letting go releases only this hold;
+///   another holder's stays.
+/// * **Owner** — the control gate (`ControlHolds`).
+/// * **Time** — `body_contact`; the brain reads the hold from the next tick.
+pub struct ControlHoldPort;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ControlHold {
+    pub held: bool,
+}
+ambition_extension_sdk::port_record! {
+    ControlHold {
+        /// True: hold the body's control as a scripted beat. False: let this hold go.
+        held: bool,
+    }
+}
+
+/// Pin this invocation's recipient's pose to one row of its sheet, or give
+/// the pose back to the shared picker.
+///
+/// * **Operation** — `row` names a character animation (`retreat`,
+///   `boxed_idle`, `peek`, `emerge`, ...). A row the game does not know is
+///   refused. `None` releases the pin.
+/// * **Owner** — the actor presentation (`ActorAnimOverride`).
+/// * **Time** — `body_contact`; drawn from this tick.
+pub struct PosePinPort;
+#[derive(Clone, Debug, PartialEq)]
+pub struct PosePin {
+    pub row: Option<String>,
+}
+ambition_extension_sdk::port_record! {
+    PosePin {
+        /// The character animation row to draw the body in, or `()` to let the shared picker choose.
+        row: Option<String>,
+    }
+}
+
+/// A toucher of this invocation's contact plays its pogo cue at the touched
+/// body: the touch was that toucher's verb (a kick), so the sound is its.
+/// The index refers to the current sample, as [`ContactBounce`]'s.
+pub struct ContactCuePort;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ContactCue {
+    pub toucher: u32,
+}
+ambition_extension_sdk::port_record! {
+    ContactCue {
+        /// The toucher's index in this invocation's contact.
+        toucher: u32,
+    }
+}
+
+/// This invocation's recipient is itself a hazard this tick: a box of its own
+/// extent where it is, on no side, so it hurts every body it covers.
+///
+/// * **Operation** — a contact hit of `damage` with `knockback` (a feel
+///   multiplier), credited to the body `credit` names (its simulation
+///   identity), or to the recipient when `credit` is `None` or that body
+///   has left. The recipient and each body `spare` names are not hit.
+///   Negative damage and knockback that is not finite and at least 0 are
+///   refused.
+/// * **Owner** — `ambition_combat::extension::contact`.
+/// * **Time** — `body_contact`; the box meets bodies this tick and is gone.
+pub struct KineticHazardPort;
+#[derive(Clone, Debug, PartialEq)]
+pub struct KineticHazard {
+    pub damage: i32,
+    pub knockback: f32,
+    pub credit: Option<String>,
+    pub spare: Vec<String>,
+}
+ambition_extension_sdk::port_record! {
+    KineticHazard {
+        /// The damage to each body the hazard covers; not negative.
+        damage: i32,
+        /// A multiplier over the victim's feel-tuned launch; finite and at least 0.
+        knockback: f32,
+        /// The simulation identity of the body credited, or `()` for the hazard itself.
+        credit: Option<String>,
+        /// The simulation identities of bodies the hazard does not hit.
+        spare: Vec<String>,
+    }
+}
+
 macro_rules! port {
     ($port:ty, $key:literal, $version:literal, $role:ident, $value:ty) => {
         impl Port for $port {
@@ -173,6 +280,11 @@ port!(
     Request,
     BodyDefeat
 );
+port!(ContactThreatPort, "ambition.body.contact_threat", 1, Request, ContactThreat);
+port!(ControlHoldPort, "ambition.body.control_hold", 1, Request, ControlHold);
+port!(PosePinPort, "ambition.body.pose_pin", 1, Request, PosePin);
+port!(ContactCuePort, "ambition.body.contact_cue", 1, Request, ContactCue);
+port!(KineticHazardPort, "ambition.combat.kinetic_hazard", 1, Request, KineticHazard);
 
 #[cfg(test)]
 mod tests {

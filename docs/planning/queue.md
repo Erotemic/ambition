@@ -1870,6 +1870,19 @@ missing list entry, so decide it at its owner:
 fails at 3ff8d4e39, before the badnik module. He ends at (13616, 456), above
 the island, with no monitor spent.
 
+**Shell lifecycle reds (found 2026-11-19, inherited):** two of
+`shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the
+same way with and without it:
+- `each_experience_begins_with_its_own_bag`: the Ambition session's bag is
+  25 and its experience begins with 21.
+- `a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`:
+  the playing session's save gains `room_visited_sanic_speedway` and a day
+  clock.
+They are listed as witnesses in
+[construction and reconstitution](engine/construction-and-reconstitution.md).
+Two more fail here for the VM's missing music registry ("authored music is
+selected").
+
 **Smash fixture shared (2026-11-14):** `common::smash` holds the Smash
 setup `smash_ride` repeated in each test: `shipped_host` (the shipped
 composition, 30 frames in), `wait_for_live_round` (a cast exists and none of
@@ -2096,10 +2109,12 @@ held traversal modules; and the `body_contact` extension route. Do not
 re-enqueue the old missing-reload-family list or repeat the completed brain
 migration.
 
-**Next action:** finish the last named `body_contact` customer, the Mary-O
-snake-shell behavior. The Sanic badnik's contact is a module now (2026-11-19).
-Its toucher roll and contact-harm facts are asked of their owners through
-`sanic.contact.touchers`. The plant is a brain
+**Next action:** the named `body_contact` customers are done (2026-11-19).
+The Sanic badnik's contact is a module, and its toucher roll and
+contact-harm facts are asked of their owners through
+`sanic.contact.touchers`. The Mary-O snake shell is a module that keeps its
+phase in the snake's record and holds, withdraws, pins and runs down through
+the new `body_contact` requests. The plant is a brain
 and pose customer, not a contact rule. Recheck which customers are still native
 before migrating them.
 

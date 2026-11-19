@@ -951,31 +951,35 @@ fn snake_by_id(
     id: &str,
 ) -> Option<(ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
     let mut q = app.world_mut().query::<(
+        bevy::prelude::Entity,
         &ambition_platformer2d::combat::components::FeatureId,
         &ambition_platformer2d::combat::components::CenteredAabb,
-        &ambition_demo_mary_o::snake::SnakeShell,
     )>();
-    q.iter(app.world())
-        .find(|(feature_id, ..)| feature_id.as_str() == id)
-        .map(|(_, aabb, shell)| (aabb.aabb(), *shell))
+    let (snake, aabb) = q
+        .iter(app.world())
+        .find(|(_, feature_id, _)| feature_id.as_str() == id)
+        .map(|(snake, _, aabb)| (snake, aabb.aabb()))?;
+    Some((aabb, ambition_demo_mary_o::snake::shell_of(app.world(), snake)?))
 }
 
 /// The id of SOME staged snake, and its state.
 ///
 /// A snake's placement is authored now, so its id carries the LDtk iid — and there is no
-/// numbering to guess. What the tests actually need is *a* snake, and `SnakeShell` is that:
-/// only a Solid Snake carries it.
+/// numbering to guess. What the tests actually need is *a* snake: a body with the snake brain.
 fn some_snake(
     app: &mut App,
 ) -> Option<(String, ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
+    let snakes = ambition_demo_mary_o::snake::snakes(app.world_mut());
     let mut q = app.world_mut().query::<(
         &ambition_platformer2d::combat::components::FeatureId,
         &ambition_platformer2d::combat::components::CenteredAabb,
-        &ambition_demo_mary_o::snake::SnakeShell,
     )>();
-    let mut found: Vec<_> = q
-        .iter(app.world())
-        .map(|(feature_id, aabb, shell)| (feature_id.as_str().to_string(), aabb.aabb(), *shell))
+    let mut found: Vec<_> = snakes
+        .into_iter()
+        .filter_map(|(snake, shell)| {
+            let (feature_id, aabb) = q.get(app.world(), snake).ok()?;
+            Some((feature_id.as_str().to_string(), aabb.aabb(), shell))
+        })
         .collect();
     // Sorted so a test that picks "the first" picks the same one every run.
     found.sort_by(|a, b| a.0.cmp(&b.0));

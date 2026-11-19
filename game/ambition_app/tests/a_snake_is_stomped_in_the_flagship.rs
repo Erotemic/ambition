@@ -7,9 +7,8 @@
 
 use bevy::prelude::*;
 
-use ambition_demo_mary_o::snake::{is_snake_brain, SnakeShell};
+use ambition_demo_mary_o::snake::{shell_of, snakes, SnakeShell};
 use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::input::ControlFrame;
@@ -26,12 +25,8 @@ fn her_health(app: &mut App) -> i32 {
 }
 
 fn walking_snake(app: &mut App) -> Option<(Entity, ae::Aabb)> {
-    let world = app.world_mut();
-    let mut q = world.query::<(Entity, &ActorConfig, &SnakeShell, &ae::BodyKinematics)>();
-    q.iter(world)
-        .filter(|(_, config, shell, _)| is_snake_brain(&config.brain) && matches!(shell, SnakeShell::Walking))
-        .min_by_key(|(entity, ..)| *entity)
-        .map(|(entity, _, _, kin)| (entity, kin.aabb()))
+    let snake = snakes(app.world_mut()).into_iter().find(|(_, shell)| *shell == SnakeShell::Walking)?.0;
+    Some((snake, app.world().get::<ae::BodyKinematics>(snake)?.aabb()))
 }
 
 #[test]
@@ -64,7 +59,7 @@ fn landing_on_a_snake_stomps_it_in_the_flagship() {
     for tick in 0..240 {
         step(&mut app);
         assert_eq!(her_health(&mut app), hp, "landing on a snake hurt her (tick {tick})");
-        if !matches!(app.world().get::<SnakeShell>(snake), Some(SnakeShell::Walking)) {
+        if !matches!(shell_of(app.world(), snake), Some(SnakeShell::Walking)) {
             stomped = true;
             break;
         }

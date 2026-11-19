@@ -1,7 +1,7 @@
 //! Does a room replay put a shelled snake back on its feet, and WHO does it?
 //!
 //! ⭐ THE QUESTION IS ATTRIBUTION, not behaviour. `reset_snakes_on_room_reset`
-//! writes `SnakeShell`, the recoil lock and the contact-damage toggle on every
+//! wrote the snake's shell phase, the recoil lock and the contact-damage toggle on every
 //! snake when a replay is admitted. Since a replay became a canonical room
 //! rebuild, snakes are room-scoped authored actors that the rebuild retires and
 //! re-spawns — so the listener may be doing work the reconstruction already
@@ -27,9 +27,7 @@ fn boot() -> App {
 }
 
 fn shell_phases(app: &mut App) -> Vec<SnakeShell> {
-    let world = app.world_mut();
-    let mut q = world.query::<&SnakeShell>();
-    q.iter(world).copied().collect()
+    ambition_demo_mary_o::snake::snakes(app.world_mut()).into_iter().map(|(_, shell)| shell).collect()
 }
 
 #[test]
@@ -48,12 +46,8 @@ fn a_replay_puts_a_shelled_snake_back_on_its_feet() {
     // Shell every snake. The PROVENANCE does not matter to the question — what
     // is being asked is whether a rebuild restores the state, not how it got
     // shelled — so this states it directly rather than driving a stomp.
-    {
-        let world = app.world_mut();
-        let mut q = world.query::<&mut SnakeShell>();
-        for mut shell in q.iter_mut(world) {
-            *shell = SnakeShell::Boxed(0.0);
-        }
+    for (snake, _) in ambition_demo_mary_o::snake::snakes(app.world_mut()) {
+        ambition_demo_mary_o::snake::set_shell(app.world_mut(), snake, SnakeShell::Boxed(0.0), None);
     }
     app.update();
     assert!(

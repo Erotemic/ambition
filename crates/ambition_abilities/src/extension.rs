@@ -278,6 +278,13 @@ pub fn lower_held_forces<L: LowersIn>(
 /// rule's pop is drawn and heard in the touched body's room.
 pub fn install_for_body_contact(app: &mut App) {
     app.install_extension_submitted_request::<BurstPort, _>(BODY_CONTACT, "ambition_abilities", lower_bursts::<InBodyContact>);
+    // A contact rule that drives its body (a kicked shell's slide): the body
+    // moves by it on the next tick, as a native writer after integration.
+    app.install_extension_submitted_request::<SetVelocityPort, _>(
+        BODY_CONTACT,
+        "ambition_abilities",
+        lower_velocities::<InBodyContact>,
+    );
     app.install_extension_submitted_request::<BodySoundPort, _>(
         BODY_CONTACT,
         "ambition_abilities",

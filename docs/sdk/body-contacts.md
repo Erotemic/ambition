@@ -47,8 +47,11 @@ The same sample includes bounded native movement contacts in `world`.
 All touchers share the recipient's live room and session. They use simulation
 identity order. Each toucher contains:
 
-- `id`: a semantic body identity. Keep it in a declared `body` or `opt body`
-  record field when it must survive this invocation.
+- `id`: an authored semantic body identity in the current live room. A declared
+  `body` or `opt body` record can store it. This string does not identify an
+  occurrence through travel into another room with the same authored ID.
+  Native action recipients use occurrence stamps; general script occurrence
+  references remain open.
 - `body`: physical centre, full envelope size, and velocity in that body's
   root room chart, in world units with +Y down.
 - `driven`: whether a participant currently drives it. A game can use this

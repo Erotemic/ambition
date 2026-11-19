@@ -738,10 +738,13 @@ the authored pose; a strike or a clip cancels it
 draws, none draws the state poses. 329 had no row named `hit`, so a struck
 body on them was drawn `idle`, though most spell that pose `hurt`. Fixed the
 same day: a chain name binds the sheet's other spelling of its pose
-(`first_bound_row`), and 492 of 504 now draw the struck pose. Left: watch the
-swing amplitudes in the game at 60 and 144 Hz; then give the townsfolk target
-the motion library's reaction anchors (one change, 244 sheets), and the
-hand-made rigs theirs.
+(`first_bound_row`), and 492 of 504 now draw the struck pose. Done 2026-11-19:
+the townsfolk target draws the motion library's reaction anchors (renderer
+`f84ac65`; 240 sheets republished part-first; each state's own pose is now
+missing from 264 campaign sheets, not about 504), and the replay audit
+forgives 96 levels, measured on the two resampling differences 19 of those
+sheets refused on. Left: watch the swing amplitudes in the game at 60 and
+144 Hz, and give the hand-made rigs their reaction rows.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp
 attack poses remain readable. Check interruptions, rollback resets, quality

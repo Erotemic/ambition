@@ -384,7 +384,7 @@ Every character gets the reaction vocabulary and the turn. Each art family takes
 | Character generator: Alice v2, the townsfolk, every later generated character | `chargen/motion.py` `build_library` (the twelve anchors as `Kit` poses); `chargen/sheets.py` `COMPOSED` (the turns, made from the views) | Anchors and turns in the library. Alice publishes them (`_alice_v2_motion.FIGHTER_ROWS`, `TURN_ROWS`). |
 | Player robot v3 | `player_robot_v3_reactions.py` (its own rig) | Done, with its own turnaround. |
 | The rest of the Smash roster: Bob, PCA, Ramen-nujan, Shadow Oni Leader, Goblin (and skins), GNU-ton, Patent Clerk, Carl Stargan, Noether, Mary-O (tall), Sanic, Pirate Admiral, Oiler, George Booul | Each rig's own motion module | Done 2026-10-31: every Smash fighter's published sheet has the twelve anchors, the floor game and the turn (MEASURED by sheet rows). The small sheets also gained the whole `fighter_core` vocabulary. |
-| Campaign-only characters | Each rig's own motion module | Gaps measured 2026-11-19 (`scripts/measure/campaign_sheet_gaps.py`, below). No rows authored yet. |
+| Campaign-only characters | Each rig's own motion module | Gaps measured 2026-11-19 (`scripts/measure/campaign_sheet_gaps.py`, below). The 240 default-row townsfolk publish the reaction anchors (2026-11-19); the hand-made rigs do not yet. |
 
 **Campaign gaps, measured 2026-11-19** (`python3 scripts/measure/campaign_sheet_gaps.py`):
 the 28 preference chains of `body_state_clip` against the newest published
@@ -408,10 +408,21 @@ published here.
   Mockingbird, the Smirking Behemoth, the three GNU-ton sheets and GNU2).
   They now bind `rest` for `idle`.
 
-Left: the state poses themselves (launch, the floor game, getups). The
-cheapest first step is the character generator: one change to the townsfolk
-target's rows (the motion library already has the anchors; Alice publishes
-them) covers 244 sheets.
+- **The townsfolk publish the poses (2026-11-19).** `TOWNSFOLK_ROWS`
+  (renderer `chargen/sheets.py`) gained the motion library's reaction
+  anchors: `hit_high`, `hit_mid`, `hit_low`, `hit_air`, the three launches,
+  `tumble`, both prone faces, `getup` and `grabbed`. The 240 residents on the
+  default rows republished part-first (the four on `full` rows did not
+  change). Remeasured: each of those first choices is now missing from 264
+  sheets, not about 504, and `tech`, `tech_roll` and `getup_roll` land on
+  `getup` on 240 sheets instead of `idle`. On the way, 19 sheets refused at
+  the replay audit on two resampling differences, and its tolerance moved
+  from 64 to 96 levels (`CONTINUOUS_REPLAY_TOLERANCE` in
+  `authoring/part_flipbook.py`, with the measurement).
+
+Left: the hand-made rigs' state poses (each its own motion module), the four
+`full`-row residents, and the poses no campaign sheet draws (`pet`, the
+shield break, the dodges, `grab_hold`).
 
 The game already draws `turnaround` in the new facing over `TURN_SECS` (`ambition_sim_view::pose_view`) on the player road. A sheet's turn row must therefore END on its side view.
 

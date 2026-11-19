@@ -186,6 +186,9 @@ struct SceneCaptureConfig {
     /// The active route declares the player highlight glow
     /// (`--player-glow`), as a provider's `with_player_glow` does.
     player_glow: bool,
+    /// The primary seat holds a pad of this family (`--device`), so prompts
+    /// name and draw its buttons. `None` is the keyboard, the cold start.
+    device: Option<ambition_platformer2d::input::GamepadStyle>,
     /// Put the combat debug view in the shot (`--combat-overlay`).
     ///
     /// `--dev-overlays` only stops the tool from hiding what a build shows.
@@ -484,6 +487,9 @@ OPTIONS:
     --geometry-overlay A,B,prefix.  draw the same observations as inspect_geometry (all for every provider)
     --geometry-subject view|room|SIM_ID  select the geometry query context
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
+    --device xbox|playstation|switch|generic
+                        the primary seat holds a pad of that family, so signs and
+                        prompts name and draw its buttons (default: the keyboard)
     --player-glow       the body the player drives wears the highlight glow
                         (`ActorGlow::player_highlight`), whatever the game says
     --look-depth FOG,PATCHES
@@ -667,6 +673,18 @@ fn force_look_depth(
     let wanted = ambition_content::presentation::room_look::RoomLookDepth { fog, fog_patches };
     if *depth != wanted {
         *depth = wanted;
+    }
+}
+
+/// `--device`: the primary seat holds a pad of that family, every frame.
+fn force_device(
+    config: Res<SceneCaptureConfig>,
+    mut devices: ResMut<ambition_platformer2d::input::SeatActiveDevices>,
+) {
+    let Some(style) = config.device else { return };
+    let wanted = ambition_platformer2d::input::ActiveDevice::Gamepad(style);
+    if devices.for_seat(ambition_platformer2d::input::ParticipantId::PRIMARY.slot()) != wanted {
+        devices.mark_primary(wanted);
     }
 }
 
@@ -1493,6 +1511,10 @@ fn install_room_capture(app: &mut App) {
                 .before(ambition_platformer2d::runtime::input::mirror_primary_slot_to_control_frame),
         );
     }
+    if app.world().resource::<SceneCaptureConfig>().device.is_some() {
+        app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
+        app.add_systems(Update, force_device);
+    }
     if app.world().resource::<SceneCaptureConfig>().player_glow {
         app.init_resource::<ambition_platformer2d::presentation::PlayerGlowCatalog>();
         app.add_systems(Update, force_player_glow);
@@ -1702,6 +1724,7 @@ impl SceneCaptureConfig {
         let mut combat_overlay = false;
         let mut nav_overlay = false;
         let mut player_glow = false;
+        let mut device = None;
         let mut boss_hp: Option<f32> = None;
         let mut boss_blows: Vec<(u64, i32)> = Vec::new();
         let mut look_depth: Option<[f32; 2]> = None;
@@ -1771,6 +1794,21 @@ impl SceneCaptureConfig {
                 "--player-glow" => {
                     player_glow = true;
                     1
+                }
+                "--device" => {
+                    use ambition_platformer2d::input::GamepadStyle;
+                    let word = args.get(i + 1).map(String::as_str);
+                    device = Some(match word {
+                        Some("xbox") => GamepadStyle::XboxLike,
+                        Some("playstation") => GamepadStyle::PlayStation,
+                        Some("switch") => GamepadStyle::Switch,
+                        Some("generic") => GamepadStyle::Generic,
+                        other => {
+                            eprintln!("--device takes xbox|playstation|switch|generic, not {other:?}");
+                            std::process::exit(2);
+                        }
+                    });
+                    2
                 }
                 "--combat-overlay" => {
                     combat_overlay = true;
@@ -2383,6 +2421,7 @@ impl SceneCaptureConfig {
                 combat_overlay,
                 nav_overlay,
                 player_glow,
+                device,
                 boss_hp,
                 boss_blows: Vec::new(),
                 look_depth,
@@ -2442,6 +2481,7 @@ impl SceneCaptureConfig {
             combat_overlay,
             nav_overlay,
             player_glow,
+            device,
             boss_hp,
             boss_blows,
             look_depth,

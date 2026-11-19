@@ -1841,7 +1841,22 @@ OUT 1280x720 --warmup 200 --player-beside npc_math_monty --interact-at 90
 --include-ui` shows the F and Backspace keycaps (a long key keeps its wide
 cap); at 640x360 the hint wraps to two lines.
 
-**Next action:** give the control prompt (`ambition_sim_view::control_prompt`) the glyph image for the seat's device, with the text as fallback, and add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
+**Done 2026-11-19, the control prompt and the signs that name controls:**
+`PromptEntry::glyph` is the picture of the control `binding` names, from
+the same owner by the same choice (`SeatBindings::glyph_for_slot`), so a
+rebind or another pad moves both. A sign written `{action:ID}`
+(`ControlLegend`) draws that picture in place of the name when the catalog
+has it, and the name when not: the sign becomes text spans, the control a
+padded placeholder span, and a sprite sits on that span's laid-out run box
+(`place_legend_glyphs`, which also gives the spans the sign's font and fade).
+A view's mirrored copy keeps the names. Three sandbox signs now name their
+controls (`basement_treasure`, `basement_npcs`, `gap_run`). Witnesses: the
+prompt tests assert the Z keycap, the F13 rebind, Xbox A and PlayStation
+Cross paths; `capture_scene basement_treasure player OUT 1280x720 --warmup
+120 --player-at 1100,600 [--device xbox|playstation]` shows the F keycap, RB
+and R1 (`--device` is new).
+
+**Next action:** add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
 
 **Acceptance:** a prompt shows the pressed button's glyph for keyboard, an Xbox-like and a PlayStation-like pad; a rebind moves the glyph; the layout page names every bound action on its control.
 

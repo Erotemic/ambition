@@ -823,6 +823,8 @@ impl Plugin for WorldLabelLayoutPlugin {
                 // frame it appears; before placement, which measures the text.
                 super::control_legend::write_control_legends,
                 layout_world_labels,
+                // After the pass writes the sign's colour (its fade).
+                super::control_legend::place_legend_glyphs,
             )
                 .chain()
                 .in_set(WorldLabelLayoutSet)

@@ -1602,6 +1602,7 @@ mod prompt_tests {
                     visual: None,
                     // Label fixtures only; bindings have a separate test.
                     binding: None,
+                    glyph: None,
                     // Readiness is `ButtonReady`'s concern, not the label's.
                     ready: true,
                 })

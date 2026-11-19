@@ -131,6 +131,12 @@ pub struct PromptEntry {
     /// would go stale on the first rebind, and the player would be told to press
     /// a key that does nothing.
     pub binding: Option<String>,
+    /// The published picture of [`Self::binding`]'s control for the seat's
+    /// device (`sprites/input_glyphs/...`), from the same owner by the same
+    /// choice of control, so a rebind or a different pad moves both. A name,
+    /// not a promise that the file was drawn: a surface asks its asset catalog
+    /// and writes `binding` when the picture is not there.
+    pub glyph: Option<String>,
     /// Can this slot's action FIRE right now? `true` for every slot that has no
     /// cooldown, which is all of them but the ranged one today.
     ///
@@ -168,6 +174,16 @@ pub struct ControlPrompt {
 /// that fires the action `jump`. See [`ControlPrompt::fill_legend`].
 pub const LEGEND_ACTION_OPEN: &str = "{action:";
 
+/// One piece of a filled legend ([`ControlPrompt::legend_pieces`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LegendPiece {
+    /// Authored words, as written.
+    Text(String),
+    /// A control: its name (`?` when nothing binds it) and, when the seat's
+    /// device has one, the path of its published picture.
+    Control { label: String, glyph: Option<String> },
+}
+
 impl ControlPrompt {
     /// Write a sign's text from `template`, where `{action:ID}` becomes the
     /// control the local primary seat presses to fire the action `ID`.
@@ -177,23 +193,44 @@ impl ControlPrompt {
     /// carry, or one that nothing binds, is written `?`: a sign must not name
     /// a key that does nothing.
     pub fn fill_legend(&self, template: &str) -> String {
-        let mut text = String::with_capacity(template.len());
+        self.legend_pieces(template)
+            .iter()
+            .map(|piece| match piece {
+                LegendPiece::Text(text) => text.as_str(),
+                LegendPiece::Control { label, .. } => label.as_str(),
+            })
+            .collect()
+    }
+
+    /// [`Self::fill_legend`] as pieces, so a surface can draw each control's
+    /// picture (`PromptEntry::glyph`) in place of its name.
+    pub fn legend_pieces(&self, template: &str) -> Vec<LegendPiece> {
+        let mut pieces = Vec::new();
         let mut rest = template;
         while let Some(open) = rest.find(LEGEND_ACTION_OPEN) {
             let after = &rest[open + LEGEND_ACTION_OPEN.len()..];
             let Some(close) = after.find('}') else { break };
-            text.push_str(&rest[..open]);
+            if open > 0 {
+                pieces.push(LegendPiece::Text(rest[..open].to_owned()));
+            }
             let id = &after[..close];
-            let control = self
+            let entry = self
                 .entries
                 .iter()
                 .find(|entry| entry.action.as_str() == id)
-                .and_then(|entry| entry.binding.as_deref());
-            text.push_str(control.unwrap_or("?"));
+                .filter(|entry| entry.binding.is_some());
+            pieces.push(LegendPiece::Control {
+                label: entry
+                    .and_then(|entry| entry.binding.clone())
+                    .unwrap_or_else(|| "?".to_owned()),
+                glyph: entry.and_then(|entry| entry.glyph.clone()),
+            });
             rest = &after[close + 1..];
         }
-        text.push_str(rest);
-        text
+        if !rest.is_empty() {
+            pieces.push(LegendPiece::Text(rest.to_owned()));
+        }
+        pieces
     }
 
     /// The label currently on a given slot, if the prompt claims it.
@@ -490,6 +527,13 @@ pub fn rebuild_control_prompt(
             visual: action.visual.clone(),
             binding: bindings.as_deref().and_then(|seats| {
                 seats.label_for_slot(
+                    ambition_input::ParticipantId::PRIMARY.slot(),
+                    action.slot,
+                    devices.as_deref(),
+                )
+            }),
+            glyph: bindings.as_deref().and_then(|seats| {
+                seats.glyph_for_slot(
                     ambition_input::ParticipantId::PRIMARY.slot(),
                     action.slot,
                     devices.as_deref(),
@@ -1157,6 +1201,19 @@ mod tests {
             Some("Z"),
             "Arrows+ZXC puts Jump on Z, and the prompt says so without a table of its own"
         );
+        let glyph_for = |app: &App, slot: ControlSlot| -> Option<String> {
+            app.world()
+                .resource::<ControlPrompt>()
+                .entries
+                .iter()
+                .find(|entry| entry.slot == slot)
+                .and_then(|entry| entry.glyph.clone())
+        };
+        assert_eq!(
+            glyph_for(&app, ControlSlot::Jump).as_deref(),
+            Some("sprites/input_glyphs/input_glyph_key_z.png"),
+            "the picture is the Z keycap's, by the renderer's naming rule"
+        );
         assert_eq!(
             app.world()
                 .resource::<ControlPrompt>()
@@ -1184,6 +1241,12 @@ mod tests {
             Some("F13"),
             "the prompt followed the rebind — a cache that skipped this would tell the player \
              to press a key that does nothing"
+        );
+        assert_eq!(
+            glyph_for(&app, ControlSlot::Jump).as_deref(),
+            Some("sprites/input_glyphs/input_glyph_key_f13.png"),
+            "the picture followed the rebind with the name (no F13 cap was drawn, so a \
+             surface writes the name)"
         );
     }
 
@@ -1234,6 +1297,19 @@ mod tests {
             Some("A"),
             "an Xbox pad jumps with A"
         );
+        let glyph_for = |app: &App, slot: ControlSlot| -> Option<String> {
+            app.world()
+                .resource::<ControlPrompt>()
+                .entries
+                .iter()
+                .find(|entry| entry.slot == slot)
+                .and_then(|entry| entry.glyph.clone())
+        };
+        assert_eq!(
+            glyph_for(&app, ControlSlot::Jump).as_deref(),
+            Some("sprites/input_glyphs/input_glyph_xbox_south.png"),
+            "an Xbox pad draws its own A"
+        );
 
         app.world_mut()
             .resource_mut::<SeatActiveDevices>()
@@ -1243,6 +1319,11 @@ mod tests {
             binding_for(&app, ControlSlot::Jump).as_deref(),
             Some("Cross"),
             "the same binding, spelled by the pad now in the player's hands"
+        );
+        assert_eq!(
+            glyph_for(&app, ControlSlot::Jump).as_deref(),
+            Some("sprites/input_glyphs/input_glyph_playstation_south.png"),
+            "and drawn by it"
         );
     }
 
@@ -1612,6 +1693,7 @@ mod tests {
             label: action.to_owned(),
             visual: None,
             binding: binding.map(str::to_owned),
+            glyph: None,
             ready: true,
         };
         let prompt = ControlPrompt {

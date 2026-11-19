@@ -436,6 +436,19 @@ impl ActionBindings {
             .map(|control| control.label_for(device.gamepad_style()))
     }
 
+    /// The published picture of the control [`Self::label_for`] names, by
+    /// the same choice of control. `None` when nothing binds the action or
+    /// the renderer's rule names no file for the control.
+    pub fn glyph_for(
+        &self,
+        action: &Platformer2dInputActionMonolith,
+        device: crate::ActiveDevice,
+    ) -> Option<String> {
+        self.control_for(action, device)
+            .or_else(|| self.controls(action).first())
+            .and_then(|control| control.glyph_path(device.gamepad_style()))
+    }
+
     /// The control a prompt names for confirm (`MenuSelect`) on this device.
     ///
     /// Confirm has several controls on one device (Enter, Space, and the jump
@@ -530,6 +543,17 @@ impl SeatBindings {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
         self.for_seat(seat)
             .label_for(&action_for_slot(slot)?, device)
+    }
+
+    /// The picture of the control [`Self::label_for_slot`] names.
+    pub fn glyph_for_slot(
+        &self,
+        seat: u8,
+        slot: ambition_entity_catalog::action_scheme::ControlSlot,
+        devices: Option<&crate::SeatActiveDevices>,
+    ) -> Option<String> {
+        let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
+        self.for_seat(seat).glyph_for(&action_for_slot(slot)?, device)
     }
 
 }

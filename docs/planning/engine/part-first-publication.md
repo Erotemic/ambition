@@ -97,7 +97,7 @@ cached (`_pieces.rasterize`), so a record-only frame is its transforms.
 | PF3 reference on demand (DONE 2026-11-18, see [State](#state-2026-11-18)) | `--reference <target>` paints the full sheet into `.agent/sprite_reference/<target>/` (git-ignored, never published); the asset inspector animates from parts and shows the canonical frame | `assets.sh` paints no reference sheet; the inspector plays a clip with no sheet present |
 | PF4 smoother motion | Tween every part clip whose consecutive draws pair (`tween_draws`, `_same_picture_redrawn`), not only the selected locomotion loops; a clip authored to step (a cut, a flash) keeps stepping | clips step only where authored; the in-between overhang guards hold |
 | PF5 convert the rest | The 114 character sheets with no flipbook get a part publisher (rig document, pieces, or the generator recorder); the 4 cost-rule baked flipbooks are re-measured | every character is drawn from parts; props and projectiles stay frames unless a prop animates many frames |
-| PF6 measure | A full regeneration's wall time and store bytes, before and after | recorded here with the commands that measured them |
+| PF6 measure (DONE 2026-11-19, [result](#state-2026-11-18)) | A full regeneration's wall time and store bytes, before and after | recorded here with the commands that measured them |
 
 ## State (2026-11-18)
 
@@ -354,6 +354,37 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   clips of 361 targets whose rigs cannot pose an in-between (an in-between
   render per rig road would measure them), and the 1,240 that fail stay
   stepped.
+- **PF6 measured (2026-11-19): the full sprite republish.** Run on the
+  agent's VM (`start=$(date +%s); scripts/regen/sprites.sh --scope all
+  --jobs 6`, its log's `art: [n/N] <target> <seconds> s` lines summed): 1,297
+  builds (every registered target and its tiers) in 4,675 s of wall time,
+  27,410 s of build time; the slowest gnu_ton_boss (3,218 s beside five other
+  jobs; 2,723 s alone, 5,523 s before the rigid pieces were composed and
+  5,660 s in PF0's profile), the two Wolfensteins (2,135 s and 1,877 s), the
+  goblins (820 to 880 s each). No full regeneration was timed before
+  part-first, so the before is per target (PF0's profile above). One build
+  failed, `robot_heavy`: the bare name of a multi-variant rig, outside the
+  runtime collection by design (`sprites.yaml` `except`), whose render writes
+  `robot_heavy_bastion_*` and never its declared `robot_heavy_*` (only
+  `--scope all` builds it). `--scope all` also put the runtime collection's
+  excepted review sheets in the store (`test_no_excepted_target_is_in_the_published_store`
+  caught it); a default-scope publish after it (0 builds) took them out. The
+  shipped store's sprite bytes (the census of `published.json`, every tier),
+  before and after:
+
+  | | before | after |
+  | --- | --- | --- |
+  | sheet pages | 5,160 files, 1,920 MB | 3,741 files, 600 MB |
+  | part pages | 1,906 files, 250 MB | 1,902 files, 246 MB |
+  | other images (portraits, canonical) | 124 MB | 124 MB |
+  | records (RON, YAML) | 293 MB | 306 MB |
+  | all sprites | 2,587 MB | 1,275 MB |
+
+  Four sheets keep a page beside their parts (24 MB): `player_robot_v3`
+  (until [Q180](../awaiting-maintainer-decision.md#q180--what-should-the-ldtk-worlds-playerstart-icon-point-at-so-the-player-robot-can-publish-without-a-sheet-page)),
+  the two boss sheets in `baked_pages`, and Mary-O's cosmic form (a hybrid).
+  The other 576 MB of pages are sheets with no parts: props, projectiles and
+  the Art cast kit (PF5 kept its pages by measurement).
 - **PF3 done (2026-11-18).** `scripts/regen/sprites.sh --reference --target
   <name>` paints a part-first sheet's every frame into
   `.agent/sprite_reference/<name>/` (`PAINT_REFERENCE_ENV`; Hypatia in 16 s)

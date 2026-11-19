@@ -175,3 +175,59 @@ fn canceling_a_queued_method_prevents_its_native_action_and_a_committed_method_r
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn room_snapshots_restore_private_callbacks_and_scope_follows_the_subject() {
+    use ambition_platformer2d::{platformer::lifecycle::{ObjectScopeOwner, SessionScopedEntity,
+        object_reference, object_scope_room, resolve_object, room_scope_members, RoomInstanceRoot,
+        InRoomInstance}, rollback::RoomSnapshotRows};
+    let (mut sim, [player, teacher], path) = prepared(SOURCE, "room_snapshot");
+    for _ in 0..20 {
+        if sim.world().get::<BodyWallet>(player).unwrap().balance == 5 { break; }
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(sim.world().get::<BodyWallet>(player).unwrap().balance, 5);
+    let session_scope = |reference: ambition_platformer2d::extension::sdk::ObjectRef|
+        ambition_platformer2d::platformer::lifecycle::SessionScopeId(reference.session);
+    let reference = object_reference(sim.world(), player).unwrap();
+    let room = object_scope_room(sim.world(), player).unwrap();
+    let world = sim.world_mut();
+    let owned: Vec<_> = world.query::<(Entity, &ObjectScopeOwner)>().iter(world)
+        .filter(|(_, owner)| owner.0 == reference).map(|(entity, _)| entity).collect();
+    assert_eq!(owned.len(), 3);
+    let members = room_scope_members(world, room);
+    assert!(owned.iter().all(|entity| members.contains(entity)));
+    let private_reference = object_reference(world, owned[0]).unwrap();
+    let rows = world.remove_resource::<RoomSnapshotRows>().unwrap();
+    let mut snapshot = rows.save(world, &members);
+    sim.step_n(AgentAction::default(), 12);
+    let current = resolve_object(sim.world(), session_scope(reference), private_reference).unwrap();
+    sim.world_mut().despawn(current);
+    sim.world_mut().get_mut::<BodyWallet>(player).unwrap().balance = 999;
+    let members = room_scope_members(sim.world_mut(), room);
+    let report = rows.restore(sim.world_mut(), &mut snapshot, &members);
+    assert!(report.recreated.iter().any(|(old, _)| *old == owned[0]));
+    let again = resolve_object(sim.world(), ambition_platformer2d::platformer::lifecycle::SessionScopeId(reference.session), private_reference).unwrap();
+    assert_ne!(again, owned[0]);
+    let world = sim.world_mut();
+    world.insert_resource(rows);
+    let destination = room.next().next();
+    let session = *world.get::<SessionScopedEntity>(player).unwrap();
+    let root = world.spawn((RoomInstanceRoot, destination, session)).id();
+    world.entity_mut(player).insert(InRoomInstance(destination));
+    assert_eq!(object_scope_room(world, again), Some(destination));
+    assert!(room_scope_members(world, destination).contains(&again));
+    assert!(!room_scope_members(world, room).contains(&again));
+    world.entity_mut(player).insert(InRoomInstance(room));
+    world.despawn(root);
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 20);
+    for body in [player, teacher] {
+        assert_eq!(sim.world().get::<BodyWallet>(body).unwrap().balance, 5);
+        let record = sim.world().get::<BodyRecords>(body).unwrap().get(&SchemaKey::new("objects_probe", "root", 1)).unwrap();
+        assert_eq!(record.get(FieldRef(1)).unwrap(), &Value::U32(1));
+        assert_eq!(record.get(FieldRef(2)).unwrap(), &Value::U32(4));
+    }
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(path);
+}

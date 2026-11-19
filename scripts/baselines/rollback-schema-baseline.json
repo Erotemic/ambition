@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v500",
+    "version": "ggrs-rollback-schema-v501",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
@@ -114,6 +114,7 @@
       "item.held_material_basis\tcomponent-canonical\tHeldMaterialBasis",
       "objects.occurrence\tcomponent-canonical\tObjectOccurrence",
       "objects.occurrence_sequence\tcomponent-canonical\tObjectOccurrenceSequence",
+      "objects.scope_owner\tcomponent-canonical\tObjectScopeOwner",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
       "portal.held_pairs\tcomponent-clone-cursor\tHeldPortalPairs",
@@ -293,6 +294,7 @@
     "ambition_platformer2d_session::SessionParticipants",
     "ambition_platformer2d_shared_tangle::ObjectOccurrence",
     "ambition_platformer2d_shared_tangle::ObjectOccurrenceSequence",
+    "ambition_platformer2d_shared_tangle::ObjectScopeOwner",
     "ambition_platformer2d_shared_tangle::construction::SpawnOrigin",
     "ambition_platformer2d_shared_tangle::construction::TransactionId",
     "ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration",

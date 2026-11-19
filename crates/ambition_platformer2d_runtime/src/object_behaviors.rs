@@ -31,7 +31,6 @@ ambition_extension_sdk::port_record! {
 }
 #[derive(Component, Clone, Debug, PartialEq)]
 pub(crate) struct BehaviorInstance {
-    pub subject: ObjectRef,
     key: String,
     methods: Vec<BehaviorMethod>,
     params: ScriptValue,
@@ -39,7 +38,7 @@ pub(crate) struct BehaviorInstance {
     calls: Vec<CallRow>,
 }
 ambition_extension_sdk::port_record! {
-    BehaviorInstance { subject: ObjectRef, key: String, methods: Vec<BehaviorMethod>, params: ScriptValue,
+    BehaviorInstance { key: String, methods: Vec<BehaviorMethod>, params: ScriptValue,
         next_sequence: u64, calls: Vec<CallRow> }
 }
 impl SnapshotState for BehaviorInstance {
@@ -63,9 +62,10 @@ pub(crate) fn install(app: &mut App) {
 }
 
 fn context(world: &World, context: ObservationContext<'_>) -> Option<Option<BehaviorContext>> {
-    Some(world.get::<BehaviorInstance>(context.state_scope).map(|instance| BehaviorContext {
-        object: instance.subject, binding: instance.key.clone(), params: instance.params.clone(),
-    }))
+    Some(world.get::<BehaviorInstance>(context.state_scope).and_then(|instance| Some(BehaviorContext {
+        object: world.get::<ObjectScopeOwner>(context.state_scope)?.0,
+        binding: instance.key.clone(), params: instance.params.clone(),
+    })))
 }
 fn tick(world: &World) -> u64 { world.resource::<ambition_time::SimTick>().0 }
 fn limits(world: &mut World, subject: Entity) -> ObjectBehaviorLimits {
@@ -88,7 +88,7 @@ fn method_bound(admitted: &ambition_extension_host::Admitted, path: &str) -> boo
 }
 
 struct PreparedBinding { instance: BehaviorInstance, records: BodyRecords }
-fn prepare_bindings(world: &World, subject: ObjectRef, request: &AttachBehaviors,
+fn prepare_bindings(world: &World, request: &AttachBehaviors,
     limits: ObjectBehaviorLimits) -> Result<Vec<PreparedBinding>, String> {
     let admitted = &world.resource::<AdmittedExtensions>().0;
     let mut keys = BTreeSet::new();
@@ -130,7 +130,7 @@ fn prepare_bindings(world: &World, subject: ObjectRef, request: &AttachBehaviors
             if bytes > limits.max_state_bytes as usize { return Err("Behavior state exceeds the byte bound.".into()); }
             records.put(key.clone(), declared.shape, record);
         }
-        Ok(PreparedBinding {instance: BehaviorInstance {subject, key: binding.key.clone(),
+        Ok(PreparedBinding {instance: BehaviorInstance {key: binding.key.clone(),
             methods: binding.methods.clone(), params: binding.params.clone(), next_sequence: 0, calls: Vec::new()}, records})
     }).collect()
 }
@@ -144,30 +144,38 @@ fn attach(world: &mut World) {
             let entity = target(world, submitted.scope, request.target)?;
             let session = world.get::<SessionScopedEntity>(entity).unwrap().0;
             let limits = limits(world, entity);
-            let mut instances = world.query::<(&SessionScopedEntity, &BehaviorInstance)>();
+            let mut instances = world.query::<(&SessionScopedEntity, &ObjectScopeOwner, &BehaviorInstance)>();
             let mut population = 0usize;
             let mut existing = BTreeSet::new();
-            for (_, instance) in instances.iter(world).filter(|(owner, _)| owner.0 == session) {
+            for (_, owner, instance) in instances.iter(world).filter(|(session_owner, _, _)| session_owner.0 == session) {
                 population += 1;
-                if instance.subject == request.target { existing.insert(instance.key.clone()); }
+                if owner.0 == request.target { existing.insert(instance.key.clone()); }
             }
             if request.bindings.is_empty() || existing.len().saturating_add(request.bindings.len()) > limits.max_bindings_per_object as usize
                 || population.saturating_add(request.bindings.len()) > limits.max_bindings_per_session as usize
                 || request.bindings.iter().any(|binding| existing.contains(&binding.key)) {
                 return Err("Behavior keys must be new and the object and session bounds must permit the batch.".into());
             }
-            let prepared = prepare_bindings(world, request.target, &request, limits)?;
-            let allocation = PreparedObjectOccurrences::prepare_session(world, session, prepared.len())?;
+            let prepared = prepare_bindings(world, &request, limits)?;
+            let room = object_scope_room(world, entity);
+            let allocation = match room {
+                Some(room) => PreparedObjectOccurrences::prepare(world, session, room, prepared.len())?,
+                None => PreparedObjectOccurrences::prepare_session(world, session, prepared.len())?,
+            };
             let mut entities = Vec::new();
             for binding in prepared {
                 let id = SimId::singleton("behavior", &format!("{}:{:?}:{}:{}", request.target.session,
                     request.target.allocation_room, request.target.sequence, binding.instance.key));
-                entities.push(world.spawn((SessionScopedEntity(session), id, binding.instance, binding.records)).id());
+                let mut state = world.spawn((SessionScopedEntity(session), id,
+                    ObjectScopeOwner(request.target), binding.instance, binding.records));
+                if let Some(room) = room { state.insert(InRoomInstance(room)); }
+                entities.push(state.id());
             }
             if let Err(problem) = allocation.assign(world, &entities) {
                 for entity in entities { world.despawn(entity); }
                 return Err(problem.into());
             }
+            for entity in entities { world.entity_mut(entity).remove::<InRoomInstance>(); }
             Ok(())
         })();
         let (stage, code, message) = match result {
@@ -180,10 +188,10 @@ fn attach(world: &mut World) {
 
 fn call(world: &mut World) {
     let requests = world.resource_mut::<ExtensionOutbox>().drain::<CallObjectPort>(&ACTOR_THINK);
-    let mut query = world.query::<(Entity, &BehaviorInstance)>();
+    let mut query = world.query::<(Entity, &ObjectScopeOwner, &BehaviorInstance)>();
     let mut bindings = BTreeMap::new();
-    for (entity, instance) in query.iter(world) {
-        bindings.entry((instance.subject, instance.key.clone())).and_modify(|found| *found = None).or_insert(Some(entity));
+    for (entity, owner, instance) in query.iter(world) {
+        bindings.entry((owner.0, instance.key.clone())).and_modify(|found| *found = None).or_insert(Some(entity));
     }
     for submitted in requests {
         let request = submitted.value;
@@ -291,9 +299,9 @@ fn settle(world: &mut World, state: Entity, sequence: u64, event: InvocationEven
 }
 type QueueReads = SystemState<(RoomFreeze<'static, 'static>, RulesOf<'static, 'static, ActionDeliveryPolicy>)>;
 fn queue_calls(world: &mut World, mut reads: Local<Option<QueueReads>>,
-    mut instances: Local<Option<QueryState<(Entity, &'static BehaviorInstance)>>>) {
+    mut instances: Local<Option<QueryState<(Entity, &'static ObjectScopeOwner, &'static BehaviorInstance)>>>) {
     let query = instances.get_or_insert_with(|| world.query());
-    let mut order: Vec<_> = query.iter(world).map(|(entity, instance)| (instance.subject, instance.key.clone(), entity)).collect();
+    let mut order: Vec<_> = query.iter(world).map(|(entity, owner, instance)| (owner.0, instance.key.clone(), entity)).collect();
     if order.is_empty() { return; }
     let reads = reads.get_or_insert_with(|| SystemState::new(world));
     let objects = ObjectIndex::capture(world);

@@ -48,17 +48,7 @@ fn bobs_walk(_frame: i32) -> ControlFrame {
 }
 
 /// Every entity in `room`, and the room's own root.
-pub(crate) fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
-    let mut entities: Vec<Entity> = world
-        .query::<(Entity, &InRoomInstance)>()
-        .iter(world)
-        .filter(|(_, at)| at.0 == room)
-        .map(|(entity, _)| entity)
-        .collect();
-    entities.extend(world.query::<(Entity, &LiveRoomInstance)>().iter(world).filter(|(_, root)| **root == room).map(|(entity, _)| entity));
-    entities.sort();
-    entities
-}
+pub(crate) use ambition_platformer2d::platformer::lifecycle::room_scope_members as of_room;
 
 /// The shared clock: the tick, the frame's time, the day, the scale, and the
 /// session's elapsed seconds (`GameplayElapsed`, on the session root, which a

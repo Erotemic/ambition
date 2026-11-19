@@ -100,12 +100,14 @@ after commit, including while the method waits for another native result.
 A canceled call cannot later invoke its method. A timeout is a failed call; it
 does not undo an already committed handler or cancel that handler's native work.
 
-Instances retain the subject's exact occurrence reference across travel. The
-allocation namespace is the session. Retirement of an old room cannot delete
+Instances retain the subject's exact occurrence reference across travel. A room-owned instance uses the room's allocation counter. A session-owned
+instance uses the session counter. Allocation does not change during travel. Retirement of an old room cannot delete
 a traveling subject's instance. Subject retirement fails outstanding calls and
 retires the private instance at the next collection cut. Caller retirement or
 removal of its pending ticket retires the queued request. Rollback restores
 instance state, occurrence allocation, queues and acknowledgements together.
+`ObjectScopeOwner` is the single owner link. Room snapshots and visibility cuts
+include private state through that link, including after owner reconstruction.
 
 ## Game-authored bounds
 
@@ -125,6 +127,9 @@ The current witness is
 [`scripted_object_behaviors.rs`](../../game/ambition_app/tests/scripted_object_behaviors.rs).
 It checks private instances on controlled and autonomous bodies, actual native
 wallet application and refusal, busy refusal, fault exhaustion without a staged
-reward, cancellation and GGRS. General discovery and inspection, native event
-subscriptions, authored signals, creation-time composition, return data a cross-object event composition witness, and room-island snapshot ownership
-remain open. GGRS coverage does not prove room-island rollback coverage.
+reward, cancellation, GGRS, and private-state reconstruction through room
+snapshots. General discovery and inspection, native event subscriptions,
+authored signals, creation-time composition, return data and a cross-object
+event composition witness remain open. Cross-room message causality under
+independent room replay also remains open; snapshot membership alone does not
+prove that contract.

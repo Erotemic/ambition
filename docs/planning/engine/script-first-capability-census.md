@@ -143,8 +143,8 @@ Keep the full capability program open while these contracts lack evidence:
 
 Typed references, subject payloads and private behavior bindings are implemented.
 Directed calls have a loaded replay witness. Creation-time composition, general
-discovery, native event subscriptions, typed return data and room-island
-snapshot ownership remain open. See
+discovery, native event subscriptions, typed return data and cross-room message
+causality during independent room replay remain open. See
 [object behaviors](../../sdk/object-behaviors.md).
 
 The remaining contracts need more than aliases: general world-object

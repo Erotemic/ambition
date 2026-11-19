@@ -72,7 +72,7 @@ fn queue_replies(
         Option<&SimId>,
         &ObjectOccurrence,
         &mut ActionMailbox,
-        Option<&crate::object_behaviors::BehaviorInstance>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::ObjectScopeOwner>,
     )>,
     objects: ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
     mut invocations: ResMut<ExtensionInvocations>,
@@ -98,7 +98,7 @@ fn queue_replies(
             continue;
         };
         let subject = match behavior {
-            Some(behavior) => objects.as_ref().unwrap().resolve(session.0, behavior.subject).ok(),
+            Some(behavior) => objects.as_ref().unwrap().resolve(session.0, behavior.0).ok(),
             None => Some(entity),
         };
         let Some(subject) = subject else { continue; };
@@ -141,9 +141,9 @@ fn settle_delivery(world: &mut World, scope: Entity, sequence: u64,
         let mut state = bevy::ecs::system::SystemState::<
             ambition_platformer2d_world::governing_rules::RulesOf<ActionDeliveryPolicy>>::new(world);
         {
-            let subject = world.get::<crate::object_behaviors::BehaviorInstance>(scope)
+            let subject = world.get::<ambition_platformer2d_shared_tangle::lifecycle::ObjectScopeOwner>(scope)
                 .and_then(|instance| ambition_platformer2d_shared_tangle::lifecycle::resolve_object(world,
-                    ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(instance.subject.session), instance.subject).ok())
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(instance.0.session), instance.0).ok())
                 .unwrap_or(scope);
             state.get(world).ok().and_then(|rules| rules.of(subject).copied()).unwrap_or_default()
         }

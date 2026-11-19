@@ -100,7 +100,7 @@ constructor table in an observed desktop build; mold 2.42.1 passes the native
 constructor probe. After a linker configuration change, rebuild the profiling
 binary. The first build can require a full rebuild of dependencies.
 
-The desktop profiler uses one build job by default. `--jobs N` or
+The desktop profiler uses Cargo's default build concurrency. `--jobs N` or
 `CARGO_BUILD_JOBS` selects another count. On Linux with a user systemd manager
 and cgroup v2, the whole profile runs in a memory scope. Its default RAM limit
 is the smaller of half the available RAM and a quarter of total RAM. This keeps
@@ -110,7 +110,7 @@ VM or change the VM's settings.
 Use `--memory-limit-mib N` to select a different scope limit, or `0` to disable
 it. The scope covers builds, launched games, collectors, and reports. A game
 attached by PID remains outside it. If the user memory scope is unavailable,
-auto mode reports that fact and retains the compiler and collector limits.
+auto mode reports that fact and retains the collector limit.
 An explicit nonzero scope limit requires a working user manager.
 
 The Tracy collector stops recording at 10% of system RAM by default; change

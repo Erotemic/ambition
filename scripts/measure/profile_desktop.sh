@@ -116,9 +116,7 @@ smash_seconds="0"
 # meant a run on real hardware -- the scarcest kind -- could produce numbers
 # nobody ever recorded.
 record_history="yes"
-# Limit compiler concurrency while the host also runs a VM.
 cargo_jobs=""
-if [[ -z "${CARGO_BUILD_JOBS:-}" ]]; then cargo_jobs=1; fi
 memory_limit_mib="auto"
 memory_scope="disabled"
 tracy_memory_percent="10"
@@ -249,8 +247,8 @@ Options:
   -I, --interval MS       perf stat interval in milliseconds. Default: 1000.
   -p, --pid PID           PID to attach to (attach modes).
   -j, --jobs N            Cargo parallel job count, passed to ./run_game.sh for
-                           both the warm build and the launch. Default: 1,
-                           or CARGO_BUILD_JOBS when set.
+                           both the warm build and the launch. Default: Cargo's
+                           job count, including CARGO_BUILD_JOBS when set.
   --memory-limit-mib N    Linux profile scope RAM limit. Default: auto, the
                            smaller of half available RAM and a quarter of
                            total RAM. Use 0 to disable the scope limit.
@@ -1806,7 +1804,7 @@ enter_memory_scope() {
             || ! systemctl --user show-environment >/dev/null 2>&1; then
         [[ "$memory_limit_mib" == auto ]] || fail "A user systemd memory scope is unavailable; use --memory-limit-mib 0 to run without it"
         memory_scope="unavailable"
-        log "User memory scope unavailable; the collector and compiler limits still apply"
+        log "User memory scope unavailable; the collector limit still applies"
         return
     fi
     local limit="$memory_limit_mib" status

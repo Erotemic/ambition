@@ -332,7 +332,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 506 -> 507: bound external references are data; binding admission does not query foreign liveness.
 // 507 -> 508: private instances retain declarative subscriptions and typed native fact delivery.
 // 508 -> 509: the combined schema includes native fact journals and scripted snake shell state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 509;
+// 509 -> 510: local calls retain their admitting authority and caller-owned lifetime watches.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 510;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

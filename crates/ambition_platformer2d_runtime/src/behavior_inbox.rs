@@ -75,6 +75,7 @@ fn deliver(world: &mut World, mut reads: Local<Option<DeliveryReads>>) {
         let (pace, policies) = reads.get(world).expect("addressed delivery readers are installed");
         if world.resource::<ambition_time::WorldTime>().sim_dt() <= 0.0 || pace.scale_of(subject) <= 0.0 { continue; }
         let policy = policies.of(subject).copied().unwrap_or_default();
+        object_behaviors::maintain_watches(world, state, &objects, now);
         if lanes.contains(&Lane::Request) { object_behaviors::maintain(world, state, &objects, now); }
         let mut candidates = Vec::new();
         if let Some(mailbox) = world.get::<ActionMailbox>(state) {
@@ -82,7 +83,7 @@ fn deliver(world: &mut World, mut reads: Local<Option<DeliveryReads>>) {
                 sequence, written, path: path.into(), origin: Some(ticket.clone()), event: None, lane: Lane::Outcome }));
         }
         if let Some(instance) = world.get::<BehaviorInstance>(state) {
-            candidates.extend(instance.deliveries().map(|(sequence, written, path)| Candidate {
+            candidates.extend(instance.deliveries(world, state, &objects).map(|(sequence, written, path)| Candidate {
                 sequence, written, path: path.into(), origin: None, event: None, lane: Lane::Request }));
         }
         if let (Some(events), Some(instance)) = (world.get::<crate::behavior_events::EventMailbox>(state), world.get::<BehaviorInstance>(state)) {

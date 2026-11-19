@@ -4,6 +4,17 @@ Date: 2026-11-17. This audit reads Ambition, Mary-O, and Sanic. It does not chan
 
 **Status:** First-slice census retained as source evidence; **active coverage gaps below remain open**. This is not proof of full SDK usability. Recheck the current source before implementing any row, because this list describes the 2026-11-17 snapshot.
 
+## Current capability route
+
+The [program](script-first-ambition-gameplay.md#reactive-capability-direction)
+now selects an island-local reactive model. This census supplies owner and
+coverage evidence. Do not implement its ports as an independent checklist.
+First complete the playable switch/door/actor mechanism through native
+interaction, scoped authored resolution, inspections and actual outcomes.
+Then add essential lifecycle notifications and signals. Cross-island work uses
+committed world-domain transactions, not general remote methods. Mixed factory
+extraction waits for a real atomic composition that needs it.
+
 ## Available contracts
 
 The [runtime registry](../../../crates/ambition_platformer2d_runtime/src/extension_composition.rs) installs these Rhai aliases:
@@ -91,7 +102,7 @@ The successful Boss encore and Lightning scripts are retained regression witness
 
 For each P0 and P1 row, record one of these states: `implemented` (with source, installed Rhai/portable binding and observed game behavior); `data-authorable with witness` (with exact authored file and behavior); `still blocked` (with missing owner/contract and next engineering action). Record `not needed for selected game feature` only for P2 items or after explicit maintainer scope reduction; it does not silently close a P0/P1 gap. Prefer existing focused tests and deterministic playback evidence; avoid a large test-count quota.
 
-**Completion rule:** the script-first program remains active while any high-priority row above is `still blocked`. Report partial completion and continue the missing engine/general SDK work. The first-slice receipt is not the program exit. Link final results from this register to the [program's completion gate](script-first-ambition-gameplay.md#completion-gate-and-handoff).
+**Completion rule:** use the [program's authoring acceptance gate](script-first-ambition-gameplay.md#completion-gate-and-handoff). A required authoring capability without a working path keeps the program open. The first-slice receipt and port counts do not close it. Record remaining contracts and evidence here without making theoretical remote RPC a prerequisite.
 
 ## Program scope after the first slice
 

@@ -12,6 +12,40 @@ The completed [first-class procedural authoring acceptance](first-class-procedur
 
 Measure progress by the gameplay that authors can express and the engine changes that subsequent ideas no longer require. Playable examples can show this progress. Port counts, script size, and native migrations do not establish capability completeness.
 
+## Reactive capability direction
+
+Maintainer direction, 2026-11-19: complete an island-local reactive authoring
+model over native capabilities. Keep stable occurrences, private behavior
+state, named methods, the addressed inbox and authoritative domain outcomes.
+An object can observe native facts, react to typed notifications and request
+native actions. This is an interface over ECS domains, not a new object tree.
+
+A capability supplies read-only facts, typed transitions and typed actions with
+actual outcomes. Organize coverage by these contracts and by what an author can
+build. The census locates missing native owners; it is not a port checklist.
+
+Direct behavior calls stay within one rollback authority. Cross-island effects
+belong to committed world-domain transactions. Do not implement arbitrary remote
+methods, cancellation futures or foreign callback forwarding as a completion
+requirement. Keep the deferred inbox in `actor_think`; use existing synchronous
+domain hooks for decisions that must affect the current physics/combat phase.
+
+The next playable proof is a switch, a door and an actor in an Ambition room.
+Use native interaction selection and `InteractReach`. Resolve authored names
+within one explicit live room instance through native object identity. Do not
+add a script proximity solver or discover placements by guessing coordinates.
+
+Native state and transaction outcomes must remain recoverable. Notifications
+can wake a behavior under a declared bounded policy, including coalescing or
+loss when reconciliation remains possible. A transient occurrence that cannot
+be reconstructed needs retained native evidence or reliable delivery. Capture
+occurrence and simulation-scope provenance before source retirement.
+
+The authoring layer must reduce repeated callback and request-number wiring.
+Start with Rhai libraries and declaration preparation. Keep the typed lower
+level available. Do not add a language, coroutine runtime, universal sequencer,
+generic ECS setter or unbounded event log.
+
 ## Gameplay expressiveness requirements
 
 Maintainer direction, 2026-11-18: use GDScript gameplay expressiveness as a
@@ -23,7 +57,8 @@ movement rules, and native performance. API count does not measure success.
    operations. References have explicit scope, validity, and retirement rules.
 2. **React to important events.** Damage, death, pickup, interaction, entry,
    exit, animation completion, and state changes can start authored behavior.
-   Native owners publish confirmed facts. Delivery has defined ordering,
+   Native owners report authoritative domain transitions. Global confirmation
+   remains a separate world boundary. Delivery has defined ordering,
    bounds, lifetime, and replay behavior.
 3. **Create and compose objects.** Authors can create enemies, interactive
    props, and systems of several objects from reusable building blocks.
@@ -182,14 +217,24 @@ An agent must not report "requires engine changes" as the final answer for a nec
 
 ### Build the missing seams in a useful order
 
-These are dependency stages, **not** permission to declare the whole program complete after any one stage.
-
-1. **Trace the full action path.** Recheck the source head for `script_ports()`, phase installs, the native contact/hit ports, `story_script.rs`, authored room commands, item collection, actor spawn and gate travel. Mark each need as `Rhai`, `portable-only`, `native/data-only`, or `absent`. Confirm trigger *and* request availability in the same authorized phase; a descriptor in the registry is not enough. Update the [census](script-first-capability-census.md) as work lands, not instead of doing it.
-2. **Unify outcomes and important event triggers.** Supply reusable scoped facts and request correlation. Keep `submitted`, `admitted`, `applied`, `rejected`, `canceled` and terminal outcomes distinct where the owner distinguishes them; do not fabricate a same-tick result if arbitration happens later. Specify stable occurrence keys, identity, scope, ordering, read cut, bounded delivery, state/retirement, rollback replay, and conflict resolution. A shielded shot must not appear as a successful damaging hit. Ensure the feature is usable from Rhai and the portable typed contract, rather than only a Bevy event.
-3. **Complete world-object interaction.** Select a real, desirable new Ambition interaction and author it in data plus Rhai. It must use authoritative contact/activation, an atomic first-successful-consumer or equivalent domain rule, appropriate art/collision changes, and an actual pickup/grant/other result. Try competing interactions, rejection, room reload, save/rollback and replay where applicable. Prefer improving world-item/room-object services to introducing an unrelated script-owned collision model.
-4. **Complete identified targeting and combat reaction.** Use a real new combat/interaction request to motivate bounded queries and an accepted contact/damage outcome. Preserve provenance after reflection, shielding and delay. Expose controller-neutral contact/hit trigger behavior where appropriate. Native physics/combat continues to decide hits; scripts decide new policy and timing. A small independent reuse witness is sufficient if a second complete game feature would be artificial.
-5. **Close creation, progression and travel seams.** For each row in the active [gap register](script-first-capability-census.md), either demonstrate a real data-authoring path or implement the reusable domain contract needed by a plausible new Ambition mechanic. In particular, verify that scripts can observe success/failure for item grants, actor creation and relevant travel, even if the principal action stays entirely native. The illicit traveler's one-use gate key is a **candidate** cross-domain acceptance feature, not a fixed lore or gate-authorization requirement: only implement it if the gameplay rule is selected. Do not invent gate restriction policy as part of SDK work.
-6. **Prove a practical authoring loop and review the shape of the engine.** Run the assembled Ambition gameplay rather than relying only on port unit tests. Edit the new scripts and content in a prebuilt host; validate load/reload, error reporting, supported platform builds and relevant runtime cost. Demonstrate at least one independent reuse of newly added semantic interfaces. Remove feature-specific glue and record remaining performance and platform limitations accurately.
+1. Secure local calls and outcome delivery. Refuse unsupported foreign work.
+   Define local lifetimes, recoverable state, notification policy and source
+   retirement. Keep the existing deferred read cut.
+2. Complete the playable room interaction. Reuse native activation arbitration,
+   add scoped authored-object resolution and useful domain inspections. Author
+   switch/door/actor behavior in content and Rhai. Check acceptance, refusal,
+   state changes, duplicate live rooms, hot reload and rollback.
+3. Add authored signals and essential lifecycle transitions through the same
+   inbox. Keep signals distinct from native facts. Start with activation,
+   accepted defeat, retirement and relevant authored-object state changes.
+4. Demonstrate one confirmed world-domain bridge. A speculative source cannot
+   mutate B. A confirmed, identified transaction enters B's deterministic input
+   model, survives its rewind and applies once. Include source retirement and
+   recipient travel. This is not a general remote-call service.
+5. Finish authoring ergonomics and domain coverage through useful variations.
+   Check equipment, custody, spawning and travel outcomes. Extract mixed
+   actor/prop construction only when a real atomic composition requires it.
+   Show edits in a prebuilt host and the intended portable path.
 
 ### Failure cases the witnesses must distinguish
 
@@ -210,10 +255,10 @@ Choose a small set of **high-value** focused tests/recorded replays; do not manu
 The active program can be marked complete only when:
 
 1. All four gameplay expressiveness requirements and the required authoring experiences above have **real implementation evidence**, or a justified, demonstrated data/native-authoring equivalent. A high-priority family cannot remain a known blocker with no working path.
-2. Loaded authored fixtures or new Ambition gameplay exercise **multiple independent domain families**, including an interaction with an authoritative outcome. The contracts are reusable outside that mechanic. Check a materially different use of the abstraction; a change of attack art is insufficient. No shipped consumer is required.
+2. Normal content and scripts implement a mechanism with several stateful objects, a character that reacts to native combat/world events and handles actual action outcomes, and a persistent consequence between rooms through confirmed world authority. A variation combines existing capabilities without a new Rust adapter. Include the playable room, the normal edit/reload loop, rollback and the intended portable path.
 3. Engine changes, if needed for those semantics, are implemented cleanly in owning domains and used by Rhai and portable Rust; no gameplay-specific SDK hacks, raw ECS exposure, parallel simulators or unbounded scans are left as the normal authoring path.
 4. A prebuilt-host editing cycle, relevant replay/state/cancellation evidence, and measured cost are documented with commands and observed results. Verification claims distinguish executed checks from static reasoning; do not require a full four-hour suite for a local scripting change.
-5. The census marks each high-priority gap as `implemented`, `data-authorable with witness`, or `still blocked`, with links to code and proof. **Any remaining high-priority `still blocked` entry means the program remains open.** A deliberate reduction of this scope requires an explicit maintainer decision, not unilateral agent deferral.
+5. The census records the capability contracts and evidence that support those authoring experiences. A required capability without a working path keeps the program open. Do not substitute port counts for these acceptance conditions or require general remote RPC for theoretical completeness.
 
 When time or dependencies prevent full completion, commit the finished coherent improvements and report **partial progress**, the remaining blocking capability, its owner, and the next executable step. Never call the full plan finished while a gate above remains unsatisfied. A request to "complete these plans" authorizes the necessary engine work; it is not an instruction to ask for permission at each ordinary engine refactor.
 

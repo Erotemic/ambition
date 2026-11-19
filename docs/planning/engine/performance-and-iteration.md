@@ -112,6 +112,14 @@ attribution was sensitive to phase instrumentation. Establish a current hotspot
 whose work can actually overlap before introducing parallel scheduling
 complexity.
 
+Body integration had a measured serial cost with moving crowds. `7a79333f52`
+prepares shared room walls, steps independent bodies with Bevy query batches,
+and publishes effects in stable session, room, and simulation identity order.
+The active-crowd fixture checks repeated body state and effect order. The room
+fixture checks permissions, isolation, and changed geometry. Keep all body ticks
+and the common movement kernel. See the
+[measurement receipt](../../../dev/ambition_dev_measurements/journal/2026-11-19-active-crowd-integration.md).
+
 ### Developer iteration remains an architecture constraint
 
 Compile/link/test cost must remain visible during crate decomposition. Moving

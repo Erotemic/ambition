@@ -39,6 +39,14 @@ links, and has a semantic checksum. The emission message is an observation;
 clearing that transport does not discard pending work. Session activation and
 retirement clear the queue.
 
+A room that rewinds alone (the room rollback host, or a guest that predicts
+its own body) sets its rows of the queue back to what the queue carried into
+the saved tick. The rows are the emissions whose credit names that room. A
+tick-head record keeps what the queue carried into each recent tick
+(`CarriedProjectileEmissions`), and the room's retractor reads it. While the
+room replays, the materializers take only its emissions; other rooms' rows
+wait for the live tick.
+
 A `hit_reaction` entry can request `projectile`. That phase runs after the
 early materializer. Its shot becomes available at the next early materializer.
 The native pending queue preserves this timing across rollback. Early technique,

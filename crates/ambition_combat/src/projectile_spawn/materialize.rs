@@ -10,23 +10,28 @@ use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use ambition_projectiles::{
     LiveProjectile, ProjectileOwner, ProjectileSeqCounter, ProjectileVisualId,
 };
-use bevy::prelude::{Commands, Entity, Name, Query, ResMut};
+use ambition_platformer2d_shared_tangle::lifecycle::RoomReplay;
+use bevy::prelude::{Commands, Entity, Name, Query, Res, ResMut};
 
+/// During a room replay (`RoomReplay`) each materializer takes only the
+/// replayed room's emissions.
 pub fn materialize_projectiles_for_this_tick(
     commands: Commands,
     seq: ResMut<ProjectileSeqCounter>,
     requests: ResMut<PendingProjectileEmissions>,
     live: Query<Entity>,
+    replay: Option<Res<RoomReplay>>,
 ) {
-    materialize_matching(ProjectileStart::StepThisTick, commands, seq, requests, live);
+    materialize_matching(ProjectileStart::StepThisTick, commands, seq, requests, live, replay.map(|replay| replay.room));
 }
 pub fn materialize_projectiles_for_next_tick(
     commands: Commands,
     seq: ResMut<ProjectileSeqCounter>,
     requests: ResMut<PendingProjectileEmissions>,
     live: Query<Entity>,
+    replay: Option<Res<RoomReplay>>,
 ) {
-    materialize_matching(ProjectileStart::StepNextTick, commands, seq, requests, live);
+    materialize_matching(ProjectileStart::StepNextTick, commands, seq, requests, live, replay.map(|replay| replay.room));
 }
 fn materialize_matching(
     wanted: ProjectileStart,
@@ -34,8 +39,9 @@ fn materialize_matching(
     mut seq: ResMut<ProjectileSeqCounter>,
     mut requests: ResMut<PendingProjectileEmissions>,
     live: Query<Entity>,
+    replaying: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) {
-    for emission in requests.take(wanted) {
+    for emission in requests.take(wanted, replaying) {
         let request = &emission.request;
         let source = &emission.source;
         let body = &request.projectile.body;

@@ -56,17 +56,20 @@ fn other() { this.state.results.wrong += 1; }
 struct DelayedOccurrences {
     first: ambition_platformer2d::platformer::action_results::ActionReply,
     second: ambition_platformer2d::platformer::action_results::ActionReply,
+    session: ambition_platformer2d::platformer::action_results::ActionReply,
+    entry: String,
+    handler: String,
     applications: usize,
 }
 
 fn complete_occurrences_on_the_replayed_timeline(world: &mut World) {
     use ambition_platformer2d::{platformer::{action_results::*, lifecycle::*, sim_id::SimId},
-        extension::sdk::action::{ActionStage, ReplyTo}};
+        extension::sdk::action::{ActionStage, ActionSubject, ReplyTo}};
     let frame = world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0;
     if ![5, 8, 10].contains(&frame) { return; }
-    let (first, second) = {
+    let (first, second, session) = {
         let pending = world.resource::<DelayedOccurrences>();
-        (pending.first.clone(), pending.second.clone())
+        (pending.first.clone(), pending.second.clone(), pending.session.clone())
     };
     if frame == 5 {
         let body = first.recipient.resolve(world).unwrap();
@@ -78,27 +81,45 @@ fn complete_occurrences_on_the_replayed_timeline(world: &mut World) {
         let room = *world.get::<InRoomInstance>(body).unwrap();
         world.despawn(body);
         let replacement = world.spawn((owner, room, SimId::placement("repeated_object"))).id();
-        let reply = begin_action(world, replacement, "occurrence_probe::actions/ask", "test.delay",
-            Some(&ReplyTo {request: 0, selector: "occurrence_probe::actions/result".into()}), 0).reply.unwrap();
-        assert!(publish_action_result(world, Some(&reply), ActionStage::Applied, true, "replacement", "", Vec::new()));
+        let (entry, handler) = {
+            let fixture = world.resource::<DelayedOccurrences>();
+            (fixture.entry.clone(), fixture.handler.clone())
+        };
+        let reply = begin_action(world, replacement, &entry, "test.delay",
+            Some(&ReplyTo {request: 0, selector: handler}), 0).reply.unwrap();
+        let subject = ActionSubject {key: "repeated_object".into(), object: Some(reply.recipient.reference())};
+        assert!(publish_action_result(world, Some(&reply), ActionStage::Applied, true, "replacement", "", vec![subject]));
     }
     if frame == 10 {
         let mut state = bevy::ecs::system::SystemState::<ActionReplies>::new(world);
         let mut replies = state.get_mut(world).unwrap();
-        assert!(replies.publish(Some(&first), ActionStage::Applied, true, "traveled", "", Vec::new()));
+        assert!(replies.publish(Some(&first), ActionStage::Applied, true, "traveled", "",
+            vec![ActionSubject {key: "repeated_object".into(), object: Some(first.recipient.reference())}]));
         assert!(!replies.publish(Some(&second), ActionStage::Applied, true, "retired", "", Vec::new()));
+        assert!(replies.publish(Some(&session), ActionStage::Applied, true, "session", "",
+            vec![ActionSubject {key: "session".into(), object: Some(session.recipient.reference())}]));
         world.resource_mut::<DelayedOccurrences>().applications += 1;
     }
 }
 
 #[test]
 fn equal_authored_object_ids_receive_independent_replies_after_travel_and_rollback() {
+    retained_reference_replies(false);
+}
+
+#[test]
+fn wasm_callbacks_retain_object_refs_through_travel_and_rollback() {
+    retained_reference_replies(true);
+}
+
+fn retained_reference_replies(portable: bool) {
     use ambition_platformer2d::{platformer::{action_results::*, lifecycle::*, sim_id::SimId},
         extension::sdk::action::ReplyTo, engine_core::RoomGeometry, world::rooms::{LiveRoomDefinition, RoomSet}};
     const SCRIPT: &str = r#"
 fn declare() {
     #{provider: "occurrence_probe", key: "actions", schemas: [#{key: "memory", fields: [
-        #{tag: 1, name: "completed", kind: "u32"}, #{tag: 2, name: "code", kind: "text 32"}]}],
+        #{tag: 1, name: "completed", kind: "u32"}, #{tag: 2, name: "code", kind: "text 32"},
+        #{tag: 3, name: "seen", kind: "opt object"}]}],
       entries: [
         #{key: "ask", phase: "actor_think", trigger: #{port: "story_tick", selector: "unused_occurrence_selector"}},
         #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}, writes: ["memory"]}]}
@@ -108,12 +129,22 @@ fn result() {
     if !this.trigger.terminal { return; }
     this.state.memory.completed += 1;
     this.state.memory.code = this.trigger.code;
+    this.state.memory.seen = this.trigger.subjects[0].object;
 }
 "#;
-    let file = std::env::temp_dir().join(format!("ambition_occurrence_replies_{}.rhai", std::process::id()));
+    let file = std::env::temp_dir().join(format!("ambition_occurrence_replies_{}_{portable}.rhai", std::process::id()));
     std::fs::write(&file, SCRIPT).unwrap();
+    let module_file = if portable {
+        ambition_platformer2d::extension::build_module_crate(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap(),
+            "ambition_extension_fixture_modules").unwrap()
+    } else { file.clone() };
+    let (entry, handler, schema) = if portable {
+        ("fixture::object_refs/ask", "fixture::object_refs/result", SchemaKey::new("fixture", "object_refs.memory", 1))
+    } else {
+        ("occurrence_probe::actions/ask", "occurrence_probe::actions/result", SchemaKey::new("occurrence_probe", "memory", 1))
+    };
     let mut sim = Platformer2dSimHarness::new_with_options(
-        crate::common::fixed_60hz_room_options("switch_lab").with_extension_module_files(vec![file.clone()])
+        crate::common::fixed_60hz_room_options("switch_lab").with_extension_module_files(vec![module_file])
             .with_sync_test_rollback_settings(4, 12)).unwrap();
     sim.step_n(AgentAction::default(), 4);
     let world = sim.world_mut();
@@ -130,11 +161,15 @@ fn result() {
     let a = world.spawn((owner, InRoomInstance(LiveRoomInstance::ACTIVATION), SimId::placement("repeated_object"))).id();
     let b = world.spawn((owner, InRoomInstance(LiveRoomInstance::from_ordinal(1)), SimId::placement("repeated_object"))).id();
     let untracked = world.spawn((owner, InRoomInstance(LiveRoomInstance::from_ordinal(2)), SimId::placement("repeated_object"))).id();
-    let ask = |world: &mut World, body| begin_action(world, body, "occurrence_probe::actions/ask", "test.delay",
-        Some(&ReplyTo {request: 0, selector: "occurrence_probe::actions/result".into()}), 0).reply.unwrap();
+    let ask = |world: &mut World, body| begin_action(world, body, entry, "test.delay",
+        Some(&ReplyTo {request: 0, selector: handler.into()}), 0).reply.unwrap();
     let first = ask(world, a);
     let second = ask(world, b);
-    world.insert_resource(DelayedOccurrences {first: first.clone(), second: second.clone(), applications: 0});
+    let session_root = session_root_for_scope(world, owner.0).unwrap();
+    let session = ask(world, session_root);
+    assert_eq!(session.recipient.reference().allocation_room, None);
+    world.insert_resource(DelayedOccurrences {first: first.clone(), second: second.clone(), session,
+        entry: entry.into(), handler: handler.into(), applications: 0});
     sim.app_mut().add_systems(ambition_platformer2d::rollback::GgrsSchedule,
         complete_occurrences_on_the_replayed_timeline.before(ambition_platformer2d::sim::Platformer2dSimulationPhase::CoreSimulation));
     sim.rebase_rollback_history().unwrap();
@@ -146,11 +181,14 @@ fn result() {
     let world = sim.world_mut();
     let mut receivers = world.query::<(&ObjectOccurrence, &BodyRecords)>();
     let rows: Vec<_> = receivers.iter(world).filter_map(|(occurrence, records)| {
-        let record = records.get(&SchemaKey::new("occurrence_probe", "memory", 1))?;
+        let record = records.get(&schema)?;
         assert_eq!(record.get(FieldRef(0)).unwrap(), &Value::U32(1));
+        let seen = record.get(FieldRef(2)).unwrap().as_opt().unwrap().unwrap().as_object().unwrap();
+        assert_eq!(seen, occurrence.reference(SessionScopeId(first.recipient.session)));
         Some((*occurrence, record.get(FieldRef(1)).unwrap().as_text().unwrap().to_owned()))
     }).collect();
-    assert_eq!(rows.len(), 2);
+    assert_eq!(rows.len(), 3);
+    assert!(rows.iter().any(|(occurrence, code)| occurrence.allocation_room().is_none() && code == "session"));
     assert!(rows.contains(&(first.recipient.occurrence, "traveled".into())));
     assert!(rows.iter().any(|(_, code)| code == "replacement"));
     assert_eq!(world.resource::<ExtensionFaults>().total, 0);

@@ -44,7 +44,7 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
     for submitted in submitted {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CreateBreakablesPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute {
             continue;
         }
@@ -96,18 +96,11 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
             limits,
         ) {
             Ok(created) => {
-                publish_action_result(
-                    world,
-                    dispatch.reply.as_ref(),
-                    ActionStage::Applied,
-                    true,
-                    "breakables_created",
-                    "",
-                    created
-                        .into_iter()
-                        .map(|object| object.id.as_str().to_owned())
-                        .collect(),
-                );
+                let subjects = created.into_iter().map(|object|
+                    ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, object.entity)
+                        .expect("a published breakable has a live occurrence")).collect();
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Applied, true,
+                    "breakables_created", "", subjects);
             }
             Err(message) => {
                 publish_action_result(

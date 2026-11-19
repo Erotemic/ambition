@@ -43,8 +43,8 @@ share the factory and behavior functions.
 The action domain is `world.create_actors`. The callback is a normal
 [`action_result`](action-results.md) entry in `actor_think`. On success, the
 terminal result has stage `applied`, code `actors_created`, and `subjects` in
-the same order as `actors`. Each subject is the actual root body's semantic
-identity. Internal limbs do not add subjects. On refusal, stage is `rejected`,
+the same order as `actors`. Each subject has the root body's semantic `key` and a live `object`
+reference. Internal limbs do not add subjects. On refusal, stage is `rejected`,
 code is `actor_creation_refused`, and `message` explains the failed condition.
 A refused batch publishes no body and spends no spawn counter. A repeated
 request uses the existing action-ticket retry rules.

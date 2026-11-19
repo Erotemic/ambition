@@ -108,6 +108,7 @@ mod tests {
     fn wear(app: &mut App, scope: Entity, who: Wearer, gear: &str, on: bool) {
         let request = Submitted {
             scope,
+            state_scope: scope,
             invocation: Default::default(),
             occurrence: None,
             entry: "test::gnu/conduct".into(),

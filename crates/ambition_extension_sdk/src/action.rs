@@ -38,7 +38,7 @@ pub struct ActionTicket {
     pub domain: String,
     pub request: u32,
     pub occurrence: u64,
-    pub room: u32,
+    pub room: Option<u32>,
     pub generation: u64,
 }
 
@@ -55,6 +55,17 @@ crate::port_choices! {
     }
 }
 
+/// A semantic domain key, with an exact live address when the subject is an object.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActionSubject {
+    pub key: String,
+    pub object: Option<crate::ObjectRef>,
+}
+impl ActionSubject {
+    pub fn named(key: impl Into<String>) -> Self { Self {key: key.into(), object: None} }
+}
+crate::port_record! { ActionSubject { key: String, object: Option<crate::ObjectRef> } }
+
 /// A native domain publishes this fact after its own admission or mutation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ActionResult {
@@ -64,7 +75,7 @@ pub struct ActionResult {
     pub tick: u64,
     pub code: String,
     pub message: String,
-    pub subjects: Vec<String>,
+    pub subjects: Vec<ActionSubject>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -135,8 +146,8 @@ crate::port_record! {
         request: u32,
         /// A stable occurrence in this recipient's action mailbox.
         occurrence: u64,
-        /// The live room that minted this caller lifetime.
-        room: u32,
+        /// Allocation room, or absent for a session-lifetime caller.
+        room: Option<u32>,
         /// A caller lifetime within that room. Recreated bodies get a new value.
         generation: u64,
     }
@@ -153,8 +164,8 @@ crate::port_record! {
         code: String,
         /// The domain's diagnostic, when it supplies one.
         message: String,
-        /// Stable semantic identities supplied by the domain. No native entity handles.
-        subjects: Vec<String>,
+        /// Domain keys and exact occurrence references. No native entity handles.
+        subjects: Vec<ActionSubject>,
     }
 }
 crate::port_record! {
@@ -190,7 +201,7 @@ pub struct ActionResultPort;
 pub struct ActionResultsPort;
 
 impl Port for ActionResultPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.result", 1);
+    const KEY: PortKey = PortKey::new("ambition.actions.result", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = ActionResult;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
@@ -201,7 +212,7 @@ impl Port for ActionResultPort {
     }
 }
 impl Port for ActionResultsPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.history", 3);
+    const KEY: PortKey = PortKey::new("ambition.actions.history", 4);
     const ROLE: PortRole = PortRole::Observation;
     type Value = ActionResults;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
@@ -217,7 +228,7 @@ crate::script_port!(ActionResultsPort);
 /// Ask the native owner to cancel work in this scope and module. The request
 /// has its own result. A refusal does not change the target action.
 impl Port for CancelActionPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.cancel", 2);
+    const KEY: PortKey = PortKey::new("ambition.actions.cancel", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = CancelAction;
     fn action(value: &Self::Value) -> Option<crate::action::ActionSubmission<'_>> {

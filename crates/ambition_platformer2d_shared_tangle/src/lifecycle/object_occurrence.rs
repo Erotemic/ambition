@@ -1,30 +1,36 @@
 //! Live object occurrences retain their identity when they travel.
 
 use bevy::prelude::*;
-use ambition_platformer2d_core::snapshot::{Reader, SnapshotState, put_u32, put_u64};
+use ambition_platformer2d_core::snapshot::{Reader, SnapshotState, put_u32, put_u64, put_u8};
 use super::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot, SessionScopeId, SessionScopedEntity};
 
-/// One object lifetime in its session. The allocation room is a namespace,
+/// One object lifetime in its session. The optional allocation room is a namespace,
 /// not the object's current location. Retirement removes this component;
 /// rollback reconstruction restores it.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ObjectOccurrence {
-    pub(crate) room: u32,
+    pub(crate) room: Option<u32>,
     pub(crate) generation: u64,
 }
 
 impl ObjectOccurrence {
-    pub fn allocation_room(self) -> u32 { self.room }
+    pub fn allocation_room(self) -> Option<u32> { self.room }
     pub fn sequence(self) -> u64 { self.generation }
+    pub fn reference(self, session: SessionScopeId) -> ambition_extension_sdk::ObjectRef {
+        ambition_extension_sdk::ObjectRef {session: session.0, allocation_room: self.room, sequence: self.generation}
+    }
 }
 
 impl SnapshotState for ObjectOccurrence {
     fn encode(&self, out: &mut Vec<u8>) {
-        put_u32(out, self.room);
+        match self.room {
+            None => put_u8(out, 0),
+            Some(room) => { put_u8(out, 1); put_u32(out, room); }
+        }
         put_u64(out, self.generation);
     }
     fn decode(reader: &mut Reader<'_>) -> Option<Self> {
-        Some(Self { room: reader.u32()?, generation: reader.u64()? })
+        Some(Self { room: match reader.u8()? {0 => None, 1 => Some(reader.u32()?), _ => return None}, generation: reader.u64()? })
     }
 }
 
@@ -84,7 +90,7 @@ impl PreparedObjectOccurrences {
         }
         world.entity_mut(self.root).insert(ObjectOccurrenceSequence(self.end));
         Ok(entities.iter().enumerate().map(|(index, subject)| {
-            let occurrence = ObjectOccurrence {room: self.room.ordinal(), generation: self.start + index as u64};
+            let occurrence = ObjectOccurrence {room: Some(self.room.ordinal()), generation: self.start + index as u64};
             world.entity_mut(*subject).insert(occurrence);
             ObjectPublished {subject: *subject, session: self.session, occurrence}
         }).collect())
@@ -93,22 +99,27 @@ impl PreparedObjectOccurrences {
 
 /// Allocate once before an object receives an occurrence reference. The native
 /// owner must retain the stamp until retirement. The room counter and stamp
-/// rewind together. Allocation does not use the authored identity or Entity bits.
+/// rewind together. Objects without a room use the session root counter.
+/// Allocation does not use the authored identity or Entity bits.
 pub fn ensure_object_occurrence(world: &mut World, entity: Entity) -> Option<ObjectOccurrence> {
     let session = world.get::<SessionScopedEntity>(entity)?.0;
     if let Some(occurrence) = world.get::<ObjectOccurrence>(entity) {
         return Some(*occurrence);
     }
     let room = world.get::<InRoomInstance>(entity).map(|at| at.0)
-        .or_else(|| world.get::<RoomInstanceRoot>(entity).and(world.get::<LiveRoomInstance>(entity).copied()))?;
-    if world.get::<crate::sim_id::SimId>(entity).is_none() && world.get::<RoomInstanceRoot>(entity).is_none() {
+        .or_else(|| world.get::<RoomInstanceRoot>(entity).and(world.get::<LiveRoomInstance>(entity).copied()));
+    if world.get::<crate::sim_id::SimId>(entity).is_none() && world.get::<RoomInstanceRoot>(entity).is_none()
+        && world.get::<super::SessionRoot>(entity).is_none() {
         return None;
     }
-    let root = super::live_room_root_for(world, session, room)?;
+    let root = match room {
+        Some(room) => super::live_room_root_for(world, session, room)?,
+        None => super::session_root_for_scope(world, session)?,
+    };
     let mut root = world.entity_mut(root);
     let mut sequence = root.entry::<ObjectOccurrenceSequence>().or_default().into_mut();
     let next = sequence.0.checked_add(1)?;
-    let occurrence = ObjectOccurrence { room: room.ordinal(), generation: sequence.0 };
+    let occurrence = ObjectOccurrence { room: room.map(|room| room.ordinal()), generation: sequence.0 };
     sequence.0 = next;
     world.entity_mut(entity).insert(occurrence);
     Some(occurrence)

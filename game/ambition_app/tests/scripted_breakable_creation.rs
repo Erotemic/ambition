@@ -45,12 +45,12 @@ fn created(ctx) {
     if !ctx.trigger.terminal { return ctx; }
     if ctx.trigger.stage == "applied" {
         if ctx.trigger.ticket.domain == "world.create_actors" {
-            ctx.state.memory.actor = ctx.trigger.subjects[0];
+            ctx.state.memory.actor = ctx.trigger.subjects[0].key;
             return ctx;
         }
         if ctx.trigger.code != "breakables_created" { throw "false prop creation"; }
         ctx.state.memory.created += 1;
-        ctx.state.memory.objects = ctx.trigger.subjects;
+        ctx.state.memory.objects = ctx.trigger.subjects.map(|subject| subject.key);
     } else if ctx.trigger.stage == "rejected" {
         if ctx.trigger.code != "breakable_creation_refused" { throw ctx.trigger.code; }
         ctx.state.memory.refused += 1;

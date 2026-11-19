@@ -33,7 +33,7 @@ All positions below use world units with +Y down unless stated otherwise. A nati
 | --- | --- | --- | --- | --- |
 | Spatial targeting: [Ambition foes](../../../crates/ambition_combat/src/extension/targets.rs), [swallows](../../../game/ambition_content/rhai/swallows.rhai) | A technique selector or catalog group tag starts a phase call. | `FoesPort` reads living targets in the body's live room, in SimId order. It returns positions with no identities or count/radius parameter. `group_think` returns room members and loose items in identity order; its ids support custody. Both scale with room population. | Steering and item custody go through domain requests. Group records and reference resolution survive rollback. An observation is not a reserved target. | `body_query` supplies bounded, identified native body facts through a correlated reply. It uses the shared relationship owner, distance/identity order, authored room budgets, and exact-ID revalidation. `FoesPort` remains a simpler typed observation. See [body queries](../../sdk/body-queries.md). |
 | Boss pattern and stage sequence: [encore jets](../../../game/ambition_content/rhai/boss_stage_pyro.rhai), [boss trigger](../../../crates/ambition_boss_special_port/src/lib.rs) | Authored `Telegraph`, `Strike`, and `Rest` steps select a special key and its windows. | One call per bound key per boss. The read cut gives settled body/combat boxes, facing, optional tracked point, and optional live room size. It has no target identity list or world scan. | A script requests effects, sound, and ordinary projectiles. It keeps pulse state in body records. Idle resets the beat; replay restores it. Pattern admission and native projectile results remain with their owners. | `boss_special` and `effect` now describe existing typed contracts. The native boss modules are independent customers. No new boss-specific engine verb is needed. |
-| Body contact and damage: [Mary-O stomp](../../../game/ambition_demo_mary_o/src/stomp.rs), [contact port](../../../crates/ambition_combat_port/src/contact.rs), [hit reaction](../../../crates/ambition_combat_port/src/reaction.rs) | A held status or custom brain selector binds a contact rule; a move's on-hit data selects a reaction. | Body contact samples native physical material after movement and before contact damage. Touchers have authored identities in their live room and phase-local response indices in SimId order. General script occurrence references remain open. Recipient and toucher can use any controller; room and session bound the sample. `StruckPort` runs on the victim after a strike and carries durable striker credit. Neither is a projectile-owned accepted-hit stream. | Native contact responses and hit reactions own defeat, launch, and status effects. Transient trigger facts are derived again on replay. Module records are canonical state. | `body_contact` version 3 has Rhai and portable records, native surface points and normals, held-status binding, game-authored bounds, and empty samples. It uses physical aperture partitions. `contact_bounce` and `defeat_body` share the native responses. Rhai can also read `struck` and `parried`. See [body contacts](../../sdk/body-contacts.md). A projectile outcome subscription needs shot identity, room lifetime, and replay-safe delivery. |
+| Body contact and damage: [Mary-O stomp](../../../game/ambition_demo_mary_o/src/stomp.rs), [contact port](../../../crates/ambition_combat_port/src/contact.rs), [hit reaction](../../../crates/ambition_combat_port/src/reaction.rs) | A held status or custom brain selector binds a contact rule; a move's on-hit data selects a reaction. | Body contact samples native physical material after movement and before contact damage. Touchers have authored identities in their live room and phase-local response indices in SimId order. Typed references now serve creation and body queries; contact participant IDs remain authored names. Recipient and toucher can use any controller; room and session bound the sample. `StruckPort` runs on the victim after a strike and carries durable striker credit. Neither is a projectile-owned accepted-hit stream. | Native contact responses and hit reactions own defeat, launch, and status effects. Transient trigger facts are derived again on replay. Module records are canonical state. | `body_contact` version 3 has Rhai and portable records, native surface points and normals, held-status binding, game-authored bounds, and empty samples. It uses physical aperture partitions. `contact_bounce` and `defeat_body` share the native responses. Rhai can also read `struck` and `parried`. See [body contacts](../../sdk/body-contacts.md). A projectile outcome subscription needs shot identity, room lifetime, and replay-safe delivery. |
 | Actor intent: [Sanic spin dash](../../../game/ambition_demo_sanic/src/ball_dash.rs), [actor trigger](../../../crates/ambition_combat_port/src/think.rs) | Sanic data claims the Attack slot. Its native body state implements charge, rolling shape, and launch. Catalog custom brains select actor callbacks. | `technique_use` supplies slot edges, body-local aim, gravity basis, resource level, and spawn authority for each bound body. It does not supply arbitrary physics internals. | `steer`, `fire`, and `velocity` enter their domain adapters. Sanic's shape and rolling authority stay native and rollback state stays on the body. | Common intent is scriptable. Sanic's rolling shape service has no portable script contract. Do not emulate a motion solver with script position writes. No migration is selected. |
 | Authored world contacts and collision changes: [Mary-O bricks](../../../game/ambition_demo_mary_o/src/bricks.rs), [Sanic monitors](../../../game/ambition_demo_sanic/src/monitors.rs) | LDtk block metadata describes a brick, grant, or monitor. A head contact or rolling/falling overlap starts the rule. | Mary-O uses `ContactSource::Block` and `GeoId`, then an authored name. Sanic selects breakers in SimId order in their own live rooms. Collision overlays read per-room broken names. | A first break spends the room object, grants its effect, and removes collision and art. Per-live-room state rewinds. Authored base geometry stays immutable. | Native/data owners already provide the behavior. Rhai receives native world contacts with geometry identity. The native destructible owner now exposes atomic contact consumption with shared inventory terms. General activation and prop composition remain open. Do not offer a raw geometry setter. |
 | Creation and lifetime: [projectile request](../../../crates/ambition_projectile_spec/src/lib.rs), [module entity](../../../crates/ambition_combat_port/src/module_entity.rs) | Technique, held use, or a module entity tick submits authored spawn data. | Scope supplies owner and occurrence credit. The body must have a SimId and a mint stream. Projectile movement uses the native collision and portal path. Module ticks expose their own position, parameters, and scoped targets. | `projectile` and `spawn_module_entity` request creation. `end_module_entity` ends its own scope. Lifetime, room ownership, simulation ids, and flight state rewind. Submitted does not mean a hit occurred. | Available in Rhai and portable Rust. Lightning requires no new spawn service. Accepted-hit batches identify shots and current credit. Creation replies identify actual births. Interception and retirement outcomes remain open. |
@@ -119,6 +119,30 @@ other's native domain actions. Include accepted and refused outcomes, competing
 actions, hot reload, room duplication, travel, and replay. Keep native collision
 and damage authority. Do not build an unbounded global event bus or a generic
 scene-node clone. The model remains open until these contracts have evidence.
+
+### Unified object model in progress
+
+Keep the full capability program open while these contracts lack evidence:
+
+- Typed occurrence references, bounded discovery and domain-owned inspection
+  must work for actors, props, room roots and session lifetimes. Authored names
+  remain locators. Runtime references must not survive the durable save road.
+- Reusable behavior bindings must attach owned records and declared handlers
+  through the same initialization boundary for actors and props. Factories
+  must compose independent instances and relations without game-specific Rust.
+- Directed object calls must distinguish native admission, handler delivery and
+  logical completion. A handler can await another domain's real result before
+  it completes the original call. Reach and scope rules belong to native owners.
+- Typed native facts and authored signals need bounded scoped subscriptions.
+  Birth, retirement and important state changes must retain provenance. Delivery
+  must reuse host commit receipts, with inspectable retry or terminal failure.
+  Component removal during rollback reconstruction is not gameplay retirement.
+- Two distinct authored behaviors must cause each other's native actions and
+  handle competition and refusal. Prove room duplication, travel, retirement,
+  replay and live edits through the real host, with portable parity and costs.
+
+Typed references and subject payloads are implemented. Directed calls, behavior
+attachment, general discovery and event subscriptions are not complete.
 
 The remaining contracts need more than aliases: general world-object
 activation and composition, actor lifetime, equipment/custody outcomes,
@@ -574,3 +598,19 @@ Do not treat output bounds as a fixed collection budget. Every-body Rhai
 polling still takes about 85 ms per complete debug step with 512 observers.
 Release and device budgets, the separate room-story polling cost, scoped
 script birth subscriptions, and the general object/event model remain open.
+
+## Live occurrence references
+
+Authored names could not retain one live occurrence in script state. Typed
+`ObjectRef` values now share one native resolver across object facets and
+room or session allocation. Creation and body queries return these references.
+State validation rejects checkpoint and durable capture. Commit: `97a3a16f8`.
+
+The guard is the Rhai and actual WASM reference fixture in
+[`scripted_action_results.rs`](../../../game/ambition_app/tests/scripted_action_results.rs).
+It checks equal authored IDs, travel, retirement, replacement, session state
+and GGRS replay. The focused assembled run passed 43 tests with one ignored.
+The default-feature app compiled without warnings. Five portable module
+artifacts rebuilt. Workspace policy retained its 11 baseline violations;
+this change added none. Browser, mobile and the full workspace were not run.
+See [object references](../../sdk/object-references.md).

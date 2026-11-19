@@ -96,13 +96,9 @@ fn materialize_matching(
         let shot = entity.id();
         crate::projectile_outcomes::record(&mut commands, shot, ambition_combat_port::projectile_outcome::ProjectileOutcomeKind::Created, None, None);
         if let Some(reply) = request.reply.clone() {
-            let subjects = source
-                .identity
-                .as_ref()
-                .map(|(id, _)| id.as_str().to_owned())
-                .into_iter()
-                .collect();
             commands.queue(move |world: &mut bevy::prelude::World| {
+                let subjects = ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, shot)
+                    .into_iter().collect();
                 ambition_platformer2d_shared_tangle::action_results::publish_action_result(
                     world,
                     Some(&reply),

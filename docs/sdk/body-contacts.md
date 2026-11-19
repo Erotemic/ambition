@@ -50,8 +50,8 @@ identity order. Each toucher contains:
 - `id`: an authored semantic body identity in the current live room. A declared
   `body` or `opt body` record can store it. This string does not identify an
   occurrence through travel into another room with the same authored ID.
-  Native action recipients use occurrence stamps; general script occurrence
-  references remain open.
+  Native action recipients and [script object references](object-references.md)
+  use occurrence stamps. Contact participant IDs remain authored names.
 - `body`: physical centre, full envelope size, and velocity in that body's
   root room chart, in world units with +Y down.
 - `driven`: whether a participant currently drives it. A game can use this

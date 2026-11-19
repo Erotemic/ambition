@@ -187,7 +187,7 @@ fn created() {
     if !this.trigger.terminal { return; }
     if this.trigger.stage != "applied" { throw this.trigger.message; }
     this.state.contact.created += this.trigger.subjects.len();
-    this.state.contact.child = this.trigger.subjects[0];
+    this.state.contact.child = this.trigger.subjects[0].key;
 }
 "#;
 

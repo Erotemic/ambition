@@ -53,7 +53,7 @@ fn result() {
             throw "creation did not identify the applied shot";
         }
         this.state.shots.created += 1;
-        this.state.shots.shot = result.subjects[0];
+        this.state.shots.shot = result.subjects[0].key;
     } else if result.stage == "rejected" {
         if result.code != "invalid_projectile_shape" { throw "wrong refusal"; }
         this.state.shots.refused += 1;

@@ -321,7 +321,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // identities. Mailboxes receive the occurrence when an action starts.
 // 496 -> 497: callback delivery retains attempts, fault status, and acknowledgement state.
 // 497 -> 498: action mailboxes retain unreserved submission refusals.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 498;
+// 498 -> 499: typed object references and action subjects include room or session allocation scope.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 499;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

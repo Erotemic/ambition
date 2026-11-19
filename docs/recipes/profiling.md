@@ -120,6 +120,8 @@ Each Tracy exporter runs in its own memory scope by default. Its RAM limit is
 the smaller of half available RAM and a quarter of total RAM, measured when
 that exporter starts. The exporter reloads the trace, so the collector's limit
 does not bound export memory. These scopes exclude the compiler and game.
+They do not reserve RAM against growth in other processes. Avoid concurrent
+large exports and full integration-test runs on a small VM.
 Use `--tracy-export-memory-mib N` to select another exporter limit, or `0` to
 disable it. If a user memory scope is unavailable, export is skipped and the
 raw trace is retained. `tracy-export-*-memory.txt` records limits and exit status.

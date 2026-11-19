@@ -6,6 +6,10 @@ export. Stream instance rows and bound each exporter process separately.
 Retain the raw trace if export fails. Compiler concurrency and exporter RAM
 are separate choices.
 
+A scope limit does not reserve RAM against growth in other jobs. Large exports
+and full integration-test runs can still exhaust a small VM when they overlap.
+Measure those jobs separately.
+
 A whole-command RAM limit also covers compiler processes. It can turn an
 ordinary parallel build into compiler OOM failures before capture starts.
 Keep that limit explicit. Do not add a default compiler job limit to address

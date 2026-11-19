@@ -64,6 +64,8 @@ pub struct MaterialCastHit {
 /// The actual primitive moves through cells with their own boundary and map motion.
 pub struct MaterialCastCells<'a> {
     material: MaterialPrimitive<'a>,
+    /// Contact candidates share the cast's fixed source polygon.
+    polygon: std::sync::OnceLock<Option<Vec<DVec2>>>,
     /// The canonical primitive stays fixed while its source map follows this curve.
     source: SourceMotion,
     until: f64,
@@ -340,6 +342,7 @@ impl<'a> MaterialCast<'a> {
         }
         Ok(MaterialCastCells {
             material: self.material,
+            polygon: std::sync::OnceLock::new(),
             source,
             until: self.until,
             parts,
@@ -353,6 +356,12 @@ impl<'a> MaterialCast<'a> {
 }
 
 impl MaterialCastCells<'_> {
+    fn source_polygon(&self) -> Option<&[DVec2]> {
+        self.polygon.get_or_init(|| self.material.domain.polygon()
+            .map(|points| points.into_iter().map(|point| point.as_dvec2()).collect()))
+            .as_deref()
+    }
+
     /// The key of the body this material is ([`MaterialCast::carried_by`]).
     pub fn carrier(&self) -> Option<u64> {
         self.carrier

@@ -471,7 +471,8 @@ pub fn teetering_at_edge(
 pub fn touching_hazard_aabb(world: &World, aabb: crate::Aabb) -> bool {
     world
         .blocks
-        .iter()
+        .near(aabb)
+        .into_iter()
         .any(|b| matches!(b.kind, BlockKind::Hazard) && aabb.strict_intersects(b.aabb))
 }
 
@@ -493,7 +494,7 @@ pub fn touching_hazard_aabb(world: &World, aabb: crate::Aabb) -> bool {
 /// this one — so every hit the discrete test would find is still a hit, and what
 /// this adds is genuine tunnels rather than surface contact.
 pub fn hazard_contact_on_path(world: &World, center: Vec2, half: Vec2, delta: Vec2) -> bool {
-    world.blocks.iter().any(|b| {
+    world.body_sweep_candidates(crate::Aabb::new(center - delta, half), delta).into_iter().any(|b| {
         matches!(b.kind, BlockKind::Hazard)
             && interior_of(b.aabb)
                 .is_some_and(|inside| crate::cast::aabb_path_contacts(center, half, delta, inside))
@@ -547,7 +548,7 @@ fn interior_of(hazard: Aabb) -> Option<Aabb> {
 
 /// Rebound impulse lookup for a body AABB.
 pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
-    world.blocks.iter().find_map(|b| match b.kind {
+    world.blocks.near(aabb).into_iter().find_map(|b| match b.kind {
         BlockKind::Rebound { impulse } if aabb.strict_intersects(b.aabb) => Some(impulse),
         _ => None,
     })
@@ -557,6 +558,43 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
 mod tests {
     use super::*;
     use crate::geometry::aabb_from_min_size;
+
+    #[test]
+    fn indexed_hazard_and_rebound_contacts_match_a_visible_ordered_scan() {
+        let blocks = (0..100).map(|i| {
+            let min = Vec2::new((i % 10) as f32 * 64.0 - 320.0, (i / 10) as f32 * 64.0 - 320.0);
+            match i % 3 {
+                0 => crate::Block::hazard("hazard", min, Vec2::splat(24.0)),
+                1 => crate::Block::rebound("rebound", min, Vec2::splat(24.0), Vec2::new(i as f32, -100.0)),
+                _ => crate::Block::solid("solid", min, Vec2::splat(24.0)),
+            }
+        }).collect();
+        let mut world = World::new("indexed contacts", Vec2::splat(4096.0), Vec2::ZERO, blocks);
+        world.blocks.near(crate::layered::UNBOUNDED);
+        world.blocks.hide(0);
+        world.blocks.hide(8);
+        world.blocks.add(crate::Block::hazard("thin hazard", Vec2::ZERO, Vec2::new(0.01, 32.0)));
+        for impulse in [Vec2::X, Vec2::Y] {
+            world.blocks.add(crate::Block::rebound("overlapping rebound", Vec2::ZERO, Vec2::splat(32.0), impulse));
+        }
+        for i in 0..200 {
+            let center = Vec2::new((i % 20) as f32 * 32.0 - 320.0, (i / 20) as f32 * 64.0 - 320.0);
+            let half = Vec2::splat(if i % 2 == 0 { 1.0 } else { 16.0 });
+            let body = crate::Aabb::new(center, half);
+            let hazard = world.blocks.iter().any(|b| matches!(b.kind, BlockKind::Hazard) && body.strict_intersects(b.aabb));
+            let rebound = world.blocks.iter().find_map(|b| match b.kind {
+                BlockKind::Rebound { impulse } if body.strict_intersects(b.aabb) => Some(impulse),
+                _ => None,
+            });
+            assert_eq!(touching_hazard_aabb(&world, body), hazard);
+            assert_eq!(touching_rebound_aabb(&world, body), rebound);
+            for delta in [Vec2::ZERO, Vec2::X * 1024.0, Vec2::Y * -1024.0, Vec2::splat(1024.0)] {
+                let swept = world.blocks.iter().any(|b| matches!(b.kind, BlockKind::Hazard)
+                    && interior_of(b.aabb).is_some_and(|inside| crate::cast::aabb_path_contacts(center, half, delta, inside)));
+                assert_eq!(hazard_contact_on_path(&world, center, half, delta), swept, "center={center:?}, delta={delta:?}");
+            }
+        }
+    }
 
     #[test]
     fn contact_positions_keep_canonical_material_outside_each_face() {

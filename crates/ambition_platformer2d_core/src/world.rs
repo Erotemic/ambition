@@ -1638,6 +1638,16 @@ impl World {
             .find(|block| predicate(block) && body.strict_intersects(block.aabb))
     }
 
+    /// Blocks within the full path of a body, in source order.
+    pub(crate) fn body_sweep_candidates(&self, body: Aabb, delta: Vec2) -> Vec<&Block> {
+        let moved = body.translated(delta);
+        let reach = Aabb::new(
+            (body.min.min(moved.min) + body.max.max(moved.max)) * 0.5,
+            (body.max.max(moved.max) - body.min.min(moved.min)) * 0.5 + Vec2::splat(1.0),
+        );
+        self.blocks.near(reach)
+    }
+
     /// Return the earliest Parry-backed swept-AABB hit for `body` moving by `delta`.
     ///
     /// The predicate lets callers ask different gameplay questions from the same
@@ -1656,12 +1666,7 @@ impl World {
         // Only the blocks the swept box can reach (the room's index,
         // `Layered::near`): a superset of every block it can hit, so the
         // answer is the scan's.
-        let moved = body.translated(delta);
-        let reach = Aabb::new(
-            (body.min.min(moved.min) + body.max.max(moved.max)) * 0.5,
-            (body.max.max(moved.max) - body.min.min(moved.min)) * 0.5 + Vec2::splat(1.0),
-        );
-        for block in self.blocks.near(reach) {
+        for block in self.body_sweep_candidates(body, delta) {
             if !predicate(block) {
                 continue;
             }

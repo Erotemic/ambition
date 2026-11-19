@@ -115,17 +115,15 @@ impl MaterialCell {
         if let Some(curve) = &self.curve {
             return curve.bounds(&self.time);
         }
-        let vertices = if self.planes.is_empty() {
-            super::corners(body)
-                .into_iter()
-                .flat_map(|p| {
-                    [
-                        (p.as_dvec2() + delta * self.time.start).extend(self.time.start),
-                        (p.as_dvec2() + delta * self.time.end).extend(self.time.end),
-                    ]
-                })
-                .collect()
-        } else {
+        if self.planes.is_empty() {
+            let corners = super::corners(body);
+            let vertices: [DVec3; 8] = std::array::from_fn(|index| {
+                let time = if index % 2 == 0 { self.time.start } else { self.time.end };
+                (corners[index / 2].as_dvec2() + delta * time).extend(time)
+            });
+            return self.enclose_vertices(vertices.into_iter());
+        }
+        let vertices = {
             let mut planes = self.planes.clone();
             for (inward, offset) in [
                 (DVec2::X, f64::from(body.min.x)),
@@ -140,8 +138,11 @@ impl MaterialCell {
             }
             prism(&planes, self.time.clone())?
         };
+        self.enclose_vertices(vertices.into_iter())
+    }
+
+    fn enclose_vertices(&self, vertices: impl Iterator<Item = DVec3>) -> Result<Option<Aabb>, NumericFault> {
         let Some((lo, hi)) = vertices
-            .into_iter()
             .map(|p| self.map.point_wide(p.truncate()) + self.travel * p.z)
             .try_fold(None, |bounds: Option<(DVec2, DVec2)>, p| {
                 if !p.is_finite() {

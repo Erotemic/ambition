@@ -140,6 +140,12 @@ The script completes the original call from that result. Activation evidence
 supports reconciliation when notifications drop. Room and session publication
 assign stable occurrences before the first scripted read.
 
+Local mechanism receipt: `8ee92f38e` adds native placement lookup, activation
+state and notifications, and self-consumption with inventory outcomes. The
+`a_scripted_lever_spends_its_barrier` app checks cover refused/applied actions,
+collision removal, charge deduplication, GGRS replay, lost wakeups and Rhai reload.
+The shared locator check covers equal placement IDs in two live room instances.
+
 A full duplicated-room mechanism test, additional lifecycle facts, authored
 signals and a locking-door capability remain open. The toll barrier uses the
 existing destructible return policy; it is not a general locking door.

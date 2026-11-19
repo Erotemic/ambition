@@ -1041,6 +1041,14 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
+        "ambition_platformer2d_runtime::behavior_events::NativeSources",
+        "Typed native event contracts installed when the app is built. Simulation ticks read this registry but do not change it. Rewind restores subscriber mailboxes, not the app composition.",
+    ),
+    (
+        "ambition_combat::projectile_spawn::pending::CarriedProjectileEmissions",
+        "Bounded source-room input history used to restore pending emissions on room rewind. The registered room-write retractor selects the saved room and tick; session activation clears the history. Rewinding this history with the simulation would remove the inputs needed for replay. PendingProjectileEmissions holds the canonical pending work.",
+    ),
+    (
         "ambition_geometry_observation::GeometryObservers",
         "a registry of geometry observers (GOBS-1), filled when the app is built and only read afterwards (F1 and headless inspection run each observer on demand): composition, not simulation state, so there is nothing for a rewind to restore",
     ),

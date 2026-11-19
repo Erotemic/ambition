@@ -454,6 +454,15 @@ Port `ambition.actions.cancel@3`, request: `this.requests.push(request("<alias>"
 | `ticket` | { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32) or (), generation: text } | required |  |
 | `reply` | { request: integer (u32), selector: text } | required |  |
 
+## `resolve_authored_objects`
+
+Port `ambition.objects.resolve_authored@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `placements` | list of text | required |  |
+
 ## `attach_behaviors`
 
 Port `ambition.objects.attach_behaviors@3`, request: `this.requests.push(request("<alias>", #{ .. }))`.
@@ -486,6 +495,22 @@ Port `ambition.objects.method@1`, trigger: read as `this.trigger`.
 | `caller` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
 | `method` | text |  |
 | `data` | schema-selected data |  |
+
+## `object_activated`
+
+Port `ambition.objects.activated@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `actor` | { session: text, allocation_room: integer (u32) or (), sequence: text } or () |  |
+| `revision` | text |  |
+
+## `object_activation`
+
+Port `ambition.objects.activation@1`, observation: read as `this.observe.<alias>`.
+
+Value: { object: { session: text, allocation_room: integer (u32) or (), sequence: text }, actor: { session: text, allocation_room: integer (u32) or (), sequence: text } or (), revision: text } or ()
 
 ## `object_born`
 
@@ -610,6 +635,22 @@ Port `ambition.world.consume_contact@1`, request: `this.requests.push(request("<
 | `reply` | { request: integer (u32), selector: text } | required |  |
 | `contact` | integer (u32) | required | Index in this.trigger.world. Do not retain this index for another step. |
 | `exchange` | { costs: list of { id: text, count: integer (u32) }, grants: list of { id: text, count: integer (u32) }, pay_coins: integer (u32), receive_coins: integer (u32) } | `#{ costs: [], grants: [], pay_coins: 0, receive_coins: 0 }` |  |
+
+## `consume_self`
+
+Port `ambition.world.consume_self@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `recipient` | { session: text, allocation_room: integer (u32) or (), sequence: text } | required |  |
+| `exchange` | { costs: list of { id: text, count: integer (u32) }, grants: list of { id: text, count: integer (u32) }, pay_coins: integer (u32), receive_coins: integer (u32) } | `#{ costs: [], grants: [], pay_coins: 0, receive_coins: 0 }` |  |
+
+## `destructible`
+
+Port `ambition.world.destructible@1`, observation: read as `this.observe.<alias>`.
+
+Value: { health: integer (i32), maximum: integer (i32), consumed: bool } or ()
 
 ## `inventory`
 

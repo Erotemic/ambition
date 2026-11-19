@@ -617,3 +617,23 @@ The default-feature app compiled without warnings. Five portable module
 artifacts rebuilt. Workspace policy retained its 11 baseline violations;
 this change added none. Browser, mobile and the full workspace were not run.
 See [object references](../../sdk/object-references.md).
+
+## Private behavior bindings and directed calls
+
+One subject could not host independent instances of the same schema. The host
+now separates the native subject and private state owner (`2bf2b9854`). Bindings
+attach reusable methods, parameters and records. Directed calls distinguish
+admission, committed delivery and explicit completion. Cancellation suppresses
+queued methods and is refused after commit. Commit: `6dfe02d1b`.
+
+The guard is
+[`scripted_object_behaviors.rs`](../../../game/ambition_app/tests/scripted_object_behaviors.rs).
+It checks both controllers, private records, native wallet outcomes, competition,
+fault exhaustion without a staged reward, cancellation and GGRS. The broader
+focused population passed 45 tests with one ignored. Final index and receipt
+changes passed 12 focused tests and 353 shared-owner tests. The default app
+warning check, wasm32 world-port check and 53 absence contracts passed. Workspace
+policy retained its 11 baseline violations. The new behavior ports lack an
+actual WASM method-call witness. Do not infer room-island rollback coverage from
+GGRS: private instance membership remains open. See
+[object behaviors](../../sdk/object-behaviors.md) for the other remaining work.

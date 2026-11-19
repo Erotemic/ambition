@@ -328,6 +328,18 @@ pub struct ComposedRooms<'a> {
 }
 
 impl<'a> ComposedRooms<'a> {
+    /// Compose these rooms before independent body steps read their walls.
+    pub fn prepare(
+        mut self,
+        collision: &'a CollisionWorld<'_, '_>,
+        rooms: impl IntoIterator<Item = Option<InRoomInstance>>,
+    ) -> PreparedRooms<'a> {
+        for room in rooms {
+            self.solids(collision, room.as_ref());
+        }
+        PreparedRooms { rooms: self.rooms }
+    }
+
     /// Physical solids with this body's gate passes and barriers applied.
     pub fn physical_for(
         &mut self,
@@ -335,11 +347,8 @@ impl<'a> ComposedRooms<'a> {
         room: Option<&InRoomInstance>,
         subject: bevy_ecs::entity::Entity,
     ) -> Option<Cow<'_, ae::World>> {
-        let (open, barriers) = collision.room(room)
-            .map(|room| (room.gates_open_for(subject), room.barriers_for(subject)))
-            .unwrap_or_default();
         let walls = self.solids(collision, room)?;
-        Some(as_met_by(walls, &open, &[], &[], &barriers))
+        Some(physical_for_subject(walls, collision, room, subject))
     }
 
     /// [`Self::solids`] as `subject` meets them: without the gate solids that
@@ -381,6 +390,36 @@ impl<'a> ComposedRooms<'a> {
         };
         self.rooms[index].1.as_deref()
     }
+}
+
+/// Composed room walls that independent body steps can read together.
+pub struct PreparedRooms<'a> {
+    rooms: Vec<(Option<InRoomInstance>, Option<Cow<'a, ae::World>>)>,
+}
+
+impl PreparedRooms<'_> {
+    /// Read this body's walls with its own gate passes and barriers.
+    pub fn physical_for(
+        &self,
+        collision: &CollisionWorld<'_, '_>,
+        room: Option<&InRoomInstance>,
+        subject: bevy_ecs::entity::Entity,
+    ) -> Option<Cow<'_, ae::World>> {
+        let walls = self.rooms.iter().find(|(key, _)| *key == room.copied())?.1.as_deref()?;
+        Some(physical_for_subject(walls, collision, room, subject))
+    }
+}
+
+fn physical_for_subject<'a>(
+    walls: &'a ae::World,
+    collision: &CollisionWorld<'_, '_>,
+    room: Option<&InRoomInstance>,
+    subject: bevy_ecs::entity::Entity,
+) -> Cow<'a, ae::World> {
+    let (open, barriers) = collision.room(room)
+        .map(|room| (room.gates_open_for(subject), room.barriers_for(subject)))
+        .unwrap_or_default();
+    as_met_by(walls, &open, &[], &[], &barriers)
 }
 
 /// One live room's collision inputs, from [`CollisionWorld::room`].
@@ -1139,6 +1178,76 @@ mod collision_world_tests {
             ae::RoomGeometry(geometry),
             FeatureEcsWorldOverlay::default(),
         ));
+    }
+
+    #[test]
+    fn prepared_rooms_keep_body_permissions_and_refresh_moving_geometry() {
+        use bevy_ecs::schedule::IntoScheduleConfigs;
+        #[derive(Resource)]
+        struct Subjects([bevy_ecs::entity::Entity; 2]);
+        #[derive(Resource, Default)]
+        struct Seen(Vec<Vec<String>>);
+        fn probe(collision: CollisionWorld, subjects: Res<Subjects>, mut seen: ResMut<Seen>) {
+            let first = InRoomInstance(LiveRoomInstance::ACTIVATION);
+            let second = InRoomInstance(LiveRoomInstance::ACTIVATION.next());
+            let missing = InRoomInstance(LiveRoomInstance::ACTIVATION.next().next());
+            let keys = [Some(first), Some(second), Some(missing), None];
+            let prepared = ComposedRooms::default().prepare(&collision, keys);
+            let mut lazy = ComposedRooms::default();
+            seen.0.clear();
+            for key in keys {
+                for body in subjects.0 {
+                    let signature = |walls: Cow<'_, ae::World>| walls.blocks.iter()
+                        .map(|block| format!("{}:{:?}", block.name, block.aabb)).collect::<Vec<_>>();
+                    let expected = lazy.physical_for(&collision, key.as_ref(), body).map(signature);
+                    let actual = prepared.physical_for(&collision, key.as_ref(), body).map(signature);
+                    assert_eq!(actual, expected);
+                    if let Some(actual) = actual { seen.0.push(actual); }
+                }
+            }
+            assert_eq!(seen.0.len(), 4, "missing and ambiguous rooms have no walls");
+        }
+        let mut app = App::new();
+        app.init_resource::<Seen>();
+        app.init_resource::<ComposedSolids>();
+        a_live_room(&mut app, LiveRoomInstance::ACTIVATION, vec![ecs_solid("first-floor")]);
+        a_live_room(&mut app, LiveRoomInstance::ACTIVATION.next(), vec![ecs_solid("second-floor")]);
+        let bodies = [app.world_mut().spawn_empty().id(), app.world_mut().spawn_empty().id()];
+        app.insert_resource(Subjects(bodies));
+        app.add_systems(Update, (retire_stale_composed_solids, probe).chain());
+        let mut overlays = app.world_mut().query::<(&LiveRoomInstance, &mut FeatureEcsWorldOverlay)>();
+        for (room, mut overlay) in overlays.iter_mut(app.world_mut()) {
+            if *room == LiveRoomInstance::ACTIVATION {
+                overlay.gate_solids.push(gate_wall());
+                overlay.gate_passes.push(ambition_platformer2d_shared_tangle::feature_overlay::GatePass {
+                    block: "lockwall:test_encounter".into(), bodies: vec![bodies[0]],
+                });
+                overlay.body_barriers.push(ambition_platformer2d_shared_tangle::feature_overlay::BodyBarrier {
+                    block: ecs_solid("private-barrier"), bodies: vec![bodies[1]],
+                });
+                overlay.blocks.push(ecs_solid("moving-solid"));
+            }
+        }
+        app.update();
+        let before = app.world().resource::<Seen>().0.clone();
+        assert!(!before[0].iter().any(|block| block.starts_with("lockwall:")));
+        assert!(before[1].iter().any(|block| block.starts_with("lockwall:")));
+        assert!(!before[0].iter().any(|block| block.starts_with("private-barrier:")));
+        assert!(before[1].iter().any(|block| block.starts_with("private-barrier:")));
+        assert!(before[2].iter().all(|block| block.starts_with("second-floor:")));
+        for (room, mut overlay) in overlays.iter_mut(app.world_mut()) {
+            if *room == LiveRoomInstance::ACTIVATION {
+                overlay.blocks[0].aabb = overlay.blocks[0].aabb.translated(ae::Vec2::new(20.0, 0.0));
+                overlay.gate_passes.clear();
+                overlay.body_barriers.clear();
+            }
+        }
+        app.update();
+        let after = &app.world().resource::<Seen>().0;
+        assert_ne!(before[0], after[0]);
+        assert!(after[0].iter().any(|block| block.starts_with("lockwall:")));
+        assert!(!after[1].iter().any(|block| block.starts_with("private-barrier:")));
+        assert_eq!(before[2], after[2]);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # Dark rooms and tunnels
 
-**State:** DONE 2026-11-16 (planned 2026-11-14): DR1, DR2, DR3, TN1, TN2 and TN3 landed. Left for a customer: the light map at full resolution at Ultra, per-item pickup art, and a tunnel painted in `Terrain` (the salt run is blocks). Asked by Jon on 2026-11-14: "we have to
+**State:** DONE 2026-11-16 (planned 2026-11-14): DR1, DR2, DR3, TN1, TN2 and TN3 landed. Left for a customer: per-item pickup art (the salt run's Lantern draws as the generic ability gem, so its hanging lanterns read as the thing to take), and a tunnel painted in `Terrain` (the salt run is blocks). Done 2026-11-19 ([below](#per-pixel-light-and-the-towns-night-2026-11-19)): the light at full resolution, and the same lights in a sunlit room at night. Asked by Jon on 2026-11-14: "we have to
 start thinking about how to model "dark" or "dim" rooms with limited
 visibilities and effectively tunnels. We don't have any rooms that are based
 on tunnels, and tunnels in a metroidvania are fun and how we make good use of
@@ -192,3 +192,50 @@ is down there (coins, a note).
   item orb (pickups have three looks; per-item pickup art is not done).
   The salt run's ways out are now its smugglers' ladders up to a trapdoor
   (`hill_salt_run_ladder`, `SceneArt`), not doors in the rock.
+
+## Per-pixel light and the town's night (2026-11-19)
+
+Jon, 2026-11-19, on the salt run: "when I saw lighting in the cave it was
+very blocky". The light map was 160x90 texels over the view at every tier,
+about 12 world units a texel, and a shadow's edge falls off over one 16-unit
+cell: stretched over the screen, every rock edge was a staircase.
+
+- **The light is summed per pixel on the GPU at High and Ultra**
+  (`ambition_render::rendering::lamps`, `lamps.wgsl`; the dark room's
+  `DarknessMaterial`, `darkness.wgsl`). The lights in view (at most 64, the
+  nearest the view's centre past that) are a uniform; at Ultra each light's
+  reach along its directions (`SolidGrid::reach`, unchanged) is a row of an
+  R32 float texture, read with two loads a pixel and interpolated between
+  directions as `lit_part` does. The sum is the CPU light map's
+  (`lamp_texels`), so the look is the one DR2 and DR3 tuned, at the
+  screen's resolution. The reach rows are written into the texture the GPU
+  already has (`ReachWrites`, a render-world `write_texture`): changing the
+  image asset made a new texture each frame a light moved, and the material
+  drew nothing while it bound it again (measured: the night veil vanished
+  at Ultra). Where no 2D material can be built (no renderer, Android), the
+  CPU light map is drawn as before.
+- **A sunlit room's lamps at night** (Jon, 2026-11-19, on the Math Town
+  night filter: "Is there an \"ultra\" quality shader that could give a much
+  more realistic effect?"). The daylight veil multiplies the world by the
+  hour's light; at High and Ultra it also reads the room's `LightSource`s and
+  what casts light, and where they reach multiplies by their colour instead,
+  never darker than the hour, falling off from the source with no flat core.
+  Over it an added glow (`lamp_glow.wgsl`, `LampGlow`) makes each source
+  brighter than its paint, as strong as the hour is dark: a lit window
+  shines. By day the lamps change nothing and are not gathered. Lower tiers
+  keep the hour's colour. At Ultra the lamps' light stops at the room's
+  ground, as in a dark room.
+- **The Math Town street's lights** (`generators/math_town/make_specs.py`,
+  `HOUSE_LIGHTS`, `CLIFF_HOME_LIGHTS`, `BAY_LAMP`): 36 `LightSource`s on the
+  windows the facade art paints (the cafe all lit, the observatory dim and
+  red), the cliff homes' lit windows, and each passage bay's vault lamp and
+  window. `math.ldtk` gained the `LightSource` definition. Captured at hour 23:
+  Medium is the moonlit multiply; High and Ultra light the street's windows
+  and walls round them warm.
+- **The salt run's lanterns** (Jon, 2026-11-19: "it wasn't possible to
+  navigate to the cage the way you had it next to the water, which is just
+  weird placement"): two of the smugglers' lanterns hung over the middle of
+  the mill race, out of any reach, and read as something to take. They hang
+  now over the dry floor at either bank (`LAMPS`), a little over a body's
+  head.
+

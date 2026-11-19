@@ -98,6 +98,7 @@ pub mod ambient_motes;
 pub mod darkness;
 pub mod occlusion;
 pub mod daylight;
+pub mod lamps;
 pub mod window_camera_stack;
 pub mod body_clock;
 pub mod boss_finish;
@@ -610,6 +611,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         app.add_plugins((crate::folded_mesh::FoldedMeshPlugin, crate::lines::LinesPlugin));
         // The light of the time of day multiplies the world (its material).
         app.add_plugins(crate::rendering::daylight::DaylightPlugin);
+        // The darkness of a dark room, summed per pixel at High and Ultra (its material).
+        app.add_plugins(crate::rendering::darkness::DarknessPlugin);
         // Place the content-owned overlay seam: after the character animator
         // (overlays mirror its new frame), before the hit-flash mirror (the
         // silhouette reads sprite state that overlays may tint). The set carries

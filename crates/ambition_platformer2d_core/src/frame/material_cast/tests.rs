@@ -820,6 +820,23 @@ fn a_chain_contact_keeps_its_logical_index_in_a_layered_world() {
 }
 
 #[test]
+fn parallel_edges_keep_the_first_axis_when_penetration_depths_tie() {
+    let shape = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::ONE));
+    let cells = MaterialCast::new(MaterialPrimitive::world(&shape), Vec2::ZERO,
+        Vec2::ZERO, 1.0..1.0).cells(None).unwrap();
+    let obstacle = box_at(Vec2::ZERO, Vec2::ONE);
+    for polygon in [obstacle.to_vec(), obstacle.into_iter().rev().collect()] {
+        for direction in [Vec2::X, Vec2::Y] {
+            let hit = cells.polygon_axis_contact(&cells.parts()[0], &polygon, direction)
+                .unwrap().unwrap();
+            assert_eq!(hit.displacement, -2.0);
+            assert_eq!(hit.contact.normal, -direction);
+            assert_eq!(hit.minimum_normal, -Vec2::Y);
+        }
+    }
+}
+
+#[test]
 fn a_stationary_overlap_is_reported_without_turning_a_touch_into_penetration() {
     for shape in [CombatVolume::aabb(Aabb::new(Vec2::ZERO,Vec2::ONE)),CombatVolume::Circle { center:Vec2::ZERO,radius:1.0 }] {
         let cast=MaterialCast::new(

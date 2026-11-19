@@ -81,9 +81,8 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-# ⚠ SEQUENTIAL ON PURPOSE. The first four phases are independent of each other,
-# but apt takes a machine-wide lock and the asset pipeline already saturates the
-# CPU, so running them concurrently buys little and can deadlock on that lock.
+# Run phases in order. apt takes a machine-wide lock, and the asset pipeline
+# uses the available CPU capacity.
 # `scripts/setup/README.md` records the dependency order for anyone assembling
 # a setup by hand.
 phase() {
@@ -98,6 +97,7 @@ phase() {
 
 phase "$skip_system_packages" system_packages.sh
 phase "$skip_rust" rust_toolchain.sh
+"$setup/native_linker.sh" --install
 if [ "$want_profiling" -eq 1 ]; then
     "$setup/profiling_tools.sh"
 else

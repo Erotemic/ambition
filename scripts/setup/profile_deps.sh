@@ -31,6 +31,7 @@ Ambition. Asks whether the profiling toolchain WORKS, which is a different
 question from whether it is installed — and the one that has cost real time.
 
 Checks, each chosen because it otherwise fails LATE:
+  * the pinned native mold linker is installed
   * clang can resolve libstdc++.so, and if not, which gcc it selected and
     therefore which libstdc++-N-dev to install
   * perf runs, and perf_event_paranoid / kptr_restrict allow recording with
@@ -75,6 +76,19 @@ apt_install() {
     fi
     printf '      installing: %s\n' "$*"
     sudo apt-get install -y "$@" >/dev/null 2>&1
+}
+
+check_native_linker() {
+    head2 "Native linker"
+    local version
+    if version="$("$repo_root/scripts/setup/native_linker.sh" --check 2>&1)"; then
+        ok "$version"
+    elif ((apply)) && "$repo_root/scripts/setup/native_linker.sh" --install; then
+        ok "installed the pinned native linker"
+    else
+        bad "$version"
+        todo+=("$repo_root/scripts/setup/native_linker.sh --install")
+    fi
 }
 
 # ── 1. The C++ standard library, as CLANG sees it ────────────────────────────
@@ -273,6 +287,7 @@ check_space() {
 printf '\033[1mAmbition profiling preflight\033[0m — %s\n' "$(hostname)"
 ((apply)) || printf '(--check: reporting only, nothing will be installed)\n'
 
+check_native_linker
 check_cxx_stdlib
 check_perf
 check_tracy

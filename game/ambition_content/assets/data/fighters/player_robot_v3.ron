@@ -27,6 +27,12 @@
 // wrong length (`PreparedCharacterDefinition::unresolved_references`).
 (
     character: "player_robot_v3",
+    // The robot CRAWLS: crouched, it shuffles at a quarter of its run, where a
+    // fighter with no crawl is planted by the stage's crouch rule. Its sheet
+    // draws the crawl. A feel value; no Ultimate table was used.
+    body: Some((
+        crawl_speed_frac: Some(0.25),
+    )),
     verbs: {
         "attack": "jab",
         "attack_forward": "tilt_forward",

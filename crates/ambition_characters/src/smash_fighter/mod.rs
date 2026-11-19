@@ -164,6 +164,16 @@ pub struct FighterBodyAuthoring {
     pub dodge_roll_speed: Option<f32>,
     /// Ground roll duration (s): how long it travels and is protected.
     pub dodge_roll_time: Option<f32>,
+    /// THIS FIGHTER'S CRAWL: what it may do with the stick while crouched, as
+    /// a fraction of its top speed (`MovementTuning::crouch_speed_frac`).
+    /// `None` is no crawl, and the stage's crouch rule applies
+    /// (`MatchBody::crouch_speed_frac`, which plants a fighter in Smash).
+    ///
+    /// ⭐ IT OUTRANKS THE STAGE, unlike every other number here. The stage
+    /// says what a crouch costs a fighter WITHOUT a crawl; whether a fighter
+    /// has one is the fighter's, as it is in every Smash. See
+    /// `MatchRules::seat_movement`.
+    pub crawl_speed_frac: Option<f32>,
 }
 
 impl FighterBodyAuthoring {
@@ -191,6 +201,7 @@ impl FighterBodyAuthoring {
             fast_fall_accel: self.fast_fall_accel.unwrap_or(base.fast_fall_accel),
             dodge_roll_speed: self.dodge_roll_speed.unwrap_or(base.dodge_roll_speed),
             dodge_roll_time: self.dodge_roll_time.unwrap_or(base.dodge_roll_time),
+            crouch_speed_frac: self.crawl_speed_frac.unwrap_or(base.crouch_speed_frac),
             ..base
         }
     }
@@ -242,6 +253,16 @@ impl FighterBodyAuthoring {
             let Some(value) = value else { continue };
             if !value.is_finite() || value < 0.0 {
                 out.push(format!("`body.{name}` is {value}; it is finite and not negative"));
+            }
+        }
+        if let Some(frac) = self.crawl_speed_frac {
+            // ABOVE ZERO: a crawl of 0 is the stage's planted crouch, so it
+            // would declare a crawl that does not move.
+            if !(frac > 0.0 && frac <= 1.0) {
+                out.push(format!(
+                    "`body.crawl_speed_frac` is {frac}; a crawl is a fraction of the top \
+                     speed, above 0 and at most 1 (no crawl is no field)"
+                ));
             }
         }
         if let Some(ambition_platformer2d_core::AxisJumpLaw::SquatDecided(law)) = self.jump_law {

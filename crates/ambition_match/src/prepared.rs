@@ -300,6 +300,28 @@ impl MatchRules {
             .or(self.base_body)
     }
 
+    /// The movement a seat fights with: [`Self::seat_body`] under the
+    /// stage's body ([`Self::body_over`]), and then the fighter's own crawl.
+    ///
+    /// ⭐ THE CRAWL IS THE ONE FIGHTER FACT THE STAGE DOES NOT WRITE OVER. The
+    /// stage's `crouch_speed_frac` is what a crouch costs a fighter without a
+    /// crawl; a fighter that authors one (`FighterBodyAuthoring::crawl_speed_frac`)
+    /// keeps it, with no fighter named here.
+    pub fn seat_movement(
+        &self,
+        participant: &crate::staging::MatchParticipant,
+        definition: &ambition_characters::prepared::PreparedCharacterDefinition,
+        built: ambition_platformer2d_core::MovementTuning,
+    ) -> Option<ambition_platformer2d_core::MovementTuning> {
+        let crawl = definition.fighter_body.and_then(|body| body.crawl_speed_frac);
+        self.body_over(self.seat_body(participant, definition), built).map(|mut tuning| {
+            if let Some(crawl) = crawl {
+                tuning.crouch_speed_frac = crawl;
+            }
+            tuning
+        })
+    }
+
     pub fn body_over(
         &self,
         authored: Option<ambition_platformer2d_core::MovementTuning>,
@@ -789,12 +811,12 @@ pub fn prepare_match(sprite_content: &ambition_sprite_sheet::SpriteContent,
             action_set: worn.action_set,
             effective_abilities: seat_abilities,
             // Resolve the body beside the verbs, or the stage can grant a verb
-            // whose window never opens. See `MatchRules::body_over`. The base
+            // whose window never opens. See `MatchRules::seat_movement`. The base
             // is the seed's own tuning, so a mode's numbers change only what
             // they name. The seat's own body outranks the character's: a
             // catalog row's feel applies everywhere that character appears.
             // See `MatchParticipant::body`.
-            effective_movement_tuning: rules.body_over(rules.seat_body(participant, definition), built_body),
+            effective_movement_tuning: rules.seat_movement(participant, definition, built_body),
             moveset: worn.moveset,
             skin: participant.skin.clone(),
         });

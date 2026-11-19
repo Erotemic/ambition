@@ -347,13 +347,29 @@ impl ObservationContext<'_> {
 pub type Supplier =
     Arc<dyn Fn(&World, ObservationContext<'_>) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
 
-/// What the installed ports need at invocation time, frozen at admission:
-/// each observation port's projection and encoder, and each request port's
-/// decoder (a loaded module hands its requests back as bytes).
+/// An action refusal remains observable without reserving its request number.
+pub type ActionRefusalHandler = fn(&mut World, Entity, &str, &ambition_extension_sdk::action::ActionSubmission<'_>);
+
+#[derive(Clone, Copy)]
+pub(crate) struct RequestCodec {
+    pub decode: DecodeFn,
+    pub action: for<'a> fn(&'a (dyn Any + Send + Sync)) -> Option<ambition_extension_sdk::action::ActionSubmission<'a>>,
+}
+impl RequestCodec {
+    pub fn of<P: Port>() -> Self {
+        fn action<P: Port>(value: &(dyn Any + Send + Sync)) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+            P::action(value.downcast_ref::<P::Value>().expect("the port's value type is unique"))
+        }
+        Self {decode: ambition_extension_sdk::decode_erased::<P>, action: action::<P>}
+    }
+}
+
+/// Port codecs and native refusal recording are fixed at admission.
 #[derive(Resource, Default, Clone)]
 pub struct InstalledPortCodecs {
     pub(crate) suppliers: Arc<HashMap<PortKey, (Supplier, EncodeFn)>>,
-    pub(crate) request_decoders: Arc<HashMap<PortKey, DecodeFn>>,
+    pub(crate) request_codecs: Arc<HashMap<PortKey, RequestCodec>>,
+    pub(crate) refuse_action: Option<ActionRefusalHandler>,
 }
 
 /// The pace of an invocation's scope: the factor its entry's `dt` is scaled
@@ -485,7 +501,23 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                                 error,
                             })
                     })?;
-                    Ok(staged)
+                    let mut invalid = None;
+                    for (port, value) in &staged.1 {
+                        let codec = codecs.request_codecs.get(port)
+                            .ok_or_else(|| Fault::UndeclaredRequest(port.clone()))?;
+                        if let Some(action) = (codec.action)(value.as_ref()) {
+                            if crate::reply_entry::<ambition_extension_sdk::action::ActionResultPort>(
+                                &admitted, &entry.path, &action.reply.selector,
+                                &ambition_extension_sdk::phases::ACTOR_THINK).is_none() {
+                                if let Some(refuse) = codecs.refuse_action {
+                                    refuse(world, invocation.scope, &entry.path, &action);
+                                }
+                                invalid.get_or_insert_with(|| Fault::InvalidReply {
+                                    port: port.clone(), handler: action.reply.selector.clone().into() });
+                            }
+                        }
+                    }
+                    match invalid { Some(fault) => Err(fault), None => Ok(staged) }
                 });
 
                 let faulted = result.is_err();
@@ -661,10 +693,10 @@ fn run_loaded(
             return Err(Fault::UndeclaredRequest(port));
         }
         let decode = codecs
-            .request_decoders
+            .request_codecs
             .get(&port)
             .ok_or_else(|| Fault::UndeclaredRequest(port.clone()))?;
-        let value = decode(&bytes).map_err(|e| {
+        let value = (decode.decode)(&bytes).map_err(|e| {
             Fault::Module(format!("request to {port} does not decode: {e}").into())
         })?;
         requests.push((port, value));

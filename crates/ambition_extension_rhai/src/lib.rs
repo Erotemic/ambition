@@ -55,7 +55,7 @@ use rhai::{AST, Dynamic, Engine, FLOAT, INT};
 /// The code identity's ABI: the language and the engine configuration that
 /// gives a script its meaning. A change to the configuration (the number
 /// type, the comparisons, the binding) is a new ABI name.
-pub const ABI: &str = "rhai-f32-exact/2";
+pub const ABI: &str = "rhai-f32-exact/3";
 
 /// The operations one invocation may spend.
 pub const DEFAULT_MAX_OPERATIONS: u64 = 200_000;
@@ -524,6 +524,7 @@ mod tests {
                 save: SaveEligibility::Transient, fields: vec![FieldDecl::new(1, "ticks", FieldKind::U32)],
             }],
             entries: vec![EntryDescriptor {
+                replies: Vec::new(),
                 key: "tick".into(), phase: phases::ACTOR_THINK,
                 trigger: TriggerBinding { port: Tick::KEY, selector: "clock".into() },
                 reads: vec![], writes: vec![SchemaKey::new("test", "count", 1)], requests: vec![], after: vec![],

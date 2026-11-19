@@ -5,9 +5,8 @@ Two inputs, both optional:
 
 * `tracy_zones.csv` — `tracy-csvexport` aggregate: one row per zone with
   whole-session totals. Always produced when the export succeeds.
-* `tracy_zone_instances.csv` — `tracy-csvexport --unwrap`: one row per zone
-  INSTANCE with its start time. Present only where the installed exporter
-  supports it.
+* Zone instances from `tracy-csvexport --unwrap`, supplied through
+  `--instances-stdin` or `tracy_zone_instances.csv`. Rows are reduced as a stream.
 
 Whole-session totals are necessary and not sufficient: a system that costs 20ms
 for six seconds of a four-minute session is invisible in a total and is exactly
@@ -23,6 +22,7 @@ from __future__ import annotations
 import csv
 import os
 import sys
+from collections.abc import Iterable, Iterator
 
 # Candidate column names, most specific first.
 NAME_COLUMNS = ("name", "zone", "zone_name")
@@ -53,7 +53,7 @@ def number(row: dict, names: tuple[str, ...]) -> float:
         return 0.0
 
 
-def read_csv(path: str) -> list[dict]:
+def csv_rows(lines: Iterable[str]) -> Iterator[dict]:
     """Read a `tracy-csvexport` table, repairing its unquoted `name` column.
 
     ⛔ `tracy-csvexport` writes the zone name RAW, and a Bevy system name is a
@@ -67,27 +67,30 @@ def read_csv(path: str) -> list[dict]:
     like a finding. The trailing columns are fixed in number, so split from the
     RIGHT and give the overflow back to the name.
     """
-    if not os.path.exists(path):
-        return []
-    with open(path, newline="", encoding="utf-8", errors="replace") as handle:
-        header_line = handle.readline().rstrip("\n")
-        if not header_line:
-            return []
-        columns = header_line.split(",")
-        width = len(columns)
-        rows = []
-        for line in handle:
-            line = line.rstrip("\n")
-            if not line:
-                continue
-            parts = line.split(",")
-            if len(parts) > width:
-                overflow = len(parts) - width
-                parts = [",".join(parts[: overflow + 1])] + parts[overflow + 1 :]
-            elif len(parts) < width:
-                parts += [""] * (width - len(parts))
-            rows.append(dict(zip(columns, parts)))
-        return rows
+    lines = iter(lines)
+    header_line = next(lines, "").rstrip("\r\n")
+    if not header_line:
+        return
+    columns = header_line.split(",")
+    width = len(columns)
+    for line in lines:
+        line = line.rstrip("\r\n")
+        if not line:
+            continue
+        parts = line.rsplit(",", width - 1)
+        if len(parts) < width:
+            parts += [""] * (width - len(parts))
+        yield dict(zip(columns, parts))
+
+
+def file_rows(path: str) -> Iterator[dict]:
+    if os.path.exists(path):
+        with open(path, newline="", encoding="utf-8", errors="replace") as handle:
+            yield from csv_rows(handle)
+
+
+def read_csv(path: str) -> list[dict]:
+    return list(file_rows(path))
 
 
 def aggregate_table(rows: list[dict], limit: int = 40) -> list[str]:
@@ -159,7 +162,7 @@ def steady_table(rows: list[dict], limit: int = 40) -> list[str]:
     return lines
 
 
-def window_rows(instances: list[dict], window_s: float) -> list[dict]:
+def window_rows(instances: Iterable[dict], window_s: float) -> list[dict]:
     """Per-(window, zone) totals from unwrapped zone instances."""
     buckets: dict[tuple[int, str], dict] = {}
     for row in instances:
@@ -168,17 +171,17 @@ def window_rows(instances: list[dict], window_s: float) -> list[dict]:
         name = pick(row, NAME_COLUMNS) or "<unnamed>"
         index = int(start_ns / 1e9 / window_s)
         key = (index, name)
-        bucket = buckets.setdefault(
-            key,
-            {
+        bucket = buckets.get(key)
+        if bucket is None:
+            bucket = {
                 "window_start_s": f"{index * window_s:.3f}",
                 "window_end_s": f"{(index + 1) * window_s:.3f}",
                 "zone": name,
                 "_total_ns": 0.0,
                 "_max_ns": 0.0,
                 "_count": 0,
-            },
-        )
+            }
+            buckets[key] = bucket
         bucket["_total_ns"] += duration_ns
         bucket["_max_ns"] = max(bucket["_max_ns"], duration_ns)
         bucket["_count"] += 1
@@ -201,8 +204,10 @@ def window_rows(instances: list[dict], window_s: float) -> list[dict]:
 
 
 def main(argv: list[str]) -> int:
+    stream_instances = "--instances-stdin" in argv[1:]
+    argv = [arg for arg in argv if arg != "--instances-stdin"]
     if len(argv) not in (2, 3):
-        print("usage: tracy_zone_report.py <bundle-dir> [census-hz]", file=sys.stderr)
+        print("usage: tracy_zone_report.py <bundle-dir> [census-hz] [--instances-stdin]", file=sys.stderr)
         return 2
     out_dir = argv[1]
     try:
@@ -214,7 +219,8 @@ def main(argv: list[str]) -> int:
     window_s = max(1.0, 1.0 / census_hz if census_hz > 0 else 1.0)
 
     aggregate = read_csv(os.path.join(out_dir, "tracy_zones.csv"))
-    instances = read_csv(os.path.join(out_dir, "tracy_zone_instances.csv"))
+    instances = csv_rows(sys.stdin) if stream_instances else file_rows(os.path.join(out_dir, "tracy_zone_instances.csv"))
+    windows = window_rows(instances, window_s)
 
     lines = [
         "# Tracy zones (per-Bevy-system and per-render-pass timings)",
@@ -249,8 +255,7 @@ def main(argv: list[str]) -> int:
             "",
         ]
 
-    if instances:
-        windows = window_rows(instances, window_s)
+    if windows:
         with open(os.path.join(out_dir, "tracy_zone_windows.csv"), "w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(
                 handle,
@@ -285,7 +290,7 @@ def main(argv: list[str]) -> int:
         lines += [
             "## Time-resolved zones",
             "",
-            "NOT COLLECTED. This `tracy-csvexport` does not support `--unwrap`, so",
+            "NOT COLLECTED. No per-zone instances are available, so",
             "only whole-session zone totals exist. A slow interval inside a long",
             "session is diluted in the table above; use the per-window `perf`",
             "reports in `perf_windows/` and the census CSVs to locate it, then",

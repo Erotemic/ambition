@@ -859,41 +859,21 @@ finish_tracy_capture() {
         echo "tracy-csvexport failed; see tracy-csvexport.stderr" > "$out_dir/tracy.skipped"
         return 0
     fi
-    # `--unwrap` emits one row per zone INSTANCE with its start time, which is
-    # the only way to say "this system got slow between 74s and 81s" rather
-    # than "this system cost 4s over the whole session". It is not present in
-    # every Tracy build, so its absence is recorded, not fatal.
-    if tracy-csvexport --unwrap "$out_dir/tracy.trace" > "$out_dir/tracy_zone_instances.csv" 2>/dev/null \
-        && [[ -s "$out_dir/tracy_zone_instances.csv" ]]; then
-        log "tracy zone instances exported (windowed zone tables available)"
+    # A long trace emits millions of rows. Keep only per-window totals.
+    if tracy-csvexport --unwrap "$out_dir/tracy.trace" 2>"$out_dir/tracy-zone-export.stderr" \
+        | python3 "$repo_root/scripts/lib/tracy_zone_report.py" "$out_dir" "$census_hz" \
+            --instances-stdin 2>"$out_dir/tracy-zone-report.stderr"; then
+        rm -f "$out_dir/tracy_zone_instances.missing"
+        printf 'Zone instances were streamed into window totals. No intermediate CSV was saved.\n' \
+            > "$out_dir/tracy_zone_instances.streamed"
+        log "tracy zone instances reduced as a stream"
     else
-        rm -f "$out_dir/tracy_zone_instances.csv"
-        echo "this tracy-csvexport has no --unwrap; zone tables are whole-session totals only" \
+        rm -f "$out_dir/tracy_zone_windows.csv"
+        printf 'Zone export or reduction failed; see tracy-zone-export.stderr and tracy-zone-report.stderr.\n' \
             > "$out_dir/tracy_zone_instances.missing"
-    fi
-    python3 "$repo_root/scripts/lib/tracy_zone_report.py" "$out_dir" "$census_hz" \
-        || log "tracy zone report failed; tracy_zones.csv is still in the bundle"
-    # ⛔⛔ AND THEN DROP IT: THIS INTERMEDIATE REACHED **90.6 GB** IN ONE BUNDLE.
-    # `--unwrap` emits a row per zone INSTANCE, and a Tracy-on run of this game
-    # emits ~4,000 zones per frame — 113.9 million rows for a four-minute
-    # session. Two bundles held 118GB between them and filled a 484GB disk to
-    # 100%, which stopped every build in the repo.
-    #
-    # ⭐ Nothing reads it after this point: `tracy_zone_report.py` has already
-    # reduced it to the per-window tables, and every other consumer (the summary,
-    # this file's own analysis) reads the AGGREGATE `tracy_zones.csv`.
-    # ⇒ it is a regenerable intermediate, and `tracy.trace` beside it is the
-    # thing that regenerates it — at ~3% of the size.
-    if [[ -f "$out_dir/tracy_zone_instances.csv" ]]; then
-        local instances_bytes
-        instances_bytes="$(stat -c %s "$out_dir/tracy_zone_instances.csv" 2>/dev/null || echo 0)"
-        rm -f "$out_dir/tracy_zone_instances.csv"
-        printf '%s\n' \
-            "removed after the zone report was built: it was ${instances_bytes} bytes." \
-            "Regenerate with:" \
-            "  tracy-csvexport --unwrap tracy.trace > tracy_zone_instances.csv" \
-            > "$out_dir/tracy_zone_instances.removed"
-        log "tracy zone instances pruned (${instances_bytes} bytes; regenerate from tracy.trace)"
+        python3 "$repo_root/scripts/lib/tracy_zone_report.py" "$out_dir" "$census_hz" \
+            --instances-stdin </dev/null 2>>"$out_dir/tracy-zone-report.stderr" \
+            || log "tracy zone report failed; tracy_zones.csv is still in the bundle"
     fi
 }
 
@@ -1198,6 +1178,11 @@ write_metadata() {
         echo "strace_version=$(strace --version 2>/dev/null | head -1 || true)"
         echo "python3_version=$(python3 --version 2>/dev/null || true)"
         echo "tracy_invariant_tsc_override=${TRACY_NO_INVARIANT_CHECK:-0}"
+        echo "tracy_required_version=$("$repo_root/scripts/setup/install_profiling_tools.sh" --print-version 2>/dev/null || echo unavailable)"
+        echo "tracy_client_port=${TRACY_PORT:-auto}"
+        echo "tracy_capture_port=8086"
+        echo "tracy_only_ipv4=${TRACY_ONLY_IPV4:-unset}"
+        echo "tracy_only_localhost=${TRACY_ONLY_LOCALHOST:-unset}"
         # Tracy's Linux system tracing (context switches + call-stack sampling)
         # starts only when tracefs is readable by this user; when it does, the
         # client resolves symbols for every sampled stack before it exits. On
@@ -1776,7 +1761,8 @@ expose_tracy_diagnostic() {
     local name
     for name in tracy.trace tracy_zones.csv tracy_zone_windows.csv \
             tracy_summary.md tracy-capture.log tracy-csvexport.stderr \
-            tracy.skipped tracy.caveat tracy_zone_instances.removed; do
+            tracy.skipped tracy.caveat tracy_zone_instances.streamed \
+            tracy-zone-export.stderr tracy-zone-report.stderr; do
         if [[ -e "$diag/$name" ]]; then
             rm -f "$out_dir/$name"
             ln -s "tracy_diagnostic/$name" "$out_dir/$name"

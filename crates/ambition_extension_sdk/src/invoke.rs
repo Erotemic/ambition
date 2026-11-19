@@ -28,6 +28,8 @@ pub enum Fault {
     UndeclaredState(SchemaKey),
     /// The entry submitted to a request port it did not declare.
     UndeclaredRequest(PortKey),
+    /// A request names no admitted action_result entry in its module.
+    InvalidReply { port: PortKey, handler: Name },
     /// The entry asked for its trigger as the wrong port.
     WrongTrigger { asked: PortKey, actual: PortKey },
     /// A typed port's role does not match the use.
@@ -54,6 +56,7 @@ impl std::fmt::Display for Fault {
             Self::MissingObservation(p) => write!(f, "no value for observation port {p}"),
             Self::UndeclaredState(s) => write!(f, "access to undeclared state {s}"),
             Self::UndeclaredRequest(p) => write!(f, "submit to undeclared request port {p}"),
+            Self::InvalidReply {port, handler} => write!(f, "request to {port}: reply {handler} must name an action_result entry in this module in actor_think"),
             Self::WrongTrigger { asked, actual } => {
                 write!(f, "asked for trigger {asked}; the trigger is {actual}")
             }

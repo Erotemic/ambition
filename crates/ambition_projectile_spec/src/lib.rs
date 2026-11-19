@@ -79,6 +79,9 @@ impl ambition_extension_sdk::Port for ProjectileSpawnPort {
         ambition_extension_sdk::PortKey::new("ambition.projectiles.spawn", 3);
     const ROLE: ambition_extension_sdk::PortRole = ambition_extension_sdk::PortRole::Request;
     type Value = ProjectileSpawn;
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(value, "projectiles.spawn", value.reply.as_ref()?))
+    }
 
     fn encode(v: &ProjectileSpawn, out: &mut Vec<u8>) {
         ambition_extension_sdk::structure::put(v, out)

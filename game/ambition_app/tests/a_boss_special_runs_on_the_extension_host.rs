@@ -242,7 +242,7 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
     .expect("the sandbox builds with the loaded module");
     let (loaded_modules, loaded_fingerprint) = modules_section(&mut sim);
     assert!(
-        loaded_modules.contains("module\tambition::overfit_volley\tloaded ambition-ext-1 "),
+        loaded_modules.contains("module\tambition::overfit_volley\tloaded ambition-ext-2 "),
         "the loaded overfit volley, with its byte digest, is in the generation:\n{loaded_modules}"
     );
     assert_ne!(

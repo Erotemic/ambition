@@ -193,6 +193,7 @@ fn entry(
     run: fn(&mut Invocation<'_>) -> Result<(), Fault>,
 ) -> EntryDescriptor {
     EntryDescriptor {
+        replies: Vec::new(),
         key: key.into(),
         phase: TECHNIQUE_EXECUTION,
         trigger: TriggerBinding { port: BossSpecialCast::KEY, selector: selector.into() },
@@ -241,6 +242,7 @@ pub fn module() -> ModuleDescriptor {
             entry("backspace", BACKSPACE, vec![BACKSPACE_STRIKE], ProjectileSpawnPort::KEY, BACKSPACE_KEYS,
                   IdlePolicy::ResetState, backspace),
             EntryDescriptor {
+                replies: Vec::new(),
                 key: "conduct".into(),
                 phase: BOSS_CONDUCT,
                 trigger: TriggerBinding { port: BossConductPort::KEY, selector: BOSS_ID.into() },

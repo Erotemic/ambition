@@ -40,8 +40,6 @@ fn tick() {
         reply: #{ request: 0, selector: "action_probe::commands/result" } }));
     this.requests.push(request("story_command", #{ line: "world.set_flag",
         reply: #{ request: 1, selector: "action_probe::commands/result" } }));
-    this.requests.push(request("story_command", #{ line: "world.set_flag action_probe_redirected true",
-        reply: #{ request: 2, selector: "ambition::other/result" } }));
 }
 fn result() {
     let state = this.state.results;
@@ -241,6 +239,212 @@ fn result() {
     assert_eq!(applied[0].sequence, original.sequence);
     assert_eq!(applied[0].delivery, ActionDelivery::Acknowledged);
     let _ = std::fs::remove_file(file);
+}
+
+#[test]
+fn cancellation_reports_refusals_and_suppresses_native_flag_work_after_replay() {
+    use ambition_platformer2d::{extension::sdk::action::{ActionStage, ReplyTo},
+        platformer::{action_results::*, lifecycle::RoomInstanceRoot}};
+    const SCRIPT: &str = r#"
+fn declare() {
+    #{provider: "cancel_probe", key: "commands", schemas: [#{key: "memory", fields: [
+        #{tag: 1, name: "sent", kind: "bool"}, #{tag: 2, name: "accepted", kind: "u32"},
+        #{tag: 3, name: "refused", kind: "u32"}]}], entries: [
+        #{key: "ask", phase: "actor_think", trigger: #{port: "story_tick", selector: "unused_cancel_selector"}},
+        #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "switch_lab"},
+          reads: ["action_history"], writes: ["memory"], requests: ["cancel_action"], limit: 6},
+        #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}, writes: ["memory"]}]}
+}
+fn ask() {}
+fn tick() {
+    if this.state.memory.sent { return; }
+    let originals = [];
+    for row in this.observe.action_history.entries {
+        if row.result.stage == "submitted" && row.result.ticket.entry == "cancel_probe::commands/ask" {
+            originals.push(row.result.ticket);
+        }
+    }
+    if originals.len() != 4 { return; }
+    this.state.memory.sent = true;
+    for ticket in originals {
+        this.requests.push(request("cancel_action", #{ticket: ticket,
+            reply: #{request: ticket.request, selector: "cancel_probe::commands/result"}}));
+    }
+    let missing = originals[0];
+    missing.request = 100;
+    this.requests.push(request("cancel_action", #{ticket: missing,
+        reply: #{request: 14, selector: "cancel_probe::commands/result"}}));
+    let foreign = originals[0];
+    foreign.entry = "another::module/ask";
+    this.requests.push(request("cancel_action", #{ticket: foreign,
+        reply: #{request: 15, selector: "cancel_probe::commands/result"}}));
+}
+fn result() {
+    if this.trigger.ticket.domain != "actions.cancel" || !this.trigger.terminal { return; }
+    if this.trigger.stage == "applied" { this.state.memory.accepted += 1; }
+    else { this.state.memory.refused += 1; }
+}
+"#;
+    let file = std::env::temp_dir().join(format!("ambition_cancellation_{}.rhai", std::process::id()));
+    std::fs::write(&file, SCRIPT).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab").with_extension_module_files(vec![file.clone()])
+            .with_sync_test_rollback_settings(4, 12)).unwrap();
+    sim.step_n(AgentAction::default(), 4);
+    register_action_domain(sim.app_mut(), "test.unsupported", ActionCancellationPolicy::Unsupported);
+    let world = sim.world_mut();
+    let root = world.query_filtered::<Entity, With<RoomInstanceRoot>>().single(world).unwrap();
+    for (request, domain, flag) in [(10, "authored.command", "cancel_probe_stopped"),
+        (11, "test.unsupported", "cancel_probe_unsupported"),
+        (12, "test.unknown", "cancel_probe_unknown"), (13, "test.committed", "cancel_probe_committed")] {
+        let reply = begin_action(world, root, "cancel_probe::commands/ask", domain,
+            Some(&ReplyTo {request, selector: "cancel_probe::commands/result".into()}), 0).reply.unwrap();
+        if request == 13 {
+            world.resource_mut::<ambition_platformer2d::session::AmbitionGameSave>().data_mut().set_flag(flag, true);
+            assert!(publish_action_result(world, Some(&reply), ActionStage::Applied, true, "already_applied", "", Vec::new()));
+        } else {
+            world.write_message(ambition_platformer2d::combat::events::SetFlagsRequested {
+                changes: vec![(flag.into(), true)], reply: Some(reply), written: None,
+            });
+        }
+    }
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 30);
+    sim.rollback_health().unwrap();
+    let world = sim.world();
+    let save = world.resource::<ambition_platformer2d::session::AmbitionGameSave>();
+    assert!(!save.data().flag("cancel_probe_stopped"));
+    for flag in ["cancel_probe_unsupported", "cancel_probe_unknown", "cancel_probe_committed"] {
+        assert!(save.data().flag(flag), "{flag}");
+    }
+    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    for (request, code) in [(10, "action_canceled"), (11, "cancel_unsupported"),
+        (12, "cancel_unknown_domain"), (13, "cancel_already_terminal"),
+        (14, "cancel_unknown_ticket"), (15, "cancel_foreign_module")] {
+        let result = history.entries.iter().find(|row| row.result.ticket.domain == "actions.cancel"
+            && row.result.ticket.request == request && row.result.terminal).unwrap();
+        assert_eq!(result.result.code, code);
+    }
+    assert!(history.entries.iter().any(|row| row.result.ticket.request == 10 && row.result.stage == ActionStage::Canceled));
+    let state = world.get::<BodyRecords>(root).unwrap().get(&SchemaKey::new("cancel_probe", "memory", 1)).unwrap();
+    assert_eq!(state.get(FieldRef(1)).unwrap(), &Value::U32(1));
+    assert_eq!(state.get(FieldRef(2)).unwrap(), &Value::U32(5));
+    assert_eq!(world.resource::<ExtensionFaults>().total, 0);
+    let _ = std::fs::remove_file(file);
+}
+
+#[test]
+fn broken_callbacks_refuse_before_commit_and_repair_without_spending_the_request() {
+    use ambition_platformer2d::{extension::{self, ExtensionGeneration},
+        platformer::{action_results::ActionMailbox, lifecycle::RoomInstanceRoot}};
+    const SCRIPT: &str = r#"
+const DESTINATION = "wire_probe::sender/missing";
+fn declare() {
+    #{provider: "wire_probe", key: "sender", schemas: [#{key: "memory", fields: [
+        #{tag: 1, name: "sent", kind: "bool"}, #{tag: 2, name: "completed", kind: "u32"}]},
+        #{key: "diagnostic", fields: [#{tag: 1, name: "count", kind: "u32"},
+            #{tag: 2, name: "handler", kind: "text 128"}]}],
+      entries: [
+        #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "switch_lab"},
+          replies: [], writes: ["memory"], requests: ["story_command"], limit: 1},
+        #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}, writes: ["memory"]},
+        #{key: "inspect", phase: "actor_think", trigger: #{port: "story_tick", selector: "switch_lab"},
+          reads: ["action_history"], writes: ["diagnostic"]}]}
+}
+fn tick() {
+    if this.state.memory.sent { return; }
+    this.state.memory.sent = true;
+    this.requests.push(request("story_command", #{line: "world.set_flag wire_probe_applied true",
+        reply: #{request: 0, selector: global::DESTINATION}}));
+}
+fn result() {
+    if this.trigger.terminal { this.state.memory.completed += 1; }
+}
+fn inspect() {
+    this.state.diagnostic.count = this.observe.action_history.refusals.len();
+    for row in this.observe.action_history.refusals {
+        if row.domain == "authored.command" && row.request == 0 && row.code == "invalid_reply_entry" {
+            this.state.diagnostic.handler = row.handler;
+        }
+    }
+}
+"#;
+    const OTHER: &str = r#"
+fn declare() { #{provider: "wire_other", key: "handlers", entries: [
+    #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}}]} }
+fn result() {}
+"#;
+    struct Files(std::path::PathBuf);
+    impl Drop for Files { fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); } }
+    let files = Files(std::env::temp_dir().join(format!("ambition_reply_wiring_{}", std::process::id())));
+    std::fs::create_dir_all(&files.0).unwrap();
+    let file = files.0.join("sender.rhai");
+    let other = files.0.join("other.rhai");
+    std::fs::write(&file, SCRIPT).unwrap();
+    std::fs::write(&other, OTHER).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab").with_extension_module_files(vec![file.clone(), other])
+            .with_sync_test_rollback_settings(4, 12)).unwrap();
+    crate::common::hand_the_timeline_to_the_local_maintainer(&mut sim);
+    sim.step_n(AgentAction::default(), 30);
+    sim.rollback_health().unwrap();
+    let world = sim.world_mut();
+    let root = world.query_filtered::<Entity, With<RoomInstanceRoot>>().single(world).unwrap();
+    let key = SchemaKey::new("wire_probe", "memory", 1);
+    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    assert!(history.entries.is_empty());
+    assert_eq!(history.refusals.len(), 1);
+    assert_eq!(history.refusals[0].code, "invalid_reply_entry");
+    assert_eq!(history.refusals[0].handler, "wire_probe::sender/missing");
+    let diagnostic = SchemaKey::new("wire_probe", "diagnostic", 1);
+    let observed = world.get::<BodyRecords>(root).unwrap().get(&diagnostic).unwrap();
+    assert_eq!(observed.get(FieldRef(0)).unwrap(), &Value::U32(1));
+    assert_eq!(observed.get(FieldRef(1)).unwrap().as_text(), Some("wire_probe::sender/missing"));
+    assert!(world.get::<BodyRecords>(root).and_then(|records| records.get(&key))
+        .is_none_or(|record| record.get(FieldRef(0)).unwrap() == &Value::Bool(false)));
+    assert!(!world.resource::<ambition_platformer2d::session::AmbitionGameSave>().data().flag("wire_probe_applied"));
+    let first_generation = world.resource::<ExtensionGeneration>().clone();
+    assert!(world.resource::<extension::AdmittedExtensions>().0.entries.iter()
+        .any(|entry| entry.path == "wire_other::handlers/result"));
+    std::fs::write(&file, SCRIPT.replace("wire_probe::sender/missing", "wire_other::handlers/result")).unwrap();
+    sim.step_n(AgentAction::default(), 50);
+    sim.rollback_health().unwrap();
+    let world = sim.world();
+    assert!(*world.resource::<ExtensionGeneration>() != first_generation);
+    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    assert!(history.entries.is_empty());
+    assert_eq!(history.refusals.len(), 2);
+    assert!(history.refusals.iter().any(|refusal| refusal.handler == "wire_other::handlers/result"));
+    let observed = world.get::<BodyRecords>(root).unwrap().get(&diagnostic).unwrap();
+    assert_eq!(observed.get(FieldRef(0)).unwrap(), &Value::U32(2));
+    assert_eq!(observed.get(FieldRef(1)).unwrap().as_text(), Some("wire_other::handlers/result"));
+    assert!(!world.resource::<ambition_platformer2d::session::AmbitionGameSave>().data().flag("wire_probe_applied"));
+    let repaired = SCRIPT.replace("wire_probe::sender/missing", "wire_probe::sender/result")
+        .replace("replies: []", "replies: [\"wire_probe::sender/result\"]");
+    std::fs::write(&file, &repaired).unwrap();
+    sim.step_n(AgentAction::default(), 50);
+    sim.rollback_health().unwrap();
+    let world = sim.world();
+    let good_generation = world.resource::<ExtensionGeneration>().clone();
+    assert!(world.resource::<ambition_platformer2d::session::AmbitionGameSave>().data().flag("wire_probe_applied"));
+    let state = world.get::<BodyRecords>(root).unwrap().get(&key).unwrap();
+    assert_eq!(state.get(FieldRef(0)).unwrap(), &Value::Bool(true));
+    assert_eq!(state.get(FieldRef(1)).unwrap(), &Value::U32(1));
+    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    assert!(history.entries.iter().all(|row| row.result.ticket.request == 0 && row.result.ticket.occurrence == 0));
+    assert_eq!(history.entries.iter().filter(|row| row.result.terminal).count(), 1);
+    assert_eq!(history.refusals.len(), 2);
+    let removed = repaired.replace("key: \"result\"", "key: \"removed\"")
+        .replace("fn result()", "fn removed()");
+    std::fs::write(&file, removed).unwrap();
+    sim.step_n(AgentAction::default(), 50);
+    sim.rollback_health().unwrap();
+    assert!(*sim.world().resource::<ExtensionGeneration>() == good_generation);
+    let changes = extension::look_at_module_files(sim.world_mut(), true).unwrap();
+    let refusal = extension::stage_module_file_changes(sim.world_mut(), changes).unwrap_err();
+    assert!(refusal.contains("InvalidReplyEntry"), "{refusal}");
+    let state = sim.world().get::<BodyRecords>(root).unwrap().get(&key).unwrap();
+    assert_eq!(state.get(FieldRef(1)).unwrap(), &Value::U32(1));
 }
 
 #[test]

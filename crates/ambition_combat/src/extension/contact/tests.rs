@@ -60,6 +60,7 @@ fn app_with(run: fn(&mut Invocation<'_>) -> Result<(), Fault>) -> App {
         code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
         schemas: vec![],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "contact".into(),
             phase: BODY_CONTACT,
             trigger: TriggerBinding { port: BodyContactPort::KEY, selector: WALKER.into() },

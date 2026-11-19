@@ -41,6 +41,7 @@ pub fn module() -> ModuleDescriptor {
         schemas: vec![Charge::schema(), Cadence::schema()],
         entries: vec![
             EntryDescriptor {
+                replies: Vec::new(),
                 key: "charge".into(), phase: phases::TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: TechniqueUsePort::KEY, selector: PROVIDER.into() },
                 reads: vec![], writes: vec![Charge::KEY], requests: vec![SpendManaPort::KEY, SpawnModuleEntityPort::KEY], after: vec![],
@@ -48,6 +49,7 @@ pub fn module() -> ModuleDescriptor {
                 run: EntryCode::Native(charge),
             },
             EntryDescriptor {
+                replies: Vec::new(),
                 key: "pulse".into(), phase: phases::MODULE_ENTITY_TICK,
                 trigger: TriggerBinding { port: ModuleEntityTickPort::KEY, selector: KIND.into() },
                 reads: vec![], writes: vec![Cadence::KEY],

@@ -5,13 +5,16 @@ use ambition_extension_host::{
 };
 use ambition_extension_sdk::{action::*, phases::*};
 use ambition_platformer2d_shared_tangle::{
-    action_results::{self, ActionDeliveryPolicy, ActionDispatch, ActionMailbox, ActionRecipient},
+    action_results::{self, ActionDeliveryPolicy, ActionMailbox, ActionRecipient},
     lifecycle::{ObjectOccurrence, RoomFreeze, SessionScopedEntity},
     sim_id::SimId,
 };
 use bevy::prelude::*;
 
 pub fn install(app: &mut App) {
+    app.install_action_refusal_handler(action_results::refuse_action_submission);
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "actions.cancel",
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     use ambition_platformer2d_shared_tangle::schedule::{
         GameplaySimulationRoot, Platformer2dSimulationPhase, SimClockHead, SimScheduleExt,
     };
@@ -55,46 +58,6 @@ pub fn install(app: &mut App) {
             },
         );
     }
-}
-
-/// A callback belongs to the submitting module and names one installed entry.
-pub fn begin(
-    world: &mut World,
-    scope: Entity,
-    entry: &str,
-    domain: &str,
-    reply: Option<&ReplyTo>,
-    signature: u64,
-) -> ActionDispatch {
-    let dispatch = action_results::begin_action(world, scope, entry, domain, reply, signature);
-    if !dispatch.execute {
-        return dispatch;
-    }
-    if let Some(reply) = reply {
-        let valid = ambition_extension_host::reply_entry::<ActionResultPort>(
-            &world.resource::<AdmittedExtensions>().0,
-            entry,
-            &reply.selector,
-            &ACTOR_THINK,
-        )
-        .is_some();
-        if !valid {
-            action_results::publish_action_result(
-                world,
-                dispatch.reply.as_ref(),
-                ActionStage::Rejected,
-                true,
-                "invalid_reply_entry",
-                "The reply must name an action_result entry in the submitting module.",
-                Vec::new(),
-            );
-            return ActionDispatch {
-                execute: false,
-                reply: None,
-            };
-        }
-    }
-    dispatch
 }
 
 #[allow(clippy::type_complexity)]
@@ -192,15 +155,22 @@ fn retire_sources(
 }
 
 fn cancel_actions(world: &mut World) {
+    use action_results::{publish_action_result, cancel_action};
     let submitted = world.resource_mut::<ExtensionOutbox>().drain::<CancelActionPort>(&ACTOR_THINK);
     for submitted in submitted {
-        let ticket = submitted.value;
-        if submitted.entry.rsplit_once('/').map(|(module, _)| module)
-            != ticket.entry.rsplit_once('/').map(|(module, _)| module)
-        {
-            warn!("action cancellation refused: another module owns the ticket");
-            continue;
-        }
-        ambition_platformer2d_shared_tangle::action_results::cancel_action(world, submitted.scope, &ticket);
+        let request = submitted.value;
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CancelActionPort>(
+            world, submitted.scope, &submitted.entry, &request);
+        if !dispatch.execute { continue; }
+        let authorized = submitted.entry.rsplit_once('/').map(|(module, _)| module)
+            == request.ticket.entry.rsplit_once('/').map(|(module, _)| module);
+        let result = if authorized {
+            cancel_action(world, submitted.scope, &request.ticket).map_err(|refusal| refusal.code())
+        } else { Err("cancel_foreign_module") };
+        let (stage, code) = match result {
+            Ok(()) => (ActionStage::Applied, "action_canceled"),
+            Err(code) => (ActionStage::Rejected, code),
+        };
+        publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, "", Vec::new());
     }
 }

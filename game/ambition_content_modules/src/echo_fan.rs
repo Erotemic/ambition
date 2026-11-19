@@ -45,6 +45,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: vec![schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "fire".into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding {

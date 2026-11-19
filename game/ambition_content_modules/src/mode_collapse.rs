@@ -35,6 +35,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: vec![strike::locked_schema(STRIKE)],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "converge".into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding {

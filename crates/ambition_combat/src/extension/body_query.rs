@@ -5,16 +5,15 @@ use std::collections::BTreeSet;
 use ambition_characters::{actor::ActorFaction, control::DrivingParticipant};
 use ambition_combat_port::body_query::*;
 use ambition_extension_host::{
-    AdmittedExtensions, ExtensionAppExt, ExtensionOutbox, LowersIn, ObservationContext,
+    ExtensionAppExt, ExtensionOutbox, LowersIn, ObservationContext,
 };
 use ambition_extension_sdk::{
-    Port,
     action::{ActionResultPort, ActionStage},
     phases::ACTOR_THINK,
 };
 use ambition_platformer2d_core::{self as ae, snapshot::SnapshotState};
 use ambition_platformer2d_shared_tangle::{
-    action_results::{ActionMailbox, begin_action, publish_action_result},
+    action_results::{ActionMailbox, publish_action_result},
     lifecycle::{InRoomInstance, SessionScopedEntity},
     sim_id::SimId,
 };
@@ -72,6 +71,8 @@ impl SnapshotState for BodyQueryHistory {
 }
 
 pub fn install(app: &mut App) {
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, QUERY_DOMAIN,
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     use ambition_extension_host::{
         InActorThink, InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick,
         InTechniqueExecution, InWieldedUse,
@@ -129,36 +130,17 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
     let rules = rules.get_or_insert_with(|| SystemState::new(world));
     for submitted in submitted {
         let request = submitted.value;
-        let mut bytes = Vec::new();
-        BodyQueryPort::encode(&request, &mut bytes);
-        let dispatch = begin_action(
-            world,
-            submitted.scope,
-            &submitted.entry,
-            QUERY_DOMAIN,
-            Some(&request.reply),
-            ambition_extension_sdk::digest::digest_bytes(&bytes),
-        );
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<BodyQueryPort>(
+            world, submitted.scope, &submitted.entry, &request);
         if !dispatch.execute {
             continue;
         }
-        let valid = ambition_extension_host::reply_entry::<ActionResultPort>(
-            &world.resource::<AdmittedExtensions>().0,
-            &submitted.entry,
-            &request.reply.selector,
-            &ACTOR_THINK,
-        )
-        .is_some();
         let limits = rules
             .get(world)
             .ok()
             .and_then(|rules| rules.of(submitted.scope).copied())
             .unwrap_or_default();
-        let selected = if valid {
-            select(world, submitted.scope, &request, limits)
-        } else {
-            Err("invalid_reply_entry")
-        };
+        let selected = select(world, submitted.scope, &request, limits);
         match selected {
             Err(code) => {
                 publish_action_result(

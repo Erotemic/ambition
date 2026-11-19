@@ -69,6 +69,7 @@ pub fn module() -> ModuleDescriptor {
         schemas: vec![Flight::schema()],
         entries: vec![
             EntryDescriptor {
+                replies: Vec::new(),
                 key: STEERED_BOLT.into(),
                 phase: TECHNIQUE_EXECUTION,
                 trigger: TriggerBinding { port: FighterSpecialPort::KEY, selector: STEERED_BOLT.into() },
@@ -81,6 +82,7 @@ pub fn module() -> ModuleDescriptor {
                 run: EntryCode::Native(fire),
             },
             EntryDescriptor {
+                replies: Vec::new(),
                 key: BOLT.into(),
                 phase: MODULE_ENTITY_TICK,
                 trigger: TriggerBinding { port: ModuleEntityTickPort::KEY, selector: BOLT.into() },

@@ -40,9 +40,21 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # a real version (which never matched, so it reported MISMATCH on every machine
 # and taught readers to ignore it). Take the LAST field and strip non-digits.
 tracy_required_version() {
-    local header major minor patch
+    local header major minor patch sys_version
+    sys_version="$(python3 - "$repo_root/Cargo.lock" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as handle:
+    lock = tomllib.load(handle)
+versions = {p["version"] for p in lock["package"] if p["name"] == "tracy-client-sys"}
+if len(versions) != 1:
+    sys.exit("Cargo.lock must select one tracy-client-sys version")
+print(versions.pop())
+PY
+)" || return 1
     header="$(find "${CARGO_HOME:-$HOME/.cargo}/registry/src" -maxdepth 6 \
-        -path '*tracy-client-sys-*/tracy/common/TracyVersion.hpp' -print -quit 2>/dev/null || true)"
+        -path "*/tracy-client-sys-$sys_version/tracy/common/TracyVersion.hpp" -print -quit 2>/dev/null || true)"
     if [ -z "$header" ] || [ ! -f "$header" ]; then
         return 1
     fi
@@ -63,7 +75,7 @@ build_tracy_tool() {
     log "building $binary"
     cmake -B "$build_dir" -S "$src_dir/$subproject" \
         -DCMAKE_BUILD_TYPE=Release -DNO_FILESELECTOR=ON >/dev/null 2>&1 || return 1
-    cmake --build "$build_dir" --parallel >/dev/null 2>&1 || return 1
+    cmake --build "$build_dir" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-1}" >/dev/null 2>&1 || return 1
     install -Dm755 "$build_dir/$binary" "$bin_dir/$binary" || return 1
 }
 
@@ -86,11 +98,15 @@ fi
 [ "$mode" = "print" ] && { printf '%s\n' "$version"; exit 0; }
 
 installed="(none)"
-if [ -x "$bin_dir/tracy-capture" ]; then
-    installed="$(ls -d "$cache_dir"/tracy-* 2>/dev/null | sed 's#.*/tracy-##' | sort -V | tail -1)"
-    [ -n "$installed" ] || installed="(unknown)"
+if have tracy-capture && have tracy-csvexport; then
+    capture_version="$(tracy-capture -h 2>&1 | awk '$1 == "tracy-capture" { print $2; exit }' || true)"
+    export_version="$(tracy-csvexport --version 2>&1 | awk '$1 == "tracy-csvexport" { print $2; exit }' || true)"
+    installed="(unknown or mixed)"
+    if [ -n "$capture_version" ] && [ "$capture_version" = "$export_version" ]; then
+        installed="$capture_version"
+    fi
 fi
-log "the game speaks Tracy $version; installed server: $installed"
+log "the game speaks Tracy $version; active tools: $installed"
 
 if [ "$mode" = "check" ]; then
     [ "$installed" = "$version" ] && { log "versions agree"; exit 0; }
@@ -99,7 +115,7 @@ if [ "$mode" = "check" ]; then
     exit 1
 fi
 
-if [ "$installed" = "$version" ] && [ -x "$bin_dir/tracy-csvexport" ]; then
+if [ "$installed" = "$version" ]; then
     log "already installed"
     exit 0
 fi

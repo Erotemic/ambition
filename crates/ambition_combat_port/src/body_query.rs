@@ -88,11 +88,12 @@ ambition_extension_sdk::port_record! {
 pub struct BodyQueryPort;
 pub struct BodyQueryResultPort;
 macro_rules! query_port {
-    ($port:ty, $key:literal, $role:ident, $value:ty) => {
+    ($port:ty, $key:literal, $role:ident, $value:ty $(, $action:item)?) => {
         impl Port for $port {
             const KEY: PortKey = PortKey::new($key, 1);
             const ROLE: PortRole = PortRole::$role;
             type Value = $value;
+            $($action)?
             fn encode(value: &Self::Value, out: &mut Vec<u8>) {
                 ambition_extension_sdk::structure::put(value, out);
             }
@@ -107,7 +108,10 @@ query_port!(
     BodyQueryPort,
     "ambition.combat.body_query",
     Request,
-    BodyQuery
+    BodyQuery,
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(value, "combat.body_query", &value.reply))
+    }
 );
 query_port!(
     BodyQueryResultPort,

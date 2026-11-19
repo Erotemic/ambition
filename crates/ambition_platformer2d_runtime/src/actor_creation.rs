@@ -2,7 +2,7 @@
 
 use bevy::{ecs::system::SystemState, prelude::*};
 use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionAppExt, ExtensionOutbox, LowersIn};
-use ambition_extension_sdk::{Attachment, Port, Record, SchemaKey, action::ActionStage};
+use ambition_extension_sdk::{Attachment, Record, SchemaKey, action::ActionStage};
 use ambition_platformer2d_construction::runtime::{ActorCreationLimits, RuntimeActor, RuntimeLink};
 use ambition_platformer2d_shared_tangle::action_results::publish_action_result;
 use ambition_platformer2d_world::governing_rules::RulesOf;
@@ -11,6 +11,8 @@ use ambition_world_port::creation::*;
 pub const CREATE_DOMAIN: &str = "world.create_actors";
 
 pub fn install(app: &mut App) {
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, CREATE_DOMAIN,
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     use ambition_extension_host::{InActorThink, InTechniqueExecution, InWieldedUse,
         InBossConduct, InModuleEntityTick, InBodyContact, InHitReaction};
     macro_rules! phase {
@@ -28,9 +30,8 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
     let rules = rules.get_or_insert_with(|| SystemState::new(world));
     for submitted in submitted {
         let request = submitted.value;
-        let mut bytes = Vec::new(); CreateActorsPort::encode(&request, &mut bytes);
-        let dispatch = crate::action_replies::begin(world, submitted.scope, &submitted.entry,
-            CREATE_DOMAIN, Some(&request.reply), ambition_extension_sdk::digest::digest_bytes(&bytes));
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CreateActorsPort>(
+            world, submitted.scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
         let limits = rules.get(world).ok().and_then(|rules| rules.of(submitted.scope).copied()).unwrap_or_default();
         let result = prepare_state(world, &submitted.entry, &request, limits).and_then(|states| {

@@ -61,6 +61,7 @@ pub fn session_tally() -> ModuleDescriptor {
         },
         schemas: vec![Tally::schema(), Lifetime::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "count".into(),
             phase: WIELDED_USE,
             trigger: TriggerBinding {
@@ -268,6 +269,7 @@ pub fn trail_loop() -> ModuleDescriptor {
         },
         schemas: vec![Trail::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "walk".into(),
             phase: WIELDED_USE,
             trigger: TriggerBinding {
@@ -329,6 +331,7 @@ pub fn thinker() -> ModuleDescriptor {
         },
         schemas: vec![Thoughts::schema(), Musings::schema()],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "think".into(),
             phase: ACTOR_THINK,
             trigger: TriggerBinding {

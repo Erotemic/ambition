@@ -43,6 +43,46 @@ code and semantic subject identities. They are not native entity handles.
 The generic protocol does not decide combat, grant, spawn, or travel rules.
 Each domain must publish its own actual result.
 
+## Validate reply wiring
+
+A submitting entry can declare its required callbacks:
+
+```rhai
+#{ key: "tick", phase: "actor_think",
+   trigger: #{ port: "story_tick", selector: "bridge_room" },
+   replies: ["my_game::bridge/result"],
+   requests: ["story_command"] }
+```
+
+Admission checks each path against the selected module composition. It must
+name an `action_result` entry in the same module in `actor_think`. A missing
+entry, wrong phase or port, or foreign module refuses admission. This includes
+reload: removing a required callback keeps the last valid program. `replies`
+is a dependency list, not a scheduling order or a list of aliases.
+
+Request values can choose callbacks dynamically. Before it commits an
+invocation, the host checks every action request's actual callback. An invalid
+address discards all staged script state and requests from that invocation.
+It cannot commit an awaiting flag, spend costs, or submit native work.
+Linked Rust, Rhai, and WASM use this same preparation boundary.
+
+The submitting scope can read `this.observe.action_history.refusals`. Each row
+contains `entry`, `domain`, `request`, `handler`, `signature`, `tick`, `sequence`,
+and code `invalid_reply_entry`. This is a submission refusal, without a reserved
+ticket or pending action. Repair can reuse its request number. Equal refusals
+are retained once. The scope retains 32 distinct refusal rows; replacing the
+oldest increases the shared `dropped` count. Refusals and results share the
+sequence counter. These rows rewind with the scope's mailbox.
+
+The local host fault also names the request port and callback path. A refusal
+row does not need the broken callback to run. Already accepted work follows its
+domain lifetime if a dynamic callback later becomes unbound; its retained
+result exposes `unbound` until the handler is available or its source retires.
+
+SDK API 0.3 includes static reply dependencies. The loaded descriptor format
+is `ambition-ext-2`; rebuild portable module files with this SDK. The history
+observation is version 3. There is no old descriptor decoder.
+
 ## Installed command results
 
 - [`consume_contact`](contact-consumption.md) reports terminal
@@ -95,9 +135,44 @@ authored identity in another room, with or without a mailbox, cannot receive
 or block the reply. Room roots use the same occurrence path and retire with
 their live room. A surviving body's replies follow that body through travel.
 
-`cancel_action` takes a ticket and cancels pending work in the caller's scope
-and module. The native consumer checks the ticket before each change. A
-terminal applied action cannot be canceled.
+`cancel_action` takes the target ticket and a separate `reply`. Cancellation
+is itself an action in the `actions.cancel` domain:
+
+```rhai
+this.requests.push(request("cancel_action", #{
+    ticket: pending_ticket,
+    reply: #{ request: next_cancel_request, selector: "my_game::bridge/result" },
+}));
+```
+
+A successful cancellation emits terminal `canceled` for the target and terminal
+`applied` with code `action_canceled` for the cancellation request. A refusal
+emits terminal `rejected` for the cancellation request and leaves the target's
+state unchanged. The cancellation callback uses the same commit and retry
+contract as any other action callback. Retrying the same cancellation request
+does not repeat its native operation.
+
+The target must belong to this scope and module. Refusal codes distinguish
+`cancel_foreign_module`, `cancel_unknown_ticket`, `cancel_already_terminal`,
+`cancel_unknown_domain`, `cancel_unsupported`, `cancel_application_started`,
+and `cancel_owner_refused`. A retained terminal target cannot be canceled.
+After its history expires, it can report `cancel_unknown_ticket`.
+
+Each installed action domain declares one native cancellation policy:
+
+| Domain | Policy |
+| --- | --- |
+| `authored.command` | Each queued consumer checks the pending ticket before mutation. Cancellation stops submitted or admitted work. |
+| `projectiles.spawn` | The native handler removes queued emissions. It refuses once the queue no longer owns the work. |
+| `world.create_actors`, `world.create_breakables` | Unsupported. Construction finishes in one native call. |
+| `inventory.exchange`, `world.consume_contact`, `combat.body_query` | Unsupported. These operations finish in one native call. |
+| `actions.cancel` | Unsupported. Cancellation finishes in one native call. |
+
+An unregistered domain refuses cancellation. It cannot inherit mailbox-only
+success. A new queued command must retain its reply and check its pending
+ticket immediately before every mutation. A domain that cannot guarantee that
+must use a native suppression handler or declare cancellation unsupported.
+Cancellation does not reverse changes that already committed.
 
 ## Delivery and lifetime
 
@@ -136,7 +211,7 @@ diagnostic. Its `receipt_sequence`, scope, and entry identify the failed row.
 Local paths in an error do not become rollback state.
 
 A scope retains 64 result rows and admits at most 32 pending actions. The
-`action_history` observation contains the retained rows, their sequence numbers,
+`action_history` observation contains result and submission-refusal rows, their sequence numbers,
 and a count of dropped rows. New rows first replace an acknowledged or retired
 row. If neither exists, they replace the oldest row and increase the dropped
 count. Scripts that need recovery can inspect that count

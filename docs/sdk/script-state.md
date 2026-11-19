@@ -140,3 +140,6 @@ modules on controlled and autonomous bodies. It uses native inventory and
 projectile outcomes, GGRS replay, live schema edits and incompatible edit
 refusal. Host tests check durable save adoption after nested schema edits.
 Arbitrary maps, enums and general object composition remain separate SDK work.
+
+SDK API 0.3 adds required reply-entry declarations. Module descriptors carry
+these paths through the portable ABI. See [action results](action-results.md#validate-reply-wiring).

@@ -70,6 +70,7 @@ pub fn module() -> ModuleDescriptor {
     let key = ModuleKey::new(crate::PROVIDER, "portal");
     let open_path = format!("{key}/{PORTAL_PAIR}");
     let entry = |name: &'static str, trigger, selector: &'static str, reads, after, run| EntryDescriptor {
+        replies: Vec::new(),
         key: name.into(),
         phase: TECHNIQUE_EXECUTION,
         trigger: TriggerBinding { port: trigger, selector: selector.into() },

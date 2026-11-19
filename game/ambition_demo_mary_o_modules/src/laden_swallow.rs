@@ -53,6 +53,7 @@ pub fn module() -> ModuleDescriptor {
         },
         schemas: Vec::new(),
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "think".into(),
             phase: ACTOR_THINK,
             trigger: TriggerBinding {

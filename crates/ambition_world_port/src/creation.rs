@@ -80,6 +80,9 @@ impl Port for CreateActorsPort {
     const KEY: PortKey = PortKey::new("ambition.world.create_actors", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = CreateActors;
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(value, "world.create_actors", &value.reply))
+    }
     fn encode(value: &Self::Value, out: &mut Vec<u8>) { ambition_extension_sdk::structure::put(value, out); }
     fn decode(reader: &mut WireReader<'_>) -> Result<Self::Value, WireError> { ambition_extension_sdk::structure::read(reader) }
 }

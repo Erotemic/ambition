@@ -56,6 +56,7 @@ pub fn module() -> ModuleDescriptor {
     let key = ModuleKey::new(crate::PROVIDER, "homing");
     let tick_path = format!("{key}/{TICK}");
     let entry = |name: &'static str, port, selector: &'static str, after: Vec<String>, run| EntryDescriptor {
+        replies: Vec::new(),
         key: name.into(),
         phase: TECHNIQUE_EXECUTION,
         trigger: TriggerBinding { port, selector: selector.into() },

@@ -83,6 +83,7 @@ fn app() -> App {
         code: CodeIdentity::StaticNative { build: None, crate_name: "test".into(), version: "0".into() },
         schemas: vec![],
         entries: vec![EntryDescriptor {
+            replies: Vec::new(),
             key: "blast".into(),
             phase: TECHNIQUE_EXECUTION,
             trigger: TriggerBinding { port: FighterSpecialPort::KEY, selector: BLAST.into() },

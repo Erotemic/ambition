@@ -11,6 +11,26 @@ pub struct ReplyTo {
     pub selector: String,
 }
 
+/// Native action admission data from the request's owning port.
+pub struct ActionSubmission<'a> {
+    pub domain: &'a str,
+    pub reply: &'a ReplyTo,
+    value: &'a (dyn std::any::Any + Send + Sync),
+    fingerprint: fn(&(dyn std::any::Any + Send + Sync)) -> u64,
+}
+impl<'a> ActionSubmission<'a> {
+    pub fn encoded<P: Port>(value: &'a P::Value, domain: &'a str, reply: &'a ReplyTo) -> Self {
+        fn fingerprint<P: Port>(value: &(dyn std::any::Any + Send + Sync)) -> u64 {
+            let mut bytes = Vec::new();
+            P::encode(value.downcast_ref::<P::Value>().expect("the port's value type is unique"), &mut bytes);
+            crate::digest::digest_bytes(&bytes)
+        }
+        Self {domain, reply, value, fingerprint: fingerprint::<P>}
+    }
+    /// Hash only when the native owner reserves or refuses the request.
+    pub fn signature(&self) -> u64 { (self.fingerprint)(self.value) }
+}
+
 /// A request is scoped to its recipient, submitting entry, and native domain.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ActionTicket {
@@ -72,12 +92,30 @@ crate::port_choices! {
     }
 }
 
+/// A refused submission has no reserved ticket and cannot authorize work.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActionSubmissionRefusal {
+    pub sequence: u64,
+    pub entry: String,
+    pub domain: String,
+    pub request: u32,
+    pub handler: String,
+    pub signature: u64,
+    pub tick: u64,
+    pub code: String,
+}
+crate::port_record! {
+    ActionSubmissionRefusal { sequence: u64, entry: String, domain: String, request: u32,
+        handler: String, signature: u64, tick: u64, code: String }
+}
+
 /// Bounded retained history. `dropped` makes a delivery gap explicit.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActionResults {
     pub next_sequence: u64,
     pub dropped: u64,
     pub entries: Vec<ActionJournalEntry>,
+    pub refusals: Vec<ActionSubmissionRefusal>,
 }
 
 crate::port_record! {
@@ -135,8 +173,17 @@ crate::port_record! {
         next_sequence: u64,
         dropped: u64,
         entries: Vec<ActionJournalEntry>,
+        refusals: Vec<ActionSubmissionRefusal>,
     }
 }
+
+/// Cancellation is a separate correlated action. Its refusal leaves the target unchanged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CancelAction {
+    pub ticket: ActionTicket,
+    pub reply: ReplyTo,
+}
+crate::port_record! { CancelAction { ticket: ActionTicket, reply: ReplyTo } }
 
 pub struct CancelActionPort;
 pub struct ActionResultPort;
@@ -154,7 +201,7 @@ impl Port for ActionResultPort {
     }
 }
 impl Port for ActionResultsPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.history", 2);
+    const KEY: PortKey = PortKey::new("ambition.actions.history", 3);
     const ROLE: PortRole = PortRole::Observation;
     type Value = ActionResults;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
@@ -167,12 +214,15 @@ impl Port for ActionResultsPort {
 crate::script_port!(ActionResultPort);
 crate::script_port!(ActionResultsPort);
 
-/// Cancel pending work in the caller's scope and module. Applied terminal
-/// work cannot be canceled. The domain checks the ticket before each change.
+/// Ask the native owner to cancel work in this scope and module. The request
+/// has its own result. A refusal does not change the target action.
 impl Port for CancelActionPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.cancel", 1);
+    const KEY: PortKey = PortKey::new("ambition.actions.cancel", 2);
     const ROLE: PortRole = PortRole::Request;
-    type Value = ActionTicket;
+    type Value = CancelAction;
+    fn action(value: &Self::Value) -> Option<crate::action::ActionSubmission<'_>> {
+        Some(crate::action::ActionSubmission::encoded::<Self>(value, "actions.cancel", &value.reply))
+    }
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
         crate::structure::put(value, out);
     }

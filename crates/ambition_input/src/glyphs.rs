@@ -210,6 +210,22 @@ mod tests {
         ActionBindings::from_map(&preset.input_map())
     }
 
+    /// A control's picture is named by the renderer's rule (`input_glyphs`):
+    /// the pad family and Bevy's own button word, or the key's label.
+    #[test]
+    fn a_control_names_its_published_picture_by_the_renderers_rule() {
+        use crate::GamepadStyle as S;
+        let path = |control: PhysicalControl, style| control.glyph_path(style).unwrap();
+        assert_eq!(path(PhysicalControl::Button(GamepadButton::South), S::XboxLike), "sprites/input_glyphs/input_glyph_xbox_south.png");
+        assert_eq!(path(PhysicalControl::Button(GamepadButton::South), S::PlayStation), "sprites/input_glyphs/input_glyph_playstation_south.png");
+        assert_eq!(path(PhysicalControl::Button(GamepadButton::DPadUp), S::Switch), "sprites/input_glyphs/input_glyph_switch_d_pad_up.png");
+        assert_eq!(path(PhysicalControl::Button(GamepadButton::LeftTrigger2), S::Generic), "sprites/input_glyphs/input_glyph_generic_left_trigger2.png");
+        for (key, name) in [(KeyCode::KeyF, "f"), (KeyCode::Escape, "esc"), (KeyCode::ShiftRight, "shift"), (KeyCode::BracketLeft, "bracketleft"), (KeyCode::Digit3, "digit3")] {
+            assert_eq!(path(PhysicalControl::Key(key), S::PlayStation), format!("sprites/input_glyphs/input_glyph_key_{name}.png"));
+        }
+        assert_eq!(PhysicalControl::Other("Chord".into()).glyph_path(S::XboxLike), None);
+    }
+
     #[test]
     fn keyboard_glyph_follows_active_preset() {
         let arrows_zxc = KeyboardPreset::arrows_zxc();
@@ -344,6 +360,53 @@ impl PhysicalControl {
         }
     }
 
+    /// The published picture of this control on a pad of `style` (keys and
+    /// the mouse draw their own): the file the renderer's `input_glyphs`
+    /// target names by rule from the game's own vocabulary (its docstring),
+    /// under [`GLYPH_FOLDER`]. `None` for a control that rule cannot name.
+    ///
+    /// A name is not a promise that the file was drawn (an `F13` key has none):
+    /// the caller asks its asset catalog before loading, and draws
+    /// [`Self::label_for`] when the picture is not there.
+    pub fn glyph_path(&self, style: crate::GamepadStyle) -> Option<String> {
+        let name = match self {
+            Self::Key(key) => format!("key_{}", key_label(*key).to_lowercase()),
+            Self::Button(button) => format!("{}_{}", style_word(style), snake_case(&format!("{button:?}"))),
+            Self::Other(_) => return None,
+        };
+        Some(format!("{GLYPH_FOLDER}/input_glyph_{name}.png"))
+    }
+
+}
+
+/// Where the renderer's `input_glyphs` target publishes its pictures.
+pub const GLYPH_FOLDER: &str = "sprites/input_glyphs";
+
+/// The word a glyph file names a pad family by.
+fn style_word(style: crate::GamepadStyle) -> &'static str {
+    match style {
+        crate::GamepadStyle::XboxLike => "xbox",
+        crate::GamepadStyle::PlayStation => "playstation",
+        crate::GamepadStyle::Switch => "switch",
+        crate::GamepadStyle::Generic => "generic",
+    }
+}
+
+/// `DPadUp` -> `d_pad_up`, `LeftTrigger2` -> `left_trigger2` (the `heck`
+/// rule the renderer names its files by).
+fn snake_case(name: &str) -> String {
+    let mut out = String::with_capacity(name.len() + 4);
+    for (i, c) in name.chars().enumerate() {
+        if c.is_ascii_uppercase() {
+            if i > 0 {
+                out.push('_');
+            }
+            out.push(c.to_ascii_lowercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 impl ActionBindings {
@@ -384,6 +447,18 @@ impl ActionBindings {
         self.label_preferring(&A::MenuSelect, &[A::Interact, A::Jump], &[], device)
     }
 
+    /// The control [`Self::confirm_label`] names, for its picture.
+    pub fn confirm_control(&self, device: crate::ActiveDevice) -> Option<&PhysicalControl> {
+        use Platformer2dInputActionMonolith as A;
+        self.control_preferring(&A::MenuSelect, &[A::Interact, A::Jump], &[], device)
+    }
+
+    /// The control [`Self::back_label`] names, for its picture.
+    pub fn back_control(&self, device: crate::ActiveDevice) -> Option<&PhysicalControl> {
+        use Platformer2dInputActionMonolith as A;
+        self.control_preferring(&A::MenuBack, &[], &[A::Start], device)
+    }
+
     /// The control a prompt names for back (`MenuBack`) on this device: one
     /// that is not also Start, because Start opens the pause menu over the
     /// dialogue (Esc is both on a keyboard).
@@ -402,6 +477,21 @@ impl ActionBindings {
         avoid: &[Platformer2dInputActionMonolith],
         device: crate::ActiveDevice,
     ) -> Option<String> {
+        self.control_preferring(action, prefer, avoid, device)
+            .map(|control| control.label_for(device.gamepad_style()))
+            .or_else(|| self.label_for(action, device))
+    }
+
+    /// The control [`Self::label_preferring`] names, when one of the device's
+    /// class is bound (no fallback to the other class: a picture of a key is
+    /// wrong in a pad's hands, where a label can still fall back).
+    fn control_preferring(
+        &self,
+        action: &Platformer2dInputActionMonolith,
+        prefer: &[Platformer2dInputActionMonolith],
+        avoid: &[Platformer2dInputActionMonolith],
+        device: crate::ActiveDevice,
+    ) -> Option<&PhysicalControl> {
         let want_key = device.draws_keyboard_glyphs();
         let of_class: Vec<&PhysicalControl> = self
             .controls(action)
@@ -414,8 +504,7 @@ impl ActionBindings {
             .find_map(|other| of_class.iter().find(|control| bound_to(other, control)))
             .or_else(|| of_class.iter().find(|control| !avoid.iter().any(|other| bound_to(other, control))))
             .or_else(|| of_class.first())
-            .map(|control| control.label_for(device.gamepad_style()))
-            .or_else(|| self.label_for(action, device))
+            .copied()
     }
 
 }

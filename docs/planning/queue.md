@@ -1815,7 +1815,19 @@ waits behind higher-value queue items, so the rest of this row is deferred.
 
 **Art done 2026-11-18** (renderer target `input_glyphs`, published under `sprites/input_glyphs/`): gamepad glyphs for each `GamepadStyle` (xbox, playstation, switch, generic), keycaps named by `key_label`, mouse glyphs, and xbox/playstation/switch/generic pad, keyboard and mouse pictures, each with a `_layout.ron` that places every control (Bevy `GamepadButton`/`KeyCode`/`MouseButton` names) in the full-size picture. The naming rule (style, control) → file is in the target's docstring; ⚠ Bevy's `LeftTrigger` is the bumper and `LeftTrigger2` the trigger.
 
-**Next action:** `ambition_input::glyphs` returns text today. Give the control prompt (`ambition_sim_view::control_prompt`) the glyph image for the seat's device, with the text as fallback, and add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
+**Done 2026-11-19, the dialogue box:** its input hint draws the answering
+seat's button pictures. `PhysicalControl::glyph_path` names a control's file
+by the renderer's rule (pad family and Bevy's button word, or the key's
+label); `DialogControls` carries the confirm and back controls' paths beside
+their labels; the box splits its hint line at each control and draws the
+picture when the asset catalog has the file (`try_image_path_for_load`), the
+name when it has not (an `F13`, a headless app). A rebind moves the picture,
+as it moves the label. Witness: `capture_scene math_hotel_ballroom player
+OUT 1280x720 --warmup 200 --player-beside npc_math_monty --interact-at 90
+--include-ui` shows the F and Backspace keycaps (a long key keeps its wide
+cap); at 640x360 the hint wraps to two lines.
+
+**Next action:** give the control prompt (`ambition_sim_view::control_prompt`) the glyph image for the seat's device, with the text as fallback, and add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
 
 **Acceptance:** a prompt shows the pressed button's glyph for keyboard, an Xbox-like and a PlayStation-like pad; a rebind moves the glyph; the layout page names every bound action on its control.
 

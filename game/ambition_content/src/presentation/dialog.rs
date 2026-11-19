@@ -138,6 +138,14 @@ pub struct AmbitionDialogPortraitImage;
 #[derive(Component)]
 pub struct AmbitionDialogContinueHint;
 
+/// A control's published picture in the input hint, drawn where the hint
+/// names that control (the seat's own button, `DialogControls::confirm_glyph`).
+#[derive(Component, Debug)]
+pub struct AmbitionDialogHintGlyph {
+    /// The picture's published path.
+    pub path: String,
+}
+
 #[derive(Component)]
 struct AmbitionDialogBody;
 
@@ -412,7 +420,12 @@ fn sync_ambition_dialog_ui(
     // is optional.
     declared_characters: ambition_platformer2d::characters::prepared::SessionCast,
     mut portrait_playback: ResMut<AmbitionDialogPortraitPlayback>,
-    asset_server: Option<Res<AssetServer>>,
+    // The loader, and which button pictures are published here: a hint draws
+    // a control's picture only when its file is there, and its name otherwise.
+    (asset_server, asset_catalog): (
+        Option<Res<AssetServer>>,
+        Option<Res<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
+    ),
     // Which portrait product to load (Q84): the tier the sprite budget loads.
     quality: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
     // Where the choice window is scrolled to, remembered across rebuilds.
@@ -666,7 +679,24 @@ fn sync_ambition_dialog_ui(
                     );
                 }
 
-                let hint = input_hint(&dialogue, &text);
+                let pieces = input_hint_pieces(&dialogue, &text);
+                // Each control the seat presses, as its picture when one is
+                // published here.
+                let glyphs: Vec<Option<(Handle<Image>, String)>> = pieces
+                    .iter()
+                    .map(|piece| match piece {
+                        HintPiece::Control { glyph: Some(path), .. } => asset_catalog
+                            .as_deref()
+                            .and_then(|catalog| catalog.try_image_path_for_load(path))
+                            .zip(asset_server.as_deref())
+                            .map(|(load, server)| {
+                                let image = ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content), server, "input glyph", load);
+                                (image, path.clone())
+                            }),
+                        _ => None,
+                    })
+                    .collect();
+                let hint = hint_words(&pieces);
                 panel
                     .spawn((
                         Node {
@@ -675,12 +705,43 @@ fn sync_ambition_dialog_ui(
                             flex_shrink: 0.0,
                             justify_content: JustifyContent::FlexEnd,
                             align_items: AlignItems::Center,
+                            flex_wrap: FlexWrap::Wrap,
                             ..default()
                         },
                         AmbitionDialogFooter,
                         Name::new("Dialogue Input Hint"),
                     ))
                     .with_children(|footer| {
+                        if glyphs.iter().any(Option::is_some) {
+                            // Words and pictures in a row: a text node cannot
+                            // hold an image.
+                            // A height only: a long key's cap is wider (Esc,
+                            // Space), and the picture keeps its own shape.
+                            let glyph_height = Val::Px((profile.hint_font_size * 1.6).round());
+                            for (piece, glyph) in pieces.iter().zip(glyphs) {
+                                match (piece, glyph) {
+                                    (_, Some((image, path))) => {
+                                        footer.spawn((
+                                            ImageNode::new(image),
+                                            Node { height: glyph_height, margin: UiRect::horizontal(Val::Px(2.0)), flex_shrink: 0.0, ..default() },
+                                            AmbitionDialogHintGlyph { path },
+                                        ));
+                                    }
+                                    (piece, None) => {
+                                        let words = piece.words();
+                                        if !words.is_empty() {
+                                            footer.spawn((
+                                                Text::new(words),
+                                                dialog_font(profile.hint_font_size, UiFontWeight::Regular),
+                                                TextColor(rgb(look.hint_ink)),
+                                                TextLayout::new(Justify::Right, LineBreak::NoWrap),
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                            return;
+                        }
                         footer.spawn((
                             Text::new(hint),
                             dialog_font(profile.hint_font_size, UiFontWeight::Regular),
@@ -700,17 +761,51 @@ fn sync_ambition_dialog_ui(
         });
 }
 
-/// The box's input hint, naming the answering seat's own controls.
-fn input_hint(dialogue: &DialogView, text: &ShownText) -> String {
-    let named = |control: &str, action: &str| {
+/// A piece of the box's input hint: words, or a control the seat presses.
+#[derive(Clone, Debug, PartialEq)]
+enum HintPiece {
+    Words(String),
+    /// The control's name (or the action's, when the seat names none) and
+    /// its published picture's path.
+    Control { label: String, glyph: Option<String> },
+}
+
+impl HintPiece {
+    fn words(&self) -> &str {
+        match self {
+            Self::Words(words) => words,
+            Self::Control { label, .. } => label,
+        }
+    }
+}
+
+/// The hint as words alone.
+fn hint_words(pieces: &[HintPiece]) -> String {
+    pieces.iter().map(HintPiece::words).collect()
+}
+
+/// Marks a control's place in the filled hint text (a private-use character
+/// no authored line contains).
+const CONTROL_MARK: char = '\u{E000}';
+
+/// The box's input hint, naming the answering seat's own controls: the hint
+/// line of `ambition_text.ron` with each control a piece of its own, so the
+/// box can draw its picture in its place.
+fn input_hint_pieces(dialogue: &DialogView, text: &ShownText) -> Vec<HintPiece> {
+    let controls = &dialogue.controls;
+    let named = |control: &str, glyph: &Option<String>, action: &str| {
         if control.is_empty() {
-            text.line(action).to_owned()
+            HintPiece::Control { label: text.line(action).to_owned(), glyph: None }
         } else {
-            control.to_owned()
+            HintPiece::Control { label: control.to_owned(), glyph: glyph.clone() }
         }
     };
-    let confirm = named(&dialogue.controls.confirm, "dialog.confirm");
-    let back = named(&dialogue.controls.back, "dialog.back");
+    let controls_named = [
+        named(&controls.confirm, &controls.confirm_glyph, "dialog.confirm"),
+        named(&controls.back, &controls.back_glyph, "dialog.back"),
+    ];
+    let mark = |index: usize| format!("{CONTROL_MARK}{index}{CONTROL_MARK}");
+    let (confirm, back) = (mark(0), mark(1));
     let key = if dialogue.controls.hold_to_skip {
         "dialog.cutscene_hint"
     } else {
@@ -724,7 +819,17 @@ fn input_hint(dialogue: &DialogView, text: &ShownText) -> String {
         }
     };
     let close = if dialogue.can_close { text.fill("dialog.close_action", &[hole("back", &back)]) } else { String::new() };
-    text.fill(key, &[hole("confirm", &confirm), hole("back", &back), hole("close", &close)])
+    let filled = text.fill(key, &[hole("confirm", &confirm), hole("back", &back), hole("close", &close)]);
+    // Split on the marks: every second part is a control's index.
+    filled
+        .split(CONTROL_MARK)
+        .enumerate()
+        .filter(|(_, part)| !part.is_empty())
+        .map(|(i, part)| match (i % 2, part.parse::<usize>().ok().and_then(|n| controls_named.get(n))) {
+            (1, Some(control)) => control.clone(),
+            _ => HintPiece::Words(part.to_owned()),
+        })
+        .collect()
 }
 
 fn advance_ambition_dialog_portrait(
@@ -1123,6 +1228,35 @@ mod tests {
             body: "The engine should expose facts, not dictate presentation.".to_string(),
             ..default()
         }
+    }
+
+    /// Each control the hint names is a piece of its own carrying its
+    /// picture, and the pieces read as the words the box says without them.
+    #[test]
+    fn the_hint_names_each_control_as_a_piece_with_its_picture() {
+        let text = lowered_ambition_text(crate::pack::shipped()).unwrap();
+        let mut view = active_view();
+        view.controls = ambition_sim_view::DialogControls {
+            confirm: "A".into(),
+            back: "B".into(),
+            confirm_glyph: Some("sprites/input_glyphs/input_glyph_xbox_south.png".into()),
+            back_glyph: Some("sprites/input_glyphs/input_glyph_xbox_east.png".into()),
+            hold_to_skip: false,
+        };
+        let pieces = input_hint_pieces(&view, &text);
+        let controls: Vec<_> = pieces.iter().filter_map(|piece| match piece {
+            HintPiece::Control { label, glyph } => Some((label.as_str(), glyph.as_deref())),
+            HintPiece::Words(_) => None,
+        }).collect();
+        assert_eq!(controls, [
+            ("A", Some("sprites/input_glyphs/input_glyph_xbox_south.png")),
+            ("B", Some("sprites/input_glyphs/input_glyph_xbox_east.png")),
+        ]);
+        let words = text.fill(
+            "dialog.continue_hint",
+            &[hole("confirm", &"A"), hole("close", &text.fill("dialog.close_action", &[hole("back", &"B")]))],
+        );
+        assert_eq!(hint_words(&pieces), words);
     }
 
     #[test]

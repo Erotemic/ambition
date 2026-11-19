@@ -44,17 +44,32 @@ impl RoomWrite {
     }
 }
 
-/// The host can rewind live rooms independently. A room location then defines
-/// a separate rollback authority for speculative delivery.
-#[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct RewindsGuestRooms;
+/// The host declares whether its live rooms can rewind independently. The
+/// predicate reads host mode, not the confirmation state of one current frame.
+#[derive(Resource, Clone, Copy)]
+pub struct SimulationIslands(pub fn(&World) -> bool);
+
+/// One native rollback authority. Allocation rooms do not define membership.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SimulationIsland {
+    Session(super::SessionScopeId),
+    Room(super::SessionScopeId, LiveRoomInstance),
+}
+
+pub fn simulation_island(world: &World, entity: Entity) -> Option<SimulationIsland> {
+    let session = world.get::<super::SessionScopedEntity>(entity)?.0;
+    if world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world)) {
+        if let Some(room) = super::object_scope_room(world, entity) {
+            return Some(SimulationIsland::Room(session, room));
+        }
+    }
+    Some(SimulationIsland::Session(session))
+}
 
 /// Direct delivery requires one rollback authority and one session.
 pub fn shares_simulation_island(world: &World, source: Entity, receiver: Entity) -> bool {
-    let Some(session) = world.get::<super::SessionScopedEntity>(source).map(|scope| scope.0) else { return false; };
-    if world.get::<super::SessionScopedEntity>(receiver).map(|scope| scope.0) != Some(session) { return false; }
-    !world.contains_resource::<RewindsGuestRooms>()
-        || super::object_scope_room(world, source) == super::object_scope_room(world, receiver)
+    simulation_island(world, source).zip(simulation_island(world, receiver))
+        .is_some_and(|(source, receiver)| source == receiver)
 }
 
 type Retractor = fn(&mut World, LiveRoomInstance, u64);

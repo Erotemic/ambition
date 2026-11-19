@@ -269,17 +269,17 @@ mod tests {
             receiver
         }).collect();
         let baseline = encode_state(world.get::<EventMailbox>(receivers[0]).unwrap());
-        world.insert_resource(RewindsGuestRooms);
+        world.insert_resource(SimulationIslands(|_| true));
         assert_eq!(publish_native::<ObjectBornPort>(&mut world, source, &ObjectBorn {object: source}),
             NativePublication {queued: 1, cross_island: 1, ..Default::default()});
         assert!(world.get::<EventMailbox>(receivers[1]).unwrap().rows.is_empty());
         assert_eq!(publish_native::<ObjectBornPort>(&mut world, others[1], &ObjectBorn {object: others[1]}), NativePublication::default());
-        world.remove_resource::<RewindsGuestRooms>();
+        world.remove_resource::<SimulationIslands>();
         let report = publish_native::<ObjectBornPort>(&mut world, source, &ObjectBorn {object: source});
         assert_eq!((report.queued, report.overflow), (1, 1));
         assert_eq!(world.get::<EventMailbox>(receivers[0]).unwrap().dropped, 1);
         world.entity_mut(receivers[0]).insert(decode_state::<EventMailbox>(&baseline).unwrap());
-        world.insert_resource(RewindsGuestRooms);
+        world.insert_resource(SimulationIslands(|_| true));
         world.entity_mut(bodies[1]).insert(InRoomInstance(rooms[0]));
         let report = publish_native::<ObjectBornPort>(&mut world, source, &ObjectBorn {object: source});
         assert_eq!((report.queued, report.overflow, report.cross_island), (1, 1, 0));

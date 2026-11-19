@@ -108,8 +108,8 @@ Native publishers use a typed source registered by the engine; a script cannot
 publish `object_born` or register an arbitrary native fact type.
 
 Whole-app GGRS permits direct routing between its rooms because they share one
-rollback authority. A host with independent room rollback refuses direct native
-fact fanout to a different island and reports the limitation to its native
+rollback authority. A host declares its island policy, including independent host
+room replay and guest room prediction. The native source refuses direct fact fanout to a different island and reports the limitation to its native
 publisher. It does not write a foreign mailbox. Confirmed transport, live
 subscription replacement and additional native source families remain open.
 

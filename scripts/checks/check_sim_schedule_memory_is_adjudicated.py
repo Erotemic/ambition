@@ -168,6 +168,20 @@ def bundle_local_fields(repo: Path = REPO) -> dict[str, dict[str, str]]:
 #: MECHANISM that makes remembering harmless here, so the next reader can check
 #: that it still holds rather than trusting the row.
 ADJUDICATED: dict[str, str] = {
+    "deliver": (
+        "A CACHED QUERY. `reads: Local<Option<DeliveryReads>>` is a `SystemState` of "
+        "the room pace and the delivery policy readers, built once on the first run "
+        "and read through `.get(world)` each run; it holds no value of the timeline "
+        "(`crates/ambition_platformer2d_runtime/src/behavior_inbox.rs`, read 2026-11-19)"
+    ),
+    "validate_loaded_module_records": (
+        "NOTHING DOWNSTREAM. `checked` is the last (admitted digest, save change "
+        "tick) pair it validated, so an unchanged pair is not validated again; the "
+        "system writes nothing and its only act is the panic on a refused save. A "
+        "rewind cannot make a refused save valid, and a replayed tick that finds the "
+        "same pair skips a check that already passed (`crates/ambition_platformer2d_"
+        "runtime/src/module_save_road.rs`, read 2026-11-19)"
+    ),
     # ── NEVER WRITTEN: a sixth mechanism, and the strongest one ─────────────
     "tick_actor_brains": (
         "NEVER WRITTEN, which is a stronger reason than any of the five below "
@@ -374,8 +388,12 @@ def _remembering_systems(repo: Path) -> dict[str, tuple[str, list[str]]]:
                 continue
             params = sim._params(text, match.end())
             binds = _LOCAL.findall(params)
-            # ⇒ And the same question asked of every bundle the signature holds.
+            # ⇒ And the same question asked of every bundle the signature holds,
+            # except the readers whose `Local` is a message cursor
+            # (`CURSOR_BUNDLES`): those are counted with `MessageReader`.
             for bundle, fields in bundles.items():
+                if bundle in CURSOR_BUNDLES:
+                    continue
                 if re.search(rf":\s*(?:[A-Za-z_][A-Za-z_0-9]*::)*{re.escape(bundle)}\b", params):
                     binds.extend(f"{bundle}.{path}" for path in fields)
             if binds:
@@ -385,7 +403,18 @@ def _remembering_systems(repo: Path) -> dict[str, tuple[str, list[str]]]:
 
 #: `MessageReader<T>` — a `Local<MessageCursor<T>>` that does not say `Local`.
 #: See the blind-spot block in this module's docstring.
-_MESSAGE_READER = re.compile(r"\bMessageReader\s*<")
+_MESSAGE_READER = re.compile(r"\b(?:Replay)?MessageReader\s*<")
+
+#: Readers whose `Local` is a message cursor and nothing else. Their memory is
+#: the cursor's, so they are counted with `MessageReader` and adjudicated by the
+#: same rule (Q136's ingress census reads them as readers).
+CURSOR_BUNDLES: dict[str, str] = {
+    "ReplayMessageReader": (
+        "`ambition_platformer2d_core::replay_messages`: `cursors` is a live and a "
+        "room-replay `MessageCursor` over one message type; `check_host_produced_"
+        "sim_consumed_requests.py` reads it as a `MessageReader` (read 2026-11-19)"
+    ),
+}
 #: A `MessageReader` FIELD of a `#[derive(SystemParam)]` bundle, with its message
 #: type. Same shape as `_LOCAL_FIELD` and for the same reason — a bundle field
 #: cannot elide its lifetimes, so the parameter spelling and the field spelling

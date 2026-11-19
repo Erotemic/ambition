@@ -141,8 +141,11 @@ Keep the full capability program open while these contracts lack evidence:
   handle competition and refusal. Prove room duplication, travel, retirement,
   replay and live edits through the real host, with portable parity and costs.
 
-Typed references and subject payloads are implemented. Directed calls, behavior
-attachment, general discovery and event subscriptions are not complete.
+Typed references, subject payloads and private behavior bindings are implemented.
+Directed calls have a loaded replay witness. Creation-time composition, general
+discovery, native event subscriptions, typed return data and room-island
+snapshot ownership remain open. See
+[object behaviors](../../sdk/object-behaviors.md).
 
 The remaining contracts need more than aliases: general world-object
 activation and composition, actor lifetime, equipment/custody outcomes,

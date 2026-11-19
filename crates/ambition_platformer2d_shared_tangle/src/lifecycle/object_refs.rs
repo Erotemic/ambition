@@ -22,6 +22,33 @@ fn resolve<'a>(session: SessionScopeId, reference: ObjectRef,
     Ok(entity)
 }
 
+/// A native read-cut index. Capture it again after births or retirement.
+pub struct ObjectIndex(std::collections::BTreeMap<ObjectRef, Option<Entity>>);
+impl ObjectIndex {
+    fn from_objects<'a>(objects: impl Iterator<Item = (Entity, &'a SessionScopedEntity, &'a ObjectOccurrence)>) -> Self {
+        let mut index = std::collections::BTreeMap::new();
+        for (entity, owner, occurrence) in objects {
+            index.entry(address(owner, occurrence)).and_modify(|found| *found = None).or_insert(Some(entity));
+        }
+        Self(index)
+    }
+    pub fn capture(world: &World) -> Self {
+        match world.try_query::<(Entity, &SessionScopedEntity, &ObjectOccurrence)>() {
+            Some(mut objects) => Self::from_objects(objects.iter(world)),
+            None => Self(std::collections::BTreeMap::new()),
+        }
+    }
+    pub fn resolve(&self, session: SessionScopeId, reference: ObjectRef) -> Result<Entity, ObjectLookupError> {
+        if !reference.is_bound() { return Err(ObjectLookupError::Unbound); }
+        if reference.session != session.0 { return Err(ObjectLookupError::ForeignSession); }
+        match self.0.get(&reference) {
+            Some(Some(entity)) => Ok(*entity),
+            Some(None) => Err(ObjectLookupError::Ambiguous),
+            None => Err(ObjectLookupError::Retired),
+        }
+    }
+}
+
 /// Object facets do not change the resolution population. A missing mailbox,
 /// body, or interaction capability is a separate domain refusal.
 #[derive(SystemParam)]
@@ -30,6 +57,7 @@ pub struct LiveObjects<'w, 's> {
 }
 
 impl LiveObjects<'_, '_> {
+    pub fn index(&self) -> ObjectIndex { ObjectIndex::from_objects(self.objects.iter()) }
     pub fn reference(&self, entity: Entity) -> Option<ObjectRef> {
         let (_, session, occurrence) = self.objects.get(entity).ok()?;
         Some(address(session, occurrence))
@@ -76,6 +104,7 @@ mod tests {
         assert_ne!(reference, object_reference(&world, b).unwrap());
         world.entity_mut(a).insert(InRoomInstance(rooms[1]));
         assert_eq!(resolve_object(&world, session, reference), Ok(a));
+        assert_eq!(ObjectIndex::capture(&world).resolve(session, reference), Ok(a));
         let mut state = SystemState::<LiveObjects>::new(&mut world);
         assert_eq!(state.get(&world).unwrap().resolve(session, reference), Ok(a));
         assert_eq!(resolve_object(&world, SessionScopeId(8), reference), Err(ObjectLookupError::ForeignSession));
@@ -86,6 +115,7 @@ mod tests {
         assert_eq!(resolve_object(&world, session, reference), Ok(rebuilt));
         let duplicate = world.spawn((SessionScopedEntity(session), stamp)).id();
         assert_eq!(resolve_object(&world, session, reference), Err(ObjectLookupError::Ambiguous));
+        assert_eq!(ObjectIndex::capture(&world).resolve(session, reference), Err(ObjectLookupError::Ambiguous));
         assert_eq!(state.get(&world).unwrap().resolve(session, reference), Err(ObjectLookupError::Ambiguous));
         world.despawn(duplicate);
         world.despawn(rebuilt);

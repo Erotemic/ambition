@@ -31,6 +31,8 @@ impl Default for ActionDeliveryPolicy {
 }
 pub const ACTION_DELIVERY_RULES_SCHEMA: &str = "action_delivery_rules";
 
+mod delivery;
+pub use delivery::DeliveryProgress;
 mod cancellation;
 pub use cancellation::*;
 
@@ -56,10 +58,7 @@ struct JournalRow {
     result: ActionResult,
     selector: String,
     signature: u64,
-    delivery: ActionDelivery,
-    attempts: u32,
-    last_attempt: Option<u64>,
-    last_error: Option<String>,
+    progress: DeliveryProgress,
 }
 
 /// A scope retains bounded history and pending actions. A request number
@@ -377,7 +376,7 @@ impl ActionMailbox {
 
     fn record(&mut self, result: ActionResult, selector: String, signature: u64) {
         if self.journal.len() == HISTORY_LIMIT {
-            let remove = self.journal.iter().position(|row| matches!(row.delivery,
+            let remove = self.journal.iter().position(|row| matches!(row.progress.status,
                 ActionDelivery::Acknowledged | ActionDelivery::Retired)).unwrap_or(0);
             self.journal.remove(remove);
             self.dropped = self.dropped.saturating_add(1);
@@ -387,10 +386,7 @@ impl ActionMailbox {
             result,
             selector,
             signature,
-            delivery: ActionDelivery::Waiting,
-            attempts: 0,
-            last_attempt: None,
-            last_error: None,
+            progress: DeliveryProgress::default(),
         });
         self.next_sequence = self.next_sequence.saturating_add(1);
     }
@@ -456,11 +452,11 @@ impl ActionMailbox {
                     && row.signature == signature
                     && row.selector == reply.selector
             }) {
-                if row.delivery == ActionDelivery::Quarantined {
-                    row.delivery = ActionDelivery::Waiting;
-                    row.attempts = 0;
-                    row.last_attempt = None;
-                    row.last_error = None;
+                if row.progress.status == ActionDelivery::Quarantined {
+                    row.progress.status = ActionDelivery::Waiting;
+                    row.progress.attempts = 0;
+                    row.progress.last_attempt = None;
+                    row.progress.last_error = None;
                 }
                 return ActionStart::Existing(row.result.ticket.clone());
             }
@@ -555,55 +551,35 @@ impl ActionMailbox {
     ) -> Vec<(u64, String, ActionResult)> {
         let mut ready = Vec::new();
         for row in &mut self.journal {
-            if matches!(row.delivery, ActionDelivery::Queued | ActionDelivery::Invoked |
-                ActionDelivery::Acknowledged | ActionDelivery::Quarantined | ActionDelivery::Retired) { continue; }
-            if !bound(&row.result.ticket, &row.selector) {
-                row.delivery = ActionDelivery::Unbound;
-                row.last_error = Some("reply_entry_unbound".into());
-                continue;
-            }
-            if row.result.tick >= now || row.last_attempt.is_some_and(|tick| tick >= now) { continue; }
             if ready.len() >= policy.max_per_tick.get() as usize { break; }
-            row.delivery = ActionDelivery::Queued;
+            if !row.progress.queue(now, row.result.tick, bound(&row.result.ticket, &row.selector), "reply_entry_unbound") { continue; }
             ready.push((row.sequence, row.selector.clone(), row.result.clone()));
         }
         ready
     }
 
     pub fn delivery_started(&mut self, sequence: u64, now: u64) {
-        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence
-            && row.delivery == ActionDelivery::Queued) {
-            row.delivery = ActionDelivery::Invoked;
-            row.attempts = row.attempts.saturating_add(1);
-            row.last_attempt = Some(now);
+        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence) {
+            row.progress.started(now);
         }
     }
 
     /// The host calls this only after handler state and requests commit.
     pub fn delivery_committed(&mut self, sequence: u64) {
-        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence
-            && row.delivery == ActionDelivery::Invoked) {
-            row.delivery = ActionDelivery::Acknowledged;
-            row.last_error = None;
+        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence) {
+            row.progress.committed();
         }
     }
 
     pub fn delivery_faulted(&mut self, sequence: u64, policy: ActionDeliveryPolicy) {
-        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence
-            && row.delivery == ActionDelivery::Invoked) {
-            row.delivery = if row.attempts >= policy.max_attempts.get() {
-                ActionDelivery::Quarantined
-            } else { ActionDelivery::Faulted };
-            // VM diagnostics can contain local paths. They stay in ExtensionFaults.
-            row.last_error = Some("handler_fault".into());
+        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence) {
+            row.progress.faulted(policy.max_attempts.get());
         }
     }
 
     pub fn delivery_unavailable(&mut self, sequence: u64) {
-        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence
-            && row.delivery == ActionDelivery::Queued) {
-            row.delivery = ActionDelivery::Unbound;
-            row.last_error = Some("handler_not_invoked".into());
+        if let Some(row) = self.journal.iter_mut().find(|row| row.sequence == sequence) {
+            row.progress.unavailable();
         }
     }
 
@@ -619,10 +595,10 @@ impl ActionMailbox {
                     sequence: row.sequence,
                     result: row.result.clone(),
                     handler: row.selector.clone(),
-                    delivery: row.delivery,
-                    attempts: row.attempts,
-                    last_attempt: row.last_attempt,
-                    last_error: row.last_error.clone(),
+                    delivery: row.progress.status,
+                    attempts: row.progress.attempts,
+                    last_attempt: row.progress.last_attempt,
+                    last_error: row.progress.last_error.clone(),
                 })
                 .collect(),
         }
@@ -644,9 +620,9 @@ impl ActionMailbox {
     pub fn retire_entry(&mut self, entry: &str) {
         self.producers.retain(|p| p.entry != entry);
         for row in &mut self.journal {
-            if row.result.ticket.entry == entry && row.delivery != ActionDelivery::Acknowledged {
-                row.delivery = ActionDelivery::Retired;
-                row.last_error = Some("source_entry_retired".into());
+            if row.result.ticket.entry == entry && row.progress.status != ActionDelivery::Acknowledged {
+                row.progress.status = ActionDelivery::Retired;
+                row.progress.last_error = Some("source_entry_retired".into());
             }
         }
     }
@@ -660,7 +636,7 @@ ambition_extension_sdk::port_record! {
 }
 ambition_extension_sdk::port_record! {
     JournalRow { sequence: u64, result: ActionResult, selector: String, signature: u64,
-        delivery: ActionDelivery, attempts: u32, last_attempt: Option<u64>, last_error: Option<String> }
+        progress: DeliveryProgress }
 }
 ambition_extension_sdk::port_record! {
     ActionMailbox { next_occurrence: u64, next_sequence: u64, dropped: u64, producers: Vec<Producer>, journal: Vec<JournalRow>, refusals: Vec<ActionSubmissionRefusal> }

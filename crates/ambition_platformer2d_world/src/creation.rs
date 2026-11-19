@@ -36,3 +36,25 @@ impl Default for BreakableCreationLimits {
     fn default() -> Self { Self {max_breakables: 32, max_room_breakables: 512, max_label_bytes: 128} }
 }
 pub const BREAKABLE_CREATION_RULES_SCHEMA: &str = "breakable_creation_rules";
+
+/// Bounds for reusable behaviors and their directed calls.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ObjectBehaviorLimits {
+    pub max_bindings_per_object: u32,
+    pub max_bindings_per_session: u32,
+    pub max_methods: u32,
+    pub max_state_records: u32,
+    pub max_state_bytes: u32,
+    pub max_data_bytes: u32,
+    pub max_calls_per_binding: u32,
+    pub max_active_wait_ticks: u32,
+}
+impl Default for ObjectBehaviorLimits {
+    fn default() -> Self {
+        Self {max_bindings_per_object: 16, max_bindings_per_session: 1024, max_methods: 32,
+            max_state_records: 16, max_state_bytes: 16_384, max_data_bytes: 4096,
+            max_calls_per_binding: 32, max_active_wait_ticks: 600}
+    }
+}
+pub const OBJECT_BEHAVIOR_RULES_SCHEMA: &str = "object_behavior_rules";

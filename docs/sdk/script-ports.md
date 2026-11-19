@@ -411,6 +411,56 @@ Port `ambition.actions.cancel@3`, request: `this.requests.push(request("<alias>"
 | `ticket` | { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32) or (), generation: text } | required |  |
 | `reply` | { request: integer (u32), selector: text } | required |  |
 
+## `attach_behaviors`
+
+Port `ambition.objects.attach_behaviors@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `target` | { session: text, allocation_room: integer (u32) or (), sequence: text } | required |  |
+| `bindings` | list of { key: text, methods: list of { name: text, entry: text }, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } | required |  |
+
+## `call_object`
+
+Port `ambition.objects.call@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `target` | { session: text, allocation_room: integer (u32) or (), sequence: text } | required |  |
+| `binding` | text | required |  |
+| `method` | text | required |  |
+| `data` | schema-selected data | `()` |  |
+
+## `object_method`
+
+Port `ambition.objects.method@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `sequence` | text |  |
+| `caller` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `method` | text |  |
+| `data` | schema-selected data |  |
+
+## `complete_object_call`
+
+Port `ambition.objects.complete_call@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `sequence` | text | required |  |
+| `accepted` | bool | `true` |  |
+| `code` | text | required |  |
+
+## `behavior`
+
+Port `ambition.objects.behavior@1`, observation: read as `this.observe.<alias>`.
+
+Value: { object: { session: text, allocation_room: integer (u32) or (), sequence: text }, binding: text, params: schema-selected data } or ()
+
 ## `create_actors`
 
 Port `ambition.world.create_actors@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.

@@ -29,59 +29,8 @@ impl Default for ActionDeliveryPolicy {
 }
 pub const ACTION_DELIVERY_RULES_SCHEMA: &str = "action_delivery_rules";
 
-/// Native owners cancel queued work before the mailbox reports cancellation.
-#[derive(Resource, Default)]
-pub struct ActionCancellationHandlers(
-    std::collections::BTreeMap<String, fn(&mut World, &ActionReply) -> bool>,
-);
-
-pub fn register_action_cancellation(
-    app: &mut App,
-    domain: &str,
-    handler: fn(&mut World, &ActionReply) -> bool,
-) {
-    app.init_resource::<ActionCancellationHandlers>();
-    let mut handlers = app.world_mut().resource_mut::<ActionCancellationHandlers>();
-    if let Some(old) = handlers.0.insert(domain.into(), handler) {
-        assert!(
-            std::ptr::fn_addr_eq(old, handler),
-            "an action domain has two cancellation owners"
-        );
-    }
-}
-
-/// A domain can refuse cancellation after application has started.
-pub fn cancel_action(world: &mut World, scope: Entity, ticket: &ActionTicket) -> bool {
-    if !world
-        .get::<ActionMailbox>(scope)
-        .is_some_and(|mailbox| mailbox.is_pending(ticket))
-    {
-        return false;
-    }
-    let Some(recipient) = ActionRecipient::of(world, scope) else {
-        return false;
-    };
-    let reply = ActionReply {
-        recipient,
-        ticket: ticket.clone(),
-    };
-    let handler = world
-        .get_resource::<ActionCancellationHandlers>()
-        .and_then(|handlers| handlers.0.get(&ticket.domain))
-        .copied();
-    if handler.is_some_and(|handler| !handler(world, &reply)) {
-        return false;
-    }
-    publish_action_result(
-        world,
-        Some(&reply),
-        ActionStage::Canceled,
-        true,
-        "caller_canceled",
-        "",
-        Vec::new(),
-    )
-}
+mod cancellation;
+pub use cancellation::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PendingAction {

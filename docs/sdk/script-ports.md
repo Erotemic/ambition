@@ -403,16 +403,12 @@ Value: { ticket: { entry: text, domain: text, request: integer (u32), occurrence
 
 ## `cancel_action`
 
-Port `ambition.actions.cancel@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.actions.cancel@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
-| `entry` | text | required | The submitting provider::module/entry. |
-| `domain` | text | required | The native action domain. |
-| `request` | integer (u32) | required |  |
-| `occurrence` | text | required | A stable occurrence in this recipient's action mailbox. |
-| `room` | integer (u32) | required | The live room that minted this caller lifetime. |
-| `generation` | text | required | A caller lifetime within that room. Recreated bodies get a new value. |
+| `ticket` | { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text } | required |  |
+| `reply` | { request: integer (u32), selector: text } | required |  |
 
 ## `create_actors`
 

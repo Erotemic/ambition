@@ -244,6 +244,98 @@ fn result() {
 }
 
 #[test]
+fn cancellation_reports_refusals_and_suppresses_native_flag_work_after_replay() {
+    use ambition_platformer2d::{extension::sdk::action::{ActionStage, ReplyTo},
+        platformer::{action_results::*, lifecycle::RoomInstanceRoot}};
+    const SCRIPT: &str = r#"
+fn declare() {
+    #{provider: "cancel_probe", key: "commands", schemas: [#{key: "memory", fields: [
+        #{tag: 1, name: "sent", kind: "bool"}, #{tag: 2, name: "accepted", kind: "u32"},
+        #{tag: 3, name: "refused", kind: "u32"}]}], entries: [
+        #{key: "ask", phase: "actor_think", trigger: #{port: "story_tick", selector: "unused_cancel_selector"}},
+        #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "switch_lab"},
+          reads: ["action_history"], writes: ["memory"], requests: ["cancel_action"], limit: 6},
+        #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}, writes: ["memory"]}]}
+}
+fn ask() {}
+fn tick() {
+    if this.state.memory.sent { return; }
+    let originals = [];
+    for row in this.observe.action_history.entries {
+        if row.result.stage == "submitted" && row.result.ticket.entry == "cancel_probe::commands/ask" {
+            originals.push(row.result.ticket);
+        }
+    }
+    if originals.len() != 4 { return; }
+    this.state.memory.sent = true;
+    for ticket in originals {
+        this.requests.push(request("cancel_action", #{ticket: ticket,
+            reply: #{request: ticket.request, selector: "cancel_probe::commands/result"}}));
+    }
+    let missing = originals[0];
+    missing.request = 100;
+    this.requests.push(request("cancel_action", #{ticket: missing,
+        reply: #{request: 14, selector: "cancel_probe::commands/result"}}));
+    let foreign = originals[0];
+    foreign.entry = "another::module/ask";
+    this.requests.push(request("cancel_action", #{ticket: foreign,
+        reply: #{request: 15, selector: "cancel_probe::commands/result"}}));
+}
+fn result() {
+    if this.trigger.ticket.domain != "actions.cancel" || !this.trigger.terminal { return; }
+    if this.trigger.stage == "applied" { this.state.memory.accepted += 1; }
+    else { this.state.memory.refused += 1; }
+}
+"#;
+    let file = std::env::temp_dir().join(format!("ambition_cancellation_{}.rhai", std::process::id()));
+    std::fs::write(&file, SCRIPT).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab").with_extension_module_files(vec![file.clone()])
+            .with_sync_test_rollback_settings(4, 12)).unwrap();
+    sim.step_n(AgentAction::default(), 4);
+    register_action_domain(sim.app_mut(), "test.unsupported", ActionCancellationPolicy::Unsupported);
+    let world = sim.world_mut();
+    let root = world.query_filtered::<Entity, With<RoomInstanceRoot>>().single(world).unwrap();
+    for (request, domain, flag) in [(10, "authored.command", "cancel_probe_stopped"),
+        (11, "test.unsupported", "cancel_probe_unsupported"),
+        (12, "test.unknown", "cancel_probe_unknown"), (13, "test.committed", "cancel_probe_committed")] {
+        let reply = begin_action(world, root, "cancel_probe::commands/ask", domain,
+            Some(&ReplyTo {request, selector: "cancel_probe::commands/result".into()}), 0).reply.unwrap();
+        if request == 13 {
+            world.resource_mut::<ambition_platformer2d::session::AmbitionGameSave>().data_mut().set_flag(flag, true);
+            assert!(publish_action_result(world, Some(&reply), ActionStage::Applied, true, "already_applied", "", Vec::new()));
+        } else {
+            world.write_message(ambition_platformer2d::combat::events::SetFlagsRequested {
+                changes: vec![(flag.into(), true)], reply: Some(reply), written: None,
+            });
+        }
+    }
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 30);
+    sim.rollback_health().unwrap();
+    let world = sim.world();
+    let save = world.resource::<ambition_platformer2d::session::AmbitionGameSave>();
+    assert!(!save.data().flag("cancel_probe_stopped"));
+    for flag in ["cancel_probe_unsupported", "cancel_probe_unknown", "cancel_probe_committed"] {
+        assert!(save.data().flag(flag), "{flag}");
+    }
+    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    for (request, code) in [(10, "action_canceled"), (11, "cancel_unsupported"),
+        (12, "cancel_unknown_domain"), (13, "cancel_already_terminal"),
+        (14, "cancel_unknown_ticket"), (15, "cancel_foreign_module")] {
+        let result = history.entries.iter().find(|row| row.result.ticket.domain == "actions.cancel"
+            && row.result.ticket.request == request && row.result.terminal).unwrap();
+        assert_eq!(result.result.code, code);
+    }
+    assert!(history.entries.iter().any(|row| row.result.ticket.request == 10 && row.result.stage == ActionStage::Canceled));
+    let state = world.get::<BodyRecords>(root).unwrap().get(&SchemaKey::new("cancel_probe", "memory", 1)).unwrap();
+    assert_eq!(state.get(FieldRef(1)).unwrap(), &Value::U32(1));
+    assert_eq!(state.get(FieldRef(2)).unwrap(), &Value::U32(5));
+    assert_eq!(world.resource::<ExtensionFaults>().total, 0);
+    let _ = std::fs::remove_file(file);
+}
+
+#[test]
 fn scripts_receive_native_application_and_refusal_in_the_asking_scope_after_rewind() {
     let dir = std::env::temp_dir().join(format!("ambition_action_results_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

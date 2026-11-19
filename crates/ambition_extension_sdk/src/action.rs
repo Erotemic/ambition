@@ -138,6 +138,14 @@ crate::port_record! {
     }
 }
 
+/// Cancellation is a separate correlated action. Its refusal leaves the target unchanged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CancelAction {
+    pub ticket: ActionTicket,
+    pub reply: ReplyTo,
+}
+crate::port_record! { CancelAction { ticket: ActionTicket, reply: ReplyTo } }
+
 pub struct CancelActionPort;
 pub struct ActionResultPort;
 pub struct ActionResultsPort;
@@ -167,12 +175,12 @@ impl Port for ActionResultsPort {
 crate::script_port!(ActionResultPort);
 crate::script_port!(ActionResultsPort);
 
-/// Cancel pending work in the caller's scope and module. Applied terminal
-/// work cannot be canceled. The domain checks the ticket before each change.
+/// Ask the native owner to cancel work in this scope and module. The request
+/// has its own result. A refusal does not change the target action.
 impl Port for CancelActionPort {
-    const KEY: PortKey = PortKey::new("ambition.actions.cancel", 1);
+    const KEY: PortKey = PortKey::new("ambition.actions.cancel", 2);
     const ROLE: PortRole = PortRole::Request;
-    type Value = ActionTicket;
+    type Value = CancelAction;
     fn encode(value: &Self::Value, out: &mut Vec<u8>) {
         crate::structure::put(value, out);
     }

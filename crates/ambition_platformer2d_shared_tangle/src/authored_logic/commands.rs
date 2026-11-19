@@ -83,7 +83,8 @@ pub struct CommandDescriptor {
 pub enum CommandOutcome {
     /// The owning domain performed it.
     Done,
-    /// Work entered the native domain queue. Its consumer must publish the result.
+    /// Work entered a native queue. Each consumer must check the pending ticket
+    /// before mutation and publish the result. Cancellation can stop this work.
     Queued,
     /// Nothing happened, with a reason written for a human or an agent reading a
     /// diagnostic.
@@ -405,6 +406,8 @@ pub struct AuthoredCommandPlugin;
 
 impl Plugin for AuthoredCommandPlugin {
     fn build(&self, app: &mut App) {
+        crate::action_results::register_action_domain(app, "authored.command",
+            crate::action_results::ActionCancellationPolicy::PendingTicket);
         use crate::schedule::{
             GameplaySimulationRoot, Platformer2dSimulationPhase, SimScheduleExt as _,
         };

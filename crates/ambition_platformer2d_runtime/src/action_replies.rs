@@ -12,6 +12,8 @@ use ambition_platformer2d_shared_tangle::{
 use bevy::prelude::*;
 
 pub fn install(app: &mut App) {
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "actions.cancel",
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     use ambition_platformer2d_shared_tangle::schedule::{
         GameplaySimulationRoot, Platformer2dSimulationPhase, SimClockHead, SimScheduleExt,
     };
@@ -192,15 +194,24 @@ fn retire_sources(
 }
 
 fn cancel_actions(world: &mut World) {
+    use action_results::{publish_action_result, cancel_action};
     let submitted = world.resource_mut::<ExtensionOutbox>().drain::<CancelActionPort>(&ACTOR_THINK);
     for submitted in submitted {
-        let ticket = submitted.value;
-        if submitted.entry.rsplit_once('/').map(|(module, _)| module)
-            != ticket.entry.rsplit_once('/').map(|(module, _)| module)
-        {
-            warn!("action cancellation refused: another module owns the ticket");
-            continue;
-        }
-        ambition_platformer2d_shared_tangle::action_results::cancel_action(world, submitted.scope, &ticket);
+        let request = submitted.value;
+        let mut bytes = Vec::new();
+        <CancelActionPort as ambition_extension_sdk::Port>::encode(&request, &mut bytes);
+        let dispatch = begin(world, submitted.scope, &submitted.entry, "actions.cancel",
+            Some(&request.reply), ambition_extension_sdk::digest::digest_bytes(&bytes));
+        if !dispatch.execute { continue; }
+        let authorized = submitted.entry.rsplit_once('/').map(|(module, _)| module)
+            == request.ticket.entry.rsplit_once('/').map(|(module, _)| module);
+        let result = if authorized {
+            cancel_action(world, submitted.scope, &request.ticket).map_err(|refusal| refusal.code())
+        } else { Err("cancel_foreign_module") };
+        let (stage, code) = match result {
+            Ok(()) => (ActionStage::Applied, "action_canceled"),
+            Err(code) => (ActionStage::Rejected, code),
+        };
+        publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, "", Vec::new());
     }
 }

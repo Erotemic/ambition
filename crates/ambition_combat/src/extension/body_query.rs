@@ -72,6 +72,8 @@ impl SnapshotState for BodyQueryHistory {
 }
 
 pub fn install(app: &mut App) {
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, QUERY_DOMAIN,
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     use ambition_extension_host::{
         InActorThink, InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick,
         InTechniqueExecution, InWieldedUse,

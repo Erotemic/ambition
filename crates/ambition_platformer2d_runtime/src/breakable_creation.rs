@@ -9,6 +9,8 @@ use ambition_world_port::breakables::*;
 use bevy::{ecs::system::SystemState, prelude::*};
 
 pub fn install(app: &mut App) {
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "world.create_breakables",
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     use ambition_extension_host::{
         InActorThink, InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick,
         InTechniqueExecution, InWieldedUse,

@@ -95,9 +95,44 @@ authored identity in another room, with or without a mailbox, cannot receive
 or block the reply. Room roots use the same occurrence path and retire with
 their live room. A surviving body's replies follow that body through travel.
 
-`cancel_action` takes a ticket and cancels pending work in the caller's scope
-and module. The native consumer checks the ticket before each change. A
-terminal applied action cannot be canceled.
+`cancel_action` takes the target ticket and a separate `reply`. Cancellation
+is itself an action in the `actions.cancel` domain:
+
+```rhai
+this.requests.push(request("cancel_action", #{
+    ticket: pending_ticket,
+    reply: #{ request: next_cancel_request, selector: "my_game::bridge/result" },
+}));
+```
+
+A successful cancellation emits terminal `canceled` for the target and terminal
+`applied` with code `action_canceled` for the cancellation request. A refusal
+emits terminal `rejected` for the cancellation request and leaves the target's
+state unchanged. The cancellation callback uses the same commit and retry
+contract as any other action callback. Retrying the same cancellation request
+does not repeat its native operation.
+
+The target must belong to this scope and module. Refusal codes distinguish
+`cancel_foreign_module`, `cancel_unknown_ticket`, `cancel_already_terminal`,
+`cancel_unknown_domain`, `cancel_unsupported`, `cancel_application_started`,
+and `cancel_owner_refused`. A retained terminal target cannot be canceled.
+After its history expires, it can report `cancel_unknown_ticket`.
+
+Each installed action domain declares one native cancellation policy:
+
+| Domain | Policy |
+| --- | --- |
+| `authored.command` | Each queued consumer checks the pending ticket before mutation. Cancellation stops submitted or admitted work. |
+| `projectiles.spawn` | The native handler removes queued emissions. It refuses once the queue no longer owns the work. |
+| `world.create_actors`, `world.create_breakables` | Unsupported. Construction finishes in one native call. |
+| `inventory.exchange`, `world.consume_contact`, `combat.body_query` | Unsupported. These operations finish in one native call. |
+| `actions.cancel` | Unsupported. Cancellation finishes in one native call. |
+
+An unregistered domain refuses cancellation. It cannot inherit mailbox-only
+success. A new queued command must retain its reply and check its pending
+ticket immediately before every mutation. A domain that cannot guarantee that
+must use a native suppression handler or declare cancellation unsupported.
+Cancellation does not reverse changes that already committed.
 
 ## Delivery and lifetime
 

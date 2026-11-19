@@ -1128,8 +1128,8 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "a list of functions filled while the App is built and only read after: the restaters a sheet publication runs, in `publish_the_staged_sheets_between_sessions`, which runs in Update and only where no session is live. It holds no game state; rewinding it would change nothing",
     ),
     (
-        "ambition_platformer2d_shared_tangle::action_results::ActionCancellationHandlers",
-        "native function registry set during plugin installation; domain queues and mailboxes own all pending work and rollback state",
+        "ambition_platformer2d_shared_tangle::action_results::cancellation::ActionCancellationPolicies",
+        "native cancellation policies set during plugin installation; domain queues and mailboxes own all pending work and rollback state",
     ),
     (
         "ambition_platformer2d_runtime::external_effects::ExternalEffectFamilies",

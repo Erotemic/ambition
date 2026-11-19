@@ -14,7 +14,7 @@ use ambition_extension_sdk::{
 use ambition_platformer2d_core::{self as ae, snapshot::SnapshotState};
 use ambition_platformer2d_shared_tangle::{
     action_results::{ActionMailbox, publish_action_result},
-    lifecycle::{InRoomInstance, SessionScopedEntity},
+    lifecycle::{InRoomInstance, SessionScopedEntity, ObjectOccurrence, ensure_object_occurrence, live_room_root_for},
     sim_id::SimId,
 };
 use ambition_platformer2d_world::governing_rules::RulesOf;
@@ -109,7 +109,7 @@ fn result_of_reply(
         (result.ticket.domain == QUERY_DOMAIN && result.stage == ActionStage::Applied)
             .then(|| {
                 world
-                    .get::<BodyQueryHistory>(context.scope)?
+                    .get::<BodyQueryHistory>(context.state_scope)?
                     .results
                     .iter()
                     .find(|query| query.ticket == result.ticket)
@@ -131,7 +131,7 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
     for submitted in submitted {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<BodyQueryPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute {
             continue;
         }
@@ -165,20 +165,17 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
                     truncated,
                     targets,
                 };
-                let identities = result
-                    .targets
-                    .iter()
-                    .map(|target| target.id.clone())
-                    .collect();
-                if world.get::<BodyQueryHistory>(submitted.scope).is_none() {
+                let identities = result.targets.iter().map(|target|
+                    ambition_extension_sdk::action::ActionSubject {key: target.id.clone(), object: Some(target.object)}).collect();
+                if world.get::<BodyQueryHistory>(submitted.state_scope).is_none() {
                     world
-                        .entity_mut(submitted.scope)
+                        .entity_mut(submitted.state_scope)
                         .insert(BodyQueryHistory::default());
                 }
-                let mut history = world.get_mut::<BodyQueryHistory>(submitted.scope).unwrap();
-                if history.results.len() == ActionMailbox::HISTORY_CAPACITY {
-                    history.results.remove(0);
-                }
+                let tickets: std::collections::BTreeSet<_> = world.get::<ActionMailbox>(submitted.state_scope).unwrap()
+                    .payload_tickets().cloned().collect();
+                let mut history = world.get_mut::<BodyQueryHistory>(submitted.state_scope).unwrap();
+                history.results.retain(|row| tickets.contains(&row.ticket));
                 history.results.push(result);
                 publish_action_result(
                     world,
@@ -220,20 +217,28 @@ fn select(
         || request.limit == 0
         || request.limit > limits.max_targets
         || request.identities.len() > limits.max_targets as usize
+        || request.references.len() > limits.max_targets as usize
     {
         return Err("query_budget_exceeded");
     }
     if request.relation.is_some() && world.get::<ActorFaction>(scope).is_none() {
         return Err("no_combat_source");
     }
+    if !request.identities.is_empty() && !request.references.is_empty() { return Err("mixed_target_addresses"); }
+    let references: BTreeSet<_> = request.references.iter().copied().collect();
     let identities: BTreeSet<_> = request.identities.iter().map(String::as_str).collect();
-    if request.require_all && (identities.is_empty() || identities.len() > request.limit as usize) {
+    if request.require_all && ((identities.is_empty() && references.is_empty())
+        || identities.len().max(references.len()) > request.limit as usize) {
         return Err("invalid_required_targets");
     }
     let session = *world
         .get::<SessionScopedEntity>(scope)
         .ok_or("no_live_scope")?;
     let room = scope_room(world, scope).ok_or("no_live_room")?;
+    if live_room_root_for(world, session.0, room).is_none() { return Err("no_live_room"); }
+    if references.iter().any(|reference| !reference.is_bound() || reference.session != session.0.0) {
+        return Err("foreign_object_reference");
+    }
     let mut bodies = world.query::<(
         Entity,
         &SimId,
@@ -242,6 +247,7 @@ fn select(
         &ae::BodyKinematics,
     )>();
     let mut found = BTreeSet::new();
+    let mut found_references = BTreeSet::new();
     let mut targets = Vec::new();
     for (entity, id, owner, at, kin) in bodies.iter(world) {
         if owner.0 != session.0 || at.0 != room || !request.include_self && entity == scope {
@@ -250,6 +256,8 @@ fn select(
         if !identities.is_empty() && !identities.contains(id.as_str()) {
             continue;
         }
+        let reference = world.get::<ObjectOccurrence>(entity).map(|stamp| stamp.reference(session.0)).unwrap_or_default();
+        if !references.is_empty() && !references.contains(&reference) { continue; }
         if crate::util::body_is_untouchable(
             world.get(entity),
             world
@@ -275,12 +283,12 @@ fn select(
         if squared > f64::from(request.radius).powi(2) {
             continue;
         }
-        if !found.insert(id.as_str()) {
-            return Err("ambiguous_body_identity");
-        }
+        if !found.insert(id.as_str()) && !identities.is_empty() { return Err("ambiguous_body_identity"); }
+        if reference.is_bound() && !found_references.insert(reference) { return Err("ambiguous_object_reference"); }
         let aabb = kin.aabb();
-        targets.push((squared, BodyTarget {
+        targets.push((squared, entity, BodyTarget {
             id: id.as_str().to_owned(),
+            object: reference,
             position: kin.pos.to_array(),
             size: (aabb.max - aabb.min).to_array(),
             velocity: kin.vel.to_array(),
@@ -289,13 +297,25 @@ fn select(
             distance: squared.sqrt() as f32,
         }));
     }
-    if request.require_all && found.len() != identities.len() {
+    if request.require_all && ((!identities.is_empty() && found.len() != identities.len())
+        || (!references.is_empty() && found_references.intersection(&references).count() != references.len())) {
         return Err("target_missing");
     }
-    targets.sort_by(|(a, left), (b, right)| a.total_cmp(b).then(left.id.cmp(&right.id)));
+    targets.sort_by(|(a, _, left), (b, _, right)| a.total_cmp(b).then(left.id.cmp(&right.id)).then(left.object.cmp(&right.object)));
+    let mut names = std::collections::BTreeMap::<&str, bool>::new();
+    for (_, _, target) in &targets {
+        if let Some(bound) = names.insert(&target.id, target.object.is_bound()) {
+            if !bound || !target.object.is_bound() { return Err("ambiguous_body_identity"); }
+        }
+    }
     let truncated = targets.len() > request.limit as usize;
     targets.truncate(request.limit as usize);
-    Ok((targets.into_iter().map(|(_, target)| target).collect(), truncated))
+    let mut selected = Vec::new();
+    for (_, entity, mut target) in targets {
+        target.object = ensure_object_occurrence(world, entity).ok_or("object_reference_unavailable")?.reference(session.0);
+        selected.push(target);
+    }
+    Ok((selected, truncated))
 }
 
 #[cfg(test)]
@@ -307,6 +327,10 @@ mod tests {
     use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, SessionScopeId};
 
     fn body(world: &mut World, name: &str, x: f32, team: &str, room: u32) -> Entity {
+        if live_room_root_for(world, SessionScopeId(1), LiveRoomInstance::from_ordinal(room)).is_none() {
+            world.spawn((ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot,
+                LiveRoomInstance::from_ordinal(room), SessionScopedEntity(SessionScopeId(1))));
+        }
         world
             .spawn((
                 SimId::placement(name),
@@ -333,6 +357,7 @@ mod tests {
             relation: Some(TargetRelation::Foe),
             include_self: false,
             identities: Vec::new(),
+            references: Vec::new(),
             require_all: false,
         }
     }
@@ -402,4 +427,23 @@ mod tests {
             Err("target_missing")
         );
     }
+    #[test]
+    fn an_occurrence_query_does_not_rebind_to_an_equal_authored_replacement() {
+        let mut world = World::new();
+        let scope = body(&mut world, "source", 0.0, "red", 0);
+        let target = body(&mut world, "target", 10.0, "blue", 0);
+        let address = select(&mut world, scope, &request(), BodyQueryLimits::default()).unwrap().0[0].object;
+        let mut ask = request();
+        ask.references = vec![address];
+        ask.require_all = true;
+        assert_eq!(select(&mut world, scope, &ask, BodyQueryLimits::default()).unwrap().0[0].object, address);
+        world.despawn(target);
+        let replacement = body(&mut world, "target", 10.0, "blue", 0);
+        assert_eq!(select(&mut world, scope, &ask, BodyQueryLimits::default()), Err("target_missing"));
+        let new_address = ensure_object_occurrence(&mut world, replacement).unwrap().reference(SessionScopeId(1));
+        assert_ne!(address, new_address);
+        ask.references = vec![new_address];
+        assert_eq!(select(&mut world, scope, &ask, BodyQueryLimits::default()).unwrap().0[0].object, new_address);
+    }
+
 }

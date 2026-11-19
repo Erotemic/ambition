@@ -29,7 +29,7 @@ pub fn apply_flag_effects(
             write_logged_flag(&mut save, &mut quests, log.as_deref_mut(), id.clone(), *on, effect.written, now);
         }
         replies.publish(effect.reply.as_ref(), ambition_extension_sdk::action::ActionStage::Applied, true,
-            "flags_written", "", effect.changes.iter().map(|(id, _)| id.clone()).collect());
+            "flags_written", "", effect.changes.iter().map(|(id, _)| ambition_extension_sdk::action::ActionSubject::named(id.clone())).collect());
     }
 }
 

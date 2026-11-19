@@ -10,6 +10,7 @@ fn social_animator() -> CharacterAnimator {
     let record: SheetRecord = ron::from_str(r#"(
         target: "social_fixture", image: "social.png", label_width: 0,
         frame_width: 16, frame_height: 16,
+        sits_on_ground: true,
         rows: [
             (animation: "idle", row_index: 0, frame_count: 1, duration_ms: 100, duration_secs: 0.1),
             (animation: "sit_down", row_index: 1, frame_count: 2, duration_ms: 100, duration_secs: 0.1),

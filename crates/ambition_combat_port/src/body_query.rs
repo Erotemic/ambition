@@ -17,12 +17,14 @@ pub struct BodyQuery {
     pub relation: Option<TargetRelation>,
     pub include_self: bool,
     pub identities: Vec<String>,
+    pub references: Vec<ambition_extension_sdk::ObjectRef>,
     pub require_all: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BodyTarget {
     pub id: String,
+    pub object: ambition_extension_sdk::ObjectRef,
     pub position: [f32; 2],
     pub size: [f32; 2],
     pub velocity: [f32; 2],
@@ -54,6 +56,8 @@ ambition_extension_sdk::port_record! {
         include_self: bool = false,
         /// Optional exact identities from an earlier read. Empty searches the area.
         identities: Vec<String> = Vec::new(),
+        /// Exact occurrence addresses. Do not combine these with authored identities.
+        references: Vec<ambition_extension_sdk::ObjectRef> = Vec::new(),
         /// Reject if an exact identity is absent, out of play, or outside the filters.
         require_all: bool = false,
     }
@@ -61,6 +65,7 @@ ambition_extension_sdk::port_record! {
 ambition_extension_sdk::port_record! {
     BodyTarget {
         id: String,
+        object: ambition_extension_sdk::ObjectRef,
         /// The physical body's centre, in the room's coordinates.
         position: [f32; 2],
         /// The physical body's full extent under its current gravity.
@@ -90,7 +95,7 @@ pub struct BodyQueryResultPort;
 macro_rules! query_port {
     ($port:ty, $key:literal, $role:ident, $value:ty $(, $action:item)?) => {
         impl Port for $port {
-            const KEY: PortKey = PortKey::new($key, 1);
+            const KEY: PortKey = PortKey::new($key, 2);
             const ROLE: PortRole = PortRole::$role;
             type Value = $value;
             $($action)?

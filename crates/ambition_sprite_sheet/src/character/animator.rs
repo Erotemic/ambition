@@ -368,7 +368,9 @@ impl CharacterAnimator {
     /// Select a sheet-authored social pose for the addressed actor.
     ///
     /// A sheet that can sit sits in a conversation, and when the body has
-    /// stood idle for [`SIT_AFTER_IDLE_S`]. It gets up with its stand-up row
+    /// stood idle for [`SIT_AFTER_IDLE_S`]. Only a sheet whose sit rests on
+    /// the ground ([`crate::SheetRecord::sits_on_ground`]) sits of itself: a
+    /// seated pose on a bare floor sat on nothing (Jon, 2026-11-19). It gets up with its stand-up row
     /// when the conversation ends, and at once when the body moves: a body
     /// that walks does not wait for a pose.
     ///
@@ -386,7 +388,8 @@ impl CharacterAnimator {
         conversation_held: bool,
         barking: bool,
     ) {
-        let can_sit = self.spec.maps(CharacterAnim::SitDown)
+        let can_sit = self.spec.record.sits_on_ground
+            && self.spec.maps(CharacterAnim::SitDown)
             && self.spec.maps(CharacterAnim::SitIdle)
             && self.spec.maps(CharacterAnim::StandUp);
         if anim == CharacterAnim::Death {

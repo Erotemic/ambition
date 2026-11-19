@@ -80,7 +80,7 @@ fn result(ctx, cfg) {
             throw "false consumption";
         }
         state.applied += 1;
-        state.object = ctx.trigger.subjects[0];
+        state.object = ctx.trigger.subjects[0].key;
         state.done = true;
     } else if ctx.trigger.stage == "rejected" {
         state.refused += 1;

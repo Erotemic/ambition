@@ -44,6 +44,7 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         actor_creation_rules_schema(),
         breakable_creation_rules_schema(),
         action_delivery_rules_schema(),
+        object_behavior_rules_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
         ambition_items::content_schema::held_item_art::held_item_art_schema(),
@@ -147,5 +148,14 @@ pub fn action_delivery_rules_schema() -> ambition_content_pack::SchemaRegistrati
     ambition_content_pack::rules_schema::<ActionDeliveryPolicy>(ACTION_DELIVERY_RULES_SCHEMA, 1,
         ambition_platformer2d_world::rooms::WORLD_CAPABILITY,
         "Positive callback attempt and per-tick budgets.",
+        |_| Vec::new())
+}
+
+/// Room rules for reusable object behaviors and directed calls.
+pub fn object_behavior_rules_schema() -> ambition_content_pack::SchemaRegistration {
+    use ambition_platformer2d_world::creation::{ObjectBehaviorLimits, OBJECT_BEHAVIOR_RULES_SCHEMA};
+    ambition_content_pack::rules_schema::<ObjectBehaviorLimits>(OBJECT_BEHAVIOR_RULES_SCHEMA, 1,
+        ambition_platformer2d_world::rooms::WORLD_CAPABILITY,
+        "Bounds for behavior instances, state, parameters, pending calls and active wait ticks.",
         |_| Vec::new())
 }

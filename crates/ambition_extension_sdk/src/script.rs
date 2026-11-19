@@ -31,7 +31,7 @@ pub enum ScriptValue {
     Num(f32),
     Text(String),
     List(Vec<ScriptValue>),
-    /// Named fields, in a fixed order: the order a value was built in.
+    /// Named fields in construction order. Data codecs use canonical key order.
     Map(Vec<(String, ScriptValue)>),
 }
 
@@ -323,6 +323,7 @@ pub fn state_name(schema: &StateSchema) -> &str {
 
 fn value_to_script(kind: &FieldKind, value: &Value) -> Result<ScriptValue, String> {
     Ok(match (kind, value) {
+        (FieldKind::Object, Value::Object(v)) => <crate::ObjectRef as crate::structure::Field<crate::ObjectRef>>::to_script(v),
         (FieldKind::Bool, Value::Bool(b)) => ScriptValue::Bool(*b),
         (FieldKind::U32, Value::U32(v)) => ScriptValue::Int(i64::from(*v)),
         (FieldKind::I32, Value::I32(v)) => ScriptValue::Int(i64::from(*v)),
@@ -343,6 +344,7 @@ fn value_to_script(kind: &FieldKind, value: &Value) -> Result<ScriptValue, Strin
 pub fn value_from_script(kind: &FieldKind, v: &ScriptValue) -> Result<Value, String> {
     let int = |v: &ScriptValue| v.as_int();
     Ok(match kind {
+        FieldKind::Object => Value::Object(<crate::ObjectRef as crate::structure::Field<crate::ObjectRef>>::from_script(v)?),
         FieldKind::Bool => Value::Bool(v.as_bool()?),
         FieldKind::U32 => Value::U32(u32::try_from(int(v)?).map_err(|_| "out of range for u32".to_owned())?),
         FieldKind::I32 => Value::I32(i32::try_from(int(v)?).map_err(|_| "out of range for i32".to_owned())?),

@@ -10,7 +10,7 @@ use ambition_platformer2d::{
         BodyRecords, ExtensionFaults,
         sdk::{FieldRef, SchemaKey, Value},
     },
-    platformer::{markers::PrimaryPlayerOnly, sim_id::SimId},
+    platformer::markers::PrimaryPlayerOnly,
 };
 use bevy::prelude::*;
 
@@ -20,7 +20,7 @@ fn declare() {
     #{ provider: "query_probe", key: "targets",
        schemas: [#{ key: "query", fields: [
            #{ tag: 1, name: "step", kind: "u32" },
-           #{ tag: 2, name: "target", kind: "opt body" },
+           #{ tag: 2, name: "target", kind: "opt object" },
            #{ tag: 3, name: "accepted", kind: "u32" },
            #{ tag: 4, name: "rejected", kind: "u32" },
        ] }],
@@ -50,7 +50,7 @@ fn follow() {
     this.requests.push(request("body_query", #{
         reply: #{ request: 0, selector: "query_probe::targets/result" },
         origin: this.trigger.position, radius: 1000.0, limit: 1, relation: "foe",
-        identities: [this.state.query.target], require_all: true,
+        references: [this.state.query.target], require_all: true,
     }));
     this.state.query.step = 3;
 }
@@ -61,7 +61,7 @@ fn result() {
         if found.phase != "technique_execution" { throw "the query lost its read cut"; }
         if found.targets.len() != 1 { throw "the query did not honor its bound"; }
         if found.targets[0].relation != "foe" { throw "the query changed the relationship"; }
-        this.state.query.target = found.targets[0].id;
+        this.state.query.target = found.targets[0].object;
         this.state.query.accepted += 1;
         this.state.query.step = 2;
     }
@@ -117,9 +117,7 @@ fn controlled_and_autonomous_bodies_query_then_refuse_a_target_that_is_no_longer
         assert_eq!(record.get(FieldRef(2)).unwrap(), &Value::U32(1));
         assert_eq!(
             record.get(FieldRef(1)).unwrap(),
-            &Value::Opt(Some(Box::new(Value::Ref(
-                world.get::<SimId>(target).unwrap().as_str().into()
-            ))))
+            &Value::some(Value::Object(ambition_platformer2d::platformer::lifecycle::object_reference(world, target).unwrap()))
         );
     }
     let world = sim.world_mut();

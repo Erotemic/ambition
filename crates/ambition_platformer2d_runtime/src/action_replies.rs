@@ -46,13 +46,13 @@ pub fn install(app: &mut App) {
         BODY_CONTACT,
         HIT_REACTION,
     ] {
-        app.install_extension_observation::<ActionResultsPort>(
+        app.install_extension_context_observation::<ActionResultsPort>(
             phase,
             "ambition_platformer2d_runtime",
-            |world, scope| {
+            |world, context| {
                 Some(
                     world
-                        .get::<ActionMailbox>(scope)
+                        .get::<ActionMailbox>(context.state_scope)
                         .map_or_else(ActionResults::default, ActionMailbox::history),
                 )
             },
@@ -72,13 +72,15 @@ fn queue_replies(
         Option<&SimId>,
         &ObjectOccurrence,
         &mut ActionMailbox,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::ObjectScopeOwner>,
     )>,
+    objects: ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
     mut invocations: ResMut<ExtensionInvocations>,
     policies: ambition_platformer2d_world::governing_rules::RulesOf<ActionDeliveryPolicy>,
 ) {
     let mut order: Vec<_> = scopes
         .iter()
-        .map(|(entity, session, id, room, _)| {
+        .map(|(entity, session, id, room, _, _)| {
             (
                 ActionRecipient {
                     session: session.0.0,
@@ -90,14 +92,20 @@ fn queue_replies(
         })
         .collect();
     order.sort_by(|a, b| a.0.cmp(&b.0));
+    let objects = scopes.iter().any(|(_, _, _, _, _, instance)| instance.is_some()).then(|| objects.index());
     for (_, entity) in order {
-        let Ok((_, _, _, _, mut mailbox)) = scopes.get_mut(entity) else {
+        let Ok((_, session, _, _, mut mailbox, behavior)) = scopes.get_mut(entity) else {
             continue;
         };
-        if time.sim_dt() <= 0.0 || pace.scale_of(entity) <= 0.0 {
+        let subject = match behavior {
+            Some(behavior) => objects.as_ref().unwrap().resolve(session.0, behavior.0).ok(),
+            None => Some(entity),
+        };
+        let Some(subject) = subject else { continue; };
+        if time.sim_dt() <= 0.0 || pace.scale_of(subject) <= 0.0 {
             continue;
         }
-        let policy = policies.of(entity).copied().unwrap_or_default();
+        let policy = policies.of(subject).copied().unwrap_or_default();
         for (sequence, path, result) in mailbox.queue_ready(tick.0, policy, |ticket, path| {
             ambition_extension_host::reply_entry::<ActionResultPort>(
                 &admitted.0,
@@ -117,7 +125,7 @@ fn queue_replies(
                 &ACTOR_THINK,
                 path,
                 entry.descriptor.trigger.selector.clone(),
-                entity,
+                ambition_extension_host::InvocationScope {subject, state: entity},
                 result,
                 ambition_extension_host::InvocationReceipt {sequence, notify: settle_delivery},
             );
@@ -132,7 +140,13 @@ fn settle_delivery(world: &mut World, scope: Entity, sequence: u64,
     let policy = if matches!(&event, InvocationEvent::Faulted) {
         let mut state = bevy::ecs::system::SystemState::<
             ambition_platformer2d_world::governing_rules::RulesOf<ActionDeliveryPolicy>>::new(world);
-        state.get(world).ok().and_then(|rules| rules.of(scope).copied()).unwrap_or_default()
+        {
+            let subject = world.get::<ambition_platformer2d_shared_tangle::lifecycle::ObjectScopeOwner>(scope)
+                .and_then(|instance| ambition_platformer2d_shared_tangle::lifecycle::resolve_object(world,
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(instance.0.session), instance.0).ok())
+                .unwrap_or(scope);
+            state.get(world).ok().and_then(|rules| rules.of(subject).copied()).unwrap_or_default()
+        }
     } else { ActionDeliveryPolicy::default() };
     let Some(mut mailbox) = world.get_mut::<ActionMailbox>(scope) else { return; };
     match event {
@@ -160,12 +174,12 @@ fn cancel_actions(world: &mut World) {
     for submitted in submitted {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CancelActionPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
         let authorized = submitted.entry.rsplit_once('/').map(|(module, _)| module)
             == request.ticket.entry.rsplit_once('/').map(|(module, _)| module);
         let result = if authorized {
-            cancel_action(world, submitted.scope, &request.ticket).map_err(|refusal| refusal.code())
+            cancel_action(world, submitted.state_scope, &request.ticket).map_err(|refusal| refusal.code())
         } else { Err("cancel_foreign_module") };
         let (stage, code) = match result {
             Ok(()) => (ActionStage::Applied, "action_canceled"),

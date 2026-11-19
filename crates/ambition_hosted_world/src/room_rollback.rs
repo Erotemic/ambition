@@ -216,24 +216,6 @@ impl GuestInputs {
     }
 }
 
-fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
-    let mut entities: Vec<Entity> = world
-        .query::<(Entity, &InRoomInstance)>()
-        .iter(world)
-        .filter(|(_, at)| at.0 == room)
-        .map(|(entity, _)| entity)
-        .collect();
-    entities.extend(
-        world
-            .query::<(Entity, &LiveRoomInstance)>()
-            .iter(world)
-            .filter(|(_, root)| **root == room)
-            .map(|(entity, _)| entity),
-    );
-    entities.sort();
-    entities
-}
-
 /// Each guest seat's room, and the host seats standing in those rooms.
 fn guest_rooms(world: &mut World) -> (BTreeMap<PlayerSlot, LiveRoomInstance>, Vec<PlayerSlot>) {
     let guests: Vec<PlayerSlot> = world.query::<&GuestSeat>().iter(world).map(|seat| seat.0).collect();
@@ -338,7 +320,7 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
         guest_rooms.sort();
         guest_rooms.dedup();
         for room in guest_rooms {
-            let entities = of_room(world, room);
+            let entities = ambition_platformer2d_shared_tangle::lifecycle::room_scope_members(world, room);
             let snapshot = rows.save(world, &entities);
             inputs.saved.entry(room).or_default().insert(tick, (snapshot, now.clone()));
         }
@@ -441,7 +423,7 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
         saved
     };
     let rows = world.remove_resource::<RoomSnapshotRows>()?;
-    let entities = of_room(world, room);
+    let entities = ambition_platformer2d_shared_tangle::lifecycle::room_scope_members(world, room);
     rows.restore(world, &mut snapshot, &entities);
     world.insert_resource(rows);
     ambition_platformer2d_shared_tangle::lifecycle::begin_room_replay(world, room);
@@ -458,7 +440,7 @@ fn rewind_room(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -
         .collect();
     let mut hidden = Vec::new();
     for other in others {
-        hidden.extend(of_room(world, other));
+        hidden.extend(ambition_platformer2d_shared_tangle::lifecycle::room_scope_members(world, other));
     }
     for entity in &hidden {
         world.entity_mut(*entity).insert(Disabled);

@@ -52,6 +52,17 @@ pub struct InvocationReceipt {
     pub notify: fn(&mut World, Entity, u64, InvocationEvent),
 }
 
+/// The native subject and the private record owner of one invocation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InvocationScope {
+    pub subject: Entity,
+    pub state: Entity,
+}
+
+impl From<Entity> for InvocationScope {
+    fn from(entity: Entity) -> Self { Self { subject: entity, state: entity } }
+}
+
 /// One queued trigger.
 pub struct PendingInvocation {
     pub phase: Phase,
@@ -59,7 +70,7 @@ pub struct PendingInvocation {
     pub entry: Option<Name>,
     pub port: PortKey,
     pub selector: Name,
-    pub scope: Entity,
+    pub scope: InvocationScope,
     pub occurrence: Option<u32>,
     pub value: Box<dyn Any + Send + Sync>,
     /// Encodes `value` for a loaded module.
@@ -73,7 +84,7 @@ pub struct PendingInvocation {
 impl PendingInvocation {
     fn notify(&self, world: &mut World, event: InvocationEvent) {
         if let Some(receipt) = self.receipt {
-            (receipt.notify)(world, self.scope, receipt.sequence, event);
+            (receipt.notify)(world, self.scope.state, receipt.sequence, event);
         }
     }
 }
@@ -92,7 +103,7 @@ impl ExtensionInvocations {
         &mut self,
         phase: &Phase,
         selector: impl Into<Name>,
-        scope: Entity,
+        scope: impl Into<InvocationScope>,
         occurrence: Option<u32>,
         idle: bool,
         value: P::Value,
@@ -102,7 +113,7 @@ impl ExtensionInvocations {
             entry: None,
             port: P::KEY,
             selector: selector.into(),
-            scope,
+            scope: scope.into(),
             occurrence,
             value: Box::new(value),
             encode: encode_erased::<P>,
@@ -115,7 +126,7 @@ impl ExtensionInvocations {
     /// trigger selector do not receive it.
     pub fn trigger_entry<P: Port>(
         &mut self, phase: &Phase, entry: impl Into<Name>, selector: impl Into<Name>,
-        scope: Entity, value: P::Value,
+        scope: impl Into<InvocationScope>, value: P::Value,
     ) {
         self.trigger::<P>(phase, selector, scope, None, false, value);
         self.pending.last_mut().unwrap().entry = Some(entry.into());
@@ -124,7 +135,7 @@ impl ExtensionInvocations {
     /// Settle delivery after this directed entry commits or fails.
     pub fn trigger_entry_with_receipt<P: Port>(
         &mut self, phase: &Phase, entry: impl Into<Name>, selector: impl Into<Name>,
-        scope: Entity, value: P::Value, receipt: InvocationReceipt,
+        scope: impl Into<InvocationScope>, value: P::Value, receipt: InvocationReceipt,
     ) {
         self.trigger_entry::<P>(phase, entry, selector, scope, value);
         self.pending.last_mut().unwrap().receipt = Some(receipt);
@@ -145,8 +156,10 @@ pub struct InvocationId(pub u64);
 /// A request that passed the host's checks. It is SUBMITTED; the domain that
 /// owns the port decides if it is APPLIED.
 pub struct Submitted<T> {
-    /// The body the invocation ran for.
+    /// The native object that supplies facts and receives domain actions.
     pub scope: Entity,
+    /// The private owner of records, correlated replies and delivery receipts.
+    pub state_scope: Entity,
     /// The invocation that submitted it.
     pub invocation: InvocationId,
     /// The move use that asked for the invocation. The host sets it; the
@@ -163,6 +176,7 @@ struct OutboxItem {
     /// lowers it.
     phase: Phase,
     scope: Entity,
+    state_scope: Entity,
     invocation: InvocationId,
     occurrence: Option<u32>,
     entry: Arc<str>,
@@ -185,7 +199,7 @@ impl ExtensionOutbox {
         self.items.iter().filter_map(move |item| {
             if item.port != P::KEY || item.phase != *phase { return None; }
             Some(Submitted {
-                scope: item.scope, invocation: item.invocation, occurrence: item.occurrence,
+                scope: item.scope, state_scope: item.state_scope, invocation: item.invocation, occurrence: item.occurrence,
                 entry: item.entry.clone(),
                 value: item.value.downcast_ref::<P::Value>().expect("the port's value type is unique"),
             })
@@ -219,6 +233,7 @@ impl ExtensionOutbox {
             match item.value.downcast::<P::Value>() {
                 Ok(value) => out.push(Submitted {
                     scope: item.scope,
+                    state_scope: item.state_scope,
                     invocation: item.invocation,
                     occurrence: item.occurrence,
                     entry: item.entry,
@@ -330,6 +345,7 @@ impl ExtensionFaults {
 #[derive(Clone, Copy)]
 pub struct ObservationContext<'a> {
     pub scope: Entity,
+    pub state_scope: Entity,
     pub entry: &'a str,
     invocation: &'a PendingInvocation,
 }
@@ -429,7 +445,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         let dt = world.resource::<ambition_time::WorldTime>().sim_dt();
         let paces: Vec<f32> = match world.remove_resource::<ScopePace>() {
             Some(mut pace) => {
-                let paces = pending.iter().map(|invocation| (pace.0)(world, invocation.scope)).collect();
+                let paces = pending.iter().map(|invocation| (pace.0)(world, invocation.scope.subject)).collect();
                 world.insert_resource(pace);
                 paces
             }
@@ -462,14 +478,15 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                     && p.entry.as_ref().is_none_or(|path| path.as_ref() == entry.path)
             }) {
                 let dt = dt * pace;
-                if world.get_entity(invocation.scope).is_err() {
+                if world.get_entity(invocation.scope.subject).is_err()
+                    || world.get_entity(invocation.scope.state).is_err() {
                     invocation.notify(world, InvocationEvent::Retired);
                     continue;
                 }
                 if invocation.idle {
                     if let Some(resets) = descriptor.on_idle.resets(&descriptor.writes) {
                         let resets: Vec<SchemaKey> = resets.cloned().collect();
-                        reset_idle(world, &admitted, invocation.scope, &resets);
+                        reset_idle(world, &admitted, invocation.scope.state, &resets);
                         invocation.notify(world, InvocationEvent::IdleReset);
                         continue;
                     }
@@ -477,7 +494,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                 let started = world.contains_resource::<ExtensionProfile>().then(Instant::now);
                 let mut backend_time = started.map(|_| Duration::ZERO);
                 invocation.notify(world, InvocationEvent::Started);
-                let result = read_state(world, &admitted, invocation.scope, session, &descriptor.writes)
+                let result = read_state(world, &admitted, invocation.scope.state, session, &descriptor.writes)
                     .and_then(|state| match &entry.runner {
                     EntryRunner::Native(run) => {
                         run_native(world, entry, *run, invocation, &codecs, (tick, dt), state, &mut backend_time)
@@ -510,7 +527,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                                 &admitted, &entry.path, &action.reply.selector,
                                 &ambition_extension_sdk::phases::ACTOR_THINK).is_none() {
                                 if let Some(refuse) = codecs.refuse_action {
-                                    refuse(world, invocation.scope, &entry.path, &action);
+                                    refuse(world, invocation.scope.state, &entry.path, &action);
                                 }
                                 invalid.get_or_insert_with(|| Fault::InvalidReply {
                                     port: port.clone(), handler: action.reply.selector.clone().into() });
@@ -527,14 +544,15 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                 });
                 match result {
                     Ok((state, requests)) => {
-                        commit(world, &admitted, invocation.scope, session, state);
+                        commit(world, &admitted, invocation.scope.state, session, state);
                         let mut outbox = world.resource_mut::<ExtensionOutbox>();
                         let id = InvocationId(outbox.next_invocation);
                         outbox.next_invocation += 1;
                         outbox.items.extend(requests.into_iter().map(|(port, value)| OutboxItem {
                             port,
                             phase: phase.clone(),
-                            scope: invocation.scope,
+                            scope: invocation.scope.subject,
+                            state_scope: invocation.scope.state,
                             invocation: id,
                             occurrence: invocation.occurrence,
                             entry: path.clone(),
@@ -551,7 +569,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         world.resource_mut::<ExtensionFaults>().record(FaultRecord {
                             tick,
                             entry: path.clone(),
-                            scope: invocation.scope,
+                            scope: invocation.scope.state,
                             receipt_sequence: invocation.receipt.map(|receipt| receipt.sequence),
                             fault,
                         });
@@ -591,7 +609,7 @@ fn run_native(
         .iter()
         .filter_map(|port| {
             let (supply, _) = codecs.suppliers.get(port)?;
-            supply(world, ObservationContext { scope: invocation.scope, entry: &entry.path, invocation }).map(|value| Observation {
+            supply(world, ObservationContext { scope: invocation.scope.subject, state_scope: invocation.scope.state, entry: &entry.path, invocation }).map(|value| Observation {
                 port: port.clone(),
                 value: OwnedPayload::Native(value),
             })
@@ -642,7 +660,7 @@ fn run_loaded(
         .iter()
         .filter_map(|port| {
             let (supply, encode) = codecs.suppliers.get(port)?;
-            let value = supply(world, ObservationContext { scope: invocation.scope, entry: &entry.path, invocation })?;
+            let value = supply(world, ObservationContext { scope: invocation.scope.subject, state_scope: invocation.scope.state, entry: &entry.path, invocation })?;
             let mut bytes = Vec::new();
             encode(value.as_ref(), &mut bytes);
             Some((port.clone(), bytes))

@@ -162,6 +162,12 @@ pub struct SheetRecord {
     /// and tier ids are the same either way; the game never loads them.
     #[serde(default)]
     pub drawn_from_parts: bool,
+    /// The sheet's sitting rows (`sit_down`, `sit_idle`, `stand_up`) rest the
+    /// body on the ground (a dog on its haunches), so it may sit wherever it
+    /// stands. `false` (the default): its sit is a seated pose, hips at the
+    /// height of a seat, and on a bare floor it sat on nothing.
+    #[serde(default)]
+    pub sits_on_ground: bool,
     /// The sheet is an effect sheet: each row is an effect, named by the row
     /// (see [`fx`]). `None` (the default): it is not. The renderer target
     /// declares it, so a new effect sheet is a publish and no Rust edit.

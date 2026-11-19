@@ -1,6 +1,6 @@
 //! Create a checked actor composition and initialize its declared behavior state.
 
-use ambition_extension_sdk::{Port, PortKey, PortRole, action::ReplyTo, script::ScriptValue,
+use ambition_extension_sdk::{Port, PortKey, PortRole, action::ReplyTo,
     wire::{WireError, WireReader}};
 
 ambition_extension_sdk::port_choices! {
@@ -19,8 +19,7 @@ ambition_extension_sdk::port_choices! {
     pub enum ActorLinkKind { Grudge = 1 => "grudge", Mount = 2 => "mount" }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ActorStateSeed { pub schema: String, pub value: ScriptValue }
+use crate::behavior::StateSeed;
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorNode {
     pub key: String,
@@ -31,21 +30,13 @@ pub struct ActorNode {
     pub face_left: bool,
     pub starting_wallet: Option<i32>,
     pub holds: Vec<String>,
-    pub state: Vec<ActorStateSeed>,
+    pub state: Vec<StateSeed>,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorLink { pub from: String, pub to: String, pub kind: ActorLinkKind }
 #[derive(Clone, Debug, PartialEq)]
 pub struct CreateActors { pub reply: ReplyTo, pub actors: Vec<ActorNode>, pub links: Vec<ActorLink> }
 
-ambition_extension_sdk::port_record! {
-    ActorStateSeed {
-        /// A body schema that the submitting entry declares in writes.
-        schema: String,
-        /// All fields of that schema, including nested record values.
-        value: ScriptValue,
-    }
-}
 ambition_extension_sdk::port_record! {
     ActorNode {
         /// A unique key within this batch. Links name these keys.
@@ -61,7 +52,7 @@ ambition_extension_sdk::port_record! {
         starting_wallet: Option<i32> = None,
         /// Status selectors held from birth, through the native status owner.
         holds: Vec<String> = Vec::new(),
-        state: Vec<ActorStateSeed> = Vec::new(),
+        state: Vec<StateSeed> = Vec::new(),
     }
 }
 ambition_extension_sdk::port_record! { ActorLink { from: String, to: String, kind: ActorLinkKind } }

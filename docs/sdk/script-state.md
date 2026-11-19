@@ -18,6 +18,15 @@ retains its values until session retirement. Durable save policy is a separate
 choice and needs an installed save road. Room-root records have no durable save
 road. All future-affecting records rewind with their native owner.
 
+The native host can separate an invocation's subject from its private record
+owner with `InvocationScope { subject, state }`. Observations, time pace and
+domain actions use the subject. Body-attached records, action mailboxes, query
+reply history and delivery receipts use the state owner. Two instances can use
+the same entry and schema on one subject without sharing these records. Both
+entities must remain live. See [object behaviors](object-behaviors.md) for script-authored attachment and
+directed method calls.
+
+
 ## Rhai values
 
 A library can return a reusable kind declaration:
@@ -60,12 +69,12 @@ absence. Lists keep their order.
 
 Text uses `text <maximum bytes>`. It accepts empty UTF-8 text. The bound counts
 bytes, not characters. Text is distinct from a body or item reference: the host
-does not resolve text as an identity. Reference fields still use `body`, `item`
-or their optional forms. Nested references take part in the existing whereabouts
-observation.
+does not resolve text as an identity. Authored locators use `body`, `item`
+or their optional forms. Nested locators take part in the existing whereabouts
+observation. Live occurrence references use `object` and transient records.
 
 The existing kinds remain available: `bool`, `u32`, `i32`, `u64`, `f32`, `vec2`,
-`body`, `item`, `opt <kind>` and `seq <bound> <kind>`. Use table declarations to
+`body`, `item`, `object`, `opt <kind>` and `seq <bound> <kind>`. Use table declarations to
 compose records with options and sequences. Each kind can have at most 32 levels
 of nesting. The Rhai engine's string, list, map and work limits also apply.
 
@@ -143,3 +152,7 @@ Arbitrary maps, enums and general object composition remain separate SDK work.
 
 SDK API 0.3 adds required reply-entry declarations. Module descriptors carry
 these paths through the portable ABI. See [action results](action-results.md#validate-reply-wiring).
+
+Live addresses use the [object reference](object-references.md) kind. It supports
+nested records, options and bounded sequences. Schemas that contain it must use
+transient save policy. Authored `body` and `item` names remain separate locators.

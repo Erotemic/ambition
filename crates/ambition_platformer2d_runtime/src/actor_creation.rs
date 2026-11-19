@@ -31,7 +31,7 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
     for submitted in submitted {
         let request = submitted.value;
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CreateActorsPort>(
-            world, submitted.scope, &submitted.entry, &request);
+            world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
         let limits = rules.get(world).ok().and_then(|rules| rules.of(submitted.scope).copied()).unwrap_or_default();
         let result = prepare_state(world, &submitted.entry, &request, limits).and_then(|states| {
@@ -56,7 +56,9 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
             }).collect::<Vec<_>>();
             let created = ambition_platformer2d_construction::runtime::create_actors(world,
                 submitted.scope, &actors, &links, limits)?;
-            Ok(created.into_iter().map(|actor| actor.id.as_str().to_owned()).collect())
+            Ok(created.into_iter().map(|actor|
+                ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, actor.entity)
+                    .expect("a published actor has a live occurrence")).collect())
         });
         match result {
             Ok(ids) => { publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Applied, true,

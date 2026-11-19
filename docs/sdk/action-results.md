@@ -39,7 +39,9 @@ request number when it has several pending actions.
 | `failed` | Admitted work could not finish, for example because its target left. |
 
 `terminal` states whether that result ends the action. The domain supplies the
-code and semantic subject identities. They are not native entity handles.
+code and typed subjects. Each subject has a semantic `key` and an optional
+live `object` reference. See [object references](object-references.md). They
+contain no native entity handles.
 The generic protocol does not decide combat, grant, spawn, or travel rules.
 Each domain must publish its own actual result.
 
@@ -79,15 +81,16 @@ row does not need the broken callback to run. Already accepted work follows its
 domain lifetime if a dynamic callback later becomes unbound; its retained
 result exposes `unbound` until the handler is available or its source retires.
 
-SDK API 0.3 includes static reply dependencies. The loaded descriptor format
+SDK API 0.4 includes static reply dependencies. The loaded descriptor format
 is `ambition-ext-2`; rebuild portable module files with this SDK. The history
-observation is version 3. There is no old descriptor decoder.
+observation is version 4. Cancellation is version 3 because its ticket also
+carries the optional allocation room. There is no old descriptor decoder.
 
 ## Installed command results
 
 - [`consume_contact`](contact-consumption.md) reports terminal
   `contact_consumed` after both the native destructible state and inventory
-  exchange apply. `subjects` contains the consumed object identity. A refusal
+  exchange apply. `subjects[*].key` names the consumed contact. A refusal
   changes neither owner.
 
 - [`inventory_exchange`](inventory-exchanges.md) reports terminal
@@ -95,8 +98,7 @@ observation is version 3. There is no old descriptor decoder.
   A refused cost or reward leaves both owners unchanged.
 
 - `projectile` reports `projectile_queued` at native admission and terminal
-  `projectile_created` after actual construction. `subjects` contains the shot
-  ID. Invalid shape, callback, or source context is refused. Explicit
+  `projectile_created` after actual construction. `subjects` contains the shot key and its live object reference. Invalid shape, callback, or source context is refused. Explicit
   cancellation removes a queued emission before construction starts.
 
 - `world.set_flag` reports `flags_written` after the native flag consumer applies

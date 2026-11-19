@@ -98,8 +98,8 @@ pub enum FieldKind {
     Opt(Box<FieldKind>),
     /// A sequence with a declared maximum length. Order is meaning.
     Seq { elem: Box<FieldKind>, max_len: u32 },
-    /// A reference to a live body or an item by its simulation identity,
-    /// never by an entity's bits, so a rewind and a peer read it alike. It
+    /// An authored body or item name, resolved in the consumer's scope.
+    /// This locator does not identify a live occurrence. It
     /// names something (it is not empty) in at most [`MAX_REF_LEN`] bytes; a
     /// reference that may be absent is an `Opt`. What it names may be gone:
     /// the reader resolves it.
@@ -108,15 +108,17 @@ pub enum FieldKind {
     Text { max_bytes: u32 },
     /// A value with its own tagged fields. The outer schema owns its lifetime.
     Record(Vec<FieldDecl>),
+    /// A live occurrence address. Only transient records can retain it.
+    Object,
 }
 
 /// What a [`FieldKind::Ref`] names. A body and an item are distinct kinds,
 /// so a record cannot take one for the other.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RefKind {
-    /// A live body (`SimId`).
+    /// An authored body name (`SimId`).
     Body,
-    /// An item, in the world or held (`SimId`).
+    /// An authored item name (`SimId`).
     Item,
 }
 
@@ -136,6 +138,15 @@ pub const MAX_REF_LEN: u32 = 128;
 pub const MAX_SCHEMA_DEPTH: usize = 32;
 
 impl FieldKind {
+    fn contains_object(&self) -> bool {
+        match self {
+            Self::Object => true,
+            Self::Opt(inner) | Self::Seq { elem: inner, .. } => inner.contains_object(),
+            Self::Record(fields) => fields.iter().any(|field| field.kind.contains_object()),
+            _ => false,
+        }
+    }
+
     pub fn opt(inner: FieldKind) -> Self {
         Self::Opt(Box::new(inner))
     }
@@ -150,6 +161,7 @@ impl FieldKind {
     /// The deterministic initial value of a field of this kind.
     pub fn initial(&self) -> Value {
         match self {
+            Self::Object => Value::Object(crate::ObjectRef::UNBOUND),
             Self::Bool => Value::Bool(false),
             Self::U32 => Value::U32(0),
             Self::I32 => Value::I32(0),
@@ -168,6 +180,7 @@ impl FieldKind {
     /// The largest canonical encoding of a value of this kind, in bytes.
     pub fn max_encoded_len(&self) -> u64 {
         match self {
+            Self::Object => 21,
             Self::Bool => 1,
             Self::U32 | Self::I32 | Self::F32 => 4,
             Self::U64 | Self::Vec2 => 8,
@@ -183,6 +196,7 @@ impl FieldKind {
     pub fn put(&self, out: &mut Vec<u8>) {
         use crate::wire::{put_u32, put_u8};
         match self {
+            Self::Object => put_u8(out, 12),
             Self::Bool => put_u8(out, 1),
             Self::U32 => put_u8(out, 2),
             Self::I32 => put_u8(out, 3),
@@ -240,12 +254,14 @@ impl FieldKind {
             }),
             10 => Self::Text { max_bytes: r.u32()? },
             11 => Self::Record(read_fields(r, depth + 1)?),
+            12 => Self::Object,
             other => return Err(crate::wire::WireError::BadTag(other)),
         })
     }
 
     fn digest_into(&self, d: &mut Digest) {
         match self {
+            Self::Object => d.u8(12),
             Self::Bool => d.u8(1),
             Self::U32 => d.u8(2),
             Self::I32 => d.u8(3),
@@ -320,6 +336,7 @@ pub enum Value {
     Ref(String),
     Text(String),
     Record(Record),
+    Object(crate::ObjectRef),
 }
 
 /// Why a value or record does not match its schema.
@@ -329,6 +346,7 @@ pub enum SchemaError {
     KindMismatch { field: u16, expected: String },
     /// A float is NaN or infinite.
     NotFinite { field: u16 },
+    UnboundObjectReference { field: u16 },
     /// A sequence or text value is longer than its declared maximum.
     TooLong { field: u16, len: usize, max_len: u32 },
     /// The record has a different number of fields than the schema.
@@ -346,6 +364,7 @@ impl std::fmt::Display for SchemaError {
             Self::KindMismatch { field, expected } => {
                 write!(f, "field tag {field}: the value is not a {expected}")
             }
+            Self::UnboundObjectReference { field } => write!(f, "field tag {field}: the object reference is unbound; use an optional object field"),
             Self::NotFinite { field } => write!(f, "field tag {field}: the float is not finite"),
             Self::TooLong { field, len, max_len } => {
                 write!(f, "field tag {field}: length {len} is more than {max_len}")
@@ -363,6 +382,10 @@ impl std::fmt::Display for SchemaError {
 }
 
 impl Value {
+    pub fn as_object(&self) -> Option<crate::ObjectRef> {
+        match self { Self::Object(value) if value.is_bound() => Some(*value), _ => None }
+    }
+
     /// Checks that this value is a valid value of `kind`.
     pub fn conforms(&self, kind: &FieldKind, field: u16) -> Result<(), SchemaError> {
         let mismatch = || SchemaError::KindMismatch {
@@ -374,6 +397,9 @@ impl Value {
             | (Value::U32(_), FieldKind::U32)
             | (Value::I32(_), FieldKind::I32)
             | (Value::U64(_), FieldKind::U64) => Ok(()),
+            (Value::Object(value), FieldKind::Object) => {
+                if value.is_bound() { Ok(()) } else { Err(SchemaError::UnboundObjectReference {field}) }
+            },
             (Value::F32(v), FieldKind::F32) => finite(*v, field),
             (Value::Vec2([x, y]), FieldKind::Vec2) => {
                 finite(*x, field)?;
@@ -414,6 +440,7 @@ impl Value {
     /// its IEEE bit pattern, with `-0.0` written as `+0.0`.
     pub fn encode(&self, out: &mut Vec<u8>) {
         match self {
+            Value::Object(v) => crate::structure::put(v, out),
             Value::Bool(v) => out.push(u8::from(*v)),
             Value::U32(v) => out.extend_from_slice(&v.to_le_bytes()),
             Value::I32(v) => out.extend_from_slice(&v.to_le_bytes()),
@@ -446,6 +473,7 @@ impl Value {
     pub fn put_wire(&self, out: &mut Vec<u8>) {
         use crate::wire::*;
         match self {
+            Value::Object(v) => crate::structure::put(v, out),
             Value::Bool(v) => put_bool(out, *v),
             Value::U32(v) => put_u32(out, *v),
             Value::I32(v) => put_i32(out, *v),
@@ -475,6 +503,7 @@ impl Value {
         r: &mut crate::wire::WireReader<'_>,
     ) -> Result<Self, crate::wire::WireError> {
         Ok(match kind {
+            FieldKind::Object => Value::Object(crate::structure::read(r)?),
             FieldKind::Bool => Value::Bool(r.bool()?),
             FieldKind::U32 => Value::U32(r.u32()?),
             FieldKind::I32 => Value::I32(r.i32()?),
@@ -631,6 +660,7 @@ pub enum SchemaDeclError {
     DuplicateTag { tag: u16 },
     DuplicateName { name: String },
     BadInitial(SchemaError),
+    ObjectReferenceInSave { field: u16 },
     Empty,
     TooDeep,
 }
@@ -638,7 +668,15 @@ pub enum SchemaDeclError {
 impl StateSchema {
     /// Checks field identities, nesting and initial values.
     pub fn validate(&self) -> Result<(), SchemaDeclError> {
-        validate_fields(&self.fields, 0)
+        validate_fields(&self.fields, 0)?;
+        if self.save != SaveEligibility::Transient {
+            for field in &self.fields {
+                if field.kind.contains_object() {
+                    return Err(SchemaDeclError::ObjectReferenceInSave { field: field.tag });
+                }
+            }
+        }
+        Ok(())
     }
 
     /// The canonical shape digest: key, attachment, save policy, and each

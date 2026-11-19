@@ -22,6 +22,8 @@
 //! body's identity, so the count goes on when that body is built again, and
 //! in a transient one beside it, which starts again with each live body.
 
+mod object_worker;
+
 use ambition_combat_port::{
     ActorFire, ActorFirePort, ActorThink, ActorThinkPort, DamageBox, DamageBoxPort, WieldedUsePort, Wielder,
 };
@@ -363,8 +365,43 @@ fn think(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     Ok(())
 }
 
+record! {
+    /// A callback retains live addresses in portable state.
+    pub struct ObjectMemory = SchemaKey::new(PROVIDER, "object_refs.memory", 1);
+    1 completed: u32,
+    2 code: String [max 32],
+    3 seen: Option<ambition_extension_sdk::ObjectRef>,
+}
+
+pub fn object_refs() -> ModuleDescriptor {
+    use ambition_extension_sdk::action::ActionResultPort;
+    let entry = |key: &'static str, trigger, selector: &'static str, run| EntryDescriptor {
+        replies: Vec::new(), key: key.into(), phase: ACTOR_THINK,
+        trigger: TriggerBinding {port: trigger, selector: selector.into()},
+        reads: Vec::new(), writes: vec![ObjectMemory::KEY], requests: Vec::new(),
+        after: Vec::new(), limits: Limits {max_requests: 0}, on_idle: IdlePolicy::Invoke,
+        run: EntryCode::Native(run),
+    };
+    ModuleDescriptor {key: ModuleKey::new(PROVIDER, "object_refs"), api: API_VERSION,
+        code: CodeIdentity::StaticNative {build: None, crate_name: env!("CARGO_PKG_NAME").into(), version: env!("CARGO_PKG_VERSION").into()},
+        schemas: vec![ObjectMemory::schema()], entries: vec![
+            entry("ask", ActorThinkPort::KEY, "fixture.object_refs.unused", object_ref_ask),
+            entry("result", ActionResultPort::KEY, "result", object_ref_result),
+        ]}
+}
+fn object_ref_ask(_: &mut Invocation<'_>) -> Result<(), Fault> { Ok(()) }
+fn object_ref_result(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let result = inv.trigger::<ambition_extension_sdk::action::ActionResultPort>()?.clone();
+    if !result.terminal { return Ok(()); }
+    let mut state = ObjectMemory::load(inv)?;
+    state.completed += 1;
+    state.code = result.code;
+    state.seen = result.subjects.first().and_then(|subject| subject.object);
+    state.store(inv)
+}
+
 /// Every module this crate provides, as constructors.
-pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker];
+pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker, object_refs, object_worker::module];
 
 #[cfg(test)]
 mod tests {

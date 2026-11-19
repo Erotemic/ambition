@@ -385,7 +385,7 @@ pub fn reduce_encounter_lifecycles(
             let accepted = lifecycle.apply_command(&command.kind, &mut events);
             replies.publish(command.reply.as_ref(),
                 if accepted { ambition_extension_sdk::action::ActionStage::Applied } else { ambition_extension_sdk::action::ActionStage::Rejected },
-                true, if accepted { "encounter_applied" } else { "encounter_phase_refused" }, "", vec![encounter.id.clone()]);
+                true, if accepted { "encounter_applied" } else { "encounter_phase_refused" }, "", vec![ambition_extension_sdk::action::ActionSubject::named(encounter.id.clone())]);
         }
         events.extend(lifecycle.reduce(
             dt.dt,

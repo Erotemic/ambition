@@ -70,8 +70,8 @@ independent instances distinct schema keys. Modules from one provider must
 also use distinct keys for independent state. A factory can select field
 initial values and the existing transient, checkpoint, or durable save policy.
 Use ordinary parameters for behavior variation. Persistent records support
-scalars, vectors, options, bounded sequences and text, body and item references,
-and nested records. A library can return reusable record-kind declarations.
+scalars, vectors, options, bounded sequences and text, body and item locators,
+and nested records. Transient records can also retain live object references. A library can return reusable record-kind declarations.
 See [structured state](script-state.md) for composition and save rules.
 
 A behavior library can return updated state and native requests, or accept and

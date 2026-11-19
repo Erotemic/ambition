@@ -382,7 +382,7 @@ No fields: `request("defeat_body", #{})`.
 
 ## `body_query`
 
-Port `ambition.combat.body_query@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.combat.body_query@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
@@ -393,22 +393,80 @@ Port `ambition.combat.body_query@1`, request: `this.requests.push(request("<alia
 | `relation` | one of: foe \| ally \| neutral or () | `()` |  |
 | `include_self` | bool | `false` |  |
 | `identities` | list of text | `[]` | Optional exact identities from an earlier read. Empty searches the area. |
+| `references` | list of { session: text, allocation_room: integer (u32) or (), sequence: text } | `[]` | Exact occurrence addresses. Do not combine these with authored identities. |
 | `require_all` | bool | `false` | Reject if an exact identity is absent, out of play, or outside the filters. |
 
 ## `body_query_result`
 
-Port `ambition.combat.body_query_result@1`, observation: read as `this.observe.<alias>`.
+Port `ambition.combat.body_query_result@2`, observation: read as `this.observe.<alias>`.
 
-Value: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text }, observed_at: text, room: integer (u32), phase: text, truncated: bool, targets: list of { id: text, position: [x, y], size: [x, y], velocity: [x, y], driven: bool, relation: one of: foe | ally | neutral or (), distance: number } } or ()
+Value: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32) or (), generation: text }, observed_at: text, room: integer (u32), phase: text, truncated: bool, targets: list of { id: text, object: { session: text, allocation_room: integer (u32) or (), sequence: text }, position: [x, y], size: [x, y], velocity: [x, y], driven: bool, relation: one of: foe | ally | neutral or (), distance: number } } or ()
 
 ## `cancel_action`
 
-Port `ambition.actions.cancel@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.actions.cancel@3`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
-| `ticket` | { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text } | required |  |
+| `ticket` | { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32) or (), generation: text } | required |  |
 | `reply` | { request: integer (u32), selector: text } | required |  |
+
+## `attach_behaviors`
+
+Port `ambition.objects.attach_behaviors@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `target` | { session: text, allocation_room: integer (u32) or (), sequence: text } | required |  |
+| `bindings` | list of { key: text, methods: list of { name: text, entry: text }, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } | required |  |
+
+## `call_object`
+
+Port `ambition.objects.call@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `target` | { session: text, allocation_room: integer (u32) or (), sequence: text } | required |  |
+| `binding` | text | required |  |
+| `method` | text | required |  |
+| `data` | schema-selected data | `()` |  |
+
+## `object_method`
+
+Port `ambition.objects.method@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `sequence` | text |  |
+| `caller` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `method` | text |  |
+| `data` | schema-selected data |  |
+
+## `complete_object_call`
+
+Port `ambition.objects.complete_call@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `sequence` | text | required |  |
+| `accepted` | bool | `true` |  |
+| `code` | text | required |  |
+| `data` | schema-selected data | `()` |  |
+
+## `behavior`
+
+Port `ambition.objects.behavior@1`, observation: read as `this.observe.<alias>`.
+
+Value: { object: { session: text, allocation_room: integer (u32) or (), sequence: text }, binding: text, params: schema-selected data } or ()
+
+## `object_call_result`
+
+Port `ambition.objects.call_result@1`, observation: read as `this.observe.<alias>`.
+
+Value: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32) or (), generation: text }, data: schema-selected data } or ()
 
 ## `create_actors`
 
@@ -431,27 +489,27 @@ Port `ambition.world.create_breakables@1`, request: `this.requests.push(request(
 
 ## `action_result`
 
-Port `ambition.actions.result@1`, trigger: read as `this.trigger`.
+Port `ambition.actions.result@2`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
-| `ticket` | { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text } |  |
+| `ticket` | { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32) or (), generation: text } |  |
 | `stage` | one of: submitted \| admitted \| applied \| completed \| rejected \| canceled \| failed |  |
 | `terminal` | bool | The domain has finished this action. Applied can be terminal for a one-step mutation. |
 | `tick` | text | Simulation tick when the domain published this stage. |
 | `code` | text | A domain-defined result or refusal code. |
 | `message` | text | The domain's diagnostic, when it supplies one. |
-| `subjects` | list of text | Stable semantic identities supplied by the domain. No native entity handles. |
+| `subjects` | list of { key: text, object: { session: text, allocation_room: integer (u32) or (), sequence: text } or () } | Domain keys and exact occurrence references. No native entity handles. |
 
 ## `action_history`
 
-Port `ambition.actions.history@3`, observation: read as `this.observe.<alias>`.
+Port `ambition.actions.history@4`, observation: read as `this.observe.<alias>`.
 
 | field | value | meaning |
 |---|---|---|
 | `next_sequence` | text |  |
 | `dropped` | text |  |
-| `entries` | list of { sequence: text, result: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32), generation: text }, stage: one of: submitted \| admitted \| applied \| completed \| rejected \| canceled \| failed, terminal: bool, tick: text, code: text, message: text, subjects: list of text }, handler: text, delivery: one of: waiting \| queued \| invoked \| acknowledged \| faulted \| quarantined \| unbound \| retired, attempts: integer (u32), last_attempt: text or (), last_error: text or () } |  |
+| `entries` | list of { sequence: text, result: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32) or (), generation: text }, stage: one of: submitted \| admitted \| applied \| completed \| rejected \| canceled \| failed, terminal: bool, tick: text, code: text, message: text, subjects: list of { key: text, object: { session: text, allocation_room: integer (u32) or (), sequence: text } or () } }, handler: text, delivery: one of: waiting \| queued \| invoked \| acknowledged \| faulted \| quarantined \| unbound \| retired, attempts: integer (u32), last_attempt: text or (), last_error: text or () } |  |
 | `refusals` | list of { sequence: text, entry: text, domain: text, request: integer (u32), handler: text, signature: text, tick: text, code: text } |  |
 
 ## `story_tick`

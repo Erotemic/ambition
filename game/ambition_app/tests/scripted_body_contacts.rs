@@ -262,3 +262,100 @@ fn native_world_contacts_start_scripted_creation_for_both_controllers_and_replay
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Measure native collection separately from the complete headless step.
+#[test]
+#[ignore = "Local contact cost sample; run with --ignored --nocapture"]
+fn crowded_contact_observer_cost() {
+    use ambition_platformer2d::{
+        characters::actor::{BodyHealth, Health},
+        combat::extension::contact::queue_body_contacts,
+        engine_core::{self as ae, RoomGeometry},
+        extension::{ExtensionSet, sdk::phases::BODY_CONTACT},
+        platformer::{lifecycle::*, schedule::SimScheduleExt},
+        world::rooms::{LiveRoomDefinition, RoomSet},
+    };
+    use std::time::Instant;
+    #[derive(Resource, Default)]
+    struct CollectionTimes { started: Option<Instant>, samples: Vec<f64> }
+    fn begin(mut times: ResMut<CollectionTimes>) { times.started = Some(Instant::now()); }
+    fn end(mut times: ResMut<CollectionTimes>) {
+        let elapsed = times.started.take().unwrap().elapsed().as_secs_f64() * 1e3;
+        times.samples.push(elapsed);
+    }
+    const PROBE: &str = r#"
+fn declare() {
+    #{provider: "contact_cost", key: "sample", schemas: [#{key: "count", fields: [
+        #{tag: 1, name: "samples", kind: "u32"}]}], entries: [
+        #{key: "observe", phase: "body_contact", trigger: #{port: "body_contact", selector: "contact_cost.observe"},
+          writes: ["count"]}]}
+}
+fn observe() {
+    if this.trigger.incomplete { throw "incomplete probe material"; }
+    this.state.count.samples += 1;
+}
+"#;
+    let file = std::env::temp_dir().join(format!("ambition_contact_cost_{}.rhai", std::process::id()));
+    std::fs::write(&file, PROBE).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab")
+            .with_extension_module_files(vec![file.clone()])).unwrap();
+    sim.step_n(AgentAction::default(), 4);
+    let schedule = sim.app_mut().sim_schedule();
+    sim.app_mut().init_resource::<CollectionTimes>().add_systems(schedule,
+        (begin.before(queue_body_contacts), end.after(queue_body_contacts))
+            .in_set(ExtensionSet::Collect(BODY_CONTACT)));
+    let world = sim.world_mut();
+    let root = world.query_filtered::<Entity, With<RoomInstanceRoot>>().single(world).unwrap();
+    let owner = *world.get::<SessionScopedEntity>(root).unwrap();
+    let geometry = world.get::<RoomGeometry>(root).unwrap().clone();
+    let definition = *world.get::<LiveRoomDefinition>(root).unwrap();
+    let mut probes = Vec::new();
+    for room_count in [1, 2] {
+        if room_count == 2 {
+            let room = LiveRoomInstance::from_ordinal(1);
+            let world = sim.world_mut();
+            assert!(session_world_component_mut::<RoomSet>(world).unwrap().mint_live_room(room));
+            let extra = spawn_live_room(world, room, geometry.clone());
+            world.entity_mut(extra).insert(definition);
+        }
+        let room = LiveRoomInstance::from_ordinal(room_count - 1);
+        for index in 0..256 {
+            let x = (index % 16) as f32 * 64.0;
+            let y = (index / 16) as f32 * 96.0;
+            let entity = sim.world_mut().spawn((owner, InRoomInstance(room),
+                SimId::placement(&format!("contact-cost-{index:03}")),
+                BodyKinematics {pos: ae::Vec2::new(x, y), canonical_size: ae::Vec2::new(64.0, 48.0), ..Default::default()},
+                BodyHealth::new(Health::new(3)), BodyStatuses::default())).id();
+            probes.push((entity, index));
+        }
+        for many in [false, true] {
+            for (entity, index) in &probes {
+                sim.world_mut().entity_mut(*entity).insert(BodyStatuses(if many || *index < 4 {
+                    vec!["contact_cost.observe".into()]
+                } else { vec![] }));
+            }
+            sim.step_n(AgentAction::default(), 4);
+            sim.world_mut().resource_mut::<CollectionTimes>().samples.clear();
+            let mut frames = Vec::new();
+            for _ in 0..32 {
+                let started = Instant::now();
+                sim.step(AgentAction::default());
+                frames.push(started.elapsed().as_secs_f64() * 1e3);
+            }
+            assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
+            let observers = room_count as usize * if many { 256 } else { 4 };
+            let record = SchemaKey::new("contact_cost", "count", 1);
+            let observed = probes.iter().filter(|(entity, _)| sim.world().get::<BodyRecords>(*entity)
+                .and_then(|records| records.get(&record)).is_some()).count();
+            assert!(observed >= observers);
+            let mut collection = std::mem::take(&mut sim.world_mut().resource_mut::<CollectionTimes>().samples);
+            assert_eq!(collection.len(), frames.len());
+            collection.sort_by(f64::total_cmp);
+            frames.sort_by(f64::total_cmp);
+            eprintln!("CONTACT_COST rooms={room_count} bodies={} observers={observers} collect_median_ms={:.3} collect_p95_ms={:.3} step_median_ms={:.3} step_p95_ms={:.3}",
+                probes.len(), collection[16], collection[30], frames[16], frames[30]);
+        }
+    }
+    std::fs::remove_file(file).unwrap();
+}

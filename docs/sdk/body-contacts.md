@@ -47,8 +47,11 @@ The same sample includes bounded native movement contacts in `world`.
 All touchers share the recipient's live room and session. They use simulation
 identity order. Each toucher contains:
 
-- `id`: a semantic body identity. Keep it in a declared `body` or `opt body`
-  record field when it must survive this invocation.
+- `id`: an authored semantic body identity in the current live room. A declared
+  `body` or `opt body` record can store it. This string does not identify an
+  occurrence through travel into another room with the same authored ID.
+  Native action recipients use occurrence stamps; general script occurrence
+  references remain open.
 - `body`: physical centre, full envelope size, and velocity in that body's
   root room chart, in world units with +Y down.
 - `driven`: whether a participant currently drives it. A game can use this
@@ -68,6 +71,12 @@ These are samples of current physical contact, including resting faces. They
 do not report every crossing along a motion path. They do not prove accepted
 damage, a shield result, or a projectile hit. Those facts belong to their
 combat consumers.
+
+The native collector indexes physical material pieces with the engine's spatial
+broadphase. Each session and live room has a separate index. Portal pieces use
+their actual projected bounds. Candidate order returns to simulation identity
+order before exact contact checks. Refused material remains an incomplete read,
+even when it has no usable spatial bounds.
 
 An empty sample can establish separation from previously observed bodies.
 When `truncated` or `incomplete` is true, absence cannot establish separation
@@ -143,6 +152,11 @@ A game's `room_rules` content can set:
 
 The defaults are 32 touching bodies, 8 surface points per toucher, and 32
 world contacts. All limits must be positive. Content reload replaces or removes the declaration.
+These limits bound returned facts, not all collection work. Dense overlaps,
+large material pieces and refused geometry can retain many candidates. The
+collector builds its derived index again on each step, including replay. See
+[observer cost](../../dev/benchmark-candidates/scripted-contact-observer-scaling.md)
+for a local sample and its limits.
 Removing it restores the defaults. Returned facts and native response indices
 use the same bounded selection.
 

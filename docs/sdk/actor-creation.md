@@ -46,13 +46,36 @@ terminal result has stage `applied`, code `actors_created`, and `subjects` in
 the same order as `actors`. Each subject is the actual root body's semantic
 identity. Internal limbs do not add subjects. On refusal, stage is `rejected`,
 code is `actor_creation_refused`, and `message` explains the failed condition.
-No body is built and no spawn counter is spent by a refused batch. A repeated
+A refused batch publishes no body and spends no spawn counter. A repeated
 request uses the existing action-ticket retry rules.
 
 Creation runs when the native request adapter consumes the invocation. The
 result names completed construction, not a promise to build later. Callbacks
 arrive at the next eligible actor read cut. A source entry or recipient that
 retires cannot receive a callback in a replacement lifetime.
+
+## Completed publication
+
+The native owner prepares all declared state before materialization. It builds
+hidden roots, installs wallet overrides, statuses and script records, and checks
+the complete rig and relations. It then assigns occurrence references and
+publishes the batch. Scheduled systems cannot see partially initialized roots.
+A supported verification refusal removes the hidden batch without publishing it.
+
+Native `ObjectPublished` notices follow complete batch publication. Each notice
+carries the entity, session and stable `ObjectOccurrence`. A listener can read
+the initialized facets and sibling relations immediately. Component-add hooks
+are not creation notices; native hooks can run during materialization. This
+contract does not provide undo for arbitrary hook effects or native panics.
+A scoped script birth subscription remains part of the general object/event
+work.
+
+Native callers can supply prepared, entity-local components through
+`RuntimeActor.initialization`. Their owner validates those values. The runtime
+uses a root-scoped initializer, without a world callback. The script adapter
+supplies its checked `BodyRecords` through this same path. Runtime breakables
+use the same publication boundary. Occurrence counters and initialized state
+rewind through the existing snapshot owners.
 
 ## Wallet capability at birth
 

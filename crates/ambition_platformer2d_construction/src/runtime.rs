@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// A native character occurrence. Behavior state is initialized by its owner.
 #[derive(Clone, Debug)]
-pub struct RuntimeActor {
+pub struct RuntimeActor<Initialization = ()> {
     pub key: String,
     pub character: String,
     pub aabb: ae::Aabb,
@@ -25,6 +25,8 @@ pub struct RuntimeActor {
     pub face_left: bool,
     pub starting_wallet: Option<i32>,
     pub holds: Vec<String>,
+    /// The component owner validates these values before construction.
+    pub initialization: Initialization,
 }
 
 #[derive(Clone, Debug)]
@@ -43,12 +45,12 @@ pub struct CreatedActor {
     pub entity: Entity,
 }
 
-/// Create the complete batch or refuse before world mutation.
+/// Publish the complete batch or leave no new live roots.
 /// The live room owns the new bodies. Their creator need not remain alive.
-pub fn create_actors(
+pub fn create_actors<Initialization: Bundle + Clone>(
     world: &mut World,
     caller: Entity,
-    actors: &[RuntimeActor],
+    actors: &[RuntimeActor<Initialization>],
     links: &[RuntimeLink],
     limits: ActorCreationLimits,
 ) -> Result<Vec<CreatedActor>, String> {
@@ -190,39 +192,27 @@ pub fn create_actors(
     crate::preflight_planned_bodies(&rows, Some(&cast), &catalog).map_err(|e| e.to_string())?;
     crate::preflight_actor_relations(&rows, &context.services.boss_catalog, Some(&cast))
         .map_err(|e| e.to_string())?;
-    let receipt = context.commit(world, rows)?;
-    for id in receipt.committed_ids() {
-        world
-            .entity_mut(receipt.entity(&id).unwrap())
-            .insert(ambition_combat::components::RuntimeStagedActor);
-    }
-    let created = actors
-        .iter()
-        .map(|actor| {
-            let id = ids[actor.key.as_str()].clone();
-            let entity = receipt
-                .entity(&id)
-                .expect("the complete plan committed its root");
+    let initializers: BTreeMap<_, _> = actors.iter().map(|actor| (ids[actor.key.as_str()].clone(), actor)).collect();
+    let receipt = context.commit(world, rows, |id, root| {
+        root.insert(ambition_combat::components::RuntimeStagedActor);
+        if let Some(actor) = initializers.get(id) {
             if let Some(balance) = actor.starting_wallet {
-                world
-                    .entity_mut(entity)
-                    .insert(ambition_characters::actor::BodyWallet { balance });
+                root.insert(ambition_characters::actor::BodyWallet {balance});
             }
             if !actor.holds.is_empty() {
                 let mut holds = actor.holds.clone();
                 holds.sort();
                 holds.dedup();
-                world
-                    .entity_mut(entity)
-                    .insert(ambition_combat::extension::status::BodyStatuses(holds));
+                root.insert(ambition_combat::extension::status::BodyStatuses(holds));
             }
-            CreatedActor {
-                key: actor.key.clone(),
-                id,
-                entity,
-            }
-        })
-        .collect();
+            root.insert(actor.initialization.clone());
+        }
+    })?;
+    let created = actors.iter().map(|actor| {
+        let id = ids[actor.key.as_str()].clone();
+        let entity = receipt.entity(&id).expect("the complete plan committed its root");
+        CreatedActor {key: actor.key.clone(), id, entity}
+    }).collect();
     Ok(created)
 }
 
@@ -345,11 +335,12 @@ impl RuntimeConstruction {
         SimId::spawned(&self.parent, sequence)
     }
 
-    /// Commit all validated rows, then advance only this source's counter.
+    /// Initialize and verify hidden roots, then publish their complete state.
     pub fn commit(
         self,
         world: &mut World,
         rows: Vec<ActorConstructionRequest>,
+        mut initialize: impl FnMut(&SimId, &mut RootScope<'_, '_, '_>),
     ) -> Result<ConstructionReceipt, String> {
         world.flush();
         if Self::source(world, self.caller)?
@@ -363,15 +354,24 @@ impl RuntimeConstruction {
         {
             return Err("A constructed identity exceeds the portable reference bound.".into());
         }
-        let mut identities = world.query::<(&SessionScopedEntity, &SimId,
-            Option<&InRoomInstance>, Option<&LiveRoomInstance>)>();
         let rooms = TransactionRooms::only(self.room);
-        let live = identities.iter(world)
-            .filter(|(scope, _, stamp, root)| scope.0 == self.session && rooms.admits(*stamp, *root))
-            .map(|(_, id, _, _)| id.clone()).collect();
+        let session = SessionSpawnScope::scoped(self.session).in_room(Some(self.room));
+        let baseline = TransactionBaseline::capture_for_session(world, session, rooms)
+            .map_err(|problem| {
+                bevy::log::error!(?problem, "runtime publication baseline is invalid");
+                "The runtime publication baseline is invalid.".to_owned()
+            })?;
+        let live = baseline.entries().keys().cloned().collect();
+        if !inactive_candidate_filter_installed(world) {
+            return Err("Runtime publication requires the candidate query filter.".into());
+        }
+        let occurrences = PreparedObjectOccurrences::prepare(world, self.session, self.room, rows.len())?;
         let scope = ConstructionScope::in_generation(ContentBinding::RuntimeDynamic, None);
-        let plan = crate::ActorConstructionPlan::prepare(
+        let source_key: String = self.parent.as_str().bytes().map(|byte| format!("{byte:02x}")).collect();
+        let lane = ConstructionLane::named(format!("runtime:{}:{source_key}:{}", self.room.ordinal(), self.start));
+        let plan = crate::ActorConstructionPlan::prepare_in_lane(
             scope.clone(),
+            lane,
             rows,
             &live,
             world
@@ -379,21 +379,41 @@ impl RuntimeConstruction {
                 .ok_or("The construction capability is not installed.")?,
         )
         .map_err(|error| error.to_string())?;
+        let transaction = plan.transaction(session);
         let receipt = {
             let mut commands = world.commands();
-            plan.commit(&mut ConstructionExecCtx {
-                commands: &mut commands,
-                scope: &scope,
-                session: SessionSpawnScope::scoped(self.session).in_room(Some(self.room)),
-                services: &self.services,
-                facts: &PersistedFates::unrecorded(),
-            })
+            let receipt = plan.commit_hidden(&mut ConstructionExecCtx {
+                commands: &mut commands, scope: &scope, session,
+                services: &self.services, facts: &PersistedFates::unrecorded(),
+            });
+            for id in receipt.committed_ids() {
+                let mut root = RootScope::new(&mut commands, session, receipt.entity(&id).unwrap());
+                initialize(&id, &mut root);
+            }
+            receipt
         };
         world.flush();
-        world
-            .get_mut::<SimIdCounter>(self.caller)
-            .expect("the checked source is live")
-            .0 = self.next;
+        let actual = AuthoritativeScope::gather_for_session(world, &transaction, session, rooms);
+        let mut problems = verify_committed_roster(&plan, &receipt, &baseline, &actual, world)
+            .err().unwrap_or_default();
+        problems.extend(crate::verify_rig_composition(&plan, &receipt, world));
+        if !problems.is_empty() {
+            retire_candidate(world, &transaction);
+            bevy::log::error!(?problems, "runtime construction did not verify");
+            return Err("The runtime batch failed native verification.".into());
+        }
+        let roots: Vec<_> = receipt.committed_ids().iter().map(|id| receipt.entity(id).unwrap()).collect();
+        let notices = match occurrences.assign(world, &roots) {
+            Ok(notices) => notices,
+            Err(problem) => {
+                retire_candidate(world, &transaction);
+                return Err(problem.into());
+            }
+        };
+        world.get_mut::<SimIdCounter>(self.caller).expect("the checked source is live").0 = self.next;
+        let published = publish_candidate(world, &transaction);
+        assert_eq!(published, roots.len(), "the complete runtime batch must publish together");
+        for notice in notices { world.trigger(notice); }
         Ok(receipt)
     }
 }

@@ -608,6 +608,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // writer; line effects (rays' looks, lightning decorations) are its
         // first producers.
         app.add_plugins((crate::folded_mesh::FoldedMeshPlugin, crate::lines::LinesPlugin));
+        // The light of the time of day multiplies the world (its material).
+        app.add_plugins(crate::rendering::daylight::DaylightPlugin);
         // Place the content-owned overlay seam: after the character animator
         // (overlays mirror its new frame), before the hit-flash mirror (the
         // silhouette reads sprite state that overlays may tint). The set carries

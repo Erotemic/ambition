@@ -130,6 +130,17 @@ birth and GGRS. Focused checks passed 15 app tests, 50 host tests, the default
 app warning gate and all 53 absence contracts. Handler commit must remain
 separate from native action application.
 
+### Addressed delivery receipt
+
+Calls and action callbacks had separate routing and receiver budgets.
+`58399284d` adds one addressed delivery pass and common receipt transitions.
+Typed native journals keep ticket ownership and explicit call completion.
+The loaded `requests_and_native_outcomes_share_one_private_receiver_budget_through_replay`
+guard checks their shared budget. The existing Rhai and WASM witnesses cover
+native outcomes, private state, faults, cancellation and replay. Subscriptions,
+signals, local factory references and confirmed cross-island delivery remain
+open under the [delivery evaluation](addressed-behavior-inbox.md).
+
 ### Unified object model in progress
 
 Delivery direction: use the [addressed behavior inbox](addressed-behavior-inbox.md)

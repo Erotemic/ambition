@@ -39,8 +39,10 @@ parameters and initial state before it creates any instance. State seeds use
 schema declared by a method. A full `provider::key@revision` disambiguates equal
 local names. Seed values must contain all fields. Unknown fields are refused.
 
-Parameters are bounded data. `this.observe.behavior` supplies `object`, `binding`
-and `params` to a method and its action callbacks. Parameters do not change
+Parameters are bounded data. Admission puts named fields in canonical key order,
+including inside lists and nested records. Native and portable execution keep
+the same data order before and after rollback. `this.observe.behavior` supplies
+`object`, `binding` and `params` to a method and its action callbacks. Parameters do not change
 when the method changes its records. Normal schema reload rules apply to each
 instance's `BodyRecords`.
 
@@ -75,14 +77,29 @@ it explicitly:
 this.requests.push(request("complete_object_call", #{
     reply: #{request: 3, selector: "example::shop/completion_ack"},
     sequence: this.state.memory.pending,
-    accepted: this.trigger.stage == "applied", code: this.trigger.code
+    accepted: this.trigger.stage == "applied", code: this.trigger.code,
+    data: #{object: this.observe.behavior.object}
 }));
 ```
 
 The original caller receives `completed` or `rejected`. The completion action
 also receives its own applied or rejected reply. It refuses an unknown,
 terminal, undelivered or foreign-module call. Code text must be nonempty and at
-most 128 bytes. General typed return data remains open.
+most 128 bytes.
+
+`data` returns bounded structured values and defaults to `()`. The completion
+owner checks it against `object_behavior_rules.max_data_bytes`. In the original
+call's terminal callback, `this.observe.object_call_result` supplies the matching
+`ticket` and `data`. Admission failures, cancellation and native terminal failures
+have no method return value. Nonterminal callbacks also have no return value.
+Check the action stage and the optional observation.
+
+Return values can contain exact object references. A caller can keep them in
+transient `object` fields and use them in later native requests. Return payloads
+follow the mailbox's delivery retention. Faulted and quarantined callbacks keep
+their payload while their journal row can recover. Later acknowledged calls
+cannot evict an older payload whose callback is still retained. Body-query
+payloads use the same mailbox rule.
 
 A behavior must manage concurrent work in its private records. It can reject a
 second call as busy, or keep a bounded collection of pending call sequences.
@@ -101,8 +118,10 @@ after commit, including while the method waits for another native result.
 A canceled call cannot later invoke its method. A timeout is a failed call; it
 does not undo an already committed handler or cancel that handler's native work.
 
-Instances retain the subject's exact occurrence reference across travel. A room-owned instance uses the room's allocation counter. A session-owned
-instance uses the session counter. Allocation does not change during travel. Retirement of an old room cannot delete
+Instances retain the subject's exact occurrence reference across travel. A
+room-owned instance uses the room's allocation counter. A session-owned instance
+uses the session counter. Allocation does not change during travel. Retirement
+of an old room cannot delete
 a traveling subject's instance. Subject retirement fails outstanding calls and
 retires the private instance at the next collection cut. Caller retirement or
 removal of its pending ticket retires the queued request. Rollback restores
@@ -130,7 +149,7 @@ It checks private instances on controlled and autonomous bodies, actual native
 wallet application and refusal, busy refusal, fault exhaustion without a staged
 reward, cancellation, GGRS, and private-state reconstruction through room
 snapshots. General discovery and inspection, native event subscriptions,
-authored signals, creation-time composition, return data and a cross-object
+authored signals, creation-time composition and a cross-object
 event composition witness remain open. Cross-room message causality under
 independent room replay also remains open; snapshot membership alone does not
 prove that contract.

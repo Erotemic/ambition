@@ -50,6 +50,24 @@ impl SnapshotState for BehaviorInstance {
     }
 }
 
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub(crate) struct ObjectCallResults { entries: Vec<ObjectCallResult> }
+ambition_extension_sdk::port_record! { ObjectCallResults { entries: Vec<ObjectCallResult> } }
+impl SnapshotState for ObjectCallResults {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let mut bytes = Vec::new(); ambition_extension_sdk::structure::put(self, &mut bytes); put_bytes(out, &bytes);
+    }
+    fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+        ambition_extension_sdk::wire::decode_all(reader.bytes()?, ambition_extension_sdk::structure::read).ok()
+    }
+}
+fn call_result(world: &World, context: ObservationContext<'_>) -> Option<Option<ObjectCallResult>> {
+    let Some(result) = context.trigger::<ActionResultPort>() else { return Some(None); };
+    if !result.terminal { return Some(None); }
+    Some(world.get::<ObjectCallResults>(context.state_scope).and_then(|history|
+        history.entries.iter().find(|row| row.ticket == result.ticket).cloned()))
+}
+
 pub(crate) fn install(app: &mut App) {
     action_results::register_action_domain(app, "objects.attach_behaviors", action_results::ActionCancellationPolicy::Unsupported);
     action_results::register_action_domain(app, "objects.complete_call", action_results::ActionCancellationPolicy::Unsupported);
@@ -58,6 +76,7 @@ pub(crate) fn install(app: &mut App) {
     app.install_extension_submitted_request::<AttachBehaviorsPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", attach);
     app.install_extension_submitted_request::<CallObjectPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", call);
     app.install_extension_submitted_request::<CompleteObjectCallPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", complete);
+    app.install_extension_context_observation::<ObjectCallResultPort>(ACTOR_THINK, "ambition_platformer2d_runtime", call_result);
     app.install_extension_context_observation::<BehaviorContextPort>(ACTOR_THINK, "ambition_platformer2d_runtime", context);
 }
 
@@ -76,11 +95,11 @@ fn target(world: &World, caller: Entity, reference: ObjectRef) -> Result<Entity,
     let scope = world.get::<SessionScopedEntity>(caller).ok_or("caller_without_session")?.0;
     resolve_object(world, scope, reference).map_err(|_| "object_not_live")
 }
-fn bounded_data(data: &ScriptValue, max: u32) -> bool {
+fn checked_data(data: &ScriptValue, max: u32) -> Option<ScriptValue> {
     use ambition_extension_sdk::structure::Field;
-    if <ScriptValue as Field<ScriptValue>>::from_script(data).is_err() { return false; }
-    let mut bytes = Vec::new(); <ScriptValue as Field<ScriptValue>>::put(data, &mut bytes);
-    bytes.len() <= max as usize
+    let data = <ScriptValue as Field<ScriptValue>>::from_script(data).ok()?;
+    let mut bytes = Vec::new(); <ScriptValue as Field<ScriptValue>>::put(&data, &mut bytes);
+    (bytes.len() <= max as usize).then_some(data)
 }
 fn method_bound(admitted: &ambition_extension_host::Admitted, path: &str) -> bool {
     admitted.entries.iter().any(|entry| entry.path == path && entry.descriptor.phase == ACTOR_THINK
@@ -94,10 +113,11 @@ fn prepare_bindings(world: &World, request: &AttachBehaviors,
     let mut keys = BTreeSet::new();
     let mut bytes = 0usize;
     request.bindings.iter().map(|binding| {
+        let params = checked_data(&binding.params, limits.max_data_bytes)
+            .ok_or("Behavior parameters exceed their bound or contain invalid data.")?;
         if binding.key.is_empty() || binding.key.len() > 64 || !keys.insert(&binding.key)
             || binding.methods.is_empty() || binding.methods.len() > limits.max_methods as usize
-            || binding.state.len() > limits.max_state_records as usize
-            || !bounded_data(&binding.params, limits.max_data_bytes) {
+            || binding.state.len() > limits.max_state_records as usize {
             return Err("A behavior key, method count, state count or parameter value exceeds its bound.".into());
         }
         let mut names = BTreeSet::new();
@@ -131,7 +151,7 @@ fn prepare_bindings(world: &World, request: &AttachBehaviors,
             records.put(key.clone(), declared.shape, record);
         }
         Ok(PreparedBinding {instance: BehaviorInstance {key: binding.key.clone(),
-            methods: binding.methods.clone(), params: binding.params.clone(), next_sequence: 0, calls: Vec::new()}, records})
+            methods: binding.methods.clone(), params, next_sequence: 0, calls: Vec::new()}, records})
     }).collect()
 }
 fn attach(world: &mut World) {
@@ -202,7 +222,7 @@ fn call(world: &mut World) {
             ensure_object_occurrence(world, submitted.scope).ok_or("caller_without_identity")?;
             let caller = object_reference(world, submitted.scope).ok_or("caller_without_identity")?;
             let limits = limits(world, entity);
-            if !bounded_data(&request.data, limits.max_data_bytes) { return Err("call_data_bound"); }
+            let data = checked_data(&request.data, limits.max_data_bytes).ok_or("call_data_bound")?;
             let state = bindings.get(&(request.target, request.binding.clone())).copied().flatten()
                 .ok_or("behavior_not_bound")?;
             let instance = world.get::<BehaviorInstance>(state).unwrap();
@@ -221,7 +241,7 @@ fn call(world: &mut World) {
             }
             let sequence = instance.next_sequence;
             instance.next_sequence = next;
-            instance.calls.push(CallRow {call: ObjectCall {sequence, caller, method: request.method, data: request.data},
+            instance.calls.push(CallRow {call: ObjectCall {sequence, caller, method: request.method, data},
                 origin: CallOrigin {recipient: origin.recipient.reference(), ticket: origin.ticket.clone()}, entry,
                 written, progress: DeliveryProgress::default(), terminal: false, remaining: limits.max_active_wait_ticks, max_attempts: ActionDeliveryPolicy::default().max_attempts.get()});
             Ok(())
@@ -233,12 +253,19 @@ fn call(world: &mut World) {
         action_results::publish_action_result(world, dispatch.reply.as_ref(), stage, terminal, code, "", Vec::new());
     }
 }
-fn publish(world: &mut World, origin: &CallOrigin, stage: ActionStage, code: &str) {
+fn publish(world: &mut World, origin: &CallOrigin, stage: ActionStage, code: &str, data: Option<ScriptValue>) {
     let now = tick(world);
     let Ok(entity) = resolve_object(world, SessionScopeId(origin.recipient.session), origin.recipient) else { return; };
-    if let Some(mut mailbox) = world.get_mut::<action_results::ActionMailbox>(entity) {
+    let published = world.get_mut::<action_results::ActionMailbox>(entity).is_some_and(|mut mailbox|
         mailbox.publish(ActionResult {ticket: origin.ticket.clone(), stage, terminal: true, tick: now,
-            code: code.into(), message: String::new(), subjects: Vec::new()});
+            code: code.into(), message: String::new(), subjects: Vec::new()}));
+    if let Some(data) = data.filter(|_| published) {
+        let tickets: BTreeSet<_> = world.get::<action_results::ActionMailbox>(entity).unwrap()
+            .payload_tickets().cloned().collect();
+        let mut entity = world.entity_mut(entity);
+        let mut history = entity.entry::<ObjectCallResults>().or_default().into_mut();
+        history.entries.retain(|row| tickets.contains(&row.ticket));
+        history.entries.push(ObjectCallResult {ticket: origin.ticket.clone(), data});
     }
 }
 fn complete(world: &mut World) {
@@ -247,8 +274,10 @@ fn complete(world: &mut World) {
         let request = submitted.value;
         let dispatch = action_results::begin_action_request::<CompleteObjectCallPort>(world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
-        let result = (|| -> Result<CallOrigin, &'static str> {
+        let result = (|| -> Result<(CallOrigin, ScriptValue), &'static str> {
             if request.code.is_empty() || request.code.len() > 128 { return Err("invalid_completion_code"); }
+            let cap = limits(world, submitted.scope).max_data_bytes;
+            let data = checked_data(&request.data, cap).ok_or("completion_data_bound")?;
             let mut instance = world.get_mut::<BehaviorInstance>(submitted.state_scope).ok_or("not_a_behavior_instance")?;
             let row = instance.calls.iter_mut().find(|row| row.call.sequence == request.sequence
                 && !row.terminal && row.progress.status == ActionDelivery::Acknowledged).ok_or("call_not_pending_completion")?;
@@ -256,11 +285,11 @@ fn complete(world: &mut World) {
                 return Err("completion_from_foreign_module");
             }
             row.terminal = true;
-            Ok(row.origin.clone())
+            Ok((row.origin.clone(), data))
         })();
         let (stage, code) = match result {
-            Ok(origin) => {
-                publish(world, &origin, if request.accepted { ActionStage::Completed } else { ActionStage::Rejected }, &request.code);
+            Ok((origin, data)) => {
+                publish(world, &origin, if request.accepted { ActionStage::Completed } else { ActionStage::Rejected }, &request.code, Some(data));
                 (ActionStage::Applied, "object_call_completed")
             }
             Err(code) => (ActionStage::Rejected, code),
@@ -294,7 +323,7 @@ fn settle(world: &mut World, state: Entity, sequence: u64, event: InvocationEven
     if row.progress.status == ActionDelivery::Quarantined {
         row.terminal = true;
         let origin = row.origin.clone();
-        publish(world, &origin, ActionStage::Failed, "object_handler_fault");
+        publish(world, &origin, ActionStage::Failed, "object_handler_fault", None);
     }
 }
 type QueueReads = SystemState<(RoomFreeze<'static, 'static>, RulesOf<'static, 'static, ActionDeliveryPolicy>)>;
@@ -314,7 +343,7 @@ fn queue_calls(world: &mut World, mut reads: Local<Option<QueueReads>>,
         let Some(subject) = subject else {
             let origins = world.get::<BehaviorInstance>(state).unwrap().calls.iter().filter(|row| !row.terminal)
                 .map(|row| row.origin.clone()).collect::<Vec<_>>();
-            for origin in origins { publish(world, &origin, ActionStage::Failed, "object_retired"); }
+            for origin in origins { publish(world, &origin, ActionStage::Failed, "object_retired", None); }
             world.despawn(state);
             continue;
         };
@@ -350,7 +379,7 @@ fn queue_calls(world: &mut World, mut reads: Local<Option<QueueReads>>,
                 ready.push((row.call.clone(), row.entry.clone()));
             }
         }
-        for origin in expired { publish(world, &origin, ActionStage::Failed, "object_call_expired"); }
+        for origin in expired { publish(world, &origin, ActionStage::Failed, "object_call_expired", None); }
         for (value, path) in ready {
             let sequence = value.sequence;
             let entry = admitted.entries.iter().find(|entry| entry.path == path).unwrap();

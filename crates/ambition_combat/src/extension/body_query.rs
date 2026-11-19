@@ -172,10 +172,10 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<QueryRules>>) {
                         .entity_mut(submitted.state_scope)
                         .insert(BodyQueryHistory::default());
                 }
+                let tickets: std::collections::BTreeSet<_> = world.get::<ActionMailbox>(submitted.state_scope).unwrap()
+                    .payload_tickets().cloned().collect();
                 let mut history = world.get_mut::<BodyQueryHistory>(submitted.state_scope).unwrap();
-                if history.results.len() == ActionMailbox::HISTORY_CAPACITY {
-                    history.results.remove(0);
-                }
+                history.results.retain(|row| tickets.contains(&row.ticket));
                 history.results.push(result);
                 publish_action_result(
                     world,

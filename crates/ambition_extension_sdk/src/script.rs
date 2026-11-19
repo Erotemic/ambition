@@ -31,7 +31,7 @@ pub enum ScriptValue {
     Num(f32),
     Text(String),
     List(Vec<ScriptValue>),
-    /// Named fields, in a fixed order: the order a value was built in.
+    /// Named fields in construction order. Data codecs use canonical key order.
     Map(Vec<(String, ScriptValue)>),
 }
 

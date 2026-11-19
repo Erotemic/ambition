@@ -583,6 +583,12 @@ impl ActionMailbox {
         }
     }
 
+    /// Keep domain payloads while their callback can still run or recover.
+    pub fn payload_tickets(&self) -> impl Iterator<Item = &ActionTicket> {
+        self.journal.iter().filter(|row| !matches!(row.progress.status,
+            ActionDelivery::Acknowledged | ActionDelivery::Retired)).map(|row| &row.result.ticket)
+    }
+
     pub fn history(&self) -> ActionResults {
         ActionResults {
             next_sequence: self.next_sequence,
@@ -927,5 +933,34 @@ mod tests {
         }
         mailbox.retire_entry("test::actions/ask");
         assert!(mailbox.history().entries.iter().all(|row| row.delivery == ActionDelivery::Acknowledged));
+    }
+}
+
+#[cfg(test)]
+mod payload_retention_tests {
+    use super::*;
+
+    #[test]
+    fn a_quarantined_payload_stays_pinned_while_later_callbacks_rotate_history() {
+        let mut mailbox = ActionMailbox::default();
+        let scope = ObjectOccurrence {room: Some(0), generation: 1};
+        let mut first = None;
+        for request in 0..(HISTORY_LIMIT as u32 * 2) {
+            let ActionStart::New(ticket) = mailbox.begin(scope, "test::payload/ask", "test",
+                &ReplyTo {request, selector: "test::payload/result".into()}, request.into(), request.into()) else { panic!("new action"); };
+            if request == 0 { first = Some(ticket.clone()); }
+            mailbox.publish(ActionResult {ticket: ticket.clone(), stage: ActionStage::Applied,
+                terminal: true, tick: request.into(), code: "applied".into(), message: String::new(), subjects: Vec::new()});
+            for (sequence, _, result) in mailbox.queue_ready(u64::from(request) + 1, ActionDeliveryPolicy::default(), |_, _| true) {
+                mailbox.delivery_started(sequence, u64::from(request) + 1);
+                if request == 0 && result.terminal {
+                    mailbox.delivery_faulted(sequence, ActionDeliveryPolicy {
+                        max_attempts: std::num::NonZeroU32::new(1).unwrap(), ..Default::default()});
+                } else { mailbox.delivery_committed(sequence); }
+            }
+        }
+        assert_eq!(mailbox.payload_tickets().collect::<Vec<_>>(), vec![first.as_ref().unwrap()]);
+        assert!(mailbox.history().entries.iter().any(|row| row.result.ticket == *first.as_ref().unwrap()
+            && row.delivery == ActionDelivery::Quarantined));
     }
 }

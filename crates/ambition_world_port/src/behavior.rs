@@ -45,9 +45,14 @@ ambition_extension_sdk::port_record! {
     ObjectCall { sequence: u64, caller: ObjectRef, method: String, data: ScriptValue }
 }
 #[derive(Clone, Debug, PartialEq)]
-pub struct CompleteObjectCall { pub reply: ReplyTo, pub sequence: u64, pub accepted: bool, pub code: String }
+pub struct CompleteObjectCall { pub reply: ReplyTo, pub sequence: u64, pub accepted: bool, pub code: String, pub data: ScriptValue }
 ambition_extension_sdk::port_record! {
-    CompleteObjectCall { reply: ReplyTo, sequence: u64, accepted: bool = true, code: String }
+    CompleteObjectCall { reply: ReplyTo, sequence: u64, accepted: bool = true, code: String, data: ScriptValue = ScriptValue::Unit }
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObjectCallResult { pub ticket: ambition_extension_sdk::action::ActionTicket, pub data: ScriptValue }
+ambition_extension_sdk::port_record! {
+    ObjectCallResult { ticket: ambition_extension_sdk::action::ActionTicket, data: ScriptValue }
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct BehaviorContext { pub object: ObjectRef, pub binding: String, pub params: ScriptValue }
@@ -69,10 +74,10 @@ macro_rules! port {
     };
 }
 macro_rules! action_port {
-    ($name:ident, $key:literal, $value:ty, $domain:literal) => {
+    ($name:ident, $key:literal, $version:literal, $value:ty, $domain:literal) => {
         pub struct $name;
         impl Port for $name {
-            const KEY: PortKey = PortKey::new($key, 1);
+            const KEY: PortKey = PortKey::new($key, $version);
             const ROLE: PortRole = PortRole::Request;
             type Value = $value;
             fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
@@ -84,8 +89,10 @@ macro_rules! action_port {
         ambition_extension_sdk::script_port!($name);
     };
 }
-action_port!(AttachBehaviorsPort, "ambition.objects.attach_behaviors", AttachBehaviors, "objects.attach_behaviors");
-action_port!(CallObjectPort, "ambition.objects.call", CallObject, "objects.call");
+action_port!(AttachBehaviorsPort, "ambition.objects.attach_behaviors", 1, AttachBehaviors, "objects.attach_behaviors");
+action_port!(CallObjectPort, "ambition.objects.call", 1, CallObject, "objects.call");
 port!(ObjectCallPort, "ambition.objects.method", Trigger, ObjectCall);
-action_port!(CompleteObjectCallPort, "ambition.objects.complete_call", CompleteObjectCall, "objects.complete_call");
+action_port!(CompleteObjectCallPort, "ambition.objects.complete_call", 2, CompleteObjectCall, "objects.complete_call");
 port!(BehaviorContextPort, "ambition.objects.behavior", Observation, Option<BehaviorContext>);
+
+port!(ObjectCallResultPort, "ambition.objects.call_result", Observation, Option<ObjectCallResult>);

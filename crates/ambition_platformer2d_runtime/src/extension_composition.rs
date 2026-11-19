@@ -368,6 +368,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::behavior::ObjectCallPort>("object_method")
         .add::<ambition_world_port::behavior::CompleteObjectCallPort>("complete_object_call")
         .add::<ambition_world_port::behavior::BehaviorContextPort>("behavior")
+        .add::<ambition_world_port::behavior::ObjectCallResultPort>("object_call_result")
         .add::<ambition_world_port::creation::CreateActorsPort>("create_actors")
         .add::<ambition_world_port::breakables::CreateBreakablesPort>("create_breakables")
         .add::<ambition_extension_sdk::action::ActionResultPort>("action_result")

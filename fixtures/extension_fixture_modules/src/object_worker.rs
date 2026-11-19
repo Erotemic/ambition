@@ -1,7 +1,7 @@
 //! Portable reusable behavior with native actions and explicit call completion.
 
 use ambition_extension_sdk::{action::{ActionResultPort, ActionStage, ReplyTo}, phases::ACTOR_THINK,
-    record, structure::Field, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy,
+    record, script::ScriptValue, structure::Field, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy,
     Invocation, Limits, ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION};
 use ambition_world_port::{behavior::{BehaviorContext, BehaviorContextPort, CompleteObjectCall,
     CompleteObjectCallPort, ObjectCallPort}, inventory::{InventoryExchange, InventoryExchangePort, InventoryTerms}};
@@ -41,7 +41,10 @@ fn param<T: Field<T>>(context: &BehaviorContext, key: &str) -> Result<T, Fault> 
 }
 fn finish(inv: &mut Invocation<'_>, state: &mut Memory, sequence: u64, accepted: bool, code: String) -> Result<(), Fault> {
     state.completions += 1;
-    inv.submit::<CompleteObjectCallPort>(CompleteObjectCall {sequence, accepted, code,
+    let context = context(inv)?;
+    let data = ScriptValue::map([("binding", ScriptValue::Text(context.binding)),
+        ("object", <ambition_extension_sdk::ObjectRef as Field<_>>::to_script(&context.object))]);
+    inv.submit::<CompleteObjectCallPort>(CompleteObjectCall {sequence, accepted, code, data,
         reply: ReplyTo {request: state.completions, selector: "fixture::object_worker/ack".into()}})
 }
 fn work(inv: &mut Invocation<'_>) -> Result<(), Fault> {

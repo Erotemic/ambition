@@ -446,7 +446,7 @@ Port `ambition.objects.method@1`, trigger: read as `this.trigger`.
 
 ## `complete_object_call`
 
-Port `ambition.objects.complete_call@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.objects.complete_call@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
@@ -454,12 +454,19 @@ Port `ambition.objects.complete_call@1`, request: `this.requests.push(request("<
 | `sequence` | text | required |  |
 | `accepted` | bool | `true` |  |
 | `code` | text | required |  |
+| `data` | schema-selected data | `()` |  |
 
 ## `behavior`
 
 Port `ambition.objects.behavior@1`, observation: read as `this.observe.<alias>`.
 
 Value: { object: { session: text, allocation_room: integer (u32) or (), sequence: text }, binding: text, params: schema-selected data } or ()
+
+## `object_call_result`
+
+Port `ambition.objects.call_result@1`, observation: read as `this.observe.<alias>`.
+
+Value: { ticket: { entry: text, domain: text, request: integer (u32), occurrence: text, room: integer (u32) or (), generation: text }, data: schema-selected data } or ()
 
 ## `create_actors`
 

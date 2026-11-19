@@ -143,7 +143,7 @@ Keep the full capability program open while these contracts lack evidence:
 
 Typed references, subject payloads and private behavior bindings are implemented.
 Directed calls have a loaded replay witness. Creation-time composition, general
-discovery, native event subscriptions, typed return data and cross-room message
+discovery, native event subscriptions and cross-room message
 causality during independent room replay remain open. See
 [object behaviors](../../sdk/object-behaviors.md).
 
@@ -633,9 +633,8 @@ fault exhaustion without a staged reward, cancellation and GGRS. The broader
 focused population passed 45 tests with one ignored. Final index and receipt
 changes passed 12 focused tests and 353 shared-owner tests. The default app
 warning check, wasm32 world-port check and 53 absence contracts passed. Workspace
-policy retained its 11 baseline violations. The new behavior ports lack an
-actual WASM method-call witness. Do not infer room-island rollback coverage from
-GGRS: private instance membership remains open. See
+policy retained its 11 baseline violations. Actual WASM method coverage and private room membership are recorded below.
+Do not infer independent room replay correctness from GGRS alone. See
 [object behaviors](../../sdk/object-behaviors.md) for the other remaining work.
 
 ## Inherited scope and portable behavior methods

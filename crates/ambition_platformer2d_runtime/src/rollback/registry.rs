@@ -324,7 +324,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 498 -> 499: typed object references and action subjects include room or session allocation scope.
 // 499 -> 500: private behavior instances retain method bindings, parameters and directed call delivery.
 // 500 -> 501: private object state inherits owner scope; behavior ownership has one canonical link.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 501;
+// 501 -> 502: object method completions retain bounded return data with their caller.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 502;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

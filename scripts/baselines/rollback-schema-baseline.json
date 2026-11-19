@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v501",
+    "version": "ggrs-rollback-schema-v502",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
@@ -186,6 +186,7 @@
       "scope.room\tcomponent-canonical\tRoomScopedEntity",
       "scope.room_instance\tcomponent-canonical\tInRoomInstance",
       "script.behavior_instance\tcomponent-canonical\tBehaviorInstance",
+      "script.object_call_results\tcomponent-canonical\tObjectCallResults",
       "session.participants\tcomponent-canonical\tSessionParticipants",
       "session.party_travel\tcomponent-clone-custom-checksum\tPartyTravel\tbevy_ggrs clone snapshot + party travel rules and pending zone agreements",
       "session.room_preparation\tcomponent-clone-custom-checksum\tCapturedRoomPreparation\tbevy_ggrs clone snapshot + the admitted room operation and its immutable continuity inputs",
@@ -291,6 +292,7 @@
     "ambition_platformer2d_core::reference_frame::GameplayFramePolicy",
     "ambition_platformer2d_core::resources::ActorResources",
     "ambition_platformer2d_runtime::BehaviorInstance",
+    "ambition_platformer2d_runtime::ObjectCallResults",
     "ambition_platformer2d_session::SessionParticipants",
     "ambition_platformer2d_shared_tangle::ObjectOccurrence",
     "ambition_platformer2d_shared_tangle::ObjectOccurrenceSequence",

@@ -102,3 +102,8 @@ failed filter refuses the request. An equal authored replacement does not match.
 Discovery can return equal authored IDs when their occurrence stamps are distinct.
 An ambiguous authored-name selection refuses. The request and result ports are
 version 2. Rebuild portable modules that declare version 1.
+
+Reply payloads follow the mailbox's delivery retention. A faulted or quarantined
+callback retains its query result while its journal row can recover. New
+acknowledged results cannot evict that older payload. A successful handler can
+copy any needed values to its own declared records.

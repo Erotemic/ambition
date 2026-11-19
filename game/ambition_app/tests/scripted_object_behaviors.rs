@@ -15,6 +15,7 @@ fn declare() {
             #{tag: 1, name: "started", kind: "bool"},
             #{tag: 2, name: "completed", kind: "u32"},
             #{tag: 3, name: "refused", kind: "u32"},
+            #{tag: 4, name: "returned", kind: "seq 4 object"},
         ]},
         #{key: "worker", fields: [
             #{tag: 1, name: "requests", kind: "u32"},
@@ -30,7 +31,7 @@ fn declare() {
         #{key: "found", phase: "actor_think", trigger: #{port: "action_result", selector: "found"},
           reads: ["body_query_result"], requests: ["attach_behaviors", "call_object"], limit: 6},
         #{key: "attached", phase: "actor_think", trigger: #{port: "action_result", selector: "attached"}},
-        #{key: "done", phase: "actor_think", trigger: #{port: "action_result", selector: "done"}, writes: ["root"]},
+        #{key: "done", phase: "actor_think", trigger: #{port: "action_result", selector: "done"}, reads: ["object_call_result"], writes: ["root"]},
         #{key: "work", phase: "actor_think", trigger: #{port: "object_method", selector: "work"},
           reads: ["behavior"], writes: ["worker"], requests: ["inventory_exchange", "complete_object_call"], limit: 1},
         #{key: "ack", phase: "actor_think", trigger: #{port: "action_result", selector: "ack"}},
@@ -67,7 +68,7 @@ fn work() {
         this.state.worker.completions += 1;
         this.requests.push(request("complete_object_call", #{sequence: this.trigger.sequence,
             reply: #{request: this.state.worker.completions, selector: "objects_probe::composition/ack"},
-            accepted: false, code: "busy"}));
+            accepted: false, code: "busy", data: #{binding: this.observe.behavior.binding, object: this.observe.behavior.object}}));
         return;
     }
     this.state.worker.busy = true;
@@ -90,11 +91,20 @@ fn trade() {
     this.state.worker.completions += 1;
     this.requests.push(request("complete_object_call", #{sequence: this.state.worker.pending,
         reply: #{request: this.state.worker.completions, selector: "objects_probe::composition/ack"},
-        accepted: this.trigger.stage == "applied", code: this.trigger.code}));
+        accepted: this.trigger.stage == "applied", code: this.trigger.code,
+        data: #{binding: this.observe.behavior.binding, object: this.observe.behavior.object}}));
 }
 fn ack() { if this.trigger.stage == "rejected" { throw this.trigger.code; } }
 fn done() {
-    if !this.trigger.terminal { return; }
+    if !this.trigger.terminal {
+        if this.observe.object_call_result != () { throw "return value preceded completion"; }
+        return;
+    }
+    let result = this.observe.object_call_result;
+    if result != () {
+        if result.ticket != this.trigger.ticket { throw "return value crossed a ticket"; }
+        this.state.root.returned.push(result.data.object);
+    }
     if this.trigger.stage == "completed" { this.state.root.completed += 1; }
     else { this.state.root.refused += 1; }
 }
@@ -120,6 +130,11 @@ fn prepared_with_modules(source: &str, label: &str, mut modules: Vec<std::path::
     for body in [player, teacher] {
         world.entity_mut(body).insert((BodyWallet {balance: 3}, BodyStatuses(vec!["objects_probe.start".into()])));
     }
+    let mut delivery = ambition_platformer2d::world::scoped_rules::DeclaredRules::default();
+    delivery.declare(ambition_platformer2d::world::scoped_rules::RulesScope::EveryRoom,
+        ambition_platformer2d::platformer::action_results::ActionDeliveryPolicy {
+            max_per_tick: std::num::NonZeroU32::new(1).unwrap(), ..Default::default()});
+    world.insert_resource(delivery);
     sim.rebase_rollback_history().unwrap();
     (sim, [player, teacher], path)
 }
@@ -147,6 +162,10 @@ fn exercise_instances(portable: bool) {
         assert_eq!(record.get(FieldRef(1)).unwrap(), &Value::U32(1));
         assert_eq!(record.get(FieldRef(2)).unwrap(), &Value::U32(4));
         assert_eq!(sim.world().get::<BodyWallet>(body).unwrap().balance, 5);
+        let Value::Seq(returned) = record.get(FieldRef(3)).unwrap() else { panic!("return values"); };
+        assert_eq!(returned.len(), 3);
+        assert!(returned.iter().all(|value| value.as_object() ==
+            ambition_platformer2d::platformer::lifecycle::object_reference(sim.world(), body)));
         assert!(sim.world().get::<BodyRecords>(body).unwrap().get(&worker).is_none());
     }
     let world = sim.world_mut();

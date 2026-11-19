@@ -39,6 +39,7 @@ impl Plugin for AmbitionRollbackSchemaPlugin {
 const ENGINE: &str = "ambition_platformer2d_runtime";
 
 pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
+    registrar.rollback_component_canonical::<crate::object_behaviors::ObjectCallResults>(ENGINE, "script.object_call_results");
     registrar.rollback_component_canonical::<crate::object_behaviors::BehaviorInstance>(ENGINE, "script.behavior_instance");
     registrar.clear_message_on_rollback::<crate::stocks_match::SuddenDeathBegan>(ENGINE, "message.sudden_death_began");
     registrar.rollback_resource_clone_checksum::<crate::death_fee::DeathFees>(

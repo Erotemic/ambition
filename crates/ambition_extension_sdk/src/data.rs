@@ -32,6 +32,18 @@ fn check(value: &ScriptValue, depth: usize, left: &mut usize, bytes: &mut usize)
     Ok(())
 }
 
+fn canonical(value: &ScriptValue) -> ScriptValue {
+    match value {
+        ScriptValue::List(values) => ScriptValue::List(values.iter().map(canonical).collect()),
+        ScriptValue::Map(fields) => {
+            let mut fields: Vec<_> = fields.iter().map(|(key, value)| (key.clone(), canonical(value))).collect();
+            fields.sort_by(|a, b| a.0.cmp(&b.0));
+            ScriptValue::Map(fields)
+        }
+        _ => value.clone(),
+    }
+}
+
 fn put(value: &ScriptValue, out: &mut Vec<u8>) {
     match value {
         ScriptValue::Unit => wire::put_u8(out, 0),
@@ -85,6 +97,7 @@ fn read(reader: &mut WireReader<'_>, depth: usize, left: &mut usize, start: usiz
                     if !keys.insert(key.clone()) { return Err(WireError::BadString); }
                     fields.push((key, read(reader, depth + 1, left, start)?));
                 }
+                fields.sort_by(|a, b| a.0.cmp(&b.0));
                 ScriptValue::Map(fields)
             }
         }
@@ -108,7 +121,7 @@ impl Field<ScriptValue> for ScriptValue {
         let mut left = MAX_NODES;
         let mut bytes = MAX_DATA_BYTES;
         check(value, 0, &mut left, &mut bytes)?;
-        Ok(value.clone())
+        Ok(canonical(value))
     }
 }
 
@@ -119,10 +132,11 @@ mod tests {
     fn logical_data_has_exact_integers_canonical_keys_and_bounded_depth() {
         let value = ScriptValue::Map(vec![
             ("z".into(), ScriptValue::Int(i64::MIN)),
-            ("a".into(), ScriptValue::List(vec![ScriptValue::Unit, ScriptValue::Text("écho".into())])),
+            ("a".into(), ScriptValue::List(vec![ScriptValue::Unit, ScriptValue::Text("écho".into()), ScriptValue::map([("z", ScriptValue::Int(1)), ("a", ScriptValue::Int(2))])])),
         ]);
         let mut bytes = Vec::new(); <ScriptValue as Field<_>>::put(&value, &mut bytes);
         let decoded = wire::decode_all(&bytes, <ScriptValue as Field<_>>::read).unwrap();
+        assert_eq!(ScriptValue::from_script(&value).unwrap(), decoded);
         let ScriptValue::Map(fields) = &decoded else { panic!("a table") };
         assert_eq!(fields[0].0, "a");
         assert_eq!(fields[1].1, ScriptValue::Int(i64::MIN));

@@ -143,7 +143,53 @@ Steps: (2) the cell and GNU2's held placement in both arenas; (3) the call
 through the pair; (4) GNU2's conductor; (5) two bars; (6) the victory and
 the rider's yield; (7) retire space.
 
-What step 2 needs first, measured 2026-11-19: no boss takes its body from a
+**Steps 2-6 done 2026-11-19.** What was built, and where it differs from
+the plan:
+- **The cell.** Both arenas (LDtk-owned: `gnu_ton_arena` in `sandbox.ldtk`,
+  `gnu_ton_shoulders` in `science.ldtk`) are 2048 high. The top 1280 is the
+  hall, framed by a `zone_bounds` camera zone. Under the floor (solid to
+  1344) is a sealed cell, x 96-960 and y 1344-1920. GNU2's `BossSpawn`
+  (`hall.gnu2` / `gnu_ton_handle.gnu2`, brain `PhaseScript:gnu2`) is at the
+  cell's east end, with `wakes_after` naming GNU-ton. Its rider encounter
+  says `successors_wake: Enraged`, so GNU2 wakes at his enrage rather than
+  at his defeat.
+- **GNU2 opens the pair, not the scholar.** A held pair belongs to the body
+  that submits it, and GNU2 is the one that walks through, so its conductor
+  holds the pair. The scholar's beat calls it ("Every great work has a
+  sequel. GNU2!"). Both ends are upright with normal +x: one in the cell's
+  west wall, one in the hall's west wall. The conductor learns the hall from
+  its predecessor (`BossConduct.predecessor.hall`, port v11). When GNU-ton
+  is cleared and not rebuilt, the predecessor is read from his authored
+  placement, so a retry after his defeat still has a hall.
+- **Walked, not placed.** A new request, `ambition.boss.walk`, steers a boss
+  along its side axis by `CommandedMove`. Three things stopped the walk,
+  each measured:
+  1. *A float-exact touch.* GNU2 flies (it does not fall). Its feet were
+     exactly on the cell's floor, and the hole cut that floor at the near
+     plane, so the floor piece's new face stood at the plane level with its
+     feet. A body that is not standing is stopped by a face its feet only
+     touch; the grounded "a seam is not a wall" rule does not cover it. The
+     far end reaching into the hall's floor did the same through the pair.
+     GNU2's placement now holds it 2 px over the cell's floor, and it comes
+     out of the far end 2 px over the hall's (`EXIT_LIFT`).
+  2. *The transit's map.* Two ends that face the same way map by a half
+     turn, so walking west into the near end comes out walking east.
+  3. *The conductor's chart.* The conductor reads the body before the
+     transit takes it. Told "walk west" until it had arrived, GNU2 crossed,
+     walked back into the far end, and was carried back each tick. Now, once
+     its middle is past the near end, it is told "walk east": the next step
+     it takes is on the far side. It has arrived when it is wholly out of the
+     far end, and then the pair closes.
+- **Two bars:** the boss bar draws every fought boss of the view's room,
+  sorted by id, stacked 66 px apart.
+- **Victory:** the arena's gate members are every GNU-ton-kind placement,
+  GNU2 among them. The handle's way out has two grilles, one per boss.
+
+Witnessed in `app_it`: `at_his_enrage_gnu2_walks_into_the_hall_through_its_pair`,
+`defeating_him_opens_the_arena_and_his_body_going_does_not_close_it` (the gate holds after GNU-ton alone and
+opens when GNU2 is cleared too), and the handle's two-grille tests.
+
+What step 2 needed first, measured 2026-11-19: no boss takes its body from a
 character entry (`BossSpawn` has no `character_id`; `BossProfile` names
 none), so GNU2 as a boss needs a boss sheet (`boss_sheets.ron`, its rows as
 `BossAnim`s: `Rest` from `armed_rest`, a walk, `Hit`, `Death`) drawn from

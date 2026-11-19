@@ -123,6 +123,11 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::drain_mount_walks.pipe(crate::conduct::walk_mounts),
     );
+    app.install_extension_submitted_request::<ambition_boss_special_port::BossWalkPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::drain_boss_walks.pipe(crate::conduct::walk_bosses),
+    );
     app.install_extension_submitted_request::<ambition_boss_special_port::FoeLaunchPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

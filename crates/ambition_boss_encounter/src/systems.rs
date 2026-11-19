@@ -166,6 +166,24 @@ pub fn update_boss_encounters(
         .filter_map(|room| room.metadata.boss_reward_drop.as_deref())
         .collect();
 
+    // The placements that call their successors now: an encounter whose
+    // successors wake at its enrage (`SuccessorWake::Enraged`) and is in it.
+    // Read before the tick below writes this tick's phases, so a successor
+    // wakes the tick after its predecessor's enrage begins, whatever the
+    // order of the query.
+    let calling: std::collections::BTreeSet<String> = bosses
+        .iter()
+        .filter(|(_, _, feature, ..)| {
+            feature.config.seed.encounter.successors_wake == crate::SuccessorWake::Enraged
+                && feature
+                    .status
+                    .encounter
+                    .as_ref()
+                    .is_some_and(|phase| matches!(phase.phase, crate::BossEncounterPhase::Enrage))
+        })
+        .map(|(_, _, feature, ..)| feature.config.id.clone())
+        .collect();
+
     for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides, boss_sim_id) in &mut bosses {
         let dt = shared_dt * freeze.scale_of(boss_entity);
         let archetype_id = feature.config.behavior.id.clone();
@@ -256,12 +274,15 @@ pub fn update_boss_encounters(
             };
             // A successor also sleeps until the save records its predecessor
             // cleared: the durable predicate, so a room built again after the
-            // predecessor fell wakes it at once.
+            // predecessor fell wakes it at once. A predecessor whose
+            // successors wake at its enrage calls them when it enrages.
             let predecessor_fallen = feature
                 .config
                 .wakes_after
                 .as_deref()
-                .is_none_or(|predecessor| crate::placement_is_cleared(save.data(), predecessor));
+                .is_none_or(|predecessor| {
+                    crate::placement_is_cleared(save.data(), predecessor) || calling.contains(predecessor)
+                });
             if alive
                 && matches!(phase.phase, crate::BossEncounterPhase::Dormant)
                 && predecessor_fallen

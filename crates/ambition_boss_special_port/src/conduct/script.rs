@@ -81,6 +81,8 @@ ambition_extension_sdk::port_record! {
         side: f32,
         /// The body has health left.
         alive: bool,
+        /// The floor and walls under it, when the room has a floor there.
+        hall: Option<RoomHall>,
     }
 }
 

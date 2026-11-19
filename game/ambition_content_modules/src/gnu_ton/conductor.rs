@@ -1506,9 +1506,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
 
-    // ── Phase 3: the launch, and the fight in space ──
-    let landed = hurt && c.reflex.is_none();
-    let launch_t = space(inv, &mut c, &scholar, &giant, hall, dt, landed)?;
+    // ── Phase 3: he calls the giant's sequel ──
+    let launch_t = call(inv, &mut c, &scholar, dt)?;
 
     // ── The giant walks between its blows, and looks round at its back ──
     // Anywhere on it (its back, the slope, a horn): it does not walk from
@@ -1556,8 +1555,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     match (c.clamp, c.footing()) {
         // He comes in and leaps onto the shoulders.
         _ if arriving.is_some() => draw(inv, DrawnPart::Body, Some(ch::arrival::scholar_rows(arriving.unwrap_or(0.0))))?,
-        // He calls his power for the launch.
-        _ if launch_t.is_some() => draw(inv, DrawnPart::Body, Some(ch::space::scholar_rows(launch_t.unwrap_or(0.0))))?,
+        // He calls GNU2.
+        _ if launch_t.is_some() => draw(inv, DrawnPart::Body, Some(ch::call::scholar_rows(launch_t.unwrap_or(0.0))))?,
         // A blow launched him: he is thrown, then he tumbles.
         (_, Footing::Launched) if t < ch::arms::LAUNCH_ROW => draw(inv, DrawnPart::Body, Some((&["launch", "hit_heavy", "hit"], t, false)))?,
         (_, Footing::Launched) => draw(inv, DrawnPart::Body, Some((&["fall", "tumble"], t - ch::arms::LAUNCH_ROW, true)))?,
@@ -1585,8 +1584,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     match (c.reflex, c.clamp) {
         // He comes in: it looks round at him, and roars when he is up.
         _ if arriving.is_some() => draw(inv, DrawnPart::Mount, Some(ch::arrival::gnu_rows(arriving.unwrap_or(0.0), arms_on)))?,
-        // The launch: it roars, then it floats.
-        _ if launch_t.is_some() => draw(inv, DrawnPart::Mount, Some(ch::space::gnu_rows(launch_t.unwrap_or(0.0))))?,
+        // The call: it roars for its sequel.
+        _ if launch_t.is_some() => draw(inv, DrawnPart::Mount, Some(ch::call::gnu_rows(launch_t.unwrap_or(0.0), arms_on)))?,
         // The reflex rears and bucks, whatever his fists are doing.
         (Some(t), _) if arms_on => draw(inv, DrawnPart::Mount, Some((&["armed_buck", "buck"], t, false)))?,
         (Some(t), _) => draw(inv, DrawnPart::Mount, Some((&["buck"], t, false)))?,
@@ -2146,6 +2145,31 @@ fn hold_catching_pairs(inv: &mut Invocation<'_>, c: &Conductor, giant: &MountVie
         })?;
     }
     Ok(())
+}
+
+/// Phase 3 (`ch::call`): in the beat before the enrage he calls the giant's
+/// sequel, GNU2. GNU2 is a boss of its own, asleep in a cell under the
+/// arena's floor until his encounter enrages (`successors_wake: Enraged`);
+/// then it comes in through a pair of its own (`crate::gnu2`). Returns the
+/// seconds into the call while it plays.
+fn call(inv: &mut Invocation<'_>, c: &mut Conductor, scholar: &BossConduct, dt: f32) -> Result<Option<f32>, Fault> {
+    let low = scholar.health * 2 < c.full_health;
+    if !(scholar.between_phases && low && c.loosed) {
+        c.space_t = None;
+        return Ok(None);
+    }
+    let prev = c.space_t.unwrap_or(-dt);
+    let t = prev + dt;
+    c.space_t = Some(t);
+    if prev < ch::call::SAY && t >= ch::call::SAY {
+        let head = v(scholar.position) - Vec2::new(0.0, scholar.size[1] * 0.5);
+        play(inv, SFX_CHARGE, head)?;
+        inv.submit::<SpeechBubblePort>(SpeechBubble {
+            at: a(head - Vec2::new(0.0, 30.0)),
+            text: "Every great work has a sequel. GNU2!".to_string(),
+        })?;
+    }
+    Ok(Some(t))
 }
 
 /// Phase 3 (`ch::space`): the launch in the beat before the enrage, and the

@@ -78,6 +78,22 @@ pub struct BossEncounterSpec {
     /// beat by default, or its conductor's.
     #[serde(default)]
     pub name_card: BossNameCardCue,
+    /// When a boss that wakes after this one (`RoomSpec::boss_successions`)
+    /// wakes: when this one is cleared, or already when it enrages.
+    #[serde(default)]
+    pub successors_wake: SuccessorWake,
+}
+
+/// When the bosses that wake after a boss wake.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SuccessorWake {
+    /// When the save records it cleared: the successor rises from its fall
+    /// (the Inugami out of Wolfenstein).
+    #[default]
+    Cleared,
+    /// When it enrages, or is cleared without one: the successor joins its
+    /// last phase (GNU-ton calls GNU2 through a portal at his).
+    Enraged,
 }
 
 /// When a boss's name card (its name large across the screen, its title under

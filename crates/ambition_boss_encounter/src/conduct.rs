@@ -78,6 +78,10 @@ pub fn queue_boss_conducts(
         Without<BossConfig>,
     >,
     live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // The authored placements of each live room: a predecessor whose body is
+    // gone (its placement cleared, so not built again) is seen where it was
+    // authored.
+    specs: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     // The tracked body, read now: `ActorTarget` holds where the boss last saw it.
     bodies: Query<(&ae::BodyKinematics, Option<&ambition_combat::moveset::MovePlayback>)>,
 ) {
@@ -98,7 +102,21 @@ pub fn queue_boss_conducts(
         if !bound.contains(&config.behavior.id.as_str()) {
             continue;
         }
-        // The boss it wakes after, by placement id, in its own live room.
+        // The boss it wakes after, by placement id, in its own live room: its
+        // body, or where it was authored when its body is not built.
+        let hall_at = |at: ae::Vec2| {
+            rooms.of(boss).and_then(|geometry| crate::hall::measure_hall(&geometry.0, at)).map(|h| RoomHall {
+                floor: h.floor,
+                left: h.left,
+                right: h.right,
+            })
+        };
+        let authored = |after: &str| {
+            let spawn = specs.spec_of(boss)?.boss_spawns.iter().find(|spawn| spawn.id == after)?;
+            use ae::AabbExt as _;
+            let (at, size) = (spawn.aabb.center(), spawn.aabb.half_size() * 2.0);
+            Some(Predecessor { position: [at.x, at.y], size: [size.x, size.y], side: 1.0, alive: false, hall: hall_at(at) })
+        };
         let predecessor = config.wakes_after.as_deref().and_then(|after| {
             bosses.iter().find_map(|(other, other_config, _, other_kin, other_health, _, _, other_side, _)| {
                 (other_config.id == after && live_rooms.of(other) == live_rooms.of(boss)).then(|| Predecessor {
@@ -106,8 +124,9 @@ pub fn queue_boss_conducts(
                     size: [other_kin.size().x, other_kin.size().y],
                     side: other_side.copied().unwrap_or(ConductedFacing::of_facing(other_kin.facing)).0,
                     alive: other_health.alive(),
+                    hall: hall_at(other_kin.pos),
                 })
-            })
+            }).or_else(|| authored(after))
         });
         let geometry = rooms.of(boss);
         let room = geometry.map(|geometry| [geometry.0.size.x, geometry.0.size.y]);
@@ -655,6 +674,44 @@ pub fn walk_mounts(
         // walk, and is not written again.
         if walking.is_none_or(|w| w.target.x != wanted.target.x || w.speed != wanted.speed) {
             commands.entity(mount).insert(wanted);
+        }
+    }
+}
+
+/// The `ambition.boss.walk` requests of this tick, for [`walk_bosses`].
+pub fn drain_boss_walks(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::MountWalk>> {
+    outbox.drain::<ambition_boss_special_port::BossWalkPort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.boss.walk`: walk the boss to its mark (`CommandedMove`),
+/// or stop it. Its body step moves it, so it goes through a portal it walks
+/// into.
+pub fn walk_bosses(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::MountWalk>>>,
+    bosses: Query<(&ae::BodyKinematics, Option<&ambition_characters::control::CommandedMove>), With<BossConfig>>,
+    mut commands: Commands,
+) {
+    for submitted in requests {
+        let walk = submitted.value;
+        let Ok((kin, walking)) = bosses.get(submitted.scope) else {
+            warn!("extension entry {} asked to walk {:?}, which is not a boss; refused", submitted.entry, submitted.scope);
+            continue;
+        };
+        if walk.speed <= 0.0 {
+            if walking.is_some() {
+                commands.entity(submitted.scope).remove::<ambition_characters::control::CommandedMove>();
+            }
+            continue;
+        }
+        let wanted = ambition_characters::control::CommandedMove {
+            target: ae::Vec2::new(walk.to_x, kin.pos.y),
+            speed: walk.speed,
+            arrive_tolerance: MOUNT_WALK_ARRIVED,
+        };
+        if walking.is_none_or(|w| w.target.x != wanted.target.x || w.speed != wanted.speed) {
+            commands.entity(submitted.scope).insert(wanted);
         }
     }
 }

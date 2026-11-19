@@ -45,7 +45,8 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   player comes that near. `predecessor` is the boss this one wakes after
 ///   (`RoomSpec::boss_successions`), in the same live room: where its body
 ///   is, how big it is, the side it faces, and whether it lives. A successor
-///   sleeps until that placement is cleared, and rises from that body.
+///   sleeps until that placement is cleared, and rises from that body; the
+///   predecessor's `hall` is where a successor kept apart from it comes in.
 ///   `reach` is how far the boss's body box can move left, right, up and
 ///   down before it meets a solid of its live room, each capped at
 ///   [`REACH_CAP`]: a body inside a solid reaches `0` every way. A boss that
@@ -131,6 +132,8 @@ pub struct Predecessor {
     /// The side it faces: `1.0` or `-1.0`.
     pub side: f32,
     pub alive: bool,
+    /// The hall under it: the floor it fights on and the walls either side.
+    pub hall: Option<RoomHall>,
 }
 
 /// A body's centre and size, and the move it plays.
@@ -161,8 +164,9 @@ impl Port for BossConductPort {
     /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
     /// Version 6 (2026-10-10): `size`. Version 7 (2026-10-12): the
     /// `swing` of `target_body`. Version 8 (2026-10-18): `awake`. Version 9
-    /// (2026-10-20): `predecessor`. Version 10 (2026-11-09): `reach`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 10);
+    /// (2026-10-20): `predecessor`. Version 10 (2026-11-09): `reach`. Version
+    /// 11 (2026-11-19): the predecessor's `hall`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 11);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -915,6 +919,37 @@ impl Port for MountWalkPort {
     }
 }
 
+/// The request port marker for a walk of the boss's own body.
+///
+/// Port card:
+///
+/// * **Operation** — the boss walks along its floor to `to_x` (world x) at
+///   `speed` (world units per second), and stops there; `speed` 0 stops it
+///   where it is. A script's walk to a mark (`CommandedMove`), the road a
+///   lured boss walks: it moves under its own body step, so it meets walls,
+///   falls off ledges and goes through portals as any walking body does.
+///   The value is a [`MountWalk`]: the same walk, of the boss itself.
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for. A scope that is not a boss
+///   is refused.
+/// * **Time** — `boss_conduct`; the walk stands until the next request, and
+///   the next body step moves the boss.
+pub struct BossWalkPort;
+
+impl Port for BossWalkPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.walk", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = MountWalk;
+
+    fn encode(v: &MountWalk, out: &mut Vec<u8>) {
+        MountWalkPort::encode(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<MountWalk, WireError> {
+        MountWalkPort::decode(r)
+    }
+}
+
 /// The request port marker for a launch of the body a boss fights.
 ///
 /// Port card:
@@ -1058,7 +1093,7 @@ mod tests {
             }),
             size: [40.0, 60.0],
             awake: true,
-            predecessor: Some(Predecessor { position: [600.0, 780.0], size: [84.0, 140.0], side: -1.0, alive: false }),
+            predecessor: Some(Predecessor { position: [600.0, 780.0], size: [84.0, 140.0], side: -1.0, alive: false, hall: Some(RoomHall { floor: 900.0, left: 40.0, right: 1200.0 }) }),
             reach: Some([12.0, REACH_CAP, 0.0, 33.5]),
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);

@@ -202,7 +202,9 @@ or updating their source. Check with
 
 **Owner:** [boss finale and acceptance](game/boss-cinematics-gnu2-and-motion.md) and [GNU-ton debts](game/gnu-ton-fight-debts.md).
 
-**Next action:** author a same-active-area portal staging source, actual through-aperture entrance, combined fight and multi-boss victory policy. Replace obsolete sky/space-phase authority only after replay, reset and exit gating pass.
+**Steps 2-6 done 2026-11-19 ([owner](game/boss-cinematics-gnu2-and-motion.md#gnu2s-finale-gnuton-gnu2-finale)):** GNU2 sleeps in a sealed cell under each arena's floor, wakes when GNU-ton enrages (`successors_wake: Enraged`), opens its own held pair and walks through it into the hall. It has its own conductor (`gnu2`: walk, stomp shocks, buck), the boss bar stacks every fought boss, and each arena's way out waits on both (the handle has a grille for each). The scholar's enrage now calls GNU2 instead of launching to space.
+
+**Next action:** step 7, retire space: the well, the ascent and the tides are no longer reached.
 
 **Acceptance:** physically observed GNU2 portal emergence, simultaneous independently damageable GNU/GNU2 giants with readable counters, either defeat order supported, door gating on both plus rider yield, no duplicate spawn on retries, and both bosses safely cleaned on teardown. Keep intra-island portal semantics and existing phase 1/2 gameplay.
 
@@ -1875,6 +1877,17 @@ missing list entry, so decide it at its owner:
 `sanic_it`'s `act_two_routes::the_ledge_spring_throws_him_onto_the_sky_island`
 fails at 3ff8d4e39, before the badnik module. He ends at (13616, 456), above
 the island, with no monitor spent.
+
+**Two more inherited reds (found 2026-11-19, GNU2 slice):** both fail the
+same way with the slice stashed.
+- `app_it`'s `gnu_ton_in_a_match::each_ground_strike_of_gnu_ton_hits_a_short_foe_beside_him`:
+  "the match of special_patent_clerk and sandbag_infinite did not start", as
+  every live-round Smash arm here (below).
+- `ambition_boss_encounter`'s
+  `sprite_sheet_tests::giant_gnu_baked_record_drives_the_packed_pixels`:
+  the published `giant_gnu` record is not trimmed ("alpha-trimmed/packed, not
+  a raw grid"). The record-only part-first publish (PF1) is the first
+  suspect: read the published record before republishing.
 
 **Shell lifecycle reds (found 2026-11-19, inherited):** two of
 `shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the

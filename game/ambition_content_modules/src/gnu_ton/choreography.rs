@@ -1861,6 +1861,25 @@ pub mod arrival {
     }
 }
 
+/// Phase 3's call (GNUTON-GNU2-FINALE): in the beat before the enrage he
+/// calls the giant's sequel, and the giant roars for it.
+pub mod call {
+    /// When he names it, in seconds from the beat's start.
+    pub const SAY: f32 = 0.3;
+
+    pub fn scholar_rows(t: f32) -> (&'static [&'static str], f32, bool) {
+        (&["invoke", "brace"], t, false)
+    }
+
+    pub fn gnu_rows(t: f32, arms_on: bool) -> (&'static [&'static str], f32, bool) {
+        if arms_on {
+            (&["armed_roar", "roar", "rest"], t, false)
+        } else {
+            (&["roar", "rest"], t, false)
+        }
+    }
+}
+
 /// Phase 3, "The System of the World": the giant blasts off with him into
 /// space, and the fight goes on there under Newton's laws.
 ///

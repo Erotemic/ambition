@@ -28,7 +28,7 @@ Port `ambition.boss.special_cast@4`, trigger: read as `this.trigger`.
 
 ## `boss_conduct`
 
-Port `ambition.boss.conduct@10`, trigger: read as `this.trigger`.
+Port `ambition.boss.conduct@11`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
@@ -52,7 +52,7 @@ Port `ambition.boss.conduct@10`, trigger: read as `this.trigger`.
 | `target_body` | { position: [x, y], size: [x, y], swing: { since: number, hurts_in: number, live: bool, ends_in: number } or () } or () | Current target body geometry and move, when available. |
 | `size` | [x, y] | Full body width and height. |
 | `awake` | bool | The encounter has left its dormant phase. |
-| `predecessor` | { position: [x, y], size: [x, y], side: number, alive: bool } or () | The predecessor boss in this live room, when available. |
+| `predecessor` | { position: [x, y], size: [x, y], side: number, alive: bool, hall: { floor: number, left: number, right: number } or () } or () | The predecessor boss in this live room, when available. |
 | `reach` | list of number or () | Free movement distances [left, right, up, down], each capped at REACH_CAP. |
 
 ## `mount`

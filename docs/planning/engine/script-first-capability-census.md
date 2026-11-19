@@ -675,3 +675,5 @@ Final checks passed 15 assembled tests, SDK 19, host 50, Rhai 10 and shared 355.
 The default app warning check and 53 absence contracts passed. Workspace policy
 retained its 11 baseline violations. Native event subscriptions, creation-time
 composition and cross-room message causality remain open.
+The merged-tree check also passed the Smash app tests (74 passed, six ignored)
+and the assembled app all-targets compile.

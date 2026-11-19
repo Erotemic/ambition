@@ -216,9 +216,17 @@ pub fn begin_action_request<P: ambition_extension_sdk::Port>(world: &mut World, 
     }
 }
 
-/// A failed preparation does not reserve a request number or pending work.
+/// Preparation failures retain diagnostics. Settled cost failures return a native result.
 pub fn refuse_action_submission(world: &mut World, scope: Entity, entry: &str,
-    action: &ActionSubmission<'_>) {
+    action: &ActionSubmission<'_>, why: ambition_extension_sdk::action::ActionRefusal) {
+    if why == ambition_extension_sdk::action::ActionRefusal::InvocationCost {
+        let dispatch = begin_action(world, scope, entry, action.domain, Some(action.reply), action.signature());
+        if dispatch.execute {
+            publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Rejected, true,
+                "invocation_cost_refused", "The invocation did not pay its native costs.", Vec::new());
+        }
+        return;
+    }
     if ensure_object_occurrence(world, scope).is_none() { return; }
     let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
     let mut scope = world.entity_mut(scope);

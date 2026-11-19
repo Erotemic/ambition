@@ -187,6 +187,7 @@ struct OutboxItem {
 #[derive(Resource, Default)]
 pub struct ExtensionOutbox {
     items: Vec<OutboxItem>,
+    refused: Vec<OutboxItem>,
     /// The id the next invocation gets.
     next_invocation: u64,
 }
@@ -249,16 +250,21 @@ impl ExtensionOutbox {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
+        self.items.is_empty() && self.refused.is_empty()
     }
 
-    /// Remove every request of `invocation` that is not lowered yet: a domain
-    /// refused a request the invocation's action depends on (its cost), so
-    /// the action is refused whole. Returns how many were removed.
+    /// Refuse every request of one invocation before native lowering.
+    /// Correlated requests remain here until the host records their outcome.
+    /// Returns the number of refused requests.
     pub fn refuse_invocation(&mut self, invocation: InvocationId) -> usize {
-        let before = self.items.len();
-        self.items.retain(|item| item.invocation != invocation);
-        before - self.items.len()
+        let before = self.refused.len();
+        let mut keep = Vec::with_capacity(self.items.len());
+        for item in self.items.drain(..) {
+            if item.invocation == invocation { self.refused.push(item); }
+            else { keep.push(item); }
+        }
+        self.items = keep;
+        self.refused.len() - before
     }
 }
 
@@ -363,8 +369,9 @@ impl ObservationContext<'_> {
 pub type Supplier =
     Arc<dyn Fn(&World, ObservationContext<'_>) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
 
-/// An action refusal remains observable without reserving its request number.
-pub type ActionRefusalHandler = fn(&mut World, Entity, &str, &ambition_extension_sdk::action::ActionSubmission<'_>);
+/// The native action owner records preparation and cost refusals.
+pub type ActionRefusalHandler = fn(&mut World, Entity, &str,
+    &ambition_extension_sdk::action::ActionSubmission<'_>, ambition_extension_sdk::action::ActionRefusal);
 
 #[derive(Clone, Copy)]
 pub(crate) struct RequestCodec {
@@ -415,6 +422,28 @@ pub struct EntryProfile {
     /// Native entry function or loaded backend call. A loaded call includes
     /// its ABI conversion and VM setup, including the fresh WASM instance.
     pub backend: Duration,
+}
+
+/// Publish native rejection after costs settle and before any effect lowers.
+pub(crate) fn reject_unpaid(phase: Phase) -> impl FnMut(&mut World) {
+    move |world: &mut World| {
+        let refused: Vec<OutboxItem> = {
+            let mut outbox = world.resource_mut::<ExtensionOutbox>();
+            let (mine, rest) = std::mem::take(&mut outbox.refused).into_iter().partition(|item| item.phase == phase);
+            outbox.refused = rest;
+            mine
+        };
+        if refused.is_empty() { return; }
+        let codecs = world.resource::<InstalledPortCodecs>().clone();
+        for item in refused {
+            let codec = codecs.request_codecs.get(&item.port).expect("a submitted port has its codec");
+            if let Some(action) = (codec.action)(item.value.as_ref()) {
+                let record = codecs.refuse_action.expect("correlated cost refusals require a native action outcome handler");
+                record(world, item.state_scope, &item.entry, &action,
+                    ambition_extension_sdk::action::ActionRefusal::InvocationCost);
+            }
+        }
+    }
 }
 
 /// The exclusive system for one phase.
@@ -527,7 +556,8 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                                 &admitted, &entry.path, &action.reply.selector,
                                 &ambition_extension_sdk::phases::ACTOR_THINK).is_none() {
                                 if let Some(refuse) = codecs.refuse_action {
-                                    refuse(world, invocation.scope.state, &entry.path, &action);
+                                    refuse(world, invocation.scope.state, &entry.path, &action,
+                                        ambition_extension_sdk::action::ActionRefusal::InvalidReply);
                                 }
                                 invalid.get_or_insert_with(|| Fault::InvalidReply {
                                     port: port.clone(), handler: action.reply.selector.clone().into() });

@@ -81,6 +81,13 @@ row does not need the broken callback to run. Already accepted work follows its
 domain lifetime if a dynamic callback later becomes unbound; its retained
 result exposes `unbound` until the handler is available or its source retires.
 
+Native costs settle after a handler commits its state. If a cost refuses the
+invocation, none of its queued domain actions can apply. Each correlated action
+receives terminal `rejected` with code `invocation_cost_refused`. The committed
+handler state remains committed, so its result callback can clear an awaiting
+flag or choose another action. Handler delivery and native action application
+are separate facts.
+
 SDK API 0.4 includes static reply dependencies. The loaded descriptor format
 is `ambition-ext-2`; rebuild portable module files with this SDK. The history
 observation is version 4. Cancellation is version 3 because its ticket also

@@ -379,6 +379,7 @@ mod scripted_action_results;
 
 mod scripted_body_queries;
 mod scripted_object_behaviors;
+mod scripted_cost_outcomes;
 
 mod scripted_body_contacts;
 mod scripted_contact_consumption;

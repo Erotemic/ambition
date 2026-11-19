@@ -67,6 +67,8 @@ pub enum ExtensionSet {
     /// [`ExtensionAppExt::install_extension_cost`]) before any request of the
     /// phase is lowered. An invocation whose cost is refused is refused whole.
     Settle(Phase),
+    /// Cost-refused correlated requests receive native rejection.
+    Reject(Phase),
     /// Request adapters give submitted requests to their domains.
     Lower(Phase),
     /// Retirement adapters remove sources after all requests capture their facts.
@@ -313,7 +315,7 @@ pub trait ExtensionAppExt {
     /// admitted either.
     fn has_extension_host(&self) -> bool;
 
-    /// Record refused action submissions before state and requests commit.
+    /// Install the native owner of preparation and cost refusal outcomes.
     fn install_action_refusal_handler(&mut self, handler: ActionRefusalHandler) -> &mut Self;
 
     /// Install trigger port `P` in `phase`, with the adapter system that
@@ -501,6 +503,7 @@ fn ensure_phase(app: &mut App, schedule: Interned<dyn ScheduleLabel>, phase: &Ph
             ExtensionSet::Collect(phase.clone()),
             ExtensionSet::Invoke(phase.clone()),
             ExtensionSet::Settle(phase.clone()),
+            ExtensionSet::Reject(phase.clone()),
             ExtensionSet::Lower(phase.clone()),
             ExtensionSet::Retire(phase.clone()),
         )
@@ -520,7 +523,10 @@ fn ensure_phase(app: &mut App, schedule: Interned<dyn ScheduleLabel>, phase: &Ph
     );
     app.add_systems(
         schedule,
-        run_phase(phase.clone()).in_set(ExtensionSet::Invoke(phase.clone())),
+        (
+            run_phase(phase.clone()).in_set(ExtensionSet::Invoke(phase.clone())),
+            exec::reject_unpaid(phase.clone()).in_set(ExtensionSet::Reject(phase.clone())),
+        ),
     );
 }
 

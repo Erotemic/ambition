@@ -757,6 +757,21 @@ def build_summary(bundle: Bundle) -> str:
             lines.append(f"- {line.strip()}")
     lines.append("")
 
+    if meta.get("memory_scope"):
+        section(lines, "Profiling resources")
+        lines += [
+            "| setting | value |",
+            "| --- | --- |",
+            f"| build jobs | {meta.get('cargo_jobs', '?')} |",
+            f"| memory scope | {meta['memory_scope']} |",
+            f"| scope RAM limit (MiB) | {meta.get('memory_limit_mib', '?')} |",
+            f"| collector RAM limit | {meta.get('tracy_memory_percent', '?')}% of system RAM |",
+            "",
+            "The scope covers profiler child processes. An attached game process",
+            "is outside this scope. Memory snapshots are in `memory-*.txt`.",
+            "",
+        ]
+
     section(lines, "Frame pacing")
     pacing = bundle.rows("census_visual_quality.csv")
     if pacing:

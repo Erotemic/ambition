@@ -735,11 +735,16 @@ the authored pose; a strike or a clip cancels it
 **Campaign gaps measured 2026-11-19**
 ([table](demos/smash-expressive-fighter-poses.md#roster-rollout-jon-2026-10-31-everyone-really),
 `scripts/measure/campaign_sheet_gaps.py`): of 510 sheets no Smash fighter
-draws, none draws the state poses, and 329 have no `hit` row, so a struck
-body on them is drawn `idle`. That includes all 244 townsfolk from the
-character generator. Left: watch the swing amplitudes in the game at 60 and
-144 Hz; then give the townsfolk target the motion library's reaction anchors
-(one change, 244 sheets), and the 86 hand-made rigs theirs.
+draws, none draws the state poses. 329 had no row named `hit`, so a struck
+body on them was drawn `idle`, though most spell that pose `hurt`. Fixed the
+same day: a chain name binds the sheet's other spelling of its pose
+(`first_bound_row`), and 492 of 504 now draw the struck pose. Done 2026-11-19:
+the townsfolk target draws the motion library's reaction anchors (renderer
+`f84ac65`; 240 sheets republished part-first; each state's own pose is now
+missing from 264 campaign sheets, not about 504), and the replay audit
+forgives 96 levels, measured on the two resampling differences 19 of those
+sheets refused on. Left: watch the swing amplitudes in the game at 60 and
+144 Hz, and give the hand-made rigs their reaction rows.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp
 attack poses remain readable. Check interruptions, rollback resets, quality
@@ -1810,7 +1815,19 @@ waits behind higher-value queue items, so the rest of this row is deferred.
 
 **Art done 2026-11-18** (renderer target `input_glyphs`, published under `sprites/input_glyphs/`): gamepad glyphs for each `GamepadStyle` (xbox, playstation, switch, generic), keycaps named by `key_label`, mouse glyphs, and xbox/playstation/switch/generic pad, keyboard and mouse pictures, each with a `_layout.ron` that places every control (Bevy `GamepadButton`/`KeyCode`/`MouseButton` names) in the full-size picture. The naming rule (style, control) → file is in the target's docstring; ⚠ Bevy's `LeftTrigger` is the bumper and `LeftTrigger2` the trigger.
 
-**Next action:** `ambition_input::glyphs` returns text today. Give the control prompt (`ambition_sim_view::control_prompt`) the glyph image for the seat's device, with the text as fallback, and add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
+**Done 2026-11-19, the dialogue box:** its input hint draws the answering
+seat's button pictures. `PhysicalControl::glyph_path` names a control's file
+by the renderer's rule (pad family and Bevy's button word, or the key's
+label); `DialogControls` carries the confirm and back controls' paths beside
+their labels; the box splits its hint line at each control and draws the
+picture when the asset catalog has the file (`try_image_path_for_load`), the
+name when it has not (an `F13`, a headless app). A rebind moves the picture,
+as it moves the label. Witness: `capture_scene math_hotel_ballroom player
+OUT 1280x720 --warmup 200 --player-beside npc_math_monty --interact-at 90
+--include-ui` shows the F and Backspace keycaps (a long key keeps its wide
+cap); at 640x360 the hint wraps to two lines.
+
+**Next action:** give the control prompt (`ambition_sim_view::control_prompt`) the glyph image for the seat's device, with the text as fallback, and add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
 
 **Acceptance:** a prompt shows the pressed button's glyph for keyboard, an Xbox-like and a PlayStation-like pad; a rebind moves the glyph; the layout page names every bound action on its control.
 
@@ -1880,10 +1897,16 @@ missing list entry, so decide it at its owner:
 - the hosted world's `BodyRow::write_into`, a replicated row applied to a
   guest's body, which writes both position and velocity.
 
-**Sanic red (found 2026-11-19, inherited):**
+**Sanic red (found 2026-11-19, inherited; fixed 2026-11-19):**
 `sanic_it`'s `act_two_routes::the_ledge_spring_throws_him_onto_the_sky_island`
-fails at 3ff8d4e39, before the badnik module. He ends at (13616, 456), above
-the island, with no monitor spent.
+failed at 3ff8d4e39, before the badnik module, ending at (13616, 456) with no
+monitor spent. Probed: the script let go of the stick once thrown, and the
+unsteered arc came down with his box 2 px short of the monitor (x 13648
+against 13650) while his feet were in the stomp band; the next tick he met
+the box's side, which an unrolled body bumps off, and a body that lands
+beside the box walks through it. The rule is right; the script was a matter
+of pixels. He now steers toward the monitor and back over it, as a player
+does, and still needs the spring to reach the island and a stomp on the lid.
 
 **Inherited reds found with the GNU2 slice (2026-11-19):** each failed the
 same way with the slice stashed.
@@ -1898,15 +1921,35 @@ same way with the slice stashed.
   sites, one stale row (the projectile writer's read moved from `write_from`
   to its `SystemParam`) and eleven optional reads with no row. Each now has a
   row read from its code: nine `reduced-composition`, two `refuses`.
+- Fixed 2026-11-19: `ambition_sprite_sheet`'s
+  `a_flipbook_states_the_road_it_is_drawn_by` required a published baked
+  flipbook. Since PART-FIRST the cost rule realizes none baked (older bundles
+  still hold `realize: baked`), so its census asks only for the parts road.
+  The baked road is still read back from a record.
+- Open, the same with and without the binding change (`app_it -- pose`):
+  `projectile_portal_transit`'s
+  `a_projectile_retains_its_pose_when_a_recipients_partition_is_refused` (980
+  against 1000) and `a_spinning_exit_carries_a_projectile_into_a_hurt_body_between_matching_poses`
+  ("the far-side wall must stop the shot"), both in the projectile replay
+  work upstream is landing; `every_composed_character_can_say_at_least_one_line`
+  (`npc_clause_band` and four others have no line);
+  `hit_he_is_drawn_in_the_pose_his_hurt_parts_have` (no T-rex is drawn from
+  parts within its boot cap). The rest are this VM's music registry and the Smash
+  match that never starts.
 
-**Shell lifecycle reds (found 2026-11-19, inherited):** two of
-`shell_host_lifecycle`'s witnesses fail before the snake-shell slice, the
+**Shell lifecycle reds (found 2026-11-19, inherited; fixed 2026-11-19):** two of
+`shell_host_lifecycle`'s witnesses failed before the snake-shell slice, the
 same way with and without it:
-- `each_experience_begins_with_its_own_bag`: the Ambition session's bag is
-  25 and its experience begins with 21.
+- `each_experience_begins_with_its_own_bag`: the Ambition session's bag was
+  25 and the witness said 21, a count written on 2026-11-14. The bag was
+  right: the starter set (`OwnedItems::starter`, every real non-key item)
+  gained Precision Blink's third level, Lightning, the Lantern and Contextual
+  Blink. The witness now counts the starter set from the catalog.
 - `a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`:
-  the playing session's save gains `room_visited_sanic_speedway` and a day
-  clock.
+  the playing session's save gained `room_visited_sanic_speedway` and a day
+  clock over the 240 frames, which Sanic writes by playing. The refusal arm
+  now compares against the same Sanic session playing the same frames
+  alone, not against its save before them.
 They are listed as witnesses in
 [construction and reconstitution](engine/construction-and-reconstitution.md).
 Two more fail here for the VM's missing music registry ("authored music is

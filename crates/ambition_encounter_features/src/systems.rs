@@ -521,6 +521,8 @@ pub fn drive_wave_encounters(
             // is a warning and not an error.
             // The persisted toggle is the whole effect, and the drain made it.
             ambition_encounter::switches::SwitchAction::ToggleFlag => {}
+            // Native interaction retains activation evidence on the occurrence.
+            ambition_encounter::switches::SwitchAction::Activate => {}
             // The boss domain carries it out (`apply_boss_life_switches`).
             ambition_encounter::switches::SwitchAction::BossLife => {}
             // The gate network opens the terminal (`run_gate_network`).

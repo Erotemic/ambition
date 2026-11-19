@@ -52,7 +52,7 @@ pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use camera_snapshot::{local_view_facts, CameraViewState, PresentedViewState};
 pub use defense_view::{defense_cue_causes, DefenseCueCauses};
 #[cfg(feature = "dialogue")]
-pub use dialog_view::{rebuild_dialog_view, DialogView};
+pub use dialog_view::{rebuild_dialog_view, DialogControls, DialogView};
 #[cfg(feature = "dialogue")]
 pub use ambition_dialog::DialogConfirmAction;
 

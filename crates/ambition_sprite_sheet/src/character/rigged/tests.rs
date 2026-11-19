@@ -205,10 +205,14 @@ fn every_published_flipbook_realizes_its_sheet_at_every_tier() {
 #[test]
 fn a_flipbook_states_the_road_it_is_drawn_by() {
     let content = &crate::test_support::shared_sprites();
+    // Since PART-FIRST (2026-11-18) the cost rule realizes no published
+    // character baked, so the census asks only for the parts road; the baked
+    // road is read back from the record below.
     let parts = crate::baked_part_flipbooks::baked_part_flipbook_targets(&content)
         .filter_map(|target| RiggedSpriteAsset::baked(&content, target))
-        .partition::<Vec<_>, _>(|asset| asset.realize == Realize::Parts);
-    assert!(!parts.0.is_empty() && !parts.1.is_empty(), "both roads are published: {} parts, {} baked", parts.0.len(), parts.1.len());
+        .filter(|asset| asset.realize == Realize::Parts)
+        .count();
+    assert!(parts > 0, "the parts road is published: {parts} flipbooks");
     let text = crate::baked_part_flipbooks::published_ron_on_build_host(&content, "director").expect("published");
     let baked = text.replacen("    placement:", "    realize: baked,\n    placement:", 1);
     assert_eq!(RiggedSpriteAsset::from_published_ron(&baked).unwrap().realize, Realize::Baked);

@@ -3418,8 +3418,10 @@ pub fn publish_candidate_session(
     if !promoted.contains(&root) {
         promoted.push(root);
     }
+    assign_room_object_occurrences(world, &promoted);
     let mut count = 0;
-    for entity in promoted {
+    for entity in &promoted {
+        let entity = *entity;
         if world.get_entity(entity).is_err() {
             continue;
         }
@@ -3449,6 +3451,13 @@ pub fn publish_candidate_session(
         entity.remove::<crate::lifecycle::CandidateSessionRoot>();
         entity.insert(crate::lifecycle::SessionRoot(scope));
     }
+    // Room publication assigned hidden roots. Notify only after every outer
+    // barrier is down and the session root has become authoritative.
+    let mut births: Vec<_> = promoted.into_iter().filter_map(|entity|
+        world.get::<crate::lifecycle::ObjectOccurrence>(entity).copied().map(|occurrence|
+            crate::lifecycle::ObjectPublished {subject: entity, session: scope, occurrence})).collect();
+    births.sort_by_key(|birth| birth.occurrence.reference(scope));
+    for birth in births { world.trigger(birth); }
     count
 }
 
@@ -4326,3 +4335,48 @@ pub fn verify_projected_roster(
 /// Bumped when the plan dump's shape changes. The dump is an inspection and
 /// comparison surface, so its shape is a compatibility contract.
 pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 6;
+
+/// Native room roots receive addresses after scope adoption and complete initialization.
+/// The verified transaction roster fixes allocation order across construction lanes.
+pub fn publish_room_object_occurrences(world: &mut World, transactions: &[TransactionId]) {
+    use crate::lifecycle::*;
+    use bevy::prelude::{Entity, Without};
+    let mut roots = Vec::new();
+    for (entity, transaction) in world.query_filtered::<
+        (Entity, &TransactionId),
+        (Without<ObjectOccurrence>, bevy::ecs::query::Allow<InactiveCandidate>)>().iter(world) {
+        if transactions.contains(transaction) {
+            roots.push(entity);
+        }
+    }
+    let notices = assign_room_object_occurrences(world, &roots);
+    for notice in notices {
+        if world.get::<InactiveCandidate>(notice.subject).is_none() {
+            world.trigger(notice);
+        }
+    }
+}
+
+fn assign_room_object_occurrences(world: &mut World, entities: &[Entity]) -> Vec<crate::lifecycle::ObjectPublished> {
+    use crate::lifecycle::*;
+    let mut groups = std::collections::BTreeMap::<_, Vec<_>>::new();
+    for &entity in entities {
+        if world.get::<ObjectOccurrence>(entity).is_some() { continue; }
+        if let (Some(session), Some(room), Some(id)) = (world.get::<SessionScopedEntity>(entity),
+            world.get::<InRoomInstance>(entity), world.get::<SimId>(entity)) {
+            groups.entry((session.0, room.0)).or_default().push((id.clone(), entity));
+        }
+    }
+    let mut prepared = Vec::new();
+    for ((session, room), mut roots) in groups {
+        roots.sort_by(|a, b| a.0.cmp(&b.0));
+        let reservation = PreparedObjectOccurrences::prepare(world, session, room, roots.len())
+            .expect("a new verified room has an available occurrence range");
+        prepared.push((reservation, roots.into_iter().map(|(_, entity)| entity).collect::<Vec<_>>()));
+    }
+    let mut notices = Vec::new();
+    for (reservation, roots) in prepared {
+        notices.extend(reservation.assign(world, &roots).expect("verified room roots retain their prepared ownership"));
+    }
+    notices
+}

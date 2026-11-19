@@ -172,11 +172,20 @@ fn a_spin_dash_into_the_cliff_opens_the_cave() {
 fn the_ledge_spring_throws_him_onto_the_sky_island() {
     let mut app = arrive_in_act_two();
     place(&mut app, Vec2::new(12960.0, 960.0));
+    // The ring monitor's middle (`author_highway_ldtk.py`: the island's east
+    // end, less 50, and the box 26 wide).
+    const MONITOR_X: f32 = 13280.0 + 420.0 - 50.0 + 13.0;
     for _ in 0..240 {
         let at = pos(&mut app);
         // An easy run at the ledge, and a jump up to it.
         let jump = at.x > 13090.0 && at.x < 13130.0 && at.y > 960.0;
-        press(&mut app, stick(if at.x < 13300.0 { 0.4 } else { 0.0 }, jump, false, false));
+        // Thrown, he steers for the monitor as a player would, toward it and
+        // back over it: where an unsteered arc comes down is a matter of
+        // pixels (it met the box's side, which an unrolled body bumps off,
+        // and a body that lands beside the box walks through it).
+        let toward = MONITOR_X - at.x;
+        let x = if at.x < 13300.0 { 0.4 } else if toward.abs() < 4.0 { 0.0 } else { toward.signum() };
+        press(&mut app, stick(x, jump, false, false));
         app.update();
         if spent(&mut app).iter().any(|name| name == "monitor_rings_sky") {
             return;

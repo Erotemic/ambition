@@ -3,14 +3,14 @@
 ## Decision and scope
 
 Action callbacks and directed object calls share one addressed delivery pass.
-Runtime birth subscriptions use this pass for typed native facts. Keep typed
+Native birth and activation subscriptions use this pass for typed facts. Keep typed
 payloads and domain journals. Do not add a third dispatcher or copy domain
 payloads into a second persistent queue to obtain common delivery.
 
 The runtime [inbox](../../../crates/ambition_platformer2d_runtime/src/behavior_inbox.rs)
 collects recipient occurrences from each native owner. It resolves each private
 state's physical subject once, applies its room pace, orders eligible deliveries,
-and shares one receiver budget between calls and outcomes. The host runs these
+and shares one receiver budget between requests, outcomes and notifications. The host runs these
 reserved invocations in its declared handler order. Only a successful host commit
 acknowledges delivery. Shared `DeliveryProgress` owns retry and retirement
 transitions. The native journals remain the canonical rollback state. The
@@ -18,9 +18,9 @@ collection map lasts for one phase and contains no undelivered payloads.
 Receipt sequences are local to their typed lane. Outcome and request receipts
 select their own native journal, even when their sequence numbers are equal.
 
-The current pass runs in `actor_think`. Birth subscriptions select named methods.
-Signals, other native sources, delivery in other phases and confirmed transport
-remain open.
+The current pass runs in `actor_think`. Birth and activation subscriptions select
+named methods. Signals, other lifecycle sources and confirmed world-domain
+transport remain open.
 
 ## Keep the meanings distinct
 
@@ -52,7 +52,7 @@ that contract.
 
 ## Native subscriptions and authored signals
 
-Implemented birth subscriptions select an existing named behavior method. Preparation must
+Implemented birth and activation subscriptions select an existing named behavior method. Preparation must
 resolve that method to its entry and check the entry's native trigger type,
 phase and selector against the source contract. A subscription must not add an
 independent handler address table. Initial subscriptions are part of native
@@ -132,6 +132,23 @@ generic delivery infrastructure. Use native interaction arbitration, a scoped
 authored locator, native inspections and actions with acceptance/refusal. Check
 state changes, duplicate live rooms, hot reload and rollback. Then add signals
 and essential lifecycle sources needed by the composition.
+
+The current playable proof is the [toll mechanism](../../sdk/reactive-mechanisms.md)
+in `switch_lab`. Its native lever calls a destructible barrier behavior. Native
+consumption commits the barrier and the activating body's coin exchange together.
+The script completes the original call from that result. Activation evidence
+supports reconciliation when notifications drop. Room and session publication
+assign stable occurrences before the first scripted read.
+
+Local mechanism receipt: `8ee92f38e` adds native placement lookup, activation
+state and notifications, and self-consumption with inventory outcomes. The
+`a_scripted_lever_spends_its_barrier` app checks cover refused/applied actions,
+collision removal, charge deduplication, GGRS replay, lost wakeups and Rhai reload.
+The shared locator check covers equal placement IDs in two live room instances.
+
+A full duplicated-room mechanism test, additional lifecycle facts, authored
+signals and a locking-door capability remain open. The toll barrier uses the
+existing destructible return policy; it is not a general locking door.
 
 The next cross-island proof is one committed world-domain consequence with
 stable identity and replayable destination admission. Arbitrary remote object

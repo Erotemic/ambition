@@ -129,3 +129,17 @@ ambition_extension_sdk::port_record! {
 pub struct BehaviorEventHistory { pub deliveries: Vec<BehaviorEventDelivery>, pub dropped: u64 }
 ambition_extension_sdk::port_record! { BehaviorEventHistory { deliveries: Vec<BehaviorEventDelivery>, dropped: u64 } }
 port!(BehaviorEventsPort, "ambition.objects.events", Observation, BehaviorEventHistory);
+
+/// Resolve authored placements in the caller's current live room instance.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolveAuthoredObjects { pub reply: ReplyTo, pub placements: Vec<String> }
+ambition_extension_sdk::port_record! { ResolveAuthoredObjects { reply: ReplyTo, placements: Vec<String> } }
+action_port!(ResolveAuthoredObjectsPort, "ambition.objects.resolve_authored", 1, ResolveAuthoredObjects, "objects.resolve_authored");
+
+
+/// Native activation evidence. Revision and latest actor remain inspectable.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectActivated { pub object: ObjectRef, pub actor: Option<ObjectRef>, pub revision: u64 }
+ambition_extension_sdk::port_record! { ObjectActivated { object: ObjectRef, actor: Option<ObjectRef>, revision: u64 } }
+port!(ObjectActivatedPort, "ambition.objects.activated", Trigger, ObjectActivated);
+port!(ObjectActivationPort, "ambition.objects.activation", Observation, Option<ObjectActivated>);

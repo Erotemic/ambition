@@ -311,6 +311,7 @@ pub fn switch_used_flag(switch_id: &str) -> String {
 }
 
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[require(ambition_platformer2d_interaction::ActivationState)]
 pub struct SwitchFeature {
     pub activation: SwitchActivation,
 }
@@ -348,6 +349,8 @@ pub struct SwitchActivated {
 /// site instead of invisible at the end of a chain of guards.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SwitchAction {
+    /// Report native activation without a persisted latch or another built-in action.
+    Activate,
     /// Invert ambient gravity.
     FlipGravity,
     /// Set ambient gravity to a cardinal face. The token is the authored
@@ -408,6 +411,7 @@ impl SwitchAction {
 
     /// Classify an authored action string.
     pub fn parse(action: &str) -> Self {
+        if action == "Activate" { return Self::Activate; }
         if action == "FlipGravity" {
             return Self::FlipGravity;
         }
@@ -641,7 +645,7 @@ pub fn drain_switch_activations(
                     .map(|alive| !alive)
                     .unwrap_or(false)
             }
-            SwitchAction::GateTerminal | SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
+            SwitchAction::Activate | SwitchAction::GateTerminal | SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
         };
         resolved.0.push(ResolvedSwitchActivation {
             subject,

@@ -1783,6 +1783,10 @@ pub fn finalize_room_publication(world: &mut World, publication: PublicationHand
     {
         apply_world_replacement(world, pending, target);
     }
+    if let Some(publication) = world.get::<RoomPublication>(publication.0) {
+        let transactions = publication.transactions.clone();
+        ambition_platformer2d_shared_tangle::construction::publish_room_object_occurrences(world, &transactions);
+    }
     let superseded =
         ambition_platformer2d_shared_tangle::construction::retire_superseded(
             world, &effects, &baseline,

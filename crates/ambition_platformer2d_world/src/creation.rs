@@ -45,6 +45,7 @@ pub struct ObjectBehaviorLimits {
     pub max_bindings_per_session: u32,
     pub max_methods: u32,
     pub max_references: u32,
+    pub max_authored_lookups: u32,
     pub max_subscriptions: u32,
     pub max_event_history: u32,
     pub max_state_records: u32,
@@ -55,7 +56,7 @@ pub struct ObjectBehaviorLimits {
 }
 impl Default for ObjectBehaviorLimits {
     fn default() -> Self {
-        Self {max_bindings_per_object: 16, max_bindings_per_session: 1024, max_methods: 32, max_references: 32,
+        Self {max_bindings_per_object: 16, max_bindings_per_session: 1024, max_methods: 32, max_references: 32, max_authored_lookups: 64,
             max_subscriptions: 32, max_event_history: 64,
             max_state_records: 16, max_state_bytes: 16_384, max_data_bytes: 4096,
             max_calls_per_binding: 32, max_active_wait_ticks: 600}

@@ -34,6 +34,7 @@
 | [`ldtk_world`](src/ldtk_world.rs) | Opt-in host composition for games that use an LDtk world. |
 | [`mode_scope`](src/mode_scope.rs) | Scoped game-mode runtime for hosted demos/rulesets. |
 | [`module_save_road`](src/module_save_road.rs) | The session durable save road of the extension host ([`SaveRoad::SessionDurable`]): a module's session record whose schema says `SaveEligibility::Durable` is kept in the durable world save, and comes back when that save loads. |
+| [`object_behaviors`](src/object_behaviors.rs) | Private reusable behavior instances and bounded directed object calls. |
 | [`player_schedule`](src/player_schedule.rs) | Engine-generic per-frame player lifecycle and its host extension slots. |
 | [`portal_body`](src/portal_body.rs) | Runtime witnesses for atomic portal body transfer. |
 | [`portal_fault`](src/portal_fault.rs) | The visible face of a numeric portal refusal (PSIM-5). |
@@ -63,7 +64,7 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_56 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_57 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

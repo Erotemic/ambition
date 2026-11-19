@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v499
+ggrs-rollback-schema-v501
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -481,6 +481,7 @@ mount.riding_on	component-clone	RidingOn	bevy_ggrs clone snapshot; entity handle
 mount.slot	component-clone	MountSlot	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 objects.occurrence	component-canonical	ObjectOccurrence	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 objects.occurrence_sequence	component-canonical	ObjectOccurrenceSequence	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+objects.scope_owner	component-canonical	ObjectScopeOwner	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone snapshot; not in the session checksum
 player.projectile_state	component-canonical	PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -581,6 +582,7 @@ scope.mode	component-canonical	ModeScopedEntity	bevy_ggrs canonical codec snapsh
 scope.room	component-canonical	RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.room_instance	component-canonical	InRoomInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.session	component-clone	SessionScopedEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+script.behavior_instance	component-canonical	BehaviorInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 session.mode_visit	component-clone	ModeVisit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.participants	component-canonical	SessionParticipants	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 session.party_travel	component-clone-custom-checksum	PartyTravel	bevy_ggrs clone snapshot + party travel rules and pending zone agreements

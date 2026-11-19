@@ -9,3 +9,5 @@ pub mod geometry;
 pub mod consumption;
 
 pub mod breakables;
+
+pub mod behavior;

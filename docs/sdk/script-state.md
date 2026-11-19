@@ -23,8 +23,8 @@ owner with `InvocationScope { subject, state }`. Observations, time pace and
 domain actions use the subject. Body-attached records, action mailboxes, query
 reply history and delivery receipts use the state owner. Two instances can use
 the same entry and schema on one subject without sharing these records. Both
-entities must remain live. This is a native host contract; script-authored
-behavior attachment and method calls are separate work.
+entities must remain live. See [object behaviors](object-behaviors.md) for script-authored attachment and
+directed method calls.
 
 
 ## Rhai values

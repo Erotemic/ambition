@@ -13,6 +13,7 @@ where
     R: RollbackRegistrar,
 {
     registrar.rollback_component_canonical::<crate::action_results::ActionMailbox>(OWNER, "actions.mailbox");
+    registrar.rollback_component_canonical::<crate::lifecycle::ObjectScopeOwner>(OWNER, "objects.scope_owner");
     registrar.rollback_component_canonical::<crate::lifecycle::ObjectOccurrence>(OWNER, "objects.occurrence");
     registrar.rollback_component_canonical::<crate::lifecycle::ObjectOccurrenceSequence>(OWNER, "objects.occurrence_sequence");
     registrar.require_rollback::<crate::lifecycle::ObjectOccurrence>(OWNER, "entity:object_occurrence");

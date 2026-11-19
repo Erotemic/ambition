@@ -141,8 +141,11 @@ Keep the full capability program open while these contracts lack evidence:
   handle competition and refusal. Prove room duplication, travel, retirement,
   replay and live edits through the real host, with portable parity and costs.
 
-Typed references and subject payloads are implemented. Directed calls, behavior
-attachment, general discovery and event subscriptions are not complete.
+Typed references, subject payloads and private behavior bindings are implemented.
+Directed calls have a loaded replay witness. Creation-time composition, general
+discovery, native event subscriptions, typed return data and cross-room message
+causality during independent room replay remain open. See
+[object behaviors](../../sdk/object-behaviors.md).
 
 The remaining contracts need more than aliases: general world-object
 activation and composition, actor lifetime, equipment/custody outcomes,
@@ -614,3 +617,37 @@ The default-feature app compiled without warnings. Five portable module
 artifacts rebuilt. Workspace policy retained its 11 baseline violations;
 this change added none. Browser, mobile and the full workspace were not run.
 See [object references](../../sdk/object-references.md).
+
+## Private behavior bindings and directed calls
+
+One subject could not host independent instances of the same schema. The host
+now separates the native subject and private state owner (`2bf2b9854`). Bindings
+attach reusable methods, parameters and records. Directed calls distinguish
+admission, committed delivery and explicit completion. Cancellation suppresses
+queued methods and is refused after commit. Commit: `6dfe02d1b`.
+
+The guard is
+[`scripted_object_behaviors.rs`](../../../game/ambition_app/tests/scripted_object_behaviors.rs).
+It checks both controllers, private records, native wallet outcomes, competition,
+fault exhaustion without a staged reward, cancellation and GGRS. The broader
+focused population passed 45 tests with one ignored. Final index and receipt
+changes passed 12 focused tests and 353 shared-owner tests. The default app
+warning check, wasm32 world-port check and 53 absence contracts passed. Workspace
+policy retained its 11 baseline violations. The new behavior ports lack an
+actual WASM method-call witness. Do not infer room-island rollback coverage from
+GGRS: private instance membership remains open. See
+[object behaviors](../../sdk/object-behaviors.md) for the other remaining work.
+
+## Inherited scope and portable behavior methods
+
+Private instances were absent from room snapshots. `ObjectScopeOwner` now
+supplies one owner link for room membership and visibility cuts. Allocation
+uses the owning scope's counter. Commit: `c42c48b65`.
+
+The shared scope witness checks travel and owner reconstruction. The loaded
+[`scripted_object_behaviors.rs`](../../../game/ambition_app/tests/scripted_object_behaviors.rs)
+fixture restores private callbacks through room snapshots without duplicate
+rewards. Shared tests passed 354 cases; assembled scope, result, schema and
+room rewind tests passed 30 with 14 ignored. The default app warning check and
+53 absence contracts passed. Cross-room message causality during independent
+replay remains open.

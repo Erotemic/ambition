@@ -9,6 +9,7 @@ description = "Test-only extension modules that the game does not link: built fo
 
 # Like `ambition_content_modules`: the SDK and the pure port values only.
 [dependencies]
+ambition_world_port = { path = "../../crates/ambition_world_port" }
 ambition_combat_port = { path = "../../crates/ambition_combat_port" }
 ambition_extension_sdk = { path = "../../crates/ambition_extension_sdk" }
 ambition_projectile_spec = { path = "../../crates/ambition_projectile_spec" }

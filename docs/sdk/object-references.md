@@ -69,5 +69,5 @@ request. It must not substitute another object with the same authored name.
 The older `body` and `item` state kinds retain authored semantic names. They
 are useful locators; they do not have the lifetime semantics of `object`.
 [Body queries](body-queries.md) accept exact occurrence references as well as
-explicit authored-name filters. General object discovery, behavior bindings,
-directed calls and scoped event subscriptions remain under implementation.
+explicit authored-name filters. See [object behaviors](object-behaviors.md) for reusable bindings and directed
+calls. General object discovery and scoped event subscriptions remain open.

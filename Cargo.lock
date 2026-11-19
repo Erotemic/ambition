@@ -816,6 +816,7 @@ dependencies = [
  "ambition_combat_port",
  "ambition_extension_sdk",
  "ambition_projectile_spec",
+ "ambition_world_port",
  "bevy_math",
 ]
 

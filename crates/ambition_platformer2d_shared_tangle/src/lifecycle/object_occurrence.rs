@@ -54,7 +54,7 @@ pub struct ObjectPublished {
 pub struct PreparedObjectOccurrences {
     root: Entity,
     session: SessionScopeId,
-    room: LiveRoomInstance,
+    room: Option<LiveRoomInstance>,
     start: u64,
     end: u64,
 }
@@ -67,14 +67,26 @@ impl PreparedObjectOccurrences {
         let start = world.get::<ObjectOccurrenceSequence>(root).map_or(0, |sequence| sequence.0);
         let count = u64::try_from(count).map_err(|_| "The occurrence count is too large.")?;
         let end = start.checked_add(count).ok_or("The room's object occurrence range is exhausted.")?;
-        Ok(Self {root, session, room, start, end})
+        Ok(Self {root, session, room: Some(room), start, end})
+    }
+
+    pub fn prepare_session(world: &mut World, session: SessionScopeId, count: usize)
+        -> Result<Self, &'static str> {
+        let root = super::session_root_for_scope(world, session).ok_or("The session is not live.")?;
+        let start = world.get::<ObjectOccurrenceSequence>(root).map_or(0, |sequence| sequence.0);
+        let count = u64::try_from(count).map_err(|_| "The occurrence count is too large.")?;
+        let end = start.checked_add(count).ok_or("The session's occurrence range is exhausted.")?;
+        Ok(Self {root, session, room: None, start, end})
     }
 
     /// Validate every root before assigning any stamp or advancing the counter.
     pub fn assign(self, world: &mut World, entities: &[Entity]) -> Result<Vec<ObjectPublished>, &'static str> {
         if entities.len() as u64 != self.end - self.start
             || world.get::<SessionScopedEntity>(self.root).map(|owner| owner.0) != Some(self.session)
-            || world.get::<LiveRoomInstance>(self.root) != Some(&self.room)
+            || match self.room {
+                Some(room) => world.get::<LiveRoomInstance>(self.root) != Some(&room),
+                None => world.get::<super::SessionRoot>(self.root).map(|root| root.0) != Some(self.session),
+            }
             || world.get::<ObjectOccurrenceSequence>(self.root).map_or(0, |sequence| sequence.0) != self.start {
             return Err("The publication allocation changed before commit.");
         }
@@ -82,7 +94,7 @@ impl PreparedObjectOccurrences {
         for entity in entities {
             if !unique.insert(*entity)
                 || world.get::<SessionScopedEntity>(*entity).map(|owner| owner.0) != Some(self.session)
-                || world.get::<InRoomInstance>(*entity).map(|at| at.0) != Some(self.room)
+                || world.get::<InRoomInstance>(*entity).map(|at| at.0) != self.room
                 || world.get::<crate::sim_id::SimId>(*entity).is_none()
                 || world.get::<ObjectOccurrence>(*entity).is_some() {
                 return Err("A publication root has invalid ownership or an existing occurrence.");
@@ -90,7 +102,7 @@ impl PreparedObjectOccurrences {
         }
         world.entity_mut(self.root).insert(ObjectOccurrenceSequence(self.end));
         Ok(entities.iter().enumerate().map(|(index, subject)| {
-            let occurrence = ObjectOccurrence {room: Some(self.room.ordinal()), generation: self.start + index as u64};
+            let occurrence = ObjectOccurrence {room: self.room.map(|room| room.ordinal()), generation: self.start + index as u64};
             world.entity_mut(*subject).insert(occurrence);
             ObjectPublished {subject: *subject, session: self.session, occurrence}
         }).collect())

@@ -392,19 +392,26 @@ record of each catalog sheet that no Smash fighter draws: 510 sheets, all
 published here.
 - No campaign sheet draws every first choice. Each state's own pose is
   missing from 497 to 510 of them (`pet` from all 510, `tumble` from 497).
-- Where the chain lands is the finding. 329 sheets have no `hit` row, so a
-  struck, launched, grabbed or knocked-down body on them is drawn in
-  `idle`. All 244 character-generator townsfolk sheets are among them;
-  the other 86 are hand-made rigs.
-- Nine sheets have no `idle` either: boss sheets drawn by their conductors
+- Where the chain landed was the finding: 329 sheets had no row named `hit`,
+  so a struck, launched, grabbed or knocked-down body on them was drawn in
+  `idle`. All 244 character-generator townsfolk were among them.
+- **Fixed the same day, in the binding.** Most of those sheets draw the
+  pose: they spell it `hurt`, which the sheet parser has always read as the
+  `hit` pose (`CharacterAnim::from_name`). A chain bound row names exactly,
+  so it stepped past the pose to `idle`. `SheetRecord::first_bound_row` now
+  binds a name to the sheet's other spelling of the same pose (a boss's
+  `rest` is its `idle` the same way). Remeasured with the binding modelled:
+  492 of the 504 sheets draw `hit`/`hurt` for a struck body, and 12 still
+  fall to `idle`.
+- Nine sheets have no `idle` row: boss sheets drawn by their conductors
   (`rest` rows: the bossofthegame, Galwah, the gradient sentinel, the
   Mockingbird, the Smirking Behemoth, the three GNU-ton sheets and GNU2).
-  The chains do not apply to them.
+  They now bind `rest` for `idle`.
 
-The cheapest first authoring step is therefore the character generator: one
-change to the townsfolk target's rows (the motion library already has the
-anchors; Alice publishes them) covers 244 of the 329 sheets that draw a hit
-as `idle`.
+Left: the state poses themselves (launch, the floor game, getups). The
+cheapest first step is the character generator: one change to the townsfolk
+target's rows (the motion library already has the anchors; Alice publishes
+them) covers 244 sheets.
 
 The game already draws `turnaround` in the new facing over `TURN_SECS` (`ambition_sim_view::pose_view`) on the player road. A sheet's turn row must therefore END on its side view.
 

@@ -119,6 +119,10 @@ The active-crowd fixture checks repeated body state and effect order. The room
 fixture checks permissions, isolation, and changed geometry. Keep all body ticks
 and the common movement kernel. See the
 [measurement receipt](../../../dev/ambition_dev_measurements/journal/2026-11-19-active-crowd-integration.md).
+The [desktop follow-up](../../../dev/ambition_dev_measurements/journal/2026-11-19-desktop-parallel-body-result.md)
+measures 6.378 to 2.823 ms per integration tick and 67.230 to 36.240 ms per
+frame with the same 538 bodies. Target selection and view publication remain
+measured candidates for further work.
 
 ### Developer iteration remains an architecture constraint
 

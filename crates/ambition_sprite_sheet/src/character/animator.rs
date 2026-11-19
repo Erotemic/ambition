@@ -661,7 +661,8 @@ impl CharacterAnimator {
     /// an in-between is drawn at (`rigged::RiggedSpriteAsset::tween_into`).
     /// `0` while a clip holds its last frame, and for a row with no clock. A
     /// clip slaved to a move takes the fraction of the move's progress inside
-    /// the frame it selects.
+    /// the frame it selects. `0` on the last frame of a clip played once: the
+    /// next frame of a tween is the first, which the clip never shows again.
     pub fn frame_phase(&self) -> f32 {
         if self.clip_held {
             return 0.0;
@@ -670,6 +671,13 @@ impl CharacterAnimator {
             Some(slot) => self.spec.row_at(slot),
             None => self.spec.row(self.current),
         };
+        let once = match self.clip_slot {
+            Some(_) => !self.clip_loops,
+            None => non_looping(self.current),
+        };
+        if once && self.frame + 1 >= row.frame_count {
+            return 0.0;
+        }
         if let (Some(_), Some(phase)) = (self.clip_slot, self.clip_phase) {
             return (phase.clamp(0.0, 1.0) * row.frame_count as f32).fract();
         }

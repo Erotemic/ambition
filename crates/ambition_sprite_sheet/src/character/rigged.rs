@@ -316,7 +316,13 @@ fn shorter_turn(from: f32, to: f32) -> f32 {
 
 /// The draw of the next frame that `draw` tweens to: the draw of its track,
 /// when that draw is the same part or the same picture redrawn
-/// ([`same_picture_redrawn`]). `None` for a draw that holds still.
+/// ([`same_picture_redrawn`]), and is not drawn mirrored where this one is
+/// not. `None` for a draw that holds still.
+///
+/// A part shared with its own mirror (`scale` -1 on an axis) that flips from
+/// one frame to the next is another picture: lerped, its scale passed through
+/// zero and the limb folded flat half way (33 walk and run clips, measured
+/// by the renderer's in-between oracle on 2026-11-19).
 fn tween_target_index(parts: &[RigPart], draw: &PartDraw, following: &[PartDraw]) -> Option<usize> {
     let track = draw.track?;
     following
@@ -324,7 +330,8 @@ fn tween_target_index(parts: &[RigPart], draw: &PartDraw, following: &[PartDraw]
         .position(|next| next.track == Some(track))
         .filter(|index| {
             let next = &following[*index];
-            next.part == draw.part || same_picture_redrawn(parts, draw, next)
+            let unflipped = (draw.scale * next.scale).cmpgt(Vec2::ZERO).all();
+            unflipped && (next.part == draw.part || same_picture_redrawn(parts, draw, next))
         })
 }
 

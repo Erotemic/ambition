@@ -328,6 +328,32 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   render for each rig road (rig documents can pose a fractional keyframe;
   the generator road and the pieces cannot yet), then the oracle per
   target, then its tween rows.
+- **PF4 per target (2026-11-19).** The oracle is a tool now
+  (`python -m ambition_sprite2d_renderer.devtools.tween_oracle <target>
+  <dir>`): it captures a target's part-first flipbook and render function,
+  tweens each clip, and at every frame compares the tween at `i + 0.5` with
+  the rig drawn at `i + 0.5` (the replay guard at radius 1). A clip holds
+  when each in-between replays that pose, or is no worse than showing frame
+  `i` there within the guard's margin; the last frame is measured toward the
+  first. Run over the 434 targets: 423 measured (11 publish no flipbook
+  through `publish_rig_flipbook`); of the 549 clips tweened by default, 171
+  hold, 378 have no oracle (the rig indexes a list of poses and cannot pose a
+  fractional frame: they keep the default) and 24 fail and now step (Niels
+  Boar's four loops, the imperfect cellular automaton's three, Smart House's
+  walk at 54% wrong); 906 other clips hold in 115 targets and now tween. The
+  choice is declared, not computed at publish: `tween_rows` in the sprite
+  policy (`sprites.yaml`, written by `--summary`), read by
+  `publish_rig_flipbook` and part of the target's recipe policy, so a
+  changed row republishes it. Two defects found on the way, both fixed:
+  (1) a draw whose next draw is its own part mirrored was lerped through
+  zero scale, folding the limb flat half way (33 walk and run clips); it
+  now holds, in the renderer's `tween_draws` and the runtime's
+  `tween_target_index`. (2) The runtime tweened the last frame of a clip
+  played once toward its first and then snapped back when the clip held;
+  `CharacterAnimator::frame_phase` is now 0 on that frame. Left: the 6,697
+  clips of 361 targets whose rigs cannot pose an in-between (an in-between
+  render per rig road would measure them), and the 1,240 that fail stay
+  stepped.
 - **PF3 done (2026-11-18).** `scripts/regen/sprites.sh --reference --target
   <name>` paints a part-first sheet's every frame into
   `.agent/sprite_reference/<name>/` (`PAINT_REFERENCE_ENV`; Hypatia in 16 s)

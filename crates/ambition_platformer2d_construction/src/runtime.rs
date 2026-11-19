@@ -15,6 +15,34 @@ use ambition_platformer2d_shared_tangle::{
 use bevy::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// A checked private state bundle that belongs to one new object occurrence.
+#[derive(Clone, Debug)]
+pub struct OwnedObjectState<B> { pub key: String, pub bundle: B }
+
+/// Root state and private instances materialize in the same native transaction.
+#[derive(Clone, Debug)]
+pub struct ComposedInitialization<Root, Owned> {
+    pub root: Root,
+    pub owned: Vec<OwnedObjectState<Owned>>,
+}
+
+/// Native owners validate their bundles before the construction transaction starts.
+pub trait RuntimeInitialization: Clone {
+    type Owned: Bundle + Clone;
+    fn insert(&self, root: &mut RootScope<'_, '_, '_>);
+    fn owned(&self) -> &[OwnedObjectState<Self::Owned>];
+}
+impl<B: Bundle + Clone> RuntimeInitialization for B {
+    type Owned = ();
+    fn insert(&self, root: &mut RootScope<'_, '_, '_>) { root.insert(self.clone()); }
+    fn owned(&self) -> &[OwnedObjectState<()>] { &[] }
+}
+impl<R: Bundle + Clone, O: Bundle + Clone> RuntimeInitialization for ComposedInitialization<R, O> {
+    type Owned = O;
+    fn insert(&self, root: &mut RootScope<'_, '_, '_>) { root.insert(self.root.clone()); }
+    fn owned(&self) -> &[OwnedObjectState<O>] { &self.owned }
+}
+
 /// A native character occurrence. Behavior state is initialized by its owner.
 #[derive(Clone, Debug)]
 pub struct RuntimeActor<Initialization = ()> {
@@ -47,7 +75,7 @@ pub struct CreatedActor {
 
 /// Publish the complete batch or leave no new live roots.
 /// The live room owns the new bodies. Their creator need not remain alive.
-pub fn create_actors<Initialization: Bundle + Clone>(
+pub fn create_actors<Initialization: RuntimeInitialization>(
     world: &mut World,
     caller: Entity,
     actors: &[RuntimeActor<Initialization>],
@@ -193,7 +221,8 @@ pub fn create_actors<Initialization: Bundle + Clone>(
     crate::preflight_actor_relations(&rows, &context.services.boss_catalog, Some(&cast))
         .map_err(|e| e.to_string())?;
     let initializers: BTreeMap<_, _> = actors.iter().map(|actor| (ids[actor.key.as_str()].clone(), actor)).collect();
-    let receipt = context.commit(world, rows, |id, root| {
+    let states = initializers.iter().map(|(id, actor)| (id.clone(), &actor.initialization)).collect();
+    let receipt = context.commit(world, rows, &states, |id, root| {
         root.insert(ambition_combat::components::RuntimeStagedActor);
         if let Some(actor) = initializers.get(id) {
             if let Some(balance) = actor.starting_wallet {
@@ -205,7 +234,6 @@ pub fn create_actors<Initialization: Bundle + Clone>(
                 holds.dedup();
                 root.insert(ambition_combat::extension::status::BodyStatuses(holds));
             }
-            root.insert(actor.initialization.clone());
         }
     })?;
     let created = actors.iter().map(|actor| {
@@ -336,10 +364,11 @@ impl RuntimeConstruction {
     }
 
     /// Initialize and verify hidden roots, then publish their complete state.
-    pub fn commit(
+    pub fn commit<Initialization: RuntimeInitialization>(
         self,
         world: &mut World,
         rows: Vec<ActorConstructionRequest>,
+        states: &BTreeMap<SimId, &Initialization>,
         mut initialize: impl FnMut(&SimId, &mut RootScope<'_, '_, '_>),
     ) -> Result<ConstructionReceipt, String> {
         world.flush();
@@ -365,7 +394,15 @@ impl RuntimeConstruction {
         if !inactive_candidate_filter_installed(world) {
             return Err("Runtime publication requires the candidate query filter.".into());
         }
-        let occurrences = PreparedObjectOccurrences::prepare(world, self.session, self.room, rows.len())?;
+        let mut owned_count = 0usize;
+        for (id, state) in states {
+            if !rows.iter().any(|row| &row.sim_id == id) {
+                return Err("Initialization names an object outside the construction batch.".into());
+            }
+            owned_count = owned_count.checked_add(state.owned().len()).ok_or("Too many owned states.")?;
+        }
+        let object_count = rows.len().checked_add(owned_count).ok_or("Too many construction objects.")?;
+        let occurrences = PreparedObjectOccurrences::prepare(world, self.session, self.room, object_count)?;
         let scope = ConstructionScope::in_generation(ContentBinding::RuntimeDynamic, None);
         let source_key: String = self.parent.as_str().bytes().map(|byte| format!("{byte:02x}")).collect();
         let lane = ConstructionLane::named(format!("runtime:{}:{source_key}:{}", self.room.ordinal(), self.start));
@@ -379,16 +416,36 @@ impl RuntimeConstruction {
                 .ok_or("The construction capability is not installed.")?,
         )
         .map_err(|error| error.to_string())?;
+        let mut owned_specs = Vec::with_capacity(owned_count);
+        for (index, root) in plan.entities().iter().enumerate() {
+            if let Some(state) = states.get(root.sim_id()) {
+                for owned in state.owned() {
+                    owned_specs.push(OwnedStateSpec {owner: root.sim_id().clone(),
+                        reference: occurrences.reference(index), key: owned.key.clone()});
+                }
+            }
+        }
+        let plan = plan.with_owned_states(owned_specs).map_err(|error| error.to_string())?;
         let transaction = plan.transaction(session);
+        let mut owned_entities = Vec::with_capacity(owned_count);
         let receipt = {
             let mut commands = world.commands();
             let receipt = plan.commit_hidden(&mut ConstructionExecCtx {
                 commands: &mut commands, scope: &scope, session,
                 services: &self.services, facts: &PersistedFates::unrecorded(),
             });
-            for id in receipt.committed_ids() {
-                let mut root = RootScope::new(&mut commands, session, receipt.entity(&id).unwrap());
-                initialize(&id, &mut root);
+            for (index, id) in receipt.committed_ids().iter().enumerate() {
+                let mut root = RootScope::new(&mut commands, session, receipt.entity(id).unwrap());
+                initialize(id, &mut root);
+                if let Some(state) = states.get(id) {
+                    state.insert(&mut root);
+                    let reference = occurrences.reference(index);
+                    for owned in state.owned() {
+                        let entity = receipt.owned_state(reference, &owned.key).expect("the plan allocated every private state");
+                        RootScope::new(&mut commands, session, entity).insert(owned.bundle.clone());
+                        owned_entities.push(entity);
+                    }
+                }
             }
             receipt
         };
@@ -403,7 +460,9 @@ impl RuntimeConstruction {
             return Err("The runtime batch failed native verification.".into());
         }
         let roots: Vec<_> = receipt.committed_ids().iter().map(|id| receipt.entity(id).unwrap()).collect();
-        let notices = match occurrences.assign(world, &roots) {
+        let mut complete = roots.clone();
+        complete.extend(owned_entities);
+        let notices = match occurrences.assign(world, &complete) {
             Ok(notices) => notices,
             Err(problem) => {
                 retire_candidate(world, &transaction);
@@ -412,8 +471,8 @@ impl RuntimeConstruction {
         };
         world.get_mut::<SimIdCounter>(self.caller).expect("the checked source is live").0 = self.next;
         let published = publish_candidate(world, &transaction);
-        assert_eq!(published, roots.len(), "the complete runtime batch must publish together");
-        for notice in notices { world.trigger(notice); }
+        assert_eq!(published, complete.len(), "the complete runtime batch must publish together");
+        for notice in notices.into_iter().take(roots.len()) { world.trigger(notice); }
         Ok(receipt)
     }
 }

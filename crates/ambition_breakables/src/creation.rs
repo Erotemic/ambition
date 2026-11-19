@@ -2,21 +2,22 @@
 
 use ambition_entity_catalog::placements::{BreakableSpec, HazardRespawn, PlacementSchema};
 use ambition_platformer2d_construction::{
-    runtime::RuntimeConstruction, ActorConstructionParams, ActorConstructionRequest,
+    runtime::{RuntimeConstruction, RuntimeInitialization}, ActorConstructionParams, ActorConstructionRequest,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::{lifecycle::*, sim_id::SimId};
 use ambition_platformer2d_world::placements::PlacementRecord;
 use bevy::prelude::*;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub use ambition_platformer2d_world::creation::BreakableCreationLimits;
 
-pub struct RuntimeBreakable {
+pub struct RuntimeBreakable<Initialization = ()> {
     pub key: String,
     pub label: String,
     pub aabb: ae::Aabb,
     pub spec: BreakableSpec,
+    pub initialization: Initialization,
 }
 pub struct CreatedBreakable {
     pub key: String,
@@ -26,10 +27,10 @@ pub struct CreatedBreakable {
 
 /// Build the complete batch or refuse without births or counter changes.
 /// These fresh objects belong to the caller's room, independent of its creator.
-pub fn create_breakables(
+pub fn create_breakables<Initialization: RuntimeInitialization>(
     world: &mut World,
     caller: Entity,
-    objects: &[RuntimeBreakable],
+    objects: &[RuntimeBreakable<Initialization>],
     limits: BreakableCreationLimits,
 ) -> Result<Vec<CreatedBreakable>, String> {
     use ae::AabbExt as _;
@@ -116,7 +117,8 @@ pub fn create_breakables(
         });
     }
     let ids: Vec<_> = rows.iter().map(|row| row.sim_id.clone()).collect();
-    let receipt = context.commit(world, rows, |_, _| {})?;
+    let states: BTreeMap<_, _> = ids.iter().cloned().zip(objects.iter().map(|object| &object.initialization)).collect();
+    let receipt = context.commit(world, rows, &states, |_, _| {})?;
     Ok(objects
         .iter()
         .zip(ids)

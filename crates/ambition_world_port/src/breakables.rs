@@ -36,6 +36,7 @@ pub struct BreakableNode {
     pub respawn_after: Option<f32>,
     pub pogo_refresh: bool,
     pub look: Option<String>,
+    pub bindings: Vec<crate::behavior::BehaviorBinding>,
 }
 ambition_extension_sdk::port_record! {
     BreakableNode {
@@ -54,6 +55,8 @@ ambition_extension_sdk::port_record! {
         pogo_refresh: bool = false,
         /// Prop sheet identity. Missing art uses the normal breakable fallback.
         look: Option<String> = None,
+        /// Private behavior instances initialized before object publication.
+        bindings: Vec<crate::behavior::BehaviorBinding> = Vec::new(),
     }
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -66,7 +69,7 @@ ambition_extension_sdk::port_record! {
 }
 pub struct CreateBreakablesPort;
 impl Port for CreateBreakablesPort {
-    const KEY: PortKey = PortKey::new("ambition.world.create_breakables", 1);
+    const KEY: PortKey = PortKey::new("ambition.world.create_breakables", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = CreateBreakables;
     fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {

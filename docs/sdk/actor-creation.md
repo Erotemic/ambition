@@ -57,7 +57,8 @@ retires cannot receive a callback in a replacement lifetime.
 ## Completed publication
 
 The native owner prepares all declared state before materialization. It builds
-hidden roots, installs wallet overrides, statuses and script records, and checks
+hidden roots and private behavior instances, installs wallet overrides, statuses
+and script records, and checks
 the complete rig and relations. It then assigns occurrence references and
 publishes the batch. Scheduled systems cannot see partially initialized roots.
 A supported verification refusal removes the hidden batch without publishing it.
@@ -73,9 +74,19 @@ work.
 Native callers can supply prepared, entity-local components through
 `RuntimeActor.initialization`. Their owner validates those values. The runtime
 uses a root-scoped initializer, without a world callback. The script adapter
-supplies its checked `BodyRecords` through this same path. Runtime breakables
-use the same publication boundary. Occurrence counters and initialized state
+supplies its checked `BodyRecords` through this same path. A native
+`ComposedInitialization` also supplies named `OwnedObjectState` bundles. The
+native plan declares and allocates those private instances before initialization.
+Roster verification checks their identity, owner, session and transaction. Their
+residency follows their exact root reference. Runtime breakables use the same
+publication boundary. Occurrence counters and initialized state
 rewind through the existing snapshot owners.
+
+Each actor node can declare a `bindings` list of
+[private behavior instances](object-behaviors.md). The native transaction
+publishes those instances with the root. Method paths and private seeds must
+all validate before any actor in the batch is materialized. A second attachment
+action is not required.
 
 ## Wallet capability at birth
 

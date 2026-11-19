@@ -470,22 +470,22 @@ Value: { ticket: { entry: text, domain: text, request: integer (u32), occurrence
 
 ## `create_actors`
 
-Port `ambition.world.create_actors@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.world.create_actors@3`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `reply` | { request: integer (u32), selector: text } | required | Report completed construction or refusal to this entry. |
-| `actors` | list of { key: text, character: text, at: [x, y], half_extents: [x, y], allegiance: one of: inherit \| player \| enemy \| npc \| boss \| neutral, face_left: bool, starting_wallet: integer (i32) or (), holds: list of text, state: list of { schema: text, value: schema-selected data } } | required | Build these roots and each character's required internal cluster. |
+| `actors` | list of { key: text, character: text, at: [x, y], half_extents: [x, y], allegiance: one of: inherit \| player \| enemy \| npc \| boss \| neutral, face_left: bool, starting_wallet: integer (i32) or (), holds: list of text, state: list of { schema: text, value: schema-selected data }, bindings: list of { key: text, methods: list of { name: text, entry: text }, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } } | required | Build these roots and each character's required internal cluster. |
 | `links` | list of { from: text, to: text, kind: one of: grudge \| mount } | `[]` | Native relations between actor keys in this batch. |
 
 ## `create_breakables`
 
-Port `ambition.world.create_breakables@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.world.create_breakables@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `reply` | { request: integer (u32), selector: text } | required |  |
-| `objects` | list of { key: text, label: text or (), at: [x, y], size: [x, y], health: integer (i32), collision: one of: none \| solid \| one_way, trigger: one of: hit \| stand \| either, respawn_after: number or (), pogo_refresh: bool, look: text or () } | required |  |
+| `objects` | list of { key: text, label: text or (), at: [x, y], size: [x, y], health: integer (i32), collision: one of: none \| solid \| one_way, trigger: one of: hit \| stand \| either, respawn_after: number or (), pogo_refresh: bool, look: text or (), bindings: list of { key: text, methods: list of { name: text, entry: text }, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } } | required |  |
 
 ## `action_result`
 

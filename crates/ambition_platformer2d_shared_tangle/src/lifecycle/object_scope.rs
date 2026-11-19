@@ -19,6 +19,12 @@ impl SnapshotState for ObjectScopeOwner {
     }
 }
 
+/// Stable semantic identity for one named private state instance.
+pub fn owned_object_state_id(owner: ObjectRef, key: &str) -> crate::sim_id::SimId {
+    crate::sim_id::SimId::singleton("object_state", &format!("{}:{:?}:{}:{key}",
+        owner.session, owner.allocation_room, owner.sequence))
+}
+
 /// Resolve current residency without treating a session object as a room object.
 pub fn object_scope_room(world: &World, mut entity: Entity) -> Option<LiveRoomInstance> {
     let mut seen = BTreeSet::new();

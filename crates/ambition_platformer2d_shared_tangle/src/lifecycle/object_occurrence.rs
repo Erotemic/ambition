@@ -79,6 +79,14 @@ impl PreparedObjectOccurrences {
         Ok(Self {root, session, room: None, start, end})
     }
 
+    /// Read a reserved address before materialization. It is not live until assignment.
+    pub fn reference(&self, index: usize) -> ambition_extension_sdk::ObjectRef {
+        let sequence = self.start.checked_add(index as u64).expect("a prepared index fits its range");
+        assert!(sequence < self.end);
+        ambition_extension_sdk::ObjectRef {session: self.session.0,
+            allocation_room: self.room.map(|room| room.ordinal()), sequence}
+    }
+
     /// Validate every root before assigning any stamp or advancing the counter.
     pub fn assign(self, world: &mut World, entities: &[Entity]) -> Result<Vec<ObjectPublished>, &'static str> {
         if entities.len() as u64 != self.end - self.start
@@ -90,11 +98,14 @@ impl PreparedObjectOccurrences {
             || world.get::<ObjectOccurrenceSequence>(self.root).map_or(0, |sequence| sequence.0) != self.start {
             return Err("The publication allocation changed before commit.");
         }
+        let planned: std::collections::BTreeMap<_, _> = entities.iter().enumerate()
+            .map(|(index, entity)| (self.reference(index), *entity)).collect();
+        let live = std::cell::OnceCell::new();
         let mut unique = std::collections::BTreeSet::new();
         for entity in entities {
             if !unique.insert(*entity)
                 || world.get::<SessionScopedEntity>(*entity).map(|owner| owner.0) != Some(self.session)
-                || world.get::<InRoomInstance>(*entity).map(|at| at.0) != self.room
+                || self.residency(world, *entity, &planned, &live)? != self.room
                 || world.get::<crate::sim_id::SimId>(*entity).is_none()
                 || world.get::<ObjectOccurrence>(*entity).is_some() {
                 return Err("A publication root has invalid ownership or an existing occurrence.");
@@ -106,6 +117,30 @@ impl PreparedObjectOccurrences {
             world.entity_mut(*subject).insert(occurrence);
             ObjectPublished {subject: *subject, session: self.session, occurrence}
         }).collect())
+    }
+
+    fn residency(&self, world: &World, mut entity: Entity,
+        planned: &std::collections::BTreeMap<ambition_extension_sdk::ObjectRef, Entity>,
+        live: &std::cell::OnceCell<super::ObjectIndex>)
+        -> Result<Option<LiveRoomInstance>, &'static str> {
+        let mut seen = std::collections::BTreeSet::new();
+        while seen.insert(entity) {
+            if world.get::<SessionScopedEntity>(entity).map(|owner| owner.0) != Some(self.session) {
+                return Err("An owned publication state crosses sessions.");
+            }
+            if let Some(at) = world.get::<InRoomInstance>(entity) { return Ok(Some(at.0)); }
+            if world.get::<RoomInstanceRoot>(entity).is_some() {
+                return world.get::<LiveRoomInstance>(entity).copied().map(Some)
+                    .ok_or("A publication room root has no live room.");
+            }
+            let Some(owner) = world.get::<super::ObjectScopeOwner>(entity) else { return Ok(None); };
+            entity = match planned.get(&owner.0) {
+                Some(entity) if owner.0.session == self.session.0 => *entity,
+                _ => live.get_or_init(|| super::ObjectIndex::capture(world)).resolve(self.session, owner.0)
+                    .map_err(|_| "An owned publication state has no unique live or planned owner.")?,
+            };
+        }
+        Err("Publication state ownership contains a cycle.")
     }
 }
 
@@ -168,6 +203,21 @@ mod tests {
         let notices = prepared.assign(&mut world, &[a, b]).unwrap();
         assert_ne!(notices[0].occurrence, notices[1].occurrence);
         assert_eq!(world.get::<ObjectOccurrence>(a), Some(&notices[0].occurrence));
+        let parent = body(&mut world, "composed");
+        let prepared = PreparedObjectOccurrences::prepare(&mut world, session, room, 2).unwrap();
+        let owner = prepared.reference(0);
+        let private = world.spawn((SessionScopedEntity(session), crate::sim_id::SimId::singleton("private", "one"),
+            super::super::ObjectScopeOwner(ambition_extension_sdk::ObjectRef::UNBOUND))).id();
+        assert!(prepared.assign(&mut world, &[parent, private]).is_err());
+        assert!(world.get::<ObjectOccurrence>(parent).is_none());
+        assert!(world.get::<ObjectOccurrence>(private).is_none());
+        let prepared = PreparedObjectOccurrences::prepare(&mut world, session, room, 2).unwrap();
+        assert_eq!(prepared.reference(0), owner);
+        world.entity_mut(private).insert(super::super::ObjectScopeOwner(owner));
+        prepared.assign(&mut world, &[parent, private]).unwrap();
+        assert_eq!(super::super::object_reference(&world, parent), Some(owner));
+        assert_eq!(super::super::object_scope_room(&world, private), Some(room));
+        assert!(world.get::<InRoomInstance>(private).is_none());
         world.entity_mut(root).insert(ObjectOccurrenceSequence(u64::MAX));
         assert!(PreparedObjectOccurrences::prepare(&mut world, session, room, 1).is_err());
     }

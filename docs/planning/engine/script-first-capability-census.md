@@ -120,13 +120,15 @@ actions, hot reload, room duplication, travel, and replay. Keep native collision
 and damage authority. Do not build an unbounded global event bus or a generic
 scene-node clone. The model remains open until these contracts have evidence.
 
-### Cost refusal follow-up
+### Cost refusal receipt
 
-Static review of `ExtensionOutbox::refuse_invocation` found that it removes
-unlowered requests after host state has committed. A correlated request in that
-outbox can receive no terminal result. Reproduce this with a loaded factory and
-an unaffordable native cost, then publish native rejection before removal.
-Preserve the distinction between handler commit and native action application.
+An unaffordable invocation committed its sent state but supplied no action
+outcome. The host now retains cost-refused requests until the native action
+owner records terminal `invocation_cost_refused`. Commit: `fabcaec90`.
+The loaded `scripted_cost_outcomes` guard checks both controllers, no native
+birth and GGRS. Focused checks passed 15 app tests, 50 host tests, the default
+app warning gate and all 53 absence contracts. Handler commit must remain
+separate from native action application.
 
 ### Unified object model in progress
 
@@ -135,12 +137,12 @@ Keep the full capability program open while these contracts lack evidence:
 - Typed occurrence references, bounded discovery and domain-owned inspection
   must work for actors, props, room roots and session lifetimes. Authored names
   remain locators. Runtime references must not survive the durable save road.
-- Reusable behavior bindings must attach owned records and declared handlers
-  through the same initialization boundary for actors and props. Factories
-  must compose independent instances and relations without game-specific Rust.
-- Directed object calls must distinguish native admission, handler delivery and
-  logical completion. A handler can await another domain's real result before
-  it completes the original call. Reach and scope rules belong to native owners.
+- Factories need local occurrence references between their declared nodes.
+  Behavior bindings now share actor and prop initialization. Composed relations
+  and independent instances must not require game-specific Rust.
+- Methods and event handlers need the appropriate native read cuts. Directed
+  calls currently run in `actor_think`; technique and reaction phases remain
+  separate capability work. Reach and scope rules belong to native owners.
 - Typed native facts and authored signals need bounded scoped subscriptions.
   Birth, retirement and important state changes must retain provenance. Delivery
   must reuse host commit receipts, with inspectable retry or terminal failure.
@@ -150,9 +152,10 @@ Keep the full capability program open while these contracts lack evidence:
   replay and live edits through the real host, with portable parity and costs.
 
 Typed references, subject payloads and private behavior bindings are implemented.
-Directed calls have a loaded replay witness. Creation-time composition, general
-discovery, native event subscriptions and cross-room message
-causality during independent room replay remain open. See
+Directed calls and actor/prop bindings at birth have loaded replay witnesses.
+Local references within factory batches, general discovery, native event
+subscriptions and cross-room message causality during independent room replay
+remain open. See
 [object behaviors](../../sdk/object-behaviors.md).
 
 The remaining contracts need more than aliases: general world-object
@@ -673,7 +676,26 @@ room snapshots and GGRS. The shared mailbox guard pins a quarantined payload
 while later callbacks rotate history. Body queries use the same retention rule.
 Final checks passed 15 assembled tests, SDK 19, host 50, Rhai 10 and shared 355.
 The default app warning check and 53 absence contracts passed. Workspace policy
-retained its 11 baseline violations. Native event subscriptions, creation-time
-composition and cross-room message causality remain open.
+retained its 11 baseline violations. Native event subscriptions and cross-room message causality remain open.
 The merged-tree check also passed the Smash app tests (74 passed, six ignored)
 and the assembled app all-targets compile.
+
+## Private behavior initialization at birth
+
+Actor and prop factories required a later attachment action. They now preflight
+bindings and initialize private instances through one native construction plan.
+The plan declares their identities and owners before allocation. Publication
+follows native verification and one occurrence assignment. Commit: `aef9e7ac8`.
+
+The loaded `scripted_object_behaviors` birth guard checks both controllers, actor
+and prop roots, independent private seeds, immediate birth inspection, method
+completion, refused batches and GGRS. Checks passed: 355 shared tests, 195 native
+construction/publication tests, and 23 app tests. After the spatial-grid merge,
+the same 23 app tests, four grid checks and the default app warning gate passed.
+The wasm32 world-port check and 53 absence contracts passed. Smash passed 74
+tests with six ignored before that merge. Policy retains its 11 baseline
+violations. Full workspace and optional-feature union checks were omitted.
+
+Do not use component-add hooks as completed birth notices. Scoped native event
+subscriptions, local factory references and cross-room replay causality remain
+open with the other contracts in the active queue above.

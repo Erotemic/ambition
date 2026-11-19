@@ -53,10 +53,9 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
             .ok()
             .and_then(|rules| rules.of(submitted.scope).copied())
             .unwrap_or_default();
-        let objects = request
-            .objects
-            .iter()
-            .map(|object| {
+        let result = crate::object_behaviors::prepare_creation(world, submitted.scope,
+            &request.objects.iter().map(|object| object.bindings.as_slice()).collect::<Vec<_>>()).and_then(|bindings| {
+            let objects = request.objects.iter().zip(bindings).map(|(object, bindings)| {
                 use ambition_entity_catalog::placements as native;
                 let mut spec = native::BreakableSpec::new(object.health);
                 // Keep the requested health for native validation; the authored constructor clamps.
@@ -86,15 +85,20 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
                         (Vec2::from(object.size) * 0.5).into(),
                     ),
                     spec,
+                    initialization: ambition_platformer2d_construction::runtime::ComposedInitialization {
+                        root: (), owned: bindings,
+                    },
                 }
             })
             .collect::<Vec<_>>();
-        match ambition_breakables::creation::create_breakables(
-            world,
-            submitted.scope,
-            &objects,
-            limits,
-        ) {
+            ambition_breakables::creation::create_breakables(
+                world,
+                submitted.scope,
+                &objects,
+                limits,
+            )
+        });
+        match result {
             Ok(created) => {
                 let subjects = created.into_iter().map(|object|
                     ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, object.entity)

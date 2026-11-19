@@ -33,7 +33,7 @@ fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance()
 
     assert_eq!(
         plan.construction().deterministic_dump(),
-        "construction-plan-v5\n\
+        "construction-plan-v6\n\
          epoch:4\n\
          expects\tepoch:4\n\
          room\thall\n\

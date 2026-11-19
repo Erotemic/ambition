@@ -183,7 +183,8 @@ def main() -> int:
             manifest.touch()
 
     done = subprocess.run(argv, cwd=REPO, capture_output=True, text=True, env=plain_env())
-    if done.returncode != 0 and "error" in done.stderr:
+    if done.returncode != 0:
+        print(f"Cargo check failed with exit code {done.returncode}.", file=sys.stderr)
         print(done.stderr[-4000:], file=sys.stderr)
         return done.returncode
 

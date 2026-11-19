@@ -110,7 +110,7 @@ behavioral witnesses. Do not migrate working demo gameplay for coverage.
 | P1 | Recipient resolution must name one object occurrence through room travel, equal authored IDs, retirement, and rollback reconstruction. Both native publishing APIs must use the same rule. Implemented: [occurrence receipt](#object-occurrence-routing-receipt). |
 | P1 | A callback acknowledges delivery only after its state and requests commit. Faults need bounded deterministic retry or an inspectable terminal diagnostic. Include unavailable subscribers and paused rooms. Implemented: [delivery receipt](#action-callback-acknowledgement-receipt). |
 | P1 | Each domain declares cancellation support and its suppression mechanism. Unsupported or late cancellation must be refused. A canceled operation cannot later mutate the world. Implemented: [cancellation receipt](#native-cancellation-contract-receipt). |
-| P2 | Invalid callback wiring must be caught at preparation or reported through a guaranteed observation of the submitting scope. Reload must not leave silent orphan work. |
+| P2 | Invalid callback wiring must be caught at preparation or reported through a guaranteed observation of the submitting scope. Reload must not leave silent orphan work. Implemented: [callback receipt](#callback-preparation-receipt). |
 | P2 | Completed object publication follows all native and script initialization. A creation listener must see wallet, statuses, records, relations, and the stable occurrence together. Refused preflight must create nothing. |
 | P2 | Measure native contact collection and frame cost with few and many subscribers in crowded rooms, including two live rooms. Use the native spatial broadphase or confirmed contact stream when the measurements justify a change. Preserve ordering and replay. |
 
@@ -502,3 +502,29 @@ Do not infer native cancellation support from a missing handler. A queued
 consumer must check its pending ticket before mutation or use a suppression
 handler. Callback diagnostics, atomic publication, contact measurements, and
 the general object and event model remain open.
+
+## Callback preparation receipt
+
+Commit: `36cc43983`. Callback checks ran after action reservation, and invalid
+wiring could commit a waiting script state. Action ports now supply admission
+metadata to the shared host. It checks callbacks before state and requests
+commit. History port 3 exposes bounded submission refusals without reserving
+request numbers. Required reply paths participate in admission, reload, and
+portable declarations. SDK API 0.3 uses `ambition-ext-2` and Rhai ABI 3.
+Snapshot schema 498 retains refusal rows.
+
+Guard: the loaded Rhai fixture reads its refusal rows, repairs missing and
+foreign-module paths with request 0 and occurrence 0, then refuses removal of
+a required callback under GGRS. Native and portable host tests check whole
+invocation discard. Executed checks include 9 loaded action/schema tests,
+7 loaded domain fixtures, 49 host tests, 18 SDK tests, 10 Rhai tests, 2 WASM
+tests, 350 shared tests, focused combat and inventory tests, affected test-target
+checks, actual assembled WASM replacement, app warning and portable checks,
+53 absence contracts, and doc links. All five local portable artifacts were
+rebuilt. These behavior checks preceded the upstream linker change; the
+assembled app check passed again after its merge. Full workspace and demo
+sweeps were omitted.
+
+Do not reserve an action or commit awaiting state before callback preparation.
+Do not deliver a wiring refusal through that broken callback. Atomic creation,
+contact measurements, and the general object and event model remain open.

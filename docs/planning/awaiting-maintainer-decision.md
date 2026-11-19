@@ -316,3 +316,26 @@ mechanical.
 **Owner:** the map submodule's worlds (Jon) and the part-first plan
 ([part-first publication](engine/part-first-publication.md)). After (a) or
 (b), `player_robot_v3` leaves `baked_pages`.
+
+## Q181 — Should Sanic's roll be a commitment (Sonic's roll), or stay the run in a ball?
+
+**Context (2026-11-19, [GROUNDED-ATTACK-MOMENTUM](queue.md#grounded-attack-momentum--measure-before-changing-the-slide)).**
+Measured in the demo ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)):
+Sanic's only roll is the spin dash, and while it rolls the body follows the
+run's surface-momentum law in a smaller box. Hands off it loses 400 px/s²
+(the run's `friction`), the stick speeds it up to top speed, and the stick
+back brakes it at the run's `brake`. In classic Sonic a roll has half the
+friction and the stick can only slow it, so a roll is a commitment: fast,
+long, and hard to steer.
+
+**Options:**
+
+* **(a) Sonic's roll** (recommended default): two fields on the `spin_dash`
+  row of `sanic_rules.ron`, a friction factor while `Rolling` (0.5) and input
+  that only brakes; the kernel reads them as an effect on the body's
+  `MomentumParams`, as the speed shoes do. Act routes that script a roll are
+  re-measured.
+* **(b) Keep the run in a ball:** the roll stays steerable at full speed.
+
+**Owner:** the Sanic demo's feel (`game/ambition_demo_sanic`) and the
+movement kernel's momentum law.

@@ -1745,10 +1745,16 @@ let-go run slides the 42.5 px stop slide), it does not take the stick, and
 George's dash attack carries the run 115.6 px on its authored impulse. No
 change recommended.
 
-**Next action:** Sanic's surface-momentum law (its roll) on a flat floor,
-a dash cancel, and a controlled ledge. Found on the way, for the portal
-owner: a Sanic ball frozen at 1471 px/s by a `WorkLimit` motion refusal
-every tick ([note](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)). Originally: measure, for
+**Measured 2026-11-19, Sanic** ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)):
+his only roll is the spin dash, and it is the run's law in a ball's box
+(friction 400 px/s², the stick drives and brakes it, a jump out of it keeps
+the surface speed and the ball). A roll that commits (Sonic's half friction,
+input that only brakes) is a feel change filed as
+[Q181](awaiting-maintainer-decision.md). The 2026-11-11 frozen ball does not
+reproduce on main (14 spin dashes).
+
+**Next action:** a Smash dash cancel (dash into shield or jump), and a
+controlled ledge for the axis and responsive-axis laws. Originally: measure, for
 representative laws and moves: whether the move
 takes the stick; whether it keeps horizontal speed; which braking law applies
 while it plays; whether authored move motion adds travel; whether it can carry

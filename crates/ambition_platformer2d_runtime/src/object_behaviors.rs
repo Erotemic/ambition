@@ -12,8 +12,19 @@ use ambition_world_port::behavior::*;
 use bevy::{ecs::system::SystemState, prelude::*};
 
 #[derive(Clone, Debug, PartialEq)]
-struct CallOrigin { recipient: ObjectRef, ticket: ActionTicket }
-ambition_extension_sdk::port_record! { CallOrigin { recipient: ObjectRef, ticket: ActionTicket } }
+struct CallAuthority { session: u64, room: Option<u32> }
+ambition_extension_sdk::port_record! { CallAuthority { session: u64, room: Option<u32> } }
+impl CallAuthority {
+    fn of(world: &World, entity: Entity) -> Option<Self> {
+        match simulation_island(world, entity)? {
+            SimulationIsland::Session(session) => Some(Self {session: session.0, room: None}),
+            SimulationIsland::Room(session, room) => Some(Self {session: session.0, room: Some(room.ordinal())}),
+        }
+    }
+}
+#[derive(Clone, Debug, PartialEq)]
+struct CallOrigin { recipient: ObjectRef, ticket: ActionTicket, authority: CallAuthority }
+ambition_extension_sdk::port_record! { CallOrigin { recipient: ObjectRef, ticket: ActionTicket, authority: CallAuthority } }
 #[derive(Clone, Debug, PartialEq)]
 struct CallRow {
     call: ObjectCall,
@@ -50,6 +61,56 @@ impl SnapshotState for BehaviorInstance {
     fn decode(reader: &mut Reader<'_>) -> Option<Self> {
         ambition_extension_sdk::wire::decode_all(reader.bytes()?, ambition_extension_sdk::structure::read).ok()
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct LocalCallWatch { ticket: ActionTicket, receiver: ObjectRef, authority: CallAuthority, remaining: u32 }
+ambition_extension_sdk::port_record! { LocalCallWatch { ticket: ActionTicket, receiver: ObjectRef, authority: CallAuthority, remaining: u32 } }
+
+/// Caller-owned lifetime metadata. Request payloads stay in the callee journal.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub(crate) struct LocalCallWatches { rows: Vec<LocalCallWatch> }
+ambition_extension_sdk::port_record! { LocalCallWatches { rows: Vec<LocalCallWatch> } }
+impl SnapshotState for LocalCallWatches {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let mut bytes = Vec::new(); ambition_extension_sdk::structure::put(self, &mut bytes); put_bytes(out, &bytes);
+    }
+    fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+        ambition_extension_sdk::wire::decode_all(reader.bytes()?, ambition_extension_sdk::structure::read).ok()
+    }
+}
+
+pub(crate) fn maintain_watches(world: &mut World, state: Entity, objects: &ObjectIndex, now: u64) {
+    let Some(watches) = world.get::<LocalCallWatches>(state) else { return; };
+    if watches.rows.is_empty() { return; }
+    let authority = CallAuthority::of(world, state);
+    let mailbox = world.get::<action_results::ActionMailbox>(state);
+    let mut retained = Vec::new();
+    let mut failed = Vec::new();
+    for mut row in watches.rows.clone() {
+        if !mailbox.is_some_and(|mailbox| mailbox.is_pending(&row.ticket)) { continue; }
+        let receiver = objects.resolve(SessionScopeId(row.receiver.session), row.receiver).ok();
+        let changed = authority.as_ref() != Some(&row.authority)
+            || receiver.is_some_and(|entity| CallAuthority::of(world, entity).as_ref() != Some(&row.authority));
+        if changed || row.remaining == 0 {
+            failed.push((row.ticket, if changed { "local_call_authority_ended" } else { "object_call_expired" }));
+        } else {
+            // A live callee owns its active-time deadline. The caller bounds
+            // only an unavailable endpoint, whose journal cannot answer.
+            if receiver.is_none() { row.remaining -= 1; }
+            retained.push(row);
+        }
+    }
+    world.get_mut::<LocalCallWatches>(state).unwrap().rows = retained;
+    for (ticket, code) in failed {
+        world.get_mut::<action_results::ActionMailbox>(state).unwrap().publish(ActionResult {
+            ticket, stage: ActionStage::Failed, terminal: true, tick: now, code: code.into(), message: String::new(), subjects: Vec::new()});
+    }
+}
+fn local_origin(world: &World, state: Entity, origin: &CallOrigin, objects: &ObjectIndex) -> Option<Entity> {
+    if CallAuthority::of(world, state).as_ref() != Some(&origin.authority) { return None; }
+    let receiver = objects.resolve(SessionScopeId(origin.recipient.session), origin.recipient).ok()?;
+    (CallAuthority::of(world, receiver).as_ref() == Some(&origin.authority)).then_some(receiver)
 }
 
 #[derive(Component, Clone, Debug, Default, PartialEq)]
@@ -96,7 +157,9 @@ fn limits(world: &mut World, subject: Entity) -> ObjectBehaviorLimits {
 }
 fn target(world: &World, caller: Entity, reference: ObjectRef) -> Result<Entity, &'static str> {
     let scope = world.get::<SessionScopedEntity>(caller).ok_or("caller_without_session")?.0;
-    resolve_object(world, scope, reference).map_err(|_| "object_not_live")
+    let target = resolve_object(world, scope, reference).map_err(|_| "object_not_live")?;
+    if !shares_simulation_island(world, caller, target) { return Err("cross_island_behavior_unsupported"); }
+    Ok(target)
 }
 fn checked_data(data: &ScriptValue, max: u32) -> Option<ScriptValue> {
     use ambition_extension_sdk::structure::Field;
@@ -316,6 +379,9 @@ fn call(world: &mut World) {
             let entry = method.entry.clone();
             let written = tick(world);
             let origin = dispatch.reply.as_ref().unwrap();
+            let authority = CallAuthority::of(world, submitted.state_scope).ok_or("caller_without_authority")?;
+            let watch = LocalCallWatch {ticket: origin.ticket.clone(), receiver: request.target,
+                authority: authority.clone(), remaining: limits.max_active_wait_ticks};
             let mut instance = world.get_mut::<BehaviorInstance>(state).unwrap();
             if instance.calls.len() >= limits.max_calls_per_binding as usize {
                 instance.calls.retain(|row| !row.terminal);
@@ -323,8 +389,11 @@ fn call(world: &mut World) {
             let sequence = instance.next_sequence;
             instance.next_sequence = next;
             instance.calls.push(CallRow {call: ObjectCall {sequence, caller, method: request.method, data},
-                origin: CallOrigin {recipient: origin.recipient.reference(), ticket: origin.ticket.clone()}, entry,
+                origin: CallOrigin {recipient: origin.recipient.reference(), ticket: origin.ticket.clone(),
+                    authority}, entry,
                 written, progress: DeliveryProgress::default(), terminal: false, remaining: limits.max_active_wait_ticks, max_attempts: ActionDeliveryPolicy::default().max_attempts.get()});
+            let mut caller = world.entity_mut(submitted.state_scope);
+            caller.entry::<LocalCallWatches>().or_default().into_mut().rows.push(watch);
             Ok(())
         })();
         let (stage, terminal, code) = match result {
@@ -334,9 +403,9 @@ fn call(world: &mut World) {
         action_results::publish_action_result(world, dispatch.reply.as_ref(), stage, terminal, code, "", Vec::new());
     }
 }
-fn publish(world: &mut World, origin: &CallOrigin, stage: ActionStage, code: &str, data: Option<ScriptValue>) {
+fn publish(world: &mut World, producer: Entity, origin: &CallOrigin, stage: ActionStage, code: &str, data: Option<ScriptValue>) {
     let now = tick(world);
-    let Ok(entity) = resolve_object(world, SessionScopeId(origin.recipient.session), origin.recipient) else { return; };
+    let Some(entity) = local_origin(world, producer, origin, &ObjectIndex::capture(world)) else { return; };
     let published = world.get_mut::<action_results::ActionMailbox>(entity).is_some_and(|mut mailbox|
         mailbox.publish(ActionResult {ticket: origin.ticket.clone(), stage, terminal: true, tick: now,
             code: code.into(), message: String::new(), subjects: Vec::new()}));
@@ -359,18 +428,25 @@ fn complete(world: &mut World) {
             if request.code.is_empty() || request.code.len() > 128 { return Err("invalid_completion_code"); }
             let cap = limits(world, submitted.scope).max_data_bytes;
             let data = checked_data(&request.data, cap).ok_or("completion_data_bound")?;
-            let mut instance = world.get_mut::<BehaviorInstance>(submitted.state_scope).ok_or("not_a_behavior_instance")?;
-            let row = instance.calls.iter_mut().find(|row| row.call.sequence == request.sequence
+            let instance = world.get::<BehaviorInstance>(submitted.state_scope).ok_or("not_a_behavior_instance")?;
+            let row = instance.calls.iter().find(|row| row.call.sequence == request.sequence
                 && !row.terminal && row.progress.status == ActionDelivery::Acknowledged).ok_or("call_not_pending_completion")?;
             if row.entry.rsplit_once('/').map(|(module, _)| module) != submitted.entry.rsplit_once('/').map(|(module, _)| module) {
                 return Err("completion_from_foreign_module");
             }
-            row.terminal = true;
-            Ok((row.origin.clone(), data))
+            let origin = row.origin.clone();
+            let caller = local_origin(world, submitted.state_scope, &origin, &ObjectIndex::capture(world))
+                .ok_or("cross_island_behavior_unsupported")?;
+            if !world.get::<action_results::ActionMailbox>(caller).is_some_and(|mailbox| mailbox.is_pending(&origin.ticket)) {
+                return Err("call_source_not_pending");
+            }
+            world.get_mut::<BehaviorInstance>(submitted.state_scope).unwrap().calls.iter_mut()
+                .find(|row| row.call.sequence == request.sequence).unwrap().terminal = true;
+            Ok((origin, data))
         })();
         let (stage, code) = match result {
             Ok((origin, data)) => {
-                publish(world, &origin, if request.accepted { ActionStage::Completed } else { ActionStage::Rejected }, &request.code, Some(data));
+                publish(world, submitted.state_scope, &origin, if request.accepted { ActionStage::Completed } else { ActionStage::Rejected }, &request.code, Some(data));
                 (ActionStage::Applied, "object_call_completed")
             }
             Err(code) => (ActionStage::Rejected, code),
@@ -379,15 +455,19 @@ fn complete(world: &mut World) {
     }
 }
 fn cancel_call(world: &mut World, reply: &ActionReply) -> bool {
-    let mut instances = world.query::<&mut BehaviorInstance>();
-    for mut instance in instances.iter_mut(world) {
-        if let Some(row) = instance.calls.iter_mut().find(|row| row.origin.recipient == reply.recipient.reference()
-            && row.origin.ticket == reply.ticket && !row.terminal) {
-            if matches!(row.progress.status, ActionDelivery::Invoked | ActionDelivery::Acknowledged) { return false; }
-            row.terminal = true;
-            row.progress.retire("object_call_canceled");
-            return true;
-        }
+    let objects = ObjectIndex::capture(world);
+    let candidates: Vec<_> = world.query::<(Entity, &BehaviorInstance)>().iter(world)
+        .filter_map(|(entity, instance)| instance.calls.iter().find(|row|
+            row.origin.recipient == reply.recipient.reference() && row.origin.ticket == reply.ticket && !row.terminal
+            && local_origin(world, entity, &row.origin, &objects).is_some()).map(|_| entity)).collect();
+    for entity in candidates {
+        let mut instance = world.get_mut::<BehaviorInstance>(entity).unwrap();
+        let row = instance.calls.iter_mut().find(|row| row.origin.recipient == reply.recipient.reference()
+            && row.origin.ticket == reply.ticket && !row.terminal).unwrap();
+        if matches!(row.progress.status, ActionDelivery::Invoked | ActionDelivery::Acknowledged) { return false; }
+        row.terminal = true;
+        row.progress.retire("object_call_canceled");
+        return true;
     }
     false
 }
@@ -399,21 +479,21 @@ pub(crate) fn settle(world: &mut World, state: Entity, sequence: u64, event: Inv
     if row.progress.status == ActionDelivery::Quarantined {
         row.terminal = true;
         let origin = row.origin.clone();
-        publish(world, &origin, ActionStage::Failed, "object_handler_fault", None);
+        publish(world, state, &origin, ActionStage::Failed, "object_handler_fault", None);
     }
 }
 
 pub(crate) fn retire(world: &mut World, state: Entity) {
     let origins = world.get::<BehaviorInstance>(state).into_iter().flat_map(|instance|
         instance.calls.iter().filter(|row| !row.terminal).map(|row| row.origin.clone())).collect::<Vec<_>>();
-    for origin in origins { publish(world, &origin, ActionStage::Failed, "object_retired", None); }
+    for origin in origins { publish(world, state, &origin, ActionStage::Failed, "object_retired", None); }
 }
 
 /// Call completion and caller lifetime remain with the request owner.
 pub(crate) fn maintain(world: &mut World, state: Entity, objects: &ObjectIndex, now: u64) {
     let Some(instance) = world.get::<BehaviorInstance>(state) else { return; };
     let live_origins: BTreeSet<_> = instance.calls.iter().filter(|row| !row.terminal).filter(|row| {
-        objects.resolve(SessionScopeId(row.origin.recipient.session), row.origin.recipient).ok()
+        local_origin(world, state, &row.origin, objects)
             .and_then(|entity| world.get::<action_results::ActionMailbox>(entity))
             .is_some_and(|mailbox| mailbox.is_pending(&row.origin.ticket))
     }).map(|row| row.call.sequence).collect();
@@ -431,14 +511,16 @@ pub(crate) fn maintain(world: &mut World, state: Entity, objects: &ObjectIndex, 
             } else { row.remaining -= 1; }
         }
     }
-    for origin in expired { publish(world, &origin, ActionStage::Failed, "object_call_expired", None); }
+    for origin in expired { publish(world, state, &origin, ActionStage::Failed, "object_call_expired", None); }
 }
 impl BehaviorInstance {
     pub(crate) fn method_entry(&self, name: &str) -> Option<&str> {
         self.methods.iter().find(|method| method.name == name).map(|method| method.entry.as_str())
     }
-    pub(crate) fn deliveries(&self) -> impl Iterator<Item = (u64, u64, &str)> {
-        self.calls.iter().filter(|row| !row.terminal && row.progress.pending())
+    pub(crate) fn deliveries<'a>(&'a self, world: &'a World, state: Entity, objects: &'a ObjectIndex)
+        -> impl Iterator<Item = (u64, u64, &'a str)> + 'a {
+        self.calls.iter().filter(move |row| !row.terminal && row.progress.pending()
+            && local_origin(world, state, &row.origin, objects).is_some())
             .map(|row| (row.call.sequence, row.written, row.entry.as_str()))
     }
     pub(crate) fn queue_delivery(&mut self, sequence: u64, now: u64, bound: bool, attempts: u32) -> Option<ObjectCall> {
@@ -446,5 +528,74 @@ impl BehaviorInstance {
         if !row.progress.queue(now, row.written, bound, "object_method_unbound") { return None; }
         row.max_attempts = attempts;
         Some(row.call.clone())
+    }
+}
+
+#[cfg(test)]
+mod local_authority_tests {
+    use super::*;
+    use ambition_platformer2d_core::snapshot::{encode_state, decode_state};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    #[test]
+    fn calls_refuse_foreign_authority_and_scope_exit_fails_only_the_local_wait() {
+        let mut world = World::new();
+        world.insert_resource(ambition_time::SimTick(10));
+        world.insert_resource(SimulationIslands(|_| true));
+        let session = SessionScopeId(1);
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        for room in rooms { world.spawn((RoomInstanceRoot, room, SessionScopedEntity(session))); }
+        let caller = world.spawn((SessionScopedEntity(session), InRoomInstance(rooms[0]), SimId::placement("caller"))).id();
+        let receiver = world.spawn((SessionScopedEntity(session), InRoomInstance(rooms[1]), SimId::placement("receiver"))).id();
+        for entity in [caller, receiver] { ensure_object_occurrence(&mut world, entity).unwrap(); }
+        let receiver_ref = object_reference(&world, receiver).unwrap();
+        assert_eq!(target(&world, caller, receiver_ref), Err("cross_island_behavior_unsupported"));
+        world.remove_resource::<SimulationIslands>();
+        assert_eq!(target(&world, caller, receiver_ref), Ok(receiver), "whole-app authority can span rooms");
+        world.insert_resource(SimulationIslands(|_| true));
+        world.entity_mut(receiver).insert(InRoomInstance(rooms[0]));
+        let dispatch = action_results::begin_action(&mut world, caller, "probe::local/start", "objects.call",
+            Some(&ReplyTo {request: 1, selector: "probe::local/done".into()}), 0);
+        let reply = dispatch.reply.unwrap();
+        let authority = CallAuthority::of(&world, caller).unwrap();
+        let origin = CallOrigin {recipient: reply.recipient.reference(), ticket: reply.ticket.clone(), authority: authority.clone()};
+        let state = world.spawn((SessionScopedEntity(session), ObjectScopeOwner(receiver_ref), BehaviorInstance {
+            key: "logic".into(), methods: Vec::new(), params: ScriptValue::Unit, references: Vec::new(), next_sequence: 1,
+            calls: vec![CallRow {call: ObjectCall {sequence: 0, caller: object_reference(&world, caller).unwrap(), method: "use".into(), data: ScriptValue::Unit},
+                origin: origin.clone(), entry: "probe::local/use".into(), written: 10, progress: DeliveryProgress::default(), terminal: false,
+                remaining: 10, max_attempts: 3}],
+        })).id();
+        world.entity_mut(caller).insert(LocalCallWatches {rows: vec![LocalCallWatch {
+            ticket: reply.ticket.clone(), receiver: receiver_ref, authority, remaining: 10}]});
+        let caller_before = world.get::<action_results::ActionMailbox>(caller).unwrap().clone();
+        let watches_before = world.get::<LocalCallWatches>(caller).unwrap().clone();
+        let callee_before = encode_state(world.get::<BehaviorInstance>(state).unwrap());
+        world.entity_mut(caller).insert(InRoomInstance(rooms[1]));
+        let objects = ObjectIndex::capture(&world);
+        maintain_watches(&mut world, caller, &objects, 11);
+        let history = world.get::<action_results::ActionMailbox>(caller).unwrap().history();
+        let terminal = history.entries.last().unwrap();
+        assert_eq!(terminal.result.stage, ActionStage::Failed);
+        assert_eq!(terminal.result.code, "local_call_authority_ended");
+        assert_eq!(encode_state(world.get::<BehaviorInstance>(state).unwrap()), callee_before);
+        let failed = encode_state(world.get::<action_results::ActionMailbox>(caller).unwrap());
+        publish(&mut world, state, &origin, ActionStage::Completed, "late", Some(ScriptValue::Unit));
+        assert_eq!(encode_state(world.get::<action_results::ActionMailbox>(caller).unwrap()), failed,
+            "a foreign callee cannot overwrite the caller's outcome");
+        assert!(!cancel_call(&mut world, &reply));
+        assert_eq!(encode_state(world.get::<BehaviorInstance>(state).unwrap()), callee_before);
+        world.entity_mut(caller).insert((InRoomInstance(rooms[0]), caller_before.clone(), watches_before.clone()));
+        world.entity_mut(receiver).insert(InRoomInstance(rooms[1]));
+        let objects = ObjectIndex::capture(&world);
+        maintain_watches(&mut world, caller, &objects, 12);
+        assert_eq!(world.get::<action_results::ActionMailbox>(caller).unwrap().history().entries.last().unwrap().result.code,
+            "local_call_authority_ended", "receiver departure ends the local wait too");
+        assert_eq!(encode_state(world.get::<BehaviorInstance>(state).unwrap()), callee_before);
+        world.entity_mut(receiver).insert(InRoomInstance(rooms[0]));
+        world.entity_mut(caller).insert((caller_before, watches_before));
+        world.entity_mut(state).insert(decode_state::<BehaviorInstance>(&callee_before).unwrap());
+        publish(&mut world, state, &origin, ActionStage::Completed, "local", Some(ScriptValue::Unit));
+        assert_eq!(world.get::<action_results::ActionMailbox>(caller).unwrap().history().entries.last().unwrap().result.code, "local");
+        assert_eq!(target(&world, caller, receiver_ref), Ok(receiver));
     }
 }

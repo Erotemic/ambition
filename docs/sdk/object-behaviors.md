@@ -71,6 +71,21 @@ Creation ports are `create_actors` version 5 and `create_breakables` version 4.
 `attach_behaviors` is version 3. The `behavior` observation is version 2.
 Rebuild portable module files that use these ports.
 
+## Local call authority
+
+Direct calls and live attachment require one rollback authority. Native
+admission returns `cross_island_behavior_unsupported` before target mutation.
+Whole-app GGRS can include several live rooms in one authority. Independent
+host/guest room replay gives each room a separate authority.
+
+A call captures its admitting authority. If an endpoint leaves it, the caller's
+own mailbox records `local_call_authority_ended`. This ends the orchestration;
+it does not undo native child actions that already applied. A foreign callee
+cannot complete or cancel the old local call by writing into the caller's
+mailbox. A vanished endpoint has a bounded wait. A live callee retains its
+own active-time deadline. Crossing a world boundary requires a world-domain
+transaction, not method forwarding.
+
 ## Subscribe named methods to native facts
 
 A binding can declare `subscriptions`. Each subscription names a key, a source

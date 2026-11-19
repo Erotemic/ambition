@@ -120,6 +120,14 @@ actions, hot reload, room duplication, travel, and replay. Keep native collision
 and damage authority. Do not build an unbounded global event bus or a generic
 scene-node clone. The model remains open until these contracts have evidence.
 
+### Cost refusal follow-up
+
+Static review of `ExtensionOutbox::refuse_invocation` found that it removes
+unlowered requests after host state has committed. A correlated request in that
+outbox can receive no terminal result. Reproduce this with a loaded factory and
+an unaffordable native cost, then publish native rejection before removal.
+Preserve the distinction between handler commit and native action application.
+
 ### Unified object model in progress
 
 Keep the full capability program open while these contracts lack evidence:
@@ -650,3 +658,20 @@ rewards. Shared tests passed 354 cases; assembled scope, result, schema and
 room rewind tests passed 30 with 14 ignored. The default app warning check and
 53 absence contracts passed. Cross-room message causality during independent
 replay remains open.
+
+## Portable method results and payload lifetime
+
+Portable methods now return bounded structured data, including occurrence
+references, through a ticket-matched observation. A nonterminal callback cannot
+read a later completion value. Native admission normalizes named-field order
+before data can affect gameplay. Commit: `990939c23`.
+
+The Rhai and actual WASM guards are in
+[`scripted_object_behaviors.rs`](../../../game/ambition_app/tests/scripted_object_behaviors.rs).
+They use one callback per tick and check returned references, native outcomes,
+room snapshots and GGRS. The shared mailbox guard pins a quarantined payload
+while later callbacks rotate history. Body queries use the same retention rule.
+Final checks passed 15 assembled tests, SDK 19, host 50, Rhai 10 and shared 355.
+The default app warning check and 53 absence contracts passed. Workspace policy
+retained its 11 baseline violations. Native event subscriptions, creation-time
+composition and cross-room message causality remain open.

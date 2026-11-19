@@ -2415,7 +2415,7 @@ only.
 3. A two-body shared-page test that reads the pixels of both cells needs a
    GPU; the three proofs above are on the draw geometry.
 
-### DENSE-MELEE-ROOM — author the dense-melee development room
+### DENSE-MELEE-ROOM — author the dense-melee development room — ✅ DONE 2026-11-19
 
 **Owner:** content; first measured customer
 [`engine/bounded-perception-and-attention.md`](engine/bounded-perception-and-attention.md#acceptance-for-the-open-increment).
@@ -2423,12 +2423,26 @@ only.
 **Ruling:** Q93 (2026-10-04): keep or create a deliberate dense-melee
 development/stress room. It is a real scenario, not polished content.
 
-**Current state:** no such room; the density script fakes density by widening
-the viewport over the Hall's `stand_still` cast.
+**Done 2026-11-19:** `dense_melee_pit` in the sandbox, written by
+`game/ambition_map_assets/ambition_content/generators/dense_melee_pit/make_specs.py`:
+a 960×448 pit with two one-way ledges and 200 `EnemySpawn`s (goblin, goblin
+raider, goblin squat, lab raider; each names the `medium_striker` policy, which
+builds the tactical view). The way in is a door at the east end of
+`basement_enemies`. `measure_perception_density.sh --room dense_melee_pit
+--brain "" --extents shipped --populations "4 8 12 25 50 100 200"` measures it
+on its own cast. Shipped viewport, 600 ticks:
 
-**Next action:** after the P1 correctness rows above, author one room (LDtk or
-a generated spec) with many tactical-brain fighters in close melee, reachable
-by an ordinary route and by `measure_perception_density.sh`.
+| population | offered | visible | kept |
+|---|---|---|---|
+| 4 / 8 / 12 | 5 / 9 / 13 | 4 / 8 / 12 | 4 / 8 / 12 |
+| 25 / 50 / 100 / 200 | 26 / 51 / 101 / 201 | 25 / 44.7 / 68.2 / 141.7 | 16 (the budget) |
+
+The population cap had never applied to an `EnemySpawn`: only `NpcSpawn`
+counted, which is all the hall holds, so a capped run of this room built all
+200 (`offered` 201 at every cap). Authored enemies now spend the same quota,
+after the placements (`RoomFeatureConstructionPlan::prepare`). The census and
+`ms_per_tick` come from the one `hall_bench` run; camera framing needs a
+rendered run (the pit's camera zone is the whole room) and was not read here.
 
 **Acceptance:** in the room `kept` tracks population until the budget caps it,
 and the census, frame time and camera framing are readable from one run.

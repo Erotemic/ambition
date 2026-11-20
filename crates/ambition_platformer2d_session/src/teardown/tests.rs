@@ -47,7 +47,10 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_cutscene::ActiveCutscene>();
     app.init_resource::<ambition_cutscene::CutsceneTriggerQueue>();
     #[cfg(feature = "dialogue")]
-    app.init_resource::<ambition_conversation::ActiveConversation>();
+    {
+        app.init_resource::<ambition_conversation::ActiveConversation>();
+        app.init_resource::<ambition_conversation::PresentedConversation>();
+    }
     app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
     // The match-identity mirrors. See the `SessionScopedResources` field doc:
     // these are here so a stale stamp from the previous session cannot sit

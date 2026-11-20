@@ -524,13 +524,10 @@ pub fn count_the_dialogue_visit_when_a_conversation_opens(
     let (Some(conversation), Some(tick), Some(mut save)) = (conversation, tick, save) else {
         return;
     };
-    let Some(live) = conversation.live() else {
-        return;
-    };
-    if live.opened_at() != tick.0 {
-        return;
+    // Each conversation that opened this tick is a visit in its own seat's history.
+    for live in conversation.conversations().filter(|live| live.opened_at() == tick.0) {
+        save.data_mut().increment_dialog_visit(live.history_seat(), live.dialogue_id());
     }
-    save.data_mut().increment_dialog_visit(conversation.history_seat(), live.dialogue_id());
 }
 
 /// Mirror the current occurrence horizon into the save after restore completes. Writes are

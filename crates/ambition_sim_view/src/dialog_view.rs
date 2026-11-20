@@ -251,7 +251,12 @@ fn mirror_conversation(
     *confirm_action = dialogue.confirm_action();
     *can_close = dialogue.settings().close_on_back;
     *input_owner = dialogue.input_owner();
-    let next_instance = conversation.as_deref().and_then(|conversation| conversation.instance());
+    // The box's conversation: the one its input owner drives.
+    let next_instance = conversation
+        .as_deref()
+        .zip(dialogue.input_owner())
+        .and_then(|(conversation, owner)| conversation.of_owner(owner))
+        .map(|live| &live.instance);
     if instance.as_ref() != next_instance {
         *instance = next_instance.cloned();
     }

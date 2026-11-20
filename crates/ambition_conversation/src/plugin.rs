@@ -34,6 +34,7 @@ impl Plugin for ConversationPlugin {
 
         // Conversation authority is simulation state; its UI projection is presentation state.
         app.init_resource::<ActiveConversation>();
+        app.init_resource::<crate::ui_bridge::PresentedConversation>();
         // The conversation's changes, dated in their room, so a room that
         // rewinds puts back the conversation it had (ISL-1b). Logged at the
         // tail of the tick, after every writer, and not only where dialogue
@@ -126,8 +127,9 @@ fn conversation_room_is_running(
     >,
 ) -> bool {
     let Some(replay) = replay else { return true };
-    if !conversation.is_live() { return true; }
-    let owner = conversation.initiator().or(conversation.talker())
-        .and_then(|body| rooms.get(body).ok()).map(|room| room.0);
-    replay.allows(owner)
+    // Every live conversation's room must be the one replaying: a pass over
+    // the conversations must not touch another room's talk during a replay.
+    conversation.conversations().all(|live| {
+        replay.allows(live.initiator.or(live.talker).and_then(|body| rooms.get(body).ok()).map(|room| room.0))
+    })
 }

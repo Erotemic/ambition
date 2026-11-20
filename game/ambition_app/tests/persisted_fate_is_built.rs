@@ -268,7 +268,7 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
     let talking = |sim: &ambition_app::Platformer2dSimHarness| {
         sim.world()
             .get_resource::<ActiveConversation>()
-            .and_then(|conversation| conversation.talker().zip(conversation.initiator()))
+            .and_then(|conversation| conversation.conversations().next().and_then(|live| live.talker.zip(live.initiator)))
     };
     // The NPC patrols, so the walk takes until the patrol turns back.
     for _ in 0..900 {
@@ -294,6 +294,9 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
     );
 
     // THE CHOICE.
+    // The box opens on the frame after the talk does, and a choice is made
+    // in the box: the runner names that conversation from then on.
+    sim.step(base());
     sim.world_mut()
         .run_system_cached(ambition_content::yarn_vocabulary::cmd_challenge)
         .expect("the `<<challenge>>` command runs");

@@ -679,17 +679,27 @@ impl RoomTransitionFinalize<'_, '_> {
     fn close_the_conversation_a_crossing_ends(&mut self, members: &[StagedRoomMember]) {
         let ended = match self.conversation.as_deref_mut() {
             None => true,
-            Some(conversation) => match conversation.live() {
-                None => true,
-                Some(live) if live.bodies().next().is_none() => true,
-                Some(_) => members.iter().any(|member| {
-                    conversation.leave(member.subject) == ambition_conversation::Leaving::Closed
-                }),
-            },
+            Some(conversation) => {
+                // A conversation that names no body has nobody to keep it.
+                let bodyless: Vec<_> = conversation
+                    .conversations()
+                    .filter(|live| live.bodies().next().is_none())
+                    .map(|live| live.instance.clone())
+                    .collect();
+                for instance in &bodyless {
+                    conversation.close_instance(instance);
+                }
+                for member in members {
+                    conversation.leave(member.subject);
+                }
+                // The box closes when no conversation is left (it also shows a
+                // terminal's or a scene's words); while one is live the
+                // projection keeps the box on it.
+                !conversation.is_live()
+            }
         };
         if ended {
             if let Some(dialogue) = self.dialogue.as_deref_mut() { dialogue.close(); }
-            if let Some(conversation) = self.conversation.as_deref_mut() { conversation.close(); }
         }
     }
 

@@ -18,7 +18,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 // Use the core re-export to avoid adding a direct geometry dependency.
 use ambition_platformer2d_core::{AabbExt, CenteredAabb};
 
-use super::authority::{ActiveConversation, Leaving};
+use super::authority::{ActiveConversation, Leaving, LiveConversation};
 
 /// How near a body that JOINED a conversation must keep to one of its
 /// members, and how near a threat comes before it breaks in: within
@@ -59,22 +59,39 @@ enum Why {
     Break(DialogueBreak),
 }
 
+type BreakBodies<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static CenteredAabb,
+        Option<&'static BodyCombat>,
+        Option<(
+            &'static ambition_platformer2d_core::BodyKinematics,
+            Option<&'static ambition_platformer2d_core::SweepSample>,
+        )>,
+        Option<&'static BodyHealth>,
+    ),
+>;
+
+/// Each live conversation loses the bodies that were struck, are gone, or
+/// walked out of reach; each conversation by its own members.
 pub fn break_dialogue_on_hit_or_separation(
     mut conversation: ResMut<ActiveConversation>,
-    bodies: Query<(
-        &CenteredAabb,
-        Option<&BodyCombat>,
-        Option<(
-            &ambition_platformer2d_core::BodyKinematics,
-            Option<&ambition_platformer2d_core::SweepSample>,
-        )>,
-        Option<&BodyHealth>,
-    )>,
+    bodies: BreakBodies,
     mut barks: MessageWriter<ConversationCutBark>,
 ) {
-    let Some(live) = conversation.live() else {
-        return;
-    };
+    let lives: Vec<LiveConversation> = conversation.conversations().cloned().collect();
+    for live in &lives {
+        break_one_conversation(&mut conversation, live, &bodies, &mut barks);
+    }
+}
+
+fn break_one_conversation(
+    conversation: &mut ActiveConversation,
+    live: &LiveConversation,
+    bodies: &BreakBodies,
+    barks: &mut MessageWriter<ConversationCutBark>,
+) {
     let members: Vec<Entity> = live.bodies().collect();
     if members.len() < 2 {
         // Scripted dialogue with fewer than two in-world bodies. Nothing here
@@ -204,9 +221,30 @@ pub fn interrupt_a_conversation_on_a_threat(
     )>,
     footprints: Query<&CenteredAabb>,
 ) {
-    let Some(live) = conversation.live() else {
-        return;
-    };
+    let tick = tick.map_or(0, |tick| tick.0);
+    let lives: Vec<LiveConversation> = conversation.conversations().cloned().collect();
+    for live in &lives {
+        interrupt_one_conversation(&mut conversation, live, tick, &nodes, &rooms, &threats, &footprints);
+    }
+}
+
+#[allow(clippy::type_complexity)]
+fn interrupt_one_conversation(
+    conversation: &mut ActiveConversation,
+    live: &LiveConversation,
+    tick: u64,
+    nodes: &ambition_dialog::DialogueNodeIndex,
+    rooms: &LiveRooms,
+    threats: &Query<(
+        Entity,
+        &CenteredAabb,
+        &ActorDisposition,
+        Option<&ActorAggression>,
+        Option<&BodyHealth>,
+        Option<&SimId>,
+    )>,
+    footprints: &Query<&CenteredAabb>,
+) {
     let node = live.dialogue_id();
     let (base, interrupted) = match node.strip_suffix(INTERRUPTED_SUFFIX) {
         Some(base) => (base, true),
@@ -238,12 +276,14 @@ pub fn interrupt_a_conversation_on_a_threat(
     // In a stable order, so a resimulation breaks in with the same body:
     // a restore can renumber entities, not `SimId`s.
     arrivals.sort();
-    let tick = tick.map_or(0, |tick| tick.0);
+    let Some((member, ..)) = members.first() else {
+        return;
+    };
     for (at, (_, body)) in arrivals.into_iter().enumerate() {
         if at == 0 && !interrupted {
-            conversation.interrupt(body, interruption.clone(), tick);
+            conversation.interrupt(*member, body, interruption.clone(), tick);
         } else {
-            conversation.join(body);
+            conversation.join(*member, body);
         }
     }
 }

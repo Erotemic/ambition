@@ -100,6 +100,12 @@ impl DialogueDispatch<'_, '_> {
         listener_id: &str,
         input_owner: InputOwner,
     ) -> bool {
+        // One text runner and one box present one conversation (N2 and N3 of
+        // SIMULATION-ISLANDS give each its own). Until then a second seat's
+        // talk would hold its input with no box to answer, so it waits.
+        if self.conversation.conversations().any(|live| !live.includes(initiator)) {
+            return false;
+        }
         let context = ambition_dialog::DialogueContext::between(speaker_id, listener_id);
         // SELF-TALK. The speaker IS the listener — the player possessed this
         // body, or wears the character it is. By default a body has nothing to

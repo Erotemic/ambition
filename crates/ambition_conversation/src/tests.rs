@@ -28,6 +28,7 @@ fn conversation_settings_follow_their_own_room_and_stay_until_the_next_start() {
     app.declare_rules(RulesScope::Mode("smash"), instant);
     app.init_resource::<ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogState>();
+    app.init_resource::<crate::PresentedConversation>();
     app.add_systems(Update, super::ui_bridge::project_the_dialog_ui_from_the_conversation);
     let hall_body = app.world_mut().spawn(InRoomInstance(hall)).id();
     let stage_body = app.world_mut().spawn(InRoomInstance(hall.next())).id();
@@ -157,11 +158,14 @@ fn instance_wearing(worn: &str) -> super::ConversationInstanceId {
     }
     state.apply(app.world_mut());
 
-    app.world()
+    let instance = app
+        .world()
         .resource::<ActiveConversation>()
-        .instance()
-        .expect("the conversation opened")
-        .clone()
+        .conversations()
+        .next()
+        .map(|live| live.instance.clone())
+        .expect("the conversation opened");
+    instance
 }
 
 /// A corrected timeline that re-wears the initiator is a DIFFERENT
@@ -384,6 +388,7 @@ fn replaying_the_opening_tick_does_not_reopen_the_box() {
     let mut app = App::new();
     app.init_resource::<ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogState>();
+    app.init_resource::<crate::PresentedConversation>();
     app.add_systems(Update, super::project_the_dialog_ui_from_the_conversation);
 
     app.world_mut()
@@ -437,6 +442,7 @@ fn changing_the_input_owner_does_not_restart_the_narrative() {
     let mut app = App::new();
     app.init_resource::<ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogState>();
+    app.init_resource::<crate::PresentedConversation>();
     app.add_systems(Update, super::project_the_dialog_ui_from_the_conversation);
     let mut live = live_at("chat", 5);
     app.world_mut().resource_mut::<ActiveConversation>().open(live.clone());
@@ -503,6 +509,7 @@ fn a_conversation_restored_after_its_authority_vanished_is_projected_again() {
     let mut app = App::new();
     app.init_resource::<ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogState>();
+    app.init_resource::<crate::PresentedConversation>();
     app.add_systems(Update, super::project_the_dialog_ui_from_the_conversation);
 
     app.world_mut()
@@ -517,7 +524,7 @@ fn a_conversation_restored_after_its_authority_vanished_is_projected_again() {
     );
 
     // A predicted branch broke it. Presentation observes the absence and closes.
-    app.world_mut().resource_mut::<ActiveConversation>().close();
+    app.world_mut().resource_mut::<ActiveConversation>().close_all();
     app.update();
     assert!(
         !app.world()
@@ -612,7 +619,7 @@ fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
     );
 
     // The conversation ends by any route — here, the runner finishing.
-    app.world_mut().resource_mut::<ActiveConversation>().close();
+    app.world_mut().resource_mut::<ActiveConversation>().close_all();
     app.update();
     assert!(
         app.world().get::<ControlHolds>(npc).is_none(),
@@ -740,7 +747,7 @@ fn three_talking(nodes: &[&str]) -> (App, Entity, Entity, Entity) {
     app.add_systems(Update, super::interrupt_a_conversation_on_a_threat.before(break_dialogue_on_hit_or_separation));
     // Within earshot of the pair, and out of the talk reach of either.
     let third = body(&mut app, ae::Vec2::new(180.0, 100.0));
-    assert!(app.world_mut().resource_mut::<ActiveConversation>().join(third));
+    assert!(app.world_mut().resource_mut::<ActiveConversation>().join(npc, third));
     (app, initiator, npc, third)
 }
 
@@ -794,7 +801,7 @@ fn a_member_struck_out_of_earshot_or_dead_leaves_and_the_rest_talk_on() {
     app.world_mut().entity_mut(npc).insert(ambition_characters::actor::BodyHealth::new(health));
     app.update();
     assert_eq!(members(&app), vec![initiator, third], "the dead talker left, and the others talk on");
-    assert_eq!(app.world().resource::<ActiveConversation>().talker(), None);
+    assert_eq!(app.world().resource::<ActiveConversation>().conversations().next().and_then(|live| live.talker), None);
     assert!(app.world().get::<HeldByConversation>(npc).is_none(), "the dead body is let go");
 
     // The initiator struck ends it for everybody.
@@ -815,16 +822,16 @@ fn a_threat_in_earshot_breaks_into_a_conversation_with_an_interruption_authored(
     use ambition_combat::components::ActorDisposition;
 
     let (mut app, _, _, _) = three_talking(&["chat", "chat__interrupted"]);
-    let opened = app.world().resource::<ActiveConversation>().instance().cloned().expect("live");
+    let opened = app.world().resource::<ActiveConversation>().conversations().next().map(|live| &live.instance).cloned().expect("live");
     let raider = body(&mut app, ae::Vec2::new(20.0, 100.0));
     app.world_mut().entity_mut(raider).insert(ActorDisposition::Hostile);
     app.update();
     let conversation = app.world().resource::<ActiveConversation>();
-    assert_eq!(conversation.dialogue_id(), Some("chat__interrupted"), "the narrative goes on from the interruption");
-    assert_eq!(conversation.live().map(|live| live.opened_at()), Some(40), "from the tick it broke in");
-    assert_ne!(conversation.instance(), Some(&opened), "a new instance, so the text box starts the node");
+    assert_eq!(conversation.conversations().next().map(|live| live.dialogue_id()), Some("chat__interrupted"), "the narrative goes on from the interruption");
+    assert_eq!(conversation.conversations().next().map(|live| live.opened_at()), Some(40), "from the tick it broke in");
+    assert_ne!(conversation.conversations().next().map(|live| &live.instance), Some(&opened), "a new instance, so the text box starts the node");
     assert!(conversation.holds(raider), "the threat joined, and is held while it speaks");
-    let interrupted = conversation.instance().cloned();
+    let interrupted = conversation.conversations().next().map(|live| &live.instance).cloned();
 
     let second = body(&mut app, ae::Vec2::new(10.0, 100.0));
     app.world_mut().entity_mut(second).insert(ActorDisposition::Hostile);
@@ -832,7 +839,7 @@ fn a_threat_in_earshot_breaks_into_a_conversation_with_an_interruption_authored(
     app.update();
     let conversation = app.world().resource::<ActiveConversation>();
     assert!(conversation.holds(second), "a second threat joins");
-    assert_eq!(conversation.instance().cloned(), interrupted, "and does not start the interruption again");
+    assert_eq!(conversation.conversations().next().map(|live| &live.instance).cloned(), interrupted, "and does not start the interruption again");
 
     // No interruption authored: a threat in earshot changes nothing (it
     // breaks the conversation by striking somebody).
@@ -841,7 +848,7 @@ fn a_threat_in_earshot_breaks_into_a_conversation_with_an_interruption_authored(
     app.world_mut().entity_mut(raider).insert(ActorDisposition::Hostile);
     app.update();
     assert_eq!(members(&app), vec![initiator, npc, third]);
-    assert_eq!(app.world().resource::<ActiveConversation>().dialogue_id(), Some("chat"));
+    assert_eq!(app.world().resource::<ActiveConversation>().conversations().next().map(|live| live.dialogue_id()), Some("chat"));
 }
 
 /// The rollback registration localizes a desync through every body the
@@ -864,4 +871,67 @@ fn a_rollback_names_and_remaps_every_member() {
     let mut restored = conversation.clone();
     restored.map_entities(&mut map);
     assert_eq!(restored.referenced_entities(), moved);
+}
+
+/// SIMULATION-ISLANDS N1: two seats talk at once, each in its own
+/// conversation. A body is in at most one, and one seat's talk ending leaves
+/// the other's.
+#[test]
+fn two_seats_talk_at_once_and_one_ending_leaves_the_other() {
+    use crate::{Leaving, LiveConversation};
+    use ambition_input::ParticipantId;
+    let mut world = World::new();
+    let [alice, merchant, bob, smith] = [(); 4].map(|_| world.spawn_empty().id());
+    let mut conversation = ActiveConversation::default();
+    conversation.open(LiveConversation::for_test(Some(alice), Some(merchant), "shop", InputOwner::Participant(ParticipantId(0))));
+    conversation.open(LiveConversation::for_test(Some(bob), Some(smith), "forge", InputOwner::Participant(ParticipantId(1))));
+    assert_eq!(conversation.conversations().count(), 2, "the second seat's talk did not replace the first's");
+    assert_eq!(conversation.of_seat(ParticipantId(1)).map(|live| live.dialogue_id()), Some("forge"));
+    assert!(!conversation.join(bob, merchant), "a body already in one conversation joins no other");
+    assert_eq!(conversation.leave(smith), Leaving::Closed, "the forge ends with only Bob left in it");
+    assert_eq!(
+        conversation.conversations().map(|live| live.dialogue_id()).collect::<Vec<_>>(),
+        vec!["shop"],
+        "Alice's talk goes on",
+    );
+}
+
+/// SIMULATION-ISLANDS N1: a room's rewind puts back its own seat's
+/// conversation and leaves another room's as it stands.
+#[test]
+fn a_rooms_rewind_puts_back_only_its_own_seats_conversation() {
+    use crate::{ConversationsInRooms, LiveConversation};
+    use ambition_input::ParticipantId;
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let mut world = World::new();
+    let [alice, merchant, bob, smith] = [(); 4].map(|_| world.spawn_empty().id());
+    let (hub, forge) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+    let room_of = |live: &LiveConversation| match live.initiator {
+        Some(body) if body == alice => Some(hub),
+        Some(body) if body == bob => Some(forge),
+        _ => None,
+    };
+    let shop = LiveConversation::for_test(Some(alice), Some(merchant), "shop", InputOwner::Participant(ParticipantId(0)));
+    let anvil = LiveConversation::for_test(Some(bob), Some(smith), "forge", InputOwner::Participant(ParticipantId(1)));
+    let mut log = ConversationsInRooms::default();
+    let mut conversation = ActiveConversation::default();
+    // Tick 10: Alice opens hers. Tick 20: Bob opens his. Tick 30: Alice's ends.
+    conversation.open(shop.clone());
+    log.observe(conversation.conversations(), 10, room_of);
+    conversation.open(anvil.clone());
+    log.observe(conversation.conversations(), 20, room_of);
+    conversation.close_of(alice);
+    log.observe(conversation.conversations(), 30, room_of);
+
+    // The forge rewinds to tick 15, before Bob opened his talk.
+    let put_back = log.retract_room(forge, 15);
+    assert_eq!(put_back, vec![(InputOwner::Participant(ParticipantId(1)), None)], "only Bob's seat goes back");
+    for (owner, live) in put_back {
+        conversation.close_owned_by(owner);
+        if let Some(live) = live {
+            conversation.open(live);
+        }
+    }
+    assert!(conversation.of_body(bob).is_none(), "the forge's talk opened after the save is taken back");
+    assert!(conversation.of_body(alice).is_none(), "the hub's end of Alice's talk stands: the forge's rewind is not the hub's");
 }

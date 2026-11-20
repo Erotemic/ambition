@@ -16,15 +16,17 @@ where
         |conversation| conversation.referenced_entities(),
         |conversation| {
             use std::hash::{Hash, Hasher};
-            let Some(live) = conversation.live() else {
+            if !conversation.is_live() {
                 return 0;
-            };
+            }
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            live.instance.hash(&mut hasher);
-            match live.input_owner {
-                ambition_input::InputOwner::Participant(id) => (1u8, id.slot()).hash(&mut hasher),
-                ambition_input::InputOwner::Primary => (2u8, 0u8).hash(&mut hasher),
-                ambition_input::InputOwner::AllParticipants => (3u8, 0u8).hash(&mut hasher),
+            for live in conversation.conversations() {
+                live.instance.hash(&mut hasher);
+                match live.input_owner {
+                    ambition_input::InputOwner::Participant(id) => (1u8, id.slot()).hash(&mut hasher),
+                    ambition_input::InputOwner::Primary => (2u8, 0u8).hash(&mut hasher),
+                    ambition_input::InputOwner::AllParticipants => (3u8, 0u8).hash(&mut hasher),
+                }
             }
             hasher.finish()
         },

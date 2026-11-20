@@ -75,7 +75,7 @@ pub fn a_conversation_is_live(
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<AmbitionGameSave>>,
     mirror: Res<YarnStateMirror>,
-    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    conversation: ambition_conversation::RunnerConversation,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
     // No inventory slice: `inventory.holds` is a published condition, so the
@@ -89,7 +89,7 @@ pub fn refresh_yarn_state_mirror(
     // would be a second authority with a one-frame lag. What remains is what
     // the catalog cannot answer yet.
     // The talking seat's history (Q134).
-    let seat = conversation.as_deref().map_or(0, ambition_conversation::ActiveConversation::history_seat);
+    let seat = conversation.history_seat();
     snap.visit_counts.clear();
     for visit in data.dialog_visits().iter().filter(|visit| visit.seat == seat) {
         snap.visit_counts.insert(visit.id.clone(), visit.count);
@@ -127,7 +127,7 @@ pub fn refresh_yarn_state_mirror(
 pub fn cmd_challenge(
     // Read the authority, not `DialogState`: this is a simulation effect, and
     // the UI read-model is not rewound by rollback.
-    conversation: Res<ambition_conversation::ActiveConversation>,
+    conversation: ambition_conversation::RunnerConversation,
     // The speaker's live identity, not its `SimId` alone: two instances of
     // one room hold the same authored ids, and the command means THIS body.
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
@@ -156,7 +156,7 @@ pub fn cmd_challenge(
 /// simulation refuses the pet with a log otherwise. Content offers it as a
 /// choice, so the conversation stays reachable and the pet is one answer in it.
 pub fn cmd_pet(
-    conversation: Res<ambition_conversation::ActiveConversation>,
+    conversation: ambition_conversation::RunnerConversation,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::body::PetRequested,
@@ -180,7 +180,7 @@ pub fn cmd_pet(
 /// node offers every look and the way back.
 pub fn cmd_transform(
     In(character): In<String>,
-    conversation: Res<ambition_conversation::ActiveConversation>,
+    conversation: ambition_conversation::RunnerConversation,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::body::WearRequested,
@@ -210,7 +210,7 @@ pub fn cmd_transform(
 /// stable id (scripted/anonymous dialogue).
 pub fn cmd_use_brain(
     In(preset): In<String>,
-    conversation: Res<ambition_conversation::ActiveConversation>,
+    conversation: ambition_conversation::RunnerConversation,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::body::BrainCommand,
@@ -239,7 +239,7 @@ pub fn cmd_use_brain(
 /// autonomous source + complete config. (A bare `BrainCommand::RestoreDefault`
 /// would restore only the brain/source, leaving a provoked NPC still hostile.)
 pub fn cmd_restore_brain(
-    conversation: Res<ambition_conversation::ActiveConversation>,
+    conversation: ambition_conversation::RunnerConversation,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::body::ReleaseProvocation,
@@ -265,7 +265,7 @@ pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::ItemGrantRequested>,
     items: ambition_items::ItemCatalogRead,
-    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    conversation: ambition_conversation::RunnerConversation,
 ) {
     let Some(mut request) = item_grant(items.get(), &kind, count) else {
         warn!(
@@ -274,7 +274,7 @@ pub fn cmd_give_item(
         );
         return;
     };
-    request.participant = talking_seat(conversation.as_deref());
+    request.participant = talking_seat(&conversation);
     narrative.write(request);
 }
 
@@ -285,18 +285,18 @@ pub fn cmd_give_item(
 /// commit lands after the flags and hand-overs asked before it in the script.
 pub fn cmd_checkpoint(
     mut narrative: NarrativeInputWriter<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>,
-    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    conversation: ambition_conversation::RunnerConversation,
 ) {
-    let seat = talking_seat(conversation.as_deref()).map(|seat| seat.0);
+    let seat = talking_seat(&conversation).map(|seat| seat.0);
     narrative.write(ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested { seat });
 }
 
 /// The seat whose conversation runs this command: its input owner. A
 /// conversation every seat drives, or none, names no seat.
 fn talking_seat(
-    conversation: Option<&ambition_conversation::ActiveConversation>,
+    conversation: &ambition_conversation::RunnerConversation,
 ) -> Option<ambition_characters::control::PlayerSlot> {
-    match conversation?.input_owner()? {
+    match conversation.input_owner()? {
         ambition_input::InputOwner::Participant(id) => Some(ambition_characters::control::PlayerSlot(id.slot())),
         ambition_input::InputOwner::Primary => Some(ambition_characters::control::PlayerSlot::PRIMARY),
         ambition_input::InputOwner::AllParticipants => None,
@@ -310,7 +310,7 @@ pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
     items: ambition_items::ItemCatalogRead,
-    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    conversation: ambition_conversation::RunnerConversation,
 ) {
     let Some(item) = items.get().item_by_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "buy_item: unknown item {id:?}");
@@ -331,7 +331,7 @@ pub fn cmd_buy_item(
         }
     };
     narrative.write(ambition_items::shop::ShopTransactionRequested {
-        participant: talking_seat(conversation.as_deref()),
+        participant: talking_seat(&conversation),
         item,
         price: coins,
         side: ambition_items::shop::ShopSide::Buy,
@@ -344,7 +344,7 @@ pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
     items: ambition_items::ItemCatalogRead,
-    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    conversation: ambition_conversation::RunnerConversation,
 ) {
     let Some(item) = items.get().item_by_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "sell_item: unknown item {id:?}");
@@ -365,7 +365,7 @@ pub fn cmd_sell_item(
         }
     };
     narrative.write(ambition_items::shop::ShopTransactionRequested {
-        participant: talking_seat(conversation.as_deref()),
+        participant: talking_seat(&conversation),
         item,
         price: coins,
         side: ambition_items::shop::ShopSide::Sell,
@@ -479,9 +479,11 @@ fn asking_node(
 ) -> ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk {
     ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
         "dialogue",
+        // The runner asked, so it is the presented conversation's node.
         world
             .get_resource::<ambition_conversation::ActiveConversation>()
-            .and_then(|active| active.live())
+            .zip(world.get_resource::<ambition_conversation::PresentedConversation>())
+            .and_then(|(active, presented)| presented.live(active))
             .map_or("<no live conversation>", |live| live.instance.node()),
     )
 }

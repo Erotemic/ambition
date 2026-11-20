@@ -2827,7 +2827,7 @@ pub(crate) fn alice_talks_to_the_dog(sim: &mut Platformer2dSimHarness) -> bool {
     }
     sim.world()
         .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
-        .is_some_and(|conversation| conversation.talker() == Some(dog))
+        .is_some_and(|conversation| conversation.conversations().next().and_then(|live| live.talker) == Some(dog))
 }
 
 /// The session's game mode now.
@@ -2884,7 +2884,7 @@ fn a_conversation_in_one_room_does_not_stop_the_other_players_room() {
         talking_while_he_pressed &= sim
             .world()
             .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
-            .is_some_and(|conversation| conversation.talker().is_some());
+            .is_some_and(|conversation| conversation.conversations().next().and_then(|live| live.talker).is_some());
         sim.drive_seat(
             1,
             ambition_platformer2d::engine_core::ControlFrame {

@@ -192,7 +192,7 @@ fn go_through(sim: &mut Platformer2dSimHarness, ring: &str) -> String {
         let world = sim.world();
         eprintln!(
             "[gate] no crossing from `{from}`: conversation {:?}, phase {:?}, link {:?}, at {:?}",
-            world.resource::<ambition_platformer2d::conversation::ActiveConversation>().instance(),
+            world.resource::<ambition_platformer2d::conversation::ActiveConversation>().conversations().next().map(|live| &live.instance),
             world.resource::<GatePortalPhases>().phase(ring),
             world.resource::<GateNetworkState>().route_from(ring),
             at,

@@ -69,9 +69,11 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
     // gets a subject that SAYS so instead of a plausible-looking blank.
     let asked_by = ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
         "dialogue",
+        // The runner asked, so it is the presented conversation's node.
         world
             .get_resource::<crate::ActiveConversation>()
-            .and_then(|active| active.live())
+            .zip(world.get_resource::<crate::PresentedConversation>())
+            .and_then(|(active, presented)| presented.live(active))
             .map_or("<no live conversation>", |live| live.instance.node()),
     );
     let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {

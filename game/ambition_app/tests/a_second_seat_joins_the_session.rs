@@ -622,7 +622,7 @@ fn a_conversation_holds_only_the_talker_with_two_players_in_one_room() {
     let talking = |sim: &Platformer2dSimHarness| {
         sim.world()
             .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
-            .is_some_and(|conversation| conversation.talker().is_some())
+            .is_some_and(|conversation| conversation.conversations().next().and_then(|live| live.talker).is_some())
     };
     let mut sim = booted_in("central_hub_complex");
     let body = seat_one_joins(&mut sim);

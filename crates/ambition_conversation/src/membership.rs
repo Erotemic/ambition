@@ -75,16 +75,17 @@ pub fn join(world: &mut World, args: &[AuthoredArg], _context: &ambition_platfor
     let Some(character) = args[0].as_name() else {
         return CommandOutcome::refused("`character` must be a name");
     };
-    let mut state: SystemState<(Res<ActiveConversation>, LiveRooms, Bodies)> = SystemState::new(world);
+    let mut state: SystemState<(Res<ActiveConversation>, Res<crate::ui_bridge::PresentedConversation>, LiveRooms, Bodies)> =
+        SystemState::new(world);
     let found = {
-        let Ok((conversation, rooms, bodies)) = state.get(world) else {
+        let Ok((conversation, presented, rooms, bodies)) = state.get(world) else {
             return CommandOutcome::refused("the conversation's world cannot be read");
         };
-        if !conversation.is_live() {
+        let Some(live) = presented.live(&conversation) else {
             return CommandOutcome::refused("no conversation is live to join");
-        }
-        let members: Vec<_> = conversation
-            .participants()
+        };
+        let members: Vec<_> = live
+            .bodies()
             .filter_map(|member| bodies.get(member).ok().map(|(_, aabb, ..)| (member, aabb.center, rooms.of(member))))
             .collect();
         let mut near: Vec<(f32, Option<&SimId>, Entity)> = bodies
@@ -106,14 +107,14 @@ pub fn join(world: &mut World, args: &[AuthoredArg], _context: &ambition_platfor
             })
             .collect();
         near.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| (a.1, a.2).cmp(&(b.1, b.2))));
-        near.first().map(|(_, _, body)| *body)
+        near.first().map(|(_, _, body)| (members[0].0, *body))
     };
-    let Some(body) = found else {
+    let Some((member, body)) = found else {
         return CommandOutcome::refused(format!(
             "no living `{character}` is within earshot ({EARSHOT} px) of the conversation, in its room"
         ));
     };
-    world.resource_mut::<ActiveConversation>().join(body);
+    world.resource_mut::<ActiveConversation>().join(member, body);
     CommandOutcome::Done
 }
 
@@ -122,12 +123,13 @@ pub fn leave(world: &mut World, args: &[AuthoredArg], _context: &ambition_platfo
     let Some(character) = args[0].as_name() else {
         return CommandOutcome::refused("`character` must be a name");
     };
-    let mut state: SystemState<(Res<ActiveConversation>, Bodies)> = SystemState::new(world);
+    let mut state: SystemState<(Res<ActiveConversation>, Res<crate::ui_bridge::PresentedConversation>, Bodies)> =
+        SystemState::new(world);
     let found = {
-        let Ok((conversation, bodies)) = state.get(world) else {
+        let Ok((conversation, presented, bodies)) = state.get(world) else {
             return CommandOutcome::refused("the conversation's world cannot be read");
         };
-        let found = conversation.participants().find(|member| {
+        let found = presented.live(&conversation).into_iter().flat_map(|live| live.bodies()).find(|member| {
             bodies
                 .get(*member)
                 .is_ok_and(|(_, _, form, interaction, ..)| character_of(form, interaction) == Some(character))

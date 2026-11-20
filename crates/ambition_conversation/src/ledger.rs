@@ -84,14 +84,14 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
     /// leaves. this fork is stated HERE, once, because the shape it replaces
     /// spelled it `tick.map_or(u64::MAX, ..)` at each reader — and a sentinel
     /// that means "act immediately" read as an ordinary comparison.
-    fn release(&mut self, now: Option<u64>, live: Option<&ConversationInstanceId>) -> Vec<M> {
-        let Some(live) = live else {
+    fn release(&mut self, now: Option<u64>, live: &[&ConversationInstanceId]) -> Vec<M> {
+        if live.is_empty() {
             return Vec::new();
-        };
+        }
         let Some(now) = now else {
             let mut released = Vec::new();
             self.records.retain(|record| {
-                if &record.instance == live {
+                if live.contains(&&record.instance) {
                     released.push(record.payload.clone());
                     false
                 } else {
@@ -102,7 +102,7 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
         };
         self.records
             .iter()
-            .filter(|record| record.from_tick == now && &record.instance == live)
+            .filter(|record| record.from_tick == now && live.contains(&&record.instance))
             .map(|record| record.payload.clone())
             .collect()
     }
@@ -122,6 +122,8 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
 #[derive(SystemParam)]
 pub struct NarrativeInputWriter<'w, M: Message + Clone> {
     conversation: Res<'w, ActiveConversation>,
+    /// The conversation the runner is running: a command it fires is that one's.
+    presented: Option<Res<'w, super::ui_bridge::PresentedConversation>>,
     /// `Option` for the reason `prepare_the_match`'s own tick is: a composition
     /// with no timeline has no replay to disagree with, and a plain `Res` would
     /// panic in every one of them.
@@ -136,7 +138,7 @@ impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
     /// reaching the runner outside one; it is logged and dropped rather than
     /// applied to whatever happens to be live later.
     pub fn write(&mut self, payload: M) {
-        let Some(instance) = self.conversation.instance() else {
+        let Some(instance) = self.presented_instance() else {
             warn!(
                 target: "ambition_conversation",
                 "a narrative command fired with no conversation live; dropping {}",
@@ -145,20 +147,26 @@ impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
             return;
         };
         let from_tick = self.next_tick();
-        self.ledger.record(instance.clone(), from_tick, payload);
+        self.ledger.record(instance, from_tick, payload);
     }
 
     /// Record `payload` only if this conversation has no record here yet — for a
     /// fact observed as a condition. See [`NarrativeInputLedger::holds_for`].
     pub fn write_once(&mut self, payload: M) {
-        let Some(instance) = self.conversation.instance() else {
+        let Some(instance) = self.presented_instance() else {
             return;
         };
-        if self.ledger.holds_for(instance) {
+        if self.ledger.holds_for(&instance) {
             return;
         }
         let from_tick = self.next_tick();
-        self.ledger.record(instance.clone(), from_tick, payload);
+        self.ledger.record(instance, from_tick, payload);
+    }
+
+    /// The live conversation the runner is running, if it still is live.
+    fn presented_instance(&self) -> Option<ConversationInstanceId> {
+        let presented = self.presented.as_ref()?.0.as_ref()?;
+        self.conversation.of_instance(presented).map(|live| live.instance.clone())
     }
 
     /// The first tick the simulation may act on something observed now.
@@ -196,10 +204,11 @@ pub fn release_narrative_inputs<M: Message + Clone>(
     if ledger.depth() == 0 {
         return;
     }
-    let released = ledger.release(
-        tick.map(|tick| tick.0),
-        conversation.as_deref().and_then(ActiveConversation::instance),
-    );
+    let live: Vec<&ConversationInstanceId> = conversation
+        .as_deref()
+        .map(|conversation| conversation.conversations().map(|live| &live.instance).collect())
+        .unwrap_or_default();
+    let released = ledger.release(tick.map(|tick| tick.0), &live);
     if !released.is_empty() {
         messages.write_batch(released);
     }
@@ -411,16 +420,16 @@ mod tests {
         let chat = instance("chat", 5);
         ledger.record(chat.clone(), 10, Spoke(1));
 
-        assert!(ledger.release(Some(9), Some(&chat)).is_empty(), "not yet");
-        assert_eq!(ledger.release(Some(10), Some(&chat)), vec![Spoke(1)]);
+        assert!(ledger.release(Some(9), &[&chat]).is_empty(), "not yet");
+        assert_eq!(ledger.release(Some(10), &[&chat]), vec![Spoke(1)]);
         assert!(
-            ledger.release(Some(11), Some(&chat)).is_empty(),
+            ledger.release(Some(11), &[&chat]).is_empty(),
             "released twice: a level rule grants the item again every tick"
         );
         // and the tick REPLAYS: the record is still there, because nothing
         // marks it consumed.
         assert_eq!(
-            ledger.release(Some(10), Some(&chat)),
+            ledger.release(Some(10), &[&chat]),
             vec![Spoke(1)],
             "a resimulated tick must reach the same answer, so the record has to \
              survive its own delivery"
@@ -436,12 +445,12 @@ mod tests {
         ledger.record(abandoned, 10, Spoke(1));
 
         assert!(
-            ledger.release(Some(10), Some(&corrected)).is_empty(),
+            ledger.release(Some(10), &[&corrected]).is_empty(),
             "the corrected branch opened a different conversation and inherited \
              the abandoned one's narrative effect"
         );
         assert!(
-            ledger.release(Some(10), None).is_empty(),
+            ledger.release(Some(10), &[]).is_empty(),
             "nobody is talking, so nothing a conversation said applies"
         );
     }
@@ -456,8 +465,8 @@ mod tests {
         ledger.record(first.clone(), 103, Spoke(1));
         ledger.record(second.clone(), 106, Spoke(2));
 
-        assert_eq!(ledger.release(Some(103), Some(&first)), vec![Spoke(1)]);
-        assert_eq!(ledger.release(Some(106), Some(&second)), vec![Spoke(2)]);
+        assert_eq!(ledger.release(Some(103), &[&first]), vec![Spoke(1)]);
+        assert_eq!(ledger.release(Some(106), &[&second]), vec![Spoke(2)]);
     }
 
     /// The depth is bounded by the replay horizon, not by how long the
@@ -487,9 +496,9 @@ mod tests {
         let chat = instance("chat", 0);
         ledger.record(chat.clone(), 0, Spoke(1));
 
-        assert_eq!(ledger.release(None, Some(&chat)), vec![Spoke(1)]);
+        assert_eq!(ledger.release(None, &[&chat]), vec![Spoke(1)]);
         assert!(
-            ledger.release(None, Some(&chat)).is_empty(),
+            ledger.release(None, &[&chat]).is_empty(),
             "a fixture with a standing clock would otherwise re-deliver forever"
         );
     }

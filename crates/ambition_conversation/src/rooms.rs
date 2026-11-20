@@ -13,55 +13,81 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomWrite, take_rewound_superseded};
 
 use crate::authority::{ActiveConversation, LiveConversation};
+use ambition_input::InputOwner;
 
-/// The conversation's changes rooms made within the rewind horizon, oldest
-/// first, each with the conversation it replaced.
+/// The conversations' changes rooms made within the rewind horizon, oldest
+/// first, each with the seat whose conversation changed and the conversation
+/// it replaced.
 ///
 /// Rollback state with a real value: a talk changes it on a tick.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct ConversationsInRooms {
-    /// The conversation as the log last saw it.
-    seen: Option<LiveConversation>,
-    /// Each change a room made, and the conversation it replaced.
-    changes: Vec<(RoomWrite, Option<LiveConversation>)>,
+    /// The conversations as the log last saw them.
+    seen: Vec<LiveConversation>,
+    /// Each change a room made to one seat's conversation, and what it replaced.
+    changes: Vec<(RoomWrite, InputOwner, Option<LiveConversation>)>,
 }
 
 impl ConversationsInRooms {
-    /// The conversation is `now` on tick `tick`: log the change, if it is one,
-    /// in the room of its bodies (`room_of`), and drop the changes no rewind
-    /// can reach. A conversation no room holds (scripted, with no body) is
-    /// seen but not logged: no room's rewind takes it back.
-    pub fn observe(
+    /// The conversations are `now` on tick `tick`: log each seat's change, if
+    /// it is one, in the room of its bodies (`room_of`), and drop the changes
+    /// no rewind can reach. A conversation no room holds (scripted, with no
+    /// body) is seen but not logged: no room's rewind takes it back.
+    pub fn observe<'a>(
         &mut self,
-        now: Option<&LiveConversation>,
+        now: impl Iterator<Item = &'a LiveConversation>,
         tick: u64,
         room_of: impl Fn(&LiveConversation) -> Option<LiveRoomInstance>,
     ) {
-        if self.seen.as_ref() == now {
+        let now: Vec<LiveConversation> = now.cloned().collect();
+        if self.seen == now {
             return;
         }
-        let replaced = std::mem::replace(&mut self.seen, now.cloned());
-        if let Some(room) = now.or(replaced.as_ref()).and_then(&room_of) {
-            self.changes.push((RoomWrite { room, tick }, replaced));
+        let mut owners: Vec<InputOwner> = Vec::new();
+        for live in self.seen.iter().chain(now.iter()) {
+            if !owners.contains(&live.input_owner) {
+                owners.push(live.input_owner);
+            }
         }
-        self.changes.retain(|(written, _)| !written.beyond_the_horizon(tick));
+        for owner in owners {
+            let before = self.seen.iter().find(|live| live.input_owner == owner);
+            let after = now.iter().find(|live| live.input_owner == owner);
+            if before == after {
+                continue;
+            }
+            if let Some(room) = after.or(before).and_then(&room_of) {
+                self.changes.push((RoomWrite { room, tick }, owner, before.cloned()));
+            }
+        }
+        self.seen = now;
+        self.changes.retain(|(written, ..)| !written.beyond_the_horizon(tick));
     }
 
     /// `room` rewinds to `saved_at`: take out the changes it made after that
-    /// tick, newest first, and return the conversation to put back. `None`
-    /// when nothing goes back: no change of the room's, or a later change of
-    /// another room's still stands (that room's talk is not undone).
-    pub fn retract_room(&mut self, room: LiveRoomInstance, saved_at: u64) -> Option<Option<LiveConversation>> {
-        // Every change overwrites the one conversation, so any later change
-        // that stays supersedes a taken one. The oldest taken change that no
-        // later change supersedes holds the conversation to put back.
-        let put_back = take_rewound_superseded(&mut self.changes, room, saved_at, |(written, _)| *written, |_, _| true)
-            .into_iter()
-            .filter(|(_, superseded)| !superseded)
-            .last()
-            .map(|((_, replaced), _)| replaced);
-        if let Some(conversation) = &put_back {
-            self.seen.clone_from(conversation);
+    /// tick, newest first, and return each seat's conversation to put back.
+    /// A seat is left out when a later change of its conversation in another
+    /// room still stands (that room's talk is not undone).
+    pub fn retract_room(&mut self, room: LiveRoomInstance, saved_at: u64) -> Vec<(InputOwner, Option<LiveConversation>)> {
+        let taken = take_rewound_superseded(
+            &mut self.changes,
+            room,
+            saved_at,
+            |(written, ..)| *written,
+            |later, taken| later.1 == taken.1,
+        );
+        // Newest first, so the last of a seat's unsuperseded entries is its
+        // oldest: what the seat had at the save.
+        let mut put_back: Vec<(InputOwner, Option<LiveConversation>)> = Vec::new();
+        for ((_, owner, replaced), superseded) in taken {
+            if superseded {
+                continue;
+            }
+            put_back.retain(|(seat, _)| *seat != owner);
+            put_back.push((owner, replaced));
+        }
+        for (owner, replaced) in &put_back {
+            self.seen.retain(|live| live.input_owner != *owner);
+            self.seen.extend(replaced.iter().cloned());
         }
         put_back
     }
@@ -70,7 +96,7 @@ impl ConversationsInRooms {
     pub fn referenced_entities(&self) -> Vec<Entity> {
         self.seen
             .iter()
-            .chain(self.changes.iter().filter_map(|(_, replaced)| replaced.as_ref()))
+            .chain(self.changes.iter().filter_map(|(.., replaced)| replaced.as_ref()))
             .flat_map(super::authority::LiveConversation::bodies)
             .collect()
     }
@@ -79,10 +105,14 @@ impl ConversationsInRooms {
     pub fn checksum(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.seen.as_ref().map(|live| &live.instance).hash(&mut hasher);
+        self.seen.len().hash(&mut hasher);
+        for live in &self.seen {
+            live.instance.hash(&mut hasher);
+        }
         self.changes.len().hash(&mut hasher);
-        for (written, replaced) in &self.changes {
+        for (written, owner, replaced) in &self.changes {
             (written.room.ordinal(), written.tick).hash(&mut hasher);
+            format!("{owner:?}").hash(&mut hasher);
             replaced.as_ref().map(|live| &live.instance).hash(&mut hasher);
         }
         hasher.finish()
@@ -91,7 +121,7 @@ impl ConversationsInRooms {
 
 impl bevy::ecs::entity::MapEntities for ConversationsInRooms {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        let lives = self.seen.iter_mut().chain(self.changes.iter_mut().filter_map(|(_, replaced)| replaced.as_mut()));
+        let lives = self.seen.iter_mut().chain(self.changes.iter_mut().filter_map(|(.., replaced)| replaced.as_mut()));
         for live in lives {
             for entity in live.bodies_mut() {
                 *entity = mapper.get_mapped(*entity);
@@ -108,25 +138,27 @@ pub fn log_conversation_changes_in_rooms(
     tick: Option<Res<ambition_time::SimTick>>,
     rooms: LiveRooms,
 ) {
-    if log.seen.as_ref() == conversation.live() {
+    if log.seen.iter().eq(conversation.conversations()) {
         return;
     }
     let tick = tick.map_or(0, |tick| tick.0);
-    log.observe(conversation.live(), tick, |live| {
+    log.observe(conversation.conversations(), tick, |live| {
         live.initiator.or(live.talker).and_then(|body| rooms.of(body))
     });
 }
 
 /// The room retractor: put back the conversation `room` had at `saved_at`.
 pub fn retract_room_conversations(world: &mut World, room: LiveRoomInstance, saved_at: u64) {
-    let Some(put_back) = world.get_resource_mut::<ConversationsInRooms>().and_then(|mut log| log.retract_room(room, saved_at))
+    let Some(put_back) = world.get_resource_mut::<ConversationsInRooms>().map(|mut log| log.retract_room(room, saved_at))
     else {
         return;
     };
     // `ConversationPlugin` installs both resources, so a log means a conversation.
     let mut conversation = world.resource_mut::<ActiveConversation>();
-    match put_back {
-        Some(live) => conversation.open(live),
-        None => conversation.close(),
+    for (owner, live) in put_back {
+        conversation.close_owned_by(owner);
+        if let Some(live) = live {
+            conversation.open(live);
+        }
     }
 }

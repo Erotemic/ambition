@@ -111,111 +111,152 @@ impl LiveConversation {
     }
 }
 
-/// The conversation the simulation is having, if any.
+impl LiveConversation {
+    /// The seat whose dialogue history this conversation is (Q134): its
+    /// input owner. A conversation every seat drives, or none, is the
+    /// primary seat's.
+    pub fn history_seat(&self) -> u8 {
+        match self.input_owner {
+            InputOwner::Participant(id) => id.slot(),
+            _ => 0,
+        }
+    }
+
+    /// The bodies it holds: the talker, then the joined. The initiator is not
+    /// held; its seat's input drives the text box.
+    pub fn held(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.talker.into_iter().chain(self.joined.iter().copied())
+    }
+
+    /// Whether `body` is in it, in any part.
+    pub fn includes(&self, body: Entity) -> bool {
+        self.bodies().any(|member| member == body)
+    }
+
+    /// Whether two conversations would claim one seat's input: an owner
+    /// that accepts every seat overlaps every other.
+    fn shares_a_seat_with(&self, other: &LiveConversation) -> bool {
+        match (self.input_owner, other.input_owner) {
+            (InputOwner::Participant(a), InputOwner::Participant(b)) => a == b,
+            _ => true,
+        }
+    }
+}
+
+/// The conversations the simulation is having: each seat talks in its own
+/// (SIMULATION-ISLANDS N1), so a player in another room does not wait on a
+/// talk he is not in. Two conversations never share a body or a seat.
+///
+/// Kept in the order they opened. A question about "the" conversation names
+/// whose: a body's ([`Self::of_body`]), a seat's ([`Self::of_owner`]).
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct ActiveConversation {
-    live: Option<LiveConversation>,
+    live: Vec<LiveConversation>,
 }
 
 impl ActiveConversation {
     /// Open a conversation in ONE call.
     ///
-    ///  the shape this replaces was `start()`, then `set_speaker_entity()`,
-    /// then `set_initiator_entity()` — three calls to establish one fact, where
-    /// the second and third are the ones a new call site forgets. An authority
-    /// that needs a follow-up call has a window in which it is wrong, and here
-    /// that window was a tick of the simulation schedule.
-    ///  the whole value, so the COMPILER enumerates what a conversation
-    /// is. It took four positional arguments and grew two more; a struct
-    /// literal makes a new fact break every call site, which is the only way a
-    /// conversation opened somewhere else keeps saying everything the projection
-    /// needs.
+    /// The whole value, so the COMPILER enumerates what a conversation is: a
+    /// struct literal makes a new fact break every call site. A conversation
+    /// that shares a body or a seat with this one is replaced by it, as the
+    /// one conversation used to be.
     pub fn open(&mut self, live: LiveConversation) {
-        self.live = Some(live);
+        self.live.retain(|other| !other.shares_a_seat_with(&live) && !live.bodies().any(|body| other.includes(body)));
+        self.live.push(live);
     }
 
-    pub fn close(&mut self) {
-        self.live = None;
+    /// End the conversation `body` is in. `false` when it is in none.
+    pub fn close_of(&mut self, body: Entity) -> bool {
+        let before = self.live.len();
+        self.live.retain(|live| !live.includes(body));
+        before != self.live.len()
     }
 
+    /// End the conversation `owner`'s input drives. `false` when none.
+    pub fn close_owned_by(&mut self, owner: InputOwner) -> bool {
+        let before = self.live.len();
+        self.live.retain(|live| live.input_owner != owner);
+        before != self.live.len()
+    }
+
+    /// End the conversation with this identity. `false` when none is live.
+    pub fn close_instance(&mut self, instance: &ConversationInstanceId) -> bool {
+        let before = self.live.len();
+        self.live.retain(|live| &live.instance != instance);
+        before != self.live.len()
+    }
+
+    /// End every conversation (a session teardown, a scene that takes the world).
+    pub fn close_all(&mut self) {
+        self.live.clear();
+    }
+
+    /// Whether any conversation is live.
     pub fn is_live(&self) -> bool {
-        self.live.is_some()
+        !self.live.is_empty()
     }
 
-    pub fn live(&self) -> Option<&LiveConversation> {
-        self.live.as_ref()
+    /// Every live conversation, in the order they opened.
+    pub fn conversations(&self) -> impl Iterator<Item = &LiveConversation> + '_ {
+        self.live.iter()
     }
 
-    /// The body being talked TO. The hold applies to this one.
-    pub fn talker(&self) -> Option<Entity> {
-        self.live.as_ref().and_then(|live| live.talker)
+    /// Every live conversation, for a restore to remap or a rule to edit.
+    pub fn conversations_mut(&mut self) -> impl Iterator<Item = &mut LiveConversation> + '_ {
+        self.live.iter_mut()
     }
 
-    /// The body that started it — whose seat owns the conversation's input.
-    pub fn initiator(&self) -> Option<Entity> {
-        self.live.as_ref().and_then(|live| live.initiator)
+    /// The conversation `body` is in, in any part.
+    pub fn of_body(&self, body: Entity) -> Option<&LiveConversation> {
+        self.live.iter().find(|live| live.includes(body))
     }
 
-    pub fn input_owner(&self) -> Option<InputOwner> {
-        self.live.as_ref().map(|live| live.input_owner)
+    /// The conversation `owner`'s input drives.
+    pub fn of_owner(&self, owner: InputOwner) -> Option<&LiveConversation> {
+        self.live.iter().find(|live| live.input_owner == owner)
     }
 
-    /// The seat whose dialogue history this conversation is (Q134): its
-    /// input owner. A conversation every seat drives, or none, is the
-    /// primary seat's.
-    pub fn history_seat(&self) -> u8 {
-        match self.input_owner() {
-            Some(InputOwner::Participant(id)) => id.slot(),
-            _ => 0,
-        }
+    /// The conversation a seat's input answers to: one it owns, or one every
+    /// seat drives.
+    pub fn of_seat(&self, seat: ambition_input::ParticipantId) -> Option<&LiveConversation> {
+        self.live.iter().find(|live| live.input_owner.accepts(seat))
     }
 
-    pub fn dialogue_id(&self) -> Option<&str> {
-        self.live.as_ref().map(LiveConversation::dialogue_id)
+    /// The conversation with this identity.
+    pub fn of_instance(&self, instance: &ConversationInstanceId) -> Option<&LiveConversation> {
+        self.live.iter().find(|live| &live.instance == instance)
     }
 
-    /// Which conversation is live, for a narrative record that has to name one.
-    pub fn instance(&self) -> Option<&ConversationInstanceId> {
-        self.live.as_ref().map(|live| &live.instance)
-    }
-
-    /// Every in-world body in it: the initiator, the talker, then the joined.
-    ///
-    ///  the continuity questions are about all of them — how far apart are they, was
-    /// one hit — and a caller that reaches for [`Self::talker`] alone has already made the rule
-    /// player-centric in the way the rule says it must not be (*"both characters should
-    /// hover"*).
+    /// Every in-world body in any conversation.
     pub fn participants(&self) -> impl Iterator<Item = Entity> + '_ {
         self.live.iter().flat_map(LiveConversation::bodies)
     }
 
-    /// Whether the conversation holds `body`: it is the talker or it joined.
-    /// The initiator is not held; its seat's input drives the text box.
+    /// Whether a conversation holds `body`: it is a talker or it joined.
     pub fn holds(&self, body: Entity) -> bool {
         self.held().any(|held| held == body)
     }
 
-    /// The bodies the conversation holds: the talker, then the joined.
+    /// The bodies every conversation holds.
     pub fn held(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.live
-            .iter()
-            .flat_map(|live| live.talker.into_iter().chain(live.joined.iter().copied()))
+        self.live.iter().flat_map(LiveConversation::held)
     }
 
-    /// Bring `body` into the live conversation. `false` when nothing is live
-    /// or the body is in it already.
-    pub fn join(&mut self, body: Entity) -> bool {
-        let Some(live) = self.live.as_mut() else {
-            return false;
-        };
-        if live.bodies().any(|member| member == body) {
+    /// Bring `body` into the conversation `member` is in. `false` when
+    /// `member` is in none, or `body` is in one already.
+    pub fn join(&mut self, member: Entity, body: Entity) -> bool {
+        if self.of_body(body).is_some() {
             return false;
         }
+        let Some(live) = self.live.iter_mut().find(|live| live.includes(member)) else {
+            return false;
+        };
         live.joined.push(body);
         true
     }
 
-    /// Take `body` out of the live conversation.
+    /// Take `body` out of the conversation it is in.
     ///
     /// The conversation ends when the initiator leaves, or when fewer than
     /// two bodies are left: nobody is talking to anybody. When the talker
@@ -223,33 +264,32 @@ impl ActiveConversation {
     /// body it was opened with is gone, and the ones who joined are not
     /// promoted into its place (a verb that acts on the talker acts on nobody).
     pub fn leave(&mut self, body: Entity) -> Leaving {
-        let Some(live) = self.live.as_mut() else {
+        let Some(at) = self.live.iter().position(|live| live.includes(body)) else {
             return Leaving::NotAMember;
         };
+        let live = &mut self.live[at];
         if live.initiator == Some(body) {
-            self.close();
+            self.live.remove(at);
             return Leaving::Closed;
         }
         if live.talker == Some(body) {
             live.talker = None;
-        } else if let Some(at) = live.joined.iter().position(|member| *member == body) {
-            live.joined.remove(at);
-        } else {
-            return Leaving::NotAMember;
+        } else if let Some(slot) = live.joined.iter().position(|member| *member == body) {
+            live.joined.remove(slot);
         }
         if live.bodies().count() < 2 {
-            self.close();
+            self.live.remove(at);
             return Leaving::Closed;
         }
         Leaving::Left
     }
 
-    /// `by` breaks into the live conversation: it joins, and the narrative
-    /// goes on from `node` as of `tick` (a new instance, so the text box
-    /// starts that node). `false` when nothing is live.
-    pub fn interrupt(&mut self, by: Entity, node: impl Into<String>, tick: u64) -> bool {
-        self.join(by);
-        let Some(live) = self.live.as_mut() else {
+    /// `by` breaks into the conversation `member` is in: it joins, and the
+    /// narrative goes on from `node` as of `tick` (a new instance, so the text
+    /// box starts that node). `false` when `member` is in none.
+    pub fn interrupt(&mut self, member: Entity, by: Entity, node: impl Into<String>, tick: u64) -> bool {
+        self.join(member, by);
+        let Some(live) = self.live.iter_mut().find(|live| live.includes(member)) else {
             return false;
         };
         live.instance = live.instance.redirected(tick, node);
@@ -257,7 +297,7 @@ impl ActiveConversation {
     }
 
     /// Every entity this resource names — the probe the rollback registration
-    /// localizes through, so a desync here reports as the two bodies' stable
+    /// localizes through, so a desync here reports as the bodies' stable
     /// identities rather than as "a resource differs".
     pub fn referenced_entities(&self) -> Vec<Entity> {
         self.participants().collect()
@@ -266,11 +306,10 @@ impl ActiveConversation {
 
 impl bevy::ecs::entity::MapEntities for ActiveConversation {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        let Some(live) = self.live.as_mut() else {
-            return;
-        };
-        for entity in live.bodies_mut() {
-            *entity = mapper.get_mapped(*entity);
+        for live in &mut self.live {
+            for entity in live.bodies_mut() {
+                *entity = mapper.get_mapped(*entity);
+            }
         }
     }
 }

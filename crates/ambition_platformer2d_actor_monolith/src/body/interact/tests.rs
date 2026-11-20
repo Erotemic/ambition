@@ -75,6 +75,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::PresentedConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     app.insert_resource(NextState::<
         ambition_platformer2d_shared_tangle::schedule::GameMode,
@@ -141,6 +142,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::PresentedConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     app.insert_resource(NextState::<
         ambition_platformer2d_shared_tangle::schedule::GameMode,
@@ -262,6 +264,7 @@ fn dialogue_app(nodes: &[&str]) -> App {
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::PresentedConversation>();
     let mut index = ambition_dialog::DialogueNodeIndex::default();
     index.populate(nodes.iter().map(|n| (*n).to_string()));
     app.insert_resource(index);
@@ -436,6 +439,7 @@ fn interaction_app() -> App {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     app.init_resource::<ambition_conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::PresentedConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     app.insert_resource(NextState::<
         ambition_platformer2d_shared_tangle::schedule::GameMode,

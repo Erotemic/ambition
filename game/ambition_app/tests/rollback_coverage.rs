@@ -1041,6 +1041,10 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
+        "ambition_conversation::ui_bridge::PresentedConversation",
+        "Which live conversation the one text runner is running: presentation state, set by the dialog projection in Update. A rewind restores ActiveConversation; the projection then attaches the runner to what is live, as it does on any frame.",
+    ),
+    (
         "ambition_platformer2d_runtime::behavior_events::NativeSources",
         "Typed native event contracts installed when the app is built. Simulation ticks read this registry but do not change it. Rewind restores subscriber mailboxes, not the app composition.",
     ),

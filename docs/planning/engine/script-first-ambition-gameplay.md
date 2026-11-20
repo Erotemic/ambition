@@ -265,6 +265,24 @@ The active program can be marked complete only when:
 
 When time or dependencies prevent full completion, commit the finished coherent improvements and report **partial progress**, the remaining blocking capability, its owner, and the next executable step. Never call the full plan finished while a gate above remains unsatisfied. A request to "complete these plans" authorizes the necessary engine work; it is not an instruction to ask for permission at each ordinary engine refactor.
 
+## Completion plan (2026-11-20)
+
+Maintainer, 2026-11-20: finishing this program completely is the top
+priority. Measured against the completion gate above at `8d74f01d7`, these
+are what remain. Each slice lands with a loaded Rhai witness through the real
+host, rollback health and its guide section, and updates the
+[census](script-first-capability-census.md) row it closes.
+
+| Slice | Gap (source checked 2026-11-20) | Owner |
+| --- | --- | --- |
+| C1 | Custody requests (`ambition.item.take`, release) are refused by a warning and dropped; a script learns the result only by polling the next observation. Give them action outcomes (applied, refused with a reason) through the action contract. | `ambition_held_items`, `ambition_abilities::group` |
+| C2 | Travel and room lifecycles: no confirmed arrival, departure or refused crossing reaches a script, and a room's retirement tells no subscriber outside it that its sources are gone (the retirement fact the 2026-11-19 row left waiting). | room transition commit; room lifecycle |
+| C3 | Persistent consequence between rooms: `post_world_signal` is transient. Gate 2 needs persistent world state written through confirmed transactions, saved, readable in every room and observable on change. | the committed world road (`world_posts`) and persistence |
+| C4 | Authored object state beyond destruction: a door or barrier a script locks and unlocks through its native owner, with outcomes, and inspections of that state. | interaction and loading-zone owners |
+| C5 | The remaining action outcomes: cutscene play, portal requests and summons. | cutscene, portal and summon owners |
+| C6 | Actor lifetime: a body's retirement as a fact (other than defeat), and retiring a script's own creation through its owner. | actor lifecycle; construction |
+| C7 | The gate's mechanism: several stateful objects, a character that reacts to combat and world events and handles outcomes, and a persistent consequence between rooms. Add a variation with no Rust adapter, portable parity, a measured cost, and the census rewritten to current source. | content and Rhai |
+
 ## Existing owners and references
 
 - [Extension model](extension-model.md) defines the three tiers, authority and backend independence.

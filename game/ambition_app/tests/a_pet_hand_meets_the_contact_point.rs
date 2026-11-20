@@ -79,7 +79,7 @@ fn pet_the_dog(sim: &mut Platformer2dSimHarness) -> Pet {
     let talking = |sim: &Platformer2dSimHarness| {
         sim.world()
             .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
-            .is_some_and(|conversation| conversation.talker() == Some(dog))
+            .is_some_and(|conversation| conversation.conversations().next().and_then(|live| live.talker) == Some(dog))
     };
     for _ in 0..10 {
         if talking(sim) {
@@ -88,6 +88,9 @@ fn pet_the_dog(sim: &mut Platformer2dSimHarness) -> Pet {
         sim.step(base());
     }
     assert!(talking(sim), "Interact beside the dog talks to it");
+    // The box opens on the frame after the talk does, and a choice is made
+    // in the box: the runner names that conversation from then on.
+    sim.step(base());
     sim.world_mut()
         .run_system_cached(ambition_content::yarn_vocabulary::cmd_pet)
         .expect("the `<<pet>>` command runs");

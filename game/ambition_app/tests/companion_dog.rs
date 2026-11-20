@@ -425,7 +425,7 @@ fn gap_to_the_dog(sim: &ambition_app::Platformer2dSimHarness, player: Entity, do
 fn talking_to(sim: &ambition_app::Platformer2dSimHarness, dog: Entity) -> bool {
     sim.world()
         .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
-        .is_some_and(|conversation| conversation.talker() == Some(dog))
+        .is_some_and(|conversation| conversation.conversations().next().and_then(|live| live.talker) == Some(dog))
 }
 
 /// Press Interact and wait for a conversation with the dog to open.
@@ -596,6 +596,9 @@ fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
     assert_eq!(posed(&sim), (false, false), "Interact alone does not pet the dog");
 
     // THE CHOICE.
+    // The box opens on the frame after the talk does, and a choice is made
+    // in the box: the runner names that conversation from then on.
+    sim.step(base());
     sim.world_mut()
         .run_system_cached(ambition_content::yarn_vocabulary::cmd_pet)
         .expect("the `<<pet>>` command runs");
@@ -786,6 +789,9 @@ fn the_petter_and_the_dog_look_at_each_other_under_flipped_gravity() {
     let here = sim.world().get::<BodyKinematics>(dog).expect("a live body").pos;
     sim.teleport_player((here.x, here.y));
     assert!(talk_to_the_dog(&mut sim, dog), "premise: Interact beside the dog talks to it under flipped gravity");
+    // The box opens on the frame after the talk does, and a choice is made
+    // in the box: the runner names that conversation from then on.
+    sim.step(base());
     sim.world_mut()
         .run_system_cached(ambition_content::yarn_vocabulary::cmd_pet)
         .expect("the `<<pet>>` command runs");

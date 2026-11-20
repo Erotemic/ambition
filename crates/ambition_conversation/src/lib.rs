@@ -58,7 +58,7 @@ pub use rules::{
 };
 pub use ui_bridge::{
     close_conversation_on_narrative_end, project_the_dialog_ui_from_the_conversation,
-    publish_the_narrative_end, ConversationEnded,
+    publish_the_narrative_end, ConversationEnded, PresentedConversation, RunnerConversation,
 };
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.

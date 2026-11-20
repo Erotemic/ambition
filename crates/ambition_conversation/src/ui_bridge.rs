@@ -22,6 +22,56 @@ pub struct ConversationEnded {
     pub instance: ConversationInstanceId,
 }
 
+/// The conversation the text runner is running: presentation state, set by
+/// [`project_the_dialog_ui_from_the_conversation`]. A narrative command or a
+/// narrative end the runner reports is that conversation's. One runner
+/// presents one conversation (SIMULATION-ISLANDS N2 gives each its own).
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct PresentedConversation(pub Option<ConversationInstanceId>);
+
+impl PresentedConversation {
+    /// The live conversation the runner presents: the one an authored command
+    /// the runner fires acts on.
+    pub fn live<'a>(&self, conversation: &'a ActiveConversation) -> Option<&'a super::authority::LiveConversation> {
+        conversation.of_instance(self.0.as_ref()?)
+    }
+}
+
+/// The conversation the runner presents, for a Yarn command or function the
+/// runner fires: that conversation's talker, initiator and seat.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct RunnerConversation<'w> {
+    conversation: Option<Res<'w, ActiveConversation>>,
+    presented: Option<Res<'w, PresentedConversation>>,
+}
+
+impl RunnerConversation<'_> {
+    /// The live conversation the runner presents.
+    pub fn live(&self) -> Option<&super::authority::LiveConversation> {
+        self.presented.as_deref()?.live(self.conversation.as_deref()?)
+    }
+
+    /// The body being talked to.
+    pub fn talker(&self) -> Option<Entity> {
+        self.live().and_then(|live| live.talker)
+    }
+
+    /// The body that started it.
+    pub fn initiator(&self) -> Option<Entity> {
+        self.live().and_then(|live| live.initiator)
+    }
+
+    /// Whose input drives it.
+    pub fn input_owner(&self) -> Option<ambition_input::InputOwner> {
+        self.live().map(|live| live.input_owner)
+    }
+
+    /// The seat whose dialogue history it is.
+    pub fn history_seat(&self) -> u8 {
+        self.live().map_or(0, super::authority::LiveConversation::history_seat)
+    }
+}
+
 /// Run condition of the dialog projection and the end stamp: a conversation
 /// is live or the dialog UI is shown, or one was last frame, the run that
 /// forgets the conversation the projection had attached.
@@ -48,10 +98,11 @@ pub fn a_conversation_is_live(conversation: Res<ActiveConversation>) -> bool {
 /// across rollback.
 pub fn publish_the_narrative_end(
     conversation: Res<ActiveConversation>,
+    presented: Res<PresentedConversation>,
     dialog: Res<ambition_dialog::DialogState>,
     mut narrative: NarrativeInputWriter<ConversationEnded>,
 ) {
-    let Some(instance) = conversation.instance().cloned() else {
+    let Some(instance) = presented.0.clone().filter(|instance| conversation.of_instance(instance).is_some()) else {
         return;
     };
     if dialog.active() {
@@ -68,11 +119,8 @@ pub fn close_conversation_on_narrative_end(
     mut conversation: ResMut<ActiveConversation>,
     mut ended: ReplayMessageReader<ConversationEnded>,
 ) {
-    let ends = ended
-        .read()
-        .any(|end| conversation.instance() == Some(&end.instance));
-    if ends {
-        conversation.close();
+    for end in ended.read() {
+        conversation.close_instance(&end.instance);
     }
 }
 
@@ -83,10 +131,12 @@ pub fn close_conversation_on_narrative_end(
 pub fn project_the_dialog_ui_from_the_conversation(
     conversation: Res<ActiveConversation>,
     mut dialog: ResMut<ambition_dialog::DialogState>,
-    mut attached: Local<Option<ConversationInstanceId>>,
+    mut presented: ResMut<PresentedConversation>,
     settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
 ) {
-    let Some(live) = conversation.live() else {
+    let attached = &mut presented.0;
+    // The one runner presents the earliest conversation still live.
+    let Some(live) = conversation.conversations().next() else {
         // No conversation authority means the shared dialog surface must be closed and detached.
         *attached = None;
         if dialog.active() {

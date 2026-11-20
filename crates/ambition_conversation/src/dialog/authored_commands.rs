@@ -50,11 +50,14 @@ fn request_authored_command(
     In((raw_id, a0, a1, a2)): In<(String, Option<String>, Option<String>, Option<String>)>,
     catalog: Option<Res<CommandCatalog>>,
     active: Option<Res<crate::ActiveConversation>>,
+    presented: Option<Res<crate::PresentedConversation>>,
     mut narrative: NarrativeInputWriter<RunAuthoredCommand>,
 ) {
+    // The runner fired it, so it is the presented conversation's.
     let node = active
         .as_deref()
-        .and_then(|active| active.live())
+        .zip(presented.as_deref())
+        .and_then(|(active, presented)| presented.live(active))
         .map(|live| live.instance.node().to_string());
     let Some(id) = CommandId::parse(&raw_id) else {
         warn!(

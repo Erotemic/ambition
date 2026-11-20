@@ -1310,6 +1310,24 @@ Slices, each with a witness:
   Witness: Alice and Bob talk at once in two rooms, each advances only on
   its own seat's input, and a rewind of Bob's room leaves Alice's talk as an
   on-time run has it.
+
+  **N1 done 2026-11-20.** The key is the seat and the body, not the room:
+  two live conversations never share a seat or a body, and opening one
+  replaces any that does. Per room would still make two seats in one room
+  wait on each other, and N3 draws a box per seat, so the seat is the
+  natural key. `ActiveConversation` holds a list. Readers ask by body
+  (`of_body`), seat (`of_owner`, `of_seat`) or instance (`of_instance`). The
+  break and interrupt rules, the talk spacing, the crossing, input routing
+  and the durable-horizon visit count go over every live conversation.
+  `ConversationsInRooms` logs a change per seat and a room's retraction puts
+  back only its own seats' talks. A runner command, the ledger's end stamp
+  and membership act on `PresentedConversation`: the instance the one runner
+  presents, read through `RunnerConversation`. Opening a second seat's talk
+  is still refused in `DialogueDispatch::open_between`. With one runner and
+  one box, that talk would hold its seat's input with nothing to answer it,
+  so the refusal stays until N2 and N3. Witnesses (`ambition_conversation`
+  tests): `two_seats_talk_at_once_and_one_ending_leaves_the_other` and
+  `a_rooms_rewind_puts_back_only_its_own_seats_conversation`.
 - **N2, the runner.** There is one `DialogueRunner` per live conversation.
   They share one variable storage, because Yarn variables are the save's
   flags. Commands and functions are registered on each runner

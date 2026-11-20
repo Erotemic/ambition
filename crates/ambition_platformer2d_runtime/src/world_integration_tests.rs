@@ -377,6 +377,7 @@ fn interact_buffered_starts_npc_dialogue() {
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::PresentedConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     app.add_message::<SetFlagsRequested>();
     app.add_message::<QuestAdvanceRequested>();
@@ -425,6 +426,7 @@ fn interact_buffered_starts_npc_dialogue() {
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to
     // open.
+    app.init_resource::<ambition_conversation::PresentedConversation>();
     app.add_systems(
         Update,
         (

@@ -371,14 +371,16 @@ pub fn declare_in_session_input_contexts(
     drivers: Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
+    // Each seat answers its own conversation, if any (every seat talks in its own).
     #[cfg(feature = "dialogue")]
-    let owner = conversation
+    let owners: Vec<ambition_input::InputOwner> = conversation
         .as_deref()
-        .and_then(ambition_conversation::ActiveConversation::input_owner);
+        .map(|conversation| conversation.conversations().map(|live| live.input_owner).collect())
+        .unwrap_or_default();
     #[cfg(not(feature = "dialogue"))]
-    let owner: Option<ambition_input::InputOwner> = None;
+    let owners: Vec<ambition_input::InputOwner> = Vec::new();
     for (participant, mut contexts) in &mut participants {
-        let in_dialogue = owner.is_some_and(|owner| owner.accepts(participant.id));
+        let in_dialogue = owners.iter().any(|owner| owner.accepts(participant.id));
         let in_cutscene = cutscene.is_playing() && {
             let slot = ambition_characters::control::PlayerSlot(participant.id.slot());
             let body = drivers.iter().find(|(driver, _)| driver.0 == slot).map(|(_, body)| body);
@@ -1687,6 +1689,7 @@ mod focus_gate_tests {
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.init_resource::<ambition_cutscene::ActiveCutscene>();
         app.init_resource::<ambition_conversation::ActiveConversation>();
+        app.init_resource::<ambition_conversation::PresentedConversation>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.insert_state(GameMode::Playing);
         app.world_mut().spawn(seat(0));
@@ -1746,7 +1749,10 @@ mod focus_gate_tests {
         //    and seat 1 keeps driving its body.
         //
         // The whole chain runs now, and the conversation's own owner is what makes seat 1 keep
-        // playing.
+        // playing. Seat 1's talk ends first: each seat talks in its own.
+        app.world_mut()
+            .resource_mut::<ambition_conversation::ActiveConversation>()
+            .close_owned_by(ambition_input::InputOwner::Participant(ParticipantId(1)));
         app.world_mut()
             .resource_mut::<ambition_conversation::ActiveConversation>()
             .open(ambition_conversation::LiveConversation::for_test(

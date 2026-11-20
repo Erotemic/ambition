@@ -90,13 +90,12 @@ fn queue_story_ticks(
         #[cfg(feature = "dialogue")]
         let busy = busy || conversation
                 .as_ref()
-                .and_then(|active| active.live())
-                .is_some_and(|live| {
+                .is_some_and(|active| active.conversations().any(|live| {
                     live.initiator
                         .or(live.talker)
                         .and_then(|body| rooms.of(body))
                         .is_none_or(|at| at == *room)
-                });
+                }));
         let mut members: Vec<_> = bodies
             .iter()
             .filter(|(body, ..)| rooms.of(*body) == Some(*room))

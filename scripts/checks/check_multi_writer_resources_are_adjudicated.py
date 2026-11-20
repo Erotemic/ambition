@@ -209,6 +209,10 @@ from scripts.measure import multi_writer_resource_census as census  # noqa: E402
 #: than a second recorded fact that can disagree with the first — which is the
 #: rule this whole census exists to enforce, applied to the census.
 BASELINE: dict[str, tuple[str, ...]] = {
+    "PlatformerAuthoredCatalogRegistry": (
+        "crates/ambition_platformer2d_provider/src/authoring.rs",
+        "game/ambition_content/src/reload.rs",
+    ),
     "ConfirmedFrameBoundary": (
         "crates/ambition_hosted_world/src/room_rollback.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
@@ -1096,6 +1100,18 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "PlatformerAuthoredCatalogRegistry": (
+        "CORRECT -- REGISTRATION, THEN A PUBLISHED GENERATION (CONTENT-AS-DATA, "
+        "2026-11-20). `provider/src/authoring.rs` registers each experience's "
+        "authored catalog fragments once, at App build. `ambition_content`'s "
+        "reload restates only Ambition's starting character, at the activation "
+        "of a content generation that changed `ambition_rules` "
+        "(`publish_ambition_tuning`), never on the same tick as the build. The "
+        "reader is session preparation (`prepare_platformer_content`), which "
+        "must see the published generation's row; "
+        "`a_candidate_that_changes_the_starting_character_restates_the_providers_default` "
+        "fails with the build's row when the reload's write is removed."
+    ),
     "ConfirmedFrameBoundary": (
         "CORRECT -- TWO HOSTS, NEVER ONE APP (SIMULATION-ISLANDS, 2026-11-14). "
         "The GGRS bridge (`rollback_ggrs/src/session.rs`) publishes the "

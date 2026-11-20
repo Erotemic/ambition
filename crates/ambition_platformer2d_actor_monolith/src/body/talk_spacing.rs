@@ -86,13 +86,17 @@ pub fn space_the_talkers(
     mut bodies: Query<&mut BodyKinematics>,
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    let pair = conversation
+    // Each live conversation's pair: every seat talks in its own.
+    let pairs: Vec<(Entity, Entity)> = conversation
         .as_deref()
-        .and_then(|conversation| conversation.initiator().zip(conversation.talker()));
+        .map(|conversation| {
+            conversation.conversations().filter_map(|live| live.initiator.zip(live.talker)).collect()
+        })
+        .unwrap_or_default();
     // A record whose conversation has closed goes, with its step. A pet owns
     // the walk it put on the body, so that walk stays.
     for (body, spacing) in &spacings {
-        if pair.is_some_and(|(initiator, _)| initiator == body) {
+        if pairs.iter().any(|(initiator, _)| *initiator == body) {
             continue;
         }
         commands.entity(body).remove::<TalkSpacing>();
@@ -100,95 +104,94 @@ pub fn space_the_talkers(
             commands.entity(body).remove::<CommandedMove>();
         }
     }
-    let Some((initiator, other)) = pair else {
-        return;
-    };
-    let frame = super::pet::pet_frame(&frames, initiator);
-    if let Ok((_, mut spacing)) = spacings.get_mut(initiator) {
-        if spacing.walking <= 0.0 {
-            return;
-        }
-        // The pet put its own walk on the body: it is the pet's from now.
-        if pets.contains(initiator) {
+    for (initiator, other) in pairs.iter().copied() {
+        let frame = super::pet::pet_frame(&frames, initiator);
+        if let Ok((_, mut spacing)) = spacings.get_mut(initiator) {
+            if spacing.walking <= 0.0 {
+                continue;
+            }
+            // The pet put its own walk on the body: it is the pet's from now.
+            if pets.contains(initiator) {
+                spacing.walking = 0.0;
+                continue;
+            }
+            let Ok([mut initiator_kin, mut other_kin]) = bodies.get_many_mut([initiator, other]) else {
+                continue;
+            };
+            let arrived = (initiator_kin.pos.dot(frame.side) - spacing.mark).abs() <= TALK_ARRIVE_TOLERANCE;
+            let remaining = spacing.walking - world_time.sim_dt() * freeze.scale_of(initiator);
+            if !arrived && remaining > 0.0 {
+                spacing.walking = remaining;
+                continue;
+            }
+            // The step is over: the initiator stops and faces back across.
+            if super::pet::stop_where_it_stands(&poses, initiator, &mut initiator_kin, frame.down).is_err() { continue; }
             spacing.walking = 0.0;
-            return;
+            commands.entity(initiator).remove::<CommandedMove>();
+            initiator_kin.facing = -spacing.side;
+            other_kin.facing = spacing.side;
+            continue;
         }
-        let Ok([mut initiator_kin, mut other_kin]) = bodies.get_many_mut([initiator, other]) else {
-            return;
+        // The conversation has just opened.
+        let (Ok(other_box), Ok([mut initiator_kin, mut other_kin])) =
+            (boxes.get(other), bodies.get_many_mut([initiator, other]))
+        else {
+            continue;
         };
-        let arrived = (initiator_kin.pos.dot(frame.side) - spacing.mark).abs() <= TALK_ARRIVE_TOLERANCE;
-        let remaining = spacing.walking - world_time.sim_dt() * freeze.scale_of(initiator);
-        if !arrived && remaining > 0.0 {
-            spacing.walking = remaining;
-            return;
-        }
-        // The step is over: the initiator stops and faces back across.
-        if super::pet::stop_where_it_stands(&poses, initiator, &mut initiator_kin, frame.down).is_err() { return; }
-        spacing.walking = 0.0;
-        commands.entity(initiator).remove::<CommandedMove>();
-        initiator_kin.facing = -spacing.side;
-        other_kin.facing = spacing.side;
-        return;
-    }
-    // The conversation has just opened.
-    let (Ok(other_box), Ok([mut initiator_kin, mut other_kin])) =
-        (boxes.get(other), bodies.get_many_mut([initiator, other]))
-    else {
-        return;
-    };
-    let on_side = |pos: Vec2| pos.dot(frame.side);
-    let here = on_side(initiator_kin.pos);
-    let mark_for = |side: f32| {
-        on_side(other_box.center)
-            + side
-                * (super::pet::half_on(other_box.half_size, frame.side)
-                    + initiator_kin.size().x * 0.5
-                    + TALK_GAP)
-    };
-    let level = initiator_kin.pos.dot(frame.down);
-    let place = |mark: f32| frame.side * mark + frame.down * level;
-    let half = initiator_kin.half_extent();
-    let grounded = grounds.get(initiator).is_ok_and(|ground| ground.on_ground);
-    let solids = collision
-        .room(rooms.get(initiator).ok())
-        .and_then(|room| room.solids());
-    let safe = |mark: f32| {
-        grounded
-            && solids.as_deref().is_some_and(|world| {
-                step_is_safe(world, initiator_kin.pos, place(mark), half, frame.down)
-            })
-    };
-    // The initiator's own side first. A body beside a wall is talked to from
-    // its open side, as a pet is.
-    let near = if here >= on_side(other_box.center) { 1.0 } else { -1.0 };
-    let step = if (mark_for(near) - here).abs() <= TALK_ARRIVE_TOLERANCE {
-        None
-    } else {
-        [near, -near].into_iter().find(|side| safe(mark_for(*side)))
-    };
-    let side = step.unwrap_or(near);
-    // With no step, the initiator stands where it is.
-    let mark = if step.is_some() { mark_for(side) } else { here };
-    // The two face each other now, whether or not the initiator steps.
-    let walking = if step.is_some() {
-        // The other body waits where it is, as a petted body does.
-        if super::pet::stop_where_it_stands(&poses, other, &mut other_kin, frame.down).is_err() { return; }
-        commands.entity(initiator).insert(CommandedMove {
-            target: place(mark),
-            speed: TALK_WALK_SPEED,
-            arrive_tolerance: TALK_ARRIVE_TOLERANCE,
+        let on_side = |pos: Vec2| pos.dot(frame.side);
+        let here = on_side(initiator_kin.pos);
+        let mark_for = |side: f32| {
+            on_side(other_box.center)
+                + side
+                    * (super::pet::half_on(other_box.half_size, frame.side)
+                        + initiator_kin.size().x * 0.5
+                        + TALK_GAP)
+        };
+        let level = initiator_kin.pos.dot(frame.down);
+        let place = |mark: f32| frame.side * mark + frame.down * level;
+        let half = initiator_kin.half_extent();
+        let grounded = grounds.get(initiator).is_ok_and(|ground| ground.on_ground);
+        let solids = collision
+            .room(rooms.get(initiator).ok())
+            .and_then(|room| room.solids());
+        let safe = |mark: f32| {
+            grounded
+                && solids.as_deref().is_some_and(|world| {
+                    step_is_safe(world, initiator_kin.pos, place(mark), half, frame.down)
+                })
+        };
+        // The initiator's own side first. A body beside a wall is talked to from
+        // its open side, as a pet is.
+        let near = if here >= on_side(other_box.center) { 1.0 } else { -1.0 };
+        let step = if (mark_for(near) - here).abs() <= TALK_ARRIVE_TOLERANCE {
+            None
+        } else {
+            [near, -near].into_iter().find(|side| safe(mark_for(*side)))
+        };
+        let side = step.unwrap_or(near);
+        // With no step, the initiator stands where it is.
+        let mark = if step.is_some() { mark_for(side) } else { here };
+        // The two face each other now, whether or not the initiator steps.
+        let walking = if step.is_some() {
+            // The other body waits where it is, as a petted body does.
+            if super::pet::stop_where_it_stands(&poses, other, &mut other_kin, frame.down).is_err() { continue; }
+            commands.entity(initiator).insert(CommandedMove {
+                target: place(mark),
+                speed: TALK_WALK_SPEED,
+                arrive_tolerance: TALK_ARRIVE_TOLERANCE,
+            });
+            (mark - here).abs() / TALK_WALK_SPEED + TALK_WALK_SLACK_SECONDS
+        } else {
+            0.0
+        };
+        other_kin.facing = side;
+        initiator_kin.facing = -side;
+        commands.entity(initiator).insert(TalkSpacing {
+            mark,
+            side,
+            walking,
         });
-        (mark - here).abs() / TALK_WALK_SPEED + TALK_WALK_SLACK_SECONDS
-    } else {
-        0.0
-    };
-    other_kin.facing = side;
-    initiator_kin.facing = -side;
-    commands.entity(initiator).insert(TalkSpacing {
-        mark,
-        side,
-        walking,
-    });
+    }
 }
 
 /// Whether a body with half extents `half` can walk on the floor from `from`

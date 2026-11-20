@@ -56,7 +56,7 @@ fn x_of(sim: &ambition_app::Platformer2dSimHarness, body: Entity) -> f32 {
 fn talking_to(sim: &ambition_app::Platformer2dSimHarness, body: Entity) -> bool {
     sim.world()
         .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
-        .is_some_and(|conversation| conversation.talker() == Some(body))
+        .is_some_and(|conversation| conversation.conversations().next().and_then(|live| live.talker) == Some(body))
 }
 
 /// Step until `done` holds of his life, at most `ticks`.

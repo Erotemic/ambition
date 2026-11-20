@@ -74,12 +74,12 @@ fn a_third_character_joins_a_conversation_and_leaves_it_by_the_rules() {
     sim.step(base());
     sim.step(ambition_app::AgentAction { interact: true, interact_held: true, ..base() });
     for _ in 0..10 {
-        if conversation(&sim).talker() == Some(nikobolt) {
+        if conversation(&sim).conversations().next().and_then(|live| live.talker) == Some(nikobolt) {
             break;
         }
         sim.step(base());
     }
-    assert_eq!(conversation(&sim).talker(), Some(nikobolt), "premise: Interact beside Nikobolt opens a conversation with him");
+    assert_eq!(conversation(&sim).conversations().next().and_then(|live| live.talker), Some(nikobolt), "premise: Interact beside Nikobolt opens a conversation with him");
 
     // Coulomba stands within earshot of them.
     stand_beside(&mut sim, coulomba, ae::Vec2::new(at.x + 64.0, at.y));
@@ -88,7 +88,7 @@ fn a_third_character_joins_a_conversation_and_leaves_it_by_the_rules() {
     ask(&mut sim, "join", COULOMBA);
     let joined = conversation(&sim);
     assert!(joined.holds(coulomba), "`conversation.join` brought Coulomba into the conversation");
-    assert_eq!(joined.talker(), Some(nikobolt), "the conversation is still with Nikobolt");
+    assert_eq!(joined.conversations().next().and_then(|live| live.talker), Some(nikobolt), "the conversation is still with Nikobolt");
     let stood_at = x_of(&sim, coulomba);
     sim.step_n(base(), 60);
     assert!(sim.world().get::<HeldByConversation>(coulomba).is_some(), "Coulomba is held while they talk");
@@ -100,7 +100,7 @@ fn a_third_character_joins_a_conversation_and_leaves_it_by_the_rules() {
     sim.step_n(base(), 2);
     let after = conversation(&sim);
     assert!(!after.holds(coulomba), "Coulomba, knocked back, is still in the conversation");
-    assert_eq!(after.talker(), Some(nikobolt), "the player and Nikobolt should talk on after Coulomba left");
+    assert_eq!(after.conversations().next().and_then(|live| live.talker), Some(nikobolt), "the player and Nikobolt should talk on after Coulomba left");
     sim.step_n(base(), 30);
     assert!(sim.world().get::<HeldByConversation>(coulomba).is_none(), "the hold on Coulomba was released");
 
@@ -115,5 +115,5 @@ fn a_third_character_joins_a_conversation_and_leaves_it_by_the_rules() {
     ask(&mut sim, "leave", COULOMBA);
     let left = conversation(&sim);
     assert!(!left.holds(coulomba), "`conversation.leave` took Coulomba out");
-    assert_eq!(left.talker(), Some(nikobolt), "and the conversation with Nikobolt goes on");
+    assert_eq!(left.conversations().next().and_then(|live| live.talker), Some(nikobolt), "and the conversation with Nikobolt goes on");
 }

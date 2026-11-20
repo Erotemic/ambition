@@ -125,7 +125,7 @@ fn open_a_conversation_on_known_ticks(
 ) {
     use ambition_platformer2d::conversation::{ConversationInstanceId, LiveConversation};
     if tick.0 == CLOSES_AT {
-        conversation.close();
+        conversation.close_all();
         return;
     }
     if !OPENS_AT.contains(&tick.0) {

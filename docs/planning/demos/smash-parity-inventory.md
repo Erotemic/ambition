@@ -256,7 +256,7 @@ Preserve these and build new features on their seams.
 | Fast fall after launch | ✔ | S/M | E1 | |
 | Once-per-airtime recovery | ✔ | S/M | E1 | `recovery_charges` (integer); refunded on landing, ledge, capture, respawn and a flinching hit (Jon). |
 | Post-recovery helpless | ✔ | M | E1 | Derived (`body_is_helpless`). |
-| Ledge-trump pop | ◐ | S/M | E1 | Pop ships (`ledge_trump_pop`); the commitment window does not. |
+| Ledge-trump pop | ✔ | S/M | E1 | Re-measured 2026-11-20: the pop (`ledge_trump_pop`) and the commitment window (`ledge_trump_lockout`, `BodyCombat::ledge_trump_lock_timer`, Q43) both ship as declared rules; Smash's `room_rules.ron` declares 260 and 0.5 s. |
 | Two-frame ledge vulnerability | ✔ | S/M | E1 | |
 | Ledge regrab limit | ✔ | — | E1 | Ultimate's rule (2026-10-08): six grabs per airtime, intangibility ×0.8, ×0.5, then none; landing or a hit resets the count. One grab site scales the airtime-earned window by the count, so the two inputs feed one authority. Superseded the 2026-08-24 "do not add a count" answer, under the Ultimate target in "Ledge occupancy" below. |
 | Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. |
@@ -295,7 +295,7 @@ a simultaneous new grab may latch before the trump resolves.
 
 | Feature | Status | Effort | Engine | Notes |
 |---|---:|---:|---:|---|
-| Grab-release beat/pose | ▢ | S/M | E1 | Publish a released/escaped fact if presentation needs it. |
+| Grab-release beat/pose | ▢ | S/M | E1 | Re-measured 2026-11-20: every exit goes through `capture::systems::release_capture`, which publishes nothing. Publish a released/escaped fact when a presentation consumer (a release pose or cue) is authored; until then it is a §12 presentation row, not a strike-seam one. |
 | Grounded command grab | ✔ | S/M | E1 | `lunge_grab` (stand-in `special_forward`). Zero starts in one complete shipped-ladder match. |
 | Aerial command grab | Not planned | — | — | S0.4 ruling: no airborne captures. |
 | Hit-grab | ✔ | M | E1 | 2026-11-20. `smash.hit_grab` (on hit, `ambition_demo_smash_modules::hit_grab`) asks `ambition.combat.seize_struck`: the striker grabs the body its strike struck, through the capture relation, with a capture attempt that NAMES its victim (`CaptureAttemptRequested::target`), so no box search can catch a different body. It is judged by every grab rule but the reach (both standing, neither held, the damage relation, the matching, a mutual grab is a parry); when it will be judged, the hold replaces the hit's launch and stun, and a body in the air keeps its hit. **Shield: blocked, said out loud.** A blocked strike lands no `LandedBodyHit`, so it strikes nothing and seizes nothing; unlike the overlap grab, a hit-grab does not beat a shield. Customer: the Goblin's headlong charge tackles a standing body into his grab kit (pummel, throws, carry). Guards: `a_named_attempt_catches_its_target_and_only_it` (capture), `a_hit_grab_asks_for_the_body_it_struck` (module road, linked and wasm); match-path `the_goblins_headlong_charge_tackles_a_standing_rival_into_his_grab` needs the music registry. |
@@ -581,8 +581,9 @@ post-gate order, each step one coherent customer at a time:
    headless match waits for entry music, so this needs a machine with the
    music registry.
 2. **Strike-seam rows that reuse S0.8/S0.9 seams** (E1, settled policy):
-   hit-grab (✔ 2026-11-20), recoil on hit (✔ 2026-11-20) (the inverse of `ambition.combat.mend`), the
-   ledge-trump commitment window, a grab-release fact.
+   ✔ 2026-11-20. Hit-grab and recoil on hit shipped; the ledge-trump
+   commitment window had already shipped (`ledge_trump_lockout`). The
+   grab-release fact waits for a presentation consumer (step 5).
 3. **Item attribution**: thrown-item damage through normal hit attribution,
    then thrower/KO attribution, item catch and item lifetime policy.
 4. **Training and match-rule knobs** that need no new semantics: reset

@@ -366,3 +366,26 @@ fn the_goblins_headlong_charge_tackles_a_standing_rival_into_his_grab() {
     }
     assert_eq!(held_by, Some(goblin), "the charge did not tackle the standing rival into the goblin's grab");
 }
+
+/// Post-gate: Bob's piston charge costs him when it lands: his percent rises
+/// by its recoil (3) as the rival takes the hit.
+#[test]
+fn bobs_piston_charge_costs_him_its_recoil_when_it_lands() {
+    let (mut app, [bob, victim]) = two_fighters(["npc_bob", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    let spec = app.world().get::<ActorMoveset>(bob).unwrap().0.moves.iter()
+        .find(|spec| spec.id == "piston_charge").unwrap().clone();
+    let (bob_before, victim_before) = (
+        app.world().get::<BodyHealth>(bob).unwrap().damage_taken(),
+        app.world().get::<BodyHealth>(victim).unwrap().damage_taken(),
+    );
+    app.world_mut().entity_mut(bob).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0));
+    for _ in 0..60 {
+        app.update();
+        if app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > victim_before {
+            break;
+        }
+    }
+    app.update();
+    assert!(app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > victim_before, "the charge did not land");
+    assert_eq!(app.world().get::<BodyHealth>(bob).unwrap().damage_taken() - bob_before, 3, "Bob did not pay the recoil");
+}

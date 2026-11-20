@@ -1529,7 +1529,15 @@
                                             knockback_growth: Some(2.05),
                                             launch_dir: Some((0.95, -0.35)),
                                             reaction: None,
-                                            on_hit: None,
+                                            // The piston jars its driver: each time the ram lands its
+                                            // 12, Bob pays 3 (`smash.recoil`), a price and not an
+                                            // injury, so his heaviest special is never free.
+                                            on_hit: Some((
+                                                key: "smash.recoil",
+                                                params: ({
+                                                    "amount": 3,
+                                                }),
+                                            )),
                                             vfx: Some("slash_arc"),
                                             hit_sfx: Some("player.hit"),
                                         ),

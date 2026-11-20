@@ -362,6 +362,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::FreezePort>("freeze")
         .add::<ambition_combat_port::CrumplePort>("crumple")
         .add::<ambition_combat_port::MendPort>("mend")
+        .add::<ambition_combat_port::RecoilPort>("recoil")
         .add::<ambition_combat_port::SeizeStruckPort>("seize_struck")
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
         .add::<ambition_combat_port::BodyContactPort>("body_contact")

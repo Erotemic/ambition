@@ -66,6 +66,7 @@ pub mod smash_homing;
 pub mod smash_limit;
 pub mod smash_mark;
 pub mod smash_paralyze;
+pub mod smash_recoil;
 pub mod smash_mine;
 pub mod smash_portal;
 pub mod smash_repertoire;

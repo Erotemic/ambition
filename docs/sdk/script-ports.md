@@ -352,6 +352,15 @@ Port `ambition.combat.mend@1`, request: `this.requests.push(request("<alias>", #
 | `body` | text | required | The credit of the body that mends. |
 | `amount` | integer (i32) | required | Health it mends (health points). |
 
+## `recoil`
+
+Port `ambition.combat.recoil@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `body` | text | required | The credit of the body that pays. |
+| `amount` | integer (i32) | required | Health it pays (health points). |
+
 ## `seize_struck`
 
 Port `ambition.combat.seize_struck@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

@@ -602,6 +602,56 @@ ambition_extension_sdk::port_record! {
 
 ambition_extension_sdk::script_port!(MendPort);
 
+/// The request port marker for a strike's cost to the body that struck.
+///
+/// Port card:
+///
+/// * **Operation** — the body `body` names (a credit: [`crate::Struck::striker`])
+///   pays `amount` health as a PRICE, not an injury (`BodyHealth::spend`):
+///   its damage meter advances as an injury's would (in a match, its percent
+///   rises), its pool falls but never below 1, and the payment kills
+///   nobody, is credited to nobody, stuns nothing and ignores
+///   invulnerability. A body that can afford less pays what it can. A body
+///   out of play does not pay. An amount that is not above 0, or a credit
+///   that names no body in the world, is refused.
+/// * **Owner** — `ambition_combat::extension::reaction`, through the body's
+///   `BodyHealth::spend`.
+/// * **Scope** — any body the credit names; in `hit_reaction` the invocation
+///   ran for the struck body, and the body that pays is the one that struck.
+/// * **Time** — `hit_reaction`, in the tick the strike landed.
+pub struct RecoilPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Recoil {
+    pub body: u64,
+    pub amount: i32,
+}
+
+impl Port for RecoilPort {
+    const KEY: PortKey = PortKey::new("ambition.combat.recoil", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = Recoil;
+
+    fn encode(v: &Recoil, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Recoil, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    Recoil {
+        /// The credit of the body that pays.
+        body: u64,
+        /// Health it pays (health points).
+        amount: i32,
+    }
+}
+
+ambition_extension_sdk::script_port!(RecoilPort);
+
 /// The request port marker for a refill of one of the body's resources.
 ///
 /// Port card:

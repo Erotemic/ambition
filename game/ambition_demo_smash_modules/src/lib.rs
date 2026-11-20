@@ -30,6 +30,7 @@ pub mod mark;
 pub mod mine;
 pub mod paralyze;
 pub mod portal;
+pub mod recoil;
 pub mod riposte;
 pub mod seeker;
 pub mod shark;
@@ -57,6 +58,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     mine::module,
     paralyze::module,
     portal::module,
+    recoil::module,
     riposte::module,
     seeker::module,
     shark::module,

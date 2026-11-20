@@ -106,6 +106,7 @@ mod tests {
                 ambition_demo_smash_modules::crumple::module,
                 ambition_demo_smash_modules::lifesteal::module,
                 ambition_demo_smash_modules::hit_grab::module,
+                ambition_demo_smash_modules::recoil::module,
             ],
         );
         app.add_systems(Update, (mash_out_of_paralysis, mash_out_of_burial, mash_out_of_freeze).after(ExtensionSet::Lower(HIT_REACTION)));
@@ -376,6 +377,46 @@ mod tests {
             assert!(seized.hitstun_timer == 0.0, "{road:?}: the seized body kept its stun");
             assert!(app.world().get::<ae::BodyFlightState>(standing).unwrap().pending_launch_state().is_empty(), "{road:?}");
             assert_eq!(app.world().get::<BodyCombat>(flying).unwrap().hitstun_timer, 0.4, "{road:?}: the body in the air lost its hit");
+        }
+    }
+
+    /// A recoiling strike charges its striker as a price: the meter rises, the
+    /// pool falls but not below 1, and the struck body does not pay. On both
+    /// roads.
+    #[test]
+    fn a_recoiling_strike_charges_its_striker_a_price() {
+        use ambition_platformer2d::characters::actor::{BodyHealth, DeathPolicy, Health};
+        use ambition_platformer2d::entity_catalog::smash_recoil::{RecoilParams, RECOIL};
+        use ambition_platformer2d::platformer::sim_id::SimId;
+        let pool = |current: i32| BodyHealth::restored(Health { current, max: 100, invulnerable: Default::default() }, 100 - current, DeathPolicy::HpDepleted);
+        for road in [Road::Linked, Road::Loaded] {
+            let mut app = app(road);
+            let striker = body(&mut app);
+            let nearly_out = body(&mut app);
+            let victim = body(&mut app);
+            for (who, slot, current) in [(striker, 1, 70), (nearly_out, 2, 2), (victim, 3, 70)] {
+                app.world_mut().entity_mut(who).insert((SimId::player_slot(slot), pool(current)));
+            }
+            for owner in [striker, nearly_out] {
+                app.world_mut().write_message(OnHitEffectMessage {
+                    owner,
+                    victim,
+                    volume: ae::CombatVolume::Circle { center: ae::Vec2::ZERO, radius: 1.0 },
+                    contact: ae::Vec2::ZERO,
+                    effect: ambition_platformer2d::entity_catalog::EffectRef {
+                        key: RECOIL.to_string(),
+                        params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&RecoilParams { amount: 3 }).unwrap(),
+                    },
+                });
+            }
+            app.update();
+            let health = |app: &App, who: Entity| {
+                let health = app.world().get::<BodyHealth>(who).unwrap();
+                (health.current(), health.damage_taken())
+            };
+            assert_eq!(health(&app, striker), (67, 33), "{road:?}: the striker did not pay its 3");
+            assert_eq!(health(&app, nearly_out), (1, 99), "{road:?}: a striker that could afford 1 paid other than 1");
+            assert_eq!(health(&app, victim), (70, 30), "{road:?}: the struck body paid");
         }
     }
 }

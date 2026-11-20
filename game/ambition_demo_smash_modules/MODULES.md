@@ -21,6 +21,7 @@
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to the fighter who placed it and nobody else. |
 | [`paralyze`](src/paralyze.rs) | The paralysis: a strike that holds the body it struck. |
 | [`portal`](src/portal.rs) | The portal recovery: a linked pair of portals, one at the fighter and one above, held open for a while. |
+| [`recoil`](src/recoil.rs) | Recoil: a strike that costs the body that struck. |
 | [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |
 | [`seeker`](src/seeker.rs) | The seeker: a shot that locks one foe and follows that foe. |
 | [`shark`](src/shark.rs) | The shark ride: the pirate summons a burning flying shark and rides it. |
@@ -28,7 +29,7 @@
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_21 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

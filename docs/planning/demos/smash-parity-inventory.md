@@ -323,7 +323,7 @@ Implement each through a real fighter, not as an unused framework.
 | Returning/boomerang projectile | ✔ | M | E1 | `ProjectileGameplay::accel`; `polygon_ponytail_boomerang`. |
 | Homing projectile | ✔ | M | E1 | `S0.9`: `smash.seeker` (the Director's Chekhov's Gun). |
 | Pogo-on-hit attack | ✔ | — | — | |
-| Self-damage/recoil move | ◐ | S | E1 | Re-measured 2026-11-20: a move may charge its own mover (`smash.vitality` with a negative change: the Medic's Adrenaline, Emmy Noether); recoil paid when a strike lands is absent. It would be the inverse of `ambition.combat.mend` (S0.9) from the strike seam; wants a customer. |
+| Self-damage/recoil move | ✔ | S | E1 | 2026-11-20. A move may charge its own mover when pressed (`smash.vitality`, negative: the Medic's Adrenaline, Emmy Noether) and now when its strike lands: `smash.recoil` (on hit, `ambition_demo_smash_modules::recoil`) asks `ambition.combat.recoil`, the inverse of `ambition.combat.mend`, and the striker pays through `BodyHealth::spend` (a price, not an injury: the meter rises, the pool stays at least 1, no stun, no credit, no kill). Customer: Bob's Piston Charge pays 3 each time it lands its 12. Guards: `a_recoiling_strike_charges_its_striker_a_price` (module road, linked and wasm); match-path `bobs_piston_charge_costs_him_its_recoil_when_it_lands` needs the music registry. |
 | Heal/lifesteal on hit | ✔ | S/M | E1 | `S0.9`: `smash.lifesteal` (the Oni Leader's iaijutsu). |
 | Fighter resource meter | ✔ | M/C | E1 | Re-measured 2026-11-20: the Smash Limit meter, filled by the Goblin's `smash.limit`. Built for one fighter; no global meter manager. The Smash Limit meter (`ambition_demo_smash/src/limit.rs`, fill policy `LimitMeterFill::JONS_BASELINE`) awards `on_block: 1.0` for a successful block. Q71 (2026-10-04): 1.0 is the starting balance value; playtesting may tune it without reopening the policy. `guarding_is_the_safe_option` keeps it below `on_damage_taken`. |
 | Transformation/stance | ▢ | C | WAIT | George's TRUE/FALSE state is the concrete fighter (see "George Booul TRUE/FALSE vocabulary (Q81)"). Design it from his concept before you build. |
@@ -581,7 +581,7 @@ post-gate order, each step one coherent customer at a time:
    headless match waits for entry music, so this needs a machine with the
    music registry.
 2. **Strike-seam rows that reuse S0.8/S0.9 seams** (E1, settled policy):
-   hit-grab (✔ 2026-11-20), recoil on hit (the inverse of `ambition.combat.mend`), the
+   hit-grab (✔ 2026-11-20), recoil on hit (✔ 2026-11-20) (the inverse of `ambition.combat.mend`), the
    ledge-trump commitment window, a grab-release fact.
 3. **Item attribution**: thrown-item damage through normal hit attribution,
    then thrower/KO attribution, item catch and item lifetime policy.

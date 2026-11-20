@@ -11,7 +11,7 @@
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{AnswerParryPort, BuryPort, CrumplePort, FreezePort, MendPort, ParalyzePort, SeizeStruckPort, Parried, ParriedPort, Struck};
+use ambition_combat_port::{AnswerParryPort, BuryPort, CrumplePort, FreezePort, MendPort, ParalyzePort, RecoilPort, SeizeStruckPort, Parried, ParriedPort, Struck};
 pub use ambition_combat_port::StruckPort;
 use ambition_entity_catalog::ParamValue;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
@@ -49,6 +49,7 @@ pub fn install_for_hit_reaction(app: &mut App) {
     app.install_extension_submitted_request::<FreezePort, _>(HIT_REACTION, "ambition_combat", lower_freezes);
     app.install_extension_submitted_request::<CrumplePort, _>(HIT_REACTION, "ambition_combat", lower_crumples);
     app.install_extension_submitted_request::<MendPort, _>(HIT_REACTION, "ambition_combat", lower_mends);
+    app.install_extension_submitted_request::<RecoilPort, _>(HIT_REACTION, "ambition_combat", lower_recoils);
     app.add_message::<crate::capture::CaptureAttemptRequested>();
     app.install_extension_submitted_request::<SeizeStruckPort, _>(HIT_REACTION, "ambition_combat", lower_struck_seizes);
     super::status::install_for_hit_reaction(app);
@@ -201,6 +202,35 @@ pub fn lower_mends(
         };
         if !out_of_play {
             health.heal(amount);
+        }
+    }
+}
+
+/// Charge each body a module named by its credit its strike's cost (see the
+/// port card): a price paid through `BodyHealth::spend`, which advances the
+/// meter and leaves the pool at least 1. A body out of play does not pay.
+pub fn lower_recoils(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut bodies: Query<(
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        &mut ambition_characters::actor::BodyHealth,
+        Has<crate::death_rules::OutOfPlay>,
+    )>,
+) {
+    for submitted in outbox.drain::<RecoilPort>(&HIT_REACTION) {
+        let ambition_combat_port::Recoil { body, amount } = submitted.value;
+        if amount <= 0 {
+            warn!("extension entry {} asked a recoil of {amount}; refused", submitted.entry);
+            continue;
+        }
+        let Some((_, mut health, out_of_play)) =
+            bodies.iter_mut().find(|(id, _, _)| super::blast::credit_of(id) == body)
+        else {
+            warn!("extension entry {} asked a credit that names no body to pay a recoil; refused", submitted.entry);
+            continue;
+        };
+        if !out_of_play {
+            health.spend(amount, 1);
         }
     }
 }

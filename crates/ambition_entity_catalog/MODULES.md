@@ -31,6 +31,7 @@
 | [`smash_mine`](src/smash_mine.rs) | Authored payload for a remotely triggered mine. |
 | [`smash_paralyze`](src/smash_paralyze.rs) | Authored payload for a paralysis applied by a damaging hit. |
 | [`smash_portal`](src/smash_portal.rs) | Authored payload for placing a linked portal pair as a recovery. |
+| [`smash_recoil`](src/smash_recoil.rs) | Authored payload for recoil: a strike that costs the body that struck. |
 | [`smash_repertoire`](src/smash_repertoire.rs) | Standard Smash action grammar and repertoire bookkeeping. |
 | [`smash_ride`](src/smash_ride.rs) | Authored payload for summoning and riding a mount. |
 | [`smash_riposte`](src/smash_riposte.rs) | Authored payload for a body-anchored follow-up strike. |
@@ -43,7 +44,7 @@
 | [`smash_trapdoor`](src/smash_trapdoor.rs) | Authored payload for entering and leaving the submerged body mode. |
 | [`smash_vitality`](src/smash_vitality.rs) | Authored payload for changing the mover's own health. |
 
-_36 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

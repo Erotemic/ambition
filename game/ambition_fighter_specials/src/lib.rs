@@ -217,6 +217,18 @@ pub fn specials() -> Vec<Special> {
             },
             module: modules::hit_grab::module,
         },
+        // Recoil: answered on the body a volume struck, and charges the body
+        // that struck it (`ambition.combat.recoil`, by its credit).
+        Special {
+            key: catalog::smash_recoil::RECOIL,
+            offer: TechniqueOffer {
+                owner: "ambition_demo_smash_modules::recoil",
+                params: TechniqueParams::Checked(catalog::smash_recoil::check_recoil_params),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::OnHit,
+            },
+            module: modules::recoil::module,
+        },
         // Lifesteal: answered on the body a volume struck, and mends the
         // body that struck it (`ambition.combat.mend`, by its credit).
         Special {

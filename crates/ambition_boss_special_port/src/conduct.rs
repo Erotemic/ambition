@@ -271,6 +271,36 @@ impl Port for BossGuardPort {
     }
 }
 
+/// The request port marker for a boss that stone does not hold.
+///
+/// * **Value** — [`BossIntangible`]: while `on`, the boss's conducted pose is
+///   taken as given, with no sweep against the room's solids, so a spirit
+///   flies through walls, floors and ceilings. Holds until changed.
+/// * **Owner** — `ambition_boss_encounter::conduct`, lowered into the body
+///   fact `PassesSolids`.
+/// * **Scope** — the boss the invocation ran for; another scope is ignored.
+/// * **Time** — `boss_conduct`, this tick, before its conducted pose is applied.
+pub struct BossIntangiblePort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BossIntangible {
+    pub on: bool,
+}
+
+impl Port for BossIntangiblePort {
+    const KEY: PortKey = PortKey::new("ambition.boss.intangible", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = BossIntangible;
+
+    fn encode(v: &BossIntangible, out: &mut Vec<u8>) {
+        wire::put_bool(out, v.on);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<BossIntangible, WireError> {
+        Ok(BossIntangible { on: r.bool()? })
+    }
+}
+
 /// The request port marker for the least health a boss's hits can leave it.
 ///
 /// * **Value** — [`BossHealthFloor`]: `floor` is the health no hit takes it

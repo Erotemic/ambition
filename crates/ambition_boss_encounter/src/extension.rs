@@ -148,6 +148,12 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::drain_drawn_rows::<InBossConduct>.pipe(crate::conduct::draw_rows),
     );
+    // Before the conducted pose: the same invocation's intangibility holds for it.
+    app.install_extension_submitted_request::<ambition_boss_special_port::BossIntangiblePort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::lower_boss_intangibles,
+    );
     app.install_extension_submitted_request::<ambition_boss_special_port::BossGuardPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

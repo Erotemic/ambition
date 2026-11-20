@@ -1,16 +1,22 @@
-//! Follow the target's trail with a bounded speed and a continuous distance correction.
+//! The run: it flies straight at you through anything between, at your pace.
+//!
+//! Jon, 2026-11-19: it got stuck following the route and the rubber band did
+//! not feel like running from it. It is a spirit in the chase: no wall, floor
+//! or ceiling holds it, so it homes on you in a straight line. Its speed is
+//! your measured pace corrected toward keeping `gap` from you, so a runner at
+//! full tilt holds it off just behind, and one who stops is caught.
 
 use bevy_math::Vec2;
 
-use super::{RUN_GAP, SCENT_MAX, SCENT_REACH, SCENT_STEP};
-
-const MIN_SPEED: f32 = 90.0;
+/// The least it closes on a runner who has stopped, so stopping is caught.
+const MIN_SPEED: f32 = 240.0;
 pub(super) const MAX_SPEED: f32 = 1100.0;
+/// How hard it corrects toward its gap: px/s per px off it.
 const GAP_RATE: f32 = 1.8;
+/// How fast its sense of your pace follows your actual pace (1/s).
 const PACE_RATE: f32 = 8.0;
 
-pub(super) struct Trail<'a> {
-    pub points: &'a mut Vec<[f32; 2]>,
+pub(super) struct Pursuit<'a> {
     pub last_feet: &'a mut Option<[f32; 2]>,
     pub pace: &'a mut f32,
     pub forward: &'a mut [f32; 2],
@@ -18,15 +24,14 @@ pub(super) struct Trail<'a> {
 
 pub(super) struct Step {
     pub position: Vec2,
-    /// Where it is going: the next point of the scent, over the runner's
-    /// feet as they were there.
-    pub goal: Vec2,
     pub distance: f32,
     pub forward: Vec2,
 }
 
-impl Trail<'_> {
-    pub fn advance(&mut self, at: Vec2, feet: Vec2, clearance: f32, dt: f32, constrain: impl Fn(Vec2) -> Vec2) -> Step {
+impl Pursuit<'_> {
+    /// One tick toward `goal` (the runner's middle) from `at`, keeping `gap`
+    /// from it, held in `bounds` (the room's air). `feet` measures the pace.
+    pub fn advance(&mut self, at: Vec2, goal: Vec2, feet: Vec2, gap: f32, dt: f32, bounds: impl Fn(Vec2) -> Vec2) -> Step {
         let delta = self.last_feet.map_or(Vec2::ZERO, |last| feet - Vec2::from(last));
         let observed_pace = (delta.length() / dt.max(1e-4)).min(MAX_SPEED);
         *self.pace += (observed_pace - *self.pace) * (1.0 - (-PACE_RATE * dt).exp());
@@ -34,40 +39,16 @@ impl Trail<'_> {
             *self.forward = delta.normalize().into();
         }
         *self.last_feet = Some(feet.into());
-        if self.points.last().is_none_or(|p| Vec2::from(*p).distance(feet) >= SCENT_STEP) {
-            if self.points.len() >= SCENT_MAX as usize {
-                // Remove the least bend, so a long straight does not discard the next corner.
-                let least = self.points.windows(3).enumerate().min_by(|(_, a), (_, b)| {
-                    bend(a).total_cmp(&bend(b))
-                }).map_or(1, |(i, _)| i + 1);
-                self.points.remove(least);
-            }
-            self.points.push(feet.into());
-        }
-        let over = |p: Vec2| constrain(p - Vec2::Y * clearance);
-        while self.points.first().is_some_and(|p| over(Vec2::from(*p)).distance(at) < SCENT_REACH) {
-            self.points.remove(0);
-        }
-        let goal = self.points.first().map_or(over(feet), |p| over(Vec2::from(*p)));
-        let mut distance = 0.0;
-        let mut previous = at;
-        for p in self.points.iter().map(|p| over(Vec2::from(*p))).chain([over(feet)]) {
-            distance += previous.distance(p);
-            previous = p;
-        }
-        let speed = (*self.pace + (distance - RUN_GAP) * GAP_RATE).clamp(MIN_SPEED, MAX_SPEED);
+        let distance = at.distance(goal);
+        let speed = (*self.pace + (distance - gap) * GAP_RATE).clamp(MIN_SPEED, MAX_SPEED);
+        // It stops at its gap rather than sitting on you: the lunge is what bites.
+        let travel = (speed * dt).min((distance - gap).max(0.0));
         Step {
-            position: at.move_towards(goal, speed * dt),
-            goal,
+            position: bounds(at.move_towards(goal, travel)),
             distance,
             forward: Vec2::from(*self.forward),
         }
     }
-}
-
-fn bend(points: &[[f32; 2]]) -> f32 {
-    let (a, b, c) = (Vec2::from(points[0]), Vec2::from(points[1]), Vec2::from(points[2]));
-    a.distance(b) + b.distance(c) - a.distance(c)
 }
 
 /// Horizontal catches lift a body over a sill; a fall continues down the shaft.
@@ -83,52 +64,43 @@ pub(super) fn escape_launch(forward: Vec2) -> Vec2 {
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_trail_turns_down_and_back_at_the_bodys_room_limit() {
-        let mut points = vec![];
-        let mut last = None;
-        let mut pace = 0.0;
-        let mut forward = [1.0, 0.0];
-        let mut head = Vec2::new(600.0, 200.0);
-        let corners = [Vec2::new(800.0, 400.0), Vec2::new(1000.0, 400.0), Vec2::new(1000.0, 1000.0), Vec2::new(300.0, 1000.0)];
-        for leg in corners.windows(2) {
-            for i in 0..240 {
-                let feet = leg[0].lerp(leg[1], i as f32 / 240.0);
-                let step = Trail { points: &mut points, last_feet: &mut last, pace: &mut pace, forward: &mut forward }
-                    .advance(head, feet, 200.0, 1.0 / 60.0, |p| p.clamp(Vec2::ZERO, Vec2::new(900.0, 1200.0)));
-                assert!(head.distance(step.position) <= MAX_SPEED / 60.0 + 1e-3);
-                head = step.position;
-            }
-        }
-        for _ in 0..300 {
-            head = Trail { points: &mut points, last_feet: &mut last, pace: &mut pace, forward: &mut forward }
-                .advance(head, corners[3], 200.0, 1.0 / 60.0, |p| p.clamp(Vec2::ZERO, Vec2::new(900.0, 1200.0))).position;
-        }
-        assert!(head.distance(corners[3] - Vec2::Y * 200.0) < SCENT_REACH);
+    fn step(head: Vec2, feet: Vec2, gap: f32, state: &mut (Option<[f32; 2]>, f32, [f32; 2])) -> Step {
+        Pursuit { last_feet: &mut state.0, pace: &mut state.1, forward: &mut state.2 }
+            .advance(head, feet - Vec2::Y * 24.0, feet, gap, 1.0 / 60.0, |p| p)
     }
 
     #[test]
-    fn pursuit_closes_a_large_gap_and_catches_a_stopped_body_in_both_directions() {
+    fn a_runner_at_full_tilt_holds_it_off_and_one_who_stops_is_caught() {
         for direction in [-1.0, 1.0] {
-            let mut points = vec![];
-            let mut last = None;
-            let mut pace = 0.0;
-            let mut forward = [direction, 0.0];
-            let mut head = Vec2::new(-direction * 700.0, -200.0);
+            let mut state = (None, 0.0, [direction, 0.0]);
+            let mut head = Vec2::new(-direction * 900.0, -300.0);
             let mut feet = Vec2::ZERO;
-            for tick in 0..600 {
-                let speed = if tick < 240 { 420.0 } else { 0.0 };
-                feet.x += direction * speed / 60.0;
-                let step = Trail { points: &mut points, last_feet: &mut last, pace: &mut pace, forward: &mut forward }
-                    .advance(head, feet, 200.0, 1.0 / 60.0, |p| p);
-                assert!(step.position.distance(head) <= MAX_SPEED / 60.0 + 1e-3);
-                head = step.position;
-                if tick == 239 {
-                    assert!(head.distance(feet - Vec2::Y * 200.0) < 400.0);
+            let gap = 300.0;
+            for tick in 0..900 {
+                let running = tick < 600;
+                feet.x += if running { direction * 480.0 / 60.0 } else { 0.0 };
+                let next = step(head, feet, gap, &mut state);
+                assert!(next.position.distance(head) <= MAX_SPEED / 60.0 + 1e-3);
+                head = next.position;
+                if (300..600).contains(&tick) {
+                    // On your heels and no nearer: it chases, and you are running away.
+                    let d = head.distance(feet - Vec2::Y * 24.0);
+                    assert!((gap - 1.0..gap + 120.0).contains(&d), "tick {tick}: {d}");
                 }
             }
-            assert!(head.distance(feet - Vec2::Y * 200.0) < SCENT_REACH);
-            assert!(escape_launch(Vec2::from(forward)).dot(Vec2::X * direction) > 0.0);
+            assert!(head.distance(feet - Vec2::Y * 24.0) <= gap + 1.0, "a stopped runner is caught up with");
+            assert!(escape_launch(Vec2::from(state.2)).dot(Vec2::X * direction) > 0.0);
         }
+    }
+
+    #[test]
+    fn nothing_between_holds_it() {
+        // Straight through: the step is the straight line, whatever lies on it.
+        let mut state = (None, 0.0, [1.0, 0.0]);
+        let head = Vec2::new(0.0, 0.0);
+        let next = step(head, Vec2::new(1000.0, 800.0), 200.0, &mut state);
+        let along = (next.position - head).normalize();
+        let want = (Vec2::new(1000.0, 776.0) - head).normalize();
+        assert!(along.dot(want) > 0.999);
     }
 }

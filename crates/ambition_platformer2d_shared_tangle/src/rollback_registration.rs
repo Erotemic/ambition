@@ -13,6 +13,14 @@ where
     R: RollbackRegistrar,
 {
     registrar.rollback_component_canonical::<crate::action_results::ActionMailbox>(OWNER, "actions.mailbox");
+    // Chosen on an earlier tick and read by the body's next step: a rewind
+    // across the choice restores whether stone held it.
+    registrar.rollback_component_clone_checksum::<crate::body::PassesSolids>(
+        OWNER,
+        "body.passes_solids",
+        "a body whose own movement meets none of its room's solids",
+        |_| 1,
+    );
     registrar.rollback_component_canonical::<crate::lifecycle::ObjectScopeOwner>(OWNER, "objects.scope_owner");
     registrar.rollback_component_canonical::<crate::lifecycle::ObjectOccurrence>(OWNER, "objects.occurrence");
     registrar.rollback_component_canonical::<crate::lifecycle::ObjectOccurrenceSequence>(OWNER, "objects.occurrence_sequence");

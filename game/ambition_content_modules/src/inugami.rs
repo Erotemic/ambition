@@ -57,7 +57,7 @@
 //! the world by [`Head`].
 
 use ambition_boss_special_port::{
-    BossConduct, BossConductPort, BossGuard, BossGuardPort, BossHealthFloor, BossHealthFloorPort, BossScale, BossScalePort,
+    BossConduct, BossConductPort, BossGuard, BossGuardPort, BossHealthFloor, BossHealthFloorPort, BossIntangible, BossIntangiblePort, BossScale, BossScalePort,
     BossStage, BossStagePort, BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor, SummonSide, Wear,
     WearPort, Wearer,
 };
@@ -171,16 +171,19 @@ const FLARE_S: f32 = 0.9;
 const CRASH_SPEED: f32 = 1300.0;
 const RECOIL: f32 = 320.0;
 const RECOIL_SPEED: f32 = 520.0;
-/// The pursuit follows the target's route. Its speed follows the target's
-/// measured pace, with a continuous correction toward this separation.
-/// A stopped body is caught; no camera state affects pursuit.
+/// THE RUN (Jon, 2026-11-19): warded, it is a spirit that nothing holds. It
+/// flies straight at you through the stone at your measured pace, corrected
+/// toward keeping `RUN_GAP` between its face and you (`chase`), and it swells
+/// until it fills the passage, `CHASE_HEIGHT` tall, so there is no getting
+/// round it: you run. Her talismans shrink it back to a size you can fight
+/// (`CHASE_SHRINK_RATE`). It got stuck when it followed your route round
+/// what was in its way, however that route was steered.
 const RUN_GAP: f32 = 220.0;
-/// It hunts over the floor, its bottom this far over your feet: a head of
-/// its size that kept to your height dragged along the floor and was held
-/// on a 48 px step at the throne room's door (measured, 2026-10-22), and at
-/// 64 over your feet it was held on the run's 80 px barricades (measured,
-/// 2026-10-24). The run is 640 clear.
-const RUN_CLEAR: f32 = 120.0;
+const CHASE_HEIGHT: f32 = 560.0;
+/// How fast it swells into the passage, and how fast her talismans shrink it
+/// (scale per second).
+const CHASE_GROW_RATE: f32 = 0.9;
+const CHASE_SHRINK_RATE: f32 = 1.4;
 const RUN_FAR: f32 = 520.0;
 const RUN_BEAT_S: f32 = 2.4;
 /// Its lunge in the run: it gathers this long, then darts this long past you.
@@ -194,15 +197,6 @@ const ARRIVE_S: f32 = 1.1;
 const RUN_BOLT_AHEAD: f32 = 300.0;
 const RUN_BOLT_TELL_S: f32 = 0.7;
 const RUN_BOLT_HIGH: f32 = 460.0;
-/// THE SCENT. It hunts you along where you went, not in a straight line at
-/// you: a straight line held it 10 s in the stair tower's top corner, under
-/// the battlements' floor (measured, 2026-10-22). It is a hunting dog. A point
-/// of your feet every `SCENT_STEP` you go, the last `SCENT_MAX` of them; it
-/// has a point when it is within `SCENT_REACH` of it.
-const SCENT_STEP: f32 = 48.0;
-const SCENT_MAX: u32 = 96;
-const SCENT_REACH: f32 = 40.0;
-
 const BITE_REACH: f32 = 560.0;
 const BITE_DAMAGE: i32 = 2;
 const BITE_KNOCKBACK: f32 = 1.4;
@@ -453,9 +447,6 @@ record! {
     37 arrived: bool,
     /// Its crash into the arena's wall has hit the wall.
     38 crashed: bool,
-    /// Your scent while it hunts you: where your feet were, a point every
-    /// `SCENT_STEP`, oldest first. It follows these points in order.
-    39 scent: Vec<[f32; 2]> [max SCENT_MAX],
     /// Where the run's bolt will strike, while it sparks: its x, its floor and
     /// seconds into its tell.
     40 run_bolt_x: f32,
@@ -501,12 +492,6 @@ record! {
     60 run_last_feet: Option<[f32; 2]>,
     61 run_pace: f32,
     62 run_forward: [f32; 2],
-    /// The nearest it has come to you along your scent, and how long since:
-    /// a chase that stops closing is stuck.
-    63 chase_best: f32,
-    64 chase_stall: f32,
-    /// Seconds left of going through what holds it, as the spirit it is.
-    65 ghost: Option<f32>,
     /// Its finish: brought to the last of its strength in the final hall, it
     /// bursts into its invincible fire again and Kagero seals it. Seconds
     /// into it.
@@ -620,6 +605,7 @@ pub fn module() -> ModuleDescriptor {
                 BodySoundPort::KEY,
                 BossGuardPort::KEY,
                 BossHealthFloorPort::KEY,
+                BossIntangiblePort::KEY,
                 BossScalePort::KEY,
                 BossStagePort::KEY,
                 BossSummonPort::KEY,
@@ -657,12 +643,6 @@ const FLASH_S: f32 = 0.8;
 
 /// How near a solid it lets itself come (px).
 const STEER_MARGIN: f32 = 6.0;
-/// How long a chase may go without closing on you before it is stuck (s).
-const STALL_S: f32 = 1.0;
-/// How long it goes through what holds it when it is (s).
-const GHOST_S: f32 = 1.2;
-/// A chase this near you is not stuck for not closing: it keeps its gap.
-const STALL_NEAR: f32 = RUN_GAP * 1.5;
 
 /// Where a body at `at` that wants to be at `want`, on its way to `goal`,
 /// goes when it can move `reach` (`[left, right, up, down]`) before it meets
@@ -793,6 +773,17 @@ fn arc(inv: &mut Invocation<'_>, key: &str, from: Vec2, to: Vec2, hold: f32) -> 
         glow: None,
         hold_s: hold,
     })
+}
+
+impl Conductor {
+    /// End the tick: say whether stone holds it, and keep its state. Warded
+    /// or running you down it is a spirit, and the room's solids do not hold
+    /// it (`ambition.boss.intangible`); fighting or fallen, they do.
+    fn done(self, inv: &mut Invocation<'_>) -> Result<(), Fault> {
+        let on = self.dead_for.is_none() && (self.warded || self.run.is_some());
+        inv.submit::<BossIntangiblePort>(BossIntangible { on })?;
+        self.store(inv)
+    }
 }
 
 /// Build it at `scale` times its build (`ambition.boss.scale`), when that
@@ -1058,15 +1049,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             within(p.y, top, hall.floor - half.y - 8.0),
         )
     };
-    // The whole room's air, which a spirit on the scent flies (see
-    // `through_floor` below): bounded by the room, not the floor under it.
     let room_bottom = inu.room.map_or(hall.floor, |room| room[1]);
-    let fly = |p: Vec2| {
-        Vec2::new(
-            within(p.x, hall.left + half.x + 8.0, hall.right - half.x - 8.0),
-            within(p.y, top, room_bottom - half.y - 8.0),
-        )
-    };
+    // On the run it is a spirit that stone does not hold: only its middle
+    // keeps in the room, so a head swollen to fill the passage still reaches
+    // a runner at the room's end or on its floor.
+    let spirit = |p: Vec2| Vec2::new(within(p.x, WALL, room_w - WALL), within(p.y, 48.0, room_bottom - 8.0));
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
     // The arena's wall on its way out, as it is measured under it now (the
     // gate stands in it until the second phase): the one farther from where
@@ -1148,7 +1135,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.ward_t = None;
         let row = if hellfire { HELLFIRE_ROW } else { "death" };
         held_at(inv, at, Vec2::new(x, y), side, (row, t, false), None, dt)?;
-        return c.store(inv);
+        return c.done(inv);
     }
     c.lived = true;
 
@@ -1163,7 +1150,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: 0.0, card: 0.0 })?;
         } else {
             rise(inv, &mut c, &inu, rise_from, side, dt)?;
-            return c.store(inv);
+            return c.done(inv);
         }
     }
 
@@ -1328,64 +1315,30 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.run_forward = [crash_dir, 0.0];
             c.run_last_feet = None;
             c.run_pace = 0.0;
-            c.scent.clear();
         }
     }
 
+    // Its gap is kept from its face, so a head swollen to fill the passage
+    // keeps the same distance as the one that rose.
     let pursuit = c.run.map(|_| {
-        chase::Trail {
-            points: &mut c.scent,
+        chase::Pursuit {
             last_feet: &mut c.run_last_feet,
             pace: &mut c.run_pace,
             forward: &mut c.run_forward,
-        }.advance(at, Vec2::new(target.x, feet), RUN_CLEAR + half.y, dt, fly)
+        }.advance(at, target, Vec2::new(target.x, feet), RUN_GAP + half.x, dt, spirit)
     });
     if let Some(step) = &pursuit {
         if step.forward.x.abs() > 0.2 {
             c.run_dir = step.forward.x.signum();
         }
     }
-    // ── Stuck: a chase that stops closing on you goes through what holds it ──
-    // Whatever holds it (a wall, a ceiling, a floor between it and your
-    // scent), a chase that has not come nearer you for `STALL_S` while you
-    // are not at its heels is stuck, and the spirit goes through: for
-    // `GHOST_S`, and on until it is out of the stone (Jon, 2026-11-09).
-    let inside_stone = inu.reach.is_some_and(|reach| reach.iter().all(|&r| r <= 0.0));
-    c.ghost = match c.ghost.map(|t| t - dt) {
-        Some(t) if t > 0.0 || inside_stone => Some(t.max(0.0)),
-        _ => None,
-    };
-    match &pursuit {
-        Some(step) if c.lunge.is_none() && c.ghost.is_none() => {
-            if step.distance + 8.0 < c.chase_best || c.chase_best <= 0.0 {
-                c.chase_best = step.distance;
-                c.chase_stall = 0.0;
-            } else if step.distance > STALL_NEAR {
-                c.chase_stall += dt;
-            }
-            if c.chase_stall > STALL_S {
-                c.ghost = Some(GHOST_S);
-                c.chase_stall = 0.0;
-                c.chase_best = 0.0;
-                burst(inv, at, 18, 260.0, WARD_FIRE, "spark")?;
-            }
-        }
-        Some(_) => {}
-        None => {
-            c.chase_best = 0.0;
-            c.chase_stall = 0.0;
-        }
-    }
-    let ghostly = c.ghost.is_some();
-    if ghostly && c.ticks % 3 == 0 {
-        burst(inv, at, 3, 120.0, WARD_FIRE, "spark")?;
-    }
-
     // ── The run: it hunts you to the final hall ──
     // It comes into the hall on its own wings, after you: if you are there
     // first, it is still hunting you there (Jon, 2026-10-22: "if you get to the
     // final arena before he does he just teleports there, that is no good").
-    let head_home = at.x - half.x >= final_lo && at.x + half.x <= final_hi;
+    // Its middle, not its whole box: swollen to fill the passage, it is wider
+    // than the hall's end it comes into.
+    let head_home = in_final_hall(at.x);
     if let Some(t) = c.run {
         let t = t + dt;
         if head_home {
@@ -1400,7 +1353,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         } else {
             // On your heels, a beat every `RUN_BEAT_S`: a lunge at your back,
             // or lightning on the way ahead of you, in turn.
-            let on_heels = pursuit.as_ref().is_some_and(|step| step.distance < RUN_FAR);
+            let on_heels = pursuit.as_ref().is_some_and(|step| step.distance < RUN_FAR + half.x);
             let beat = (t / RUN_BEAT_S).floor() != ((t - dt) / RUN_BEAT_S).floor();
             if c.lunge.is_none() && c.run_bolt.is_none() && on_heels && beat {
                 if c.run_beats % 2 == 0 {
@@ -1422,7 +1375,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     // It darts past where you are now.
                     let from = Vec2::new(c.from_x, c.from_y);
                     let aim = (target - from).normalize_or(Vec2::X * c.run_dir);
-                    let to = clamp(from + aim * ((target - from).length() + 120.0).min(BITE_REACH));
+                    let to = spirit(from + aim * ((target - from).length() + 120.0).min(BITE_REACH + half.x));
                     c.to_x = to.x;
                     c.to_y = to.y;
                     inv.submit::<RidingHitboxPort>(RidingHitbox {
@@ -1467,7 +1420,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── Kagero comes to your aid in the final hall: her spell breaks its ward ──
-    let near = (at.x - target.x).abs() < ALLY_NEAR;
+    // Measured from its face: swollen to fill the passage it stalks you from
+    // farther off, and you are as near it.
+    let near = (at.x - target.x).abs() - half.x < ALLY_NEAR;
     // She is called on a beat of the ward's ring, so her spell breaks it with
     // its spirits where its `ward_ring_dispel` row starts them.
     let on_beat = c.ward_t.is_none_or(|w| (w + crate::kagero::DISPEL_AT_S).rem_euclid(RING_BEAT_S) < dt);
@@ -1606,7 +1561,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         let row = turned(&mut c, side, row, dt);
         held_at(inv, at, pos, side, row, layer, dt)?;
-        return c.store(inv);
+        return c.done(inv);
     }
 
     if let Some(s) = c.sealed.as_mut() {
@@ -1643,10 +1598,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── It swells as the fight goes on ──
-    let swell = if inu.enraged { SWELL_ENRAGED } else if c.frenzied { SWELL_FRENZIED } else { 1.0 };
+    // Warded, it swells to fill the passage it hunts you down; her
+    // talismans break the ward and it shrinks back to its fighting size.
+    let fighting = if inu.enraged { SWELL_ENRAGED } else if c.frenzied { SWELL_FRENZIED } else { 1.0 };
+    let built = inu.size[1] / c.scale.max(0.1);
+    let swell = if c.warded { fighting.max(CHASE_HEIGHT / built.max(1.0)) } else { fighting };
     if c.scale < swell {
-        let grown = (c.scale + SWELL_RATE * dt).min(swell);
+        let rate = if c.warded { CHASE_GROW_RATE } else { SWELL_RATE };
+        let grown = (c.scale + rate * dt).min(swell);
         set_scale(&mut c, inv, grown)?;
+    } else if c.scale > swell {
+        let shrunk = (c.scale - CHASE_SHRINK_RATE * dt).max(swell);
+        set_scale(&mut c, inv, shrunk)?;
     }
 
     // ── Where it goes ──
@@ -1674,8 +1637,6 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     };
     // A position the run's lunge sets over its hunt.
     let mut return_pos: Option<Vec2> = None;
-    // It is on your scent this tick: hunting, not lunging.
-    let mut on_the_scent = false;
     let pos = match part {
         Some(Part { mv: Move::Bite, striking: true, t, dur }) => from + (to - from) * ease_out(t / dur),
         Some(Part { mv: Move::Dive, striking: false, t, dur }) => from + (to - from) * ease(t / (dur * DIVE_RISE_U)),
@@ -1747,13 +1708,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             if c.lunge.is_some() && c.ticks % 2 == 0 {
                 burst(inv, at, 5, 180.0, WARD_FIRE, "spark")?;
             }
-            on_the_scent = return_pos.is_none();
             match return_pos.take() {
-                Some(lunge) => clamp(lunge),
-                // On the scent it keeps out of the stone, round what is in
-                // its way; stuck, it goes through.
-                None if ghostly => fly(hunt.position),
-                None => steer(at, fly(hunt.position), hunt.goal, inu.reach),
+                Some(lunge) => spirit(lunge),
+                None => hunt.position,
             }
         }
         None => {
@@ -1767,10 +1724,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // the floor under it, it hung on the slab over the runner and never came
     // down (Jon, 2026-11-09: "Inugami still gets very stuck"). A lunge keeps
     // over the floor: it is a dart at your back, not a dive.
-    let through_floor = on_the_scent && (ghostly || pursuit.as_ref().is_some_and(|step| step.goal.y > ground));
-    let pos = if through_floor { fly(pos) } else { clamp(pos).min(Vec2::new(f32::MAX, ground)) };
-    // A new floor height or a lunge must use the same flight limit as pursuit.
-    let pos = if pursuit.is_some() { at.move_towards(pos, chase::MAX_SPEED * dt) } else { pos };
+    let pos = if pursuit.is_some() { spirit(pos) } else { clamp(pos).min(Vec2::new(f32::MAX, ground)) };
+    // A new floor height or a lunge must use the same flight limit as pursuit,
+    // and so must its arrival: it comes into the hall swollen to fill the
+    // passage, and the hall's box takes it in at a flight, not in one tick.
+    let pos = if pursuit.is_some() || c.appear.is_some() { at.move_towards(pos, chase::MAX_SPEED * dt) } else { pos };
 
     // ── The strike's own onsets ──
     if let Some(part @ Part { striking: true, .. }) = part {
@@ -1914,7 +1872,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let row = turned(&mut c, inu.side, row, dt);
     let layer = ward_layer(&c);
     held_at(inv, at, pos, side, row, layer, dt)?;
-    c.store(inv)
+    c.done(inv)
 }
 
 /// The rise: hidden in his body until his head tears off; then its fire

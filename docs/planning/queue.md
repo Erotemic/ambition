@@ -104,6 +104,22 @@ or updating their source. Check with
 
 ## P0 — architecture and correctness
 
+### SCRIPT-COMPLETION — author gameplay scenarios without an engine build
+
+**Request (Jon, 2026-11-19, above queue order):** finish the reactive scripting road: signals, further lifecycle facts, full duplicated-room gameplay, committed world-domain communication, and the authoring guide ([reactive mechanisms](../sdk/reactive-mechanisms.md)). The aim is gameplay scenarios authored in scripts, with no engine rebuild, at the level of a general-purpose engine.
+
+**Owner:** [addressed behavior delivery](engine/addressed-behavior-inbox.md); [capability census](engine/script-first-capability-census.md).
+
+**State:** done 2026-11-19: accepted defeat is a subscribable fact (`object_defeated`), and authored signals (`emit_signal` → `object_signal`) are admitted whole or refused, the sender named by the runtime, and the result lists who heard ([guide](../sdk/reactive-mechanisms.md#send-a-signal)). Next: retirement as a fact, a duplicated-room witness for a full reactive mechanism, then one committed world-domain transaction between islands.
+
+**Acceptance:** each item has a loaded Rhai witness through the real host, with rollback health, and its section in the authoring guide.
+
+### INUGAMI-CHASE — a spirit you run from
+
+**Request (Jon, 2026-11-19):** it got stuck and the rubber band did not feel like running from it. No collision in the chase, homing on you; it swells until you cannot get around it; her talismans shrink it to a size you fight.
+
+**State:** done 2026-11-19. Warded, it is a spirit: `ambition.boss.intangible` lowers into the body fact `PassesSolids`, so its own movement meets none of the room's solids (the movement kernel stepped it into the arena's walls before, whatever the pose said). It homes in a straight line at your measured pace, corrected toward a gap from its face, so a runner at full tilt holds it just behind and one who stops is caught. Warded it swells to fill the passage; her talisman break shrinks it back. Its arrival into the final hall is a flight, not a snap.
+
 ### PART-FIRST — publish characters as parts, not frames
 
 **Defect (measured 2026-11-18):** the publisher paints every frame of a part-drawn character whole, packs and tiers the sheets, and paints each frame again to check its draws, though the game never loads those pages: 472 sheets, 73,531 frames, 1.22 GB. `gnu_ton_boss` alone takes 93 minutes; a GNU2 frame costs 2.5 s, nearly all rotation onto a frame no player sees.

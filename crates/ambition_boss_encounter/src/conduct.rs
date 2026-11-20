@@ -771,6 +771,8 @@ pub fn show_speech_bubbles(
 /// Lower `ambition.boss.conducted_pose`: hold the boss's pose, or release it;
 /// keep the side it faces.
 #[allow(clippy::type_complexity)]
+use ambition_platformer2d_shared_tangle::body::PassesSolids;
+
 pub fn lower_conducted_poses(
     poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     mut outbox: ResMut<ExtensionOutbox>,
@@ -781,13 +783,14 @@ pub fn lower_conducted_poses(
             Option<&mut ae::SweepSample>,
             Option<&ae::PoseOwnedExternally>,
             Option<&mut ConductedFacing>,
+            Has<PassesSolids>,
         ),
         With<BossConfig>,
     >,
     mut commands: Commands,
 ) {
     for submitted in outbox.drain::<ConductedPosePort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
-        let Ok((mut kin, mut aabb, mut sweep, holds, facing)) = bosses.get_mut(submitted.scope) else {
+        let Ok((mut kin, mut aabb, mut sweep, holds, facing, intangible)) = bosses.get_mut(submitted.scope) else {
             warn!(
                 "extension entry {} asked to conduct {:?}, which is not a boss; refused",
                 submitted.entry, submitted.scope
@@ -800,7 +803,12 @@ pub fn lower_conducted_poses(
             Some(p) => {
                 let pos = ae::Vec2::from(p.position);
                 let desired = ae::BodyKinematics { pos, vel: ae::Vec2::from(p.velocity), ..*kin };
-                if poses.constrain(submitted.scope, &mut kin, sweep.as_deref_mut(), desired).is_err() { continue; }
+                if intangible {
+                    // Stone does not hold it: the pose is prepared with no
+                    // motion admission (no solids), and its sweep follows it.
+                    let Ok(prepared) = ae::movement::prepare_body_pose(&kin, sweep.as_deref(), desired, None, &[]) else { continue };
+                    prepared.commit(&mut kin, sweep.as_deref_mut());
+                } else if poses.constrain(submitted.scope, &mut kin, sweep.as_deref_mut(), desired).is_err() { continue; }
                 if !owned {
                     ae::claim_pose_hold(&mut commands, submitted.scope, ae::PoseHold::Conductor);
                 }
@@ -820,6 +828,23 @@ pub fn lower_conducted_poses(
             }
             // No side: the boss's facing stays whoever drives it.
             (_, None) => {}
+        }
+    }
+}
+
+/// Lower `ambition.boss.intangible` into the body fact the movement kernel
+/// and the pose admission read: a spirit in a chase passes through stone.
+pub fn lower_boss_intangibles(
+    mut outbox: ResMut<ExtensionOutbox>,
+    bosses: Query<Has<PassesSolids>, With<BossConfig>>,
+    mut commands: Commands,
+) {
+    for submitted in outbox.drain::<ambition_boss_special_port::BossIntangiblePort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
+        let Ok(has) = bosses.get(submitted.scope) else { continue };
+        match (submitted.value.on, has) {
+            (true, false) => { commands.entity(submitted.scope).try_insert(PassesSolids); }
+            (false, true) => { commands.entity(submitted.scope).try_remove::<PassesSolids>(); }
+            _ => {}
         }
     }
 }

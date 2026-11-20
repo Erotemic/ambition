@@ -21,6 +21,13 @@ use ambition_platformer2d_core::AabbExt;
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PrimaryBody;
 
+/// A body that stone does not hold: its own movement meets no solid block or
+/// surface chain of its room, only the room's edges. A spirit in a chase
+/// (`ambition.boss.intangible`). Other bodies still meet it as they meet any
+/// body; this says only what the room's solids are to it.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PassesSolids;
+
 /// Emitted the frame a mount dies and its rider dismounts (the
 /// `(dead-mount, still-mounted)` dissolution the mount coupling enforces).
 /// Carries both entities so a consumer can react to either side.

@@ -101,6 +101,8 @@ pub struct CollisionWorld<'w, 's> {
     /// The walls composed so far this tick, which every reader shares. Absent
     /// in an App that does not install it: each reader then composes its own.
     composed: Option<Res<'w, ComposedSolids>>,
+    /// Bodies whose own movement meets none of the room's solids.
+    passes: Query<'w, 's, (), With<ambition_platformer2d_shared_tangle::body::PassesSolids>>,
 }
 
 /// What a room's composed walls are made from: the change tick of its
@@ -416,6 +418,16 @@ fn physical_for_subject<'a>(
     room: Option<&InRoomInstance>,
     subject: bevy_ecs::entity::Entity,
 ) -> Cow<'a, ae::World> {
+    if collision.passes.contains(subject) {
+        // Stone does not hold it: the room keeps its size and edges, nothing else.
+        return Cow::Owned(ae::World {
+            blocks: Default::default(),
+            chains: Default::default(),
+            water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
+            ..walls.clone()
+        });
+    }
     let (open, barriers) = collision.room(room)
         .map(|room| (room.gates_open_for(subject), room.barriers_for(subject)))
         .unwrap_or_default();

@@ -103,9 +103,15 @@ it. The refusal codes are:
   island.
 
 Delivery waits for the next actor read cut and shares the receiver's per-tick
-budget with every other addressed payload. A subscription names one exact
-occurrence. In a duplicated room, a copy whose references came from
-`resolve_authored_objects` hears only its own copy's emitter.
+budget with every other addressed payload.
+
+A subscription names one exact occurrence, never a placement. A room left and
+entered again is a new live copy: its placements have the same keys and new
+occurrences. A behavior attached to the travelling body keeps its old
+subscriptions, and they hear nothing from the new copy. Look the placement up
+again (`resolve_authored_objects` answers for the caller's current room) and
+subscribe to what it names. The witness is
+`a_room_entered_again_is_a_new_copy_and_only_its_own_watch_hears_its_barrier`.
 
 ## Find authored objects
 

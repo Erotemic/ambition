@@ -1030,3 +1030,144 @@ fn a_subscribed_method_hears_its_barrier_break_once() {
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_file(path);
 }
+
+const REENTRY_SOURCE: &str = r#"
+fn declare() {
+    #{provider: "reentry_probe", key: "watch", schemas: [
+        #{key: "root", fields: [
+            #{tag: 1, name: "begun", kind: "u32"},
+            #{tag: 2, name: "me", kind: "opt object"},
+            #{tag: 3, name: "barriers", kind: "seq 4 object"},
+            #{tag: 4, name: "attached", kind: "u32"},
+        ]},
+        #{key: "watcher", fields: [
+            #{tag: 1, name: "heard", kind: "u32"},
+            #{tag: 2, name: "spent", kind: "opt object"},
+        ]}
+    ], entries: [
+        #{key: "start", phase: "technique_execution", trigger: #{port: "status_tick", selector: "reentry_probe.start"},
+          writes: ["root"], requests: ["body_query"], limit: 1},
+        #{key: "again", phase: "technique_execution", trigger: #{port: "status_tick", selector: "reentry_probe.again"},
+          writes: ["root"], requests: ["body_query"], limit: 1},
+        #{key: "me", phase: "actor_think", trigger: #{port: "action_result", selector: "me"},
+          reads: ["body_query_result"], writes: ["root"], requests: ["resolve_authored_objects"], limit: 1},
+        #{key: "located", phase: "actor_think", trigger: #{port: "action_result", selector: "located"},
+          writes: ["root"], requests: ["attach_behaviors"], limit: 1},
+        #{key: "attached", phase: "actor_think", trigger: #{port: "action_result", selector: "attached"}, writes: ["root"]},
+        #{key: "down", phase: "actor_think", trigger: #{port: "object_broken", selector: "broken"}, writes: ["watcher"]},
+    ]}
+}
+fn start() {
+    if this.state.root.begun >= 1 { return; }
+    this.state.root.begun = 1;
+    this.requests.push(request("body_query", #{reply: #{request: 0, selector: "reentry_probe::watch/me"},
+        origin: this.trigger.position, radius: 64.0, limit: 1, include_self: true}));
+}
+fn again() {
+    if this.state.root.begun >= 2 { return; }
+    this.state.root.begun = 2;
+    this.requests.push(request("body_query", #{reply: #{request: 1, selector: "reentry_probe::watch/me"},
+        origin: this.trigger.position, radius: 64.0, limit: 1, include_self: true}));
+}
+fn me() {
+    if !this.trigger.terminal { return; }
+    for target in this.observe.body_query_result.targets {
+        if target.driven { this.state.root.me = target.object; }
+    }
+    // The placement is looked up in the live room the caller is in now.
+    this.requests.push(request("resolve_authored_objects", #{placements: ["switch_lab_barrier"],
+        reply: #{request: this.state.root.begun, selector: "reentry_probe::watch/located"}}));
+}
+fn located() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage != "applied" { throw this.trigger.code; }
+    let barrier = this.trigger.subjects[0].object;
+    this.state.root.barriers.push(barrier);
+    this.requests.push(request("attach_behaviors", #{target: this.state.root.me, bindings: [#{key: "watch" + this.state.root.begun,
+        references: #{barrier: barrier}, methods: [#{name: "down", entry: "reentry_probe::watch/down"}],
+        subscriptions: [#{key: "barrier_down", source: "barrier", method: "down"}],
+        state: [#{schema: "watcher", value: #{heard: 0, spent: ()}}]}],
+        reply: #{request: this.state.root.begun, selector: "reentry_probe::watch/attached"}}));
+}
+fn attached() {
+    if this.trigger.stage == "rejected" { throw this.trigger.message; }
+    if this.trigger.terminal { this.state.root.attached += 1; }
+}
+fn down() {
+    this.state.watcher.heard += 1;
+    this.state.watcher.spent = this.trigger.object;
+}
+"#;
+
+/// ⭐ A ROOM ENTERED AGAIN IS ANOTHER COPY, AND A SUBSCRIPTION NAMES ONE. The
+/// same script subscribes to `switch_lab`'s barrier, the body leaves and comes
+/// back (a new live room with equal placement ids), and subscribes again by
+/// the same placement. The lookup names the new copy's barrier, not the old
+/// one. Both watches travel with the body; when the new barrier breaks, the
+/// watch made in the new copy hears it, once, named, and the one made in the
+/// old copy, subscribed to an occurrence that left with its room, hears
+/// nothing.
+#[test]
+fn a_room_entered_again_is_a_new_copy_and_only_its_own_watch_hears_its_barrier() {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    let path = std::env::temp_dir().join(format!("ambition_reentry_probe_{}.rhai", std::process::id()));
+    std::fs::write(&path, REENTRY_SOURCE).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab")
+            .with_extension_module_files(vec![path.clone()])).unwrap();
+    let player = {
+        let world = sim.world_mut();
+        world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap()
+    };
+    sim.world_mut().entity_mut(player).insert(BodyStatuses(vec!["reentry_probe.start".into()]));
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 30);
+    let root = SchemaKey::new("reentry_probe", "root", 1);
+    let watcher = SchemaKey::new("reentry_probe", "watcher", 1);
+    let record = |sim: &Platformer2dSimHarness| sim.world().get::<BodyRecords>(player).unwrap().get(&root).cloned().expect("the probe started");
+    assert_eq!(record(&sim).get(FieldRef(3)).unwrap(), &Value::U32(1), "the first watch is attached");
+
+    let watches = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world.query::<&BodyRecords>().iter(world).filter_map(|records| records.get(&watcher).cloned()).collect::<Vec<_>>()
+    };
+    assert_eq!(watches(&mut sim).len(), 1, "the first watch is live in the first copy");
+    sim.world_mut().entity_mut(player).insert(BodyStatuses(Vec::new()));
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex");
+    sim.step_n(AgentAction::default(), 10);
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "switch_lab"), "switch_lab");
+    sim.step_n(AgentAction::default(), 10);
+    assert_eq!(watches(&mut sim).len(), 1, "the first watch travels with the body");
+    sim.world_mut().entity_mut(player).insert(BodyStatuses(vec!["reentry_probe.again".into()]));
+    sim.step_n(AgentAction::default(), 30);
+
+    let record = record(&sim);
+    assert_eq!(record.get(FieldRef(3)).unwrap(), &Value::U32(2), "the second watch is attached");
+    let Value::Seq(barriers) = record.get(FieldRef(2)).unwrap() else { panic!("the probe lists the barriers") };
+    let (old, new) = (barriers[0].as_object().unwrap(), barriers[1].as_object().unwrap());
+    assert_ne!(old, new, "the placement names another occurrence in the room entered again");
+    let session = ambition_platformer2d::platformer::lifecycle::SessionScopeId(new.session);
+    assert!(ambition_platformer2d::platformer::lifecycle::resolve_object(sim.world(), session, old).is_err(),
+        "the old copy's barrier left with its room");
+    let entity = ambition_platformer2d::platformer::lifecycle::resolve_object(sim.world(), session, new).unwrap();
+    let volume = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(player).unwrap().aabb().into();
+    sim.world_mut().write_message(HitEvent {
+        origin: None, properties: Default::default(), contact: None, pieces: Vec::new(), strike_sfx: None,
+        volume, damage: 999, source: HitSource::Contact, attacker: Some(player), room: None,
+        target: HitTarget::Feature(entity), mode: HitMode::Knockback, knockback: None, ignored_targets: Vec::new(),
+        attacker_move_instance: None,
+    });
+    sim.step_n(AgentAction::default(), 30);
+
+    let watches = watches(&mut sim);
+    let heard: Vec<_> = watches.iter().map(|row| (row.get(FieldRef(0)).unwrap().clone(), row.get(FieldRef(1)).unwrap().clone())).collect();
+    assert_eq!(watches.len(), 2, "both watches: {heard:?}");
+    let new_heard = (Value::U32(1), Value::Opt(Some(Box::new(Value::Object(new)))));
+    let old_silent = (Value::U32(0), Value::Opt(None));
+    assert!(heard.contains(&new_heard) && heard.contains(&old_silent),
+        "the new copy's watch heard its barrier once, and the old copy's heard nothing: {heard:?}");
+    let faults = sim.world().resource::<ExtensionFaults>();
+    assert_eq!(faults.total, 0, "{:?}", faults.recent);
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(path);
+}

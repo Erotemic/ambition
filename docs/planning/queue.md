@@ -110,7 +110,7 @@ or updating their source. Check with
 
 **Owner:** [addressed behavior delivery](engine/addressed-behavior-inbox.md); [capability census](engine/script-first-capability-census.md).
 
-**State:** done 2026-11-19: accepted defeat is a subscribable fact (`object_defeated`), and so is a spent breakable (`object_broken`, any road that breaks one), and authored signals (`emit_signal` → `object_signal`) are admitted whole or refused, the sender named by the runtime, and the result lists who heard ([guide](../sdk/reactive-mechanisms.md#send-a-signal)). Next: body retirement (an object leaving play other than by defeat or break) as a fact, a duplicated-room witness for a full reactive mechanism, then one committed world-domain transaction between islands.
+**State:** done 2026-11-19: accepted defeat is a subscribable fact (`object_defeated`), and so is a spent breakable (`object_broken`, any road that breaks one), and authored signals (`emit_signal` → `object_signal`) are admitted whole or refused, the sender named by the runtime, and the result lists who heard ([guide](../sdk/reactive-mechanisms.md#send-a-signal)). Done 2026-11-19: a room entered again is a new copy, and a watch subscribed in the old copy hears nothing from the new one while a fresh lookup's watch does (`a_room_entered_again_is_a_new_copy_and_only_its_own_watch_hears_its_barrier`). Next: body retirement (an object leaving play other than by defeat or break) as a fact, two copies of one room live at once, then one committed world-domain transaction between islands.
 
 **Acceptance:** each item has a loaded Rhai witness through the real host, with rollback health, and its section in the authoring guide.
 

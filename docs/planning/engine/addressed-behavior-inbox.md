@@ -160,8 +160,11 @@ collision removal, charge deduplication, GGRS replay, lost wakeups and Rhai relo
 The shared locator check covers equal placement IDs in two live room instances.
 
 Defeat is now a subscribable fact (`a_subscribed_method_hears_the_defeat_of_its_source_once`).
-A full duplicated-room mechanism test, retirement facts, authored signals and a
-locking-door capability remain open. The toll barrier uses the
+A room entered again is a new copy: a subscription made in the old copy hears
+nothing from the new one, and a fresh lookup subscribes to the new copy's
+object (`a_room_entered_again_is_a_new_copy_and_only_its_own_watch_hears_its_barrier`).
+Two copies of one room live at once, body retirement facts and a locking-door
+capability remain open. The toll barrier uses the
 existing destructible return policy; it is not a general locking door.
 
 The next cross-island proof is one committed world-domain consequence with

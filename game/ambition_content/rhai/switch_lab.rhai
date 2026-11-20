@@ -59,6 +59,8 @@ fn room() {
 }
 fn located() {
     if !this.trigger.terminal { return; }
+    // A copy of the room without the toll's parts has no mechanism to arm.
+    if this.trigger.code == "authored_object_absent" { return; }
     if this.trigger.stage != "applied" { throw this.trigger.code; }
     this.state.room.lever = this.trigger.subjects[0].object;
     this.requests.push(request("attach_behaviors", #{target: this.trigger.subjects[1].object,

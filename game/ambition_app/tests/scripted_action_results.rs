@@ -249,7 +249,9 @@ fn result() {
     let root = world.query_filtered::<Entity, With<RoomInstanceRoot>>().single(world).unwrap();
     let mut policies = bevy::ecs::system::SystemState::<RulesOf<ActionDeliveryPolicy>>::new(world);
     let policy = *policies.get(world).unwrap().of(root).unwrap();
-    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    let mut history = world.get::<ActionMailbox>(root).unwrap().history();
+    // The room's own script (the toll mechanism) asks from the same root.
+    history.entries.retain(|row| row.result.ticket.entry.starts_with("delivery_probe::"));
     let original = history.entries.iter().find(|row| row.result.stage == ActionStage::Applied).unwrap().clone();
     assert_eq!(original.delivery, ActionDelivery::Quarantined);
     assert_eq!(original.attempts, policy.max_attempts.get());
@@ -271,7 +273,8 @@ fn result() {
     assert_eq!(world.get::<SimIdCounter>(root).unwrap().0, counter);
     assert_eq!(world.get::<BodyRecords>(root).unwrap().get(&key).unwrap().get(FieldRef(1)).unwrap(), &Value::U32(1));
     assert!(world.resource::<ambition_platformer2d::session::AmbitionGameSave>().data().flag("delivery_handler_effect"));
-    let history = world.get::<ActionMailbox>(root).unwrap().history();
+    let mut history = world.get::<ActionMailbox>(root).unwrap().history();
+    history.entries.retain(|row| row.result.ticket.entry.starts_with("delivery_probe::"));
     let applied: Vec<_> = history.entries.iter().filter(|row| row.result.stage == ActionStage::Applied).collect();
     assert_eq!(applied.len(), 1);
     assert_eq!(applied[0].sequence, original.sequence);
@@ -383,10 +386,10 @@ fn declare() {
         #{key: "diagnostic", fields: [#{tag: 1, name: "count", kind: "u32"},
             #{tag: 2, name: "handler", kind: "text 128"}]}],
       entries: [
-        #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "switch_lab"},
+        #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "basement_enemies"},
           replies: [], writes: ["memory"], requests: ["story_command"], limit: 1},
         #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}, writes: ["memory"]},
-        #{key: "inspect", phase: "actor_think", trigger: #{port: "story_tick", selector: "switch_lab"},
+        #{key: "inspect", phase: "actor_think", trigger: #{port: "story_tick", selector: "basement_enemies"},
           reads: ["action_history"], writes: ["diagnostic"]}]}
 }
 fn tick() {
@@ -421,7 +424,7 @@ fn result() {}
     std::fs::write(&file, SCRIPT).unwrap();
     std::fs::write(&other, OTHER).unwrap();
     let mut sim = Platformer2dSimHarness::new_with_options(
-        crate::common::fixed_60hz_room_options("switch_lab").with_extension_module_files(vec![file.clone(), other])
+        crate::common::fixed_60hz_room_options("basement_enemies").with_extension_module_files(vec![file.clone(), other])
             .with_sync_test_rollback_settings(4, 12)).unwrap();
     crate::common::hand_the_timeline_to_the_local_maintainer(&mut sim);
     sim.step_n(AgentAction::default(), 30);

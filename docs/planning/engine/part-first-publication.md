@@ -382,7 +382,7 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
 
   Four sheets keep a page beside their parts (24 MB): `player_robot_v3`
   (until [Q180](../awaiting-maintainer-decision.md#q180--what-should-the-ldtk-worlds-playerstart-icon-point-at-so-the-player-robot-can-publish-without-a-sheet-page);
-  since 2026-11-20 its next publish drops the page), the two boss sheets in `baked_pages`, and Mary-O's cosmic form (a hybrid).
+  republished page-less 2026-11-20: parts, portraits and record at every tier, no sheet page), the two boss sheets in `baked_pages`, and Mary-O's cosmic form (a hybrid).
   The other 576 MB of pages are sheets with no parts: props, projectiles and
   the Art cast kit (PF5 kept its pages by measurement).
 - **PF3 done (2026-11-18).** `scripts/regen/sprites.sh --reference --target

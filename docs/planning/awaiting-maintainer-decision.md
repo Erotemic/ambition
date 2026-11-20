@@ -288,7 +288,7 @@ maneuver state (rollback, codec) whichever option is chosen.
 
 ## Q180 — What should the LDtk worlds' PlayerStart icon point at, so the player robot can publish without a sheet page?
 
-**Context (2026-11-18, [PART-FIRST](queue.md#part-first--publish-characters-as-parts-not-frames)).**
+**Context (2026-11-18, [PART-FIRST](queue.md#part-first--publish-characters-as-parts-not-frames---done-2026-11-20)).**
 Every character with a part flipbook now publishes no baked sheet page; the
 game draws it from parts. `player_robot_v3` cannot yet: every LDtk world in
 `game/ambition_map_assets` declares the tileset `sprite_player_robot_v3` with

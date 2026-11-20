@@ -3,11 +3,19 @@
 //!
 //! The item owner (`ambition_held_items`) does the work, as it does for a
 //! player's pickup and throw: the same take, the same release, the same
-//! refusals. A script sees the result in the next tick's observation (the
-//! member's `held` and `supporter`), never on submission.
+//! refusals. A request with a `reply` gets an action result: `applied` once
+//! the item owner has done it, or `rejected` with the refusal's code. Without
+//! one, a refusal is only logged; the next tick's observation (the member's
+//! `held` and `supporter`) still shows what happened, never the submission.
 
+use ambition_extension_sdk::action::{ActionSubmission, ReplyTo};
 use ambition_extension_sdk::wire::{WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
+
+/// The action domain of a take.
+pub const TAKE_DOMAIN: &str = "item.take";
+/// The action domain of a release.
+pub const RELEASE_DOMAIN: &str = "item.release";
 
 /// The request port marker for taking an item.
 ///
@@ -19,11 +27,16 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Owner** — `ambition_abilities::group`, through
 ///   `ambition_held_items::take_ground_item`.
 /// * **Time** — `actor_think`, applied before the control gate this tick.
-/// * **Refusal** (warned and dropped) — the body or the supporter is not an
-///   undriven body of the invocation's room, or already holds something; the
-///   item is not lying in that room; the item's box is farther than
-///   `TAKE_REACH` from the body's; or another take has the item first this
-///   tick (requests apply in the order they were submitted).
+/// * **Result** — with a `reply`: `applied` (`item_taken`, naming the body
+///   and the item) or `rejected` with the refusal's code. Without one, a
+///   refusal is warned and dropped.
+/// * **Refusal** — `no_such_body`: the body is not an undriven body of the
+///   invocation's room; `no_such_supporter`: the supporter is not another
+///   one; `hand_not_free`: either already holds or supports something;
+///   `no_such_item`: no item of that identity lies in that room, which is
+///   also the answer when another take has it first this tick (requests apply
+///   in the order they were submitted); `out_of_reach`: the item's box is
+///   farther than `TAKE_REACH` from the body's.
 pub struct TakeItemPort;
 
 /// A take.
@@ -32,12 +45,17 @@ pub struct TakeItem {
     pub body: String,
     pub item: String,
     pub supporter: Option<String>,
+    pub reply: Option<ReplyTo>,
 }
 
 impl Port for TakeItemPort {
-    const KEY: PortKey = PortKey::new("ambition.item.take", 1);
+    const KEY: PortKey = PortKey::new("ambition.item.take", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = TakeItem;
+
+    fn action(value: &TakeItem) -> Option<ActionSubmission<'_>> {
+        Some(ActionSubmission::encoded::<Self>(value, TAKE_DOMAIN, value.reply.as_ref()?))
+    }
 
     fn encode(v: &TakeItem, out: &mut Vec<u8>) {
         ambition_extension_sdk::structure::put(v, out)
@@ -57,6 +75,8 @@ ambition_extension_sdk::port_record! {
         /// The member that carries it with the taker, or `()` to carry it
         /// alone.
         supporter: Option<String> = None,
+        /// Where the action result goes, or `()` for none.
+        reply: Option<ReplyTo> = None,
     }
 }
 
@@ -77,10 +97,13 @@ pub const TAKE_REACH: f32 = 32.0;
 /// * **Owner** — `ambition_abilities::group`, through
 ///   `ambition_held_items::release_carried_item`.
 /// * **Time** — `actor_think`, applied before the control gate this tick.
-/// * **Refusal** (warned and dropped) — the body is not an undriven body of
-///   the invocation's room, or the release has no room to put the item
-///   (the item owner's refusal). A body that holds nothing has its hand
-///   emptied, as the item owner does.
+/// * **Result** — with a `reply`: `applied` (`item_released`, naming the
+///   body) or `rejected` with the refusal's code. Without one, a refusal is
+///   warned and dropped.
+/// * **Refusal** — `no_such_body`: the body is not an undriven body of the
+///   invocation's room; `no_room_to_release`: the item owner has no room to
+///   put the item; `nothing_held`: the body holds nothing (its hand is
+///   emptied, as the item owner does).
 pub struct ReleaseItemPort;
 
 /// A release.
@@ -89,12 +112,17 @@ pub struct ReleaseItem {
     pub body: String,
     pub thrown: bool,
     pub velocity: [f32; 2],
+    pub reply: Option<ReplyTo>,
 }
 
 impl Port for ReleaseItemPort {
-    const KEY: PortKey = PortKey::new("ambition.item.release", 1);
+    const KEY: PortKey = PortKey::new("ambition.item.release", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = ReleaseItem;
+
+    fn action(value: &ReleaseItem) -> Option<ActionSubmission<'_>> {
+        Some(ActionSubmission::encoded::<Self>(value, RELEASE_DOMAIN, value.reply.as_ref()?))
+    }
 
     fn encode(v: &ReleaseItem, out: &mut Vec<u8>) {
         ambition_extension_sdk::structure::put(v, out)
@@ -115,6 +143,8 @@ ambition_extension_sdk::port_record! {
         /// The item's velocity as it leaves (world units per second, +Y
         /// down).
         velocity: [f32; 2] = [0.0, 0.0],
+        /// Where the action result goes, or `()` for none.
+        reply: Option<ReplyTo> = None,
     }
 }
 
@@ -127,11 +157,12 @@ mod tests {
 
     #[test]
     fn a_take_and_a_release_go_there_and_back() {
-        let take = TakeItem { body: "placement:a".into(), item: "placement:nut".into(), supporter: Some("placement:b".into()) };
+        let take = TakeItem { body: "placement:a".into(), item: "placement:nut".into(), supporter: Some("placement:b".into()),
+            reply: Some(ReplyTo { request: 7, selector: "probe::m/taken".into() }) };
         let mut bytes = Vec::new();
         TakeItemPort::encode(&take, &mut bytes);
         assert_eq!(TakeItemPort::decode(&mut WireReader::new(&bytes)).unwrap(), take);
-        let release = ReleaseItem { body: "placement:a".into(), thrown: true, velocity: [10.0, 0.0] };
+        let release = ReleaseItem { body: "placement:a".into(), thrown: true, velocity: [10.0, 0.0], reply: None };
         assert_eq!(ReleaseItemPort::from_script(&ReleaseItemPort::to_script(&release)).unwrap(), release);
         // A take alone leaves the supporter out.
         let alone = ScriptValue::Map(vec![

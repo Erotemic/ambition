@@ -14,7 +14,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 pub use commit::{
     commit_ready_room_transition_system, finalize_room_transition, CommittedRoomTransitionRestore,
-    PendingRoomTransitionFinalize, RoomClock,
+    PendingRoomTransitionFinalize, RoomClock, CrossingRefusal,
     RoomTransitionApplication, RoomTransitionApplyError, RoomTransitionFinalize, RoomTransitionEffects,
     StagedRoomTransition, TransitBodies,
 };

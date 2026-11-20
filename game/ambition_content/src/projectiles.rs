@@ -33,6 +33,11 @@ pub(super) fn register(app: &mut App) {
         "game/ambition_content/rhai/boss_stage_feedback.rhai",
         include_str!("../rhai/boss_stage_feedback.rhai"),
     );
+    ambition_platformer2d::extension::add_shipped_script(
+        app,
+        "game/ambition_content/rhai/marshal_gallus.rhai",
+        include_str!("../rhai/marshal_gallus.rhai"),
+    );
     let pack = crate::pack::select(app.world_mut());
     let looks = ambition_projectiles::content_schema::lowered_projectile_looks(&pack).cloned().unwrap_or_default();
     for (id, art) in &looks {

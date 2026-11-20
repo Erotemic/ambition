@@ -393,6 +393,10 @@ mod scripted_projectile_credit;
 mod scripted_projectile_results;
 
 mod scripted_inventory_exchanges;
+mod scripted_custody_outcomes;
+mod scripted_equipment_outcomes;
+mod scripted_crossing_facts;
+mod scripted_world_values;
 
 mod scripted_libraries;
 mod scripted_actor_creation;

@@ -1052,4 +1052,101 @@
         // Its tells are drawn (a row for each), so no warm placeholder tint.
         attack_tint: false,
     ),
+    // Marshal Gallus (`targets/characters/marshal_gallus.py`), every row in
+    // PNG order: idle->Rest, walk->DashEcho, quickdraw->SpikeHalo,
+    // spur_kick->SideSweep, dynamite->FloorSlam, hurt->Hit, death->Death; the
+    // other rows (lasso, whistle, call, high_noon, reload, enrage, turn,
+    // seated) are drawn by name. The frame is 400 square, drawn at 5/3 of
+    // his 96x140 placement. The sheet publishes its body box (the game sizes
+    // his body from it) and the body is centred in the frame (the feet at
+    // y 340), so the frame's centre, drawn at the body's, puts the feet on
+    // the floor.
+    "marshal_gallus": (
+        label_width: 100,
+        frame_width: 400,
+        frame_height: 400,
+        rows: [
+            // idle
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.13,
+            )),
+            // walk
+            (DashEcho, (
+                frame_count: 8,
+                duration_secs: 0.105,
+            )),
+            // quickdraw
+            (SpikeHalo, (
+                frame_count: 12,
+                duration_secs: 0.07,
+            )),
+            // spur_kick
+            (SideSweep, (
+                frame_count: 12,
+                duration_secs: 0.065,
+            )),
+            // lasso
+            (Rest, (
+                frame_count: 14,
+                duration_secs: 0.075,
+            )),
+            // dynamite
+            (FloorSlam, (
+                frame_count: 12,
+                duration_secs: 0.075,
+            )),
+            // whistle
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.075,
+            )),
+            // call
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.08,
+            )),
+            // high_noon
+            (Rest, (
+                frame_count: 16,
+                duration_secs: 0.07,
+            )),
+            // reload
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.09,
+            )),
+            // enrage
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.085,
+            )),
+            // turn
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.07,
+            )),
+            // hurt
+            (Hit, (
+                frame_count: 3,
+                duration_secs: 0.09,
+            )),
+            // death
+            (Death, (
+                frame_count: 14,
+                duration_secs: 0.105,
+            )),
+            // seated
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.16,
+            )),
+        ],
+        collision_scale: 1.6667,
+        feet_anchor_y: 0.0,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+        parts: None,
+    ),
 }

@@ -169,6 +169,21 @@ pub struct ObjectCollected { pub object: ObjectRef, pub by: Option<ObjectRef> }
 ambition_extension_sdk::port_record! { ObjectCollected { object: ObjectRef, by: Option<ObjectRef> } }
 port!(ObjectCollectedPort, "ambition.objects.collected", Trigger, ObjectCollected);
 
+/// A body crossed into another room: the room it left and the room it
+/// arrived in, by authored room id. The room owner commits it once the
+/// destination published, so the body already stands in `to`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectCrossed { pub object: ObjectRef, pub from: String, pub to: String }
+ambition_extension_sdk::port_record! { ObjectCrossed { object: ObjectRef, from: String, to: String } }
+port!(ObjectCrossedPort, "ambition.objects.crossed", Trigger, ObjectCrossed);
+
+/// A crossing the room owner refused after it began: the body is still in the
+/// room it tried to leave, which is unchanged. `code` says why.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectCrossingRefused { pub object: ObjectRef, pub to: String, pub code: String }
+ambition_extension_sdk::port_record! { ObjectCrossingRefused { object: ObjectRef, to: String, code: String } }
+port!(ObjectCrossingRefusedPort, "ambition.objects.crossing_refused", Trigger, ObjectCrossingRefused);
+
 /// A script's named message from the object it runs for, to each method
 /// subscribed to that object whose entry's selector is `topic`. The runtime
 /// admits it to every such method or to none, and answers with the recipients.
@@ -202,3 +217,37 @@ pub fn valid_signal_topic(topic: &str) -> bool {
     (1..=48).contains(&topic.len())
         && topic.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'.' | b'-'))
 }
+
+/// Write the world value `key`: a value the save keeps and every room reads.
+/// The world domain applies it on a tick no room can simulate again, so a
+/// write from a room that rewinds alone waits for its tick to be confirmed.
+/// With `expect`, the write applies only if the value's revision is still
+/// that one (`0`: no value yet); otherwise it is refused `revision_changed`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetWorldValue { pub reply: ReplyTo, pub key: String, pub value: ScriptValue, pub expect: Option<u32> }
+ambition_extension_sdk::port_record! {
+    SetWorldValue { reply: ReplyTo, key: String, value: ScriptValue, expect: Option<u32> = None }
+}
+action_port!(SetWorldValuePort, "ambition.world.set_value", 1, SetWorldValue, "world.set_value");
+
+/// Add `delta` to the world count `key` (an integer world value; absent is 0).
+/// Applied as [`SetWorldValue`] is; two rooms that each add one make two.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AddWorldCount { pub reply: ReplyTo, pub key: String, pub delta: i32 }
+ambition_extension_sdk::port_record! { AddWorldCount { reply: ReplyTo, key: String, delta: i32 } }
+action_port!(AddWorldCountPort, "ambition.world.add_count", 1, AddWorldCount, "world.add_count");
+
+/// One world value and the revision of its last write (from 1).
+#[derive(Clone, Debug, PartialEq)]
+pub struct WorldValue { pub key: String, pub value: ScriptValue, pub revision: u32 }
+ambition_extension_sdk::port_record! { WorldValue { key: String, value: ScriptValue, revision: u32 } }
+
+/// Every world value, in key order.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WorldValues { pub values: Vec<WorldValue> }
+ambition_extension_sdk::port_record! { WorldValues { values: Vec<WorldValue> } }
+port!(WorldValuesPort, "ambition.world.values", Observation, WorldValues);
+
+// A world value changed. Entries whose selector is the key hear it, once per
+// write, at the session, on the tick after the world domain applied it.
+port!(WorldValueChangedPort, "ambition.world.value_changed", Trigger, WorldValue);

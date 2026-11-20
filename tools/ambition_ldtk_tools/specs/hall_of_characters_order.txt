@@ -136,6 +136,13 @@ npc_valley_trader
 npc_valley_gatekeeper
 npc_valley_shepherd
 
+[Dry Dock, the Frontier's spaceport town]
+npc_frontier_clerk
+npc_frontier_liveryman
+npc_frontier_barkeep
+npc_frontier_prospector
+npc_frontier_foreman
+
 [The orbital station]
 npc_station_okafor
 npc_station_reyes

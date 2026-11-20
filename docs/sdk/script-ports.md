@@ -611,6 +611,26 @@ Port `ambition.objects.collected@1`, trigger: read as `this.trigger`.
 | `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
 | `by` | { session: text, allocation_room: integer (u32) or (), sequence: text } or () |  |
 
+## `object_crossed`
+
+Port `ambition.objects.crossed@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `from` | text |  |
+| `to` | text |  |
+
+## `object_crossing_refused`
+
+Port `ambition.objects.crossing_refused@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `to` | text |  |
+| `code` | text |  |
+
 ## `emit_signal`
 
 Port `ambition.objects.emit_signal@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
@@ -640,6 +660,45 @@ Port `ambition.world.post_signal@1`, request: `this.requests.push(request("<alia
 | `reply` | { request: integer (u32), selector: text } | required |  |
 | `topic` | text | required |  |
 | `data` | schema-selected data | `()` |  |
+
+## `set_world_value`
+
+Port `ambition.world.set_value@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `key` | text | required |  |
+| `value` | schema-selected data | required |  |
+| `expect` | integer (u32) or () | `()` |  |
+
+## `add_world_count`
+
+Port `ambition.world.add_count@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `key` | text | required |  |
+| `delta` | integer (i32) | required |  |
+
+## `world_values`
+
+Port `ambition.world.values@1`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `values` | list of { key: text, value: schema-selected data, revision: integer (u32) } |  |
+
+## `world_value_changed`
+
+Port `ambition.world.value_changed@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `key` | text |  |
+| `value` | schema-selected data |  |
+| `revision` | integer (u32) |  |
 
 ## `behavior_events`
 
@@ -782,6 +841,25 @@ Port `ambition.world.inventory@1`, observation: read as `this.observe.<alias>`.
 | `items` | list of { id: text, count: integer (u32), capacity: integer (u32) } |  |
 | `wallet` | integer (i32) or () |  |
 
+## `equip`
+
+Port `ambition.world.equip@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required | Where the action result goes. |
+| `body` | text | required | The body's identity (its `SimId`). |
+| `item` | text | required | The catalog item's id. |
+
+## `stow`
+
+Port `ambition.world.stow@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required | Where the action result goes. |
+| `body` | text | required | The body's identity (its `SimId`). |
+
 ## `play_cutscene`
 
 Port `ambition.story.play_cutscene@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
@@ -801,23 +879,25 @@ Port `ambition.actor.steer@1`, request: `this.requests.push(request("<alias>", #
 
 ## `take`
 
-Port `ambition.item.take@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.item.take@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `body` | text | required | The taker's identity (`GroupMember::id`). |
 | `item` | text | required | The item's identity (`GroupItem::id`). |
 | `supporter` | text or () | `()` | The member that carries it with the taker, or `()` to carry it alone. |
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Where the action result goes, or `()` for none. |
 
 ## `release`
 
-Port `ambition.item.release@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.item.release@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `body` | text | required | The holder's identity (`GroupMember::id`). |
 | `thrown` | bool | required | `true` to throw it (an attack: what it hits, it hurts), `false` to drop it. (`throw` is a word Rhai reserves.) |
 | `velocity` | [x, y] | `[0.0, 0.0]` | The item's velocity as it leaves (world units per second, +Y down). |
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Where the action result goes, or `()` for none. |
 
 ## `whereabouts`
 

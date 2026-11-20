@@ -24,6 +24,7 @@
             "noodle_lash",          // the FSM: one noodle whipped out at ledge height, toward you
             "inu_leash", // the Inugami: a ghost chain from its neck, its tip cracks the floor from behind it to in front of it
             "stack_power_chord", // Full Stack (the bossofthegame): a chord of sound rings rolls out each way and bounces along the floor
+            "gallus_whistle", // Marshal Gallus: the shift whistle; a ring of sound runs the yard floor both ways
         ],
         recipes: [
             (
@@ -78,6 +79,7 @@
             "portal_kick",      // GNU-ton: the giant's hoof comes out of a portal by you, along the floor or down on you
             "noodly_dive",   // the FSM: tracks you from above, falls, and lies stranded on the floor
             "mockingbird_snap", // the Mockingbird: a lunging bite at whoever rides a shark into its reach
+            "gallus_dynamite", // Marshal Gallus: three lit sticks lobbed to land round where you stand
         ],
         recipes: [
             (
@@ -185,6 +187,7 @@
             "mockingbird_strafe", // the Mockingbird, enraged: a run along the top of the sky raining fire on the flock, and back low
             "inu_storm", // the Inugami: three marks, then bolts from the vault strike them
             "boss_keystroke_rain", // the bossofthegame: keycaps fall in the order of the words he types
+            "gallus_tumbleweeds", // Marshal Gallus: tumbleweeds bound in from both docks, a pair each wave
         ],
         recipes: [
             (
@@ -226,6 +229,7 @@
             "mockingbird_fire_fan", // the Mockingbird, wounded: five, wider
             "mockingbird_lightsabers", // the Mockingbird, on fire: three burning lightsabers spat in a fan at you, that come back
             "stack_riff", // Full Stack (the bossofthegame): a fan of notes at you that arcs and falls
+            "gallus_quickdraw", // Marshal Gallus: three shots from the hip, each aimed where you are as it leaves
         ],
         recipes: [
             (
@@ -258,6 +262,8 @@
             "noodly_grasp", // the FSM: one noodle reaches along a line and drags whoever is at its tip into the bell
             "stack_feedback", // Full Stack (the bossofthegame): the tell locks your height; a level beam of sound crosses the stage there
             "boss_backspace", // the bossofthegame: the tell locks you; a row of backspace keys flies at that height toward you
+            "gallus_lasso", // Marshal Gallus: the loop drops where you stand and hauls you to his spurs
+            "gallus_high_noon", // Marshal Gallus, at noon: he marks where you stand, and fans the hammer down that line
         ],
         recipes: [
             (

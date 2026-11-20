@@ -481,15 +481,19 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
             // above is cleared from the exclusive world on a CONFIRMED frame,
             // which is the one place that is legal.
             retire_cancelled_room_transition(world, &kind);
-            // ⛔ A PEER REBASES ALSO WHEN THE OPERATION IS VOID. The slot is
-            // rollback state, and this peer cleared it from outside the
-            // timeline, at a frame the other peer is not at. The peers hold
-            // one world only because it is frozen, so the frame the
-            // simulation starts again must be one frame for each of them:
-            // frame zero of the next generation. A sync test has one host and
-            // keeps its timeline.
-            if matches!(committer, Committer::BehindThePeerBarrier) {
-                crate::peer::install_next_peer_session(world, session, eligibility);
+            // ⛔ BOTH HOSTS REBASE ALSO WHEN THE OPERATION IS VOID. The slot is
+            // rollback state cleared from outside the timeline, and so is the
+            // refusal its bodies' subscribers were just sent. Ring frames saved
+            // before this write still hold the intent: a sync test that kept
+            // its timeline restored it at its next rewind and began the void
+            // crossing again, with the refusal gone. A peer has a second
+            // reason: the other peer is not at this frame, and the peers hold
+            // one world only because it is frozen, so the simulation must start
+            // again at one frame for each: frame zero of the next generation.
+            match committer {
+                Committer::Alone { settings, owner } =>
+                    install_rebased_sync_test_session(world, session, settings, owner, eligibility),
+                Committer::BehindThePeerBarrier => crate::peer::install_next_peer_session(world, session, eligibility),
             }
             return;
         }
@@ -831,6 +835,10 @@ fn commit_transition(
             // Every variant is raised BEFORE the first destructive mutation, so
             // the world is still whole and the crossing is simply void.
             error!("Track B: {error}; cancelling the crossing");
+            if !matches!(error, ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::NoSessionWorld) {
+                ambition_platformer2d_runtime::room_transition::CrossingRefusal::of(world, intent, &target_room, &error)
+                    .publish(world);
+            }
             return CommitOutcome::Cancelled;
         }
     };

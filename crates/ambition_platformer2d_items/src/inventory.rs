@@ -23,6 +23,96 @@ use bevy::prelude::*;
 pub use ambition_items::transaction::{InventoryExchange, ExchangeApplied};
 
 pub const EXCHANGE_DOMAIN: &str = "inventory.exchange";
+/// The action domain of a script's equip.
+pub const EQUIP_DOMAIN: &str = "inventory.equip";
+/// The action domain of a script's stow.
+pub const STOW_DOMAIN: &str = "inventory.stow";
+
+/// The body a seat drives whose identity is `id`, in the invocation's room.
+fn party_body(world: &mut World, scope: Entity, id: &str) -> Result<Entity, &'static str> {
+    world.run_system_cached_with(find_party_body, (scope, id.to_owned())).map_err(|_| "inventory_unavailable")?
+}
+
+fn find_party_body(
+    In((scope, id)): In<(Entity, String)>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    bodies: Query<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId, Has<DrivingParticipant>)>,
+) -> Result<Entity, &'static str> {
+    let here = rooms.of(scope);
+    let (body, _, driven) = bodies
+        .iter()
+        .find(|(entity, sim, _)| sim.as_str() == id && rooms.of(*entity) == here)
+        .ok_or("no_such_body")?;
+    if !driven {
+        return Err("not_a_party_body");
+    }
+    Ok(body)
+}
+
+fn equip_one(world: &mut World, scope: Entity, request: &ambition_world_port::inventory::EquipItem)
+    -> Result<(Entity, &'static str), &'static str> {
+    let body = party_body(world, scope, &request.body)?;
+    let catalog = world.get_resource::<ItemCatalog>().ok_or("inventory_unavailable")?;
+    let item = catalog.item_by_id(&request.item).filter(|item| catalog.is_real(*item)).ok_or("unknown_item")?;
+    if catalog.held_item_id(item).is_some() {
+        world.run_system_cached_with(ambition_held_items::change_hand, (body, Some(item)))
+            .map_err(|_| "inventory_unavailable")?
+            .map_err(ambition_held_items::HandRefusal::code)?;
+        return Ok((body, "item_equipped"));
+    }
+    if catalog.wears_at(item, 1).is_none() {
+        return Err("not_equippable");
+    }
+    world.run_system_cached_with(crate::narrative::wear_item, (body, item)).map_err(|_| "inventory_unavailable")??;
+    Ok((body, "item_worn"))
+}
+
+fn stow_one(world: &mut World, scope: Entity, request: &ambition_world_port::inventory::StowHand)
+    -> Result<Entity, &'static str> {
+    let body = party_body(world, scope, &request.body)?;
+    match world.run_system_cached_with(ambition_held_items::change_hand, (body, None)).map_err(|_| "inventory_unavailable")? {
+        Ok(ambition_held_items::HandChange::Changed) => Ok(body),
+        Ok(ambition_held_items::HandChange::Unchanged) => Err("nothing_held"),
+        Err(refusal) => Err(refusal.code()),
+    }
+}
+
+/// A script's equips, in submission order, each answered with what the hand
+/// or the worn set did.
+fn lower_equips(world: &mut World) {
+    let requests = world.resource_mut::<ExtensionOutbox>().drain::<ambition_world_port::inventory::EquipItemPort>(&ACTOR_THINK);
+    for submitted in requests {
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<ambition_world_port::inventory::EquipItemPort>(
+            world, submitted.state_scope, &submitted.entry, &submitted.value);
+        if !dispatch.execute {
+            continue;
+        }
+        let (stage, code, subjects) = match equip_one(world, submitted.scope, &submitted.value) {
+            Ok((body, code)) => (ActionStage::Applied, code,
+                ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, body).into_iter().collect()),
+            Err(code) => (ActionStage::Rejected, code, Vec::new()),
+        };
+        publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, "", subjects);
+    }
+}
+
+/// A script's stows, answered as the equips are.
+fn lower_stows(world: &mut World) {
+    let requests = world.resource_mut::<ExtensionOutbox>().drain::<ambition_world_port::inventory::StowHandPort>(&ACTOR_THINK);
+    for submitted in requests {
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<ambition_world_port::inventory::StowHandPort>(
+            world, submitted.state_scope, &submitted.entry, &submitted.value);
+        if !dispatch.execute {
+            continue;
+        }
+        let (stage, code, subjects) = match stow_one(world, submitted.scope, &submitted.value) {
+            Ok(body) => (ActionStage::Applied, "hand_stowed",
+                ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, body).into_iter().collect()),
+            Err(code) => (ActionStage::Rejected, code, Vec::new()),
+        };
+        publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, "", subjects);
+    }
+}
 
 pub fn install(app: &mut App) {
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, EXCHANGE_DOMAIN,
@@ -46,6 +136,14 @@ pub fn install(app: &mut App) {
         };
     }
     phase!(ACTOR_THINK, InActorThink);
+    for domain in [EQUIP_DOMAIN, STOW_DOMAIN] {
+        ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, domain,
+            ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
+    }
+    app.install_extension_submitted_request::<ambition_world_port::inventory::EquipItemPort, _>(
+        ACTOR_THINK, "ambition_platformer2d_items", lower_equips);
+    app.install_extension_submitted_request::<ambition_world_port::inventory::StowHandPort, _>(
+        ACTOR_THINK, "ambition_platformer2d_items", lower_stows);
     phase!(BODY_CONTACT, InBodyContact);
     phase!(BOSS_CONDUCT, InBossConduct);
     phase!(HIT_REACTION, InHitReaction);

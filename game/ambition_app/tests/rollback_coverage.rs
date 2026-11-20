@@ -1053,6 +1053,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "Bounded source-room input history used to restore pending emissions on room rewind. The registered room-write retractor selects the saved room and tick; session activation clears the history. Rewinding this history with the simulation would remove the inputs needed for replay. PendingProjectileEmissions holds the canonical pending work.",
     ),
     (
+        "ambition_platformer2d_runtime::world_values::HeldWorldWrites",
+        "World value writes from rooms that rewind alone, held until their writing tick is confirmed (room-stamped; the registered room-write retractor drops a rewound room's writes, and session activation clears them). This is the world road's input history, as WorldPosts is: rewinding it with the simulation would lose writes a replay will not make again. With one rollback authority (GGRS) a write applies at once and this store stays empty; the values live in the registered save and the changes in the registered session mailbox.",
+    ),
+    (
         "ambition_platformer2d_runtime::world_posts::WorldPosts",
         "The world road's input history between rollback islands: posts held until their sending tick is confirmed (room-stamped; the registered room-write retractor drops a rewound room's posts) and admissions by tick, which a recipient room's replay queues again into the mailbox it restored. Rewinding it with the simulation would lose the admissions a replay must repeat. With one rollback authority (GGRS) a post is delivered at once and this store stays empty; the mailboxes it fills are registered.",
     ),

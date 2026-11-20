@@ -345,19 +345,14 @@ pub fn apply_item_equips(
             continue;
         }
         let Some(body) = driven_body(request.participant, &drivers) else { continue; };
-        // The level is the bag's count (`ItemMeta::levels`).
-        let Some(row) = items.get().wears_at(request.item, owned.count(request.item)) else {
-            warn!(
-                target: "crate::narrative",
-                "an equip of {:?} was asked for, and it is no ability with a row", request.item
-            );
-            continue;
+        let row = match worn_row_for(items.get(), &owned, request.item) {
+            Ok(row) => row,
+            Err(code) => {
+                warn!(target: "crate::narrative", "an equip of {:?} was refused: {code}", request.item);
+                continue;
+            }
         };
-        if !owned.has(request.item) {
-            warn!(target: "crate::narrative", "an equip of {:?} was asked for, and it is not owned", request.item);
-            continue;
-        }
-        rows.entry(request.participant).or_insert_with(|| (body, Vec::new())).1.push(row.clone());
+        rows.entry(request.participant).or_insert_with(|| (body, Vec::new())).1.push(row);
     }
     for (_, (body, rows)) in rows {
         let Ok(worn) = bodies.get_mut(body) else { continue; };
@@ -370,6 +365,43 @@ pub fn apply_item_equips(
             }
         }
     }
+}
+
+/// The row an owned ability is worn as, at the bag's count (its level,
+/// `ItemMeta::levels`), or why it is not: `not_worn` (no ability with a
+/// row) or `not_owned`. The menu's stamped equip and a script's `equip` ask
+/// this one rule.
+pub fn worn_row_for(
+    catalog: &ambition_items::ItemCatalog,
+    owned: &OwnedItems,
+    item: ambition_items::Item,
+) -> Result<ambition_characters::equipment::EquipmentRow, &'static str> {
+    let row = catalog.wears_at(item, owned.count(item)).ok_or("not_worn")?;
+    if !owned.has(item) {
+        return Err("not_owned");
+    }
+    Ok(row.clone())
+}
+
+/// `body` wears the owned ability `item`, as [`apply_item_equips`] wears a
+/// stamped one: an exclusive slot replaces the variant that held it.
+pub fn wear_item(
+    In((body, item)): In<(Entity, ambition_items::Item)>,
+    mut commands: Commands,
+    owned: Res<OwnedItems>,
+    items: ambition_items::ItemCatalogRead,
+    mut bodies: Query<Option<&mut ambition_characters::equipment::WornEquipment>>,
+) -> Result<(), &'static str> {
+    let row = worn_row_for(items.get(), &owned, item)?;
+    match bodies.get_mut(body).map_err(|_| "no_such_body")? {
+        Some(mut worn) => worn.equip(row),
+        None => {
+            let mut fresh = ambition_characters::equipment::WornEquipment::default();
+            fresh.equip(row);
+            commands.entity(body).insert(fresh);
+        }
+    }
+    Ok(())
 }
 
 fn driven_body(participant: PlayerSlot, drivers: &Query<(Entity, &DrivingParticipant)>) -> Option<Entity> {

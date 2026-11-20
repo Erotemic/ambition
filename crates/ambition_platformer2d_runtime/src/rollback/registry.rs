@@ -339,7 +339,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 513 -> 514: BodyCombat encodes its bury timer.
 // 514 -> 515: BodyCombat encodes its freeze timer.
 // 515 -> 516: BodyCombat encodes its crumple timer and the collapse it owes.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 516;
+// 516 -> 517: the session root keeps the world value changes its entries have not heard.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 517;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -1,0 +1,112 @@
+title: frontier_clerk
+---
+<<present_speaker "npc_frontier_clerk">>
+<<if condition("encounter.cleared", "frontier.marshal_gallus")>>
+    Dolores: You again. Name, origin, cargo.
+    -> The Marshal is beaten.
+        Dolores: I heard. The whole street heard. He was crowing at the coyotes from the mesa all afternoon, but hoarse.
+        Dolores: The toll box is still in his office. I'm not the one who's going to go in and ask for it.
+    -> ⟨go⟩
+<<elseif condition("world.flag_set", "frontier_clerk_met")>>
+    Dolores: Still logged. Still here. Pad Three, arrivals.
+    -> Who gets the toll?
+        Dolores: The Marshal. Twelve credits a head, through the gate or off a ship.
+        Dolores: It's meant for the town. It goes in a box in his office and the box has never once come out.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_clerk_met" true>>
+    Dolores: Hold it. Arrivals sign in.
+    Dolores: Name, origin, cargo.
+    -> I came through the gate.
+        Dolores: Origin: gate. Cargo: none. Fine.
+        Dolores: The Marshal will want his toll. He'll find you. He finds everybody.
+    -> ⟨say nothing⟩
+        Dolores: Origin: unknown. That's allowed. I've logged worse.
+<<endif>>
+===
+title: frontier_liveryman
+---
+<<present_speaker "npc_frontier_liveryman">>
+<<if condition("world.flag_set", "frontier_liveryman_met")>>
+    Gus: Mules by the day. Same price as yesterday.
+    -> Why not something with an engine?
+        Gus: Dust gets in an engine on the pass and the engine stops. A mule stops too, but you can argue with a mule.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_liveryman_met" true>>
+    Gus: If you want a horse, I don't have one. Don't ask me again.
+    -> I didn't ask.
+        Gus: You were going to. Folks look at me and they think I've got cousins out back.
+        Gus: Mules. Six of them. My sister shoes them and I do the rest.
+    -> ⟨say nothing⟩
+        Gus: Mules by the day, then. Bring the same number of legs back.
+<<endif>>
+===
+title: frontier_barkeep
+---
+<<present_speaker "npc_frontier_barkeep">>
+<<if condition("encounter.cleared", "frontier.marshal_gallus")>>
+    Mae: First glass of water's on the house today. Somebody beat the Marshal and the night shift slept in.
+    -> ⟨go⟩
+<<elseif condition("world.flag_set", "frontier_barkeep_met")>>
+    Mae: Water's two. Coffee's three.
+    -> Tell me about the Marshal.
+        Mae: He drinks here at noon. Coffee, black, and he tips in somebody else's money.
+        Mae: When he's mad he goes to the corral and shoots at cans. When he's very mad he whistles.
+        Mae: Don't be in the yard when he whistles.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_barkeep_met" true>>
+    Mae: Welcome to the Whistle. You look dry.
+    -> What's good?
+        Mae: Water. It came eleven hundred miles on a tanker, so it's the best thing on the shelf.
+        Mae: The blue stuff is coolant. Somebody drinks it every month.
+    -> ⟨say nothing⟩
+        Mae: Suit yourself. The stool's free.
+<<endif>>
+===
+title: frontier_prospector
+---
+<<present_speaker "npc_frontier_prospector">>
+<<if condition("world.flag_set", "frontier_prospector_met")>>
+    Elias: Still here? Sit down, sit down.
+    -> Where's the lead?
+        Elias: In the creek, if you believe me, and nobody does. Lead in the gravel, grey as a bad tooth.
+        Elias: The refinery pays by the pound. The Marshal takes a cut by the pound. You can see the problem.
+    -> What happened to the Marshal?
+        Elias: Accident at the cracking tower, back when he was a plain rooster on a plain farm. So they say.
+        Elias: Then the company built him back up out of the parts they had. I'd have asked for fewer guns.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_prospector_met" true>>
+    Elias: You're new. Good. Everybody else has heard all of it.
+    Elias: Forty years in this pass. Panned every creek from here to the far pads. Found lead.
+    -> Lead?
+        Elias: Lead! It's worth something to somebody. Mostly the Marshal.
+    -> ⟨say nothing⟩
+        Elias: That's fine. I'll talk for both of us.
+<<endif>>
+===
+title: frontier_foreman
+---
+<<present_speaker "npc_frontier_foreman">>
+<<if condition("encounter.cleared", "frontier.marshal_gallus")>>
+    Ruth: No whistle this morning. I let the shift sleep and nobody blew anything up.
+    Ruth: We'll pick our own hours now. Seven, maybe. Seven sounds civilised.
+    -> ⟨go⟩
+<<elseif condition("world.flag_set", "frontier_foreman_met")>>
+    Ruth: Hat on, or off the terrace.
+    -> What does the Marshal want?
+        Ruth: Ore in the carts. Nobody on the road after the whistle. His toll, his cut, his rules on a board.
+        Ruth: He blows the shift whistle at four in the morning because he can, and we start.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_foreman_met" true>>
+    Ruth: You're on my terrace without a hard hat.
+    -> Sorry.
+        Ruth: Mind the chickens, then. They're his. They don't swerve.
+    -> I'm going to the corral.
+        Ruth: To see the Marshal? He'll see you first. The road goes up past the tower.
+        Ruth: If you get him to lie in past four, the whole shift owes you a drink.
+<<endif>>
+===

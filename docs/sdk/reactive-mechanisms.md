@@ -67,6 +67,28 @@ A pickup that regrows and is taken again produces a second fact. Subscribe as
 to a break: `#{port: "object_collected", selector: "collected"}`. The witness is
 `a_subscribed_method_hears_its_pickup_taken_once_and_by_whom` (`switch_lab`).
 
+## Hear a crossing
+
+`object_crossed` names a body that crossed into another room: `from`, the
+authored id of the room it left, and `to`, the room it now stands in. The room
+owner commits it once the destination has published, on either host, so the
+body is already in `to` when the method runs. Each member of a party crossing
+produces its own fact. Subscribe as to a take:
+`#{port: "object_crossed", selector: "crossed"}`.
+
+`object_crossing_refused` names a body whose crossing the room owner refused
+after the crossing began: `to`, where it was going, and `code`, why. The body is
+still where it stood and that room is unchanged. The codes are `arrival_blocked`
+(no clear space at the arrival), `body_not_in_play` (the crossing needs a living
+body), `body_cannot_cross` (the body lacks state a crossing moves),
+`destination_changed` (its occurrence continuity changed after preparation) and
+`room_commit_refused` (the built room failed its verification). Subscribe with
+`#{port: "object_crossing_refused", selector: "crossing_refused"}`.
+
+A behavior attached to a body travels with it, so a body can subscribe to its own
+crossings: name the body as a reference and subscribe from that reference. The
+witnesses are in `scripted_crossing_facts` (both hosts, refusal included).
+
 ## Send a signal
 
 A signal is your own named message, as a Godot signal is: the object a script

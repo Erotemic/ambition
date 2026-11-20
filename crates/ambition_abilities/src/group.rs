@@ -27,7 +27,9 @@ use ambition_held_items::{
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomInstanceRoot};
 use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
+use ambition_platformer2d_shared_tangle::action_results::{begin_action_request, object_action_subject, publish_action_result};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
+use ambition_extension_sdk::action::ActionStage;
 use bevy::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -39,6 +41,10 @@ pub fn install(app: &mut App) {
         queue_group_thinks.run_if(ambition_extension_host::trigger_is_bound::<GroupThinkPort>),
     );
     app.install_extension_submitted_request::<SteerPort, _>(ACTOR_THINK, "ambition_abilities", lower_steers);
+    for domain in [ambition_combat_port::custody::TAKE_DOMAIN, ambition_combat_port::custody::RELEASE_DOMAIN] {
+        ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, domain,
+            ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
+    }
     // Releases before takes, as the native rule frees a hand before it fills one.
     app.install_extension_submitted_request::<ReleaseItemPort, _>(ACTOR_THINK, "ambition_abilities", lower_releases);
     app.install_extension_submitted_request::<TakeItemPort, _>(ACTOR_THINK, "ambition_abilities", lower_takes);
@@ -207,115 +213,145 @@ fn body_named(bodies: &CustodyBodies, rooms: &LiveRooms, room: Option<LiveRoomIn
     bodies.iter().find(|(entity, sim, ..)| sim.as_str() == id && rooms.of(*entity) == room).map(|(entity, ..)| entity)
 }
 
-/// A take: the item owner's own take, for an item lying within reach in the
-/// body's room; with a supporter, the sling between them. A body that holds
-/// or supports anything, or an item taken earlier in the tick, is refused.
+/// The takes, in the order they were submitted: each is the item owner's own
+/// take, for an item lying within reach in the body's room; with a
+/// supporter, the sling between them. A take that asks for a reply is
+/// answered with what the item owner did; one that does not has its refusal
+/// logged.
+pub fn lower_takes(world: &mut World) {
+    let requests = world.resource_mut::<ExtensionOutbox>().drain::<TakeItemPort>(&ACTOR_THINK);
+    for submitted in requests {
+        let dispatch = begin_action_request::<TakeItemPort>(world, submitted.state_scope, &submitted.entry, &submitted.value);
+        if !dispatch.execute {
+            continue;
+        }
+        // Each take runs alone and its commands apply before the next, so a
+        // later take sees the hands and items the earlier ones changed.
+        let outcome = world
+            .run_system_cached_with(take_one, (submitted.scope, submitted.value.clone()))
+            .unwrap_or(Err("item_owner_unavailable"));
+        match outcome {
+            Ok((body, item)) => {
+                let subjects = [body, item].into_iter().filter_map(|entity| object_action_subject(world, entity)).collect();
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Applied, true, "item_taken", "", subjects);
+            }
+            Err(code) => {
+                if dispatch.reply.is_none() {
+                    warn!("extension entry {} asked {:?} to take {:?}: {code}; refused", submitted.entry, submitted.value.body, submitted.value.item);
+                }
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Rejected, true, code, "", Vec::new());
+            }
+        }
+    }
+}
+
+/// One take, or the code of its refusal.
 #[allow(clippy::too_many_arguments)]
-pub fn lower_takes(
+fn take_one(
+    In((scope, take)): In<(Entity, ambition_combat_port::TakeItem)>,
     mut commands: Commands,
-    mut outbox: ResMut<ExtensionOutbox>,
     mut bodies: CustodyBodies,
     mut items: CarriedItems,
     supporting: Query<&SupportedCarry>,
     ids: Query<&SimId>,
     rooms: LiveRooms,
-) {
-    let mut busy: BTreeSet<Entity> = supporting.iter().map(|carry| carry.supporter).collect();
-    for submitted in outbox.drain::<TakeItemPort>(&ACTOR_THINK) {
-        let take = submitted.value;
-        let room = rooms.of(submitted.scope);
-        let refuse = |why: &str| warn!("extension entry {} asked {:?} to take {:?}: {why}; refused", submitted.entry, take.body, take.item);
-        let Some(body) = body_named(&bodies, &rooms, room, &take.body) else {
-            refuse("no undriven body of its room has that identity");
+) -> Result<(Entity, Entity), &'static str> {
+    let room = rooms.of(scope);
+    let body = body_named(&bodies, &rooms, room, &take.body).ok_or("no_such_body")?;
+    let supporter = match &take.supporter {
+        None => None,
+        Some(id) => Some(body_named(&bodies, &rooms, room, id).filter(|s| *s != body).ok_or("no_such_supporter")?),
+    };
+    let busy: BTreeSet<Entity> = supporting.iter().map(|carry| carry.supporter).collect();
+    let empty = |entity: Entity| {
+        !busy.contains(&entity) && bodies.get(entity).is_ok_and(|(_, _, _, hand, carrying)| hand.held.is_none() && !carrying)
+    };
+    if !empty(body) || supporter.is_some_and(|s| !empty(s)) {
+        return Err("hand_not_free");
+    }
+    let item = items
+        .iter()
+        .find(|(entity, _, _, custody, _)| custody.in_world() && rooms.of(*entity) == room && ids.get(*entity).is_ok_and(|id| id.as_str() == take.item))
+        .map(|(entity, ..)| entity)
+        .ok_or("no_such_item")?;
+    let (_, _, kin, mut hand, _) = bodies.get_mut(body).map_err(|_| "no_such_body")?;
+    let (_, ground, item_body, mut custody, _) = items.get_mut(item).map_err(|_| "no_such_item")?;
+    let gap = (item_body.pos - kin.pos).abs() - (item_body.size() + kin.size()) * 0.5;
+    if gap.max_element() > TAKE_REACH {
+        return Err("out_of_reach");
+    }
+    let kin = *kin;
+    take_ground_item(&mut commands, body, &mut hand, item, ground, item_body, &mut custody, &kin);
+    if let Some(supporter) = supporter {
+        commands.entity(body).insert(SupportedCarry { supporter });
+    }
+    Ok((body, item))
+}
+
+/// The releases, in the order they were submitted: each is the item owner's
+/// own release, from under the body or from under the middle of its shared
+/// carry, and the end of the sling. Answered as the takes are.
+pub fn lower_releases(world: &mut World) {
+    let requests = world.resource_mut::<ExtensionOutbox>().drain::<ReleaseItemPort>(&ACTOR_THINK);
+    for submitted in requests {
+        let dispatch = begin_action_request::<ReleaseItemPort>(world, submitted.state_scope, &submitted.entry, &submitted.value);
+        if !dispatch.execute {
             continue;
-        };
-        let supporter = match &take.supporter {
-            None => None,
-            Some(id) => match body_named(&bodies, &rooms, room, id).filter(|s| *s != body) {
-                Some(supporter) => Some(supporter),
-                None => {
-                    refuse("its supporter is not another undriven body of the room");
-                    continue;
+        }
+        let outcome = world
+            .run_system_cached_with(release_one, (submitted.scope, submitted.value.clone()))
+            .unwrap_or(Err("item_owner_unavailable"));
+        match outcome {
+            Ok(body) => {
+                let subjects = object_action_subject(world, body).into_iter().collect();
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Applied, true, "item_released", "", subjects);
+            }
+            Err(code) => {
+                if dispatch.reply.is_none() {
+                    warn!("extension entry {} asked {:?} to let go: {code}; refused", submitted.entry, submitted.value.body);
                 }
-            },
-        };
-        let empty = |entity: Entity, bodies: &CustodyBodies| {
-            !busy.contains(&entity) && bodies.get(entity).is_ok_and(|(_, _, _, hand, carrying)| hand.held.is_none() && !carrying)
-        };
-        if !empty(body, &bodies) || supporter.is_some_and(|s| !empty(s, &bodies)) {
-            refuse("a hand is not free");
-            continue;
-        }
-        let Some(item) = items
-            .iter()
-            .find(|(entity, _, _, custody, _)| custody.in_world() && rooms.of(*entity) == room && ids.get(*entity).is_ok_and(|id| id.as_str() == take.item))
-            .map(|(entity, ..)| entity)
-        else {
-            refuse("no item of that identity lies in its room");
-            continue;
-        };
-        let Ok((_, _, kin, mut hand, _)) = bodies.get_mut(body) else {
-            continue;
-        };
-        let Ok((_, ground, item_body, mut custody, _)) = items.get_mut(item) else {
-            continue;
-        };
-        let gap = (item_body.pos - kin.pos).abs() - (item_body.size() + kin.size()) * 0.5;
-        if gap.max_element() > TAKE_REACH {
-            refuse("the item is out of reach");
-            continue;
-        }
-        let kin = *kin;
-        take_ground_item(&mut commands, body, &mut hand, item, ground, item_body, &mut custody, &kin);
-        busy.insert(body);
-        if let Some(supporter) = supporter {
-            commands.entity(body).insert(SupportedCarry { supporter });
-            busy.insert(supporter);
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Rejected, true, code, "", Vec::new());
+            }
         }
     }
 }
 
-/// A release: the item owner's own release, from under the body or from
-/// under the middle of its shared carry, and the end of the sling.
-pub fn lower_releases(
+/// One release, or the code of its refusal.
+#[allow(clippy::too_many_arguments)]
+fn release_one(
+    In((scope, release)): In<(Entity, ambition_combat_port::ReleaseItem)>,
     mut commands: Commands,
-    mut outbox: ResMut<ExtensionOutbox>,
     mut bodies: CustodyBodies,
     mut items: CarriedItems,
     slings: Query<&SupportedCarry>,
     kins: Query<&ae::BodyKinematics>,
     release_world: ItemReleaseWorld,
     rooms: LiveRooms,
-) {
-    for submitted in outbox.drain::<ReleaseItemPort>(&ACTOR_THINK) {
-        let release = submitted.value;
-        let room = rooms.of(submitted.scope);
-        let Some(body) = body_named(&bodies, &rooms, room, &release.body) else {
-            warn!("extension entry {} asked {:?} to let go: no undriven body of its room has that identity; refused", submitted.entry, release.body);
-            continue;
-        };
-        let Ok((_, _, kin, mut hand, _)) = bodies.get_mut(body) else {
-            continue;
-        };
-        let kin = *kin;
-        // The carrying geometry: the sling's middle, or under the body.
-        let partner = slings
-            .get(body)
-            .ok()
-            .filter(|carry| rooms.of(carry.supporter) == room)
-            .and_then(|carry| kins.get(carry.supporter).ok());
-        let from = partner.map_or(kin.pos + Vec2::Y * (kin.size().y * 0.5 + 8.0), |other| {
-            SupportedCarry::anchor(&kin, other, Vec2::Y)
-        });
-        let way = if release.thrown { Release::Throw } else { Release::Drop };
-        match release_carried_item(&mut commands, body, &mut hand, &mut items, &kin, &release_world, from, Vec2::from(release.velocity), way) {
-            Err(refusal) => {
-                warn!(?refusal, "extension entry {} asked {:?} to let go; refused", submitted.entry, release.body);
-                continue;
-            }
-            Ok(false) => ambition_held_items::empty_hand(&mut commands, body, &mut hand),
-            Ok(true) => {}
+) -> Result<Entity, &'static str> {
+    let room = rooms.of(scope);
+    let body = body_named(&bodies, &rooms, room, &release.body).ok_or("no_such_body")?;
+    let (_, _, kin, mut hand, _) = bodies.get_mut(body).map_err(|_| "no_such_body")?;
+    let kin = *kin;
+    // The carrying geometry: the sling's middle, or under the body.
+    let partner = slings
+        .get(body)
+        .ok()
+        .filter(|carry| rooms.of(carry.supporter) == room)
+        .and_then(|carry| kins.get(carry.supporter).ok());
+    let from = partner.map_or(kin.pos + Vec2::Y * (kin.size().y * 0.5 + 8.0), |other| {
+        SupportedCarry::anchor(&kin, other, Vec2::Y)
+    });
+    let way = if release.thrown { Release::Throw } else { Release::Drop };
+    let released = match release_carried_item(&mut commands, body, &mut hand, &mut items, &kin, &release_world, from, Vec2::from(release.velocity), way) {
+        Err(refusal) => {
+            debug!(?refusal, "the item owner has no room to release {:?}'s item", release.body);
+            return Err("no_room_to_release");
         }
-        commands.entity(body).remove::<SupportedCarry>();
+        Ok(released) => released,
+    };
+    if !released {
+        ambition_held_items::empty_hand(&mut commands, body, &mut hand);
     }
+    commands.entity(body).remove::<SupportedCarry>();
+    if released { Ok(body) } else { Err("nothing_held") }
 }

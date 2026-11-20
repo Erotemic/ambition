@@ -92,6 +92,7 @@ pub fn install_ports(app: &mut App) {
     crate::behavior_inbox::install(app);
     crate::behavior_events::install(app);
     crate::world_posts::install(app);
+    crate::world_values::install(app);
     crate::actor_creation::install(app);
     crate::breakable_creation::install(app);
     crate::contact_consumption::install(app);
@@ -389,9 +390,15 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::behavior::ObjectDefeatedPort>("object_defeated")
         .add::<ambition_world_port::behavior::ObjectBrokenPort>("object_broken")
         .add::<ambition_world_port::behavior::ObjectCollectedPort>("object_collected")
+        .add::<ambition_world_port::behavior::ObjectCrossedPort>("object_crossed")
+        .add::<ambition_world_port::behavior::ObjectCrossingRefusedPort>("object_crossing_refused")
         .add::<ambition_world_port::behavior::EmitSignalPort>("emit_signal")
         .add::<ambition_world_port::behavior::ObjectSignalPort>("object_signal")
         .add::<ambition_world_port::behavior::PostWorldSignalPort>("post_world_signal")
+        .add::<ambition_world_port::behavior::SetWorldValuePort>("set_world_value")
+        .add::<ambition_world_port::behavior::AddWorldCountPort>("add_world_count")
+        .add::<ambition_world_port::behavior::WorldValuesPort>("world_values")
+        .add::<ambition_world_port::behavior::WorldValueChangedPort>("world_value_changed")
         .add::<ambition_world_port::behavior::BehaviorEventsPort>("behavior_events")
         .add::<ambition_world_port::behavior::CompleteObjectCallPort>("complete_object_call")
         .add::<ambition_world_port::behavior::BehaviorContextPort>("behavior")
@@ -407,6 +414,8 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::consumption::ConsumeSelfPort>("consume_self")
         .add::<ambition_world_port::consumption::DestructibleStatePort>("destructible")
         .add::<ambition_world_port::inventory::InventoryViewPort>("inventory")
+        .add::<ambition_world_port::inventory::EquipItemPort>("equip")
+        .add::<ambition_world_port::inventory::StowHandPort>("stow")
         .add::<ambition_world_port::PlayCutscenePort>("play_cutscene")
         .add::<ambition_combat_port::SteerPort>("steer")
         .add::<ambition_combat_port::TakeItemPort>("take")

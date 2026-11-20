@@ -1289,6 +1289,35 @@ at hand; the later-work list in the design page.
 fight runs with the Boss riding the guitar robot, in phases, with its intro,
 music cue and art; the ending follows the retirement rule.
 
+### LEADENSADDLE — the Frontier dimension and Marshal Gallus
+
+**Request (Jon, 2026-11-20):** a robot chicken boss between a big chicken and
+a person with a chicken's head (a swaggering rooster cyborg with a cowboy
+hat and kit), a western biome for him with its own environment and western
+music and a boss theme, an industrial spaceport town, reached by the gate
+address `LEADENSADDLE`. Original work only: the named films and shows are
+mood references.
+
+**Design:** [`game/leadensaddle.md`](game/leadensaddle.md): the dimension
+`frontier` (`frontier.ldtk`), the town of Dry Dock in the Leaden Saddle, the
+boss Marshal Gallus in the Ore Corral, two music cues (the town's four
+sections and the boss theme).
+
+**State (2026-11-20):** slices 1 to 6 are built: the art, the world and its
+gate, the fight (Rhai), the music (rendered here, not in this VM's
+registry), the residents and their wing of the Hall of Characters.
+`fight_discovery` plays the fight through its three phases; the aggressor
+policy brought him to 7 of 60 and died, so his defeat and the opening of
+the lookout's gate were not reached headless.
+
+**Next action:** see the defeat headless (a policy or a probe that wins),
+and play the corral by hand: a knockback can carry the player out by the
+west edge mid-fight, as nothing seals a boss arena. **Done when:** a dial of `LEADENSADDLE`
+arrives on Pad Three, the town and the refinery lead to the corral, the
+Marshal's fight plays through its three phases headless to his defeat and
+opens the lookout, the hall has his practice copy, and each room plays its
+own rendered cue.
+
 ### PLAYER-DEATH — what a death is in Ambition — ✅ DONE 2026-11-17
 
 **Owner:** `session/death.rs` (the beat), the presentation owner, and the bag
@@ -1980,6 +2009,8 @@ current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 
 **Trailhead arch reds (found 2026-11-20, inherited: red at `c71bc51af` too):** `the_gate_network::the_jungles_arches_chain_along_the_trail` and `a_route_over_rooms::autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail`. Standing in the open arch at `primeval_trailhead`, the traveller's Interact opens a talk with Ranger Brandvold (`placement:NpcSpawn-500050`, authored at x 744) instead of crossing, and the arch never fires. A `Door` zone keeps the press only from a talker farther than the zone's centre (`InteractReach::a_door_keeps_the_press`), so Brandvold must be within talking reach and nearer than the arch's centre when the press lands; his position at the press is not yet measured.
+
+**Ridden-mount crossing red (found 2026-11-20, inherited: red at `49f35c4d5` with the C2 change stashed):** `carried_item_crosses_rooms::the_whole_attachment_closure_is_recorded_as_being_in_custody` finds no occurrence (0, wanted 1) of the mount's authored identity after two ridden crossings. The second crossing now lands in `hall_of_bosses`, which `49f35c4d5` gave a new door; whether the walker takes that door instead of the one the test means is not yet measured.
 
 **Workspace policy reds (found 2026-11-19, inherited):**
 `cargo test -p ambition_workspace_policy` was red in two scopes.

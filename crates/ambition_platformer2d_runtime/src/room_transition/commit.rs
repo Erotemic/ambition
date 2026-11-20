@@ -243,6 +243,20 @@ pub enum RoomTransitionApplyError {
     },
 }
 
+impl RoomTransitionApplyError {
+    /// The code a script hears when this ends a crossing.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::NoSessionWorld => "no_session_world",
+            Self::StaleContinuity => "destination_changed",
+            Self::SubjectGone => "body_gone",
+            Self::SubjectCannotTransit { missing: "clear arrival space", .. } => "arrival_blocked",
+            Self::SubjectCannotTransit { missing: "available living body", .. } => "body_not_in_play",
+            Self::SubjectCannotTransit { .. } => "body_cannot_cross",
+        }
+    }
+}
+
 impl std::fmt::Display for RoomTransitionApplyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -319,7 +333,7 @@ impl RoomTransitionApplication<'_, '_> {
         let arrival_pos = body.kinematics.pos;
         let gravity_dir = self.bodies.motion_frames.get(subject).map(|frame| frame.down())
             .unwrap_or(ae::Vec2::new(0.0, 1.0));
-        Ok(StagedRoomMember { subject, participant, arrival_pos, size, gravity_dir, material: None })
+        Ok(StagedRoomMember { subject, participant, arrival_pos, size, gravity_dir, material: None, left: String::new() })
     }
 
     fn arrival_world<'a>(
@@ -374,7 +388,11 @@ impl RoomTransitionApplication<'_, '_> {
             if !seen.insert(subject) {
                 return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "unique transfer membership" });
             }
-            let member = self.prepare_member(subject, transfer.participant)?;
+            let mut member = self.prepare_member(subject, transfer.participant)?;
+            member.left = self.subject_room.get(subject).ok()
+                .and_then(|(_, room)| self.definitions.iter().find(|(live, _)| **live == room.0))
+                .and_then(|(_, definition)| room_set.rooms.get(definition.index()))
+                .map(|room| room.id.clone()).unwrap_or_default();
             if transfer.requirement == ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::InPlay
                 && !self.bodies.living.get(subject).is_ok_and(|(health, out_of_play)| health.alive() && out_of_play.is_none()) {
                 return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "available living body" });
@@ -510,7 +528,7 @@ impl RoomTransitionApplication<'_, '_> {
         );
         Ok(StagedRoomTransition {
             publication, scope: CrossingScope { retiring: retiring.into_iter().collect(), other_rooms_stay },
-            members, target_room, edge_exit: intent.edge_exit(), door_sfx,
+            members, target_room, target_room_id: plan.room_id().to_owned(), edge_exit: intent.edge_exit(), door_sfx,
             target_world: plan.spec().world.clone(),
             resets_clock: intent.rebuilds_source_room(),
         })
@@ -533,6 +551,8 @@ pub struct StagedRoomTransition {
     pub scope: CrossingScope,
     pub members: Vec<StagedRoomMember>,
     pub target_room: usize,
+    /// The authored id of the room crossed into.
+    pub target_room_id: String,
     pub edge_exit: bool,
     /// The zone cue and the position to play it at: where the body stood BEFORE
     /// the transit.
@@ -561,6 +581,8 @@ pub struct StagedRoomMember {
     pub arrival_pos: ae::Vec2,
     pub size: ae::Vec2,
     pub gravity_dir: ae::Vec2,
+    /// The authored id of the room the body is leaving; empty when it was in none.
+    pub left: String,
 }
 
 /// Everything a crossing does that MEANS the crossing happened.
@@ -740,9 +762,24 @@ pub fn finalize_room_transition(
 
             }
             state.apply(world);
+            publish_crossings(world, staged);
         },
-        |_| {},
+        |world| CrossingRefusal {subjects: staged.members.iter().map(|member| member.subject).collect(),
+            to: staged.target_room_id.clone(), code: "room_commit_refused"}.publish(world),
     )
+}
+
+/// Tell each member's subscribers it crossed: it stands in the published room.
+fn publish_crossings(world: &mut bevy::prelude::World, staged: &StagedRoomTransition) {
+    use ambition_world_port::behavior::*;
+    for member in &staged.members {
+        let Some(object) = ambition_platformer2d_shared_tangle::lifecycle::object_reference(world, member.subject) else { continue; };
+        let report = crate::behavior_events::publish_native::<ObjectCrossedPort>(world, object,
+            &ObjectCrossed {object, from: member.left.clone(), to: staged.target_room_id.clone()});
+        if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
+            bevy::log::warn!(?report, ?object, "Native crossing notification delivery was limited.");
+        }
+    }
 }
 
 /// The bodies a room transition can relocate, bundled into one `SystemParam` to
@@ -1098,6 +1135,10 @@ pub fn commit_ready_room_transition_system(
     ) {
         Ok(staged) => staged,
         Err(error) => {
+            if !matches!(error, RoomTransitionApplyError::NoSessionWorld) {
+                let subjects = intent.transfers().filter_map(|transfer| application.subject_entity(&transfer.subject)).collect();
+                pending_finalize.refusal = Some(CrossingRefusal {subjects, to: active.target_room_id().to_owned(), code: error.code()});
+            }
             match error {
                 terminal @ RoomTransitionApplyError::StaleContinuity
                 | terminal @ RoomTransitionApplyError::SubjectGone
@@ -1142,12 +1183,12 @@ pub fn commit_ready_room_transition_system(
     // consuming the intent, owing the restore, advancing the barrier and the
     // mode — means *"the crossing happened"*, and whether it happened is a
     // question only this publication's verdict can answer.
-    *pending_finalize = PendingRoomTransitionFinalize(Some(PendingCrossing {
+    pending_finalize.crossing = Some(PendingCrossing {
         staged,
         active,
         #[cfg(not(target_arch = "wasm32"))]
         commit_started,
-    }));
+    });
 }
 
 /// The crossing this frame staged, waiting on its publication's verdict.
@@ -1158,12 +1199,44 @@ pub fn commit_ready_room_transition_system(
 /// here would be a crossing waiting to be finished against a world that had
 /// moved on — the same rule `CommittedRoomTransitionRestore` states.
 #[derive(bevy::prelude::Resource, Default)]
-pub struct PendingRoomTransitionFinalize(Option<PendingCrossing>);
+pub struct PendingRoomTransitionFinalize {
+    crossing: Option<PendingCrossing>,
+    /// A crossing the commit refused at staging, for the finalizer to tell its
+    /// bodies' subscribers.
+    refusal: Option<CrossingRefusal>,
+}
+
+/// The bodies a refused crossing named, where they were going, and why not.
+pub struct CrossingRefusal { subjects: Vec<Entity>, to: String, code: &'static str }
+
+impl CrossingRefusal {
+    /// The refusal of `intent` to `to` for `error`, naming the bodies that are still live.
+    pub fn of(world: &mut bevy::prelude::World, intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
+        to: &str, error: &RoomTransitionApplyError) -> Self {
+        let mut bodies: bevy::ecs::system::SystemState<ambition_platformer2d_shared_tangle::lifecycle::LiveBodies> =
+            bevy::ecs::system::SystemState::new(world);
+        let bodies = bodies.get(world).expect("live bodies are always fetchable");
+        let subjects = intent.transfers().filter_map(|transfer| bodies.entity_of(&transfer.subject)).collect();
+        Self {subjects, to: to.to_owned(), code: error.code()}
+    }
+    /// Tell each named body's subscribers its crossing was refused.
+    pub fn publish(self, world: &mut bevy::prelude::World) {
+        use ambition_world_port::behavior::*;
+        for subject in self.subjects {
+            let Some(object) = ambition_platformer2d_shared_tangle::lifecycle::object_reference(world, subject) else { continue; };
+            let report = crate::behavior_events::publish_native::<ObjectCrossingRefusedPort>(world, object,
+                &ObjectCrossingRefused {object, to: self.to.clone(), code: self.code.to_owned()});
+            if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
+                bevy::log::warn!(?report, ?object, "Native crossing refusal delivery was limited.");
+            }
+        }
+    }
+}
 
 /// Run condition of [`finalize_committed_room_transition`]: a crossing waits
 /// for its verdict.
 pub fn a_crossing_waits(pending: bevy::prelude::Res<PendingRoomTransitionFinalize>) -> bool {
-    pending.0.is_some()
+    pending.crossing.is_some() || pending.refusal.is_some()
 }
 
 /// Run condition of [`apply_committed_room_transition_restore`]: a crossing's
@@ -1199,10 +1272,10 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
     {
         return;
     }
-    let Some(crossing) = world
-        .get_resource_mut::<PendingRoomTransitionFinalize>()
-        .and_then(|mut pending| pending.0.take())
-    else {
+    let (crossing, refusal) = world.get_resource_mut::<PendingRoomTransitionFinalize>()
+        .map(|mut pending| (pending.crossing.take(), pending.refusal.take())).unwrap_or_default();
+    if let Some(refusal) = refusal { refusal.publish(world); }
+    let Some(crossing) = crossing else {
         return;
     };
 

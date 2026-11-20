@@ -439,6 +439,20 @@ pub struct AmbitionGameSaveData {
     /// already took in that hour. See [`PersistedBooking`].
     #[serde(default)]
     pub(crate) bookings: Vec<PersistedBooking>,
+    /// The world's named values, written through the committed world road
+    /// (`set_world_value`), in key order. See [`PersistedWorldValue`].
+    #[serde(default)]
+    pub(crate) world_values: Vec<PersistedWorldValue>,
+}
+
+/// One named world value: its key, its value as the extension host encodes
+/// it (this crate does not decode it), and its revision, which rises with
+/// each write from 1.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PersistedWorldValue {
+    pub key: String,
+    pub value: Vec<u8>,
+    pub revision: u64,
 }
 
 /// One booking of a thing by NPC lives (`body::life::LifeLedger::bookings`):
@@ -504,12 +518,13 @@ pub struct PersistedBodyModuleRecord {
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
 /// v5 adds `module_records`. v6 adds `lives`. v7 adds `day_clock`. v8 adds
 /// `bookings`. v9 adds checkpoint material. v10 adds `body_module_records`.
+/// v11 adds `world_values`.
 ///
 /// The bump is on an additive change. With `#[serde(default)]`, a v4 file loads
 /// with an empty list, which is the correct reading. The bump makes a v5 file
 /// `FromTheFuture` to a v4 build, so that build does not overwrite it and drop
 /// the records it cannot read.
-pub const CURRENT_SAVE_VERSION: u32 = 10;
+pub const CURRENT_SAVE_VERSION: u32 = 11;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -576,6 +591,7 @@ impl AmbitionGameSaveData {
             lives: Vec::new(),
             day_clock: None,
             bookings: Vec::new(),
+            world_values: Vec::new(),
         }
     }
 
@@ -802,6 +818,32 @@ impl AmbitionGameSaveData {
         self.bookings = bookings;
     }
 
+    /// The world's named values, in key order.
+    pub fn world_values(&self) -> &[PersistedWorldValue] {
+        &self.world_values
+    }
+
+    /// The world value named `key`, if one was written.
+    pub fn world_value(&self, key: &str) -> Option<&PersistedWorldValue> {
+        self.world_values.binary_search_by(|row| row.key.as_str().cmp(key)).ok().map(|at| &self.world_values[at])
+    }
+
+    /// Write the world value `key` and return its new revision.
+    pub fn put_world_value(&mut self, key: &str, value: Vec<u8>) -> u64 {
+        match self.world_values.binary_search_by(|row| row.key.as_str().cmp(key)) {
+            Ok(at) => {
+                let row = &mut self.world_values[at];
+                row.value = value;
+                row.revision += 1;
+                row.revision
+            }
+            Err(at) => {
+                self.world_values.insert(at, PersistedWorldValue {key: key.to_owned(), value, revision: 1});
+                1
+            }
+        }
+    }
+
     /// Which durable fact families differ between two saves, by name.
     ///
     /// The exhaustive destructure of both sides is the guard. Do not replace it
@@ -828,6 +870,7 @@ impl AmbitionGameSaveData {
             lives,
             day_clock,
             bookings,
+            world_values,
         } = self;
         let Self {
             version: _,
@@ -849,6 +892,7 @@ impl AmbitionGameSaveData {
             lives: o_lives,
             day_clock: o_day_clock,
             bookings: o_bookings,
+            world_values: o_world_values,
         } = other;
         let mut differ = Vec::new();
         let mut check = |name: &'static str, same: bool| {
@@ -874,6 +918,7 @@ impl AmbitionGameSaveData {
         check("lives", lives == o_lives);
         check("day_clock", day_clock == o_day_clock);
         check("bookings", bookings == o_bookings);
+        check("world_values", world_values == o_world_values);
         differ
     }
 
@@ -995,6 +1040,8 @@ impl AmbitionGameSaveData {
                 // v9 file (each body's kept records start from their initial
                 // values).
                 9 => {}
+                // v10 → v11: additive; no world values is correct for a v10 file.
+                10 => {}
                 // A version bump without a migration step is an incompatibility,
                 // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
@@ -1029,6 +1076,7 @@ impl AmbitionGameSaveData {
             lives,
             day_clock,
             bookings,
+            world_values,
         } = self;
         encounters.clear();
         switches.clear();
@@ -1048,6 +1096,7 @@ impl AmbitionGameSaveData {
         lives.clear();
         *day_clock = None;
         bookings.clear();
+        world_values.clear();
     }
 }
 
@@ -1107,6 +1156,7 @@ mod tests {
                 }])
             }),
             (vec!["day_clock"], |d| d.set_day_clock(Some(PersistedDayClock { day: 2, seconds: 30 }))),
+            (vec!["world_values"], |d| { d.put_world_value("bridge", vec![1]); }),
             (vec!["bookings"], |d| {
                 d.set_bookings(vec![PersistedBooking {
                     place: "room".into(),
@@ -1191,6 +1241,7 @@ mod tests {
             "lives",
             "day_clock",
             "bookings",
+            "world_values",
         ]
         .into_iter()
         .collect();
@@ -1579,6 +1630,7 @@ mod tests {
             lives,
             day_clock,
             bookings,
+            world_values,
         } = &data;
 
         // Anti-vacuity: a fresh save must hold no durable facts.
@@ -1597,7 +1649,8 @@ mod tests {
                 && body_module_records.is_empty()
                 && lives.is_empty()
                 && day_clock.is_none()
-                && bookings.is_empty(),
+                && bookings.is_empty()
+                && world_values.is_empty(),
             "a new save carries no durable world facts to retract"
         );
         assert!(

@@ -335,6 +335,8 @@ pub(crate) fn install(app: &mut App) {
     app.add_systems(schedule, publish_broken.in_set(Platformer2dSimulationPhase::GameplayEffects)
         .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events));
     install_native_source::<ObjectBornPort>(app, "ambition_platformer2d_runtime", "born");
+    install_native_source::<ObjectCrossedPort>(app, "ambition_platformer2d_runtime", "crossed");
+    install_native_source::<ObjectCrossingRefusedPort>(app, "ambition_platformer2d_runtime", "crossing_refused");
     install_source::<ObjectSignalPort>(app, "ambition_platformer2d_runtime", "", true);
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "objects.emit_signal",
         ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);

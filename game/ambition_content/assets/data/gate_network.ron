@@ -72,6 +72,8 @@
         (id: "history_ayiti", name: "Ayiti Ring", dimension: "history"),
         // The final boss's dimension (`docs/planning/game/final-boss.md`).
         (id: "boss_lobby_ring", name: "Final Tour Lobby Ring", dimension: "boss"),
+        // The Frontier's spaceport town (`docs/planning/game/leadensaddle.md`).
+        (id: "dry_dock_pad", name: "Dry Dock Pad Three", dimension: "frontier"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -426,6 +428,19 @@
             terminal: Some("boss_lobby_gate_terminal"),
             posted: ["LEGAL"],
             note: "Lobby ring. Backstage passes are not valid here.",
+        ),
+        // ── Frontier (the Leaden Saddle) ─────────────────────────────────
+        // Pad Three of Dry Dock, the spaceport town under the Marshal's
+        // whistle (`docs/planning/game/leadensaddle.md`).
+        (
+            zone: "frontier_pad_gate",
+            name: "Dry Dock, Pad Three",
+            facility: "dry_dock_pad",
+            room: "frontier_landing_pad",
+            address: Some("LEADENSADDLE"),
+            terminal: Some("frontier_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Pad Three ring. The toll is payable to the Marshal.",
         ),
     ],
 )

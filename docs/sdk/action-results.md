@@ -108,6 +108,24 @@ carries the optional allocation room. There is no old descriptor decoder.
   `projectile_created` after actual construction. `subjects` contains the shot key and its live object reference. Invalid shape, callback, or source context is refused. Explicit
   cancellation removes a queued emission before construction starts.
 
+- `take` and `release` (a body's custody of an item, `ambition_held_items`)
+  report terminal `item_taken` (`subjects`: the body and the item) and
+  `item_released` (the body) once the item owner has done it. A refusal names
+  its reason: `no_such_body`, `no_such_supporter`, `hand_not_free`,
+  `no_such_item` (also when an earlier take this tick has the item) or
+  `out_of_reach` for a take; `no_such_body`, `no_room_to_release` or
+  `nothing_held` for a release. The `reply` is optional; without one a refusal
+  is only logged.
+
+- `equip` and `stow` (the party's owned items on a body a seat drives) go
+  through the same hand (`ambition_held_items::change_hand`) and worn set
+  (`narrative::wear_item`) as the menu's equip. `equip` reports terminal
+  `item_equipped` (into the hand, putting down what it carried) or `item_worn`
+  (into the worn set); `stow` reports `hand_stowed`. Each names the body.
+  Refusals: `no_such_body`, `not_a_party_body`, `unknown_item`, `not_owned`,
+  `not_equippable`, `no_hand`, `no_room_to_release`, and `nothing_held` for a
+  stow of an empty hand. Equipping spends nothing from the bag.
+
 - `world.set_flag` reports `flags_written` after the native flag consumer applies
   the batch and its quest updates.
 - The room-look cycle uses one flag batch. Its reply follows both changes.
@@ -174,7 +192,8 @@ Each installed action domain declares one native cancellation policy:
 | `authored.command` | Each queued consumer checks the pending ticket before mutation. Cancellation stops submitted or admitted work. |
 | `projectiles.spawn` | The native handler removes queued emissions. It refuses once the queue no longer owns the work. |
 | `world.create_actors`, `world.create_breakables` | Unsupported. Construction finishes in one native call. |
-| `inventory.exchange`, `world.consume_contact`, `combat.body_query` | Unsupported. These operations finish in one native call. |
+| `inventory.exchange`, `world.consume_contact`, `combat.body_query`, `item.take`, `item.release`, `inventory.equip`, `inventory.stow` | Unsupported. These operations finish in one native call. |
+| `world.set_value`, `world.add_count` | Unsupported. A write applies at once or is held for confirmation; a held write is answered `world_value_held` ([world values](world-values.md)). |
 | `actions.cancel` | Unsupported. Cancellation finishes in one native call. |
 
 An unregistered domain refuses cancellation. It cannot inherit mailbox-only

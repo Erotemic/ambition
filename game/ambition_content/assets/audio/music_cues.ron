@@ -45,6 +45,56 @@
             post_clear_bridge_state: Some("cleared_bridge"),
         ),
         (
+            // The Frontier dimension (scores/active/leaden_saddle.music.yaml,
+            // `docs/planning/game/leadensaddle.md`): Dry Dock, the spaceport
+            // town in the Leaden Saddle, on one motif, the saddle. The rooms
+            // choose the section (`room_bindings`).
+            id: "leaden_saddle",
+            asset_root: "audio/music/generated/leaden_saddle",
+            bpm: 96.0,
+            beats_per_bar: 4.0,
+            relative_volume: 1.0,
+            sections: [
+                (id: "dry_dock", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/dry_dock/dry_dock.full.ogg")]),
+                (id: "wet_whistle", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/wet_whistle/wet_whistle.full.ogg")]),
+                (id: "refinery_shift", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/refinery_shift/refinery_shift.full.ogg")]),
+                (id: "mesa_top", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/mesa_top/mesa_top.full.ogg")]),
+            ],
+            layers: [(id: "full", slot: 0)],
+            states: [
+                (id: "dry_dock", section_id: "dry_dock", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "wet_whistle", section_id: "wet_whistle", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "refinery_shift", section_id: "refinery_shift", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "mesa_top", section_id: "mesa_top", gains: [(layer_id: "full", gain: 1.0)]),
+            ],
+        ),
+        (
+            // Marshal Gallus's fight (scores/active/marshal_gallus_showdown.music.yaml):
+            // the crow motif on a lone trumpet for the standoff, the duel on a
+            // galloping snare, high noon a semitone up, and his fall slowed
+            // into the town's saddle motif. His phases choose the section
+            // (`boss_bindings`); the standoff and the sundown play one time.
+            id: "marshal_gallus_showdown",
+            asset_root: "audio/music/generated/marshal_gallus_showdown",
+            bpm: 132.0,
+            beats_per_bar: 4.0,
+            relative_volume: 1.0,
+            sections: [
+                (id: "standoff", duration_beats: 32.0, looped: false, sources: [(layer_id: "full", path: "playback/standoff/standoff.full.ogg")]),
+                (id: "duel", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/duel/duel.full.ogg")]),
+                (id: "high_noon", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/high_noon/high_noon.full.ogg")]),
+                (id: "sundown", duration_beats: 40.0, looped: false, sources: [(layer_id: "full", path: "playback/sundown/sundown.full.ogg")]),
+            ],
+            layers: [(id: "full", slot: 0)],
+            states: [
+                (id: "standoff", section_id: "standoff", next_state: Some("duel"), gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "duel", section_id: "duel", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "high_noon", section_id: "high_noon", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "sundown", section_id: "sundown", gains: [(layer_id: "full", gain: 1.0)]),
+            ],
+            outro_state: Some("sundown"),
+        ),
+        (
             // Level 1 (Hobford): Hobford Goblins
             // (scores/active/hobford_goblins.music.yaml), every section on
             // the first goblin tune's motif. The valley rooms hold `lurking`
@@ -347,6 +397,16 @@
     room_bindings: [
         // Level 1's valley: the open rooms by day, and the woods, the gate
         // clearing and the fell in the motif's shadow.
+        // The Frontier: the town, the saloon, the refinery and the corral,
+        // the mesa top.
+        (room_id: "frontier_landing_pad", cue_id: "leaden_saddle", state: "dry_dock"),
+        (room_id: "frontier_main_street", cue_id: "leaden_saddle", state: "dry_dock"),
+        (room_id: "frontier_livery", cue_id: "leaden_saddle", state: "dry_dock"),
+        (room_id: "frontier_wet_whistle", cue_id: "leaden_saddle", state: "wet_whistle"),
+        (room_id: "frontier_refinery", cue_id: "leaden_saddle", state: "refinery_shift"),
+        (room_id: "frontier_ore_corral", cue_id: "leaden_saddle", state: "refinery_shift"),
+        (room_id: "hall_marshal_gallus_corral", cue_id: "leaden_saddle", state: "refinery_shift"),
+        (room_id: "frontier_saddle_lookout", cue_id: "leaden_saddle", state: "mesa_top"),
         (room_id: "intro_hobford_lane", cue_id: "hobford_goblins", state: "lurking"),
         (room_id: "intro_high_meadow", cue_id: "hobford_goblins", state: "lurking"),
         (room_id: "intro_millstream", cue_id: "hobford_goblins", state: "lurking"),
@@ -372,6 +432,22 @@
     // A boss's phases choose the state of its cue, for every placement of
     // the archetype (the story's fight and the Hall of Bosses' copy).
     boss_bindings: [
+        (
+            // Marshal Gallus: the standoff as he walks out, the duel for his
+            // first two phases, high noon when he is enraged, the sundown
+            // when he falls.
+            boss_id: "marshal_gallus",
+            cue_id: "marshal_gallus_showdown",
+            phase_states: [
+                (phase: "Intro", state: "standoff"),
+                (phase: "Phase1", state: "duel"),
+                (phase: "Transition", state: "duel"),
+                (phase: "Phase2", state: "duel"),
+                (phase: "Stagger", state: "duel"),
+                (phase: "Enrage", state: "high_noon"),
+                (phase: "Death", state: "sundown"),
+            ],
+        ),
         (
             // The bossofthegame (the final boss): his own anthem is wanted
             // (`docs/planning/game/final-boss.md`). Until it is rendered he

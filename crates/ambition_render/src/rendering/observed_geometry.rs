@@ -20,7 +20,6 @@ use ambition_geometry_observation::{
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
-use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use bevy::gizmos::{config::GizmoConfigGroup, gizmos::GizmoBuffer};
 use bevy::prelude::*;
 
@@ -112,9 +111,7 @@ pub fn collect_observed_geometry(world: &mut World) {
         live_tools.observed_geometry_providers = installed;
         live_tools.observed_geometry_subjects = subjects.iter().map(|(id, _)| id.clone()).collect();
     }
-    let default_subject = world.get_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
-        .and_then(|subject| subject.0)
-        .or_else(|| world.query_filtered::<Entity, With<PrimaryPlayer>>().single(world).ok());
+    let default_subject = ambition_sim_view::geometry_inspection::default_geometry_subject(world);
     let mut views = Vec::new();
     for (view, room, framed_subject) in shown {
         let root = roots.iter().find(|(_, at)| *at == room).map(|(root, _)| *root);

@@ -839,7 +839,10 @@ severity = "error"
 # host is not the game host: combat and abilities name it the same way.
 # `ambition_time` is a dev-dependency only: the host reads the logical tick and
 # gameplay time, and the adapter's tests give it both.
-allow = ["ambition_platformer2d_world", "ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_extension_host", "ambition_extension_sdk", "ambition_portal_port", "ambition_time"]
+# + ambition_geometry_observation (GOBS-3, 2026-11-14): the provider registry
+# portal openings register with, as the world owner registers its geometry; it
+# is a protocol for headless tools and F1, not host composition.
+allow = ["ambition_geometry_observation", "ambition_platformer2d_world", "ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_extension_host", "ambition_extension_sdk", "ambition_portal_port", "ambition_time"]
 manifest = "crates/ambition_portal2d/Cargo.toml"
 
 [[policy]]
@@ -1645,7 +1648,11 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "Runtime composes simulation domains, session lifecycle, publication, world interaction, and capability installation. The interaction domain retains native activation state; runtime routes its facts into script behaviors. It names content-free port contracts to register Rhai descriptions; domain adapters keep request authority. The headless foundation installs library readers through the asset-manager service. Body seed and shrine state register through their domain offers. Integration fixtures use the public construction path. It does not depend on named content, hosts, or rendering."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d_interaction", "ambition_asset_manager", "ambition_shrine", "ambition_interaction", "ambition_body_seed", "ambition_breakables", "ambition_world_returns", "ambition_platformer2d_assets", "ambition_match", "ambition_platformer2d_session", "ambition_platformer2d_items", "ambition_projectile_combat", "ambition_platformer2d_physics_debris", "ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_spawn", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
+# + ambition_camera_presentation (P6 step 5, 2026-11-16): the engine group
+# installs the camera crate's request appliers (shake, finishing zoom) so a
+# headless run and a windowed one apply the same requests; the simulation only
+# publishes them, and the settle half stays the host's.
+allow = ["ambition_camera_presentation", "ambition_platformer2d_interaction", "ambition_asset_manager", "ambition_shrine", "ambition_interaction", "ambition_body_seed", "ambition_breakables", "ambition_world_returns", "ambition_platformer2d_assets", "ambition_match", "ambition_platformer2d_session", "ambition_platformer2d_items", "ambition_projectile_combat", "ambition_platformer2d_physics_debris", "ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_spawn", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
     # Causal vocabulary is a foundation dependency used by runtime-side recording.
     "ambition_causal",
     # Carves out of the actor monolith the runtime composes: the room publication
@@ -2459,6 +2466,10 @@ forbid = [
     " body.pos.x = ", " body.pos.y = ",
 ]
 skip_paths = [
+    # A guest adopts the host's replicated motion row whole (SIMULATION-ISLANDS
+    # hosted world): the host is the authority for that body and the guest's
+    # sleeping simulation does not move it, so no kernel step may admit it.
+    "ambition_hosted_world/src/body_row.rs",
     # The authorities themselves + kernel-internal solvers.
     "ambition_platformer2d_core/src/movement/",
     "ambition_platformer2d_core/src/ledge_grab/",
@@ -2610,6 +2621,10 @@ forbid = [
 # day somebody writes that comment again, and its emptiness is invisible to a
 # green suite.
 skip_paths = [
+    # A guest adopts the host's replicated motion row whole (SIMULATION-ISLANDS
+    # hosted world): the host is the authority for that body and the guest's
+    # sleeping simulation does not move it, so no kernel step may admit it.
+    "ambition_hosted_world/src/body_row.rs",
     # The authorities themselves + kernel-internal solvers.
     "ambition_platformer2d_core/src/movement/",
     "ambition_platformer2d_core/src/ledge_grab/",
@@ -2672,6 +2687,11 @@ skip_paths = [
     #   body has one, and SETS the throw on a body with no flight state, which
     #   has no other road to take it.
     "ambition_combat/src/guard.rs",
+    #   attacker recoil on a connecting melee hit (HIT-FEEL, 2026-11-17) — the
+    #   guard deflection's shape: an airborne attacker is pushed off its victim
+    #   through the knockback road (`BodyFlightState::stage_launch`) when it has
+    #   one, and SET on a body with no flight state, which has no other road.
+    "ambition_combat/src/hit_feel.rs",
     #   ledge trump pop — a FRAME-ROTATED `vel +=` in the literal sense the ADR
     #   means: it projects out the component along the body's own `side` axis
     #   and re-adds the pop there, because under sideways gravity a fighter's
@@ -2913,7 +2933,10 @@ severity = "error"
 # the Mana declaration), which landed while a stale watch path hid this check.
 # + the wielded-use extension ports (fast-iteration I7, 2026-10-01): the port
 # values, the host the adapters install into, and the SDK phase.
-allow = ["ambition_sprite_sheet", "ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_characters", "ambition_combat", "ambition_held_items", "ambition_mount", "ambition_items", "ambition_projectiles", "ambition_boss_encounter", "ambition_gameplay_trace", "ambition_sfx", "ambition_vfx", "ambition_time", "ambition_entity_catalog", "ambition_resource_spec", "ambition_combat_port", "ambition_extension_host", "ambition_extension_sdk"]
+# + ambition_persistence (P5 step 3, 2026-11-18): the whereabouts supplier
+# reads the save's death record for an authored body, the fact's owner, as
+# the encounter, boss and item owners already read it.
+allow = ["ambition_persistence", "ambition_sprite_sheet", "ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_characters", "ambition_combat", "ambition_held_items", "ambition_mount", "ambition_items", "ambition_projectiles", "ambition_boss_encounter", "ambition_gameplay_trace", "ambition_sfx", "ambition_vfx", "ambition_time", "ambition_entity_catalog", "ambition_resource_spec", "ambition_combat_port", "ambition_extension_host", "ambition_extension_sdk"]
 manifest = "crates/ambition_abilities/Cargo.toml"
 
 [[policy]]

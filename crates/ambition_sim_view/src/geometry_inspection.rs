@@ -21,6 +21,16 @@ pub fn geometry_subjects(world: &mut World) -> Vec<(String, Entity)> {
     subjects
 }
 
+/// The body a view's geometry is about when the view frames none: the
+/// camera's controlled subject, else the primary player.
+pub fn default_geometry_subject(world: &mut World) -> Option<Entity> {
+    world.get_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
+        .and_then(|subject| subject.0)
+        .or_else(|| world
+            .query_filtered::<Entity, With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>>()
+            .single(world).ok())
+}
+
 /// Reject an absent room or a foreign subject before a provider can fall back
 /// to another room. All geometry in the report uses this one context.
 pub fn inspect_geometry(

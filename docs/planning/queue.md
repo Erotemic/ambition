@@ -1963,17 +1963,26 @@ The game scope is repaired. `ambition_app` gained `ambition_hosted_world`
 (the `hosted_world` feature) and `ambition_content_schemas` (the shipped
 validator) without its allowlist, and both are now listed with their reasons.
 
-The engine scope still fails 7 policies. Each one is a boundary call, not a
-missing list entry, so decide it at its owner:
-- `ambition_abilities` → `ambition_persistence`;
-- `ambition_portal2d` → `ambition_geometry_observation`;
-- `ambition_platformer2d_runtime` → `ambition_camera_presentation`;
-- `ambition_abilities/src/group.rs` reads `Res<CharacterCatalog>`;
-- `ambition_render/src/rendering/observed_geometry.rs` names
-  `ControlledSubject`;
-- a velocity write in `ambition_combat/src/hit_feel.rs`;
-- the hosted world's `BodyRow::write_into`, a replicated row applied to a
-  guest's body, which writes both position and velocity.
+The engine scope is repaired too (2026-11-19, 35 of 35 policies pass). Each
+boundary was decided at its owner:
+- `ambition_abilities` → `ambition_persistence`, allowed: the whereabouts
+  supplier reads the save's death record, as the encounter, boss and item
+  owners already do;
+- `ambition_portal2d` → `ambition_geometry_observation`, allowed: the provider
+  registry portal openings register with, as the world owner's geometry does;
+- `ambition_platformer2d_runtime` → `ambition_camera_presentation`, allowed:
+  the engine group installs the camera request appliers so headless and
+  windowed runs apply the same requests (P6 step 5);
+- `ambition_abilities/src/group.rs` now requires `Res<CharacterCatalog>`: a
+  group only runs where a script binds it, and such a host assembles the
+  catalog;
+- `observed_geometry.rs` no longer names `ControlledSubject`: the default
+  subject is `ambition_sim_view::geometry_inspection::default_geometry_subject`;
+- `hit_feel.rs`'s attacker recoil is waived as the guard deflection is (the
+  knockback road when the body has flight state, set otherwise);
+- the hosted world's `BodyRow` moved to `body_row.rs`, waived in the pose and
+  velocity rules: a guest adopts the host's row for a body its sleeping
+  simulation does not move.
 
 **Sanic red (found 2026-11-19, inherited; fixed 2026-11-19):**
 `sanic_it`'s `act_two_routes::the_ledge_spring_throws_him_onto_the_sky_island`

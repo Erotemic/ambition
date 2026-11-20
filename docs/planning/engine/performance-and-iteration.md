@@ -121,8 +121,16 @@ and the common movement kernel. See the
 [measurement receipt](../../../dev/ambition_dev_measurements/journal/2026-11-19-active-crowd-integration.md).
 The [desktop follow-up](../../../dev/ambition_dev_measurements/journal/2026-11-19-desktop-parallel-body-result.md)
 measures 6.378 to 2.823 ms per integration tick and 67.230 to 36.240 ms per
-frame with the same 538 bodies. Target selection and view publication remain
-measured candidates for further work.
+frame with the same 538 bodies.
+
+`7d4bc595d9` replaces per-actor candidate scans with exact room queries over a
+reusable geometry tree. `1add31e00e` reuses combat-geometry publication storage
+and projects hurt volumes through the common material kernel. Moving VM
+fixtures preserve target and view hashes. Exhaustive query oracles and material
+projection tests cover the changed contracts. See the
+[measurement receipt](../../../dev/ambition_dev_measurements/journal/2026-11-20-spatial-targets-and-geometry-publication.md).
+Keep all actor ticks and exact room-wide selection. Desktop frame impact still
+needs a native profile.
 
 ### Developer iteration remains an architecture constraint
 

@@ -690,13 +690,9 @@ impl ConsumedSinceCheckpoint {
         room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         saved_at: u64,
     ) {
-        if !self.undo.iter().any(|undo| undo.write.at.retracted_by(room, saved_at)) {
-            return;
-        }
-        let (taken, kept): (Vec<_>, Vec<_>) =
-            std::mem::take(&mut self.undo).into_iter().partition(|undo| undo.write.at.retracted_by(room, saved_at));
-        self.undo = kept;
-        for undo in taken.into_iter().rev() {
+        let taken = ambition_platformer2d_shared_tangle::lifecycle::take_rewound(
+            &mut self.undo, room, saved_at, |undo| undo.write.at);
+        for undo in taken {
             match undo.record {
                 Some(record) => self.records.insert(undo.occurrence.clone(), record),
                 None => self.records.remove(&undo.occurrence),

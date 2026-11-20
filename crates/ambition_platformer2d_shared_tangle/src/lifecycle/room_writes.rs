@@ -13,6 +13,8 @@
 //! The tick is `SimTick`, which advances at the head of each step: a room
 //! saved at tick `t` writes its next frame at `t + 1`.
 
+use std::ops::DerefMut;
+
 use bevy::prelude::*;
 
 use super::LiveRoomInstance;
@@ -40,8 +42,75 @@ impl RoomWrite {
     /// Whether no rewind can take this record back any longer, `now` being
     /// the current tick ([`ROOM_REWIND_HORIZON_TICKS`]).
     pub fn beyond_the_horizon(&self, now: u64) -> bool {
-        self.tick.saturating_add(ROOM_REWIND_HORIZON_TICKS) < now
+        tick_beyond_the_horizon(self.tick, now)
     }
+}
+
+fn tick_beyond_the_horizon(tick: u64, now: u64) -> bool {
+    tick.saturating_add(ROOM_REWIND_HORIZON_TICKS) < now
+}
+
+// The log helpers below take the log as `impl DerefMut<Target = Vec<T>>`, so
+// a caller can pass a `Mut` projection of a resource. They write through it
+// only when they take a record: a rewind that takes nothing does not mark the
+// store changed.
+
+/// Take out of `log` the records that a rewind of `room` to `saved_at` takes
+/// back, newest first, which is the order to undo them in. The records that
+/// stay keep their order. `stamp` gives the room write of a record; a record
+/// with no room write (`None`) belongs to no room and stays.
+pub fn take_rewound<T, S: Into<Option<RoomWrite>>>(
+    mut log: impl DerefMut<Target = Vec<T>>,
+    room: LiveRoomInstance,
+    saved_at: u64,
+    stamp: impl Fn(&T) -> S,
+) -> Vec<T> {
+    let rewound = |entry: &T| stamp(entry).into().is_some_and(|written| written.retracted_by(room, saved_at));
+    if !log.iter().any(&rewound) {
+        return Vec::new();
+    }
+    let mut taken: Vec<T> = log.extract_if(.., |entry| rewound(entry)).collect();
+    taken.reverse();
+    taken
+}
+
+/// As [`take_rewound`], for a log whose records overwrite a shared value:
+/// each taken record comes with whether a later record of the same key
+/// (`same_key(later, taken)`) stays in the log. Then the value keeps that
+/// later write, and the owner must not put back the value the taken record
+/// replaced.
+pub fn take_rewound_superseded<T, S: Into<Option<RoomWrite>>>(
+    mut log: impl DerefMut<Target = Vec<T>>,
+    room: LiveRoomInstance,
+    saved_at: u64,
+    stamp: impl Fn(&T) -> S,
+    same_key: impl Fn(&T, &T) -> bool,
+) -> Vec<(T, bool)> {
+    let mut taken = Vec::new();
+    for at in (0..log.len()).rev() {
+        if !stamp(&log[at]).into().is_some_and(|written| written.retracted_by(room, saved_at)) {
+            continue;
+        }
+        let entry = log.remove(at);
+        let superseded = log[at..].iter().any(|later| same_key(later, &entry));
+        taken.push((entry, superseded));
+    }
+    taken
+}
+
+/// Take out of `log` the records that no rewind can reach at tick `now`
+/// ([`ROOM_REWIND_HORIZON_TICKS`]), in write order. `written_at` gives the
+/// tick a record was written on.
+pub fn take_beyond_the_horizon<T>(
+    mut log: impl DerefMut<Target = Vec<T>>,
+    now: u64,
+    written_at: impl Fn(&T) -> u64,
+) -> Vec<T> {
+    let expired = |entry: &T| tick_beyond_the_horizon(written_at(entry), now);
+    if !log.iter().any(&expired) {
+        return Vec::new();
+    }
+    log.extract_if(.., |entry| expired(entry)).collect()
 }
 
 /// The host declares whether its live rooms can rewind independently. The
@@ -185,4 +254,91 @@ pub fn begin_room_replay(world: &mut World, room: LiveRoomInstance) {
 pub fn end_room_replay(world: &mut World) {
     super::session_messages::restore_channels_after_room_replay(world);
     world.remove_resource::<RoomReplay>();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn a() -> LiveRoomInstance {
+        LiveRoomInstance::from_ordinal(1)
+    }
+
+    fn b() -> LiveRoomInstance {
+        LiveRoomInstance::from_ordinal(2)
+    }
+
+    /// One write to `key` from `room` on `tick`.
+    fn write(room: LiveRoomInstance, tick: u64, key: &'static str) -> (RoomWrite, &'static str) {
+        (RoomWrite { room, tick }, key)
+    }
+
+    fn stamp(entry: &(RoomWrite, &'static str)) -> RoomWrite {
+        entry.0
+    }
+
+    fn same_key(later: &(RoomWrite, &'static str), taken: &(RoomWrite, &'static str)) -> bool {
+        later.1 == taken.1
+    }
+
+    /// Rooms A and B write one key in turns. The rewind of A takes the later
+    /// writes of A newest first, and leaves the writes of B and the earlier
+    /// write of A in their order. A replay of A takes nothing twice.
+    #[test]
+    fn a_rewind_takes_its_rooms_later_writes_newest_first() {
+        let (a, b) = (a(), b());
+        let mut log = vec![write(a, 3, "k"), write(b, 4, "k"), write(a, 5, "k"), write(b, 6, "k"), write(a, 7, "k")];
+        assert_eq!(take_rewound(&mut log, a, 4, stamp), vec![write(a, 7, "k"), write(a, 5, "k")]);
+        assert_eq!(log, vec![write(a, 3, "k"), write(b, 4, "k"), write(b, 6, "k")]);
+        assert!(take_rewound(&mut log, a, 4, stamp).is_empty());
+    }
+
+    /// A record with no room write is never taken.
+    #[test]
+    fn a_record_of_no_room_stays() {
+        let written = Some(RoomWrite { room: a(), tick: 9 });
+        let mut log = vec![(None, "k"), (written, "k")];
+        assert_eq!(take_rewound(&mut log, a(), 0, |entry| entry.0), vec![(written, "k")]);
+        assert_eq!(log, vec![(None, "k")]);
+    }
+
+    /// A later write of B to the same key supersedes the taken write of A. A
+    /// write to another key does not, and a later write that the same rewind
+    /// takes does not.
+    #[test]
+    fn a_later_write_of_another_room_supersedes() {
+        let (a, b) = (a(), b());
+        let mut log = vec![write(a, 5, "k"), write(a, 6, "j"), write(b, 7, "k"), write(a, 8, "j")];
+        assert_eq!(
+            take_rewound_superseded(&mut log, a, 4, stamp, same_key),
+            vec![(write(a, 8, "j"), false), (write(a, 6, "j"), false), (write(a, 5, "k"), true)],
+        );
+        assert_eq!(log, vec![write(b, 7, "k")]);
+    }
+
+    /// The replay of A takes only the writes of A. A rewind of B after it
+    /// finds its own writes as they were.
+    #[test]
+    fn a_replay_of_one_room_leaves_the_other() {
+        let (a, b) = (a(), b());
+        let mut log = vec![write(b, 5, "k"), write(a, 6, "k"), write(b, 7, "k")];
+        assert_eq!(take_rewound_superseded(&mut log, a, 0, stamp, same_key), vec![(write(a, 6, "k"), true)]);
+        assert_eq!(take_rewound_superseded(&mut log, b, 5, stamp, same_key), vec![(write(b, 7, "k"), false)]);
+        assert_eq!(log, vec![write(b, 5, "k")]);
+    }
+
+    /// The horizon takes the writes older than it, in write order, and keeps
+    /// the write exactly at it.
+    #[test]
+    fn the_horizon_takes_the_old_writes() {
+        let (a, b) = (a(), b());
+        let now = 1_000;
+        let edge = now - ROOM_REWIND_HORIZON_TICKS;
+        let mut log = vec![write(a, edge - 2, "k"), write(b, edge - 1, "k"), write(a, edge, "k"), write(b, now, "k")];
+        assert_eq!(
+            take_beyond_the_horizon(&mut log, now, |entry| entry.0.tick),
+            vec![write(a, edge - 2, "k"), write(b, edge - 1, "k")],
+        );
+        assert_eq!(log, vec![write(a, edge, "k"), write(b, now, "k")]);
+    }
 }

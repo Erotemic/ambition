@@ -131,15 +131,14 @@ impl DeathFees {
 /// The room retractor: `room` rewinds to `saved_at`, so each participant's
 /// fee and parcel go back to what they were before that room's later writes.
 pub fn retract_room_death_fees(world: &mut World, room: LiveRoomInstance, saved_at: u64) {
-    let Some(mut log) = world.get_resource_mut::<DeathFeesInRooms>() else { return };
-    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+    let Some(log) = world.get_resource_mut::<DeathFeesInRooms>() else { return };
+    let taken = ambition_platformer2d_shared_tangle::lifecycle::take_rewound(
+        log.map_unchanged(|log| &mut log.writes), room, saved_at, |(write, ..)| *write);
+    if taken.is_empty() {
         return;
     }
-    let (taken, kept): (Vec<_>, Vec<_>) =
-        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
-    log.writes = kept;
     let Some(mut ledger) = world.get_resource_mut::<DeathFees>() else { return };
-    for (_, participant, before) in taken.into_iter().rev() {
+    for (_, participant, before) in taken {
         ledger.restore(participant, before);
     }
 }

@@ -10,7 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomWrite};
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomWrite, take_rewound_superseded};
 
 use crate::authority::{ActiveConversation, LiveConversation};
 
@@ -52,16 +52,14 @@ impl ConversationsInRooms {
     /// when nothing goes back: no change of the room's, or a later change of
     /// another room's still stands (that room's talk is not undone).
     pub fn retract_room(&mut self, room: LiveRoomInstance, saved_at: u64) -> Option<Option<LiveConversation>> {
-        let mut put_back = None;
-        for at in (0..self.changes.len()).rev() {
-            if !self.changes[at].0.retracted_by(room, saved_at) {
-                continue;
-            }
-            let (_, replaced) = self.changes.remove(at);
-            if at == self.changes.len() {
-                put_back = Some(replaced);
-            }
-        }
+        // Every change overwrites the one conversation, so any later change
+        // that stays supersedes a taken one. The oldest taken change that no
+        // later change supersedes holds the conversation to put back.
+        let put_back = take_rewound_superseded(&mut self.changes, room, saved_at, |(written, _)| *written, |_, _| true)
+            .into_iter()
+            .filter(|(_, superseded)| !superseded)
+            .last()
+            .map(|((_, replaced), _)| replaced);
         if let Some(conversation) = &put_back {
             self.seen.clone_from(conversation);
         }

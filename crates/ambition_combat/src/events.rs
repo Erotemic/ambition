@@ -140,13 +140,10 @@ impl QuestCausesInRooms {
     /// Drop the causes no rewind can reach at tick `now`, and return them, so
     /// the quest registry can forget them.
     pub fn prune(&mut self, now: u64) -> Vec<String> {
-        if !self.causes.iter().any(|(at, ..)| at.beyond_the_horizon(now)) {
-            return Vec::new();
-        }
-        let (old, kept): (Vec<_>, Vec<_>) =
-            std::mem::take(&mut self.causes).into_iter().partition(|(at, ..)| at.beyond_the_horizon(now));
-        self.causes = kept;
-        old.into_iter().map(|(_, cause, _)| cause).collect()
+        ambition_platformer2d_shared_tangle::lifecycle::take_beyond_the_horizon(&mut self.causes, now, |(at, ..)| at.tick)
+            .into_iter()
+            .map(|(_, cause, _)| cause)
+            .collect()
     }
 
     /// `room` rewinds to `saved_at`: take out the causes it logged after that
@@ -157,16 +154,16 @@ impl QuestCausesInRooms {
         room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         saved_at: u64,
     ) -> Vec<(String, bool)> {
-        let mut taken = Vec::new();
-        for at in (0..self.causes.len()).rev() {
-            if !self.causes[at].0.retracted_by(room, saved_at) {
-                continue;
-            }
-            let (_, cause, label) = self.causes.remove(at);
-            let superseded = self.causes[at..].iter().any(|(_, _, later)| *later == label);
-            taken.push((cause, superseded));
-        }
-        taken
+        ambition_platformer2d_shared_tangle::lifecycle::take_rewound_superseded(
+            &mut self.causes,
+            room,
+            saved_at,
+            |(written, ..)| *written,
+            |later, taken| later.2 == taken.2,
+        )
+        .into_iter()
+        .map(|((_, cause, _), superseded)| (cause, superseded))
+        .collect()
     }
 
     /// Entity-free value projection.
@@ -226,12 +223,8 @@ impl FlagWritesInRooms {
     /// Add `write`, and drop the writes no rewind can reach any longer;
     /// those are returned, so their quest causes can be forgotten.
     pub fn record(&mut self, write: FlagWrite) -> Vec<FlagWrite> {
-        let horizon = ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS;
-        let now = write.applied_at;
-        let (old, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.writes)
-            .into_iter()
-            .partition(|kept| kept.applied_at.saturating_add(horizon) < now);
-        self.writes = kept;
+        let old = ambition_platformer2d_shared_tangle::lifecycle::take_beyond_the_horizon(
+            &mut self.writes, write.applied_at, |kept| kept.applied_at);
         self.writes.push(write);
         old
     }
@@ -244,16 +237,13 @@ impl FlagWritesInRooms {
         room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         saved_at: u64,
     ) -> Vec<(FlagWrite, bool)> {
-        let mut taken = Vec::new();
-        for at in (0..self.writes.len()).rev() {
-            if !self.writes[at].written.is_some_and(|written| written.retracted_by(room, saved_at)) {
-                continue;
-            }
-            let write = self.writes.remove(at);
-            let superseded = self.writes[at..].iter().any(|later| later.id == write.id);
-            taken.push((write, superseded));
-        }
-        taken
+        ambition_platformer2d_shared_tangle::lifecycle::take_rewound_superseded(
+            &mut self.writes,
+            room,
+            saved_at,
+            |write| write.written,
+            |later, taken| later.id == taken.id,
+        )
     }
 
     /// Entity-free value projection.

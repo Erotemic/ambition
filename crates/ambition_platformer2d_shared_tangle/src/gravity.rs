@@ -221,19 +221,18 @@ pub fn retract_room_gravity_turns(
     room: crate::lifecycle::LiveRoomInstance,
     saved_at: u64,
 ) {
-    let Some(mut log) = world.get_resource_mut::<GravityTurnsInRooms>() else {
+    let Some(log) = world.get_resource_mut::<GravityTurnsInRooms>() else {
         return;
     };
-    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+    let taken =
+        crate::lifecycle::take_rewound(log.map_unchanged(|log| &mut log.writes), room, saved_at, |(write, ..)| *write);
+    if taken.is_empty() {
         return;
     }
-    let (taken, kept): (Vec<_>, Vec<_>) =
-        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
-    log.writes = kept;
     let Some(mut base) = world.get_resource_mut::<BaseGravity>() else {
         return;
     };
-    for (_, turned, replaced) in taken.into_iter().rev() {
+    for (_, turned, replaced) in taken {
         match replaced {
             Some(dir) => base.turn(turned, dir),
             None => base.forget(turned),

@@ -355,19 +355,18 @@ pub fn retract_room_gate_portal_phases(
     room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     saved_at: u64,
 ) {
-    let Some(mut log) = world.get_resource_mut::<GatePortalPhasesInRooms>() else {
+    let Some(log) = world.get_resource_mut::<GatePortalPhasesInRooms>() else {
         return;
     };
-    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+    let taken = ambition_platformer2d_shared_tangle::lifecycle::take_rewound(
+        log.map_unchanged(|log| &mut log.writes), room, saved_at, |(write, ..)| *write);
+    if taken.is_empty() {
         return;
     }
-    let (taken, kept): (Vec<_>, Vec<_>) =
-        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
-    log.writes = kept;
     let Some(mut phases) = world.get_resource_mut::<GatePortalPhases>() else {
         return;
     };
-    for (_, zone_id, replaced) in taken.into_iter().rev() {
+    for (_, zone_id, replaced) in taken {
         match replaced {
             Some(phase) => {
                 phases.phases.insert(zone_id, phase);

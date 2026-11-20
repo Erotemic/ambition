@@ -296,11 +296,9 @@ game draws it from parts. `player_robot_v3` cannot yet: every LDtk world in
 so the editor can draw the `PlayerStart` entity, and `bevy_ecs_ldtk` loads
 every declared tileset, so the runtime decodes that page at boot and a
 missing page would fail the world load
-(`scripts/measure/measure_ldtk_tileset_usage.py`: no level layer draws it).
+(measured 2026-11-18: no level layer draws it).
 Until this is answered, `authored/sprites.yaml` `baked_pages` keeps the robot
-painted. `tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py`
-rewrites the tileset's rects from a real PNG header, so any target below is
-mechanical.
+painted. Any target below is a mechanical rewrite of the tileset and its rects.
 
 **Options:**
 
@@ -316,6 +314,17 @@ mechanical.
 **Owner:** the map submodule's worlds (Jon) and the part-first plan
 ([part-first publication](engine/part-first-publication.md)). After (a) or
 (b), `player_robot_v3` leaves `baked_pages`.
+
+**Assumed (a), 2026-11-20, reversible.** Every world that declared the sheet
+(15 content worlds, the 3 Sanic demo worlds, and the `pulse_forge` and
+`bridge_warden` example projects) now points `sprite_player_robot_v3` at
+`../sprites/player_robot_v3_portraits.png` (2048×640, grid 256), and every
+`PlayerStart` rect (definition, UI and each instance's cached `__tile`) frames
+the page's `portrait` clip, (0, 320, 256, 320). `player_robot_v3` left
+`baked_pages`; `library.json` embeds the portrait page and the robot's part
+atlas in place of the sheet page. To choose (b) or (c) instead, retarget the
+same 20 tilesets (or restore the `baked_pages` row); nothing else reads the
+choice.
 
 ## Q181 — Should Sanic's roll be a commitment (Sonic's roll), or stay the run in a ball?
 

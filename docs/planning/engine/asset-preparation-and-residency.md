@@ -119,15 +119,13 @@ runtime boundary is what splits.
   named source, runtime, review, and quality roots. Selected runtime members
   define package inputs. See the [migration receipt](external-art-library-migration.md).
   The remaining residency measures below need a new baseline.
-- Source and runtime products now have separate roots. The LDtk presentation
-  still needs a separate editor-product policy: the player tileset `sprite_player_robot_v3` (used only by the
-  `PlayerStart` entity's editor tile in seven worlds) is the player's runtime
-  sheet, so the file ships anyway; the waste is the extra full-resolution
-  decode `bevy_ecs_ldtk` does at boot (`[image-unrouted]`,
-  `ambition_platformer2d_host/src/portal.rs`).
-  `dev/patches/ldtk-player-tileset-retarget-20260902.patch` retargets that
-  editor tile to `sprites_0_25x/`; it puts an editor reference into a runtime
-  tier, so prefer an editor product under an editor root. Mary-O's
+- Source and runtime products now have separate roots. The player tileset
+  `sprite_player_robot_v3` (used only by the `PlayerStart` entity's editor
+  tile) was the player's full-resolution runtime sheet, decoded by
+  `bevy_ecs_ldtk` at boot; since 2026-11-20 every world points it at the
+  robot's 2048x640 portrait page instead ([Q180](../awaiting-maintainer-decision.md#q180--what-should-the-ldtk-worlds-playerstart-icon-point-at-so-the-player-robot-can-publish-without-a-sheet-page)
+  option (a)). An editor product under an editor root is still the cleaner
+  home for editor-only tiles. Mary-O's
   `ldtk_editor_art_mary_o.png` feeds auto-layers and may draw at runtime
   (unverified); classify it before you move it.
 - The ultrapack (`sprite_packs/`, 449 MB over four tiers, 183 targets) has one

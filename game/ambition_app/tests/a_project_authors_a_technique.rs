@@ -246,7 +246,7 @@ fn a_project_world_loads_draws_and_keeps_the_live_room_when_reload_fails() {
         world_file.read_to_end(&mut bytes).await.unwrap();
         assert_eq!(bytes, original.as_bytes());
         // LDtk's relative image path uses the same source's library imports.
-        let mut sprite = reader.read(Path::new("sprites/player_robot_v3_spritesheet.png")).await.unwrap();
+        let mut sprite = reader.read(Path::new("sprites/player_robot_v3_portraits.png")).await.unwrap();
         bytes.clear();
         sprite.read_to_end(&mut bytes).await.unwrap();
         assert!(!bytes.is_empty());

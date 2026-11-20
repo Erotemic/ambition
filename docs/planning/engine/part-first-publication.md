@@ -203,12 +203,12 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   rows, the robot's eye landmarks). Under the audit: player_robot_v3 2142 of
   2142 frames, Noether 938/938 (recorded from its painted frames: it paints
   outside the seams), Mary-O v2 25/25; Mary-O's strict test compares her
-  flipbook with a painted reference sheet. **player_robot_v3 keeps its page
-  for now** (`baked_pages`): every LDtk world's `PlayerStart` tileset
-  (`sprite_player_robot_v3`) is that page, and the runtime decodes it at
-  boot; the tileset must be retargeted first
-  (`tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py`, the worlds
-  in `game/ambition_map_assets`). Painted on purpose: the cosmic Mary-O (a
+  flipbook with a painted reference sheet. player_robot_v3 kept its page
+  (`baked_pages`) until 2026-11-20: every LDtk world's `PlayerStart` tileset
+  (`sprite_player_robot_v3`) was that page, and the runtime decoded it at
+  boot. The tilesets now name the robot's portrait page
+  ([Q180](../awaiting-maintainer-decision.md#q180--what-should-the-ldtk-worlds-playerstart-icon-point-at-so-the-player-robot-can-publish-without-a-sheet-page)
+  option (a)), and the robot left `baked_pages`. Painted on purpose: the cosmic Mary-O (a
   hybrid: her transformation rows carry light on the whole figure that no
   part carries, so they stay baked clips).
 - **Rigid pieces are one part (2026-11-18).** Jeff Hinter armored (87 draws
@@ -381,8 +381,8 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   | all sprites | 2,587 MB | 1,275 MB |
 
   Four sheets keep a page beside their parts (24 MB): `player_robot_v3`
-  (until [Q180](../awaiting-maintainer-decision.md#q180--what-should-the-ldtk-worlds-playerstart-icon-point-at-so-the-player-robot-can-publish-without-a-sheet-page)),
-  the two boss sheets in `baked_pages`, and Mary-O's cosmic form (a hybrid).
+  (until [Q180](../awaiting-maintainer-decision.md#q180--what-should-the-ldtk-worlds-playerstart-icon-point-at-so-the-player-robot-can-publish-without-a-sheet-page);
+  since 2026-11-20 its next publish drops the page), the two boss sheets in `baked_pages`, and Mary-O's cosmic form (a hybrid).
   The other 576 MB of pages are sheets with no parts: props, projectiles and
   the Art cast kit (PF5 kept its pages by measurement).
 - **PF3 done (2026-11-18).** `scripts/regen/sprites.sh --reference --target

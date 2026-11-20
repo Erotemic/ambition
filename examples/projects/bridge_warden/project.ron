@@ -1,0 +1,12 @@
+// A project: what an already built host runs, with no Rust (see README.md).
+(
+    schema: "ambition.project.v1",
+    name: "Bridge warden",
+    // Its own pack: the runner, the posts and the warden, and the world below.
+    content: Some("content"),
+    // The yard and the bridge (`warden.ldtk`, built by `author_world.py`).
+    worlds: Some("worlds"),
+    // The warden's mechanism, in Rhai: edit it while the game runs.
+    modules: ["modules"],
+    starting_items: Some([]),
+)

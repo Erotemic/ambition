@@ -1,0 +1,61 @@
+(
+    autonomous_profiles: { "stand": (template: StandStill) },
+    brain_presets: { "still": StandStill },
+    action_set_presets: {
+        "walking": (move_style: Walk),
+        // The runner's one strike: enough to fell a post in two swings.
+        "runner_swipe": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.08, active_s: 0.10, recover_s: 0.16, damage: 2, reach_px: 40.0)),
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "bridge_runner": (
+            display_name: "Runner",
+            manifest: "sprites/player_robot_v3_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "still",
+            default_action_set: "runner_swipe",
+            provoked_profile: Some("stand"),
+            max_health: Some(60),
+            locomotion: Some((run_speed: 220.0, move_style: Walk)),
+            abilities: Some([RunJump, Attack, Interact]),
+            posed_body: Some(OwnHeight),
+        ),
+        // A post the bridge's warden keeps: it stands where the yard puts it
+        // and falls to the runner's strikes.
+        "bridge_post": (
+            display_name: "Bridge post",
+            manifest: "sprites/goblin_spritesheet.ron",
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "still",
+            default_action_set: "walking",
+            provoked_profile: Some("stand"),
+            max_health: Some(4),
+            locomotion: Some((run_speed: 120.0, move_style: Walk)),
+            tags: ["bridge_warden.posts"],
+        ),
+        // The warden: it counts the fallen posts and lowers the bridge.
+        "bridge_keeper": (
+            display_name: "Bridge warden",
+            manifest: "sprites/sandbag_spritesheet.ron",
+            sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "still",
+            default_action_set: "walking",
+            provoked_profile: Some("stand"),
+            death_traits: Some((never_dies: true)),
+            max_health: Some(6),
+            locomotion: Some((run_speed: 120.0, move_style: Walk)),
+        ),
+    },
+)

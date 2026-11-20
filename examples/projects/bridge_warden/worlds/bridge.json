@@ -1,0 +1,87 @@
+{
+  "id": "warden_bridge",
+  "level_id": "warden_bridge",
+  "world_x": 960,
+  "world_y": 0,
+  "px_wid": 960,
+  "px_hei": 384,
+  "fill_collision": "solid_floor",
+  "entities": [
+    {
+      "type": "PlayerStart",
+      "px": [
+        64,
+        304
+      ],
+      "size": [
+        28,
+        46
+      ],
+      "fields": {
+        "name": "bridge_start"
+      }
+    },
+    {
+      "type": "Solid",
+      "px": [
+        0,
+        0
+      ],
+      "size": [
+        960,
+        16
+      ],
+      "fields": {
+        "name": "bridge_ceiling"
+      }
+    },
+    {
+      "type": "Solid",
+      "px": [
+        944,
+        0
+      ],
+      "size": [
+        16,
+        384
+      ],
+      "fields": {
+        "name": "bridge_east_wall"
+      }
+    },
+    {
+      "type": "LoadingZone",
+      "px": [
+        0,
+        256
+      ],
+      "size": [
+        16,
+        96
+      ],
+      "fields": {
+        "id": "bridge_from_yard",
+        "name": "bridge_from_yard",
+        "activation": "EdgeExit",
+        "target_room": "warden_yard",
+        "target_zone": "yard_to_bridge",
+        "bidirectional": true
+      }
+    },
+    {
+      "type": "LockWall",
+      "px": [
+        480,
+        16
+      ],
+      "size": [
+        16,
+        336
+      ],
+      "fields": {
+        "id": "bridge_gate",
+        "gated_by": "world.value_is bridge.state lowered"
+      }
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "id": "warden_yard",
+  "level_id": "warden_yard",
+  "world_x": 0,
+  "world_y": 0,
+  "px_wid": 960,
+  "px_hei": 384,
+  "fill_collision": "solid_floor",
+  "entities": [
+    {
+      "type": "PlayerStart",
+      "px": [
+        112,
+        304
+      ],
+      "size": [
+        28,
+        46
+      ],
+      "fields": {
+        "name": "yard_start"
+      }
+    },
+    {
+      "type": "Solid",
+      "px": [
+        0,
+        0
+      ],
+      "size": [
+        960,
+        16
+      ],
+      "fields": {
+        "name": "yard_ceiling"
+      }
+    },
+    {
+      "type": "Solid",
+      "px": [
+        0,
+        0
+      ],
+      "size": [
+        16,
+        384
+      ],
+      "fields": {
+        "name": "yard_west_wall"
+      }
+    },
+    {
+      "type": "LoadingZone",
+      "px": [
+        944,
+        256
+      ],
+      "size": [
+        16,
+        96
+      ],
+      "fields": {
+        "id": "yard_to_bridge",
+        "name": "yard_to_bridge",
+        "activation": "EdgeExit",
+        "target_room": "warden_bridge",
+        "target_zone": "bridge_from_yard",
+        "bidirectional": true
+      }
+    }
+  ]
+}

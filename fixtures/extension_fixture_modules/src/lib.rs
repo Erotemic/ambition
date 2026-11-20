@@ -23,6 +23,7 @@
 //! in a transient one beside it, which starts again with each live body.
 
 mod object_worker;
+mod bridge_warden;
 
 use ambition_combat_port::{
     ActorFire, ActorFirePort, ActorThink, ActorThinkPort, DamageBox, DamageBoxPort, WieldedUsePort, Wielder,
@@ -401,7 +402,8 @@ fn object_ref_result(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 }
 
 /// Every module this crate provides, as constructors.
-pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker, object_refs, object_worker::module];
+pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker, object_refs, object_worker::module,
+    bridge_warden::module];
 
 #[cfg(test)]
 mod tests {

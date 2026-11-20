@@ -180,7 +180,7 @@ pub const GATE: &str = "world.value_is bridge.state lowered";
 /// Run the mechanism in `blink_run`, with the gate in `portal_bridge` waiting
 /// on `gate`, then walk across. Returns the harness, the player, and the
 /// records it reads.
-pub fn play(source: &str, gate: &str, extra: Vec<std::path::PathBuf>, label: &str) -> (Platformer2dSimHarness, Entity) {
+pub fn play(source: &str, gate: &str, extra: Vec<std::path::PathBuf>, label: &str) -> (Platformer2dSimHarness, Entity, std::time::Instant) {
     use ambition_platformer2d::world::rooms::{EncounterLockWallSpec, RoomSet};
     let path = std::env::temp_dir().join(format!("ambition_bridge_warden_{label}_{}.rhai", std::process::id()));
     std::fs::write(&path, source).unwrap();
@@ -204,8 +204,10 @@ pub fn play(source: &str, gate: &str, extra: Vec<std::path::PathBuf>, label: &st
     let player = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
     world.entity_mut(player).insert(BodyStatuses(vec!["bridge.run".into()]));
     sim.rebase_rollback_history().unwrap();
+    sim.world_mut().insert_resource(ambition_platformer2d::extension::ExtensionProfile::default());
+    let started = std::time::Instant::now();
     sim.step_n(AgentAction::default(), 80);
-    (sim, player)
+    (sim, player, started)
 }
 
 fn records(sim: &mut Platformer2dSimHarness, schema: &'static str) -> Vec<ambition_platformer2d::extension::sdk::Record> {
@@ -236,7 +238,8 @@ fn far_trail(sim: &mut Platformer2dSimHarness) -> String {
 /// rewinds it rides through.
 #[test]
 fn the_warden_lowers_the_bridge_and_the_next_room_opens() {
-    let (mut sim, player) = play(SOURCE, GATE, Vec::new(), "rhai");
+    let (mut sim, player, started) = play(SOURCE, GATE, Vec::new(), "rhai");
+    cost(&sim, "bridge::warden/", "capstone_rhai", 80, started);
     sim.rollback_health().unwrap();
     let faults = sim.world().resource::<ExtensionFaults>();
     assert_eq!(faults.total, 0, "{:?}", faults.recent.first());
@@ -262,9 +265,191 @@ fn the_warden_lowers_the_bridge_and_the_next_room_opens() {
 #[test]
 fn a_gate_that_waits_on_the_count_opens_without_the_wardens_write() {
     let source = SOURCE.replace("if !ward.asked && count_of", "if false && count_of");
-    let (mut sim, _) = play(&source, "world.count_at_least bridge.posts_down 2", Vec::new(), "count");
+    let (mut sim, _, _) = play(&source, "world.count_at_least bridge.posts_down 2", Vec::new(), "count");
     assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
     assert!(world_value(&sim, "bridge.state").is_none(), "the premise: nothing lowered the bridge");
     assert_eq!(far_trail(&mut sim), "oooooooo", "the count alone opens the gate");
     sim.rollback_health().unwrap();
+}
+
+/// ⭐ PORTABLE PARITY: the warden's methods as a WASM module
+/// (`fixture::bridge_warden`, built from source here) bound in place of the
+/// Rhai ones, with the rest of the composition unchanged. Same defeats, same
+/// world writes, same gate in the next room.
+#[test]
+fn the_wardens_methods_as_a_portable_module_lower_the_same_bridge() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let guest = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
+        .expect("the fixture module crate builds");
+    let source = SOURCE.replace("#{name: \"down\", entry: \"bridge::warden/down\"}",
+        "#{name: \"down\", entry: \"fixture::bridge_warden/down\"}");
+    assert_ne!(source, SOURCE, "the premise: the binding names the portable method");
+    let (mut sim, _, started) = play(&source, GATE, vec![guest], "wasm");
+    cost(&sim, "fixture::bridge_warden/", "capstone_wasm", 80, started);
+    cost(&sim, "bridge::warden/", "capstone_wasm_rhai_rest", 80, started);
+    sim.rollback_health().unwrap();
+    let faults = sim.world().resource::<ExtensionFaults>();
+    assert_eq!(faults.total, 0, "{:?}", faults.recent.first());
+    let world = sim.world_mut();
+    let ward: Vec<_> = world.query::<&BodyRecords>().iter(world)
+        .filter_map(|records| records.get(&SchemaKey::new("fixture", "bridge_warden.ward", 1)).cloned()).collect();
+    assert_eq!(ward.len(), 1, "one portable warden");
+    assert_eq!(ward[0].get(FieldRef(0)).unwrap(), &Value::U32(2), "both defeats heard by the portable method");
+    let Value::Text(log) = ward[0].get(FieldRef(2)).unwrap().clone() else { panic!("log") };
+    assert_eq!(log, "down;down;world_count_added;world_count_added;world_value_set;",
+        "the same outcomes, in the same order, as the Rhai warden hears");
+    let rhai_ward = records(&mut sim, "ward");
+    assert_eq!(rhai_ward[0].get(FieldRef(1)).unwrap(), &Value::U32(2), "the Rhai `gone` method still hears both retirements");
+    assert!(world_value(&sim, "bridge.state").is_some(), "the bridge's state is in the save");
+    assert_eq!(far_trail(&mut sim), "oooooooo", "the next room's wall is open");
+    sim.rollback_health().unwrap();
+}
+
+/// Print what each entry of `provider` cost: calls, faults, the whole entry
+/// and the backend call, beside the ticks and the session's wall time.
+fn cost(sim: &Platformer2dSimHarness, provider: &str, label: &str, ticks: u64, started: std::time::Instant) {
+    use ambition_platformer2d::extension::ExtensionProfile;
+    let profile = sim.world().resource::<ExtensionProfile>();
+    let (mut calls, mut total, mut backend) = (0, std::time::Duration::ZERO, std::time::Duration::ZERO);
+    for (entry, row) in profile.0.iter().filter(|(entry, _)| entry.starts_with(provider)) {
+        println!("BRIDGE_COST {label} entry={entry} calls={} faults={} total_us={} backend_us={}",
+            row.calls, row.faults, row.total.as_micros(), row.backend.as_micros());
+        calls += row.calls;
+        total += row.total;
+        backend += row.backend;
+    }
+    println!("BRIDGE_COST {label} all ticks={ticks} calls={calls} total_us={} backend_us={} session_us={}",
+        total.as_micros(), backend.as_micros(), started.elapsed().as_micros());
+}
+
+/// The project, built by the host as `ambition_game_bin --project` builds
+/// it, with its module files replaced by `modules` when there are any. On a
+/// sync-test host when `sync_test`: a reload is refused there (its timeline
+/// is the harness's), so the edit loop runs on the game's own session.
+fn project(modules: Vec<std::path::PathBuf>, sync_test: bool) -> Platformer2dSimHarness {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let project = ambition_app::app::project::Project::load(&root.join("examples/projects/bridge_warden"))
+        .expect("the example project loads");
+    let mut options = crate::common::fixed_60hz_room_options("warden_yard").with_extension_module_files(modules);
+    if sync_test {
+        options = options.with_sync_test_rollback_settings(4, 12);
+    }
+    let mut sim = project.sim(options).expect("the project builds");
+    assert_eq!(sim.observation().active_room, "warden_yard");
+    sim.world_mut().insert_resource(ambition_platformer2d::extension::ExtensionProfile::default());
+    sim
+}
+
+fn standing_posts(sim: &mut Platformer2dSimHarness) -> Vec<f32> {
+    let world = sim.world_mut();
+    world.query::<(&ambition_platformer2d::characters::actor::CharacterForm,
+        &ambition_platformer2d::engine_core::BodyKinematics, &ambition_platformer2d::characters::actor::BodyHealth)>()
+        .iter(world).filter(|(form, _, health)| form.id() == "bridge_post" && health.alive())
+        .map(|(_, kin, _)| kin.pos.x).collect()
+}
+
+/// Play the yard as a player would: walk to the nearest standing post and
+/// swing at it until the bridge is lowered. Returns the frames it took.
+fn fight(sim: &mut Platformer2dSimHarness) -> u64 {
+    let lowered = |sim: &Platformer2dSimHarness| world_value(sim, "bridge.state").is_some();
+    let mut frames = 0;
+    while !lowered(sim) && frames < 1200 {
+        let at = sim.observation().player_pos.0;
+        let nearest = standing_posts(sim).into_iter().reduce(f32::min);
+        let action = match nearest {
+            Some(post) if at < post - 44.0 => AgentAction {move_x: 1.0, right_pressed: true, ..Default::default()},
+            _ => { let swing = frames % 12 == 0; AgentAction {attack: swing, attack_held: swing, ..Default::default()} }
+        };
+        sim.step(action);
+        frames += 1;
+    }
+    let faults = sim.world().resource::<ExtensionFaults>();
+    assert_eq!(faults.total, 0, "{:?}", faults.recent.first());
+    assert!(lowered(sim), "the runner felled the posts and the warden lowered the bridge ({frames} frames): {:?}",
+        records(sim, "ward"));
+    // The write's answer reaches the warden on a later tick.
+    sim.step_n(AgentAction::default(), 4);
+    frames + 4
+}
+
+fn ward_log(sim: &mut Platformer2dSimHarness) -> String {
+    let ward = records(sim, "ward");
+    let Value::Text(log) = ward[0].get(FieldRef(3)).unwrap().clone() else { panic!("log") };
+    log
+}
+
+/// Walk east through the edge and on past the gate; the bridge room's own
+/// script reads the gate there.
+fn cross(sim: &mut Platformer2dSimHarness) {
+    let mut frames = 0;
+    while sim.observation().active_room != "warden_bridge" && frames < 600 {
+        sim.step(AgentAction {move_x: 1.0, right_pressed: true, ..Default::default()});
+        frames += 1;
+    }
+    assert_eq!(sim.observation().active_room, "warden_bridge", "the edge leads to the bridge");
+    sim.step_n(AgentAction {move_x: 1.0, right_pressed: true, ..Default::default()}, 180);
+    let far = records(sim, "far");
+    assert_eq!(far[0].get(FieldRef(0)).unwrap(), &Value::Text("o".into()), "the bridge room reads its gate open");
+    let x = sim.observation().player_pos.0;
+    assert!(x > 500.0, "the runner passed the gate at x 480..496, room pixels (at x {x})");
+}
+
+/// ⭐ THE PLAYABLE ROOM: `examples/projects/bridge_warden`, run as a project
+/// by the built host. No status is planted and no blast is scripted: the
+/// runner walks into the yard swinging, the posts fall to its strikes, the
+/// warden lowers the bridge, and the runner walks through the edge and past
+/// the gate that opened on the world value. Sync-test host.
+#[test]
+fn the_bridge_warden_project_is_played_through_by_its_runner() {
+    let mut sim = project(Vec::new(), true);
+    let started = std::time::Instant::now();
+    let frames = fight(&mut sim);
+    cost(&sim, "bridge::", "project_sync_test", frames, started);
+    assert_eq!(ward_log(&mut sim), "down;world_count_added;down;world_count_added;world_value_set;",
+        "each post counted as it fell, and the warden heard its write");
+    cross(&mut sim);
+    sim.rollback_health().unwrap();
+}
+
+/// ⭐ THE EDIT LOOP, IN THE RUNNING HOST: the project's script is edited
+/// while the yard runs (one fallen post now lowers the bridge). The host
+/// reloads it with no build, the warden keeps its state, and the next post
+/// to fall lowers the bridge while the other still stands.
+#[test]
+fn an_edit_to_the_wardens_script_lowers_the_bridge_on_one_post() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let shipped = std::fs::read_to_string(root.join("examples/projects/bridge_warden/modules/bridge_warden.rhai")).unwrap();
+    let dir = root.join(format!("target/extension-modules/bridge_warden_edit_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("bridge_warden.rhai");
+    std::fs::write(&file, &shipped).unwrap();
+    let mut sim = project(vec![file.clone()], false);
+    sim.step_n(AgentAction::default(), 30);
+    assert_eq!(standing_posts(&mut sim).len(), 2, "the premise: the yard made both posts");
+    let edited = shipped.replace("fn posts_to_lower() { 2 }", "fn posts_to_lower() { 1 }");
+    assert_ne!(edited, shipped, "the premise: the edit changes the threshold");
+    // A file system's clock can be coarse: the edit must look newer.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let edited_at = std::time::Instant::now();
+    std::fs::write(&file, edited).unwrap();
+    let published = |sim: &Platformer2dSimHarness| {
+        sim.world().resource::<ambition_platformer2d::extension::reload::StagedModuleReplacement>().published()
+    };
+    let mut frames = 0;
+    while published(&sim) == 0 {
+        sim.step(AgentAction::default());
+        frames += 1;
+        assert!(frames < 240, "the edited script was not reloaded within 240 frames");
+    }
+    println!("BRIDGE_EDIT source_edit_to_published_ms={} frames={frames}", edited_at.elapsed().as_millis());
+    assert_eq!(standing_posts(&mut sim).len(), 2, "the reload made no second yard");
+    sim.world_mut().insert_resource(ambition_platformer2d::extension::ExtensionProfile::default());
+    let started = std::time::Instant::now();
+    let fought = fight(&mut sim);
+    cost(&sim, "bridge::", "project_local_after_edit", fought, started);
+    assert_eq!(ward_log(&mut sim), "down;world_count_added;world_value_set;", "one fallen post lowers the bridge now");
+    assert_eq!(standing_posts(&mut sim).len(), 1, "the other post still stands");
+    println!("BRIDGE_EDIT source_edit_to_lowered_ms={}", edited_at.elapsed().as_millis());
+    cross(&mut sim);
+    let _ = std::fs::remove_dir_all(dir);
 }

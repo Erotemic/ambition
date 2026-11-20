@@ -1,0 +1,6 @@
+(
+    entry_room: "warden_yard",
+    worlds: [
+        (id: "world.bridge_warden", file: "warden.ldtk", required: true),
+    ],
+)

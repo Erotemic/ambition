@@ -15,6 +15,23 @@ pub struct Profile {
     pub fight_at_stops: bool,
     pub repeat: bool,
     pub equip: Option<String>,
+    /// Developer help for a route that tests a fight's sequencing, not the
+    /// player's skill. None by default.
+    #[serde(default)]
+    pub assist: Assist,
+}
+
+/// What a developer route does that no player can: so a run reaches the end
+/// of a long fight and shows where its sequencing breaks.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct Assist {
+    /// The driven body is healed to full every frame: it is hit, thrown and
+    /// launched as anyone is, and it never dies.
+    pub endless_health: bool,
+    /// Each blow that lands on a boss takes this part of its maximum health
+    /// as well (0 for none), so its phases come in a few hits.
+    pub boss_advance: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -43,6 +60,9 @@ fn problems(profiles: &Profiles) -> Vec<String> {
             if stop.room.trim().is_empty() {
                 problems.push(format!("autoplay `{id}` stop {index} needs a room"));
             }
+        }
+        if !(0.0..=1.0).contains(&profile.assist.boss_advance) {
+            problems.push(format!("autoplay `{id}` boss_advance must be within 0..=1"));
         }
         if profile
             .equip
@@ -82,6 +102,7 @@ mod tests {
                 fight_at_stops: false,
                 repeat: true,
                 equip: None,
+                assist: Assist::default(),
             },
         )]);
         assert!(!problems(&profiles).is_empty());

@@ -19,6 +19,18 @@
             (room: "castle_godwin_throne", way: Fly, cross: true),
         ],
     ),
+    // The Wolfenstein fight end to end, for a developer (Jon, 2026-11-19):
+    // Wolfenstein, his head risen as the Inugami, its chase to the final
+    // hall, Kagero's spell, its finish and death. `examples/inugami_e2e.rs`
+    // runs it headless and reports where the sequence stalls;
+    // `AMBITION_AUTOPLAY=wolfenstein` plays it in the window.
+    "wolfenstein": (
+        fight_at_stops: true, repeat: false, equip: Some("fireball"),
+        assist: (endless_health: true, boss_advance: 0.2),
+        stops: [
+            (room: "castle_godwin_throne", way: Fly, cross: false),
+        ],
+    ),
     "portal_profile": (
         fight_at_stops: false, repeat: true, equip: None,
         stops: [

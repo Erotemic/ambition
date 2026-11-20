@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use crate::bosses::hall::Hall;
 
-pub use ambition_content_modules::inugami::{Move, INUGAMI_ID, SEALED};
+pub use ambition_content_modules::inugami::{Conductor, Move, INUGAMI_ID, SEALED};
 
 /// The state it is built with: the side it faces (its module chooses it from
 /// then on) and its drawn row.
@@ -47,9 +47,7 @@ pub struct InugamiView {
 /// The conductor's record on `head`, as a view. `None` before the module
 /// stored anything.
 pub fn conductor_of(world: &World, head: Entity) -> Option<InugamiView> {
-    use ambition_content_modules::inugami::Conductor;
-    let records = world.get::<ambition_extension_host::BodyRecords>(head)?;
-    let c = Conductor::from_record(records.get(&Conductor::KEY)?).ok()?;
+    let c = conductor_record(world, head)?;
     Some(InugamiView {
         performing: c.performing(),
         buried: c.buried(),
@@ -61,6 +59,13 @@ pub fn conductor_of(world: &World, head: Entity) -> Option<InugamiView> {
         warded: c.warded(),
         running: c.running(),
     })
+}
+
+/// The conductor's whole record on `head`, for a developer's driver that
+/// watches every step of the fight (`examples/inugami_e2e.rs`).
+pub fn conductor_record(world: &World, head: Entity) -> Option<Conductor> {
+    let records = world.get::<ambition_extension_host::BodyRecords>(head)?;
+    Conductor::from_record(records.get(&Conductor::KEY)?).ok()
 }
 
 /// Frame the warded pursuer while it is near its target.

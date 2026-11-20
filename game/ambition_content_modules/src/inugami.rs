@@ -1161,7 +1161,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // and the pounce's window put it 196 px down in one tick: measured
     // 2026-10-24.)
     let live = match (inu.active.as_ref(), inu.telegraph.as_ref()) {
-        _ if c.run.is_some() || c.appear.is_some() || c.binding.is_some() || (c.arrived && c.warded) => None,
+        _ if c.run.is_some() || c.rearing.is_some() || c.appear.is_some() || c.binding.is_some() || (c.arrived && c.warded) => None,
         (Some(active), _) if Move::from_key(&active.key).is_some() => Move::from_key(&active.key).map(|mv| (mv, true, active.remaining)),
         (_, Some(tell)) => Move::from_key(&tell.key).map(|mv| (mv, false, tell.remaining)),
         _ => None,
@@ -1261,7 +1261,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     c.last_remaining = live.map_or(0.0, |(_, _, remaining)| remaining);
 
     // ── Between phases: it howls; the first time its ward kindles ──
-    if inu.between_phases {
+    // Its crash is its own and outlasts the encounter's beat: the beat can be
+    // over before it reaches the wall (measured 2026-11-19 by
+    // `examples/inugami_e2e.rs`: the run began in the arena's middle, the wall
+    // never struck).
+    let crash_pending = c.rear_crash && c.rearing.is_some() && !c.crashed;
+    if inu.between_phases || crash_pending {
         if c.rearing.is_none() {
             side = face(at.x);
             c.miss = None;
@@ -1372,8 +1377,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 let l = l + dt;
                 let was = l - dt;
                 if l >= RUN_GATHER_S && was < RUN_GATHER_S {
-                    // It darts past where you are now.
-                    let from = Vec2::new(c.from_x, c.from_y);
+                    // It darts past where you are now, from where its gather
+                    // brought it: it gathered on your heels.
+                    c.from_x = at.x;
+                    c.from_y = at.y;
+                    let from = at;
                     let aim = (target - from).normalize_or(Vec2::X * c.run_dir);
                     let to = spirit(from + aim * ((target - from).length() + 120.0).min(BITE_REACH + half.x));
                     c.to_x = to.x;
@@ -1693,17 +1701,19 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 let from = Vec2::new(c.from_x, c.from_y);
                 let to = Vec2::new(c.to_x, c.to_y);
                 let dart = (l - RUN_GATHER_S) / RUN_DART_S;
-                return_pos = Some(if l < RUN_GATHER_S {
-                    from - Vec2::new(c.run_dir * h.len(6.0) * ease(l / RUN_GATHER_S), 0.0)
+                // Its gather and its skid keep after you: a lunge held where it
+                // began lost a runner at full tilt for the whole of it (measured
+                // 2026-11-19, `examples/inugami_e2e.rs`: 1.6 s still while the
+                // robot flew off at 725 px/s). Gathering, it closes at half its
+                // pace; skidding, it hunts again from where the dart left it.
+                return_pos = if l < RUN_GATHER_S {
+                    Some(at + (hunt.position - at) * 0.5)
                 } else if dart < 1.0 {
                     side = if to.x < from.x { -1.0 } else { 1.0 };
-                    from + (to - from) * ease_out(dart)
+                    Some(from + (to - from) * ease_out(dart))
                 } else {
-                    let skid = (l - RUN_GATHER_S - RUN_DART_S) / MISS_S;
-                    let along = (to - from).normalize_or(Vec2::ZERO);
-                    side = if along.x < 0.0 { -1.0 } else { 1.0 };
-                    at + along * (MISS_DRIFT / MISS_S) * (1.0 - skid).max(0.0) * dt
-                });
+                    None
+                };
             }
             if c.lunge.is_some() && c.ticks % 2 == 0 {
                 burst(inv, at, 5, 180.0, WARD_FIRE, "spark")?;

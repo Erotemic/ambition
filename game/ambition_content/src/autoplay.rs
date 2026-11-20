@@ -54,7 +54,50 @@ pub(super) fn register(app: &mut App) {
             // Read the completed frame before the next simulation advance.
             .before(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
             .run_if(|mode: Option<Res<ambition_platformer2d::scripted_input::Autoplay>>, profiles: Res<Profiles>|
-                mode.is_some_and(|mode| profiles.0.contains_key(&mode.0))));
+                mode.is_some_and(|mode| profiles.0.contains_key(&mode.0))))
+        .add_systems(Update, assist
+            .in_set(ambition_platformer2d::scripted_input::AutoplayPolicy)
+            .before(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
+            .run_if(|mode: Option<Res<ambition_platformer2d::scripted_input::Autoplay>>, profiles: Res<Profiles>|
+                mode.is_some_and(|mode| profiles.0.get(&mode.0).is_some_and(|p| p.assist != Default::default()))));
+}
+
+/// The profile's developer help (`Assist`): the driven body never dies, and a
+/// blow that lands on a boss takes a part of its maximum health as well.
+///
+/// It writes the health the simulation keeps from outside it. That is a
+/// developer's hand on the world, which the local session's sync test (it
+/// never re-simulates) keeps; a route with no assist writes nothing.
+fn assist(
+    mode: Res<ambition_platformer2d::scripted_input::Autoplay>,
+    profiles: Res<Profiles>,
+    mut players: Query<&mut ambition_platformer2d::characters::actor::BodyHealth, With<PrimaryPlayer>>,
+    mut bosses: Query<(Entity, &mut ambition_platformer2d::characters::actor::BodyHealth),
+        (With<ambition_boss_encounter::BossEncounter>, Without<PrimaryPlayer>)>,
+    mut seen: Local<std::collections::HashMap<Entity, i32>>,
+) {
+    let Some(assist) = profiles.0.get(&mode.0).map(|p| p.assist) else { return; };
+    if assist.endless_health {
+        for mut health in &mut players {
+            let max = health.max();
+            if health.health.current < max {
+                health.health.current = max;
+            }
+        }
+    }
+    if assist.boss_advance > 0.0 {
+        for (entity, mut health) in &mut bosses {
+            let now = health.health.current;
+            if let Some(&was) = seen.get(&entity) {
+                if now < was && now > 1 {
+                    let cut = (health.max() as f32 * assist.boss_advance).ceil() as i32;
+                    health.health.current = (now - cut).max(1);
+                    info!("[autoplay] assist: boss {entity:?} {was} -> {now} -> {}", health.health.current);
+                }
+            }
+            seen.insert(entity, health.health.current);
+        }
+    }
 }
 
 /// Frames between two presses of Interact at a door, or of Confirm in a

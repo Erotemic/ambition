@@ -801,23 +801,25 @@ Port `ambition.actor.steer@1`, request: `this.requests.push(request("<alias>", #
 
 ## `take`
 
-Port `ambition.item.take@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.item.take@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `body` | text | required | The taker's identity (`GroupMember::id`). |
 | `item` | text | required | The item's identity (`GroupItem::id`). |
 | `supporter` | text or () | `()` | The member that carries it with the taker, or `()` to carry it alone. |
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Where the action result goes, or `()` for none. |
 
 ## `release`
 
-Port `ambition.item.release@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.item.release@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `body` | text | required | The holder's identity (`GroupMember::id`). |
 | `thrown` | bool | required | `true` to throw it (an attack: what it hits, it hurts), `false` to drop it. (`throw` is a word Rhai reserves.) |
 | `velocity` | [x, y] | `[0.0, 0.0]` | The item's velocity as it leaves (world units per second, +Y down). |
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Where the action result goes, or `()` for none. |
 
 ## `whereabouts`
 

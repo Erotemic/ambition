@@ -93,9 +93,11 @@ before choosing a backend for a costly mechanic.
 ## Scope and remaining work
 
 This service does not change equipment or held-item custody. Their native
-owners remain responsible. The current bag also retains its fixed 24-slot
-catalog. General catalog growth and equipment/custody results remain open in
-the [capability census](../planning/engine/script-first-capability-census.md).
+owners remain responsible: a body's custody of an item goes through `take` and
+`release`, which report their own [results](action-results.md#installed-command-results).
+The current bag also retains its fixed 24-slot catalog. General catalog growth
+and equipment results remain open in the
+[capability census](../planning/engine/script-first-capability-census.md).
 
 The loaded [exchange fixture](../../game/ambition_app/tests/scripted_inventory_exchanges.rs)
 uses a controlled actor and an NPC, checks actual application, retry identity,

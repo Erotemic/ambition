@@ -160,6 +160,27 @@ pub fn body_is_untouchable(
         || health.is_some_and(|h| !h.alive())
 }
 
+/// Why Interact cannot talk to a body now, or `None`: the one talk rule of
+/// the press, its prompt and its observer. A hostile body refuses, except a
+/// body that only retaliates (an ally rallied to a fight beside the player,
+/// [`crate::components::ActorDisposition::refuses_talk`]); an untouchable body
+/// ([`body_is_untouchable`]) refuses too.
+pub fn talk_refusal(
+    disposition: crate::components::ActorDisposition,
+    aggression: Option<&crate::components::ActorAggression>,
+    health: Option<&ambition_characters::actor::BodyHealth>,
+    out_of_play: bool,
+    plane: Option<&ae::DepthPlane>,
+) -> Option<&'static str> {
+    if disposition.refuses_talk(aggression) {
+        Some("hostile")
+    } else if body_is_untouchable(health, out_of_play, plane) {
+        Some("untouchable (dead or out of play)")
+    } else {
+        None
+    }
+}
+
 /// Does a SPENT guard still reach this hit? — the poke rule.
 ///
 /// A shield sinks as it is spent, and a body behind a small one is exposed at

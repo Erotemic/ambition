@@ -72,9 +72,10 @@ pub fn open_ecs_chests(
     // walk-over pickup hands to `grant_pickup`.
     mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
-    (mut owned, items): (
+    (mut owned, items, objects): (
         Option<ResMut<ambition_items::OwnedItems>>,
         ambition_items::ItemCatalogRead,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
     ),
     // What a chest gave: a retracted defeat takes back a boss reward
     // chest's, and a restore keeps an ordinary chest's while one of the
@@ -124,17 +125,27 @@ pub fn open_ecs_chests(
             subject_frame,
             rooms.of(subject),
         );
-        for (entity, id, name, aabb, chest, opened, falling, boss_reward, chest_sim_id, origin) in
-            &chests
+        // The press opens the chest that `interact_order` puts first, as the
+        // prompt names it.
+        let order = ambition_platformer2d_interaction::interact_order(
+            chests
+                .iter()
+                .filter(|(entity, _, _, aabb, _, opened, falling, ..)| {
+                    // A chest has no facing gate: its spec has no `requires_facing`.
+                    falling.is_none()
+                        && opened.is_none()
+                        && !opened_this_pass.contains(entity)
+                        && reach.touches(rooms.of(*entity), aabb, false)
+                })
+                .map(|(entity, _, _, aabb, ..)| ambition_platformer2d_interaction::InteractCandidate {
+                    kind: ambition_platformer2d_interaction::InteractKind::Open,
+                    preference: reach.preference(aabb.center),
+                    id: (objects.reference(entity), entity),
+                }),
+        );
+        if let Some((entity, id, name, aabb, chest, _, _, boss_reward, chest_sim_id, origin)) =
+            order.first().and_then(|offer| chests.get(offer.id.1).ok())
         {
-            // A chest has no facing gate: its spec has no `requires_facing`.
-            if falling.is_some()
-                || opened.is_some()
-                || opened_this_pass.contains(&entity)
-                || !reach.touches(rooms.of(entity), aabb, false)
-            {
-                continue;
-            }
             commands.entity(entity).insert(Opened);
             opened_this_pass.push(entity);
             // ⭐ AN AUTHORED CHEST IS REMEMBERED OPENED (Q63). Its row is
@@ -243,7 +254,6 @@ pub fn open_ecs_chests(
                     written,
                 });
             }
-            break;
         }
     }
 }

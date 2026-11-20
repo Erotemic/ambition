@@ -96,6 +96,7 @@ fn prompt(arm: Arm) -> InteractVariant {
                 .spawn((
                     ActorInteraction { interactable },
                     ActorDisposition::Peaceful,
+                    ambition_combat::components::ActorIdentity::new("guide", "Guide"),
                 ))
                 .id()
         }

@@ -18,7 +18,7 @@ use ambition_combat::components::{
 };
 use ambition_encounter::switches::{SwitchActivated, SwitchFeature};
 use ambition_persistence::quest::QuestAdvanceRequested;
-use ambition_platformer2d_interaction::{InteractReach, pose_interact};
+use ambition_platformer2d_interaction::{InteractCandidate, InteractKind, InteractReach, interact_order, pose_interact};
 use ambition_vfx::vfx::VfxWriter;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::*;
@@ -113,12 +113,10 @@ impl TalkableBodies<'_, '_> {
             .iter()
             .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing, aggression))| {
                 *entity != subject
-                    && !disposition.refuses_talk(*aggression)
-                    && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane,
-                        )
+                    && ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane)
+                        .is_none()
                     && reach.can_talk_to(self.rooms.of(*entity), aabb, *requires_facing)
-            },
-            )
+            })
             .map(|(_, aabb, ..)| aabb.center.distance(reach.pos()))
             .min_by(f32::total_cmp)
     }
@@ -280,33 +278,29 @@ pub fn interact_ecs_actors_and_switches(
             )
         });
         // THE NEAREST THING IN REACH TAKES THE PRESS: a person standing at a
-        // terminal no longer hides it. Each candidate is ranked by its
-        // distance from the front of the body (`InteractReach::preference`),
-        // so the player chooses by where they stand and which way they face;
-        // the prompt (`update_nearest_interactable`) ranks the same way.
-        let mut talkers: Vec<(f32, Entity)> = actors
+        // terminal no longer hides it. The prompt (`update_nearest_interactable`)
+        // asks the same order (`interact_order`).
+        let candidate = |kind, center, entity| InteractCandidate {
+            kind,
+            preference: reach.preference(center),
+            id: (objects.reference(entity), entity),
+        };
+        let talkers = actors
             .iter()
             .filter(|(entity, aabb, disposition, _, _, health, (out_of_play, plane, requires_facing, aggression))| {
-                !disposition.refuses_talk(*aggression)
-                    && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
+                ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane).is_none()
                     && reach.can_talk_to(live_rooms.of(*entity), aabb, *requires_facing)
                     && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(subject_kin.pos))
             })
-            .map(|(entity, aabb, ..)| (reach.preference(aabb.center), entity))
-            .collect();
-        // Stable: equal distances keep the query's order.
-        talkers.sort_by(|a, b| a.0.total_cmp(&b.0));
-        let mut touched: Vec<(f32, Entity)> = switches
+            .map(|(entity, aabb, ..)| candidate(InteractKind::Talk, aabb.center, entity));
+        let touched = switches
             .iter()
             .filter(|(entity, _, aabb, _, _, requires_facing)| reach.touches(live_rooms.of(*entity), aabb, *requires_facing))
-            .map(|(entity, _, aabb, ..)| (reach.preference(aabb.center), entity))
-            .collect();
-        touched.sort_by(|a, b| a.0.total_cmp(&b.0));
-        if touched.first().is_some_and(|(switch, _)| talkers.first().is_none_or(|(talker, _)| switch < talker)) {
-            talkers.clear();
-        }
+            .map(|(entity, _, aabb, ..)| candidate(InteractKind::Activate, aabb.center, entity));
+        let order = interact_order(talkers.chain(touched));
+        let of_kind = |kind| order.iter().filter(move |offer| offer.kind == kind).map(|offer| offer.id.1);
         for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane, requires_facing, aggression),
-        ) in talkers.iter().filter_map(|(_, entity)| actors.get(*entity).ok())
+        ) in of_kind(InteractKind::Talk).filter_map(|entity| actors.get(entity).ok())
         {
             let (Some(speaker_id), Some(dialogue)) = (speaker_id.as_deref(), dialogue.as_mut()) else {
                 break;
@@ -314,9 +308,7 @@ pub fn interact_ecs_actors_and_switches(
             // A hostile actor gates dialogue off (an ally fighting beside the
             // player still talks); a dead one is an intangible corpse and
             // cannot be talked to.
-            if disposition.refuses_talk(aggression)
-                || ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
-            {
+            if ambition_combat::util::talk_refusal(*disposition, aggression, health, out_of_play, plane).is_some() {
                 continue;
             }
             let interactable = &interaction_payload.interactable;
@@ -425,8 +417,8 @@ pub fn interact_ecs_actors_and_switches(
             // flipped. Unlike the switch loop below, that is the right scope.
             return;
         }
-        for (_, switch_entity) in &touched {
-            let Ok((switch_entity, name, aabb, switch, mut activation_state, requires_facing)) = switches.get_mut(*switch_entity) else { continue; };
+        for switch_entity in of_kind(InteractKind::Activate) {
+            let Ok((switch_entity, name, aabb, switch, mut activation_state, requires_facing)) = switches.get_mut(switch_entity) else { continue; };
             let room = live_rooms.of(switch_entity);
             if !reach.touches(room, aabb, requires_facing) {
                 continue;

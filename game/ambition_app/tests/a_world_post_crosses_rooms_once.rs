@@ -106,7 +106,7 @@ fn hear() {
 }
 "#;
 
-fn boot(module: std::path::PathBuf) -> Platformer2dSimHarness {
+pub(crate) fn boot(module: std::path::PathBuf) -> Platformer2dSimHarness {
     Platformer2dSimHarness::build(fixed_60hz_room_options(ROOM).with_extension_module_files(vec![module]), |app, options| {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         app.add_plugins((RepliconPlugins.set(ServerPlugin::new(PostUpdate)), HostedWorldPlugin { role: HostedRole::Host }));

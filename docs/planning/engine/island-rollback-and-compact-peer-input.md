@@ -324,6 +324,7 @@ gameplay writes:
 | `PossessionState` | possession | a participant (one room) | the prior value |
 | `GateNetworkState` | the gate network | a body, a dialing endpoint | none alone: a link joins two rooms, an ISL-1b coupling |
 | `BrokenBricks`, `SpentPowerBlocks`, `SpentMonitors` | the Mary-O and Sanic demos | a feature (one room) | the prior value, if those demos get room rollback |
+| `SessionRecords` (a module's `attachment: "session"` records; found 2026-11-20) | any room's script entry | a record a module shares across rooms | none yet: a room rewind does not retract it. Shared world state goes through world values instead, which write only on a confirmed tick (`world_values.rs`) |
 
 Not records a room keeps: `ProjectileSeqCounter` (a replay draws new ids;
 they must be unique and ordered, not equal, and

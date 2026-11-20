@@ -42,7 +42,8 @@ provide native physical contacts, geometry identities, and responses for any con
 [script capability program](../planning/engine/script-first-ambition-gameplay.md)
 remains open. [Projectile ownership](projectile-ownership.md) explains native
 credit, reflection, and script-authored parry windows.
-[Projectile outcomes](projectile-outcomes.md) report native creation,
+[World values](world-values.md) are named state the save keeps and every room reads,
+written only through the confirmed world road. [Projectile outcomes](projectile-outcomes.md) report native creation,
 interception, clash spending, and retirement through bounded observer queues.
 
 ## Before any of that: your `Cargo.toml`

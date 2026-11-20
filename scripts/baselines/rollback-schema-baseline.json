@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v516",
+    "version": "ggrs-rollback-schema-v517",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
@@ -191,6 +191,7 @@
       "script.local_call_watches\tcomponent-canonical\tLocalCallWatches",
       "script.native_event_mailbox\tcomponent-canonical\tEventMailbox",
       "script.object_call_results\tcomponent-canonical\tObjectCallResults",
+      "script.world_value_changes\tcomponent-canonical\tWorldValueChanges",
       "session.participants\tcomponent-canonical\tSessionParticipants",
       "session.party_travel\tcomponent-clone-custom-checksum\tPartyTravel\tbevy_ggrs clone snapshot + party travel rules and pending zone agreements",
       "session.room_preparation\tcomponent-clone-custom-checksum\tCapturedRoomPreparation\tbevy_ggrs clone snapshot + the admitted room operation and its immutable continuity inputs",
@@ -300,6 +301,7 @@
     "ambition_platformer2d_runtime::EventMailbox",
     "ambition_platformer2d_runtime::LocalCallWatches",
     "ambition_platformer2d_runtime::ObjectCallResults",
+    "ambition_platformer2d_runtime::WorldValueChanges",
     "ambition_platformer2d_session::SessionParticipants",
     "ambition_platformer2d_shared_tangle::ObjectOccurrence",
     "ambition_platformer2d_shared_tangle::ObjectOccurrenceSequence",

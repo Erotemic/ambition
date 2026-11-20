@@ -17,8 +17,9 @@ posted signal crosses rollback islands once its sending tick is confirmed
 (`post_world_signal`, 2026-11-19). A body's crossing and a refused crossing
 are facts (`object_crossed`, `object_crossing_refused`, 2026-11-20). A room entered again is a new copy whose
 subscriptions are its own; no production road keeps two copies of one room
-live at once. Retirement facts (waiting for a customer mechanic) and
-world-domain state beyond a transient post remain open.
+live at once. Retirement facts (waiting for a customer mechanic) remain open. Persistent
+world state is [world values](../../sdk/world-values.md) (2026-11-20): saved,
+read in every room, written only on a confirmed tick, heard on change.
 
 The [program](script-first-ambition-gameplay.md#reactive-capability-direction)
 now selects an island-local reactive model. This census supplies owner and

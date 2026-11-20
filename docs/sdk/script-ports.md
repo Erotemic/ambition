@@ -661,6 +661,45 @@ Port `ambition.world.post_signal@1`, request: `this.requests.push(request("<alia
 | `topic` | text | required |  |
 | `data` | schema-selected data | `()` |  |
 
+## `set_world_value`
+
+Port `ambition.world.set_value@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `key` | text | required |  |
+| `value` | schema-selected data | required |  |
+| `expect` | integer (u32) or () | `()` |  |
+
+## `add_world_count`
+
+Port `ambition.world.add_count@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `key` | text | required |  |
+| `delta` | integer (i32) | required |  |
+
+## `world_values`
+
+Port `ambition.world.values@1`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `values` | list of { key: text, value: schema-selected data, revision: integer (u32) } |  |
+
+## `world_value_changed`
+
+Port `ambition.world.value_changed@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `key` | text |  |
+| `value` | schema-selected data |  |
+| `revision` | integer (u32) |  |
+
 ## `behavior_events`
 
 Port `ambition.objects.events@1`, observation: read as `this.observe.<alias>`.

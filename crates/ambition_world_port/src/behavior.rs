@@ -217,3 +217,37 @@ pub fn valid_signal_topic(topic: &str) -> bool {
     (1..=48).contains(&topic.len())
         && topic.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'.' | b'-'))
 }
+
+/// Write the world value `key`: a value the save keeps and every room reads.
+/// The world domain applies it on a tick no room can simulate again, so a
+/// write from a room that rewinds alone waits for its tick to be confirmed.
+/// With `expect`, the write applies only if the value's revision is still
+/// that one (`0`: no value yet); otherwise it is refused `revision_changed`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetWorldValue { pub reply: ReplyTo, pub key: String, pub value: ScriptValue, pub expect: Option<u32> }
+ambition_extension_sdk::port_record! {
+    SetWorldValue { reply: ReplyTo, key: String, value: ScriptValue, expect: Option<u32> = None }
+}
+action_port!(SetWorldValuePort, "ambition.world.set_value", 1, SetWorldValue, "world.set_value");
+
+/// Add `delta` to the world count `key` (an integer world value; absent is 0).
+/// Applied as [`SetWorldValue`] is; two rooms that each add one make two.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AddWorldCount { pub reply: ReplyTo, pub key: String, pub delta: i32 }
+ambition_extension_sdk::port_record! { AddWorldCount { reply: ReplyTo, key: String, delta: i32 } }
+action_port!(AddWorldCountPort, "ambition.world.add_count", 1, AddWorldCount, "world.add_count");
+
+/// One world value and the revision of its last write (from 1).
+#[derive(Clone, Debug, PartialEq)]
+pub struct WorldValue { pub key: String, pub value: ScriptValue, pub revision: u32 }
+ambition_extension_sdk::port_record! { WorldValue { key: String, value: ScriptValue, revision: u32 } }
+
+/// Every world value, in key order.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WorldValues { pub values: Vec<WorldValue> }
+ambition_extension_sdk::port_record! { WorldValues { values: Vec<WorldValue> } }
+port!(WorldValuesPort, "ambition.world.values", Observation, WorldValues);
+
+// A world value changed. Entries whose selector is the key hear it, once per
+// write, at the session, on the tick after the world domain applied it.
+port!(WorldValueChangedPort, "ambition.world.value_changed", Trigger, WorldValue);

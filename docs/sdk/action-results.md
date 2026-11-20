@@ -193,6 +193,7 @@ Each installed action domain declares one native cancellation policy:
 | `projectiles.spawn` | The native handler removes queued emissions. It refuses once the queue no longer owns the work. |
 | `world.create_actors`, `world.create_breakables` | Unsupported. Construction finishes in one native call. |
 | `inventory.exchange`, `world.consume_contact`, `combat.body_query`, `item.take`, `item.release`, `inventory.equip`, `inventory.stow` | Unsupported. These operations finish in one native call. |
+| `world.set_value`, `world.add_count` | Unsupported. A write applies at once or is held for confirmation; a held write is answered `world_value_held` ([world values](world-values.md)). |
 | `actions.cancel` | Unsupported. Cancellation finishes in one native call. |
 
 An unregistered domain refuses cancellation. It cannot inherit mailbox-only

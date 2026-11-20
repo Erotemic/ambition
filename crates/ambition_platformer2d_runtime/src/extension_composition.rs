@@ -92,6 +92,7 @@ pub fn install_ports(app: &mut App) {
     crate::behavior_inbox::install(app);
     crate::behavior_events::install(app);
     crate::world_posts::install(app);
+    crate::world_values::install(app);
     crate::actor_creation::install(app);
     crate::breakable_creation::install(app);
     crate::contact_consumption::install(app);
@@ -394,6 +395,10 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::behavior::EmitSignalPort>("emit_signal")
         .add::<ambition_world_port::behavior::ObjectSignalPort>("object_signal")
         .add::<ambition_world_port::behavior::PostWorldSignalPort>("post_world_signal")
+        .add::<ambition_world_port::behavior::SetWorldValuePort>("set_world_value")
+        .add::<ambition_world_port::behavior::AddWorldCountPort>("add_world_count")
+        .add::<ambition_world_port::behavior::WorldValuesPort>("world_values")
+        .add::<ambition_world_port::behavior::WorldValueChangedPort>("world_value_changed")
         .add::<ambition_world_port::behavior::BehaviorEventsPort>("behavior_events")
         .add::<ambition_world_port::behavior::CompleteObjectCallPort>("complete_object_call")
         .add::<ambition_world_port::behavior::BehaviorContextPort>("behavior")

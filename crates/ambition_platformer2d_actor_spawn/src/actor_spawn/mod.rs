@@ -1971,17 +1971,11 @@ fn attach_mount_role_from(
             slope_drawn: slope_follows.map(ambition_mount::DrawnLedge::new),
         });
     }
+    // The licence itself is the character grant's (`grant_prepared_character_body`),
+    // which every caller of this function has already run; the rider's mass
+    // goes with it so the pair's center of gravity is weighed.
     if !pilotable.is_empty() {
-        scope.insert((
-            ambition_mount::CanPilot {
-                classes: pilotable
-                    .iter()
-                    .cloned()
-                    .map(ambition_mount::MountClass)
-                    .collect(),
-            },
-            ambition_platformer2d_shared_tangle::body::Mass(mass),
-        ));
+        scope.insert(ambition_platformer2d_shared_tangle::body::Mass(mass));
     }
 }
 

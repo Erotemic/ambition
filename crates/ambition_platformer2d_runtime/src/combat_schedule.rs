@@ -872,6 +872,8 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             (
                 ambition_mount::MountRiderLinkEnforced,
+                // A body that presses Interact beside a riderless mount.
+                ambition_mount::MountsCommandeered,
                 ambition_mount::MountsBoarded,
                 ambition_mount::RideLeasesTicked,
                 ambition_mount::DismountRequestsApplied,

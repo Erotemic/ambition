@@ -1580,6 +1580,9 @@
             // somebody else's volume. A character that names nothing draws its
             // hit volume instead of borrowing this.
             attack_vfx: Some("robot_slash"),
+            // It can commandeer a riderless shark: Interact beside one boards it,
+            // Interact while riding gets off (`ambition_mount::commandeer_mounts`).
+            mount: Some((pilotable_classes: ["shark"])),
             tags: ["player"],
             // The robot's body, the same in every incarnation. Morph Ball is not
             // the robot's: the Ambition experience grants it to its home body,

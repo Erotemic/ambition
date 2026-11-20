@@ -62,6 +62,8 @@ pub struct GrantedBodyFacts {
     /// The boxes of the body's smaller forms
     /// ([`ambition_platformer2d_core::BodyForms`]), from the character's row.
     pub forms: bool,
+    /// The mount classes the character may pilot ([`ambition_mount::CanPilot`]).
+    pub pilots: bool,
     /// The game components the character carries
     /// ([`ambition_platformer2d_core::CarriedComponent`]).
     pub carried: Vec<ambition_platformer2d_core::CarriedComponent>,
@@ -112,6 +114,7 @@ impl GrantedBodyFacts {
             drawn_quad: drawn_from_its_box(&sprite_content, prepared).is_some(),
             unmirrored: prepared.unmirrored,
             forms: prepared.forms.is_some(),
+            pilots: pilot_licence_of(prepared).is_some(),
             carried: prepared.carries.clone(),
         }
     }
@@ -154,6 +157,7 @@ impl GrantedBodyFacts {
             drawn_quad,
             unmirrored,
             forms,
+            pilots,
             carried,
         } = self;
         if techniques {
@@ -169,6 +173,9 @@ impl GrantedBodyFacts {
         }
         if forms {
             scope.remove::<ambition_platformer2d_core::BodyForms>();
+        }
+        if pilots {
+            scope.remove::<ambition_mount::CanPilot>();
         }
         if hurtboxes {
             scope.remove::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>();
@@ -340,6 +347,25 @@ pub enum KitOwnership {
     CallerResolved,
 }
 
+/// The pilot licence `prepared` authors, or `None` for a character that
+/// pilots nothing. Sorted and deduped, so the component is a set rather than
+/// an append-order list.
+fn pilot_licence_of(
+    prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
+) -> Option<ambition_mount::CanPilot> {
+    let mut classes: Vec<ambition_mount::MountClass> = prepared
+        .mount
+        .as_ref()?
+        .pilotable_classes
+        .iter()
+        .cloned()
+        .map(ambition_mount::MountClass)
+        .collect();
+    classes.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    classes.dedup_by(|a, b| a.as_str() == b.as_str());
+    (!classes.is_empty()).then_some(ambition_mount::CanPilot { classes })
+}
+
 /// Put a body's ranged execution on it as components: the charge capability
 /// and its per-body state under `ChargedProjectile`, neither under
 /// `MovesetVerb`, whose ranged press is an ordinary move.
@@ -475,6 +501,11 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
         // batch as its standing box, so the first stance change reads it.
         if let Some(forms) = prepared.forms {
             scope.insert(forms);
+        }
+        // WHICH MOUNT CLASSES THIS BODY MAY PILOT, from the character on every
+        // road: the campaign protagonist, a match seat and a placed rider alike.
+        if let Some(licence) = pilot_licence_of(prepared) {
+            scope.insert(licence);
         }
         // The game's own state of this creature, in the same batch, so no
         // pass has to add it to a built body. A re-grant keeps what the body

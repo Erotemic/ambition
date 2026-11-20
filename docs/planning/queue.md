@@ -2446,15 +2446,34 @@ arm) and the dismounted-rider road (`body/dismounted_rider.rs`).
 **Ruling:** Q76 (2026-10-03): keep mount/rider support and give it an early
 customer (a character riding the dog, or the robot commandeering a shark).
 
-**Current state:** `MountedBrainCache` has no production constructor, so
-`ControlClaimant::Mount` has no production writer. Nothing resumes the mount's
-recorded brain when a ride ends; a mount death rebuilds a solo brain from
-config.
+**Customer (2026-11-20, slice 1):** the robot commandeers a riderless shark.
+`player_robot_v3` authors `pilotable_classes: ["shark"]`. The licence is
+granted with the rest of the character body (`grant_prepared_character_body`),
+so the campaign protagonist gets it too; before, only a match seat did.
+`ambition_mount::commandeer_mounts` (`MountsCommandeered`, first in the mount
+chain) boards the nearest licensed, riderless, unreserved, living mount
+within `COMMANDEER_REACH` of the pilot's box when it presses Interact. Interact
+while riding writes `DismountRequested { RiderBailed }`. Witnesses:
+`interact_commandeers_a_riderless_mount_and_gets_off_again` (mount lib) and
+`the_protagonist_commandeers_a_riderless_shark_and_gets_off` (app_it,
+sandbox).
 
-**Next action:** author the customer, then specify and repair, each with a
-witness: control transfer, the mount's previous brain, dismount and its
-restoration, body and room lifetime, damage and death, participant ownership,
-animation composition.
+**Current state:** the mount's own brain is never swapped. While ridden,
+`steer_mount_from_rider` overwrites its locomotion and facing from the rider,
+so its brain resumes as it was when the ride ends. `MountedBrainCache` (the
+rider NPC's mounted brain) still has no production constructor, so
+`ControlClaimant::Mount` has no production writer. A mount death rebuilds a solo
+brain from config.
+
+**Next action, one witness each:**
+1. The mount's own presses (attack, special) are masked while it is ridden.
+   This is not done yet; check the Smash summoned shark and the cove sharks'
+   `ChargeCrash` against the mask.
+2. Damage and death while ridden, for a commandeered mount.
+3. The same ride after a rewind (board and dismount on a speculative frame).
+4. Animation: the rider's riding pose on a commandeered mount.
+5. A prompt: the Interact hint names the mount when it is the nearest
+   interactable.
 
 **Acceptance:** the customer mounts, the mount obeys the rider, and on
 dismount the mount runs the brain it had before; the same after a rewind.
@@ -2559,8 +2578,16 @@ is cut by runtime unit: only the pack-plan groups a runtime reader loads ship
 (`runtime_groups`), 1.8 MB, was 695 MB; the whole pack is a source in the
 renderer's cache (owner page).
 
-**Next action:** audit the listed path builders, then move to
-`<root>/{full,half,quarter,potato}/` in one change.
+**Audit (2026-11-20):** the library's tier roots are named; the logical paths
+and every reader still use suffixed siblings (`sprites_0_5x/`), and the packager
+drops reduced tiers by a path pattern (`TIER_DIRECTORY`). The definition sites
+are listed in the
+[owner page](engine/asset-preparation-and-residency.md#products-are-laid-out-by-what-they-are-q82-q83).
+
+**Next action (needs a machine that publishes core art):** move the renderer's
+`TIERS`, the runtime readers, `catalog.json` and the accepted publication's
+logical keys to `<root>/{full,half,quarter,potato}/` in one change. Then have
+the packager select the `full` roots instead of matching `TIER_DIRECTORY`.
 
 **Acceptance:** every tier is a named directory; the packager selects roots
 and has no new exclusion; the packaged ultrapack holds only reachable pages;

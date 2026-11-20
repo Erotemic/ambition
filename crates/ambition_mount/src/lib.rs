@@ -1143,6 +1143,104 @@ pub fn board_reserved_mounts(
     }
 }
 
+/// How far beyond the two bodies' boxes a body reaches to commandeer a mount
+/// beside it, in world px: about a hand's length, so it has to stand at the
+/// mount, not merely near it.
+pub const COMMANDEER_REACH: f32 = 16.0;
+
+/// The set [`commandeer_mounts`] runs in.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MountsCommandeered;
+
+/// Commandeer a mount by hand: a body that presses Interact beside a living,
+/// riderless mount its [`CanPilot`] licence covers boards it, through
+/// [`board`] (so every legality rule is the same one); the nearest such mount
+/// wins, ties by entity order. A body already riding that presses Interact
+/// asks to get off ([`DismountReason::RiderBailed`]).
+///
+/// ⭐ THE MOUNT KEEPS ITS OWN BRAIN. Nothing here swaps, stores or rebuilds
+/// it: while ridden, [`steer_mount_from_rider`] drives the mount's locomotion
+/// from its rider each tick, and once the rider is off the brain it always had
+/// drives it again. A mount held for another rider ([`MountReservedFor`]), a
+/// dead one, or one already carrying somebody is not taken.
+///
+/// Pilots are visited in [`SimId`] order (a body with none last), so two
+/// bodies reaching for one mount on one tick resolve the same on every peer:
+/// the first boards and the second is refused by [`board`].
+#[allow(clippy::type_complexity)]
+pub fn commandeer_mounts(
+    mut commands: Commands,
+    pilots: Query<(
+        Entity,
+        &CanPilot,
+        &ambition_characters::control::ActorControl,
+        &ae::BodyKinematics,
+        Option<&RidingOn>,
+        Option<&ambition_characters::actor::BodyHealth>,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    )>,
+    mounts: Query<(
+        Entity,
+        &Mountable,
+        &ae::BodyKinematics,
+        Option<&MountSlot>,
+        Option<&MountReservedFor>,
+        Option<&ambition_characters::actor::BodyHealth>,
+    )>,
+    mut dismounts: MessageWriter<DismountRequested>,
+) {
+    let alive = |health: Option<&ambition_characters::actor::BodyHealth>| health.is_none_or(|h| h.alive());
+    let mut pressing: Vec<_> = pilots
+        .iter()
+        .filter(|(_, _, control, _, _, health, _)| control.0.interact_pressed && alive(*health))
+        .collect();
+    pressing.sort_by(|a, b| match (a.6, b.6) {
+        (Some(x), Some(y)) => x.cmp(y).then(a.0.cmp(&b.0)),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => a.0.cmp(&b.0),
+    });
+    let mut taken: Vec<Entity> = Vec::new();
+    for (pilot, licence, _, pilot_kin, riding, _, _) in pressing {
+        if riding.is_some() {
+            dismounts.write(DismountRequested { rider: pilot, reason: DismountReason::RiderBailed });
+            continue;
+        }
+        let reach = pilot_kin.half_extent() + ae::Vec2::splat(COMMANDEER_REACH);
+        let nearest = mounts
+            .iter()
+            .filter(|(mount, mountable, kin, slot, held, health)| {
+                *mount != pilot
+                    && !taken.contains(mount)
+                    && licence.can_pilot(&mountable.class)
+                    && slot.is_none_or(|slot| slot.rider.is_none())
+                    && held.is_none_or(|held| held.rider == pilot)
+                    && alive(*health)
+                    && {
+                        let gap = (kin.pos - pilot_kin.pos).abs();
+                        let within = reach + kin.half_extent();
+                        gap.x <= within.x && gap.y <= within.y
+                    }
+            })
+            .min_by(|a, b| {
+                a.2.pos
+                    .distance_squared(pilot_kin.pos)
+                    .total_cmp(&b.2.pos.distance_squared(pilot_kin.pos))
+                    .then(a.0.cmp(&b.0))
+            })
+            .map(|(mount, ..)| mount);
+        let Some(mount) = nearest else {
+            continue;
+        };
+        taken.push(mount);
+        commands.queue(move |world: &mut bevy::prelude::World| {
+            if !board(world, pilot, mount) {
+                bevy::log::debug!(target: "ambition::mount", "commandeer refused: mount={mount:?} pilot={pilot:?}");
+            }
+        });
+    }
+}
+
 /// Weld a rider into a mount's saddle — ADR 0020's board action.
 ///
 /// Refuses, returning `false`, when the pair is not a legal one: the mount is
@@ -2153,10 +2251,11 @@ pub fn install_mount_simulation_systems(
     use bevy::prelude::IntoScheduleConfigs as _;
     app.configure_sets(
         schedule.clone(),
-        (MountsBoarded, RideLeasesTicked, DismountRequestsApplied)
+        (MountsCommandeered, MountsBoarded, RideLeasesTicked, DismountRequestsApplied)
             .chain()
             .after(MountRiderLinkEnforced),
     );
+    app.add_systems(schedule.clone(), commandeer_mounts.in_set(MountsCommandeered));
     app.add_systems(
         schedule.clone(),
         enforce_mount_rider_link.in_set(MountRiderLinkEnforced),
@@ -2180,6 +2279,7 @@ pub fn install_mount_simulation_systems(
         schedule,
         (
             MountRiderLinkEnforced,
+            MountsCommandeered,
             MountsBoarded,
             RideLeasesTicked,
             DismountRequestsApplied,
@@ -2198,6 +2298,8 @@ pub fn mounts_are_in_play(
         (),
         bevy::prelude::Or<(
             bevy::prelude::With<MountSlot>,
+            // A riderless mount a body could commandeer by hand.
+            bevy::prelude::With<Mountable>,
             bevy::prelude::With<RidingOn>,
             bevy::prelude::With<MountReservedFor>,
             bevy::prelude::With<RideLease>,
@@ -2282,6 +2384,112 @@ mod dismount_claim_tests {
     /// claim at all (see the `(true, true)` arm: the claim is a BRAIN SWAP, not a
     /// ride). An assertion there passes with the release deleted. ⇒ The subject of
     /// this defect is the CACHED rider, and a guard has to construct one.
+    /// A body that presses Interact beside a riderless mount it may pilot
+    /// boards it; one out of reach, of another class, held for somebody else,
+    /// dead or ridden is not taken; Interact on board gets off; and the mount's
+    /// own brain is the one it had, before the ride and after it. Two pilots
+    /// reaching for one mount on one tick: the first by identity boards.
+    #[test]
+    fn interact_commandeers_a_riderless_mount_and_gets_off_again() {
+        use ambition_characters::control::ActorControl;
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        fn new_app() -> App {
+            let mut app = App::new();
+            app.add_message::<DismountRequested>();
+            app.add_message::<RiderDismounted>();
+            app.add_systems(Update, (commandeer_mounts, apply_dismount_requests).chain());
+            app
+        }
+        fn body(app: &mut App, x: f32) -> Entity {
+            let kin = ae::BodyKinematics { pos: Vec2::new(x, 0.0), canonical_size: Vec2::new(24.0, 40.0), ..Default::default() };
+            app.world_mut()
+                .spawn((kin, CenteredAabb::from_center_size(kin.pos, kin.canonical_size), SpawnBaseline { pos: kin.pos, size: kin.canonical_size }))
+                .id()
+        }
+        fn pilot(app: &mut App, x: f32, slot: u8) -> Entity {
+            let who = body(app, x);
+            app.world_mut().entity_mut(who).insert((
+                CanPilot { classes: vec![MountClass("shark".into())] },
+                ActorControl(ambition_characters::actor::control::ActorControlFrame::neutral()),
+                SimId::player_slot(slot),
+            ));
+            who
+        }
+        fn mount(app: &mut App, x: f32, class: &str) -> Entity {
+            let who = body(app, x);
+            let mut mountable = Mountable::at(Vec2::new(0.0, -20.0));
+            mountable.class = MountClass(class.into());
+            app.world_mut().entity_mut(who).insert((mountable, ambition_characters::brain::Brain::stand_still()));
+            who
+        }
+        fn press(app: &mut App, who: Entity, pressed: bool) {
+            app.world_mut().get_mut::<ActorControl>(who).unwrap().0.interact_pressed = pressed;
+        }
+        fn riding(app: &App, who: Entity) -> Option<Entity> {
+            app.world().get::<RidingOn>(who).map(|riding| riding.mount)
+        }
+
+        let mut app = new_app();
+        let robot = pilot(&mut app, 0.0, 1);
+        let far = mount(&mut app, 200.0, "shark");
+        let mech = mount(&mut app, 10.0, "mech");
+        let shark = mount(&mut app, 30.0, "shark");
+        let brain_before = format!("{:?}", app.world().get::<ambition_characters::brain::Brain>(shark).unwrap());
+        app.update();
+        assert_eq!(riding(&app, robot), None, "a body boarded without pressing");
+        press(&mut app, robot, true);
+        app.update();
+        assert_eq!(riding(&app, robot), Some(shark), "the press did not board the licensed shark beside it");
+        assert!(app.world().get::<RidingOn>(robot).is_some() && app.world().get::<MountSlot>(far).is_none() && app.world().get::<MountSlot>(mech).is_none());
+        press(&mut app, robot, false);
+        app.update();
+        // An edge, as the latch gives it: one tick.
+        press(&mut app, robot, true);
+        app.update();
+        press(&mut app, robot, false);
+        app.update();
+        assert_eq!(riding(&app, robot), None, "Interact on board did not get off");
+        assert_eq!(app.world().get::<MountSlot>(shark).unwrap().rider, None, "the saddle still holds the rider");
+        assert_eq!(
+            format!("{:?}", app.world().get::<ambition_characters::brain::Brain>(shark).unwrap()),
+            brain_before,
+            "the mount's own brain is not the one it had before the ride"
+        );
+
+        for refuse in ["held", "dead", "ridden"] {
+            let mut app = new_app();
+            let robot = pilot(&mut app, 0.0, 1);
+            let shark = mount(&mut app, 30.0, "shark");
+            match refuse {
+                "held" => {
+                    let other = body(&mut app, 500.0);
+                    app.world_mut().entity_mut(shark).insert(MountReservedFor { rider: other, lease_seconds: 5.0, board_within: 10.0, expires_in: 5.0 });
+                }
+                "dead" => {
+                    let mut health = ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
+                    health.damage(5);
+                    app.world_mut().entity_mut(shark).insert(health);
+                }
+                _ => {
+                    let rider = body(&mut app, 30.0);
+                    app.world_mut().entity_mut(shark).insert(saddle_holding(rider));
+                }
+            }
+            press(&mut app, robot, true);
+            app.update();
+            assert_eq!(riding(&app, robot), None, "a {refuse} shark was commandeered");
+        }
+
+        let mut app = new_app();
+        let second = pilot(&mut app, 60.0, 2);
+        let first = pilot(&mut app, 0.0, 1);
+        let shark = mount(&mut app, 30.0, "shark");
+        press(&mut app, first, true);
+        press(&mut app, second, true);
+        app.update();
+        assert_eq!((riding(&app, first), riding(&app, second)), (Some(shark), None), "the first by identity did not win the shark");
+    }
+
     #[test]
     fn an_ordinary_dismount_releases_the_mount_claim() {
         let mut app = App::new();

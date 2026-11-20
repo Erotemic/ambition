@@ -191,6 +191,52 @@ fn a_player_pilots_a_mount_end_to_end() {
     );
 }
 
+/// The protagonist commandeers a riderless shark with Interact and gets off
+/// with Interact. Driven through the real sandbox schedule, so it fails if the
+/// character grant stops licensing the protagonist (the campaign road never
+/// went through a match seat) or `commandeer_mounts` drops out of the schedule.
+#[test]
+fn the_protagonist_commandeers_a_riderless_shark_and_gets_off() {
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
+        .expect("sandbox sim builds");
+    let home = home_entity(sim.world_mut());
+    assert!(
+        sim.world_mut()
+            .get::<ambition_platformer2d::mount::CanPilot>(home)
+            .is_some_and(|can| can.can_pilot(&ambition_platformer2d::mount::MountClass("shark".to_string()))),
+        "the protagonist's character licenses it to pilot a shark",
+    );
+    let p = pos_of(sim.world_mut(), home);
+    sim.spawn_enemy_character_at(
+        MOUNT_ID,
+        "Burning Flying Shark",
+        (p.x + 40.0, p.y),
+        (63.0, 26.0),
+        CharacterBrain::Custom("burning_flying_shark".to_string()),
+        "npc_burning_flying_shark",
+    );
+    let mount = entity_by_feature_id(sim.world_mut(), MOUNT_ID);
+    sim.world_mut().entity_mut(mount).insert(Brain::stand_still());
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+    }
+    assert!(sim.world_mut().get::<RidingOn>(home).is_none(), "nothing boards before the press");
+    sim.step(AgentAction { interact: true, ..AgentAction::default() });
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(
+        sim.world_mut().get::<RidingOn>(home).map(|riding| riding.mount),
+        Some(mount),
+        "Interact beside a riderless shark boards it",
+    );
+    sim.step(AgentAction { interact: true, ..AgentAction::default() });
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+    assert!(sim.world_mut().get::<RidingOn>(home).is_none(), "Interact while riding gets off");
+}
+
 /// The dismount brain rebuild survives the schedule, not just the builder.
 ///
 /// ⛔ WHY THIS ARM EXISTS AT THE APP LEVEL. The rebuild used to be a direct call

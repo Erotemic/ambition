@@ -152,6 +152,44 @@ runtime boundary is what splits.
   postcondition, which refuses a tier that packs a target of no runtime
   group or leaves out a runtime-group target with a published sheet.
 
+**Tier-root audit (2026-11-20).** The library's tier ROOTS are named
+(`library.json` `asset_roots`: `generated/runtime/{full,half,quarter,potato}`),
+but the LOGICAL paths a publication records, and every reader, still name a
+tier by a suffixed sibling of `sprites/` (`sprites_0_5x/`, `sprites_0_25x/`,
+`sprites_potato/`) and of `backgrounds/parallax_layers/`. The full tier is the
+bare `sprites/`. Only `sprite_packs/{full,half,quarter,potato}/` has the ruled
+shape. The packager therefore still drops the reduced tiers by a path pattern
+(`TIER_DIRECTORY` in `scripts/package/package_single_exe.py`), which is the
+exclusion list Q82 retires.
+
+The definition sites that must move together (58 files carry the suffixes; the
+rest are tests and measures that read through these):
+
+- Renderer (submodule): `publication_store.py` (`TIERS`), `products.py`
+  (`TIERS`), `quality.py`, `publication.py`, `scenery_publication.py`,
+  `content_library.py`, `provenance.py`, `design_history/census.py`.
+- Runtime: `ambition_sprite_sheet` `sprite_tree.rs` (`TIERS`), `boss.rs`,
+  `portrait.rs` (`tier_dir_of`), `lib.rs`, `character/mod.rs`,
+  `character/sheets/mod.rs`, `sprite_packs.rs`; `ambition_asset_manager`
+  `platformer_assets/mod.rs` (`scaled_logical_asset_path`),
+  `art_publication.rs`, `asset_publish/{mod,manifest}.rs`;
+  `ambition_platformer2d_assets` `platformer_assets/mod.rs`,
+  `character_sprites/assets.rs`; `ambition_persistence` video `quality.rs`;
+  `ambition_content` `presentation/dialog.rs`.
+- Data: `game/ambition_content_library/authored/catalog.json` (34 tier ids),
+  `library.json`.
+- Scripts: `scripts/regen/generate_library_content.py`,
+  `scripts/checks/check_quality_variants_are_fresh.py`,
+  `scripts/content_status.py`, `scripts/maintenance/sweep_runtime_diagnostics.py`,
+  the packager.
+
+The move is one change across all of these AND the accepted publication: the
+store's logical keys (`sprites/x.png` → `sprites/full/x.png`, and so on) change
+with the readers, or the game draws nothing. A reader that accepts both
+spellings would be a second system, so there is no staged road. Moving the
+publication is a core-art publish, which this VM does not run (2026-11-11), so
+the move waits for a machine that does.
+
 ### Quality is a presentation policy (Q84)
 
 Ruling Q84 (2026-10-04): portraits take part in quality scaling like other

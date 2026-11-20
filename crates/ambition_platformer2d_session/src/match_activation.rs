@@ -514,37 +514,13 @@ pub fn activate_the_prepared_match(sprite_content: bevy::prelude::Res<ambition_s
                 ambition_platformer2d_core::AbilityBase::new(abilities),
             ));
         }
-        // WHICH MOUNT CLASSES THIS BODY MAY PILOT, and there is exactly one
-        // source: the character. A raider seated in a match keeps the shark its
-        // character authors, and so does an admiral.
-        //
-        // ⛔⛔ A SEAT HALF USED TO SIT BESIDE THIS and it was the wrong shape.
-        // The idea was that shark-riding was Smash-only, so the MATCH would hand
-        // it to one seat — but a match that manufactures a capability has to do
-        // it on every road that builds a roster, and the character-select screen
-        // was a road that did not. The admiral reached the match unable to board
-        // its own summon. Jon settled the premise: the admiral rides sharks in
-        // Ambition too, so the character says so and every road inherits it.
-        //
-        // ⚠ WHICH PARTICULAR MOUNT is a separate question and is NOT answered
-        // here — see `ambition_mount::MountReservedFor`.
-        let mut classes: Vec<ambition_mount::MountClass> = seat
-            .definition
-            .mount
-            .as_ref()
-            .map(|mount| mount.pilotable_classes.clone())
-            .unwrap_or_default()
-            .into_iter()
-            .map(ambition_mount::MountClass)
-            .collect();
-        // Sorted and deduped so the component is a set rather than an
-        // append-order list — two roads naming one class must not make a body
-        // that pilots it twice.
-        classes.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-        classes.dedup_by(|a, b| a.as_str() == b.as_str());
-        if !classes.is_empty() {
-            entity.try_insert(ambition_mount::CanPilot { classes });
-        }
+        // WHICH MOUNT CLASSES THIS BODY MAY PILOT is the character's, granted
+        // with the rest of its body by `grant_prepared_character_body` above, so
+        // the campaign protagonist and a seat cannot disagree about it. (A seat
+        // half once sat here: the match was to hand shark-riding to one seat, and
+        // the character-select road never did, so the admiral reached the match
+        // unable to board its own summon.) WHICH PARTICULAR mount is
+        // `ambition_mount::MountReservedFor`'s question.
         if let Some(stocks) = rules.stocks {
             entity.try_insert(
                 ambition_combat::components::FighterStocks::new(stocks)

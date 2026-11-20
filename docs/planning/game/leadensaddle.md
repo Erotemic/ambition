@@ -219,7 +219,7 @@ The game binds their sections to the rooms and the fight
 | `leaden_saddle` / `wet_whistle` | the saloon | Stride upright piano, the saddle turned major, brushes, a walking bass. |
 | `leaden_saddle` / `refinery_shift` | the refinery, the corral, the hall's copy | A heavy half-time kit, a pulse of effected strings (String Cyborgs), the saddle in the low brass, a twang guitar. |
 | `leaden_saddle` / `mesa_top` | the mesa top | The guitar alone, a distant trumpet, strings. |
-| `marshal_gallus_showdown` ("Cock of the Walk") | the fight | 132 BPM, E minor, on the crow motif (E E B, A G E): `standoff` (intro), `duel` (phases 1 and 2: a galloping snare, a twang ostinato, trumpets, a male choir), `high_noon` (the enrage, up a semitone), `sundown` (the defeat: the crow slowed into the saddle, ending on E major). |
+| `marshal_gallus_showdown` ("Cock of the Walk") | the fight | 132 BPM, E minor, on the strut (B G F# G, A D C A F#: up a minor sixth from the fifth, a semitone dip, a fall through D7; it replaced the first theme, the crow, on Jon's 2026-11-20 review that the crow leaned on familiar western calls): `standoff` (intro), `duel` (phases 1 and 2: a galloping snare, a twang ostinato, the strut in the trumpets and its bridge on the solo trumpet, a male choir), `high_noon` (the enrage, up a semitone), `sundown` (the defeat: the strut slowed, its sixth turned major, into the saddle, ending on E major). |
 
 ## The gate
 

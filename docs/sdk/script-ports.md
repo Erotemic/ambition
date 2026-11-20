@@ -520,6 +520,15 @@ Port `ambition.objects.born@1`, trigger: read as `this.trigger`.
 |---|---|---|
 | `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
 
+## `object_defeated`
+
+Port `ambition.objects.defeated@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `by` | { session: text, allocation_room: integer (u32) or (), sequence: text } or () |  |
+
 ## `behavior_events`
 
 Port `ambition.objects.events@1`, observation: read as `this.observe.<alias>`.

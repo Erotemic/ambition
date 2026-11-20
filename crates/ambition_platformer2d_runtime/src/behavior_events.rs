@@ -230,6 +230,7 @@ pub(crate) fn settle(world: &mut World, state: Entity, sequence: u64, event: Inv
 
 pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
     registrar.rollback_component_canonical::<EventMailbox>("ambition_platformer2d_runtime", "script.native_event_mailbox");
+    registrar.clear_message_on_rollback::<DefeatCommitted>("ambition_platformer2d_runtime", "message.defeat_committed");
     registrar.declare_rollback_derived_resource::<EventRoutes>("ambition_platformer2d_runtime", "derived.native_event_routes",
         "Subscription insertion and removal update the source index, including canonical snapshot restoration.");
 }
@@ -245,6 +246,11 @@ pub(crate) fn install(app: &mut App) {
     let schedule = app.sim_schedule();
     app.add_systems(schedule, publish_activations.in_set(Platformer2dSimulationPhase::GameplayEffects)
         .after(Platformer2dSimulationPhase::FeatureInteraction));
+    app.add_message::<DefeatCommitted>();
+    clear_message_at_session_activation::<DefeatCommitted>(app);
+    install_native_source::<ObjectDefeatedPort>(app, "ambition_platformer2d_actor_monolith", "defeated");
+    app.add_systems(schedule, publish_defeats.in_set(Platformer2dSimulationPhase::GameplayEffects)
+        .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events));
     install_native_source::<ObjectBornPort>(app, "ambition_platformer2d_runtime", "born");
     app.install_extension_context_observation::<BehaviorEventsPort>(ACTOR_THINK, "ambition_platformer2d_runtime",
         |world, context| Some(world.get::<EventMailbox>(context.state_scope).map_or_else(BehaviorEventHistory::default, EventMailbox::history)));
@@ -330,6 +336,23 @@ fn publish_activations(world: &mut World, mut reader: Local<Option<ActivationRea
         let report = publish_captured::<ObjectActivatedPort>(&mut DeferredWorld::from(&mut *world), fact.object, authority, &value);
         if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
             warn!(?report, object = ?fact.object, "Native activation notification delivery was limited; inspect its activation state to reconcile.");
+        }
+    }
+}
+
+type DefeatReads = bevy::ecs::system::SystemState<ambition_platformer2d_core::replay_messages::ReplayMessageReader<'static, 'static, DefeatCommitted>>;
+/// Route each committed defeat to the methods subscribed to the defeated object.
+fn publish_defeats(world: &mut World, mut reader: Local<Option<DefeatReads>>) {
+    let reader = reader.get_or_insert_with(|| DefeatReads::new(world));
+    let facts: Vec<_> = reader.get_mut(world).expect("defeat messages are installed").read().cloned().collect();
+    for fact in facts {
+        let authority = if world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world)) {
+            SimulationIsland::Room(SessionScopeId(fact.object.session), fact.room)
+        } else { SimulationIsland::Session(SessionScopeId(fact.object.session)) };
+        let value = ObjectDefeated {object: fact.object, by: fact.by};
+        let report = publish_captured::<ObjectDefeatedPort>(&mut DeferredWorld::from(&mut *world), fact.object, authority, &value);
+        if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
+            warn!(?report, object = ?fact.object, "Native defeat notification delivery was limited.");
         }
     }
 }

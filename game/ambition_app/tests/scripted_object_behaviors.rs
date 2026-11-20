@@ -683,3 +683,117 @@ fn exercise_local_references(portable: bool, birth: bool) {
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_file(path);
 }
+
+const DEFEAT_SOURCE: &str = r#"
+fn declare() {
+    #{provider: "defeat_probe", key: "watch", schemas: [
+        #{key: "root", fields: [
+            #{tag: 1, name: "started", kind: "bool"},
+            #{tag: 2, name: "foes", kind: "seq 4 object"},
+            #{tag: 3, name: "attached", kind: "u32"},
+        ]},
+        #{key: "watcher", fields: [
+            #{tag: 1, name: "downs", kind: "u32"},
+            #{tag: 2, name: "fallen", kind: "opt object"},
+        ]}
+    ], entries: [
+        #{key: "start", phase: "technique_execution", trigger: #{port: "status_tick", selector: "defeat_probe.start"},
+          writes: ["root"], requests: ["body_query"], limit: 1},
+        #{key: "found", phase: "actor_think", trigger: #{port: "action_result", selector: "found"},
+          reads: ["body_query_result"], writes: ["root"], requests: ["attach_behaviors"], limit: 1},
+        #{key: "attached", phase: "actor_think", trigger: #{port: "action_result", selector: "attached"}, writes: ["root"]},
+        #{key: "down", phase: "actor_think", trigger: #{port: "object_defeated", selector: "defeated"}, writes: ["watcher"]},
+    ]}
+}
+fn start() {
+    if this.state.root.started { return; }
+    this.state.root.started = true;
+    this.requests.push(request("body_query", #{reply: #{request: 0, selector: "defeat_probe::watch/found"},
+        origin: this.trigger.position, radius: 4000.0, limit: 5, include_self: true}));
+}
+fn found() {
+    if this.trigger.stage != "applied" { return; }
+    let references = #{};
+    let subscriptions = [];
+    let n = 0;
+    let subject = ();
+    for target in this.observe.body_query_result.targets {
+        if target.driven { subject = target.object; continue; }
+        if n == 4 { continue; }
+        let key = "foe" + n;
+        references[key] = target.object;
+        subscriptions.push(#{key: key, source: key, method: "down"});
+        this.state.root.foes.push(target.object);
+        n += 1;
+    }
+    if subject == () { throw "the query found no driven body"; }
+    this.requests.push(request("attach_behaviors", #{target: subject, bindings: [#{key: "watch",
+        references: references, methods: [#{name: "down", entry: "defeat_probe::watch/down"}],
+        subscriptions: subscriptions}], reply: #{request: 0, selector: "defeat_probe::watch/attached"}}));
+}
+fn attached() {
+    if this.trigger.stage == "rejected" { throw this.trigger.message; }
+    if this.trigger.terminal { this.state.root.attached += 1; }
+}
+fn down() {
+    this.state.watcher.downs += 1;
+    this.state.watcher.fallen = this.trigger.object;
+}
+"#;
+
+/// ⭐ A DEFEAT IS A FACT A SCRIPT CAN SUBSCRIBE TO. The damage owner commits
+/// it on the killing hit (`DefeatCommitted`); the runtime routes it to each
+/// method subscribed to that body, once, and only the struck body's watchers
+/// hear it. Fixed host: a hit written from outside the tick does not survive a
+/// sync-test re-simulation, and the mailbox's replay is the activation path's
+/// (`a_scripted_lever_spends_its_barrier`).
+#[test]
+fn a_subscribed_method_hears_the_defeat_of_its_source_once() {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    let path = std::env::temp_dir().join(format!("ambition_defeat_probe_{}.rhai", std::process::id()));
+    std::fs::write(&path, DEFEAT_SOURCE).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("basement_enemies")
+            .with_extension_module_files(vec![path.clone()])).unwrap();
+    let world = sim.world_mut();
+    let player = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+    world.entity_mut(player).insert(BodyStatuses(vec!["defeat_probe.start".into()]));
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 20);
+
+    let root = SchemaKey::new("defeat_probe", "root", 1);
+    let watcher = SchemaKey::new("defeat_probe", "watcher", 1);
+    let record = sim.world().get::<BodyRecords>(player).unwrap().get(&root).cloned().expect("the probe started");
+    assert_eq!(record.get(FieldRef(2)).unwrap(), &Value::U32(1), "the watch is attached");
+    let Value::Seq(foes) = record.get(FieldRef(1)).unwrap() else { panic!("the probe lists its foes") };
+    assert!(!foes.is_empty(), "the premise: the gallery has bodies near the player");
+    // Strike the first listed body: the gallery's bodies are hostile, so it dies.
+    let mut struck = Vec::new();
+    for foe in foes.iter().take(1).map(|value| value.as_object().unwrap()) {
+        let session = ambition_platformer2d::platformer::lifecycle::SessionScopeId(foe.session);
+        let body = ambition_platformer2d::platformer::lifecycle::resolve_object(sim.world(), session, foe).unwrap();
+        let volume = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(body).unwrap().aabb().into();
+        sim.world_mut().write_message(HitEvent {
+            origin: None, properties: Default::default(), contact: None, pieces: Vec::new(), strike_sfx: None,
+            volume, damage: 999, source: HitSource::Contact, attacker: Some(player), room: None,
+            target: HitTarget::Body(body), mode: HitMode::Knockback, knockback: None, ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        struck.push((foe, body));
+    }
+    sim.step_n(AgentAction::default(), 2);
+    let fallen: Vec<_> = struck.iter().filter(|(_, body)| sim.world().get::<ambition_platformer2d::characters::actor::BodyHealth>(*body)
+        .is_some_and(|health| !health.alive())).map(|(foe, _)| *foe).collect();
+    assert_eq!(fallen.len(), 1, "the premise: the struck body is defeated");
+    let foe = fallen[0];
+    sim.step_n(AgentAction::default(), 30);
+
+    let world = sim.world_mut();
+    let heard: Vec<_> = world.query::<&BodyRecords>().iter(world).filter_map(|records| records.get(&watcher).cloned()).collect();
+    assert_eq!(heard.len(), 1, "one watch instance");
+    assert_eq!(heard[0].get(FieldRef(0)).unwrap(), &Value::U32(1), "one defeat, heard once");
+    assert_eq!(heard[0].get(FieldRef(1)).unwrap(), &Value::Opt(Some(Box::new(Value::Object(foe)))), "the fact names the defeated body");
+    assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(path);
+}

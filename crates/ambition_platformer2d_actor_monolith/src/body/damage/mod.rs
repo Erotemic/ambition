@@ -116,6 +116,11 @@ pub struct FeatureHitWriters<'w, 's> {
     /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands
     /// the consequence over.
     pub knockouts: MessageWriter<'w, ambition_combat::stocks::BodyKnockedOut>,
+    /// Every defeat, with its occurrence provenance, for scripts subscribed to
+    /// it. `Option`: a composition without the behavior runtime publishes none.
+    pub defeats: Option<MessageWriter<'w, ambition_platformer2d_shared_tangle::lifecycle::DefeatCommitted>>,
+    /// The addressed identity of the defeated body and its attacker.
+    pub objects: ambition_platformer2d_shared_tangle::lifecycle::LiveObjects<'w, 's>,
     /// The hit's RESULT, for the simulation — the match freeze reads it.
     /// `Option` for the reason spelled out on the player-side twin.
     pub resolved: Option<MessageWriter<'w, ambition_combat::hitbox::ResolvedBodyHit>>,

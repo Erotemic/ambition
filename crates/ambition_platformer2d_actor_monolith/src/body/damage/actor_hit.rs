@@ -337,6 +337,14 @@ pub(crate) fn apply_actor_hit(
                 resolution,
                 ambition_damage::BodyHitResolution::Damaged { died: true, .. }
             ) && em.health.policy().kills_at_max());
+        if killed {
+            // The defeat as a fact, before any owner takes its consequences.
+            let object = writers.objects.reference(actor_entity);
+            let by = event.attacker.and_then(|attacker| writers.objects.reference(attacker));
+            if let (Some(object), Some(room), Some(defeats)) = (object, room, writers.defeats.as_mut()) {
+                defeats.write(ambition_platformer2d_shared_tangle::lifecycle::DefeatCommitted {object, by, room});
+            }
+        }
         if should_bark && !killed {
             // WHO IS SPEAKING is the body's worn character, which a runtime
             // re-wear (a transformation, a power-up form) changes. Display

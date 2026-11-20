@@ -771,6 +771,17 @@ and is a separate commit with `rollback_codec_shape.py`. Guards: combat 891,
 monolith 595, runtime 285 (unified features), Mary-O 194 and Sanic 102 lib
 tests; the workspace checks at all targets.
 
+### K37, K38 — The fade's writers and the death beat at combat — DONE 2026-11-20
+
+`withdraw_faded_contact`, `pin_fade_rows` and `FADE_ROW_WRITER` now live in
+`ambition_combat::fade` beside the `faded` rule they derive from (`4eb91bdbe`).
+`advance_death_beats` is `ambition_combat::death_beat` (`ae68b000b`); the
+monolith still chains it before its own death-row finales, which read the
+damage module. Sets, order, run conditions and state are unchanged. The
+`ImpactHitstop` adjudication and the session None-arm row follow the path.
+Guards: combat 877 and monolith 594 lib tests, app_it `spectral_wolf` and
+`a_mite_becomes_its_finale`, workspace check at all targets.
+
 ### Residual body inventory (measured 2026-11-20)
 
 `body` holds 20,812 production lines in 39 submodules after K36 (21,168 before;
@@ -781,8 +792,8 @@ those modules are leaves. Modules with neither a path nor the glob:
 
 | module | lines | reads | disposition |
 |---|---:|---|---|
-| `fade_rows` | 75 | characters, combat, sprite_sheet, time | its rule is `ambition_combat::fade`, and combat has all four: next candidate |
-| `death_beat` | 92 | characters, combat, shared_tangle, world, time | advances `ambition_combat::components::DeathBeat`; combat has all five: candidate |
+| `fade_rows` | 75 | characters, combat, sprite_sheet, time | moved into `ambition_combat::fade` beside its rule (K37) |
+| `death_beat` | 92 | characters, combat, shared_tangle, world, time | `ambition_combat::death_beat` (K38) |
 | `perception` | 1,401 | characters, combat, projectiles, construction, game_shell, dev_tools, body_seed | no crate below the monolith has them all, and it feeds the brain dispatch (`brain_tick`), which lives here because only this crate sees every destination. Not cut |
 | `integration`, `reactions` | 178, 141 | core, characters, combat | body execution and the shared reaction clocks (K26): kernel |
 | `ledge_grab`, `swim` | 122, 16 | core | thin adapters over the core's own step; fold into callers or delete, each with its readers checked first |

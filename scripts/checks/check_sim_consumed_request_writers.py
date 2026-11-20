@@ -151,6 +151,13 @@ SUBJECTS: dict[str, tuple[str, dict[str, str]]] = {
                 "one session's trigger cannot start in the next. A different boundary "
                 "from the rollback one (read 2026-09-17)"
             ),
+            "crates/ambition_platformer2d_runtime/src/story_script.rs::lower_cutscenes": (
+                "PRODUCER, a module's `PlayCutscenePort` request lowered in "
+                "`ExtensionSet::LowerSubmitted(ACTOR_THINK)`, which the runtime's "
+                "`ExtensionHostPlugin::new(sim)` places in the sim schedule; the "
+                "request is submitted by `run_phase` the same tick, so a replay "
+                "re-produces it (read 2026-11-20)"
+            ),
             "game/ambition_demo_mary_o/src/castle_end.rs::the_robot_thanks_her": (
                 "PRODUCER, in `Platformer2dSimulationPhase::GameplayEffects` (the "
                 "`rules` chain of Mary-O) — in the sim schedule. Its edge is "

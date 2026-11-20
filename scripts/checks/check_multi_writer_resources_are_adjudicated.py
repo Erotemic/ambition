@@ -237,12 +237,16 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_abilities/src/module_entity.rs",
         "crates/ambition_boss_encounter/src/conduct.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
-        "crates/ambition_combat/src/extension/contact.rs",
         "crates/ambition_combat/src/extension/reaction.rs",
         "crates/ambition_combat/src/extension/special.rs",
         "crates/ambition_combat/src/extension/status.rs",
         "crates/ambition_combat/src/extension/think.rs",
         "crates/ambition_extension_host/src/exec.rs",
+        "crates/ambition_combat/src/extension/contact/facts.rs",
+        "crates/ambition_combat/src/projectile_outcomes/extension.rs",
+        "crates/ambition_damage/src/extension.rs",
+        "crates/ambition_platformer2d_runtime/src/behavior_inbox.rs",
+        "crates/ambition_platformer2d_runtime/src/story_script.rs",
     ),
     "PortalViewConeConfig": (
         "crates/ambition_platformer2d_host/src/portal.rs",
@@ -265,7 +269,18 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_combat/src/extension/think.rs",
         "crates/ambition_extension_host/src/exec.rs",
         "crates/ambition_portal2d/src/extension.rs",
-        "crates/ambition_projectiles/src/extension.rs",
+        "crates/ambition_abilities/src/pending_transit.rs",
+        "crates/ambition_combat/src/extension/body_query.rs",
+        "crates/ambition_combat/src/projectile_spawn/extension.rs",
+        "crates/ambition_platformer2d_items/src/inventory.rs",
+        "crates/ambition_platformer2d_runtime/src/action_replies.rs",
+        "crates/ambition_platformer2d_runtime/src/actor_creation.rs",
+        "crates/ambition_platformer2d_runtime/src/behavior_events.rs",
+        "crates/ambition_platformer2d_runtime/src/breakable_creation.rs",
+        "crates/ambition_platformer2d_runtime/src/contact_consumption.rs",
+        "crates/ambition_platformer2d_runtime/src/object_behaviors.rs",
+        "crates/ambition_platformer2d_runtime/src/story_script.rs",
+        "crates/ambition_platformer2d_runtime/src/world_posts.rs",
     ),
     "BrokenBricks": (
         "game/ambition_demo_mary_o/src/bricks.rs",
@@ -336,6 +351,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_items/src/starting_bag.rs",
         "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
         "game/ambition_content/src/quest.rs",
+        "crates/ambition_platformer2d_items/src/inventory.rs",
     ),
     "CausalRecording": (
         "crates/ambition_combat/src/causal.rs",
@@ -356,6 +372,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_shared_tangle/src/class_b.rs",
         "crates/ambition_portal2d/src/transit.rs",
+        "crates/ambition_abilities/src/pending_transit.rs",
     ),
     "DeveloperRuntimeState": (
         "crates/ambition_dev_tools/src/lib.rs",
@@ -382,6 +399,23 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "SimTick": (
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_time/src/lib.rs",
+        "crates/ambition_hosted_world/src/prediction.rs",
+    ),
+    "ReachWrites": (
+        "crates/ambition_render/src/rendering/darkness.rs",
+        "crates/ambition_render/src/rendering/daylight.rs",
+        "crates/ambition_render/src/rendering/lamps.rs",
+    ),
+    "PendingProjectileEmissions": (
+        "crates/ambition_combat/src/projectile_spawn/emission.rs",
+        "crates/ambition_combat/src/projectile_spawn/materialize.rs",
+        "crates/ambition_combat/src/projectile_spawn/mod.rs",
+        "crates/ambition_combat/src/projectile_spawn/pending.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
+    ),
+    "GuestInputClock": (
+        "crates/ambition_hosted_world/src/lib.rs",
+        "crates/ambition_hosted_world/src/prediction.rs",
     ),
     "UserSettings": (
         "crates/ambition_game_shell/src/pause_menu.rs",
@@ -441,6 +475,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
         "crates/ambition_platformer2d_runtime/src/portal_seat.rs",
         "game/ambition_app/src/app/sim_systems.rs",
+        "crates/ambition_hosted_world/src/prediction.rs",
+        "crates/ambition_platformer2d_runtime/src/input_sampling.rs",
     ),
     "BaseGravity": (
         "crates/ambition_platformer2d_shared_tangle/src/gravity.rs",
@@ -500,10 +536,12 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_items/src/chests.rs",
         "crates/ambition_platformer2d_items/src/pickups.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
+        "crates/ambition_breakables/src/consumption.rs",
     ),
     "BagUsesInRooms": (
         "crates/ambition_platformer2d_items/src/narrative.rs",
         "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
+        "crates/ambition_platformer2d_items/src/inventory.rs",
     ),
     "FlagWritesInRooms": (
         "crates/ambition_platformer2d_items/src/encounter_rewards.rs",
@@ -543,6 +581,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
+        "crates/ambition_breakables/src/consumption.rs",
     ),
     "CaptureProgress": (
         "crates/ambition_render/src/capture.rs",
@@ -570,7 +609,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_damage/src/lib.rs",
         "crates/ambition_dev_tools/src/dev_tools/editable.rs",
         "crates/ambition_dev_tools/src/lib.rs",
-        "crates/ambition_platformer2d_runtime/src/extension_composition.rs",
+        "crates/ambition_platformer2d_runtime/src/extension_composition/module_files.rs",
         "crates/ambition_portal2d/src/tuning.rs",
     ),
     "RoomTransitionLoadState": (
@@ -675,6 +714,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/cutscene.rs",
         "game/ambition_demo_mary_o/src/castle_end.rs",
+        "crates/ambition_platformer2d_runtime/src/story_script.rs",
     ),
     "GameplayTraceBuffer": (
         "crates/ambition_encounter_features/src/systems.rs",
@@ -718,6 +758,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
+        "crates/ambition_hosted_world/src/prediction.rs",
+        "crates/ambition_platformer2d_runtime/src/input_sampling.rs",
     ),
     "Warmup": (
         "game/ambition_demo_mary_o_app/src/bin/capture_mary_o.rs",
@@ -864,7 +906,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "ProjectileSeqCounter": (
         "crates/ambition_platformer2d_session/src/teardown.rs",
-        "crates/ambition_projectiles/src/materialize.rs",
+        "crates/ambition_combat/src/projectile_spawn/materialize.rs",
     ),
     "RadioStationState": (
         "crates/ambition_platformer2d_audio/src/plugin.rs",
@@ -893,6 +935,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "SeatActiveDevices": (
         "crates/ambition_input/src/active_input.rs",
         "crates/ambition_touch_input/src/menu_bridge.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
     "SeatControlFrameModes": (
         "crates/ambition_platformer2d_runtime/src/input.rs",
@@ -1207,6 +1250,11 @@ ADJUDICATED: dict[str, str] = {
         "trigger `queue_group_thinks` (in the abilities crate's group file, phase "
         "group_think, one item per room) is the eleventh. "
         "Each adapter appends only for its own port and phase."
+        "Five more trigger adapters, read 2026-11-20, each only appending its own "
+        "port's triggers: body contact facts (`trigger::<BodyContactPort>`), projectile "
+        "outcomes, hit receptions (the damage crate), the behaviour inbox "
+        "(`trigger_entry_with_receipt` for action results and object calls) and story "
+        "ticks. Same shape."
     ),
     "ExtensionOutbox": (
         "A QUEUE, AND ITS TWO WRITERS ARE ITS TWO ENDS (fast-iteration I4). "
@@ -1249,6 +1297,11 @@ ADJUDICATED: dict[str, str] = {
         "`lower_steers`, `lower_takes` and `lower_releases` (in the abilities "
         "crate's group file) drain `SteerPort`, `TakeItemPort` and "
         "`ReleaseItemPort` in ACTOR_THINK, each only its own port."
+        "Twelve more request adapters, read 2026-11-20, each only `drain::<P>`-ing its "
+        "own ports (transit, body queries, projectile spawns, inventory exchanges, "
+        "action cancellation, actor and breakable creation, signals, contact and self "
+        "consumption, object behaviours and calls, story commands and cutscenes, world "
+        "posts); their `push`/`retain` calls are on their own local lists. Same shape."
     ),
     "BrokenBricks": (
         "A SET THAT ONLY GROWS IN A TICK, ON DISJOINT NAMES (read 2026-10-12). "
@@ -1326,6 +1379,38 @@ ADJUDICATED: dict[str, str] = {
         "is the Q128 decision (2026-10-03): the tick is session-relative, so two "
         "hosts with different histories agree on it. ⇒ Nothing here is two owners "
         "of one fact (read 2026-10-03)"
+        "⚠ A RE-ANCHOR, NOT A SECOND CLOCK (NA-3, 2026-11-19, f7582bf5c). On a guest "
+        "that predicts its own body (`PredictsOwnBody`), `predict_own_tick` runs at the "
+        "head of the tick and, if the input clock wants a later host tick, sets the "
+        "tick to one before it, so the advance owner's next step lands on it. After the "
+        "first predicted tick it only moves forward, and each jump is counted "
+        "(`GuestPredictionStats::jumps`). The host never runs it (read 2026-11-20)."
+    ),
+    "ReachWrites": (
+        "CORRECT — TWO PRODUCERS OF DISJOINT KEYS AND ONE DRAIN (ULTRA-NIGHT, "
+        "2026-11-19). It maps a reach texture's id to the rows to upload. Darkness "
+        "(`darkness.rs`) and daylight (`daylight.rs`) each insert under their own "
+        "texture's id, and the lamps' `extract_reach_writes` drains the main-world map "
+        "into the render world, which writes it to the GPU. Presentation only, never "
+        "simulation state (read 2026-11-20)."
+    ),
+    "PendingProjectileEmissions": (
+        "CORRECT — ONE QUEUE WHOSE ROADS LIVE IN ONE MODULE (2026-11-18, 1d0389200). "
+        "The list is `pub(super)`, so only its own module "
+        "(`projectile_spawn/pending.rs` and its siblings) reaches it: the emission "
+        "writer pushes an accepted request, materialize `take`s the ones due this tick "
+        "or the next, a cancelled action's reply removes its own (`cancel`), and a "
+        "room's rewind drops that room's (`retain`). The fifth file is the session "
+        "edge, which resets it. It is rollback state with its own checksum (read "
+        "2026-11-20)."
+    ),
+    "GuestInputClock": (
+        "CORRECT — ONE CLOCK, ROLES THAT DO NOT OVERLAP (NA-3, 2026-11-19). "
+        "`take_input_margins` feeds it the host's arrival margins; `take_assigned_seat` "
+        "resets it when the host assigns a seat; a guest that does not predict samples "
+        "it in `send_local_input`, and a predicting guest samples it in "
+        "`predict_own_tick` instead (the sender returns early under `PredictsOwnBody`). "
+        "Guest-local presentation of the network, not rollback state (read 2026-11-20)."
     ),
     "WorldSourceHotReload": (
         "A SINGLE-WRITER PATH FIELD AND A FREE-TEXT STATUS LINE NOTHING "
@@ -1752,6 +1837,12 @@ ADJUDICATED: dict[str, str] = {
         "it puts back the table as it stood, so the frame being run keeps its "
         "own presses. It is a replay of the accumulator, not a third drain.\n"
         "    ⭐ 2026-11-17: the hosted world's `retire_departed_guests` (`hosted_world/src/lib.rs`) writes this table when a guest client leaves or changes seats: the old seat goes back to neutral, beside its `GuestInputs` record and the participant's leave request, so a departed guest's last frame does not drive the seat on. It runs on the host only, outside a room replay, and writes only the seat it retires."
+        "Two more, 2026-11-18/19. `publish_sampled_local_inputs` owns the seats of a "
+        "tick-boundary source: it `take`s that seat's render-clock samples and "
+        "`accumulate`s the sample, before capture, so the drains above see only the "
+        "sample. A predicting guest's `predict_own_tick` `reset`s the devices' seat "
+        "and, in a replay, the driven seat before driving it from its record. Neither "
+        "is a third drain of a seat a drain above serves (read 2026-11-20)."
     ),
     "BaseGravity": (
         "CORRECT, AND THE SIXTH WRITER IS GONE — Q137 RULED AND THE DEAD PLATE "
@@ -2044,6 +2135,12 @@ ADJUDICATED: dict[str, str] = {
         "its own room's writes after the saved tick: no other room's count is "
         "touched."
         " 2026-11-13: the portal inventory adapter no longer writes it."
+        "⚠ A FOURTH ROAD, 2026-11-18 (e36f11750): `inventory::apply` runs an exchange "
+        "on a CLONE of the bag through the same `grant`/`take`, and on success replaces "
+        "the bag with it (`*resource_mut::<OwnedItems>() = bag`). It runs with the "
+        "world exclusively borrowed, so nothing interleaves; a refused exchange writes "
+        "nothing. It is the atomic form of the methods above, not a second authority "
+        "(read 2026-11-20)."
     ),
     "BossDefeatsSinceCheckpoint": (
         "CORRECT — ONE RECORDER, ONE TAKER, TWO FORGETTERS, ONE TYPE "
@@ -2101,6 +2198,10 @@ ADJUDICATED: dict[str, str] = {
         "which takes out the rewound room's uses after the saved tick. Both run "
         "in the simulation or at a rewind, and the type is rollback state with a "
         "value checksum (`item.bag_uses_in_rooms`)."
+        "A second recorder, 2026-11-18 (e36f11750): an applied inventory exchange "
+        "`record_spend`s and `record_gain`s each item it moved, with the caller's room "
+        "and tick, so the same retractor takes it out at that room's rewind. Recorders "
+        "only append (read 2026-11-20)."
     ),
     "BagSpendsSinceCheckpoint": (
         "CORRECT — ONE RECORDER, THREE FORGETTERS, ONE TYPE (review 2026-10-05, "
@@ -2158,6 +2259,11 @@ ADJUDICATED: dict[str, str] = {
         "`record_spent_breakables` (`ambition_breakables/src/returns.rs`) calls "
         "`record_spent` for a spent Persistent breakable's own sim id, with the "
         "participants in its live room; no pickup row is written there."
+        "`record_spent` gained a second caller 2026-11-18 (6a98fe604): `consumption.rs` "
+        "records a consumed persistent destructible with its room's participants, after "
+        "`AuthoredOccurrences::spend` wrote its row. A destructible's id is not a "
+        "chest's or a pickup's, so the recorders still never write one key (read "
+        "2026-11-20)."
     ),
     "AuthoredOccurrences": (
         "CORRECT — SEVEN WRITER FILES ONTO SIX `&mut self` METHODS, AND THE ENTRY "
@@ -2273,6 +2379,11 @@ ADJUDICATED: dict[str, str] = {
         "(`consume`, `spend`, `end`) of that room replaced after the saved tick, "
         "from the undo log the writers stamp. It is the undo of those writers, "
         "not a new source of rows: it writes only what one of them replaced."
+        "The eighth FILE, added 2026-11-18 (6a98fe604), is the breakables crate's "
+        "`consumption.rs`: an atomic consumption of a PERSISTENT authored destructible "
+        "takes the chest's `spend(ids)` after checking that the object has no row, and "
+        "asserts it wrote one. It adds no method, and writes only a terminal `Spent` "
+        "row where none was, so the entry rule is unchanged (read 2026-11-20)."
     ),
     "WorldlineHistoryView2d": (
         "CORRECT — A TELEMETRY VIEW WITH ONE PUBLISHER, ONE PRUNER AND ONE DEPTH "
@@ -2308,6 +2419,9 @@ ADJUDICATED: dict[str, str] = {
         "rebuilds the whole value. ⚠ One writer reads as a bundle rather than a "
         "system, `<param bundle: TransitBodies>` in `room_transition/commit.rs`; "
         "that is the census reporting honestly, not a hidden writer."
+        "The eighth file, `pending_transit.rs` (Contextual Blink, 2026-11-18), holds "
+        "the log only to hand it to `extension::transit`, the existing recorder, so it "
+        "is the same append road (read 2026-11-20)."
     ),
     "ControlledSubject": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
@@ -2409,7 +2523,7 @@ ADJUDICATED: dict[str, str] = {
     "ProjectileSeqCounter": (
         "CORRECT — ONE MINTING IMPLEMENTATION REACHED BY TWO REGISTRATIONS, AND THE "
         "FILE-GRANULAR CENSUS CANNOT SEE THAT. It reports 2 files; per SYSTEM there "
-        "are THREE sites in `ambition_projectiles/src/materialize.rs` — "
+        "are THREE sites in `ambition_combat/src/projectile_spawn/materialize.rs` (moved from the projectiles crate 2026-11-18) — "
         "`materialize_projectiles_for_this_tick`, `materialize_projectiles_for_next_tick` "
         "and the private `materialize_matching` both delegate to, which is the one "
         "place a sequence number is minted. ⭐ AND THE ORDER IS EXPLICIT: both "
@@ -2825,6 +2939,9 @@ ADJUDICATED: dict[str, str] = {
         "producer happens to sit inside the sim schedule, so a replay "
         "re-produces what a rewind dropped. The invariant is ratcheted by "
         "`check_sim_consumed_request_writers.py`, not by this baseline."
+        "`story_script.rs::lower_cutscenes` (a module's `PlayCutscenePort` request) "
+        "joins the producers; it runs in the sim schedule and is in "
+        "`check_sim_consumed_request_writers.py`'s table (read 2026-11-20)."
     ),
     "SlotInteractionState": (
         "CORRECT — ONE ARMER, FIVE CLEARERS. Every production call that can make "
@@ -3040,6 +3157,9 @@ ADJUDICATED: dict[str, str] = {
         "touch actually being live, so they can never disagree. "
         "`census.shared_targets` names `mark_primary` as a method, not a "
         "field. Measured by CalculexAmbition, 2026-09-18."
+        "The capture tool (`capture_scene`, a dev binary) pins the primary seat's "
+        "device for glyph screenshots, only when its config names one, through "
+        "`mark_primary`. It is never part of the game (read 2026-11-20)."
     ),
     "SeatControlFrameModes": (
         "A DOCUMENTED STAND-IN FOR A SYSTEM THAT DOES NOT RUN IN THIS "
@@ -3881,6 +4001,12 @@ ADJUDICATED: dict[str, str] = {
         "flagged by CalculexAmbition, who spotted that it reaches a file this "
         "session holds and was re-merged the same day.\n"
         "    ⭐ 2026-11-17: the hosted world's `retire_departed_guests` (`hosted_world/src/lib.rs`) writes this table when a guest client leaves or changes seats: the old seat goes back to neutral, beside its `GuestInputs` record and the participant's leave request, so a departed guest's last frame does not drive the seat on. It runs on the host only, outside a room replay, and writes only the seat it retires."
+        "Two exclusive stages joined 2026-11-18/19: `publish_sampled_local_inputs` "
+        "(scripted and autoplay input sampled at the tick boundary, before capture) "
+        "sets the row of a seat its source owns, and a predicting guest's "
+        "`predict_own_tick` blanks the devices' seat when it drives the seat the host "
+        "gave it. Each writes a seat no other stage of its composition drives (read "
+        "2026-11-20)."
     ),
     "MainScheduleOrder": (
         "TWO PLUGINS EDIT A LIST AT BUILD TIME, AND EACH EDIT PRESERVES THE "

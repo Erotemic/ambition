@@ -178,7 +178,7 @@ Preserve these and build new features on their seams.
 | Autolink/follow-owner knockback | ✔ | M | E1 | `HitKnockback::follow`, resolved at the producer in the attacker's frame. Pulse gaps are load-bearing: a contiguous track lands once. |
 | Weight-independent knockback | ✔ | S/M | E1 | `LaunchWeight::Fixed(w)` is kept by the resolver and planner. Projectile Polygon forward-air is the customer. |
 | Armor-bypass hit property | ✔ | S/M | E1 | `ArmorInteraction::Bypass` defeats motion armor. Customer: Projectile Polygon forward smash. |
-| Windboxes / flinchless push | ◐ | M | E1 | `WindboxVolume` (`flinchless`, `repeating`) ships; no move authors one. Which fighter gusts is a design call. |
+| Windboxes / flinchless push | ✔ | M | E1 | Re-measured 2026-11-20: `WindboxVolume` is authored by the Officer's neutral special (`officer_disperse`, a shove that hurts nobody) and the Goblin's `dirt_kick` (one-shot, not repeating). |
 | Vacuum / suction | ✔ | M | E1 | A windbox with its launch aimed inward. |
 | Extra shield damage | ✔ | S/M | E1 | `S0.3`: `VolumeGuard::Blockable { extra_shield_damage }`, resolved where the guard is offered. |
 | Unblockable strike flag | ✔ | S/M | E1 | `S0.3`: `VolumeGuard::Unblockable` (no block, no parry). Planner metadata (`ignores_guard`) is not gameplay authority. |
@@ -261,7 +261,7 @@ Preserve these and build new features on their seams.
 | Ledge regrab limit | ✔ | — | E1 | Ultimate's rule (2026-10-08): six grabs per airtime, intangibility ×0.8, ×0.5, then none; landing or a hit resets the count. One grab site scales the airtime-earned window by the count, so the two inputs feed one authority. Superseded the 2026-08-24 "do not add a count" answer, under the Ultimate target in "Ledge occupancy" below. |
 | Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. |
 | Ledge occupancy (one holder per ledge) | ✔ | M | E1 | One corner is one edge whatever the bodies' sizes; a body out of play holds no edge; a rewind across a trump gives the same holder; the trumped body's lockout is a declared rule (2026-10-08). See "Ledge occupancy" below. |
-| Tether recovery | ▢ | M | E1 | Reuse grapple/spatial-link machinery. |
+| Tether recovery | ✔ | M | E1 | Re-measured 2026-11-20: `smash.tether_pull` (`ambition_demo_smash_modules::tether`), the Projectile Polygon's up-B: her line bites a ledge in reach and reels her to it. |
 | Teleport recovery | ✔ | S/M | — | `smash.teleport`, `RecoveryRoute::Teleport`. |
 | Stall-then-fall move | ▢ | S/M | — | Existing windows suffice unless a fighter proves otherwise. |
 
@@ -302,7 +302,7 @@ a simultaneous new grab may latch before the trump resolves.
 | Tether grab | ✔ | M | E1 | Projectile Polygon has a standing tether capture and a distinct aerial tether hit. The air move creates no capture relationship. |
 | Grab-vs-grab cancellation | ✔ | S/M | E1 | `S0.2`: a mutual grab parries. |
 | Hitbox-vs-grab arbitration | ✔ | M | E1 | `S0.2`: an ordinary hit beats a same-tick grab. |
-| Cargo carry / moving throws | ▢ | C | E2 | Captor locomotion while `CapturedBy` stays authoritative; not repeated teleports. |
+| Cargo carry / moving throws | ✔ | C | E2 | Re-measured 2026-11-20: `smash.capture_carry` (`smash_capture::CAPTURE_CARRY`) keeps `CapturedBy` and changes its terms: the captor may walk and nothing else (`a_carrying_captor_may_walk_and_still_may_do_nothing_else`). Customer: the Goblin. |
 | Grab escape / pummel poses | ◐ | S | — | `held`/`holding` facts ship; `CharacterAnim` has no held row (art). |
 
 ## 7. Character-mechanic primitives
@@ -312,20 +312,20 @@ Implement each through a real fighter, not as an unused framework.
 | Mechanic | Status | Effort | Engine | Notes |
 |---|---:|---:|---:|---|
 | Rising autolink Up-B | ✔ | M | E1 | `polygon_rising_edge`. |
-| Counter | ▢ | M | E1 | Parry already consumes the contact; the counter adds an authored retaliation. Which fighter counters is Jon's. |
-| Reflector | ▢ | M | E1 | Generalize the parry-reflection ownership transfer. |
-| Projectile absorber | ▢ | M | E1 | Keep projectile custody in projectile authority. |
+| Counter | ✔ | M | E1 | Re-measured 2026-11-20: `smash.counter` (the counter stance; `ambition_demo_smash_modules::counter`) answers a caught parry with `smash.riposte_strike` or an authored response. Authored on nine fighters (Pointed Polygon, Oni Leader, Director, Officer, Ramen-nujan, Patent Clerk, Emmy Noether, GNU-ton, duelist A). |
+| Reflector | ✔ | M | E1 | Re-measured 2026-11-20: a counter stance reflects: the projectile road gates on the same `parrying()` window (`ambition_projectile_combat::intercept::Reflect`), so every counter above is also a reflector. A reflector with no counter is not authored. |
+| Projectile absorber | ✔ | M | E1 | Re-measured 2026-11-20: `ParryWindow::absorbs_projectiles` makes a caught shot disappear in projectile authority. Customer: the Officer's riot shield. |
 | Armored move | ✔ | S/M | E1 | Three shipped armored moves. |
 | Invincible move/startup | ✔ | S | E1 | |
-| Wind/vacuum special | ◐ | M | E1 | Mechanism ships; no move authors it. |
+| Wind/vacuum special | ◐ | M | E1 | Re-measured 2026-11-20: the pull ships (`ambition.world.pull_bodies`) and a wielded vortex item uses it (`ambition_content_modules::vortex`); no fighter special authors it. Which fighter pulls is a design call. |
 | Chargeable / stored-charge projectile | ✔ | M | E1 | |
-| Remote mine | ▢ | M | E1 | Persistent occurrence plus owner trigger, stable identity. |
+| Remote mine | ✔ | M | E1 | Re-measured 2026-11-20: `smash.place_mine` (`ambition_demo_smash_modules::mine`): a stage object that answers to the fighter who placed it, with stable identity. Customer: the Projectile Polygon's down smash sweep. |
 | Returning/boomerang projectile | ✔ | M | E1 | `ProjectileGameplay::accel`; `polygon_ponytail_boomerang`. |
 | Homing projectile | ✔ | M | E1 | `S0.9`: `smash.seeker` (the Director's Chekhov's Gun). |
 | Pogo-on-hit attack | ✔ | — | — | |
-| Self-damage/recoil move | ▢ | S | E1 | A second on-hit key; wants a customer. |
+| Self-damage/recoil move | ◐ | S | E1 | Re-measured 2026-11-20: a move may charge its own mover (`smash.vitality` with a negative change: the Medic's Adrenaline, Emmy Noether); recoil paid when a strike lands is absent. It would be the inverse of `ambition.combat.mend` (S0.9) from the strike seam; wants a customer. |
 | Heal/lifesteal on hit | ✔ | S/M | E1 | `S0.9`: `smash.lifesteal` (the Oni Leader's iaijutsu). |
-| Fighter resource meter | ▢ | M/C | E1 | Build for one fighter; no global meter manager. The Smash Limit meter (`ambition_demo_smash/src/limit.rs`, fill policy `LimitMeterFill::JONS_BASELINE`) awards `on_block: 1.0` for a successful block. Q71 (2026-10-04): 1.0 is the starting balance value; playtesting may tune it without reopening the policy. `guarding_is_the_safe_option` keeps it below `on_damage_taken`. |
+| Fighter resource meter | ✔ | M/C | E1 | Re-measured 2026-11-20: the Smash Limit meter, filled by the Goblin's `smash.limit`. Built for one fighter; no global meter manager. The Smash Limit meter (`ambition_demo_smash/src/limit.rs`, fill policy `LimitMeterFill::JONS_BASELINE`) awards `on_block: 1.0` for a successful block. Q71 (2026-10-04): 1.0 is the starting balance value; playtesting may tune it without reopening the policy. `guarding_is_the_safe_option` keeps it below `on_damage_taken`. |
 | Transformation/stance | ▢ | C | WAIT | George's TRUE/FALSE state is the concrete fighter (see "George Booul TRUE/FALSE vocabulary (Q81)"). Design it from his concept before you build. |
 
 ## 8. Items
@@ -358,7 +358,7 @@ eventually will, but not right now."*). The machinery is built and tested.
 |---|---:|---:|---:|---|
 | Right-stick tilt/smash mode | ✔ | S | E1 | `ControlSettings::right_stick_mode`. |
 | Smash-input sensitivity options | ◐ | S | — | Expose `AttackGestureTuning` presets. |
-| Tap-jump option | ▢ | S/M | E1 | Input policy emits the normal Jump semantic. |
+| Tap-jump option | ✔ | S/M | E1 | Re-measured 2026-11-20: `controls.tap_jump` (settings menu `TapJump`) makes stick-up emit the ordinary Jump semantic (`ambition_input::control`). |
 | Short-hop aerial macro | ▢ | S/M | E1 | Use the ordinary short-hop path plus a buffered attack. |
 | Alternate costume per seat | ▢ | M | — | Presentation variant; identity unchanged. |
 | Player tags | ▢ | S/M | — | Not simulation identity. |
@@ -569,9 +569,31 @@ means coordinated work, not a prerequisite.
 
 ## 17. Current implementation order
 
-1. The `S0.*` gate, in order `S0.1` to `S0.9`.
-2. After all nine close, re-measure this inventory against HEAD and write a new
-   post-gate order from the rows that are still open.
+The `S0.*` gate closed on 2026-11-20 (S0.9 last). The inventory was re-measured
+against HEAD the same day: eleven rows marked absent or partial had shipped
+with customers (windbox, tether recovery, carry, counter, reflector, absorber,
+remote mine, resource meter, tap-jump; vacuum and self-cost are partial). The
+post-gate order, each step one coherent customer at a time:
+
+1. **CPU adoption** ("After S0" above, §14): run the ladder through
+   `match-report --ladder` and `capture-probe`, pick one underused family
+   (smash, shield, grab) and add only its missing observation or option. A
+   headless match waits for entry music, so this needs a machine with the
+   music registry.
+2. **Strike-seam rows that reuse S0.8/S0.9 seams** (E1, settled policy):
+   hit-grab (a consumer of `OnHitEffectMessage` with a target on the capture
+   attempt), recoil on hit (the inverse of `ambition.combat.mend`), the
+   ledge-trump commitment window, a grab-release fact.
+3. **Item attribution**: thrown-item damage through normal hit attribution,
+   then thrower/KO attribution, item catch and item lifetime policy.
+4. **Training and match-rule knobs** that need no new semantics: reset
+   fighters / set percent, frame-data display, timer selector, random stage,
+   handicap / starting damage in match preparation.
+5. **Presentation and audio** rows (§12), which wait on art and sound more than
+   on code; take them with the feel audit.
+
+Design calls stay out of this order until ruled: which fighter pulls (vacuum),
+George's TRUE/FALSE stance (Q81), a separate stage-select screen, Final Smash.
 
 A cheap lower row is not higher priority. A shipped-but-unreached mechanic is not
 higher priority because it is frustrating.

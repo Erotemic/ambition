@@ -6,11 +6,12 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`body_row`](src/body_row.rs) | A body's replicated motion row, and the guest's adoption of it. |
 | [`input_clock`](src/input_clock.rs) | Input sample order is independent of the estimated host tick. |
 | [`prediction`](src/prediction.rs) | A guest that predicts its own body (NA-3), in production. |
 | [`room_rollback`](src/room_rollback.rs) | A host that keeps a guest's room correct by rollback (SIMULATION-ISLANDS). |
 
-_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -55,7 +55,7 @@ pub use module_entity::{
     EndModuleEntity, EndModuleEntityPort, EndOwnedEntity, EndOwnedEntityPort, ItemState, ItemStatePort, LaunchToucher,
     LaunchToucherPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, ModuleItemSpawn, MoveModuleEntity,
     MoveModuleEntityPort, OwnedEntities, OwnedEntitiesPort, OwnedEntity, PullBodies, PullBodiesPort, SpawnModuleEntityPort,
-    SpawnModuleItemPort, SpawnerBody, SpawnerBodyPort, ToucherCreditsPort,
+    SpawnModuleItemPort, SpawnerBody, SpawnerBodyPort, SpawnerFoes, SpawnerFoesPort, MarkedFoe, ToucherCreditsPort,
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use ambition_world_port::geometry as world_geometry;
@@ -67,7 +67,7 @@ pub use contact::{
 pub use hold::{BodyHold, BodyHoldPort};
 pub use ledge::{BodyLine, BodyLinePort, LedgeAhead, LedgeAheadPort, LedgeSight, OnGroundPort, LEDGE_SEARCH_REACH};
 pub use special::{
-    AimedStick, AimedStickPort, BodyStrike, BodyStrikePort, Bury, BuryPort, Crumple, CrumplePort, Freeze, FreezePort, FighterSpecial, FighterSpecialPort, ParryWindow,
+    AimedStick, AimedStickPort, BodyStrike, BodyStrikePort, Bury, BuryPort, Crumple, CrumplePort, Freeze, FreezePort, FighterSpecial, FighterSpecialPort, Mend, MendPort, ParryWindow,
     Paralyze, ParalyzePort, ParryWindowPort, RefillResource, RefillResourcePort, SleepArea, SleepAreaPort, SpecialParam,
 };
 pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};

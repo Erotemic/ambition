@@ -496,6 +496,56 @@ ambition_extension_sdk::port_record! {
 
 ambition_extension_sdk::script_port!(CrumplePort);
 
+/// The request port marker for mending a body a strike names.
+///
+/// Port card:
+///
+/// * **Operation** — the body `body` names (a credit: [`crate::Struck::striker`]
+///   or [`crate::BlastPort`]'s) mends `amount` health: its pool refills, up
+///   to its max, and its damage meter falls by as much, to no lower than 0,
+///   so in a match its percent falls. It is not a hit and undoes none: stun,
+///   launch and invulnerability are left alone. A body out of play is not
+///   mended. An amount that is not above 0, or a credit that names no body in
+///   the world, is refused.
+/// * **Owner** — `ambition_combat::extension::reaction`, through the body's
+///   `BodyHealth::heal`.
+/// * **Scope** — any body the credit names; the invocation's own scope (in
+///   `hit_reaction`, the struck body) does not limit it, because the body a
+///   lifesteal mends is the one that struck.
+/// * **Time** — `hit_reaction`, in the tick the strike landed.
+pub struct MendPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Mend {
+    pub body: u64,
+    pub amount: i32,
+}
+
+impl Port for MendPort {
+    const KEY: PortKey = PortKey::new("ambition.combat.mend", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = Mend;
+
+    fn encode(v: &Mend, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Mend, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    Mend {
+        /// The credit of the body that mends.
+        body: u64,
+        /// Health it mends (health points).
+        amount: i32,
+    }
+}
+
+ambition_extension_sdk::script_port!(MendPort);
+
 /// The request port marker for a refill of one of the body's resources.
 ///
 /// Port card:

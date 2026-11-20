@@ -23,9 +23,11 @@
 | [`components`](src/components/mod.rs) | ECS-native feature components. |
 | [`crowd`](src/crowd.rs) | Crowding classification used by fighter spacing logic. |
 | [`damage_box`](src/damage_box.rs) | Damage-box requests capture their source context before deferred construction. |
+| [`death_beat`](src/death_beat.rs) | Every body's death beat: how long a dead body is drawn ([`DeathBeat`](crate::components::DeathBeat)). |
 | [`death_rules`](src/death_rules.rs) | Game-scoped consequences of participant death (ADR 0033). |
 | [`detonate`](src/detonate.rs) | A move that ends its own mover: the handler of [`ambition_entity_catalog::detonate::DETONATE`]. |
 | [`dormancy_rule`](src/dormancy_rule.rs) | How near an observer must be for a hostile's brain to keep thinking: one game's rule for its own rooms (`room_rules`, field `hostile_wake_radius`). |
+| [`empowerment`](src/empowerment.rs) | Composable temporary body empowerment traits. |
 | [`events`](src/events.rs) | Combat message/event vocabulary and small shared value types. |
 | [`extension`](src/extension.rs) | The combat domain's extension request adapters. |
 | [`fade`](src/fade.rs) | A body that FADES between its attacks ([`MeleeTactics::fades`]): a spirit that is faint and intangible while it circles you, and solid while it strikes (Jon, 2026-10-22, the spectral wolf: "fades between attacks"). |
@@ -67,7 +69,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_60 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_62 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

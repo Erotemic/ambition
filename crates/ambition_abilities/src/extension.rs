@@ -175,6 +175,11 @@ pub fn install_module_entities(app: &mut App) {
         "ambition_abilities",
         crate::module_entity::spawner_body_of,
     );
+    app.install_extension_observation::<ambition_combat_port::SpawnerFoesPort>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        crate::module_entity::spawner_foes_of,
+    );
     app.install_extension_observation::<ambition_combat_port::ToucherCreditsPort>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",

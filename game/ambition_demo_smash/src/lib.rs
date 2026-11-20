@@ -30,6 +30,8 @@ mod moveset;
 #[cfg(test)]
 mod riposte_tests;
 #[cfg(test)]
+mod seeker_tests;
+#[cfg(test)]
 mod spring_tests;
 pub mod portal;
 pub mod select;

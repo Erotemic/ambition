@@ -343,6 +343,15 @@ Port `ambition.combat.crumple@1`, request: `this.requests.push(request("<alias>"
 |---|---|---|---|
 | `duration_s` | number | required | Seconds the body sags before it collapses (world seconds). |
 
+## `mend`
+
+Port `ambition.combat.mend@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `body` | text | required | The credit of the body that mends. |
+| `amount` | integer (i32) | required | Health it mends (health points). |
+
 ## `group_think`
 
 Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.

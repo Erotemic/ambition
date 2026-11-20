@@ -104,6 +104,7 @@ mod tests {
                 ambition_demo_smash_modules::bury::module,
                 ambition_demo_smash_modules::freeze::module,
                 ambition_demo_smash_modules::crumple::module,
+                ambition_demo_smash_modules::lifesteal::module,
             ],
         );
         app.add_systems(Update, (mash_out_of_paralysis, mash_out_of_burial, mash_out_of_freeze).after(ExtensionSet::Lower(HIT_REACTION)));
@@ -274,6 +275,54 @@ mod tests {
             assert!(app.world().get::<ae::BodyFlightState>(standing).unwrap().pending_launch_state().is_empty(), "{road:?}");
             let spared = *app.world().get::<BodyCombat>(flying).unwrap();
             assert!(!spared.is_crumpling() && !spared.crumple_collapse_owed && spared.hitstun_timer == 0.4, "{road:?}: {spared:?}");
+        }
+    }
+
+    /// A lifesteal strike mends the body that struck, by its credit: its pool
+    /// and its percent. The struck body is not mended, a striker with no
+    /// identity cannot be named, and a striker out of play is not mended. On
+    /// both roads.
+    #[test]
+    fn a_lifesteal_strike_mends_its_striker() {
+        use ambition_platformer2d::characters::actor::{BodyHealth, DeathPolicy, Health};
+        use ambition_platformer2d::entity_catalog::smash_lifesteal::{LifestealParams, LIFESTEAL};
+        use ambition_platformer2d::platformer::sim_id::SimId;
+        let hurt = || BodyHealth::restored(Health { current: 70, max: 100, invulnerable: Default::default() }, 30, DeathPolicy::Unbounded);
+        let steal = |app: &mut App, owner: Entity, victim: Entity| {
+            app.world_mut().write_message(OnHitEffectMessage {
+                owner,
+                victim,
+                volume: ae::CombatVolume::Circle { center: ae::Vec2::ZERO, radius: 1.0 },
+                contact: ae::Vec2::ZERO,
+                effect: ambition_platformer2d::entity_catalog::EffectRef {
+                    key: LIFESTEAL.to_string(),
+                    params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&LifestealParams { amount: 4 }).unwrap(),
+                },
+            });
+        };
+        for road in [Road::Linked, Road::Loaded] {
+            let mut app = app(road);
+            let striker = body(&mut app);
+            let victim = body(&mut app);
+            let nameless = body(&mut app);
+            let gone = body(&mut app);
+            for (who, slot) in [(striker, 1), (victim, 2), (gone, 3)] {
+                app.world_mut().entity_mut(who).insert((SimId::player_slot(slot), hurt()));
+            }
+            app.world_mut().entity_mut(nameless).insert(hurt());
+            app.world_mut().entity_mut(gone).insert(ambition_platformer2d::combat::death_rules::OutOfPlay);
+            steal(&mut app, striker, victim);
+            steal(&mut app, nameless, victim);
+            steal(&mut app, gone, victim);
+            app.update();
+            let health = |app: &App, who: Entity| {
+                let health = app.world().get::<BodyHealth>(who).unwrap();
+                (health.current(), health.damage_taken())
+            };
+            assert_eq!(health(&app, striker), (74, 26), "{road:?}: the striker was not mended its 4");
+            assert_eq!(health(&app, victim), (70, 30), "{road:?}: the struck body was mended");
+            assert_eq!(health(&app, nameless), (70, 30), "{road:?}: a striker with no identity was mended");
+            assert_eq!(health(&app, gone), (70, 30), "{road:?}: a striker out of play was mended");
         }
     }
 }

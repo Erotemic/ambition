@@ -205,6 +205,29 @@ pub fn specials() -> Vec<Special> {
             },
             module: modules::crumple::module,
         },
+        // Lifesteal: answered on the body a volume struck, and mends the
+        // body that struck it (`ambition.combat.mend`, by its credit).
+        Special {
+            key: catalog::smash_lifesteal::LIFESTEAL,
+            offer: TechniqueOffer {
+                owner: "ambition_demo_smash_modules::lifesteal",
+                params: TechniqueParams::Checked(catalog::smash_lifesteal::check_lifesteal_params),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::OnHit,
+            },
+            module: modules::lifesteal::module,
+        },
+        // Seeker: a module entity that locks one foe by its credit
+        // (`ambition.world.spawner_foes`) and turns toward it each tick.
+        Special {
+            key: catalog::smash_seeker::SEEKER,
+            offer: action(
+                "ambition_demo_smash_modules::seeker",
+                TechniqueParams::Checked(catalog::smash_seeker::check_seeker_params),
+                NestedReferences::None,
+            ),
+            module: modules::seeker::module,
+        },
         // Counter stance: it holds the parry window open each tick of the
         // stance (`ambition.combat.parry_window`, lowered inside `Materialize`,
         // before `Resolve` judges), and answers a parry caught in it

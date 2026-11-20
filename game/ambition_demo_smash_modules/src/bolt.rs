@@ -204,15 +204,26 @@ pub fn advance(
 }
 
 /// Turn `velocity` toward `stick` by at most `max_turn` radians, keeping its
-/// length: a rotation, never a snap.
+/// length: a rotation, never a snap. A stick inside the deadzone does not
+/// steer.
 pub fn steer(velocity: [f32; 2], stick: [f32; 2], max_turn: f32) -> [f32; 2] {
-    let stick_length = (stick[0] * stick[0] + stick[1] * stick[1]).sqrt();
+    if stick[0].hypot(stick[1]) <= STEER_DEADZONE {
+        return velocity;
+    }
+    turn_toward(velocity, stick, max_turn)
+}
+
+/// Turn `velocity` toward the direction `toward` by at most `max_turn`
+/// radians, keeping its length. A zero `toward` or a still velocity is left
+/// as it is.
+pub fn turn_toward(velocity: [f32; 2], toward: [f32; 2], max_turn: f32) -> [f32; 2] {
+    let toward_length = (toward[0] * toward[0] + toward[1] * toward[1]).sqrt();
     let speed = (velocity[0] * velocity[0] + velocity[1] * velocity[1]).sqrt();
-    if stick_length <= STEER_DEADZONE || speed == 0.0 {
+    if toward_length == 0.0 || speed == 0.0 {
         return velocity;
     }
     let have = [velocity[0] / speed, velocity[1] / speed];
-    let want = [stick[0] / stick_length, stick[1] / stick_length];
+    let want = [toward[0] / toward_length, toward[1] / toward_length];
     let cross = have[0] * want[1] - have[1] * want[0];
     let dot = (have[0] * want[0] + have[1] * want[1]).clamp(-1.0, 1.0);
     let (sin, cos) = (max_turn.min(dot.acos()) * cross.signum()).sin_cos();

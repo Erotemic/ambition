@@ -16,6 +16,7 @@
 | [`limit`](src/limit.rs) | The game half of the Limit meter: who gains what, and when. |
 | [`mark`](src/mark.rs) | The delayed mark, end to end in this game. |
 | [`mine`](src/mine.rs) | The remote mine, end to end in this game. |
+| [`paralysis`](src/paralysis.rs) | Paralysis, burial and freeze: strikes that take a body's control away. |
 | [`portal`](src/portal.rs) | The portal recovery, end to end in this game. |
 | [`rules`](src/rules.rs) | The `smash_rules` schema: the demo's own match flow, as data in its pack (`assets/data/smash_rules.ron`). |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
@@ -27,7 +28,7 @@
 | [`tether`](src/tether.rs) | The tether reel, end to end in this game. |
 | [`text`](src/text.rs) | The lines Smash shows, as data in its pack (`assets/data/smash_text.ron`): the match's cards, the select screen, the pause offer and the launcher row. |
 
-_20 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

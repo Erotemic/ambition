@@ -325,6 +325,21 @@ pub(crate) fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
                 }
             })
             .ok(),
+        // A seeker flies like a bolt at a constant speed for its clock; it
+        // turns toward the foe it locked, so the straight span is again an
+        // upper bound.
+        crate::smash_seeker::SEEKER => effect
+            .params
+            .hydrate::<crate::smash_seeker::SeekerParams>()
+            .map(|p| MoveHazard::Spawned {
+                travel: ThreatTravel::Straight {
+                    speed: p.speed,
+                    span: p.speed * p.lifetime_s,
+                    free: p.offset.0.abs() + p.radius,
+                },
+                damage: p.damage,
+            })
+            .ok(),
         // A drop bomb is dropped, not thrown. It appears at `offset` and only
         // the blast travels, so its reach is where it lands plus the blast
         // radius. `impact_speed` is a detonation threshold, not a launch

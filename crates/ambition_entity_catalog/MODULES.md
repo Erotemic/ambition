@@ -17,17 +17,23 @@
 | [`placements`](src/placements.rs) | Pure authored placement schema lowered into runtime behavior by higher layers. |
 | [`smash_bolt`](src/smash_bolt.rs) | Authored payload for the steerable bolt technique. |
 | [`smash_bomb`](src/smash_bomb.rs) | Authored payload for dropping a bomb. |
+| [`smash_bury`](src/smash_bury.rs) | Authored payload for a burial applied by a damaging hit. |
 | [`smash_capture`](src/smash_capture.rs) | Platform-fighter capture vocabulary: grab, pummel, and throw. |
 | [`smash_counter`](src/smash_counter.rs) | Authored payload for a counter stance. |
+| [`smash_crumple`](src/smash_crumple.rs) | Authored payload for a crumple applied by a damaging hit. |
 | [`smash_flyline`](src/smash_flyline.rs) | Authored payload for a flyline recovery. |
+| [`smash_freeze`](src/smash_freeze.rs) | Authored payload for a freeze applied by a damaging hit. |
 | [`smash_homing`](src/smash_homing.rs) | Authored payload for a homing dash. |
+| [`smash_lifesteal`](src/smash_lifesteal.rs) | Authored payload for lifesteal: a strike that mends the body that struck. |
 | [`smash_limit`](src/smash_limit.rs) | Authored Limit-meter fill policy and the technique that fills the meter directly. |
 | [`smash_mark`](src/smash_mark.rs) | Authored payload for a delayed mark applied by a damaging hit. |
 | [`smash_mine`](src/smash_mine.rs) | Authored payload for a remotely triggered mine. |
+| [`smash_paralyze`](src/smash_paralyze.rs) | Authored payload for a paralysis applied by a damaging hit. |
 | [`smash_portal`](src/smash_portal.rs) | Authored payload for placing a linked portal pair as a recovery. |
 | [`smash_repertoire`](src/smash_repertoire.rs) | Standard Smash action grammar and repertoire bookkeeping. |
 | [`smash_ride`](src/smash_ride.rs) | Authored payload for summoning and riding a mount. |
 | [`smash_riposte`](src/smash_riposte.rs) | Authored payload for a body-anchored follow-up strike. |
+| [`smash_seeker`](src/smash_seeker.rs) | Authored payload for the seeker: a shot that locks one foe and follows it. |
 | [`smash_sleep`](src/smash_sleep.rs) | Authored payload for a temporary action lock presented as sleep. |
 | [`smash_spring`](src/smash_spring.rs) | Authored payload for placing a temporary spring on the stage. |
 | [`smash_teleport`](src/smash_teleport.rs) | Authored payload for teleport movement. |
@@ -36,7 +42,7 @@
 | [`smash_trapdoor`](src/smash_trapdoor.rs) | Authored payload for entering and leaving the submerged body mode. |
 | [`smash_vitality`](src/smash_vitality.rs) | Authored payload for changing the mover's own health. |
 
-_29 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

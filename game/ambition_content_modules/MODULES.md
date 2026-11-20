@@ -10,12 +10,13 @@
 | [`beam`](src/beam.rs) | Focus Beam: Attack while holding the beam fires a short line of damage along the aim, snapped to the body's horizontal or vertical axis. |
 | [`blink`](src/blink.rs) | Blink: Attack while holding the blink moves the body at once up to [`DISTANCE`] along the aim, walls permitting, and strikes where it arrives. |
 | [`bossofthegame`](src/bossofthegame.rs) | The final boss's techniques: the bossofthegame and Full Stack, the giant amp-stack robot he stands on (`docs/planning/game/final-boss.md`). |
-| [`contextual_blink`](src/contextual_blink.rs) | Contextual Blink: a press of the Blink slot puts the body behind the nearest foe in reach, on the foe's footing and facing it; at level 3 a double tap slows the world while held and the stick picks the foe. |
+| [`contextual_blink`](src/contextual_blink.rs) | Contextual Blink: a press of the Blink slot puts the body behind the nearest foe in reach, on the foe's footing and facing it. |
 | [`dive`](src/dive.rs) | Overflow Crash: Attack while holding the dive gauntlet lunges the body up to [`LUNGE`] along the aim, snapped to its larger body axis, walls permitting, and hits everything in the corridor it crossed. |
 | [`echo_fan`](src/echo_fan.rs) | The Mockingbird's echo fan: one strike copies a shot across a cone aimed at the boss's target. |
 | [`eye_beam`](src/eye_beam.rs) | The Smirking Behemoth's eye beam: during the telegraph the boss locks where its target is; on the first strike tick it fires a short line of fast bolts from its eye toward that point. |
 | [`eye_laser`](src/eye_laser.rs) | Eye Laser: while a body holds the slot its worn eye laser takes, a wide straight laser leaves its whole visor along its facing, as far as the first wall. |
 | [`fsm`](src/fsm.rs) | The Flying Spaghetti Monster's conductor: it flies the god and performs its moves. |
+| [`gnu2`](src/gnu2.rs) | GNU2's conductor: the giant's armored sequel, which GNU-ton calls in at his enrage (GNUTON-GNU2-FINALE). |
 | [`gnu_ton`](src/gnu_ton/mod.rs) | GNU-ton, the scholar who rides the giant gnu and lectures with its fists. |
 | [`gradient_cascade`](src/gradient_cascade.rs) | Gradient cascade: on the first strike tick, minions drop in from the top of the arena, spread evenly about the boss. |
 | [`grapple`](src/grapple.rs) | Grapple: Attack while holding the grapple casts a line along the aim. |
@@ -40,7 +41,7 @@
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 | [`wolfenstein`](src/wolfenstein.rs) | Wolfenstein's conductor: it walks the monster and performs his moves. |
 
-_33 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_34 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

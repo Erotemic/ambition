@@ -554,6 +554,63 @@ impl Port for SpawnerBodyPort {
     }
 }
 
+/// The observation port marker for the foes of the body that spawned a
+/// module entity, each named durably.
+///
+/// Port card:
+///
+/// * **Operation** — each body the spawner may aim at (the relation
+///   `ambition.combat.foes` answers for the spawner), with its credit (the
+///   name [`crate::BlastPort`] and [`ToucherCreditsPort`] use, kept across a
+///   rewind and the same on every peer), its centre and its size, in identity
+///   order. A module that locks one foe keeps the credit and finds it here
+///   each tick; a foe that leaves is gone from the list.
+/// * **Owner** — `ambition_abilities::module_entity`, from
+///   `ambition_combat::extension::targets`.
+/// * **Scope** — the module entity the invocation ran for.
+/// * **Time** — offered in `module_entity_tick`.
+/// * **Read model** — world units, +Y down.
+/// * **Absence** — an empty list when the spawner is not in the world or has
+///   no foe; a foe with no simulation identity cannot be named and is left
+///   out.
+pub struct SpawnerFoesPort;
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SpawnerFoes {
+    pub foes: Vec<MarkedFoe>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MarkedFoe {
+    pub credit: u64,
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+}
+
+impl Port for SpawnerFoesPort {
+    const KEY: PortKey = PortKey::new("ambition.world.spawner_foes", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = SpawnerFoes;
+
+    fn encode(v: &SpawnerFoes, out: &mut Vec<u8>) {
+        wire::put_u32(out, v.foes.len() as u32);
+        for foe in &v.foes {
+            wire::put_u64(out, foe.credit);
+            wire::put_vec2(out, foe.position);
+            wire::put_vec2(out, foe.size);
+        }
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<SpawnerFoes, WireError> {
+        let count = r.read_len()?;
+        let mut foes = Vec::with_capacity(count);
+        for _ in 0..count {
+            foes.push(MarkedFoe { credit: r.u64()?, position: r.vec2()?, size: r.vec2()? });
+        }
+        Ok(SpawnerFoes { foes })
+    }
+}
+
 /// The observation port marker for who the touchers of a module entity are.
 ///
 /// Port card:
@@ -653,6 +710,8 @@ mod tests {
         let spawner = SpawnerBody { credit: u64::MAX, stick: [-1.0, 0.5] };
         assert_eq!(round_trip::<SpawnerBodyPort>(spawner), spawner);
         assert_eq!(round_trip::<ToucherCreditsPort>(vec![0, 7, u64::MAX]), vec![0, 7, u64::MAX]);
+        let foes = SpawnerFoes { foes: vec![MarkedFoe { credit: u64::MAX, position: [1.0, -2.0], size: [20.0, 48.0] }] };
+        assert_eq!(round_trip::<SpawnerFoesPort>(foes.clone()), foes);
     }
 
     #[test]

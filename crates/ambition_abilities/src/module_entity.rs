@@ -450,6 +450,32 @@ pub fn spawner_body_of(world: &World, scope: Entity) -> Option<SpawnerBody> {
     }))
 }
 
+/// The foes of the body that spawned `scope`, each with its credit, in the
+/// order `ambition.combat.foes` gives them. Empty when the spawner is gone;
+/// a foe with no identity cannot be named, so it is left out.
+pub fn spawner_foes_of(world: &World, scope: Entity) -> Option<ambition_combat_port::SpawnerFoes> {
+    let module_entity = world.get::<ModuleEntity>(scope)?;
+    let spawner = module_entity
+        .spawner
+        .as_ref()
+        .and_then(|spawner| world.iter_entities().find(|entity| entity.get::<SimId>() == Some(spawner)));
+    let foes = spawner
+        .and_then(|body| ambition_combat::extension::targets::foe_bodies_of(world, body.id()))
+        .unwrap_or_default();
+    Some(ambition_combat_port::SpawnerFoes {
+        foes: foes
+            .into_iter()
+            .filter_map(|foe| {
+                Some(ambition_combat_port::MarkedFoe {
+                    credit: ambition_combat::extension::blast::credit_of(foe.id?),
+                    position: [foe.at.x, foe.at.y],
+                    size: [foe.size.x, foe.size.y],
+                })
+            })
+            .collect(),
+    })
+}
+
 /// The credit of each toucher of `scope`'s tick, in its tick's order.
 /// Absent for a scope that was not ticked.
 pub fn toucher_credits_of(world: &World, scope: Entity) -> Option<Vec<u64>> {

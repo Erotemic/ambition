@@ -8,24 +8,26 @@
 |---|---|
 | [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the same stick you walk with. |
 | [`bomb`](src/bomb.rs) | The bomb: a ground item with a fuse. |
-| [`bury`](src/bury.rs) | The burial: a strike that drives a standing body into the floor; the burial is the engine's. |
+| [`bury`](src/bury.rs) | The burial: a strike that drives a standing body into the floor. |
 | [`counter`](src/counter.rs) | The counter stance: while it is live, its fighter parries. |
-| [`crumple`](src/crumple.rs) | The crumple: a strike that buckles a standing body to the floor; the sag and the collapse are the engine's. |
+| [`crumple`](src/crumple.rs) | The crumple: a strike that buckles a standing body to the floor. |
 | [`dilation`](src/dilation.rs) | Time dilation: a body runs on a slower clock for a while. |
-| [`freeze`](src/freeze.rs) | The freeze: a strike that encases the body it struck; the ice is the engine's. |
+| [`freeze`](src/freeze.rs) | The freeze: a strike that encases the body it struck. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
+| [`lifesteal`](src/lifesteal.rs) | Lifesteal: a strike that mends the body that struck. |
 | [`limit`](src/limit.rs) | A move that fills its own fighter's Limit meter. |
 | [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to the fighter who placed it and nobody else. |
-| [`paralyze`](src/paralyze.rs) | The paralysis: a strike that holds the body it struck; the hold is the engine's. |
+| [`paralyze`](src/paralyze.rs) | The paralysis: a strike that holds the body it struck. |
 | [`portal`](src/portal.rs) | The portal recovery: a linked pair of portals, one at the fighter and one above, held open for a while. |
 | [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |
+| [`seeker`](src/seeker.rs) | The seeker: a shot that locks one foe and follows that foe. |
 | [`shark`](src/shark.rs) | The shark ride: the pirate summons a burning flying shark and rides it. |
 | [`sing`](src/sing.rs) | The song: a pulse that puts everyone near the singer to sleep. |
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

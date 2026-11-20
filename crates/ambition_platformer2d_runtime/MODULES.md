@@ -46,6 +46,7 @@
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
 | [`quest`](src/quest.rs) | Gameplay-core adapter for the generic quest runtime. |
+| [`record_seeds`](src/record_seeds.rs) | Script-authored initial records for a body that a native constructor creates. |
 | [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. |
 | [`room_departure`](src/room_departure.rs) | Leaving a room because the level in it is done: the one road for "go on". |
 | [`room_schedule`](src/room_schedule.rs) | Room-transition schedule anchors. |
@@ -64,9 +65,10 @@
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 | [`world_integration_tests`](src/world_integration_tests.rs) | ECS-feature behavior tests. |
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
+| [`world_posts`](src/world_posts.rs) | The committed world road between rollback islands: `post_world_signal`. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_59 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_61 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

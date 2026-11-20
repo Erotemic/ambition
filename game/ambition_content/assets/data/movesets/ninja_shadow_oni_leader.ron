@@ -1369,7 +1369,15 @@
                                             knockback_growth: Some(1.95),
                                             launch_dir: Some((0.95, -0.35)),
                                             reaction: None,
-                                            on_hit: None,
+                                            // The oni drinks what the draw cuts: the leader mends
+                                            // 4 of the 11 it deals (`smash.lifesteal`), so a read
+                                            // that lands buys back some of the punish he risked.
+                                            on_hit: Some((
+                                                key: "smash.lifesteal",
+                                                params: ({
+                                                    "amount": 4,
+                                                }),
+                                            )),
                                             vfx: Some("slash_arc"),
                                             hit_sfx: Some("player.hit"),
                                         ),

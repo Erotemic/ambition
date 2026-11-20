@@ -27,6 +27,26 @@ fn room_of(world: &World, entity: Entity, sole: Option<LiveRoomInstance>) -> Opt
 /// The foes of `scope`: each other body of its live room that it targets and
 /// can hit, in the order of simulation identity.
 pub fn foes_of(world: &World, scope: Entity) -> Option<Foes> {
+    Some(Foes {
+        foes: foe_bodies_of(world, scope)?
+            .into_iter()
+            .map(|foe| Foe { position: [foe.at.x, foe.at.y], size: [foe.size.x, foe.size.y] })
+            .collect(),
+    })
+}
+
+/// One foe of a body, as [`foe_bodies_of`] finds it.
+#[derive(Clone, Copy, Debug)]
+pub struct FoeBody<'w> {
+    pub entity: Entity,
+    pub id: Option<&'w SimId>,
+    pub at: ae::Vec2,
+    pub size: ae::Vec2,
+}
+
+/// The foes [`foes_of`] answers, with the entity and identity of each, in the
+/// same order. `None` for a scope that is not a body.
+pub fn foe_bodies_of(world: &World, scope: Entity) -> Option<Vec<FoeBody<'_>>> {
     world.get::<ae::BodyKinematics>(scope)?;
     let mut roots = world
         .iter_entities()
@@ -79,9 +99,7 @@ pub fn foes_of(world: &World, scope: Entity) -> Option<Foes> {
         (None, Some(_)) => std::cmp::Ordering::Greater,
         (None, None) => a.1.cmp(&b.1),
     });
-    Some(Foes {
-        foes: foes.into_iter().map(|(_, _, at, size)| Foe { position: [at.x, at.y], size: [size.x, size.y] }).collect(),
-    })
+    Some(foes.into_iter().map(|(id, entity, at, size)| FoeBody { entity, id, at, size }).collect())
 }
 
 #[cfg(test)]

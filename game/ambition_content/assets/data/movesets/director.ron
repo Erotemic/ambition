@@ -47,6 +47,7 @@
                 )),
                 moveset: Some((
                     verbs: {
+                        "special": "director_chekhovs_gun",
                         "special_down": "director_second_draft",
                         "special_forward": "director_train_of_thought",
                         "special_up": "director_revision",
@@ -507,6 +508,105 @@
                                 recovery: r#None,
                                 forbidden_while_held: false,
                                 roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // Neutral special: Chekhov's Gun. A shot shown in the first act must
+                        // go off by the last: it locks the nearest foe ahead of him
+                        // (`smash.seeker`) and follows that one foe, turning toward it, until it
+                        // lands or its clock runs out. It replaces the archetype's `polygon_point`.
+                        //
+                        // The answer to it is to move: it never speeds up, and at 150°/s a foe
+                        // who crosses its path outruns its turn. A foe knocked out is not
+                        // replaced; the shot flies on straight.
+                        //
+                        // (`speed: 260.0,`)
+                        // Slower than his steered thought (300): a shot that follows has to be
+                        // outrun, and at 300 nobody on foot could.
+                        //
+                        // (`lock_range: 560.0,`)
+                        // Most of a stage: the lock is the move's promise, so it should find
+                        // somebody when somebody is there.
+                        //
+                        // (`damage: 7,`)
+                        // Below the thought's 8: a shot that aims itself should not also win on
+                        // damage.
+                        (
+                            id: "director_chekhovs_gun",
+                            display_name: Some("Chekhov's Gun"),
+                            clip: (
+                                clip: "special",
+                                fallbacks: [
+                                    "special_forward",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.52,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.24,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 0.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.24,
+                                    end_s: 0.52,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 0.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.24,
+                                    kind: Effect((
+                                        key: "smash.seeker",
+                                        params: ({
+                                            "damage": 7,
+                                            "hit_s": 0.06,
+                                            "knockback": 1.2,
+                                            "lifetime_s": 2.4,
+                                            "lock_range": 560.0,
+                                            "offset": [
+                                                24.0,
+                                                -12.0,
+                                            ],
+                                            "radius": 10.0,
+                                            "speed": 260.0,
+                                            "trail_every_s": 0.07,
+                                            "trail_vfx": "four_point_glint",
+                                            "turn_rate_deg": 150.0,
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    at_s: 0.24,
+                                    kind: Sfx(
+                                        cue: "player.attack.charge",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
                                 recovery_route: None,
                                 costs: [],
                                 when_refused: None,

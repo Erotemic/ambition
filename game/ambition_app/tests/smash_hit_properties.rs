@@ -293,3 +293,57 @@ fn alices_side_channel_crumples_a_standing_body_into_the_floor_game() {
     let facts = app.world().get::<ae::BodyMotionFacts>(victim).unwrap();
     assert!(facts.knocked_down, "the crumple did not end prone in the floor game");
 }
+
+/// S0.9: the Director's Chekhov's Gun locks the rival ahead of him and
+/// reaches it: a seeker shot is on the stage, and the rival takes its hit.
+#[test]
+fn the_directors_chekhovs_gun_reaches_the_rival_it_locked() {
+    let (mut app, [director, victim]) = two_fighters(["director", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    let victim_x = app.world().get::<ae::BodyKinematics>(director).unwrap().pos.x + 240.0;
+    app.world_mut().get_mut::<ae::BodyKinematics>(victim).unwrap().pos.x = victim_x;
+    let spec = app.world().get::<ActorMoveset>(director).unwrap().0.move_for_verb("special").unwrap().clone();
+    assert_eq!(spec.id, "director_chekhovs_gun", "his neutral special is not the seeker");
+    let before = app.world().get::<BodyHealth>(victim).unwrap().damage_taken();
+    app.world_mut().entity_mut(director).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0));
+    let mut shot_seen = false;
+    for _ in 0..180 {
+        app.update();
+        shot_seen |= app
+            .world_mut()
+            .query::<&ambition_platformer2d::abilities::module_entity::ModuleEntity>()
+            .iter(app.world())
+            // The kind `ambition_demo_smash_modules::seeker::SEEKER_SHOT` names.
+            .any(|entity| entity.kind == "smash.seeker_shot");
+        if app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > before {
+            break;
+        }
+    }
+    assert!(shot_seen, "the neutral special put no seeker on the stage");
+    assert_eq!(app.world().get::<BodyHealth>(victim).unwrap().damage_taken() - before, 7, "the shot did not land its 7");
+}
+
+/// S0.9: the Shadow Oni Leader's iaijutsu mends him by its lifesteal: his
+/// percent falls by 4 when the draw lands its 11.
+#[test]
+fn the_oni_leaders_iaijutsu_mends_him_by_what_it_cuts() {
+    use ambition_platformer2d::characters::actor::{DeathPolicy, Health};
+    let (mut app, [oni, victim]) = two_fighters(["npc_ninja_shadow_oni_leader", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    let health = *app.world().get::<BodyHealth>(oni).unwrap();
+    let max = health.max();
+    app.world_mut()
+        .entity_mut(oni)
+        .insert(BodyHealth::restored(Health::new(max), 30, DeathPolicy::Unbounded).with_policy(health.policy()));
+    let spec = app.world().get::<ActorMoveset>(oni).unwrap().0.moves.iter()
+        .find(|spec| spec.id == "iaijutsu").unwrap().clone();
+    let before = app.world().get::<BodyHealth>(victim).unwrap().damage_taken();
+    app.world_mut().entity_mut(oni).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0));
+    for _ in 0..90 {
+        app.update();
+        if app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > before {
+            break;
+        }
+    }
+    app.update();
+    assert!(app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > before, "the iaijutsu did not land");
+    assert_eq!(app.world().get::<BodyHealth>(oni).unwrap().damage_taken(), 26, "the oni was not mended his 4");
+}

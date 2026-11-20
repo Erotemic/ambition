@@ -11,7 +11,7 @@
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{AnswerParryPort, BuryPort, CrumplePort, FreezePort, ParalyzePort, Parried, ParriedPort, Struck};
+use ambition_combat_port::{AnswerParryPort, BuryPort, CrumplePort, FreezePort, MendPort, ParalyzePort, Parried, ParriedPort, Struck};
 pub use ambition_combat_port::StruckPort;
 use ambition_entity_catalog::ParamValue;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
@@ -48,6 +48,7 @@ pub fn install_for_hit_reaction(app: &mut App) {
     app.install_extension_submitted_request::<BuryPort, _>(HIT_REACTION, "ambition_combat", lower_burials);
     app.install_extension_submitted_request::<FreezePort, _>(HIT_REACTION, "ambition_combat", lower_freezes);
     app.install_extension_submitted_request::<CrumplePort, _>(HIT_REACTION, "ambition_combat", lower_crumples);
+    app.install_extension_submitted_request::<MendPort, _>(HIT_REACTION, "ambition_combat", lower_mends);
     super::status::install_for_hit_reaction(app);
 }
 
@@ -122,6 +123,35 @@ pub fn lower_crumples(
             combat.crumple_timer = duration_s;
         }
         combat.crumple_collapse_owed = true;
+    }
+}
+
+/// Mend each body a module named by its credit (see the port card): its pool
+/// and its damage meter, as `BodyHealth::heal` repays them. A body out of
+/// play is not mended.
+pub fn lower_mends(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut bodies: Query<(
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        &mut ambition_characters::actor::BodyHealth,
+        Has<crate::death_rules::OutOfPlay>,
+    )>,
+) {
+    for submitted in outbox.drain::<MendPort>(&HIT_REACTION) {
+        let ambition_combat_port::Mend { body, amount } = submitted.value;
+        if amount <= 0 {
+            warn!("extension entry {} asked to mend {amount}; refused", submitted.entry);
+            continue;
+        }
+        let Some((_, mut health, out_of_play)) =
+            bodies.iter_mut().find(|(id, _, _)| super::blast::credit_of(id) == body)
+        else {
+            warn!("extension entry {} asked to mend a credit that names no body; refused", submitted.entry);
+            continue;
+        };
+        if !out_of_play {
+            health.heal(amount);
+        }
     }
 }
 

@@ -311,6 +311,14 @@ Port `ambition.body.observer_slow@1`, request: `this.requests.push(request("<ali
 
 No fields: `request("observer_slow", #{})`.
 
+## `paralyze`
+
+Port `ambition.combat.paralyze@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `duration_s` | number | required | Seconds the body is held (world seconds). |
+
 ## `group_think`
 
 Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.

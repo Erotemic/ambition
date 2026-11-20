@@ -14,6 +14,7 @@
 | [`limit`](src/limit.rs) | A move that fills its own fighter's Limit meter. |
 | [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to the fighter who placed it and nobody else. |
+| [`paralyze`](src/paralyze.rs) | The paralysis: a strike that holds the body it struck; the hold is the engine's. |
 | [`portal`](src/portal.rs) | The portal recovery: a linked pair of portals, one at the fighter and one above, held open for a while. |
 | [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |
 | [`shark`](src/shark.rs) | The shark ride: the pirate summons a burning flying shark and rides it. |

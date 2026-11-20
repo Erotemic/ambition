@@ -12,7 +12,8 @@
 //! carries it lands (`ambition.combat.struck`). A special that leaves
 //! something on the stage (a plate) asks the world for a module entity, and
 //! the module ticks it; one that leaves something on a body (a slow, a mark)
-//! holds a status there and keeps its state in records on the body.
+//! holds a status there and keeps its state in records on the body; one
+//! that holds the body itself (a paralysis) asks the engine for the hold.
 
 pub mod bolt;
 pub mod bomb;
@@ -22,6 +23,7 @@ pub mod homing;
 pub mod limit;
 pub mod mark;
 pub mod mine;
+pub mod paralyze;
 pub mod portal;
 pub mod riposte;
 pub mod shark;
@@ -42,6 +44,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     limit::module,
     mark::module,
     mine::module,
+    paralyze::module,
     portal::module,
     riposte::module,
     shark::module,

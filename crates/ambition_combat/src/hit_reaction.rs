@@ -374,6 +374,8 @@ pub fn apply_body_hit_reaction(
         // discharge a sleep either. Blowing a sleeping fighter across the stage
         // should not wake them — the wake is what a real hit buys.
         combat.sleep_timer = 0.0;
+        // A real hit ends a paralysis too, for the same counterplay.
+        combat.paralysis_timer = 0.0;
     }
     // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
     // authority, then regains the attack verb the instant it clears (while still in hitstun +

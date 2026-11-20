@@ -68,7 +68,7 @@ pub use hold::{BodyHold, BodyHoldPort};
 pub use ledge::{BodyLine, BodyLinePort, LedgeAhead, LedgeAheadPort, LedgeSight, OnGroundPort, LEDGE_SEARCH_REACH};
 pub use special::{
     AimedStick, AimedStickPort, BodyStrike, BodyStrikePort, FighterSpecial, FighterSpecialPort, ParryWindow,
-    ParryWindowPort, RefillResource, RefillResourcePort, SleepArea, SleepAreaPort, SpecialParam,
+    Paralyze, ParalyzePort, ParryWindowPort, RefillResource, RefillResourcePort, SleepArea, SleepAreaPort, SpecialParam,
 };
 pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};
 pub use launch::LaunchDirection;

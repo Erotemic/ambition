@@ -28,6 +28,8 @@ pub struct SmashRules {
     pub return_to_select_seconds: f32,
     /// Seconds one press burns off a sleep.
     pub sleep_mash_seconds: f32,
+    /// Seconds one press burns off a paralysis.
+    pub paralysis_mash_seconds: f32,
     /// The stock counts the select screen's stocks button offers, in the
     /// order it walks them.
     pub stock_choices: Vec<u32>,
@@ -63,6 +65,7 @@ impl SmashRules {
         for (field, value) in [
             ("return_to_select_seconds", self.return_to_select_seconds),
             ("sleep_mash_seconds", self.sleep_mash_seconds),
+            ("paralysis_mash_seconds", self.paralysis_mash_seconds),
             ("back_hold_to_leave_seconds", self.back_hold_to_leave_seconds),
         ] {
             if !(value.is_finite() && value >= 0.0) {

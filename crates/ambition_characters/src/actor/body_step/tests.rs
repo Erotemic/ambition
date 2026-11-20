@@ -464,3 +464,23 @@ fn an_unstepped_short_freeze_does_not_change_a_later_deflection() {
     let input = ae::InputState { axes: ae::LocalAxes::new(0.0, -1.0), ..Default::default() };
     assert_eq!(stepped(&mut body, &mut combat, tuning, input), ae::Vec2::new(0.0, -3.0));
 }
+
+/// A paralyzed body is held where it was struck: it does not travel, not
+/// even by SDI, and the stun of its hit waits for the end of the hold.
+#[test]
+fn a_paralyzed_body_is_held_and_its_stun_waits() {
+    let mut body = body_travelling();
+    let mut combat = BodyCombat { paralysis_timer: 0.5, hitstun_timer: 0.3, ..BodyCombat::default() };
+    assert!(combat.is_paralyzed() && combat.hard_lock_timer() > 0.0, "the fixture must arm the hold");
+    let sdi = ae::InputState { axes: ae::LocalAxes::new(1.0, 0.0), ..Default::default() };
+    let moved = stepped(&mut body, &mut combat, ae::MovementTuning::default(), sdi).length();
+    assert_eq!(moved, 0.0, "a paralyzed body travelled {moved}px");
+    combat.decay_reaction_timers(0.2, 0.2);
+    assert!((combat.paralysis_timer - 0.3).abs() < 1e-6 && combat.hitstun_timer == 0.3, "{combat:?}");
+    combat.decay_reaction_timers(0.4, 0.4);
+    assert_eq!(combat.paralysis_timer, 0.0);
+    assert!((combat.hitstun_timer - 0.2).abs() < 1e-6, "the stun ran only past the end of the hold: {combat:?}");
+    combat.paralysis_timer = 0.5;
+    combat.reset();
+    assert!(!combat.is_paralyzed(), "a body put back to spawn is still held");
+}

@@ -22,7 +22,7 @@ fn installing_twice_installs_once() {
     );
     let support = &app.world().resource::<InstalledTechniques>().0;
     let specials = specials();
-    assert_eq!(specials.len(), 14);
+    assert_eq!(specials.len(), 15);
     for special in &specials {
         let held = support.offer(special.key).unwrap_or_else(|| panic!("`{}` is not declared", special.key));
         assert_eq!(held.owner, special.offer.owner, "`{}`", special.key);

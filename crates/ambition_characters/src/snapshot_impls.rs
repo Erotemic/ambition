@@ -64,6 +64,9 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     // reason every lock beside it is: two peers disagreeing about how long a
     // fighter stays helpless resimulate different matches from that moment.
     sleep_timer: f32,
+    // PARALYZED. A lock like the sleep, and it freezes the body's step: two
+    // peers that disagree about it disagree about where the body is.
+    paralysis_timer: f32,
     // SLOWED. A status like the sleep above it: two peers that disagree about
     // how long a body wades through honey resimulate different matches.
     slow_timer: f32,

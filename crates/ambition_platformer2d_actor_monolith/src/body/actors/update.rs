@@ -2770,6 +2770,8 @@ mod body_combat_rebuild_contract {
             // A sleep a move applied — reaction history like the locks above it,
             // owned by the body and never rewritten from the cluster.
             sleep_timer: _,
+            // A paralysis a hit applied: the same.
+            paralysis_timer: _,
             // A slow a puddle applied: owned by the body, never rewritten
             // from the cluster.
             slow_timer: _,

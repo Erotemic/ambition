@@ -337,6 +337,13 @@ pub struct BodyCombat {
     /// `0.0` for every body nothing has put to sleep, which is all of them
     /// until a move says otherwise.
     pub sleep_timer: f32,
+    /// PARALYZED: seconds left in which this body is held where it was struck
+    /// and cannot act (a `smash.paralyze` hit). Unlike a sleep the body does
+    /// not fall or drift: its step is frozen, as in hitlag, and the stun and
+    /// recoil lock of the hit wait for the end of it ([`Self::is_paralyzed`]).
+    /// A real hit ends it, and so does the game's mash rule. `0.0` for every
+    /// body nothing has paralyzed.
+    pub paralysis_timer: f32,
     /// SLOWED: seconds left in which this body moves at [`Self::slow_scale`]
     /// of its own speed (honey, glue). Not a control lock: the body acts and
     /// steers, only slower. Applied by [`Self::slow`]; the body step reads it
@@ -473,6 +480,7 @@ impl BodyCombat {
         self.recoil_lock_timer
             .max(self.landing_lag_timer)
             .max(self.sleep_timer)
+            .max(self.paralysis_timer)
             .max(self.ledge_trump_lock_timer)
     }
 
@@ -485,6 +493,12 @@ impl BodyCombat {
     /// where they stand, and the beat goes on.
     pub fn is_knocked(&self) -> bool {
         self.recoil_lock_timer > 0.0 || self.hitstun_timer > 0.0
+    }
+
+    /// Whether this body is held by a paralysis now: its step is frozen and it
+    /// cannot act.
+    pub fn is_paralyzed(&self) -> bool {
+        self.paralysis_timer > 0.0
     }
 
     /// Whether this body is currently in hitlag.
@@ -535,7 +549,9 @@ impl BodyCombat {
         // attacker's move was over.
         // A freeze that ends inside this step leaves the rest of the step to
         // the stun.
-        let thawed_dt = (proper_dt - self.hitstop_timer.max(0.0)).max(0.0);
+        // A paralysis is a longer freeze of the same kind: the stun waits for
+        // it as it waits for the hitlag.
+        let thawed_dt = (proper_dt - self.hitstop_timer.max(self.paralysis_timer).max(0.0)).max(0.0);
         self.damage_invuln_timer = (self.damage_invuln_timer - proper_dt).max(0.0);
         self.hit_flash = (self.hit_flash - proper_dt).max(0.0);
         self.struck_recently = (self.struck_recently - proper_dt).max(0.0);
@@ -543,6 +559,7 @@ impl BodyCombat {
         self.recoil_lock_timer = (self.recoil_lock_timer - thawed_dt).max(0.0);
         self.ledge_trump_lock_timer = (self.ledge_trump_lock_timer - proper_dt).max(0.0);
         self.sleep_timer = (self.sleep_timer - proper_dt).max(0.0);
+        self.paralysis_timer = (self.paralysis_timer - proper_dt).max(0.0);
         self.slow_timer = (self.slow_timer - proper_dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - unscaled_dt).max(0.0);
         if self.hitstop_timer == 0.0 && !self.asdi_owed {
@@ -570,6 +587,8 @@ impl BodyCombat {
         // A fighter who respawns still asleep from the stock before is helpless
         // on arrival with nothing on screen explaining why.
         self.sleep_timer = 0.0;
+        // Nor held by a paralysis from the stock before.
+        self.paralysis_timer = 0.0;
         // A body put back to spawn is out of the honey.
         self.slow_timer = 0.0;
         self.slow_scale = 0.0;
@@ -762,6 +781,7 @@ mod hard_lock_tests {
             // Ticked with the rest: a sleep runs down on the same clock as
             // every other reaction, so nothing has to remember it separately.
             sleep_timer: _,
+            paralysis_timer: _,
             // A slow runs down with the rest; its scale is read only while it does.
             slow_timer: _,
             slow_scale: _,
@@ -804,6 +824,8 @@ mod hard_lock_tests {
             // from the stock before is helpless on arrival with nothing on
             // screen explaining why.
             sleep_timer: _,
+            // Cleared, for the same reason as the sleep.
+            paralysis_timer: _,
             // Cleared: a body put back to spawn is out of the honey.
             slow_timer: _,
             slow_scale: _,

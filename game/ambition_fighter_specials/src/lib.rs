@@ -160,6 +160,18 @@ pub fn specials() -> Vec<Special> {
             },
             module: modules::mark::module,
         },
+        // Paralysis: answered on the body a volume struck, like the mark;
+        // the hold is the engine's (`ambition.combat.paralyze`).
+        Special {
+            key: catalog::smash_paralyze::PARALYZE,
+            offer: TechniqueOffer {
+                owner: "ambition_demo_smash_modules::paralyze",
+                params: TechniqueParams::Checked(catalog::smash_paralyze::check_paralyze_params),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::OnHit,
+            },
+            module: modules::paralyze::module,
+        },
         // Counter stance: it holds the parry window open each tick of the
         // stance (`ambition.combat.parry_window`, lowered inside `Materialize`,
         // before `Resolve` judges), and answers a parry caught in it

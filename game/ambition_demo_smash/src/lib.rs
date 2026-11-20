@@ -35,6 +35,7 @@ pub mod portal;
 pub mod select;
 pub mod select_screen;
 pub mod shark_ride;
+pub mod paralysis;
 pub mod sing;
 pub mod smash_pack;
 pub mod rules;
@@ -480,13 +481,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // authors most of them too, so they install from their own crate,
         // once, whichever game asks first.
         ambition_fighter_specials::install(app);
-        // The mash is this game's rule of how a sleeper buys time back. It
+        // The mash is this game's rule of how a sleeper (or a paralyzed
+        // fighter) buys time back. It
         // runs before the song's sleep is lowered, so a press cannot be spent
         // on a sleep that did not exist when it was made; the sleep is a
         // floor, so the landing tick is the same either way.
         app.add_systems(
             sim,
-            crate::sing::mash_out_of_sleep
+            (crate::sing::mash_out_of_sleep, crate::paralysis::mash_out_of_paralysis)
                 .in_set(FIGHTER_SPECIALS)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
                 .before(ambition_platformer2d::extension::ExtensionSet::Collect(

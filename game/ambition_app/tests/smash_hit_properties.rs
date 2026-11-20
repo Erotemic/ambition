@@ -140,3 +140,61 @@ fn an_airborne_grab_press_plays_the_authored_tether_hit_without_capture() {
     assert!(!captured);
     assert!(app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > 0);
 }
+
+/// S0.8: the Patent Clerk's authored light argument paralyzes the body it
+/// catches. The victim is held where it was struck and cannot act; the hit's
+/// launch and stun wait for the end, and then it is launched.
+#[test]
+fn the_light_argument_holds_its_victim_and_the_launch_waits_for_the_end() {
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    let (mut app, [clerk, victim]) = two_fighters(["special_patent_clerk", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    let spec = app.world().get::<ActorMoveset>(clerk).unwrap().0.moves.iter()
+        .find(|spec| spec.id == "light_argument").unwrap().clone();
+    app.world_mut().entity_mut(clerk).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0));
+    let mut held_at = None;
+    for _ in 0..90 {
+        app.update();
+        if app.world().get::<BodyCombat>(victim).unwrap().is_paralyzed() {
+            held_at = Some(app.world().get::<ae::BodyKinematics>(victim).unwrap().pos);
+            break;
+        }
+    }
+    let held_at = held_at.expect("the authored light argument must paralyze the body it reaches");
+    let combat = *app.world().get::<BodyCombat>(victim).unwrap();
+    assert!(combat.hard_lock_timer() > 0.0, "a paralyzed body cannot act");
+    let stun = combat.hitstun_timer;
+    assert!(stun > 0.0, "the hit charged its stun");
+    let mut ticks = 0;
+    while app.world().get::<BodyCombat>(victim).unwrap().is_paralyzed() {
+        assert!(ticks < 60, "the paralysis outlasted its authored 0.6 s");
+        assert_eq!(app.world().get::<ae::BodyKinematics>(victim).unwrap().pos, held_at, "the body moved while held");
+        app.update();
+        ticks += 1;
+    }
+    assert!(ticks >= 30, "held only {ticks} ticks of an authored 0.6 s");
+    assert!(app.world().get::<BodyCombat>(victim).unwrap().hitstun_timer > 0.0, "the stun waited for the end of the hold");
+    for _ in 0..10 {
+        app.update();
+    }
+    assert!(app.world().get::<ae::BodyKinematics>(victim).unwrap().pos.x > held_at.x + 1.0, "the launch is spent after the hold");
+}
+
+/// S0.8: a real hit ends a paralysis, as it wakes a sleeper: being struck is
+/// the attacker's counterplay to the hold, and the hit's own stun replaces it.
+#[test]
+fn a_real_hit_ends_a_paralysis() {
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    let (mut app, [attacker, victim]) = two_georges();
+    app.world_mut().get_mut::<BodyCombat>(victim).unwrap().paralysis_timer = 1.5;
+    let jab = app.world().get::<ActorMoveset>(attacker).unwrap().0.moves.iter().find(|spec| spec.id == "jab").unwrap().clone();
+    app.world_mut().entity_mut(attacker).insert(MovePlayback::new(std::sync::Arc::new(jab), 1.0));
+    let before = app.world().get::<BodyHealth>(victim).unwrap().damage_taken();
+    for _ in 0..40 {
+        app.update();
+        if app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > before {
+            break;
+        }
+    }
+    assert!(app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > before, "the jab must land");
+    assert!(!app.world().get::<BodyCombat>(victim).unwrap().is_paralyzed(), "the hit ended the paralysis");
+}

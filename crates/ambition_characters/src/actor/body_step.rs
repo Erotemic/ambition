@@ -63,6 +63,12 @@ pub fn step_body(
         ctx.dt = 0.0;
         return ae::step_motion(model, clusters, ctx);
     }
+    if combat.is_paralyzed() {
+        // Held where it was struck: no step, no SDI. Its velocity and any
+        // staged launch wait for the end of it, as they wait for a freeze.
+        ctx.dt = 0.0;
+        return ae::step_motion(model, clusters, ctx);
+    }
     if combat.is_in_hitlag() {
         // SDI is allowed during hitlag, but `step_motion` does not sweep when
         // `dt == 0`; sweep the displacement here so it cannot enter geometry.

@@ -366,7 +366,9 @@ pub fn advance_presented_body_poses(
             presented.size = pose.size();
             // The shake belongs to the VICTIM: the body a hit flashed and froze.
             // The attacker shares the freeze and holds still.
-            let frozen = combat.is_some_and(|c| c.hitstop_timer > 0.0 && c.hit_flash > 0.0);
+            // A paralyzed body crackles the same way, at the freeze's least
+            // strength, for as long as it is held.
+            let frozen = combat.is_some_and(|c| (c.hitstop_timer > 0.0 && c.hit_flash > 0.0) || c.is_paralyzed());
             let reference = rules
                 .of(entity)
                 .map_or(world_hitlag_reference, |rules| rules.hitlag.reference_s(world_hitlag_reference));

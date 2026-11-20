@@ -304,6 +304,53 @@ impl Port for SleepAreaPort {
     }
 }
 
+/// The request port marker for a paralysis of the struck body.
+///
+/// Port card:
+///
+/// * **Operation** — the body the invocation ran for is paralyzed for at
+///   least `duration_s`: held where it is, it cannot act or move, and the
+///   stun of the hit that paralyzed it waits for the end. A body already
+///   paralyzed for longer keeps its time, so two hits do not add up to a
+///   paralysis nobody escapes. A real hit ends a paralysis, and the game's
+///   mash rule buys time back. A duration that is not finite, or is not
+///   above 0, is refused.
+/// * **Owner** — `ambition_combat::extension::reaction`, which writes
+///   `BodyCombat::paralysis_timer`.
+/// * **Scope** — the body the invocation ran for: in `hit_reaction`, the body
+///   a strike struck.
+/// * **Time** — `hit_reaction`, after the strike's own reaction: the hit that
+///   paralyzes does not end the paralysis it applies.
+pub struct ParalyzePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Paralyze {
+    pub duration_s: f32,
+}
+
+impl Port for ParalyzePort {
+    const KEY: PortKey = PortKey::new("ambition.combat.paralyze", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = Paralyze;
+
+    fn encode(v: &Paralyze, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Paralyze, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    Paralyze {
+        /// Seconds the body is held (world seconds).
+        duration_s: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(ParalyzePort);
+
 /// The request port marker for a refill of one of the body's resources.
 ///
 /// Port card:

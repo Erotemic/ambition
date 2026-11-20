@@ -292,6 +292,7 @@ pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d
     registrar.rollback_component_canonical::<EventMailbox>("ambition_platformer2d_runtime", "script.native_event_mailbox");
     registrar.clear_message_on_rollback::<DefeatCommitted>("ambition_platformer2d_runtime", "message.defeat_committed");
     registrar.clear_message_on_rollback::<BrokenCommitted>("ambition_platformer2d_runtime", "message.broken_committed");
+    registrar.clear_message_on_rollback::<CollectedCommitted>("ambition_platformer2d_runtime", "message.collected_committed");
     registrar.declare_rollback_derived_resource::<EventRoutes>("ambition_platformer2d_runtime", "derived.native_event_routes",
         "Subscription insertion and removal update the source index, including canonical snapshot restoration.");
 }
@@ -315,6 +316,11 @@ pub(crate) fn install(app: &mut App) {
     app.add_message::<BrokenCommitted>();
     clear_message_at_session_activation::<BrokenCommitted>(app);
     install_native_source::<ObjectBrokenPort>(app, "ambition_breakables", "broken");
+    app.add_message::<CollectedCommitted>();
+    clear_message_at_session_activation::<CollectedCommitted>(app);
+    install_native_source::<ObjectCollectedPort>(app, "ambition_platformer2d_items", "collected");
+    app.add_systems(schedule, publish_collected.in_set(Platformer2dSimulationPhase::GameplayEffects)
+        .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events));
     app.add_systems(schedule, publish_broken.in_set(Platformer2dSimulationPhase::GameplayEffects)
         .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events));
     install_native_source::<ObjectBornPort>(app, "ambition_platformer2d_runtime", "born");
@@ -468,6 +474,23 @@ fn publish_broken(world: &mut World, mut reader: Local<Option<BrokenReads>>) {
             &ObjectBroken {object: fact.object});
         if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
             warn!(?report, object = ?fact.object, "Native break notification delivery was limited.");
+        }
+    }
+}
+
+type CollectedReads = bevy::ecs::system::SystemState<ambition_platformer2d_core::replay_messages::ReplayMessageReader<'static, 'static, CollectedCommitted>>;
+/// Route each committed take to the methods subscribed to the taken pickup.
+fn publish_collected(world: &mut World, mut reader: Local<Option<CollectedReads>>) {
+    let reader = reader.get_or_insert_with(|| CollectedReads::new(world));
+    let facts: Vec<_> = reader.get_mut(world).expect("take messages are installed").read().cloned().collect();
+    for fact in facts {
+        let authority = if world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world)) {
+            SimulationIsland::Room(SessionScopeId(fact.object.session), fact.room)
+        } else { SimulationIsland::Session(SessionScopeId(fact.object.session)) };
+        let report = publish_captured::<ObjectCollectedPort>(&mut DeferredWorld::from(&mut *world), fact.object, authority,
+            &ObjectCollected {object: fact.object, by: fact.by});
+        if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
+            warn!(?report, object = ?fact.object, "Native take notification delivery was limited.");
         }
     }
 }

@@ -260,6 +260,18 @@ pub fn collect_ecs_pickups(
             continue;
         };
         commands.entity(entity).insert(Collected);
+        // The take is a fact a script can subscribe to (`object_collected`),
+        // named while the pickup and its collector are still there.
+        commands.queue(move |world: &mut World| {
+            use ambition_platformer2d_shared_tangle::lifecycle::{CollectedCommitted, InRoomInstance, object_reference};
+            let (Some(object), Some(room)) = (object_reference(world, entity), world.get::<InRoomInstance>(entity).map(|room| room.0)) else {
+                return;
+            };
+            let by = object_reference(world, collector_entity);
+            if world.contains_resource::<bevy::ecs::message::Messages<CollectedCommitted>>() {
+                world.write_message(CollectedCommitted { object, by, room });
+            }
+        });
         // The room and tick of the take: what it writes to a world store
         // goes back when the room rewinds before it (ISL-2d).
         let written = rooms

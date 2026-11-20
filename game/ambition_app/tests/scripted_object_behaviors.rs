@@ -1171,3 +1171,118 @@ fn a_room_entered_again_is_a_new_copy_and_only_its_own_watch_hears_its_barrier()
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_file(path);
 }
+
+/// The take watcher, looking its pickup up by the placement key `{KEY}`.
+const COLLECTED_SOURCE: &str = r#"
+fn declare() {
+    #{provider: "take_probe", key: "watch", schemas: [
+        #{key: "root", fields: [
+            #{tag: 1, name: "started", kind: "bool"},
+            #{tag: 2, name: "me", kind: "opt object"},
+            #{tag: 3, name: "pickup", kind: "opt object"},
+            #{tag: 4, name: "attached", kind: "u32"},
+        ]},
+        #{key: "watcher", fields: [
+            #{tag: 1, name: "heard", kind: "u32"},
+            #{tag: 2, name: "taken", kind: "opt object"},
+            #{tag: 3, name: "by", kind: "opt object"},
+        ]}
+    ], entries: [
+        #{key: "start", phase: "technique_execution", trigger: #{port: "status_tick", selector: "take_probe.start"},
+          writes: ["root"], requests: ["body_query"], limit: 1},
+        #{key: "me", phase: "actor_think", trigger: #{port: "action_result", selector: "me"},
+          reads: ["body_query_result"], writes: ["root"], requests: ["resolve_authored_objects"], limit: 1},
+        #{key: "located", phase: "actor_think", trigger: #{port: "action_result", selector: "located"},
+          writes: ["root"], requests: ["attach_behaviors"], limit: 1},
+        #{key: "attached", phase: "actor_think", trigger: #{port: "action_result", selector: "attached"}, writes: ["root"]},
+        #{key: "taken", phase: "actor_think", trigger: #{port: "object_collected", selector: "collected"}, writes: ["watcher"]},
+    ]}
+}
+fn start() {
+    if this.state.root.started { return; }
+    this.state.root.started = true;
+    this.requests.push(request("body_query", #{reply: #{request: 0, selector: "take_probe::watch/me"},
+        origin: this.trigger.position, radius: 64.0, limit: 1, include_self: true}));
+}
+fn me() {
+    if !this.trigger.terminal { return; }
+    for target in this.observe.body_query_result.targets {
+        if target.driven { this.state.root.me = target.object; }
+    }
+    this.requests.push(request("resolve_authored_objects", #{placements: ["{KEY}"],
+        reply: #{request: 0, selector: "take_probe::watch/located"}}));
+}
+fn located() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage != "applied" { throw this.trigger.code; }
+    let pickup = this.trigger.subjects[0].object;
+    this.state.root.pickup = pickup;
+    this.requests.push(request("attach_behaviors", #{target: this.state.root.me, bindings: [#{key: "watch",
+        references: #{pickup: pickup}, methods: [#{name: "taken", entry: "take_probe::watch/taken"}],
+        subscriptions: [#{key: "pickup_taken", source: "pickup", method: "taken"}]}],
+        reply: #{request: 0, selector: "take_probe::watch/attached"}}));
+}
+fn attached() {
+    if this.trigger.stage == "rejected" { throw this.trigger.message; }
+    if this.trigger.terminal { this.state.root.attached += 1; }
+}
+fn taken() {
+    this.state.watcher.heard += 1;
+    this.state.watcher.taken = this.trigger.object;
+    this.state.watcher.by = this.trigger.by;
+}
+"#;
+
+/// ⭐ A TAKEN PICKUP IS A FACT A SCRIPT CAN SUBSCRIBE TO. The pickup owner
+/// commits it on the tick of the take; a method subscribed to the pickup hears
+/// it once, with the pickup and the body that took it named.
+#[test]
+fn a_subscribed_method_hears_its_pickup_taken_once_and_by_whom() {
+    use ambition_platformer2d::item_runtime::pickups::PickupFeature;
+    use ambition_platformer2d::platformer::construction::SpawnOrigin;
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_room_options("switch_lab")).unwrap();
+    // The room's coin, by the key its lookup answers to.
+    let key = {
+        let world = sim.world_mut();
+        world.query::<(Entity, &PickupFeature, &SpawnOrigin)>().iter(world)
+            .find_map(|(_, _, origin)| match origin { SpawnOrigin::Authored {instance, ..} => Some(instance.clone()), _ => None })
+            .expect("switch_lab places a pickup")
+    };
+    let path = std::env::temp_dir().join(format!("ambition_take_probe_{}.rhai", std::process::id()));
+    std::fs::write(&path, COLLECTED_SOURCE.replace("{KEY}", &key)).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab")
+            .with_extension_module_files(vec![path.clone()])).unwrap();
+    let player = {
+        let world = sim.world_mut();
+        world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap()
+    };
+    sim.world_mut().entity_mut(player).insert(BodyStatuses(vec!["take_probe.start".into()]));
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 30);
+    let root = SchemaKey::new("take_probe", "root", 1);
+    let watcher = SchemaKey::new("take_probe", "watcher", 1);
+    let record = sim.world().get::<BodyRecords>(player).unwrap().get(&root).cloned().expect("the probe started");
+    assert_eq!(record.get(FieldRef(3)).unwrap(), &Value::U32(1), "the watch is attached");
+    let Value::Opt(Some(pickup)) = record.get(FieldRef(2)).unwrap() else { panic!("the probe found the pickup") };
+    let pickup = pickup.as_object().unwrap();
+    let me = record.get(FieldRef(1)).unwrap().clone();
+
+    // Stand on it: the body takes it.
+    let session = ambition_platformer2d::platformer::lifecycle::SessionScopeId(pickup.session);
+    let entity = ambition_platformer2d::platformer::lifecycle::resolve_object(sim.world(), session, pickup).unwrap();
+    let at = sim.world().get::<ambition_platformer2d::engine_core::CenteredAabb>(entity).unwrap().center;
+    sim.teleport_player((at.x, at.y));
+    sim.step_n(AgentAction::default(), 30);
+
+    let world = sim.world_mut();
+    let heard: Vec<_> = world.query::<&BodyRecords>().iter(world).filter_map(|records| records.get(&watcher).cloned()).collect();
+    assert_eq!(heard.len(), 1, "one watch instance");
+    assert_eq!(heard[0].get(FieldRef(0)).unwrap(), &Value::U32(1), "one take, heard once");
+    assert_eq!(heard[0].get(FieldRef(1)).unwrap(), &Value::Opt(Some(Box::new(Value::Object(pickup)))), "the fact names the pickup");
+    assert_eq!(heard[0].get(FieldRef(2)).unwrap(), &me, "and the body that took it");
+    let faults = sim.world().resource::<ExtensionFaults>();
+    assert_eq!(faults.total, 0, "{:?}", faults.recent);
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(path);
+}

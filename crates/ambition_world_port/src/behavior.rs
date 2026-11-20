@@ -161,6 +161,14 @@ pub struct ObjectBroken { pub object: ObjectRef }
 ambition_extension_sdk::port_record! { ObjectBroken { object: ObjectRef } }
 port!(ObjectBrokenPort, "ambition.objects.broken", Trigger, ObjectBroken);
 
+/// A pickup was taken: `by` is the body that collected it, when it has an
+/// address. The pickup owner commits it on the tick of the take; a pickup
+/// that regrows and is taken again is a second fact.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectCollected { pub object: ObjectRef, pub by: Option<ObjectRef> }
+ambition_extension_sdk::port_record! { ObjectCollected { object: ObjectRef, by: Option<ObjectRef> } }
+port!(ObjectCollectedPort, "ambition.objects.collected", Trigger, ObjectCollected);
+
 /// A script's named message from the object it runs for, to each method
 /// subscribed to that object whose entry's selector is `topic`. The runtime
 /// admits it to every such method or to none, and answers with the recipients.

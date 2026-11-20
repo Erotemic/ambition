@@ -57,7 +57,7 @@ pub use markers::{
     PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual, custody_closure,
 };
 pub use mode_visit::{Arrival, ModeVisit};
-pub use object_occurrence::{BrokenCommitted, DefeatCommitted, ObjectOccurrence, ObjectPublished, PreparedObjectOccurrences, ensure_object_occurrence};
+pub use object_occurrence::{BrokenCommitted, CollectedCommitted, DefeatCommitted, ObjectOccurrence, ObjectPublished, PreparedObjectOccurrences, ensure_object_occurrence};
 pub(crate) use object_occurrence::ObjectOccurrenceSequence;
 pub use reset_slots::{ContentDialogueFollowupSet, ContentRoomReplayResetSet, ContentRoomResetSet};
 pub use room_instance::{

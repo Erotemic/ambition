@@ -63,6 +63,15 @@ pub struct ObjectPublished {
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct BrokenCommitted { pub object: ambition_extension_sdk::ObjectRef, pub room: LiveRoomInstance }
 
+/// A pickup was taken on this tick, by the body that collected it. Captured
+/// at the take, so a method subscribed to it hears it after the pickup is gone.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct CollectedCommitted {
+    pub object: ambition_extension_sdk::ObjectRef,
+    pub by: Option<ambition_extension_sdk::ObjectRef>,
+    pub room: LiveRoomInstance,
+}
+
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq, Eq)]
 pub struct DefeatCommitted {
     pub object: ambition_extension_sdk::ObjectRef,

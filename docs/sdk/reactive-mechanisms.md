@@ -58,6 +58,15 @@ subscription's source is the breakable's reference. Find a placed breakable
 with `resolve_authored_objects`. The witness is
 `a_subscribed_method_hears_its_barrier_break_once` (`switch_lab`).
 
+## Hear a take
+
+`object_collected` names a pickup that a body took, and `by`, the body that
+took it. The pickup owner commits it on the tick of the take, at the one place
+a pickup is collected, so a scripted "when the key is taken" needs no polling.
+A pickup that regrows and is taken again produces a second fact. Subscribe as
+to a break: `#{port: "object_collected", selector: "collected"}`. The witness is
+`a_subscribed_method_hears_its_pickup_taken_once_and_by_whom` (`switch_lab`).
+
 ## Send a signal
 
 A signal is your own named message, as a Godot signal is: the object a script

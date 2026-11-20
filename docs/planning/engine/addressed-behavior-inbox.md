@@ -22,7 +22,9 @@ The current pass runs in `actor_think`. Birth, activation and defeat
 subscriptions select named methods. Defeat (`object_defeated`, 2026-11-19) is
 committed by the actor damage owner on the killing hit (`DefeatCommitted`) and
 routed after the combat phase. A spent breakable (`object_broken`) is committed
-by the breakable owner on every road that breaks one (`BrokenCommitted`).
+by the breakable owner on every road that breaks one (`BrokenCommitted`), and
+a taken pickup (`object_collected`) by the pickup owner at the take
+(`CollectedCommitted`).
 Authored signals (`emit_signal`, 2026-11-19) use
 the same mailbox under the `object_signal` port. Retirement and confirmed
 world-domain transport remain open.

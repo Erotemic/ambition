@@ -379,6 +379,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::behavior::ObjectBornPort>("object_born")
         .add::<ambition_world_port::behavior::ObjectDefeatedPort>("object_defeated")
         .add::<ambition_world_port::behavior::ObjectBrokenPort>("object_broken")
+        .add::<ambition_world_port::behavior::ObjectCollectedPort>("object_collected")
         .add::<ambition_world_port::behavior::EmitSignalPort>("emit_signal")
         .add::<ambition_world_port::behavior::ObjectSignalPort>("object_signal")
         .add::<ambition_world_port::behavior::BehaviorEventsPort>("behavior_events")

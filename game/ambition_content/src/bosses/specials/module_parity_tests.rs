@@ -207,6 +207,8 @@ fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ro
             app.add_plugins(ExtensionHostPlugin::new(Sim));
             // Every module is declared, so every port the game offers is.
             ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
+            // The content modules bind a group, whose tags are the assembled catalog's.
+            app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
             if road == Road::Wasm {
                 let (backend, modules) = wasm_modules();
                 app.add_loaded_extension_modules("ambition_content_modules.wasm", backend, modules, false);

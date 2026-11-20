@@ -135,6 +135,8 @@ fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ro
         Road::Module | Road::Wasm => {
             app.add_plugins(ExtensionHostPlugin::new(Sim));
             ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
+            // The content modules bind a group, whose tags are the assembled catalog's.
+            app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
             app.add_systems(
                 Sim,
                 ambition_boss_encounter::conduct::face_conducted_bosses

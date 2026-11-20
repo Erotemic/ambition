@@ -38,6 +38,8 @@ fn world(modules: Vec<ModuleDescriptor>, item: &str, mana: f32) -> (App, Entity)
         .insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_plugins(ExtensionHostPlugin::new(Sim));
     ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
+    // The content modules bind a group, whose tags are the assembled catalog's.
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     for module in modules {
         app.add_extension_module(module);
     }

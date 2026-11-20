@@ -115,6 +115,8 @@ fn world(road: Road) -> (App, Vec<Entity>) {
         Road::Module | Road::Wasm => {
             app.add_plugins(ExtensionHostPlugin::new(Sim));
             ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
+            // The content modules bind a group, whose tags are the assembled catalog's.
+            app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
             ambition_platformer2d_runtime::extension_composition::order_phases(&mut app, Sim);
             if road == Road::Wasm {
                 let (backend, modules) = wasm_modules();

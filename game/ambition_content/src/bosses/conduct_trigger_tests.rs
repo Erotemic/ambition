@@ -78,6 +78,8 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
         .insert_resource(ambition_time::WorldTime::new(dt, dt));
     app.add_plugins(ExtensionHostPlugin::new(Sim));
     ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
+    // The content modules bind a group, whose tags are the assembled catalog's.
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_extension_module(probe());
     app.finish();
     let hall = ae::World::new(

@@ -1220,7 +1220,7 @@ fn clip_cast_to_box(cast: ae::Aabb, view_box: ae::Aabb) -> ae::Aabb {
 /// happens — well inside ordinary per-frame motion — and is gone in about six
 /// tenths of a second. An ungated cap could not be set here; it would have
 /// throttled every approach in the match.
-const CAST_FRAMING_CLOSE_MAX_UNITS_PER_S: f32 = 400.0;
+pub const CAST_FRAMING_CLOSE_MAX_UNITS_PER_S: f32 = 400.0;
 
 /// How long the cap stays armed after the cast loses a member.
 ///

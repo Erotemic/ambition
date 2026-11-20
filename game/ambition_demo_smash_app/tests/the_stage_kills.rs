@@ -1257,11 +1257,17 @@ fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
          while everybody was in play — it is pinned again, and the comparison below is between \
          two kinds of nothing"
     );
+    // The collapse is capped, not forbidden: one edge closes at most
+    // `CAST_FRAMING_CLOSE_MAX_UNITS_PER_S`, moving the centre half as far, on
+    // top of whatever the fight itself does on that frame. A cut lands the
+    // whole collapse at once.
+    let collapse_share =
+        ambition_platformer2d::sim_view::camera_snapshot::CAST_FRAMING_CLOSE_MAX_UNITS_PER_S / 60.0 / 2.0;
     assert!(
-        worst_elimination_step <= worst_ordinary_step,
+        worst_elimination_step <= worst_ordinary_step + collapse_share,
         "the camera jumped {worst_elimination_step:.1} units on the frame a fighter was taken out \
-         of play, against at most {worst_ordinary_step:.1} in an ordinary frame, absorbing a \
-         {biggest_absorbed_jump:.1}-unit collapse — that is a cut back to the platform, which is \
+         of play, against at most {worst_ordinary_step:.1} in an ordinary frame plus the capped \
+         {collapse_share:.1} of the collapse, absorbing a {biggest_absorbed_jump:.1}-unit collapse — that is a cut back to the platform, which is \
          the thing Jon reported about the zoom and is now possible for the centre too"
     );
 }

@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v519",
+    "version": "ggrs-rollback-schema-v520",
     "rows": [
       "ability.ride_summons\tcomponent-canonical\tRideSummons",
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
@@ -193,6 +193,7 @@
       "script.local_call_watches\tcomponent-canonical\tLocalCallWatches",
       "script.native_event_mailbox\tcomponent-canonical\tEventMailbox",
       "script.object_call_results\tcomponent-canonical\tObjectCallResults",
+      "script.retirements_heard\tcomponent-canonical\tRetirementsHeard",
       "script.world_value_changes\tcomponent-canonical\tWorldValueChanges",
       "session.participants\tcomponent-canonical\tSessionParticipants",
       "session.party_travel\tcomponent-clone-custom-checksum\tPartyTravel\tbevy_ggrs clone snapshot + party travel rules and pending zone agreements",
@@ -305,6 +306,7 @@
     "ambition_platformer2d_runtime::EventMailbox",
     "ambition_platformer2d_runtime::LocalCallWatches",
     "ambition_platformer2d_runtime::ObjectCallResults",
+    "ambition_platformer2d_runtime::RetirementsHeard",
     "ambition_platformer2d_runtime::WorldValueChanges",
     "ambition_platformer2d_session::SessionParticipants",
     "ambition_platformer2d_shared_tangle::ObjectOccurrence",

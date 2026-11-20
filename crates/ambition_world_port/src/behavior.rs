@@ -161,6 +161,16 @@ pub struct ObjectBroken { pub object: ObjectRef }
 ambition_extension_sdk::port_record! { ObjectBroken { object: ObjectRef } }
 port!(ObjectBrokenPort, "ambition.objects.broken", Trigger, ObjectBroken);
 
+/// An object left the world by any road other than staying (a creator
+/// retired it, its owner despawned it, its room was retired with it). The
+/// runtime publishes it the first tick a subscribed source no longer
+/// resolves, once to each subscriber; a defeat that is followed by a
+/// despawn is both facts.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectRetired { pub object: ObjectRef }
+ambition_extension_sdk::port_record! { ObjectRetired { object: ObjectRef } }
+port!(ObjectRetiredPort, "ambition.objects.retired", Trigger, ObjectRetired);
+
 /// A pickup was taken: `by` is the body that collected it, when it has an
 /// address. The pickup owner commits it on the tick of the take; a pickup
 /// that regrows and is taken again is a second fact.

@@ -89,6 +89,24 @@ A behavior attached to a body travels with it, so a body can subscribe to its ow
 crossings: name the body as a reference and subscribe from that reference. The
 witnesses are in `scripted_crossing_facts` (both hosts, refusal included).
 
+## Hear a retirement
+
+`object_retired` names an object that left the world by any road: its creator
+retired it, its owner despawned it, or its room was taken down with it (the
+player walked out). The runtime publishes it at the tail of the first tick a
+subscribed source no longer resolves, once to each subscriber, wherever that
+subscriber stands: a body that left a room hears what the room took with it. A
+defeat followed by a despawn is both facts. Subscribe with
+`#{port: "object_retired", selector: "retired"}`.
+
+A script retires what it created (`create_actors`, `create_breakables`) with
+`retire_creation`: `#{object: <ref>, reply: #{..}}`. The creation owner checks
+that the object's provenance names the caller as its parent and takes it out;
+the answer is terminal `creation_retired`, or `unknown_object` (no such live
+object) or `not_your_creation`. The witnesses are in `scripted_retirement` (a
+retired creation heard once, the refusals, and a room's retirement heard by a
+body in the next room).
+
 ## Send a signal
 
 A signal is your own named message, as a Godot signal is: the object a script

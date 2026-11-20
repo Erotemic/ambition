@@ -155,6 +155,10 @@ carries the optional allocation room. There is no old descriptor decoder.
   modules hold, `#{module, slot, open}`; `open` is false once the pair closed
   on use or fizzled, and a slot asked for and absent was refused (logged).
   The witness is `scripted_held_portal_pair`.
+- `retire_creation` reports terminal `creation_retired` (stage `applied`) when
+  the creation owner took out an object whose provenance names the caller as
+  its parent; refusals are `unknown_object` and `not_your_creation`. The
+  witness is `scripted_retirement`.
 
 This support does not add results to every other request port. See the open
 [capability census](../planning/engine/script-first-capability-census.md).

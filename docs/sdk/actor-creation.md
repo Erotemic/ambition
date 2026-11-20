@@ -156,7 +156,7 @@ their limbs carry native dynamic provenance and the creator's current session
 and room stamp. They have room lifetime. The creator can disappear without
 removing already-created bodies. These runtime occurrences are not durable
 authored placements. A saved state reference alone does not reconstruct them.
-General retirement outcomes and durable dynamic actors remain separate work.
+The creator retires its own creations with `retire_creation`, and any subscriber hears `object_retired` ([guide](reactive-mechanisms.md#hear-a-retirement)). Durable dynamic actors remain separate work.
 
 `ActorCreationLimits` governs each room. Engine defaults are 32 requested actors,
 96 complete construction rows, 512 room bodies, 64 links, 16 status selectors
@@ -193,8 +193,8 @@ and counter. Their descendants cannot reuse the new room root's namespace.
 The loaded `scripted_actor_creation` fixture composes independent behavior on a
 sandbag and a giant for controlled and autonomous creators. It checks actual
 births, state initialization, native projectiles, refusal without partial births
-or counter spending, limb identity reservation, and GGRS replay. General prop activation, cross-object event routing and retirement results
-remain open.
+or counter spending, limb identity reservation, and GGRS replay. Retirement is witnessed in `scripted_retirement`. General prop activation
+remains open.
 
 ## Measured cost
 

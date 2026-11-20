@@ -81,3 +81,32 @@ impl Port for CreateActorsPort {
     fn decode(reader: &mut WireReader<'_>) -> Result<Self::Value, WireError> { ambition_extension_sdk::structure::read(reader) }
 }
 ambition_extension_sdk::script_port!(CreateActorsPort);
+
+/// Retire an object this caller created (`create_actors`, `create_breakables`):
+/// its owner takes it out of the world. Only the creator may: the object's
+/// provenance names the caller as its parent. The answer is terminal
+/// `creation_retired`, or a refusal (`unknown_object`, `not_your_creation`).
+/// Its subscribers hear `object_retired` as for any retirement.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RetireCreation { pub reply: Option<ReplyTo>, pub object: ambition_extension_sdk::ObjectRef }
+ambition_extension_sdk::port_record! {
+    RetireCreation {
+        /// Optional correlated reply.
+        reply: Option<ReplyTo> = None,
+        /// The created object.
+        object: ambition_extension_sdk::ObjectRef,
+    }
+}
+pub const RETIRE_CREATION_DOMAIN: &str = "world.retire_creation";
+pub struct RetireCreationPort;
+impl Port for RetireCreationPort {
+    const KEY: PortKey = PortKey::new("ambition.world.retire_creation", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = RetireCreation;
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(value, RETIRE_CREATION_DOMAIN, value.reply.as_ref()?))
+    }
+    fn encode(value: &Self::Value, out: &mut Vec<u8>) { ambition_extension_sdk::structure::put(value, out); }
+    fn decode(reader: &mut WireReader<'_>) -> Result<Self::Value, WireError> { ambition_extension_sdk::structure::read(reader) }
+}
+ambition_extension_sdk::script_port!(RetireCreationPort);

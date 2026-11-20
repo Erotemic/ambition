@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v519
+ggrs-rollback-schema-v520
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -594,6 +594,7 @@ script.cutscene_asks	component-canonical	CutsceneAsks	bevy_ggrs canonical codec 
 script.local_call_watches	component-canonical	LocalCallWatches	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 script.native_event_mailbox	component-canonical	EventMailbox	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 script.object_call_results	component-canonical	ObjectCallResults	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+script.retirements_heard	component-canonical	RetirementsHeard	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 script.world_value_changes	component-canonical	WorldValueChanges	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 session.mode_visit	component-clone	ModeVisit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.participants	component-canonical	SessionParticipants	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

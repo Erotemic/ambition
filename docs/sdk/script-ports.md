@@ -631,6 +631,23 @@ Port `ambition.objects.crossing_refused@1`, trigger: read as `this.trigger`.
 | `to` | text |  |
 | `code` | text |  |
 
+## `object_retired`
+
+Port `ambition.objects.retired@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+
+## `retire_creation`
+
+Port `ambition.world.retire_creation@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Optional correlated reply. |
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } | required | The created object. |
+
 ## `emit_signal`
 
 Port `ambition.objects.emit_signal@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

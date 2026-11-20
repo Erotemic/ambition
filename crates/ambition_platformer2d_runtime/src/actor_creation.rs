@@ -15,6 +15,46 @@ pub fn install(app: &mut App) {
         ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     ambition_extension_host::install_submitted_request_in_body_phases!(app, CreateActorsPort,
         "ambition_platformer2d_construction", lower);
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, RETIRE_CREATION_DOMAIN,
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
+    ambition_extension_host::install_submitted_request_in_body_phases!(app, RetireCreationPort,
+        "ambition_platformer2d_construction", retire);
+}
+
+/// Retire what the caller created: an object whose provenance names the
+/// caller as its parent leaves the world now, and its subscribers hear
+/// `object_retired` at the tail of the tick.
+fn retire<L: LowersIn>(world: &mut World) {
+    use ambition_platformer2d_shared_tangle::{construction::SpawnOrigin, lifecycle::{resolve_object, SessionScopeId},
+        sim_id::SimId};
+    let submitted = world.resource_mut::<ExtensionOutbox>().drain::<RetireCreationPort>(&L::PHASE);
+    for submitted in submitted {
+        let request = submitted.value;
+        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<RetireCreationPort>(
+            world, submitted.state_scope, &submitted.entry, &request);
+        if !dispatch.execute { continue; }
+        let found = resolve_object(world, SessionScopeId(request.object.session), request.object)
+            .map_err(|_| "unknown_object")
+            .and_then(|object| {
+                let creator = world.get::<SimId>(submitted.scope).ok_or("not_your_creation")?;
+                match world.get::<SpawnOrigin>(object) {
+                    Some(SpawnOrigin::Dynamic { parent, .. }) if parent == creator => Ok(object),
+                    _ => Err("not_your_creation"),
+                }
+            });
+        match found {
+            Ok(object) => {
+                let subjects = ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, object)
+                    .into_iter().collect();
+                world.entity_mut(object).despawn();
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Applied, true, "creation_retired", "", subjects);
+            }
+            Err(code) => {
+                if dispatch.reply.is_none() { warn!("{} asked to retire {:?}: {code}", submitted.entry, request.object); }
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Rejected, true, code, "", Vec::new());
+            }
+        }
+    }
 }
 
 type CreationRules = SystemState<RulesOf<'static, 'static, ActorCreationLimits>>;

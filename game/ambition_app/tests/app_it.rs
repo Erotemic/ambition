@@ -401,6 +401,8 @@ mod scripted_lock_walls;
 mod scripted_cutscene_outcomes;
 mod scripted_summon_outcomes;
 mod scripted_held_portal_pair;
+mod scripted_retirement;
+mod scripted_bridge_warden;
 
 mod scripted_libraries;
 mod scripted_actor_creation;

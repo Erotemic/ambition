@@ -299,8 +299,52 @@ pub(crate) fn settle(world: &mut World, state: Entity, sequence: u64, event: Inv
     }
 }
 
+/// The retirements a subscriber has heard, by source: each is published to it
+/// once, and a rewind of its room takes back the hearing with the row.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct RetirementsHeard { sources: Vec<ObjectRef> }
+ambition_extension_sdk::port_record! { RetirementsHeard { sources: Vec<ObjectRef> } }
+impl SnapshotState for RetirementsHeard {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let mut bytes = Vec::new(); ambition_extension_sdk::structure::put(self, &mut bytes); put_bytes(out, &bytes);
+    }
+    fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+        ambition_extension_sdk::wire::decode_all(reader.bytes()?, ambition_extension_sdk::structure::read).ok()
+    }
+}
+
+/// Publish `object_retired` to each subscriber of a source that no longer
+/// resolves, once. A source leaves by any road (a creator retires it, its
+/// owner despawns it, its room is retired with it), so this reads the
+/// outcome, not the road: the first simulated tick after it is gone. A
+/// subscriber in another room hears it too: a retirement is not taken back.
+fn publish_retirements(world: &mut World) {
+    let event = ObjectRetiredPort::KEY.to_string();
+    let sources: Vec<ObjectRef> = world.resource::<EventRoutes>().routes.keys()
+        .filter(|(_, routed)| *routed == event).map(|(source, _)| *source).collect();
+    if sources.is_empty() { return; }
+    let objects = ObjectIndex::capture(world);
+    let gone: Vec<ObjectRef> = sources.into_iter().filter(|source|
+        objects.resolve(SessionScopeId(source.session), *source) == Err(ObjectLookupError::Retired)).collect();
+    if gone.is_empty() { return; }
+    let replay = world.get_resource::<RoomReplay>().copied();
+    for source in gone {
+        let mut bytes = Vec::new();
+        ObjectRetiredPort::encode(&ObjectRetired {object: source}, &mut bytes);
+        let recipients = recipients(&world.into(), source, &event);
+        for (_, entity, key) in recipients {
+            let room = world.get::<InRoomInstance>(entity).map(|at| at.0).or_else(|| world.get::<LiveRoomInstance>(entity).copied());
+            if replay.is_some_and(|replay| !replay.allows(room)) { continue; }
+            if world.get::<RetirementsHeard>(entity).is_some_and(|heard| heard.sources.contains(&source)) { continue; }
+            queue_row(&mut world.into(), entity, source, &event, key, &bytes);
+            world.entity_mut(entity).entry::<RetirementsHeard>().or_default().into_mut().sources.push(source);
+        }
+    }
+}
+
 pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
     registrar.rollback_component_canonical::<EventMailbox>("ambition_platformer2d_runtime", "script.native_event_mailbox");
+    registrar.rollback_component_canonical::<RetirementsHeard>("ambition_platformer2d_runtime", "script.retirements_heard");
     registrar.clear_message_on_rollback::<DefeatCommitted>("ambition_platformer2d_runtime", "message.defeat_committed");
     registrar.clear_message_on_rollback::<BrokenCommitted>("ambition_platformer2d_runtime", "message.broken_committed");
     registrar.clear_message_on_rollback::<CollectedCommitted>("ambition_platformer2d_runtime", "message.collected_committed");
@@ -337,6 +381,9 @@ pub(crate) fn install(app: &mut App) {
     install_native_source::<ObjectBornPort>(app, "ambition_platformer2d_runtime", "born");
     install_native_source::<ObjectCrossedPort>(app, "ambition_platformer2d_runtime", "crossed");
     install_native_source::<ObjectCrossingRefusedPort>(app, "ambition_platformer2d_runtime", "crossing_refused");
+    install_native_source::<ObjectRetiredPort>(app, "ambition_platformer2d_runtime", "retired");
+    // At the tail of the tick: whatever took a source out this tick has done so.
+    app.add_systems(schedule, publish_retirements.in_set(Platformer2dSimulationPhase::FeatureViewSync));
     install_source::<ObjectSignalPort>(app, "ambition_platformer2d_runtime", "", true);
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "objects.emit_signal",
         ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);

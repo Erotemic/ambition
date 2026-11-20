@@ -19,7 +19,7 @@ crates/ambition_platformer2d_core/src/player_state.rs	5	90d235c47500296d
 crates/ambition_platformer2d_core/src/snapshot.rs	19	5344ccb517105bc3
 crates/ambition_platformer2d_core/src/snapshot_impls.rs	174	d864cc9e214f1369
 crates/ambition_platformer2d_interaction/src/lib.rs	1	9e2720c86e063ff7
-crates/ambition_platformer2d_runtime/src/behavior_events.rs	1	9e2720c86e063ff7
+crates/ambition_platformer2d_runtime/src/behavior_events.rs	2	a7358cc4f5eff261
 crates/ambition_platformer2d_runtime/src/object_behaviors.rs	4	e7154c4253450829
 crates/ambition_platformer2d_runtime/src/story_script.rs	1	9e2720c86e063ff7
 crates/ambition_platformer2d_runtime/src/world_values.rs	2	0a37d56f6f3a0e28

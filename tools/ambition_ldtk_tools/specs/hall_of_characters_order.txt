@@ -143,6 +143,15 @@ npc_frontier_barkeep
 npc_frontier_prospector
 npc_frontier_foreman
 
+[Halfway Siding and Clinker Flats, west of Dry Dock]
+npc_frontier_station_agent
+npc_frontier_innkeeper
+npc_frontier_mechanic
+npc_frontier_brakeman
+npc_frontier_yardmaster
+npc_frontier_crane_driver
+npc_frontier_laundress
+
 [The orbital station]
 npc_station_okafor
 npc_station_reyes

@@ -93,4 +93,7 @@
     (name: "Dry Dock", subtitle: Some("The Leaden Saddle"), rooms: ["frontier_landing_pad", "frontier_main_street", "frontier_wet_whistle", "frontier_livery"]),
     (name: "The Refinery", subtitle: Some("The Leaden Saddle"), rooms: ["frontier_refinery"]),
     (name: "The Mesa Top", subtitle: Some("The Leaden Saddle"), rooms: ["frontier_saddle_lookout"]),
+    (name: "Halfway Siding", subtitle: Some("The Frontier"), rooms: ["frontier_siding_station", "frontier_siding_street", "frontier_lie_down_inn", "frontier_siding_trestle", "frontier_sprocket_row"]),
+    (name: "The Number 9 Freight", subtitle: Some("The Frontier"), rooms: ["frontier_freight_tail", "frontier_freight_cars", "frontier_rustler_head"]),
+    (name: "Clinker Flats", subtitle: Some("The Frontier"), rooms: ["frontier_clinker_yard", "frontier_clinker_works", "frontier_clinker_row", "frontier_clinker_railhead"]),
 ]

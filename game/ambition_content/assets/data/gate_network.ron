@@ -74,6 +74,9 @@
         (id: "boss_lobby_ring", name: "Final Tour Lobby Ring", dimension: "boss"),
         // The Frontier's spaceport town (`docs/planning/game/leadensaddle.md`).
         (id: "dry_dock_pad", name: "Dry Dock Pad Three", dimension: "frontier"),
+        // The Frontier's auxiliary terminal at Halfway Siding, on the gulch
+        // rim west of Dry Dock (`techno-western-frontier-first-slice.md`).
+        (id: "halfway_siding", name: "Halfway Siding Auxiliary Terminal", dimension: "frontier"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -441,6 +444,18 @@
             terminal: Some("frontier_gate_terminal"),
             posted: ["LEGAL"],
             note: "Pad Three ring. The toll is payable to the Marshal.",
+        ),
+        // The auxiliary gate of Halfway Siding, beside the rail halt. It
+        // posts the way home and the way to the Frontier's main pads.
+        (
+            zone: "frontier_siding_gate",
+            name: "Halfway Siding",
+            facility: "halfway_siding",
+            room: "frontier_siding_station",
+            address: Some("SIDING"),
+            terminal: Some("frontier_siding_terminal"),
+            posted: ["LEGAL", "LEADENSADDLE"],
+            note: "Auxiliary gate. Rest at the inn before travelling on.",
         ),
     ],
 )

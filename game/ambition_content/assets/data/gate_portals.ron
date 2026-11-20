@@ -162,6 +162,12 @@
         portal_sprite_name: "Pad Three Gate Portal",
         ring_sprite_name: "Pad Three Gate Ring",
     ),
+    // The Frontier's auxiliary gate at Halfway Siding (SIDING).
+    "frontier_siding_gate": (
+        command: Dialed,
+        portal_sprite_name: "Halfway Siding Gate Portal",
+        ring_sprite_name: "Halfway Siding Gate Ring",
+    ),
     // The Noodle dimension's ring, in the square of Brothlehem.
     "noodle_village_gate": (
         command: Dialed,

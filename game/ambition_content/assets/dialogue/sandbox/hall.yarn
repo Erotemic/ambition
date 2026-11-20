@@ -5081,3 +5081,59 @@ Ruth: Hat on, or off the terrace.
 -> Anything else?
     Ruth: I run the night shift at a refinery on a mesa. I wear the hard hat for the chickens.
 ===
+title: hall_npc_frontier_station_agent
+---
+Augusta: Gate on the left of the window, train on the right.
+-> What do you do here?
+    Augusta: I sell tickets for a gate and a railway at the same window. Nobody ever wants both.
+-> Anything else?
+    Augusta: The auxiliary terminal gets the overflow and the detours. Today it got you.
+===
+title: hall_npc_frontier_innkeeper
+---
+Pearl: Lie down or move along, dear.
+-> What do you do here?
+    Pearl: I keep an inn for the gate-sick. They come in green and go out pink.
+-> Anything else?
+    Pearl: Rooms by the hour. Nobody has ever wanted a second hour.
+===
+title: hall_npc_frontier_mechanic
+---
+Hettie: Anything rattling?
+-> What do you do here?
+    Hettie: Pumps, windmills, wagons, the odd automaton. Mostly windmills.
+-> Anything else?
+    Hettie: Ordinary repairs. If you want miracles, there's a city down the line.
+===
+title: hall_npc_frontier_brakeman
+---
+Hollis: That isn't our engine up front.
+-> What do you do here?
+    Hollis: Something coupled on at the head of my train in the night. The crew got off at the water stop. It didn't.
+-> Anything else?
+    Hollis: A brakeman rides the tail. From the tail you see everything go wrong in order.
+===
+title: hall_npc_frontier_yardmaster
+---
+Lou: Clear the line.
+-> What do you do here?
+    Lou: That outlaw engine comes through my yard and takes cars, and nobody stands on the line to argue.
+-> Anything else?
+    Lou: Clinker Flats. Smelter town. The yard's the only flat part.
+===
+title: hall_npc_frontier_crane_driver
+---
+Magda: Keep off the pots.
+-> What do you do here?
+    Magda: I tip the slag pots from the crane. Forty a shift, and I count them.
+-> Anything else?
+    Magda: You're standing where the ladle swings.
+===
+title: hall_npc_frontier_laundress
+---
+Ida: Mind the lines.
+-> What do you do here?
+    Ida: I do the night shift's shirts under the works. The soot comes out at one o'clock.
+-> Anything else?
+    Ida: The wind can't get in under the works. The soot can.
+===

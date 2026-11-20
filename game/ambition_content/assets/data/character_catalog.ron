@@ -15109,5 +15109,133 @@
             ),
             hall_dialogue_id: Some("hall_npc_frontier_foreman"),
         ),
+        // The first slice west of Dry Dock: Halfway Siding, the Number 9
+        // freight, Clinker Flats (`techno-western-frontier-first-slice.md`).
+        "npc_frontier_station_agent": (
+            display_name: "Augusta Pell",
+            // A human, the station agent of Halfway Siding.
+            manifest: "sprites/frontier_station_agent_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Gate on the left of the window, train on the right.", "Sit down a minute before you walk anywhere."],
+                hall: ["I sell tickets for a gate and a railway at the same window. Nobody ever wants both.", "The auxiliary terminal gets the overflow and the detours. Today it got you."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_station_agent"),
+        ),
+        "npc_frontier_innkeeper": (
+            display_name: "Pearl Featherstone",
+            // A pigeon, who keeps The Lie-Down Inn.
+            manifest: "sprites/frontier_innkeeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Lie down or move along, dear.", "A bucket with every cot."],
+                hall: ["I keep an inn for the gate-sick. They come in green and go out pink.", "Rooms by the hour. Nobody has ever wanted a second hour."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_innkeeper"),
+        ),
+        "npc_frontier_mechanic": (
+            display_name: "Hettie Gimbal",
+            // A dog, a mechanic on Sprocket Row.
+            manifest: "sprites/frontier_mechanic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Anything rattling?", "Come back when something falls off."],
+                hall: ["Pumps, windmills, wagons, the odd automaton. Mostly windmills.", "Ordinary repairs. If you want miracles, there's a city down the line."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_mechanic"),
+        ),
+        "npc_frontier_brakeman": (
+            display_name: "Hollis Teague",
+            // A horse, the brakeman of the Number 9 ore freight.
+            manifest: "sprites/frontier_brakeman_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 182 cm.
+            standing_height: Some(70.4),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["That isn't our engine up front.", "Keep off the couplings."],
+                hall: ["Something coupled on at the head of my train in the night. The crew got off at the water stop. It didn't.", "A brakeman rides the tail. From the tail you see everything go wrong in order."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_brakeman"),
+        ),
+        "npc_frontier_yardmaster": (
+            display_name: "Lou Shunter",
+            // An alligator, the yardmaster of Clinker Flats.
+            manifest: "sprites/frontier_yardmaster_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Clear the line.", "Four times this month."],
+                hall: ["That outlaw engine comes through my yard and takes cars, and nobody stands on the line to argue.", "Clinker Flats. Smelter town. The yard's the only flat part."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_yardmaster"),
+        ),
+        "npc_frontier_crane_driver": (
+            display_name: "Magda Ferro",
+            // A human, who drives the slag crane at the smelter works.
+            manifest: "sprites/frontier_crane_driver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Keep off the pots.", "Forty a shift."],
+                hall: ["I tip the slag pots from the crane. Forty a shift, and I count them.", "You're standing where the ladle swings."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_crane_driver"),
+        ),
+        "npc_frontier_laundress": (
+            display_name: "Ida Soames",
+            // A cat, who does the washing of the Row.
+            manifest: "sprites/frontier_laundress_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Mind the lines.", "Wash it, soot it, wash it again."],
+                hall: ["I do the night shift's shirts under the works. The soot comes out at one o'clock.", "The wind can't get in under the works. The soot can."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_laundress"),
+        ),
     },
 )

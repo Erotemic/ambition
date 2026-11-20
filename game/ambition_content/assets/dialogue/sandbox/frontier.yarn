@@ -110,3 +110,129 @@ title: frontier_foreman
         Ruth: If you get him to lie in past four, the whole shift owes you a drink.
 <<endif>>
 ===
+title: frontier_station_agent
+---
+<<present_speaker "npc_frontier_station_agent">>
+<<if condition("world.flag_set", "frontier_station_agent_met")>>
+    Augusta: Tickets for the gate on the left of the window, tickets for the train on the right. Same window.
+    -> When's the next train?
+        Augusta: The Number 9 goes down the gulch at 9:40. It's freight. It doesn't stop for people.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_station_agent_met" true>>
+    Augusta: Off the gate? Sit on the bench a minute before you walk anywhere.
+    Augusta: The inn's up the street if the bench isn't enough. Most people need the inn.
+    -> Is this the main terminal?
+        Augusta: This is the auxiliary. The main pads are at Dry Dock, down the line. We get the overflow and the detours.
+    -> ⟨go⟩
+<<endif>>
+===
+title: frontier_innkeeper
+---
+<<present_speaker "npc_frontier_innkeeper">>
+<<if condition("world.flag_set", "frontier_innkeeper_met")>>
+    Pearl: Lie down or move along, dear. The cots are for lying down.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_innkeeper_met" true>>
+    Pearl: Welcome to the Lie-Down. A cot by the hour, a bucket with every cot.
+    -> I'm a robot. I don't get gate-sick.
+        Pearl: Then you can carry buckets. No, I'm teasing. Your friends are by the window.
+    -> ⟨go⟩
+<<endif>>
+===
+title: frontier_inn_alice
+---
+<<present_speaker "npc_alice">>
+<<if condition("world.flag_set", "frontier_inn_alice_met")>>
+    Alice: Still here. Still lying down. Go and see the mechanic, we'll be an hour at least.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_inn_alice_met" true>>
+    Alice: This isn't where we meant to come out. The dialer back home only had the one line working after the bear.
+    Alice: We need an hour flat on our backs, and then we'll find the way to the city from here.
+    -> What should I do?
+        Alice: Whatever you like. You don't need us to tell you.
+        Alice: If you want something useful: that bear knocked you about. There's a mechanic over the trestle, on Sprocket Row. Get yourself looked at.
+    -> I'll wait with you.
+        Alice: That's kind. It's also an hour of watching Bob hold a bucket. Go and look round.
+<<endif>>
+===
+title: frontier_inn_bob
+---
+<<present_speaker "npc_bob">>
+<<if condition("world.flag_set", "frontier_inn_bob_met")>>
+    Bob: Still not ready to stand up.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_inn_bob_met" true>>
+    Bob: Every time. Every single gate.
+    Bob: I'm adding this town to the map once the room stops moving. Halfway Siding. I'll draw it lying down.
+    -> ⟨go⟩
+<<endif>>
+===
+title: frontier_mechanic
+---
+<<present_speaker "npc_frontier_mechanic">>
+<<if condition("world.flag_set", "frontier_mechanic_met")>>
+    Hettie: Anything rattling yet? No? Then I'm busy.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_mechanic_met" true>>
+    Hettie: Hettie Gimbal. Pumps, windmills, wagons, the odd automaton. What's broken?
+    -> Nothing, I think. A friend said to come and see you.
+        Hettie: Turn round. Hm. A dent, a scuff, nothing loose. You're fine.
+        Hettie: Come back when something actually falls off. I'll do it cheap.
+    -> ⟨go⟩
+<<endif>>
+===
+title: frontier_brakeman
+---
+<<present_speaker "npc_frontier_brakeman">>
+Hollis: Where did you come from? Never mind. That isn't our engine up front.
+Hollis: Something coupled on at the head of the train in the night, and the crew got off at the water stop, and it didn't.
+Hollis: Keep off the couplings. If you fall between the cars, you're under the train.
+-> ⟨go⟩
+===
+title: frontier_yardmaster
+---
+<<present_speaker "npc_frontier_yardmaster">>
+<<if condition("world.flag_set", "frontier_yardmaster_met")>>
+    Lou: The tipple road goes up to the works. The street goes under it to the Row. Both come out at the railhead.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_yardmaster_met" true>>
+    Lou: You came off the Number 9. At speed. I saw that.
+    Lou: That engine's been through four times this month and taken cars every time. Nobody in this yard is going to stand on the line and argue with it.
+    -> Where am I?
+        Lou: Clinker Flats. The smelter town. Dry Dock's east along the line, past the railhead.
+    -> ⟨go⟩
+<<endif>>
+===
+title: frontier_crane_driver
+---
+<<present_speaker "npc_frontier_crane_driver">>
+<<if condition("world.flag_set", "frontier_crane_driver_met")>>
+    Magda: Keep off the pots. I'm not fishing you out of the slag.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_crane_driver_met" true>>
+    Magda: I tip the slag pots from up there. Forty a shift.
+    Magda: You're standing where the ladle swings, by the way.
+    -> ⟨go⟩
+<<endif>>
+===
+title: frontier_laundress
+---
+<<present_speaker "npc_frontier_laundress">>
+<<if condition("world.flag_set", "frontier_laundress_met")>>
+    Ida: Same as yesterday. Wash it at noon, the works lets out soot at one, wash it again.
+    -> ⟨go⟩
+<<else>>
+    <<command "world.set_flag" "frontier_laundress_met" true>>
+    Ida: Mind the lines. That's the whole night shift's shirts.
+    -> Why live under the works?
+        Ida: The wind can't get in, the rent's low, and the soot's free.
+    -> ⟨go⟩
+<<endif>>
+===

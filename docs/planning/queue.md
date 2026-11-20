@@ -2236,6 +2236,15 @@ until `scripts/measure/compile_collect.py` measures them.
 for retries or enlarging fixed-frame waits. Optional broader cleanup belongs
 in the owner plan, not as a second chronological task list here.
 
+**Guards re-read 2026-11-20:** five static guards were red on main from
+writers that landed 11-13 to 11-19 (`99e368087`, `93e80746d`): the
+multi-writer adjudication, the sim-consumed request writers, the session
+None-arms, the host-produced ingress census and the rewind crossing census.
+Every new writer was read and recorded; one real gap was the portal schedule
+plugin's unregistered effect channel (`48b222336`). The camera-centre arm of
+the stage-kills test now allows the capped collapse it was designed with
+(`a93904370`).
+
 **Acceptance:** selected duplicated setup is removed without reducing tested
 behaviors; required checks run with honest PASS/FAIL/NOT RUN classification;
 the outstanding feature-matrix failures are reproduced, repaired or explicitly

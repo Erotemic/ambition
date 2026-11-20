@@ -72,7 +72,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // The rows of a body that fades between its attacks; then an
                 // enemy's notice beat and the windup of its swing (a fade's
                 // pin is left alone).
-                (body::pin_fade_rows, body::pin_telegraph_rows).chain(),
+                (ambition_combat::fade::pin_fade_rows, body::pin_telegraph_rows).chain(),
                 // Each applier of a request runs on its request.
                 ambition_platformer2d_items::narrative::apply_item_grants.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemGrantRequested>),
                 ambition_platformer2d_items::narrative::apply_shop_transactions

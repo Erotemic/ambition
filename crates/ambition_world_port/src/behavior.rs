@@ -143,3 +143,12 @@ pub struct ObjectActivated { pub object: ObjectRef, pub actor: Option<ObjectRef>
 ambition_extension_sdk::port_record! { ObjectActivated { object: ObjectRef, actor: Option<ObjectRef>, revision: u64 } }
 port!(ObjectActivatedPort, "ambition.objects.activated", Trigger, ObjectActivated);
 port!(ObjectActivationPort, "ambition.objects.activation", Observation, Option<ObjectActivated>);
+
+/// A native defeat: the damage owner decided the hit killed `object`. `by` is
+/// the attacker when the hit had one that is an addressed object. The fact is
+/// committed; whatever owner takes the death afterwards (loot, a match, a fall)
+/// cannot undo it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectDefeated { pub object: ObjectRef, pub by: Option<ObjectRef> }
+ambition_extension_sdk::port_record! { ObjectDefeated { object: ObjectRef, by: Option<ObjectRef> } }
+port!(ObjectDefeatedPort, "ambition.objects.defeated", Trigger, ObjectDefeated);

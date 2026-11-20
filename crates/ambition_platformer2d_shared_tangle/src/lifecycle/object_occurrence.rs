@@ -50,6 +50,20 @@ pub struct ObjectPublished {
     pub occurrence: ObjectOccurrence,
 }
 
+/// A body's defeat, committed by its damage owner on the tick the hit killed it.
+///
+/// Provenance is captured at the decision: the defeated object and the
+/// attacker's object (when the hit had one and it is an addressed object), and
+/// the live room the defeat happened in. A notification built from it needs no
+/// living source. Every kill writes one, whichever owner takes the death after
+/// (the world's economy, a match ruleset, a fall out of the world).
+#[derive(bevy::prelude::Message, Clone, Debug, PartialEq, Eq)]
+pub struct DefeatCommitted {
+    pub object: ambition_extension_sdk::ObjectRef,
+    pub by: Option<ambition_extension_sdk::ObjectRef>,
+    pub room: LiveRoomInstance,
+}
+
 /// A checked allocation range. Preparation does not change the room counter.
 pub struct PreparedObjectOccurrences {
     root: Entity,

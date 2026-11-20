@@ -19,6 +19,31 @@ The example treats notifications as wakeups and also reconciles the latest
 activation twice per active simulation second. It can combine several presses into one request.
 It does not promise one transaction for every press under queue overflow.
 
+## Hear a defeat
+
+`object_defeated` is a typed notification, like `object_activated`. The damage
+owner commits it on the hit that kills a body, before any other owner takes the
+death (loot and respawn, a match ruleset, a fall out of the world). The payload
+names the defeated `object` and, when the hit had an addressed attacker, `by`.
+
+Subscribe to it as to an activation. Name the body as a binding reference and
+add a subscription from that reference to a method whose entry has the trigger
+`#{port: "object_defeated", selector: "defeated"}` in `actor_think`:
+
+```rhai
+bindings: [#{key: "watch", references: #{guard: guard_object},
+    methods: [#{name: "down", entry: "my_mod::room/down"}],
+    subscriptions: [#{key: "guard_down", source: "guard", method: "down"}]}]
+```
+
+The method runs once per defeat, at a later actor read cut, with the binding's
+private state. Provenance is captured on the killing tick, so the defeated body
+need not still exist when the method runs. A body that respawns in place and
+is killed again produces a second fact. The notification is bounded like any
+other: a mailbox at capacity drops it and reports the drop in `behavior_events`.
+Keep the native state you need (for example, a body query of the living guards)
+when the mechanism must survive a dropped wakeup.
+
 ## Find authored objects
 
 `resolve_authored_objects` takes `placements` and a normal `reply`. It uses the

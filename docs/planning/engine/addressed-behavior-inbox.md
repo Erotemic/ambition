@@ -18,8 +18,10 @@ collection map lasts for one phase and contains no undelivered payloads.
 Receipt sequences are local to their typed lane. Outcome and request receipts
 select their own native journal, even when their sequence numbers are equal.
 
-The current pass runs in `actor_think`. Birth and activation subscriptions select
-named methods. Signals, other lifecycle sources and confirmed world-domain
+The current pass runs in `actor_think`. Birth, activation and defeat
+subscriptions select named methods. Defeat (`object_defeated`, 2026-11-19) is
+committed by the actor damage owner on the killing hit (`DefeatCommitted`) and
+routed after the combat phase. Signals, retirement and confirmed world-domain
 transport remain open.
 
 ## Keep the meanings distinct
@@ -146,8 +148,9 @@ state and notifications, and self-consumption with inventory outcomes. The
 collision removal, charge deduplication, GGRS replay, lost wakeups and Rhai reload.
 The shared locator check covers equal placement IDs in two live room instances.
 
-A full duplicated-room mechanism test, additional lifecycle facts, authored
-signals and a locking-door capability remain open. The toll barrier uses the
+Defeat is now a subscribable fact (`a_subscribed_method_hears_the_defeat_of_its_source_once`).
+A full duplicated-room mechanism test, retirement facts, authored signals and a
+locking-door capability remain open. The toll barrier uses the
 existing destructible return policy; it is not a general locking door.
 
 The next cross-island proof is one committed world-domain consequence with

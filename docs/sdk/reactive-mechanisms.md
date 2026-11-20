@@ -44,6 +44,20 @@ other: a mailbox at capacity drops it and reports the drop in `behavior_events`.
 Keep the native state you need (for example, a body query of the living guards)
 when the mechanism must survive a dropped wakeup.
 
+## Hear a break
+
+`object_broken` is the prop counterpart of `object_defeated`. The breakable
+owner commits it on the tick a breakable is spent, whatever spent it: a strike,
+a contact consumption or its own `consume_self` exchange. The payload names the
+`object`. A breakable that returns and is broken again produces a second fact.
+A breakable built already broken (a restored save) produces none.
+
+Subscribe as to a defeat. The method's entry has the trigger
+`#{port: "object_broken", selector: "broken"}` in `actor_think`, and the
+subscription's source is the breakable's reference. Find a placed breakable
+with `resolve_authored_objects`. The witness is
+`a_subscribed_method_hears_its_barrier_break_once` (`switch_lab`).
+
 ## Send a signal
 
 A signal is your own named message, as a Godot signal is: the object a script

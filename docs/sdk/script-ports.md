@@ -529,6 +529,14 @@ Port `ambition.objects.defeated@1`, trigger: read as `this.trigger`.
 | `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
 | `by` | { session: text, allocation_room: integer (u32) or (), sequence: text } or () |  |
 
+## `object_broken`
+
+Port `ambition.objects.broken@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+
 ## `emit_signal`
 
 Port `ambition.objects.emit_signal@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

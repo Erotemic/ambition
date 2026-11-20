@@ -57,6 +57,12 @@ pub struct ObjectPublished {
 /// the live room the defeat happened in. A notification built from it needs no
 /// living source. Every kill writes one, whichever owner takes the death after
 /// (the world's economy, a match ruleset, a fall out of the world).
+/// A breakable object was spent on this tick: struck to nothing, or consumed
+/// by its owner's exchange. Its address and live room are captured at the
+/// commit, so a method subscribed to it hears it after the prop is gone.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct BrokenCommitted { pub object: ambition_extension_sdk::ObjectRef, pub room: LiveRoomInstance }
+
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq, Eq)]
 pub struct DefeatCommitted {
     pub object: ambition_extension_sdk::ObjectRef,

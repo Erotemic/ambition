@@ -9,7 +9,8 @@ Date: 2026-11-17. This audit reads Ambition, Mary-O, and Sanic. It does not chan
 The [playable toll mechanism](../../sdk/reactive-mechanisms.md) now combines scoped
 authored lookup, native switch activation, private methods, native inspection and
 atomic destructible/inventory outcomes. This is a local proof. Accepted defeat
-is a subscribable fact (`object_defeated`, 2026-11-19). Authored signals are
+is a subscribable fact (`object_defeated`, 2026-11-19), and so is a breakable
+spent by any road (`object_broken`, 2026-11-19). Authored signals are
 admitted whole or refused (`emit_signal`/`object_signal`, 2026-11-19).
 Retirement facts, full duplicated-room gameplay and committed world-domain
 communication remain open.

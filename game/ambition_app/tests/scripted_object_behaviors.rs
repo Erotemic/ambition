@@ -926,3 +926,107 @@ fn an_emitted_signal_is_heard_once_by_each_subscriber_and_names_its_sender() {
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_dir_all(dir);
 }
+
+const BROKEN_SOURCE: &str = r#"
+fn declare() {
+    #{provider: "broken_probe", key: "watch", schemas: [
+        #{key: "root", fields: [
+            #{tag: 1, name: "started", kind: "bool"},
+            #{tag: 2, name: "me", kind: "opt object"},
+            #{tag: 3, name: "barrier", kind: "opt object"},
+            #{tag: 4, name: "attached", kind: "u32"},
+        ]},
+        #{key: "watcher", fields: [
+            #{tag: 1, name: "heard", kind: "u32"},
+            #{tag: 2, name: "spent", kind: "opt object"},
+        ]}
+    ], entries: [
+        #{key: "start", phase: "technique_execution", trigger: #{port: "status_tick", selector: "broken_probe.start"},
+          writes: ["root"], requests: ["body_query"], limit: 1},
+        #{key: "me", phase: "actor_think", trigger: #{port: "action_result", selector: "me"},
+          reads: ["body_query_result"], writes: ["root"], requests: ["resolve_authored_objects"], limit: 1},
+        #{key: "located", phase: "actor_think", trigger: #{port: "action_result", selector: "located"},
+          writes: ["root"], requests: ["attach_behaviors"], limit: 1},
+        #{key: "attached", phase: "actor_think", trigger: #{port: "action_result", selector: "attached"}, writes: ["root"]},
+        #{key: "down", phase: "actor_think", trigger: #{port: "object_broken", selector: "broken"}, writes: ["watcher"]},
+    ]}
+}
+fn start() {
+    if this.state.root.started { return; }
+    this.state.root.started = true;
+    this.requests.push(request("body_query", #{reply: #{request: 0, selector: "broken_probe::watch/me"},
+        origin: this.trigger.position, radius: 64.0, limit: 1, include_self: true}));
+}
+fn me() {
+    if !this.trigger.terminal { return; }
+    for target in this.observe.body_query_result.targets {
+        if target.driven { this.state.root.me = target.object; }
+    }
+    this.requests.push(request("resolve_authored_objects", #{placements: ["switch_lab_barrier"],
+        reply: #{request: 0, selector: "broken_probe::watch/located"}}));
+}
+fn located() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage != "applied" { throw this.trigger.code; }
+    let barrier = this.trigger.subjects[0].object;
+    this.state.root.barrier = barrier;
+    this.requests.push(request("attach_behaviors", #{target: this.state.root.me, bindings: [#{key: "watch",
+        references: #{barrier: barrier}, methods: [#{name: "down", entry: "broken_probe::watch/down"}],
+        subscriptions: [#{key: "barrier_down", source: "barrier", method: "down"}]}],
+        reply: #{request: 0, selector: "broken_probe::watch/attached"}}));
+}
+fn attached() {
+    if this.trigger.stage == "rejected" { throw this.trigger.message; }
+    if this.trigger.terminal { this.state.root.attached += 1; }
+}
+fn down() {
+    this.state.watcher.heard += 1;
+    this.state.watcher.spent = this.trigger.object;
+}
+"#;
+
+/// ⭐ A BROKEN PROP IS A FACT A SCRIPT CAN SUBSCRIBE TO. The breakable owner
+/// commits it on the tick the prop breaks, by whatever road (here a strike);
+/// a method subscribed to that object hears it once, named.
+#[test]
+fn a_subscribed_method_hears_its_barrier_break_once() {
+    let path = std::env::temp_dir().join(format!("ambition_broken_probe_{}.rhai", std::process::id()));
+    std::fs::write(&path, BROKEN_SOURCE).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab")
+            .with_extension_module_files(vec![path.clone()])).unwrap();
+    let world = sim.world_mut();
+    let player = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+    world.entity_mut(player).insert(BodyStatuses(vec!["broken_probe.start".into()]));
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 30);
+
+    let root = SchemaKey::new("broken_probe", "root", 1);
+    let watcher = SchemaKey::new("broken_probe", "watcher", 1);
+    let record = sim.world().get::<BodyRecords>(player).unwrap().get(&root).cloned().expect("the probe started");
+    assert_eq!(record.get(FieldRef(3)).unwrap(), &Value::U32(1), "the watch is attached");
+    let Value::Opt(Some(barrier)) = record.get(FieldRef(2)).unwrap() else { panic!("the probe found the barrier") };
+    let barrier = barrier.as_object().unwrap();
+    let session = ambition_platformer2d::platformer::lifecycle::SessionScopeId(barrier.session);
+    let entity = ambition_platformer2d::platformer::lifecycle::resolve_object(sim.world(), session, barrier).unwrap();
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    // A strike that names the barrier: its volume is not read.
+    let volume = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(player).unwrap().aabb().into();
+    sim.world_mut().write_message(HitEvent {
+        origin: None, properties: Default::default(), contact: None, pieces: Vec::new(), strike_sfx: None,
+        volume, damage: 999, source: HitSource::Contact, attacker: Some(player), room: None,
+        target: HitTarget::Feature(entity), mode: HitMode::Knockback, knockback: None, ignored_targets: Vec::new(),
+        attacker_move_instance: None,
+    });
+    sim.step_n(AgentAction::default(), 30);
+
+    let world = sim.world_mut();
+    let heard: Vec<_> = world.query::<&BodyRecords>().iter(world).filter_map(|records| records.get(&watcher).cloned()).collect();
+    assert_eq!(heard.len(), 1, "one watch instance");
+    assert_eq!(heard[0].get(FieldRef(0)).unwrap(), &Value::U32(1), "one break, heard once");
+    assert_eq!(heard[0].get(FieldRef(1)).unwrap(), &Value::Opt(Some(Box::new(Value::Object(barrier)))), "the fact names the barrier");
+    let faults = sim.world().resource::<ExtensionFaults>();
+    assert_eq!(faults.total, 0, "{:?}", faults.recent);
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_file(path);
+}

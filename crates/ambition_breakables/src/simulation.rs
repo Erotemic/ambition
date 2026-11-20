@@ -259,6 +259,17 @@ fn begin_ecs_breakable_respawn(
     {
         commands.entity(entity).insert(RespawnTimer(seconds));
     }
+    // Every road that breaks one comes here: the break is a fact a script can
+    // subscribe to (`object_broken`), named while the object is still there.
+    commands.queue(move |world: &mut World| {
+        use ambition_platformer2d_shared_tangle::lifecycle::{BrokenCommitted, InRoomInstance, object_reference};
+        let (Some(object), Some(room)) = (object_reference(world, entity), world.get::<InRoomInstance>(entity).map(|room| room.0)) else {
+            return;
+        };
+        if world.contains_resource::<bevy::ecs::message::Messages<BrokenCommitted>>() {
+            world.write_message(BrokenCommitted { object, room });
+        }
+    });
 }
 
 /// Common VFX/SFX/debris emission when a breakable is destroyed by any path.

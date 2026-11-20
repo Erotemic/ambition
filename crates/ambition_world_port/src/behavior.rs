@@ -153,6 +153,14 @@ pub struct ObjectDefeated { pub object: ObjectRef, pub by: Option<ObjectRef> }
 ambition_extension_sdk::port_record! { ObjectDefeated { object: ObjectRef, by: Option<ObjectRef> } }
 port!(ObjectDefeatedPort, "ambition.objects.defeated", Trigger, ObjectDefeated);
 
+/// A breakable object was spent: struck to nothing or consumed by its own
+/// exchange. Its owner commits it on the tick it breaks, whatever broke it;
+/// a breakable that returns and breaks again is a second fact.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectBroken { pub object: ObjectRef }
+ambition_extension_sdk::port_record! { ObjectBroken { object: ObjectRef } }
+port!(ObjectBrokenPort, "ambition.objects.broken", Trigger, ObjectBroken);
+
 /// A script's named message from the object it runs for, to each method
 /// subscribed to that object whose entry's selector is `topic`. The runtime
 /// admits it to every such method or to none, and answers with the recipients.

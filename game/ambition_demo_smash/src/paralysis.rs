@@ -1,9 +1,10 @@
-//! Paralysis and burial: strikes that hold the body they struck.
+//! Paralysis, burial and freeze: strikes that take a body's control away.
 //!
 //! The strike is the module `ambition_demo_smash_modules::paralyze`, which
 //! asks `ambition.combat.paralyze` to hold the struck body; the hold is the
 //! engine's (`BodyCombat::paralysis_timer`), and so is a burial's
-//! (`ambition_demo_smash_modules::bury`, `BodyCombat::bury_timer`). What stays
+//! (`ambition_demo_smash_modules::bury`, `BodyCombat::bury_timer`) and a
+//! freeze's (`ambition_demo_smash_modules::freeze`, `BodyCombat::freeze_timer`). What stays
 //! here is this game's rule of how a held fighter buys time back.
 
 use bevy::prelude::*;
@@ -52,6 +53,25 @@ pub fn mash_out_of_burial(
     }
 }
 
+/// A frozen fighter's press thaws it: the same one credit a tick, at the
+/// freeze's own rate.
+pub fn mash_out_of_freeze(
+    mut frozen: Query<(
+        &mut ambition_platformer2d::characters::actor::BodyCombat,
+        &ambition_platformer2d::characters::control::ActorControl,
+    )>,
+) {
+    let mash = crate::rules::smash_rules().freeze_mash_seconds;
+    for (mut combat, control) in &mut frozen {
+        if combat.freeze_timer <= 0.0 {
+            continue;
+        }
+        if pressed_any(control) {
+            combat.freeze_timer = (combat.freeze_timer - mash).max(0.0);
+        }
+    }
+}
+
 /// Any action press this tick: a specific button would be a control-scheme
 /// choice, and mashing the "wrong" one would look broken.
 fn pressed_any(control: &ambition_platformer2d::characters::control::ActorControl) -> bool {
@@ -67,7 +87,7 @@ fn pressed_any(control: &ambition_platformer2d::characters::control::ActorContro
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::module_road::{app_on, runner_of, Road};
+    use crate::module_road::{runner_of, Road};
     use ambition_platformer2d::characters::actor::BodyCombat;
     use ambition_platformer2d::characters::control::ActorControl;
     use ambition_platformer2d::combat::on_hit::OnHitEffectMessage;
@@ -79,9 +99,13 @@ mod tests {
     fn app(road: Road) -> App {
         let mut app = crate::module_road::app_with(
             road,
-            &[ambition_demo_smash_modules::paralyze::module, ambition_demo_smash_modules::bury::module],
+            &[
+                ambition_demo_smash_modules::paralyze::module,
+                ambition_demo_smash_modules::bury::module,
+                ambition_demo_smash_modules::freeze::module,
+            ],
         );
-        app.add_systems(Update, (mash_out_of_paralysis, mash_out_of_burial).after(ExtensionSet::Lower(HIT_REACTION)));
+        app.add_systems(Update, (mash_out_of_paralysis, mash_out_of_burial, mash_out_of_freeze).after(ExtensionSet::Lower(HIT_REACTION)));
         app
     }
 
@@ -193,5 +217,32 @@ mod tests {
         let rule = crate::rules::smash_rules().bury_mash_seconds;
         let left = app.world().get::<BodyCombat>(victim).unwrap().bury_timer;
         assert!((left - (1.0 - rule)).abs() < 1e-6, "one press dug {} s", 1.0 - left);
+    }
+
+    /// A freezing strike encases its victim and leaves its launch alone, on
+    /// both roads; a press thaws at the freeze's own rate.
+    #[test]
+    fn a_freezing_strike_encases_its_victim_and_keeps_its_launch() {
+        use ambition_platformer2d::entity_catalog::smash_freeze::FREEZE;
+        for road in [Road::Linked, Road::Loaded] {
+            let mut app = app(road);
+            let striker = body(&mut app);
+            let victim = body(&mut app);
+            let mut flight = ae::BodyFlightState::default();
+            flight.stage_launch(ae::Vec2::new(200.0, -100.0), false, Default::default());
+            app.world_mut().entity_mut(victim).insert(flight);
+            strike_with(&mut app, striker, victim, FREEZE, 1.2);
+            app.update();
+            let combat = *app.world().get::<BodyCombat>(victim).unwrap();
+            assert!(combat.is_frozen() && combat.freeze_timer == 1.2, "{road:?}: {combat:?}");
+            assert!(!app.world().get::<ae::BodyFlightState>(victim).unwrap().pending_launch_state().is_empty(), "{road:?}: the freeze dropped the launch");
+        }
+        let mut app = app(Road::Linked);
+        let victim = body(&mut app);
+        app.world_mut().get_mut::<BodyCombat>(victim).unwrap().freeze_timer = 1.2;
+        app.world_mut().get_mut::<ActorControl>(victim).unwrap().0.special_pressed = true;
+        app.update();
+        let rule = crate::rules::smash_rules().freeze_mash_seconds;
+        assert!((app.world().get::<BodyCombat>(victim).unwrap().freeze_timer - (1.2 - rule)).abs() < 1e-6);
     }
 }

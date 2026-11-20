@@ -125,6 +125,11 @@ const IMPACT_MAX_INTENSITY: f32 = 1.0;
 /// The parry flash: a hard white-gold snap, brighter than the guard's window
 /// colour, so a catch is clearly different from holding the shield.
 const PARRY_TINT: Vec3 = Vec3::new(1.0, 0.97, 0.72);
+/// A frozen body: pale ice, held steady for the whole freeze.
+const FROZEN_TINT: Vec3 = Vec3::new(0.66, 0.9, 1.0);
+const FROZEN_INTENSITY: f32 = 0.6;
+/// A paralyzed body: an electric yellow-white that flickers.
+const CRACKLE_TINT: Vec3 = Vec3::new(1.0, 1.0, 0.55);
 
 /// How long a parry flash stays at full, as a fraction of the published beat,
 /// and the beat it normalizes against.
@@ -558,6 +563,9 @@ pub struct OverlayFacts {
     /// How hard the hit that freezes this body was, `0..=1`; `0.0` when no
     /// hitlag runs. Resolved sim-side from the hitlag the hit set.
     pub hit_strength: f32,
+    /// The victim reaction holding this body, which has a look of its own
+    /// (a paralysis crackles, a freeze is ice).
+    pub hold: ambition_sim_view::ReactionHold,
     /// A held smash charge, normalized `0..=1`, from
     /// `MovePlayback::smash_charge_fraction`; `None` on release. Do not derive
     /// it here from a move name or Startup progress: a tapped smash and a held
@@ -653,6 +661,7 @@ fn overlay_facts_from_pose(
         hit_flash_secs: Some(pose.hit_flash_secs),
         parry_flash_secs: pose.parry_flash_secs,
         hit_strength: pose.hit_strength,
+        hold: pose.hold,
         iframe_blink: shared_iframe_blink(pose.unhittable, pose.defense_cues, policy),
         move_charge: pose.move_charge,
         transit: 0.0,
@@ -668,6 +677,7 @@ fn overlay_facts_from_feature(
         hit_flash_secs: Some(view.hit_flash_secs),
         parry_flash_secs: view.parry_flash_secs,
         hit_strength: view.hit_strength,
+        hold: ambition_sim_view::ReactionHold::None,
         iframe_blink: shared_iframe_blink(view.unhittable, view.defense_cues, policy),
         move_charge: None,
         transit: 0.0,
@@ -715,6 +725,14 @@ fn overlay_look(
     if flash > 0.0 {
         return (flash, FLASH_TINT);
     }
+    // A victim reaction's own look, for as long as it holds: after the
+    // flashes (a hit that lands on a held body shows as a hit), before the
+    // armor and the blink (a held body is neither).
+    match facts.hold {
+        ambition_sim_view::ReactionHold::Frozen => return (FROZEN_INTENSITY, FROZEN_TINT),
+        ambition_sim_view::ReactionHold::Paralyzed => return (crackle_intensity(tick), CRACKLE_TINT),
+        ambition_sim_view::ReactionHold::Buried | ambition_sim_view::ReactionHold::None => {}
+    }
     // Armor: a cool steel sheen while a heavy swing cannot be staggered.
     // After the flashes (a landed hit on armor still shows as a hit) and
     // before the blink (an armored body is hittable, an i-framed one is not).
@@ -728,6 +746,12 @@ fn overlay_look(
         return (charge_pulse_intensity(charge, tick), CHARGE_TINT);
     }
     (0.0, FLASH_TINT)
+}
+
+/// A paralysis's crackle at one sim tick: bright and dim on alternate pairs
+/// of ticks, so it reads as current rather than as a steady glow.
+fn crackle_intensity(tick: u64) -> f32 {
+    if (tick / 2) % 2 == 0 { 0.75 } else { 0.3 }
 }
 
 /// The impact flash's intensity for a connect of this strength.
@@ -983,6 +1007,7 @@ mod tests {
     fn the_damage_flash_outranks_the_intangibility_blink() {
         let both = OverlayFacts {
             hit_flash_secs: Some(0.2),
+            hold: Default::default(),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             iframe_blink: true,
@@ -998,6 +1023,7 @@ mod tests {
         }
         // Once the flash drains, the blink takes over.
         let after = OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
@@ -1079,6 +1105,7 @@ mod tests {
     #[test]
     fn a_charge_yields_to_both_louder_cues() {
         let charging = OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
@@ -1102,6 +1129,7 @@ mod tests {
 
         // Struck while charging reads as struck, whatever else is true.
         let struck_while_charging = OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.2),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
@@ -1151,6 +1179,7 @@ mod tests {
     #[test]
     fn an_impact_interrupts_the_states_without_resetting_them() {
         let struck_mid_charge = OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.2),
             parry_flash_secs: 0.0,
             hit_strength: 0.8,
@@ -1175,6 +1204,7 @@ mod tests {
         assert_eq!(tint, FLASH_TINT, "the damage tail takes over next");
 
         let blinking = OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
@@ -1200,6 +1230,22 @@ mod tests {
         );
     }
 
+    /// S0.8: a frozen body is ice for its whole freeze, a paralyzed one
+    /// crackles, and a hit that lands on either shows as a hit first. A buried
+    /// body has no tint: its look is its posture.
+    #[test]
+    fn a_held_body_wears_its_reactions_look_under_a_landed_hit() {
+        use ambition_sim_view::ReactionHold;
+        let held = |hold| OverlayFacts { hold, hit_flash_secs: Some(0.0), ..OverlayFacts::default() };
+        assert_eq!(overlay_look(held(ReactionHold::Frozen), 7, None), (FROZEN_INTENSITY, FROZEN_TINT));
+        let crackle: Vec<_> = (0..4).map(|tick| overlay_look(held(ReactionHold::Paralyzed), tick, None)).collect();
+        assert!(crackle.iter().all(|(_, tint)| *tint == CRACKLE_TINT));
+        assert_ne!(crackle[0].0, crackle[2].0, "the crackle flickers");
+        assert_eq!(overlay_look(held(ReactionHold::Buried), 7, None).0, 0.0);
+        let struck = OverlayFacts { hit_flash_secs: Some(10.0), ..held(ReactionHold::Frozen) };
+        assert_eq!(overlay_look(struck, 7, None).1, FLASH_TINT, "the hit shows over the ice");
+    }
+
     /// A caught parry snaps, and it is the only evidence: the body took no hit,
     /// so nothing else changed.
     #[test]
@@ -1207,6 +1253,7 @@ mod tests {
         // A parried body: unhittable while the window is open, no charge, no
         // wound. This is the state a real parry leaves.
         let parried = OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.0),
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
             hit_strength: 0.0,
@@ -1239,6 +1286,7 @@ mod tests {
     #[test]
     fn a_strike_landing_inside_the_parry_beat_still_reads_as_a_strike() {
         let struck_mid_parry = OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.2),
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
             hit_strength: 0.6,
@@ -1254,6 +1302,7 @@ mod tests {
     #[test]
     fn nothing_snaps_without_a_caught_parry() {
         let raised_guard = OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
@@ -1275,6 +1324,7 @@ mod tests {
 
     fn flash(secs: f32) -> OverlayFacts {
         OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(secs),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
@@ -1287,6 +1337,7 @@ mod tests {
 
     fn intangible() -> OverlayFacts {
         OverlayFacts {
+            hold: Default::default(),
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,

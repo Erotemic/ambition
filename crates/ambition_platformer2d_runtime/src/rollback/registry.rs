@@ -337,7 +337,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 511 -> 512: a technique's ask to slow the primary observer's clock rolls back with its body.
 // 512 -> 513: BodyCombat encodes its paralysis timer.
 // 513 -> 514: BodyCombat encodes its bury timer.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 514;
+// 514 -> 515: BodyCombat encodes its freeze timer.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 515;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

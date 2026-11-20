@@ -352,6 +352,12 @@ pub struct BodyCombat {
     /// body's box stays on the floor, so no collision is embedded. `0.0` for
     /// every body nothing has buried.
     pub bury_timer: f32,
+    /// FROZEN: seconds left in which this body is encased (a `smash.freeze`
+    /// hit) and cannot act or steer. Unlike a paralysis it is NOT held: the
+    /// block keeps its hit's launch and falls and slides as a body does, so it
+    /// is a gameplay freeze and not hitlag. A real hit shatters it, and the
+    /// game's mash rule thaws it. `0.0` for every body nothing has frozen.
+    pub freeze_timer: f32,
     /// SLOWED: seconds left in which this body moves at [`Self::slow_scale`]
     /// of its own speed (honey, glue). Not a control lock: the body acts and
     /// steers, only slower. Applied by [`Self::slow`]; the body step reads it
@@ -490,6 +496,7 @@ impl BodyCombat {
             .max(self.sleep_timer)
             .max(self.paralysis_timer)
             .max(self.bury_timer)
+            .max(self.freeze_timer)
             .max(self.ledge_trump_lock_timer)
     }
 
@@ -513,6 +520,11 @@ impl BodyCombat {
     /// Whether this body is buried now: held in the floor, unable to act.
     pub fn is_buried(&self) -> bool {
         self.bury_timer > 0.0
+    }
+
+    /// Whether this body is encased now: it cannot act, and it still moves.
+    pub fn is_frozen(&self) -> bool {
+        self.freeze_timer > 0.0
     }
 
     /// Whether this body is held where it is by a reaction (a paralysis or a
@@ -581,6 +593,7 @@ impl BodyCombat {
         self.sleep_timer = (self.sleep_timer - proper_dt).max(0.0);
         self.paralysis_timer = (self.paralysis_timer - proper_dt).max(0.0);
         self.bury_timer = (self.bury_timer - proper_dt).max(0.0);
+        self.freeze_timer = (self.freeze_timer - proper_dt).max(0.0);
         self.slow_timer = (self.slow_timer - proper_dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - unscaled_dt).max(0.0);
         if self.hitstop_timer == 0.0 && !self.asdi_owed {
@@ -610,8 +623,9 @@ impl BodyCombat {
         self.sleep_timer = 0.0;
         // Nor held by a paralysis from the stock before.
         self.paralysis_timer = 0.0;
-        // Nor buried.
+        // Nor buried, nor frozen.
         self.bury_timer = 0.0;
+        self.freeze_timer = 0.0;
         // A body put back to spawn is out of the honey.
         self.slow_timer = 0.0;
         self.slow_scale = 0.0;
@@ -806,6 +820,7 @@ mod hard_lock_tests {
             sleep_timer: _,
             paralysis_timer: _,
             bury_timer: _,
+            freeze_timer: _,
             // A slow runs down with the rest; its scale is read only while it does.
             slow_timer: _,
             slow_scale: _,
@@ -851,6 +866,7 @@ mod hard_lock_tests {
             // Cleared, for the same reason as the sleep.
             paralysis_timer: _,
             bury_timer: _,
+            freeze_timer: _,
             // Cleared: a body put back to spawn is out of the honey.
             slow_timer: _,
             slow_scale: _,

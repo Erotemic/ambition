@@ -488,7 +488,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // floor, so the landing tick is the same either way.
         app.add_systems(
             sim,
-            (crate::sing::mash_out_of_sleep, crate::paralysis::mash_out_of_paralysis, crate::paralysis::mash_out_of_burial)
+            (crate::sing::mash_out_of_sleep, crate::paralysis::mash_out_of_paralysis, crate::paralysis::mash_out_of_burial, crate::paralysis::mash_out_of_freeze)
                 .in_set(FIGHTER_SPECIALS)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
                 .before(ambition_platformer2d::extension::ExtensionSet::Collect(

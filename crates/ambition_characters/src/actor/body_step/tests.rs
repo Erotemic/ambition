@@ -494,3 +494,15 @@ fn a_buried_body_is_held() {
     assert!(combat.is_buried() && combat.hard_lock_timer() > 0.0);
     assert_eq!(travel(&mut body, &mut combat), 0.0, "a buried body travelled");
 }
+
+/// A frozen body cannot act, and it is NOT held: the block still travels,
+/// which is what makes it a gameplay freeze and not hitlag.
+#[test]
+fn a_frozen_body_cannot_act_and_still_travels() {
+    let mut body = body_travelling();
+    let mut combat = BodyCombat { freeze_timer: 0.5, ..BodyCombat::default() };
+    assert!(combat.is_frozen() && combat.hard_lock_timer() > 0.0 && !combat.is_held_in_place());
+    assert!(travel(&mut body, &mut combat) > 1.0, "a frozen body was held like a paralyzed one");
+    combat.reset();
+    assert!(!combat.is_frozen());
+}

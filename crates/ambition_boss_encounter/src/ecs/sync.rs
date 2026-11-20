@@ -152,6 +152,7 @@ mod boss_combat_rebuild_contract {
             // A paralysis a hit applied: the same.
             paralysis_timer: _,
             bury_timer: _,
+            freeze_timer: _,
             // A slow a puddle applied: the same, owned by the body.
             slow_timer: _,
             slow_scale: _,

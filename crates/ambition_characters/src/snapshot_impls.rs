@@ -69,6 +69,8 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     paralysis_timer: f32,
     // BURIED. The same: a lock that freezes the body's step.
     bury_timer: f32,
+    // FROZEN. A lock like the others; the block's travel is its own physics.
+    freeze_timer: f32,
     // SLOWED. A status like the sleep above it: two peers that disagree about
     // how long a body wades through honey resimulate different matches.
     slow_timer: f32,

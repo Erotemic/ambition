@@ -91,6 +91,10 @@
     // presses a second a 1.0 s burial decays at 1.0 + 10 * 0.04 = 1.4 times
     // the clock and lasts about 0.71 s.
     bury_mash_seconds: 0.04,
+    // Seconds one press thaws off a freeze (the Perfect Cellular Automaton's
+    // still life). At about ten presses a second a 1.2 s freeze decays at
+    // 1.0 + 10 * 0.04 = 1.4 times the clock and lasts about 0.86 s.
+    freeze_mash_seconds: 0.04,
     // The stock counts the stocks button offers, in the order it walks them.
     // A match starts on `stocks` in match_rules.ron (3: every ladder number
     // was measured there), so that count is one of these. One leaves no room

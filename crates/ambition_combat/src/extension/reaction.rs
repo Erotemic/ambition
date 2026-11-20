@@ -11,7 +11,7 @@
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{AnswerParryPort, BuryPort, ParalyzePort, Parried, ParriedPort, Struck};
+use ambition_combat_port::{AnswerParryPort, BuryPort, FreezePort, ParalyzePort, Parried, ParriedPort, Struck};
 pub use ambition_combat_port::StruckPort;
 use ambition_entity_catalog::ParamValue;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
@@ -46,6 +46,7 @@ pub fn install_for_hit_reaction(app: &mut App) {
     );
     app.install_extension_submitted_request::<ParalyzePort, _>(HIT_REACTION, "ambition_combat", lower_paralyses);
     app.install_extension_submitted_request::<BuryPort, _>(HIT_REACTION, "ambition_combat", lower_burials);
+    app.install_extension_submitted_request::<FreezePort, _>(HIT_REACTION, "ambition_combat", lower_freezes);
     super::status::install_for_hit_reaction(app);
 }
 
@@ -81,6 +82,28 @@ pub fn lower_burials(
         combat.recoil_lock_timer = 0.0;
         if combat.bury_timer < duration_s {
             combat.bury_timer = duration_s;
+        }
+    }
+}
+
+/// Encase each body a module froze for at least the asked time (see the port
+/// card). Its motion is left alone: the block keeps the hit's launch.
+pub fn lower_freezes(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut bodies: Query<&mut ambition_characters::actor::BodyCombat>,
+) {
+    for submitted in outbox.drain::<FreezePort>(&HIT_REACTION) {
+        let duration_s = submitted.value.duration_s;
+        if !duration_s.is_finite() || duration_s <= 0.0 {
+            warn!("extension entry {} asked for a freeze of {duration_s} s; refused", submitted.entry);
+            continue;
+        }
+        let Ok(mut combat) = bodies.get_mut(submitted.scope) else {
+            warn!("extension entry {} asked to freeze a body with no combat state; refused", submitted.entry);
+            continue;
+        };
+        if combat.freeze_timer < duration_s {
+            combat.freeze_timer = duration_s;
         }
     }
 }

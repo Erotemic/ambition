@@ -238,3 +238,31 @@ fn the_pile_driver_buries_a_standing_body_instead_of_spiking_it() {
     let after = app.world().get::<ae::BodyKinematics>(victim).unwrap().pos;
     assert!((after - held_at).length() < 2.0, "the burial's hit still launched the body: {after:?} from {held_at:?}");
 }
+
+/// S0.8: the Perfect Cellular Automaton's authored pulse freezes the body it
+/// catches into a still life: it cannot act, and it is not held, so the
+/// pulse's launch still carries it. That is the difference from hitlag.
+#[test]
+fn the_cellular_pulse_freezes_its_victim_and_the_block_still_flies() {
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    let (mut app, [automaton, victim]) = two_fighters(["perfect_cellular_automaton", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    let spec = app.world().get::<ActorMoveset>(automaton).unwrap().0.moves.iter()
+        .find(|spec| spec.id == "cellular_pulse").unwrap().clone();
+    app.world_mut().entity_mut(automaton).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0));
+    let mut frozen_at = None;
+    for _ in 0..90 {
+        app.update();
+        if app.world().get::<BodyCombat>(victim).unwrap().is_frozen() {
+            frozen_at = Some(app.world().get::<ae::BodyKinematics>(victim).unwrap().pos);
+            break;
+        }
+    }
+    let frozen_at = frozen_at.expect("the authored cellular pulse must freeze the body it reaches");
+    assert!(app.world().get::<BodyCombat>(victim).unwrap().hard_lock_timer() > 0.0, "a frozen body cannot act");
+    for _ in 0..20 {
+        app.update();
+    }
+    assert!(app.world().get::<BodyCombat>(victim).unwrap().is_frozen(), "the freeze ended early");
+    let moved = (app.world().get::<ae::BodyKinematics>(victim).unwrap().pos - frozen_at).length();
+    assert!(moved > 2.0, "the frozen block was held where it was struck ({moved}px), as hitlag would");
+}

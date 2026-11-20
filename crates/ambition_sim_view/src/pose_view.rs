@@ -271,6 +271,37 @@ impl TurnClock {
 /// is the same with the walk key held.
 const LOOK_UP_AXIS: f32 = 0.4;
 
+/// A victim reaction that takes a body's control away and has a look of its
+/// own (S0.8), resolved from `BodyCombat`. One at a time: a freeze is drawn
+/// over a paralysis over a burial, though a body rarely holds two.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ReactionHold {
+    #[default]
+    None,
+    /// Held where it was struck (`BodyCombat::paralysis_timer`).
+    Paralyzed,
+    /// Driven into the floor (`BodyCombat::bury_timer`); its look is the
+    /// posture `PresentedPose` sinks it by, not a tint.
+    Buried,
+    /// Encased (`BodyCombat::freeze_timer`).
+    Frozen,
+}
+
+impl ReactionHold {
+    /// The hold `combat` has now.
+    pub fn of(combat: &ambition_characters::actor::BodyCombat) -> Self {
+        if combat.is_frozen() {
+            Self::Frozen
+        } else if combat.is_paralyzed() {
+            Self::Paralyzed
+        } else if combat.is_buried() {
+            Self::Buried
+        } else {
+            Self::None
+        }
+    }
+}
+
 /// Sim-resolved presentation pose for one player-bodied entity: everything
 /// the renderer needs to place, size, animate, and flash the sprite. Plain
 /// data (Copy, no `Entity`/`Handle` borrows) — snapshot-safe by construction.
@@ -355,6 +386,10 @@ pub struct BodyPoseView {
     pub clip: Option<crate::ClipRequest>,
     /// Seconds remaining on the damage flash (`BodyCombat::hit_flash`).
     pub hit_flash_secs: f32,
+    /// The reaction that has this body's control away and is drawn as a
+    /// look of its own: a paralysis crackles, a freeze is ice. See
+    /// [`ReactionHold`].
+    pub hold: ReactionHold,
     /// Seconds left on this body's PARRY CATCH — a parry that actually caught a
     /// strike, not a parry window standing open.
     ///
@@ -563,6 +598,7 @@ impl Default for BodyPoseView {
             gravity_dir: ambition_platformer2d_core::Vec2::Y,
             anim: CharacterAnim::Idle,
             hit_flash_secs: 0.0,
+            hold: Default::default(),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: false,
@@ -1095,6 +1131,7 @@ pub fn rebuild_body_pose_views(
                 .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP)))
                 .or_else(|| crate::anim_index::aim_over_legs(anim_facts.is_some_and(|f| f.aim_anim_active) && free, anim)), pinned, crouched(anim), Some(anim)),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
+            hold: combat.map_or(ReactionHold::None, ReactionHold::of),
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
             hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(
                 combat.map_or(0.0, |c| c.hitstop_timer),

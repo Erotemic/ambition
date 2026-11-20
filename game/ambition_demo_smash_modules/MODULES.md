@@ -11,6 +11,7 @@
 | [`bury`](src/bury.rs) | The burial: a strike that drives a standing body into the floor; the burial is the engine's. |
 | [`counter`](src/counter.rs) | The counter stance: while it is live, its fighter parries. |
 | [`dilation`](src/dilation.rs) | Time dilation: a body runs on a slower clock for a while. |
+| [`freeze`](src/freeze.rs) | The freeze: a strike that encases the body it struck; the ice is the engine's. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
 | [`limit`](src/limit.rs) | A move that fills its own fighter's Limit meter. |
 | [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |

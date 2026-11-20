@@ -378,6 +378,8 @@ pub fn apply_body_hit_reaction(
         // counterplay: a buried body is struck out of the floor.
         combat.paralysis_timer = 0.0;
         combat.bury_timer = 0.0;
+        // And it shatters an encased body.
+        combat.freeze_timer = 0.0;
     }
     // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
     // authority, then regains the attack verb the instant it clears (while still in hitstun +

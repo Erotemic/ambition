@@ -327,6 +327,14 @@ Port `ambition.combat.bury@1`, request: `this.requests.push(request("<alias>", #
 |---|---|---|---|
 | `duration_s` | number | required | Seconds the body stays buried (world seconds). |
 
+## `freeze`
+
+Port `ambition.combat.freeze@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `duration_s` | number | required | Seconds the body stays encased (world seconds). |
+
 ## `group_think`
 
 Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.

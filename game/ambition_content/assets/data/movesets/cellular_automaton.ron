@@ -1337,6 +1337,8 @@
                         // Verbatim and hand-built, not passed through `strike`: the helper would add
                         // a slash arc and a different window shape, and these numbers came from an
                         // archetype row that must not be retuned. Every later move uses the helper.
+                        // A body the pulse catches is frozen into a still life for 1.2 s
+                        // (`smash.freeze`); its numbers are unchanged.
                         (
                             id: "cellular_pulse",
                             display_name: None,
@@ -1371,7 +1373,15 @@
                                             knockback_growth: None,
                                             launch_dir: None,
                                             reaction: None,
-                                            on_hit: None,
+                                            on_hit: Some((
+                                                // A STILL LIFE: the pulse fixes the body it
+                                                // catches into a pattern that does not change.
+                                                // It still flies where the pulse sends it.
+                                                key: "smash.freeze",
+                                                params: ({
+                                                    "duration_s": 1.2,
+                                                }),
+                                            )),
                                             vfx: None,
                                             hit_sfx: None,
                                         ),

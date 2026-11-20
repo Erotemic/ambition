@@ -69,7 +69,7 @@ pub use local_view::{
 pub use passage_view::{rebuild_passage_views, PassageLookView, PassageViews};
 pub use pose_view::{StopClock, TurnClock};
 pub use pose_view::{
-    mark_bodies_the_death_look_took, rebuild_body_pose_views, rebuild_launched_bodies_view, TakenByDeathLook, rebuild_shield_views, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
+    mark_bodies_the_death_look_took, rebuild_body_pose_views, rebuild_launched_bodies_view, TakenByDeathLook, rebuild_shield_views, BodyPoseView, ReactionHold, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
     LaunchedBodyFact, ShieldRingFact, ShieldRingsView, LOOK_UP_CLIP, LOOK_DOWN_CLIP,
 };
 pub use presented_pose::{

@@ -399,6 +399,53 @@ ambition_extension_sdk::port_record! {
 
 ambition_extension_sdk::script_port!(BuryPort);
 
+/// The request port marker for a freeze of the struck body.
+///
+/// Port card:
+///
+/// * **Operation** — the body the invocation ran for is encased for at
+///   least `duration_s`: it cannot act or steer, and it still moves (the hit
+///   that froze it launches it as usual, and it falls and slides as a body
+///   does), which is what makes it a gameplay freeze and not hitlag. A body
+///   already frozen for longer keeps its time. A real hit shatters it; the
+///   game's mash rule thaws it. A duration that is not finite, or is not
+///   above 0, is refused.
+/// * **Owner** — `ambition_combat::extension::reaction`, which writes
+///   `BodyCombat::freeze_timer`.
+/// * **Scope** — the body the invocation ran for: in `hit_reaction`, the body
+///   a strike struck.
+/// * **Time** — `hit_reaction`, after the strike's own reaction: the hit
+///   that freezes does not shatter the ice it makes.
+pub struct FreezePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Freeze {
+    pub duration_s: f32,
+}
+
+impl Port for FreezePort {
+    const KEY: PortKey = PortKey::new("ambition.combat.freeze", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = Freeze;
+
+    fn encode(v: &Freeze, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Freeze, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    Freeze {
+        /// Seconds the body stays encased (world seconds).
+        duration_s: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(FreezePort);
+
 /// The request port marker for a refill of one of the body's resources.
 ///
 /// Port card:

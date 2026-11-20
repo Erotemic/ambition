@@ -18,6 +18,7 @@ mod object_behaviors;
 mod record_seeds;
 mod behavior_inbox;
 pub mod behavior_events;
+pub mod world_posts;
 mod breakable_creation;
 mod contact_consumption;
 pub mod authored_verdict_timeline;

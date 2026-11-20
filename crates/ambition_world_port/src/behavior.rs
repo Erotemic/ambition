@@ -184,6 +184,18 @@ action_port!(EmitSignalPort, "ambition.objects.emit_signal", 1, EmitSignal, "obj
 pub struct ObjectSignal { pub from: ObjectRef, pub topic: String, pub data: ScriptValue }
 ambition_extension_sdk::port_record! { ObjectSignal { from: ObjectRef, topic: String, data: ScriptValue } }
 port!(ObjectSignalPort, "ambition.objects.signal", Trigger, ObjectSignal);
+/// Post a signal from the object this script runs for to its subscribers in
+/// any room. Unlike [`EmitSignal`], a subscriber in another rollback island
+/// hears it too: the world domain holds the post until the sending tick can
+/// never be simulated again, then delivers it to every subscriber where each
+/// is then, once, and again on that subscriber's room replay of the same tick.
+/// The applied result says the post was held, not who will hear it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PostWorldSignal { pub reply: ReplyTo, pub topic: String, pub data: ScriptValue }
+ambition_extension_sdk::port_record! {
+    PostWorldSignal { reply: ReplyTo, topic: String, data: ScriptValue = ScriptValue::Unit }
+}
+action_port!(PostWorldSignalPort, "ambition.world.post_signal", 1, PostWorldSignal, "world.post_signal");
 /// A signal topic: 1 to 48 bytes of `a-z`, `0-9`, `_`, `.` and `-`. The
 /// subscriber's entry selector names it.
 pub fn valid_signal_topic(topic: &str) -> bool {

@@ -183,7 +183,7 @@ fn publish_captured<P: Port>(world: &mut DeferredWorld<'_>, source: ObjectRef, a
     publish_encoded(world, source, authority, &event, recipients, &bytes)
 }
 /// The live mailboxes subscribed to `event` from `source`, in delivery order.
-fn recipients(world: &DeferredWorld<'_>, source: ObjectRef, event: &str) -> Vec<(ObjectRef, Entity, String)> {
+pub(crate) fn recipients(world: &DeferredWorld<'_>, source: ObjectRef, event: &str) -> Vec<(ObjectRef, Entity, String)> {
     let routes = world.resource::<EventRoutes>().routes.get(&(source, event.to_owned())).cloned().unwrap_or_default();
     if routes.is_empty() { return Vec::new(); }
     let objects = ObjectIndex::capture(world);
@@ -203,26 +203,37 @@ fn room_for(mailbox: &EventMailbox, len: usize) -> Result<Option<usize>, ()> {
 }
 fn publish_encoded(world: &mut DeferredWorld<'_>, source: ObjectRef, authority: SimulationIsland, event: &str,
     recipients: Vec<(ObjectRef, Entity, String)>, bytes: &[u8]) -> NativePublication {
-    let now = world.resource::<ambition_time::SimTick>().0;
     let mut report = NativePublication::default();
     for (_, entity, key) in recipients {
         if simulation_island(world, entity) != Some(authority) {
             report.cross_island += 1;
             continue;
         }
-        let mut mailbox = world.get_mut::<EventMailbox>(entity).unwrap();
-        match room_for(&mailbox, bytes.len()) {
-            Err(()) => { mailbox.dropped = mailbox.dropped.saturating_add(1); report.overflow += 1; continue; }
-            Ok(Some(settled)) => { mailbox.rows.remove(settled); }
-            Ok(None) => {}
-        }
-        let sequence = mailbox.next_sequence; mailbox.next_sequence += 1;
-        mailbox.rows.push(EventRow {delivery: BehaviorEventDelivery {sequence, subscription: key, source,
-            event: event.to_owned(), tick: now, progress: DeliveryProgress::default()},
-            bytes: bytes.to_vec(), max_attempts: 1});
-        report.queued += 1;
+        if queue_row(world, entity, source, event, key, bytes) { report.queued += 1; } else { report.overflow += 1; }
     }
     report
+}
+/// Queue one row from `source` in `entity`'s mailbox under the subscription
+/// `key`, at this tick. False (and counted as dropped) when it cannot take it.
+pub(crate) fn queue_row(world: &mut DeferredWorld<'_>, entity: Entity, source: ObjectRef, event: &str, key: String,
+    bytes: &[u8]) -> bool {
+    let now = world.resource::<ambition_time::SimTick>().0;
+    let Some(mut mailbox) = world.get_mut::<EventMailbox>(entity) else { return false; };
+    match room_for(&mailbox, bytes.len()) {
+        Err(()) => { mailbox.dropped = mailbox.dropped.saturating_add(1); return false; }
+        Ok(Some(settled)) => { mailbox.rows.remove(settled); }
+        Ok(None) => {}
+    }
+    let sequence = mailbox.next_sequence; mailbox.next_sequence += 1;
+    mailbox.rows.push(EventRow {delivery: BehaviorEventDelivery {sequence, subscription: key, source,
+        event: event.to_owned(), tick: now, progress: DeliveryProgress::default()},
+        bytes: bytes.to_vec(), max_attempts: 1});
+    true
+}
+/// The routing key of a signal on `topic`, once signals are installed.
+pub(crate) fn signal_event(world: &World, topic: &str) -> Option<String> {
+    world.resource::<NativeSources>().0.get(&ObjectSignalPort::KEY.to_string())
+        .filter(|source| source.topical).map(|source| source.event(topic))
 }
 
 /// The most methods one signal reaches. A signal admitted to fewer than all

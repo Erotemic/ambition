@@ -566,6 +566,16 @@ Port `ambition.objects.signal@1`, trigger: read as `this.trigger`.
 | `topic` | text |  |
 | `data` | schema-selected data |  |
 
+## `post_world_signal`
+
+Port `ambition.world.post_signal@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `topic` | text | required |  |
+| `data` | schema-selected data | `()` |  |
+
 ## `behavior_events`
 
 Port `ambition.objects.events@1`, observation: read as `this.observe.<alias>`.

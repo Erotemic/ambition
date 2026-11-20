@@ -12,9 +12,11 @@ atomic destructible/inventory outcomes. This is a local proof. Accepted defeat
 is a subscribable fact (`object_defeated`, 2026-11-19), and so is a breakable
 spent by any road (`object_broken`) and a pickup taken (`object_collected`,
 both 2026-11-19). Authored signals are
-admitted whole or refused (`emit_signal`/`object_signal`, 2026-11-19).
-Retirement facts, full duplicated-room gameplay and committed world-domain
-communication remain open.
+admitted whole or refused (`emit_signal`/`object_signal`, 2026-11-19), and a
+posted signal crosses rollback islands once its sending tick is confirmed
+(`post_world_signal`, 2026-11-19). A room entered again is a new copy whose
+subscriptions are its own. Retirement facts, two copies of one room live at
+once, and world-domain state beyond a transient post remain open.
 
 The [program](script-first-ambition-gameplay.md#reactive-capability-direction)
 now selects an island-local reactive model. This census supplies owner and

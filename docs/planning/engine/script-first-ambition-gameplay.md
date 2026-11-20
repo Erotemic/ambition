@@ -230,7 +230,10 @@ An agent must not report "requires engine changes" as the final answer for a nec
 4. Demonstrate one confirmed world-domain bridge. A speculative source cannot
    mutate B. A confirmed, identified transaction enters B's deterministic input
    model, survives its rewind and applies once. Include source retirement and
-   recipient travel. This is not a general remote-call service.
+   recipient travel. This is not a general remote-call service. Done
+   2026-11-19 for a transient post (`post_world_signal`,
+   `a_world_post_crosses_rooms_once_and_only_when_confirmed`); a persistent
+   world-domain store waits for a customer.
 5. Finish authoring ergonomics and domain coverage through useful variations.
    Check equipment, custody, spawning and travel outcomes. Extract mixed
    actor/prop construction only when a real atomic composition requires it.

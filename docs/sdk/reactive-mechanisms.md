@@ -109,7 +109,7 @@ it. The refusal codes are:
 - `signal_recipient_bound`: there are more than 16 subscribers;
 - `signal_queue_full`: a subscriber's mailbox holds only undelivered rows;
 - `cross_island_signal_unsupported`: a subscriber is in another rollback
-  island.
+  island. Post it across rooms instead.
 
 Delivery waits for the next actor read cut and shares the receiver's per-tick
 budget with every other addressed payload.
@@ -121,6 +121,45 @@ subscriptions, and they hear nothing from the new copy. Look the placement up
 again (`resolve_authored_objects` answers for the caller's current room) and
 subscribe to what it names. The witness is
 `a_room_entered_again_is_a_new_copy_and_only_its_own_watch_hears_its_barrier`.
+
+## Post a signal to another room
+
+On a host where each room rewinds alone (a hosted world with guests), a
+subscriber that travelled to another room is in another rollback island, and
+`emit_signal` refuses it. Use `post_world_signal`, with the same fields:
+
+```rhai
+this.requests.push(request("post_world_signal", #{topic: "door_opened", data: 7,
+    reply: #{request: 2, selector: "my_mod::lever/posted"}}));
+```
+
+Subscribers hear it as they hear an emitted signal: the `object_signal`
+port, the topic as the entry's selector, `this.trigger.from` named by the
+runtime. Nothing on the receiving side changes.
+
+What differs is when it arrives. The sending room may still run its tick
+again with a guest's late input, so the post is held until no replay can take
+that tick back (the confirmed-frame boundary). A replay that takes the tick
+back takes the post back too, and it never arrives. Once confirmed, the next
+live tick delivers it to every subscriber wherever each is then, even if the
+sender is gone. If the receiving room later rewinds across that tick, its
+replay delivers it again into the mailbox the rewind restored. Each
+subscriber hears it exactly once. With one rollback authority (local play,
+GGRS) every room shares one timeline, and a post is delivered at once.
+
+The sender's `reply` is `applied` with the code `world_signal_held` (or
+`world_signal_delivered` with one authority). It names no recipients, because
+none has heard it yet. Refusals: `invalid_signal_topic`, `signal_data_bound`,
+`emitter_without_identity`, and `world_post_queue_full` when 64 posts already
+wait. A full mailbox at delivery drops the row and counts it in the mailbox's
+`dropped`, as a native fact does. A post is a message, not a remote call: it
+cannot reach a method by name, and nothing answers it.
+
+The witness is `a_world_post_crosses_rooms_once_and_only_when_confirmed`.
+Bob's post on a predicted tick is taken back by his late input. His real post
+waits for Alice's input, and still arrives though Bob is gone by then. A
+rewind of Alice's room across the delivery leaves her listener with exactly
+one.
 
 ## Find authored objects
 

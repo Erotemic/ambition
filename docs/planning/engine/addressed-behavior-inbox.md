@@ -26,8 +26,9 @@ by the breakable owner on every road that breaks one (`BrokenCommitted`), and
 a taken pickup (`object_collected`) by the pickup owner at the take
 (`CollectedCommitted`).
 Authored signals (`emit_signal`, 2026-11-19) use
-the same mailbox under the `object_signal` port. Retirement and confirmed
-world-domain transport remain open.
+the same mailbox under the `object_signal` port. A post across rollback
+islands (`post_world_signal`, 2026-11-19) reaches the same subscriptions
+through the committed world road below. Retirement facts remain open.
 
 ## Keep the meanings distinct
 
@@ -109,6 +110,26 @@ source retirement and a traveling recipient. A confirmed `Update` write alone
 is insufficient. Local `HostIntentLedger` input is not peer agreement, and
 presentation quarantine is not a simulation transaction service.
 
+The first road is a posted signal
+([`world_posts`](../../../crates/ambition_platformer2d_runtime/src/world_posts.rs),
+2026-11-19). `post_world_signal` holds the encoded `object_signal` row with
+the sending room and tick (`RoomWrite`). A rewind of that room drops the posts
+it made after its save, through a registered room-write retractor, and the
+replay posts them again. On a live tick, once `ConfirmedFrameBoundary` passes
+the sending tick, the post is admitted. Each subscription of the sender
+resolves to its mailbox wherever the subscriber is then, so a recipient that
+travelled is found and the source need not be alive. The admission is logged
+by tick and recipient. While a room replays, the rows the road admitted to
+that room on the replayed tick are queued again into the mailbox its rewind
+restored. Each timeline therefore holds the post once. With one rollback
+authority (local play, GGRS) a post is delivered at once. The witness
+`a_world_post_crosses_rooms_once_and_only_when_confirmed` covers the hosted
+host's cases: a speculative post retracted by a late input, a post held for
+another guest's input whose sender leaves play before it is admitted, a
+recipient that travelled to another room, and a recipient-room rewind across
+the admission tick. A world-domain store with persistent state, rather than a transient
+signal, is still open.
+
 Existing deferred native action publishers still need their work ownership
 and traveling-recipient audit. A stable occurrence reference alone does not
 authorize a speculative write into another island.
@@ -169,7 +190,7 @@ Two copies of one room live at once, body retirement facts and a locking-door
 capability remain open. The toll barrier uses the
 existing destructible return policy; it is not a general locking door.
 
-The next cross-island proof is one committed world-domain consequence with
-stable identity and replayable destination admission. Arbitrary remote object
-calls and mixed actor/prop factories are not prerequisites for the local room.
+The first committed world-domain consequence is a posted signal (see
+"Committed world boundary between islands"). Arbitrary remote object calls
+and mixed actor/prop factories are not prerequisites for the local room.
 The [script-first program](script-first-ambition-gameplay.md) remains open.

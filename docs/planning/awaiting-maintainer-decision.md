@@ -319,7 +319,7 @@ mechanical.
 
 ## Q181 — Should Sanic's roll be a commitment (Sonic's roll), or stay the run in a ball?
 
-**Context (2026-11-19, [GROUNDED-ATTACK-MOMENTUM](queue.md#grounded-attack-momentum--measure-before-changing-the-slide)).**
+**Context (2026-11-19, [GROUNDED-ATTACK-MOMENTUM](queue.md#grounded-attack-momentum--measure-before-changing-the-slide---done-2026-11-19-q181-is-jons)).**
 Measured in the demo ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)):
 Sanic's only roll is the spin dash, and while it rolls the body follows the
 run's surface-momentum law in a smaller box. Hands off it loses 400 px/s²

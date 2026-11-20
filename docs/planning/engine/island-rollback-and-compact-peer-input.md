@@ -1287,3 +1287,39 @@ global writer in the rewinding schedule must ask `RoomReplay::allows`, stamp a
 3. Do not turn cross-island live portals into a hidden prerequisite for scaled portals. Only the same-island live portal path needs continuous causal geometry; no dynamic island merging/splitting is scheduled.
 4. Preserve existing game rules and deterministic gameplay, and distinguish local simulation from optional GGRS and from a future player-hosted authoritative replication backend. The old [ADR 0037](../../adr/0037-causally-isolated-simulation-islands.md) compared broader possibilities; this maintainer-selected implementation scope is deliberately narrower.
 5. Retire each selected queue task when its *production* acceptance is met. Do not claim NET-INPUT-WIDTH complete from a byte-count test alone; do not claim conditional GGRS islands complete from local-only room filtering.
+
+## Narrative per room: the plan (2026-11-20)
+
+The last open coupling is narrative. `ActiveConversation` holds one
+conversation for the world, one `DialogueRunner` runs it
+(`ambition_dialog::bridge`), and one text box draws it. So Bob, in another
+room, cannot open a talk while Alice is in one, and he waits on her. That is
+what the customer rules out ("must not wait on each other's rooms"). The
+cutscene has the same shape (`ActiveCutscene`, `CutscenesInRooms`).
+
+Slices, each with a witness:
+
+- **N1, the simulation.** `ActiveConversation` keeps at most one live
+  conversation per room: the room of its bodies. Opening a second in the same
+  room is refused as now; one in another room opens. Every reader asks
+  for the conversation of a body, a seat or a room, not "the" conversation:
+  the hold, membership, the break rules, input routing (`input.rs`, the seat
+  answers its own conversation), the ledger and `yarn_vocabulary`. Then
+  `ConversationsInRooms` logs and retracts per room. The rule "a later change
+  of another room's stands" goes away, because rooms no longer write one value.
+  Witness: Alice and Bob talk at once in two rooms, each advances only on
+  its own seat's input, and a rewind of Bob's room leaves Alice's talk as an
+  on-time run has it.
+- **N2, the runner.** There is one `DialogueRunner` per live conversation.
+  They share one variable storage, because Yarn variables are the save's
+  flags. Commands and functions are registered on each runner
+  (`ambition_dialog::bindings`). A command names its conversation's seat and
+  room, as grants and sales already do.
+- **N3, the presentation.** `DialogState` is per seat. Each view draws the
+  conversation of its own seat, so a split view draws two boxes and a hosted
+  host draws its own seat's. A guest's box is the hosted-world experiment's
+  question (replicated narrative), not this slice's.
+- **N4, the cutscene.** The same for `ActiveCutscene`: one per room, each
+  holding only its own room's players. It already ticks on its room's pace.
+
+Smash keeps one match narrative; nothing here applies to a match.

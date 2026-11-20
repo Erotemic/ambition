@@ -819,6 +819,17 @@ fn resolve_hurt_material<'a>(
     })
 }
 
+/// Project admitted hurt material into reusable world-volume storage.
+/// A refusal clears the output. Portal partition is a separate operation.
+pub fn hurt_volumes_of(
+    body: Option<&ae::BodyKinematics>,
+    coarse: &ae::CenteredAabb,
+    published: Option<&super::components::DamageableVolumes>,
+    out: &mut Vec<ae::CombatVolume>,
+) -> Result<(), ae::frame::thread::Refusal> {
+    resolve_hurt_material(published, body, coarse).write_world_volumes(body, out)
+}
+
 /// Resolve published hurt material and cut it with the current room policy.
 pub fn hurt_pieces_of(
     owner: Entity,

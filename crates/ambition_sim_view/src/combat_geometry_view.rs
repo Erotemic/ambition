@@ -217,29 +217,16 @@ fn effective_hurtboxes(
     collision: ae::Aabb,
     damageable: Option<&DamageableVolumes>,
     body: Option<&ae::BodyKinematics>,
-) -> (Vec<ae::CombatVolume>, HurtboxSource) {
+    out: &mut Vec<ae::CombatVolume>,
+) -> HurtboxSource {
     let source = match damageable {
         Some(published) if published.intangible() => HurtboxSource::Intangible,
         Some(published) if published.published() => HurtboxSource::Published,
         _ => HurtboxSource::BodyFallback,
     };
     let coarse = ae::CenteredAabb::from_aabb(collision);
-    let volumes = ambition_combat::hitbox::hurt_pieces_of(
-        bevy::prelude::Entity::PLACEHOLDER,
-        body,
-        &coarse,
-        damageable,
-        None,
-        None,
-    )
-    .map(|pieces| {
-        pieces
-            .into_iter()
-            .map(|piece| piece.world_volume().clone())
-            .collect()
-    })
-    .unwrap_or_default();
-    (volumes, source)
+    let _ = ambition_combat::hitbox::hurt_volumes_of(body, &coarse, damageable, out);
+    source
 }
 
 /// Rebuild the combat-geometry observation from current simulation truth.
@@ -286,12 +273,14 @@ pub fn rebuild_combat_geometry_view(
             Err(reason) => (Some(Vec::new()), Some(format!("{reason:?}"))),
         }
     };
-    view.bodies.clear();
+    let mut body_count = 0;
     view.strikes.clear();
 
     for (body, aabb, damageable, combat, health, kin, ground, wall, playback, motion) in &bodies {
         let collision = aabb.aabb();
-        let (hurtboxes, hurtbox_source) = effective_hurtboxes(collision, damageable, kin);
+        let mut hurtboxes = view.bodies.get_mut(body_count)
+            .map(|row| std::mem::take(&mut row.hurtboxes)).unwrap_or_default();
+        let hurtbox_source = effective_hurtboxes(collision, damageable, kin, &mut hurtboxes);
         let (hurt_pieces, hurt_refusal) = passages.map(|passages| {
             cut(ambition_combat::hitbox::hurt_pieces_of(body,
                 kin,
@@ -299,7 +288,7 @@ pub fn rebuild_combat_geometry_view(
                 damageable, Some(passages), rooms.of(body),
             ))
         }).unwrap_or((None, None));
-        view.bodies.push(CombatBodyGeometryView {
+        let row = CombatBodyGeometryView {
             body,
             collision,
             hurtboxes,
@@ -330,8 +319,12 @@ pub fn rebuild_combat_geometry_view(
                 landed_hit: pb.landed_hit,
                 instance: pb.instance,
             }),
-        });
+        };
+        if body_count == view.bodies.len() { view.bodies.push(row); }
+        else { view.bodies[body_count] = row; }
+        body_count += 1;
     }
+    view.bodies.truncate(body_count);
 
     for (strike, hitbox, hits, depicted_by_owner, ray) in &hitboxes {
         let owner = owner_kinematics.get(hitbox.owner).ok();
@@ -375,6 +368,12 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
 }
 
     use super::*;
+    fn effective_hurtboxes(collision: ae::Aabb, damageable: Option<&DamageableVolumes>, body: Option<&ae::BodyKinematics>)
+        -> (Vec<ae::CombatVolume>, HurtboxSource) {
+        let mut out = Vec::new();
+        let source = super::effective_hurtboxes(collision, damageable, body, &mut out);
+        (out, source)
+    }
     use ambition_combat::hitbox::{HitSide, HitboxKnockback};
     use ambition_platformer2d_core::AabbExt;
     use bevy::prelude::*;
@@ -714,5 +713,58 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         // explain why the strike is on the far side.
         assert_eq!(move_state.attack_facing, -1.0);
         assert_eq!(row.facing, 1.0);
+    }
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    #[test]
+    fn direct_projection_matches_uncut_material_and_refusals_clear_reused_output() {
+        let coarse = CenteredAabb::from_center_size(ae::Vec2::new(120.0,80.0),ae::Vec2::new(24.0,36.0));
+        let body = ae::BodyKinematics { pos:coarse.center,canonical_size:ae::Vec2::new(24.0,36.0), ..Default::default() };
+        let mut published = DamageableVolumes::default();
+        let mut out = Vec::new();
+        for case in 0..5 {
+            match case {
+                0 => {},
+                1 => published.publish_body(vec![ae::CombatVolume::circle(ae::Vec2::new(3.0,2.0),7.0)]),
+                2 => published.publish_world(vec![ae::CombatVolume::aabb(coarse.aabb())]),
+                3 => published.clear(),
+                _ => published.publish_world(vec![ae::CombatVolume::aabb(coarse.aabb()),
+                    ae::CombatVolume::Circle { center:ae::Vec2::splat(f32::NAN),radius:1.0 }]),
+            }
+            for pose in [None,Some(&body)] {
+                let reference = ambition_combat::hitbox::hurt_pieces_of(Entity::PLACEHOLDER,pose,&coarse,Some(&published),None,None)
+                    .map(|pieces|pieces.iter().map(|p|p.world_volume().clone()).collect::<Vec<_>>()).unwrap_or_default();
+                let _ = ambition_combat::hitbox::hurt_volumes_of(pose,&coarse,Some(&published),&mut out);
+                assert_eq!(out,reference,"case {case}");
+            }
+        }
+    }
+
+    #[test]
+    fn moving_publication_retires_geometry_after_despawn_and_intangibility() {
+        let mut app=App::new();
+        app.init_resource::<CombatGeometryView>();
+        app.add_systems(Update,rebuild_combat_geometry_view);
+        let bounds=CenteredAabb::from_center_size(ae::Vec2::new(30.0,40.0),ae::Vec2::new(24.0,36.0));
+        let first=app.world_mut().spawn((bounds,ambition_characters::actor::BodyCombat::default())).id();
+        app.update();
+        assert_eq!(app.world().resource::<CombatGeometryView>().bodies[0].hurtboxes.len(),1);
+        app.world_mut().despawn(first);
+        let mut intangible=DamageableVolumes::default();intangible.clear();
+        let next=app.world_mut().spawn((bounds,intangible,ambition_characters::actor::BodyCombat::default())).id();
+        app.update();
+        let view=app.world().resource::<CombatGeometryView>();
+        assert_eq!(view.bodies.len(),1);
+        assert_eq!(view.bodies[0].body,next);
+        assert!(view.bodies[0].hurtboxes.is_empty());
+        assert_eq!(view.bodies[0].hurtbox_source,HurtboxSource::Intangible);
+        app.world_mut().despawn(next);
+        app.update();
+        assert!(app.world().resource::<CombatGeometryView>().bodies.is_empty());
     }
 }

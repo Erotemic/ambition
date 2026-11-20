@@ -103,6 +103,7 @@
                                 recovery: r#None,
                                 forbidden_while_held: false,
                                 roots_steering: true,
+                                stops_at_ledge: true,
                                 recovery_route: None,
                                 costs: [],
                                 when_refused: None,

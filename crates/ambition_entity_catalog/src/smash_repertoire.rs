@@ -33,6 +33,12 @@ const GROUNDED: MoveGates = MoveGates {
     // are applied, so the steering rule for the posture belongs here. A dash
     // attack keeps its slide, which is the move's own impulse, not steering.
     roots_steering: true,
+    // And it stops at the floor's end: since Melee a grounded action slides
+    // off an edge only where a move is made to (Ultimate's cliff stop). The
+    // dash attack too: its slide brakes at the edge. Measured before
+    // (2026-11-19, `fighter_motion demo` `ledge_attacks`): a jab let go 20 px
+    // before the edge slid off, and the dash attack was carried off from 60.
+    stops_at_ledge: true,
     recovery_route: None,
     when_refused: None,
 };
@@ -49,6 +55,8 @@ const AIRBORNE: MoveGates = MoveGates {
     // control, and a fighter that could not steer a forward air would lose
     // every edgeguard.
     roots_steering: false,
+    // In the air there is no floor to stop at.
+    stops_at_ledge: false,
     recovery_route: None,
     when_refused: None,
 };
@@ -63,6 +71,8 @@ const EITHER: MoveGates = MoveGates {
     // A special answers from either stance, so it has no stance rule. A
     // special's effect on its owner's motion is authored on its windows.
     roots_steering: false,
+    // Nor a ledge rule: a special that leaves its floor is authored to.
+    stops_at_ledge: false,
     recovery_route: None,
     when_refused: None,
 };
@@ -351,6 +361,7 @@ impl SmashRepertoire {
             let MoveGates {
                 grounded,
                 roots_steering,
+                stops_at_ledge,
                 recovery: _,
                 // The move's own, like `recovery`: `call_the_shark` sets it.
                 forbidden_while_held: _,
@@ -364,6 +375,7 @@ impl SmashRepertoire {
             } = gates;
             spec.gates.grounded = grounded;
             spec.gates.roots_steering = roots_steering;
+            spec.gates.stops_at_ledge = stops_at_ledge;
             if let Some(clash) = contract.verbs.iter().find(|(_, id)| **id == spec.id) {
                 panic!(
                     "smash repertoire: `{verb}` and `{}` were both given the move id `{}`. \
@@ -399,6 +411,7 @@ mod tests {
             gates: MoveGates {
                 grounded: Some(true),
                 roots_steering: false,
+                stops_at_ledge: false,
                 recovery_route: None,
                 // Move-owned fields, neutral here (see `GROUNDED`).
                 recovery: RecoveryUse::None,

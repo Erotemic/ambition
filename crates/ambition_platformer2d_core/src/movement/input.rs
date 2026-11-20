@@ -286,6 +286,12 @@ pub struct InputState {
     /// `parry_window_time` seconds after activation are the parry window (full
     /// invulnerability).
     pub shield_held: bool,
+    /// The move playing holds this body on its floor: a grounded step stops
+    /// with its middle at the floor's end instead of carrying it off
+    /// (`MoveGates::stops_at_ledge`, the platform fighter's grounded attacks).
+    /// A stance fact of this tick like [`Self::shield_held`]; the stick, a
+    /// knockback or a jump still leave.
+    pub holds_floor_edge: bool,
     /// Real, unscaled frame duration supplied by the presentation layer.
     ///
     /// Most simulation uses the scaled `raw_dt`, but precision-blink aiming is
@@ -329,6 +335,7 @@ impl InputState {
             interact_pressed: false,
             reset_pressed: false,
             shield_held: false,
+            holds_floor_edge: false,
             control_dt: 0.0,
         }
     }

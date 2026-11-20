@@ -58,7 +58,7 @@ pub(super) fn integrate_home_body(
     portal: Option<ae::frame::thread::MotionAdmission<'_>>,
 ) {
     let actor_control = actor_control.damped_by_move_motion(move_motion_scale);
-    let input = engine_input_from_actor_control(
+    let mut input = engine_input_from_actor_control(
         actor_control,
         feel,
         combat,
@@ -74,6 +74,8 @@ pub(super) fn integrate_home_body(
             playing_a_move,
         ),
     );
+    // The move playing may hold this body on its floor at an edge.
+    input.holds_floor_edge = playing_a_move.is_some_and(|playing| playing.spec.gates.stops_at_ledge);
     // Ledge/platform carry is handled inside the shared simulation kernel.
     let result = ambition_characters::actor::step_body(
         motion_model,

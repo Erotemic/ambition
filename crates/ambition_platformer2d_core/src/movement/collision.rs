@@ -460,6 +460,48 @@ pub fn teetering_at_edge(
     !supported(foot)
 }
 
+/// HOW FAR ALONG THE FLOOR A BODY MAY STEP AND KEEP ITS MIDDLE OVER IT: the
+/// side step `delta` (along `side`), cut short where the floor under the
+/// body's middle ends. A grounded attack that stops at a ledge
+/// (`InputState::holds_floor_edge`) is held here.
+///
+/// Its middle, not its box: support is any overlap
+/// (`surface_supports_body_at_rest`), so the box would hang almost wholly
+/// off. A platform fighter stops with the bottom of its body's middle on the
+/// lip.
+///
+/// A body whose middle is already over no floor (on a slope this cannot see,
+/// or teetering past the lip) is not held: the cut only ever refuses to carry
+/// a supported middle off.
+pub fn floor_held_step(world: &World, body: Aabb, down: Vec2, axis: Vec2, delta: f32) -> f32 {
+    if delta == 0.0 {
+        return 0.0;
+    }
+    let centre = body.center();
+    // A sliver one pixel across the body's middle, as tall as the body.
+    let across = axis.abs();
+    let half = (body.max - body.min).abs() * 0.5 * (Vec2::ONE - across) + across * 0.5;
+    let sliver = |shift: f32| {
+        let at = centre + axis * shift;
+        Aabb { min: at - half, max: at + half }
+    };
+    let supported = |shift: f32| {
+        let probe = sliver(shift);
+        world.blocks.iter().any(|block| surface_supports_body_at_rest(block.kind, probe, block.aabb, down, false))
+            || crate::walkable_lines::standing_on_line(world, probe, down).is_some()
+    };
+    if !supported(0.0) || supported(delta) {
+        return delta;
+    }
+    // The last supported shift, to a tenth of a pixel.
+    let (mut good, mut bad) = (0.0_f32, delta);
+    while (bad - good).abs() > 0.1 {
+        let mid = (good + bad) * 0.5;
+        if supported(mid) { good = mid } else { bad = mid }
+    }
+    good
+}
+
 /// Tile-set-only hazard touch test. Cluster-aware callers
 /// pass `BodyKinematics::aabb()` directly without building an
 /// `ae::Player`.

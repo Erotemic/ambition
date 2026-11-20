@@ -540,6 +540,9 @@ impl ActorControlFrame {
             interact_pressed: self.interact_pressed,
             reset_pressed: false,
             shield_held: self.shield_held,
+            // A move's fact, not the controller's: the body integrator sets it
+            // from the move playing (`MoveGates::stops_at_ledge`).
+            holds_floor_edge: false,
             control_dt: 0.0,
         }
     }

@@ -338,6 +338,9 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         if playing_a_move.is_some() {
             input.attack_pressed = false;
         }
+        // The move playing may hold this body on its floor at an edge, as on
+        // the human road (`body/integration.rs`).
+        input.holds_floor_edge = playing_a_move.is_some_and(|playing| playing.spec.gates.stops_at_ledge);
         // What stays here is what legitimately differs: WHICH tuning this body moves under (its
         // character's authored feel, else its config's).
         let resolved_tuning = authored_tuning.unwrap_or(tuning);

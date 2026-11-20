@@ -306,6 +306,26 @@ pub(super) fn integrate_velocity_clusters(
             } else {
                 delta_along
             };
+            // A grounded move that stops at the floor's end holds the body's
+            // middle over its floor (`InputState::holds_floor_edge`), and its
+            // speed off the edge is spent: it does not slide off when the move
+            // ends.
+            let delta_along = if axis == side_axis && clusters.ground.on_ground && input.holds_floor_edge {
+                let unit = match axis {
+                    crate::collision_semantics::Axis::X => crate::Vec2::X,
+                    crate::collision_semantics::Axis::Y => crate::Vec2::Y,
+                };
+                let held = super::collision::floor_held_step(world, clusters.kinematics.aabb(), frame.down(), unit, delta_along);
+                if held != delta_along {
+                    match axis {
+                        crate::collision_semantics::Axis::X => clusters.kinematics.vel.x = 0.0,
+                        crate::collision_semantics::Axis::Y => clusters.kinematics.vel.y = 0.0,
+                    }
+                }
+                held
+            } else {
+                delta_along
+            };
             // A crush on this axis rides out on the frame's events for the body's
             // OWNER to interpret; the kernel has already reported the contacts and
             // refused to invent a position no surface accepts.

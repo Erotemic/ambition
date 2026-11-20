@@ -1798,6 +1798,17 @@ pub struct MoveGates {
     /// through a slash is a valid feel.
     #[serde(default)]
     pub roots_steering: bool,
+    /// While this move plays on the ground, it stops its owner at the end of
+    /// the floor (its middle over the last of it) instead of carrying it off.
+    ///
+    /// The platform fighter's grounded attacks: since Melee a grounded
+    /// action slides off an edge only where the move is made to (Ultimate's
+    /// cliff stop). A move that should leave the floor says `false`.
+    ///
+    /// Default `false`: an action-adventure protagonist that walks off a
+    /// ledge through its slash is a valid feel (the robot's).
+    #[serde(default)]
+    pub stops_at_ledge: bool,
     /// The way home this move offers, when its frame data cannot say. See
     /// [`AuthoredRecoveryRoute`]; `None` leaves the answer to the frame data,
     /// which is where every burst still comes from.

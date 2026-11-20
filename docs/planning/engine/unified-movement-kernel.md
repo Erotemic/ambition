@@ -245,13 +245,21 @@ George and the stand-in duelist give the same numbers except their moves):
 | Dash attack 20 or 60 px before the edge, stick held | Carried off the stage (9th and 15th frames). |
 | Jab 60 px before the edge, stick held | Stops on the stage (550 of 560). |
 
-- **A grounded move does not stop at a ledge.** Teetering is a pose fact
-  only (`teetering_at_edge`: "nothing here refuses it"). In Ultimate most
-  grounded attacks stop at the edge and a few are made to slide off.
-  **Recommendation:** a per-move `stops_at_ledge` (default on for the Smash
-  kit's grounded moves, off where a move should leave) that clamps the
-  move's ground step at the support's end; the robot keeps walking off
-  with the stick held, its authored Hollow Knight model.
+- **A grounded move did not stop at a ledge; fixed 2026-11-19.** Teetering
+  is a pose fact only (`teetering_at_edge`: "nothing here refuses it"). After
+  Melee a grounded action slides off an edge only where a move is made to
+  (Ultimate's cliff stop; ssbwiki "Ledge-canceling": in later games it "can
+  only be performed with specific actions and moves"). Now
+  `MoveGates::stops_at_ledge` (default `false`) is set on the Smash
+  posture's grounded moves (`smash_repertoire.rs`) and on every authored
+  grounded move that roots steering (328 gates in 25 movesets). While such a
+  move plays, `InputState::holds_floor_edge` makes the side sweep cut the
+  step where the floor under the body's middle ends
+  (`collision::floor_held_step`) and spends the speed off the edge.
+  Re-measured: the jab 20 px from the edge stops at x 559.5 of 560, on the
+  ground, stick off or held; every other row of the demo is unchanged. The
+  robot's campaign attack does not root and keeps walking off with the stick
+  held, its authored Hollow Knight model.
 
 **Found while measuring Sanic (2026-11-11, not fixed): a ball frozen at
 speed.** In the demo's act, after 150 frames of running right from the

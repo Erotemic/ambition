@@ -1745,7 +1745,7 @@ authored checkpointing dialogue banks its consequences; a single co-op death
 does not roll shared facts behind the survivor; a seen marker grants no reward
 or quest step.
 
-### GROUNDED-ATTACK-MOMENTUM — measure before changing the slide
+### GROUNDED-ATTACK-MOMENTUM — measure before changing the slide — ✅ DONE 2026-11-19 (Q181 is Jon's)
 
 **Owner:** [unified movement kernel](engine/unified-movement-kernel.md) and
 the moveset (`MoveFrameData::roots_steering`). Ruling: Q169 (filed as Q166,
@@ -1782,9 +1782,7 @@ is faster), fixed: it now stops in 82 px. A grounded move does not stop at a
 ledge (a jab let go 20 px before it slides off; the dash attack is carried
 off from 60 px).
 
-**Next action:** the ledge stop recommended in the table: a per-move
-`stops_at_ledge` for the Smash kit's grounded moves, checked against
-Ultimate's per-move behaviour first. Originally: measure, for
+**Done 2026-11-19: the ledge stop.** A grounded move with `MoveGates::stops_at_ledge` holds its owner's middle on the floor's end ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)): the Smash posture's grounded moves and every authored rooted grounded move carry it; the jab let go 20 px out now stops 0.5 px short of the lip. Left: Q181 (a committed roll for Sanic) waits for Jon. Originally: measure, for
 representative laws and moves: whether the move
 takes the stick; whether it keeps horizontal speed; which braking law applies
 while it plays; whether authored move motion adds travel; whether it can carry

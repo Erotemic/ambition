@@ -606,10 +606,24 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     `ambition_combat::banner::gameplay_banner_systems()`, a function returning
     its configs, so the system's name never appears in an `add_systems` body.
     It runs in the simulation schedule's `EncounterSimulation`, as before.
+
+    **74** on 2026-11-20, all POPULATION: the same scan reads 68 on the
+    2026-11-13 tree (`97d2ae3e2`). Nine joined, each placed by
+    `_message_sides`: the extension adapters `lower_commands`
+    (`RunAuthoredCommand`), `lower_contact_cues` (`OwnedSfxMessage`) and
+    `queue_receptions` (reads `BodyHitResolved`); the helpers and methods
+    `begin_ecs_breakable_respawn` (`BrokenCommitted`), `record`
+    (`ProjectileOutcome`), and `release`, `send` and `shove` of the new
+    `body/direction.rs` (`BrainCommand`, `VfxInRoom`); and
+    `record_npc_provocations`, which production stopped scheduling on 11-17
+    when `apply_npc_provocations` took its place (it stays the reducer for
+    fixtures without room rewinds). Three left: `defeat_badniks`,
+    `materialize_matching` and `place_at`.
     """
     unlocated = guard.unlocated_message_systems()
-    assert 34 <= len(unlocated) <= 68, (
-        f"{len(unlocated)} unlocated message systems; 68 on 2026-11-13 (the banner "
+    assert 34 <= len(unlocated) <= 74, (
+        f"{len(unlocated)} unlocated message systems; 74 on 2026-11-20 (nine joined, "
+        "three left since 2026-11-13, all population); 68 on 2026-11-13 (the banner "
         "drain behind a function returning its configs); 67 that morning (six joined, "
         "three left since 2026-10-21); 64 on 2026-10-21 (the scoped "
         "road followed; ten adapters and queues joined, three left); the 2026-09-19 reading after "
@@ -722,15 +736,17 @@ def test_the_three_resolvable_binding_shapes_resolve():
 def test_every_unresolved_write_left_in_the_tree_is_adjudicated():
     """⚠ THE RATCHET. A new unreadable spelling must be resolved or argued for.
 
-    Today's remainder is four types, none passed to `add_message`: `AppExit`
-    (Bevy's own), the generic menu-action pair, and the quarantined
-    `PeerRoomCommit` (each argued in `UNRESOLVED_ADJUDICATED`, 2026-11-13).
+    Today's remainder is six types, none passed to `add_message`: `AppExit`
+    (Bevy's own), the generic menu-action pair, the quarantined
+    `PeerRoomCommit` (each argued in `UNRESOLVED_ADJUDICATED`, 2026-11-13), and
+    the hosted world's two replicon messages, `GuestInput` and `ToClients`
+    (argued 2026-11-19).
     """
     heads = {guard.unresolved_head(arg) for _file, arg in guard.unresolved_message_writes()}
     assert heads <= set(guard.UNRESOLVED_ADJUDICATED), (
         f"unadjudicated unresolved write head(s): {sorted(heads - set(guard.UNRESOLVED_ADJUDICATED))}"
     )
-    assert heads == {"AppExit", "MenuActionActivated", "MenuActionPreviewed", "PeerRoomCommit"}, (
+    assert heads == {"AppExit", "GuestInput", "MenuActionActivated", "MenuActionPreviewed", "PeerRoomCommit", "ToClients"}, (
         f"the remainder changed to {sorted(heads)}; re-read UNRESOLVED_ADJUDICATED "
         "rather than widening it"
     )
@@ -810,9 +826,13 @@ def test_a_message_channel_inside_a_bundle_reaches_the_population():
         assert ty in sides, f"{ty} is written only through a bundle field and left again"
 
     # A claim through a bundle field is labelled, a writer in the system's own
-    # parameters is not.
+    # parameters is not. Since e7979d090 (2026-11-18) every `HitEvent` writer
+    # goes through the `HitWriter` bundle, `apply_actor_contact_damage` too, so
+    # the unlabelled specimen is a writer of another type: `advance_death_beats`
+    # takes `MessageWriter<CameraShakeRequest>` itself.
     assert guard.held_writer("HitEvent", "integrate_sim_bodies")
-    assert not guard.held_writer("HitEvent", "apply_actor_contact_damage")
+    assert guard.held_writer("HitEvent", "apply_actor_contact_damage")
+    assert not guard.held_writer("CameraShakeRequest", "advance_death_beats")
 
 
 def test_a_sim_schedule_bound_to_an_unusual_name_is_still_the_sim_schedule():

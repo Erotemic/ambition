@@ -183,6 +183,13 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # the consumer knows it is replaying. That is the property `CutsceneAdvanceRequest`
     # lacks.
     "SlotControlLatches": "sim consumer returns early while `replaying_history`",
+    # A DEPARTURE EDGE ON THE HOSTED HOST (NA, 2026-11-19). `retire_departed_guests`
+    # (`ambition_hosted_world/src/lib.rs`, `Update` after replicon receives) zeroes
+    # a guest's seat in the raw frames, `SlotControls` and the latches on the frame
+    # the guest leaves or changes seats, and in the same system forgets the seat's
+    # recorded inputs (`GuestInputs::forget_seat`), so a later room replay finds
+    # no input for that seat either. It writes nothing on any other frame.
+    "SlotControls": "a hosted host zeroes a departed guest's seat with its recorded inputs (`retire_departed_guests`)",
     # ⭐ THE FOURTH SPELLING, and the only one where nobody stands down: the READ
     # is routed instead. `seat_frame_this_tick` is
     # `if another_authority_publishes(latches, rollback) { slots.get(slot) } else

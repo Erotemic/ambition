@@ -205,4 +205,4 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
 pub use rollback_registration::register_rollback_state;
 
 #[cfg(test)]
-mod moving_view_measurements;
+mod moving_view_tests;

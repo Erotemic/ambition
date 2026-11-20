@@ -172,6 +172,17 @@ pub fn specials() -> Vec<Special> {
             },
             module: modules::paralyze::module,
         },
+        // Burial: answered on the body a volume struck, like the paralysis.
+        Special {
+            key: catalog::smash_bury::BURY,
+            offer: TechniqueOffer {
+                owner: "ambition_demo_smash_modules::bury",
+                params: TechniqueParams::Checked(catalog::smash_bury::check_bury_params),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::OnHit,
+            },
+            module: modules::bury::module,
+        },
         // Counter stance: it holds the parry window open each tick of the
         // stance (`ambition.combat.parry_window`, lowered inside `Materialize`,
         // before `Resolve` judges), and answers a parry caught in it

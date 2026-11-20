@@ -13,10 +13,11 @@
 //! something on the stage (a plate) asks the world for a module entity, and
 //! the module ticks it; one that leaves something on a body (a slow, a mark)
 //! holds a status there and keeps its state in records on the body; one
-//! that holds the body itself (a paralysis) asks the engine for the hold.
+//! that holds the body itself (a paralysis, a burial) asks the engine for the hold.
 
 pub mod bolt;
 pub mod bomb;
+pub mod bury;
 pub mod counter;
 pub mod dilation;
 pub mod homing;
@@ -38,6 +39,7 @@ pub const PROVIDER: &str = "smash";
 pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     bolt::module,
     bomb::module,
+    bury::module,
     counter::module,
     dilation::module,
     homing::module,

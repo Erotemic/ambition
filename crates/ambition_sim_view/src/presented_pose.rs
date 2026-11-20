@@ -112,12 +112,20 @@ pub struct PresentedPose {
     /// anchored to the body by its true position (a hit volume, a grab) is
     /// disturbed. Zero for every body that is not frozen by a hit it took.
     jitter: Vec2,
+    /// THE POSTURE A REACTION DRAWS: a buried body is drawn sunk into the
+    /// floor along its frame's down by [`BURY_SINK_FRACTION`] of its height.
+    /// Presentation only, as the shake is: its box stays on the floor, so a
+    /// burial is never collision embedding. Zero for every other body.
+    posture: Vec2,
     /// The last tick put the body here by a warp ([`Self::push_warped`]).
     /// Interpolated, it is drawn at the warp's exit for that tick: its
     /// history reaches back along its new heading, which may be the far side
     /// of the warp.
     warped: bool,
 }
+
+/// How much of a buried body's height is drawn under the floor.
+pub const BURY_SINK_FRACTION: f32 = 0.45;
 
 /// How far a struck body is drawn off its place at a reference-strength hit
 /// (px). Ultimate shakes about 2 units.
@@ -149,6 +157,7 @@ impl PresentedPose {
             tick,
             size: Vec2::ZERO,
             jitter: Vec2::ZERO,
+            posture: Vec2::ZERO,
             warped: false,
         }
     }
@@ -156,7 +165,7 @@ impl PresentedPose {
     /// The position to draw this body and everything anchored to it at.
     #[inline]
     pub fn presented(self) -> Vec2 {
-        self.presented + self.jitter
+        self.presented + self.jitter + self.posture
     }
 
     /// The newest tick position, unsmoothed.
@@ -378,6 +387,12 @@ pub fn advance_presented_body_poses(
             );
             let side = frame.map_or(Vec2::X, |frame| frame.down().perp());
             presented.jitter = hitlag_jitter(frozen, strength, tick.0, side);
+            let down = frame.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+            presented.posture = if combat.is_some_and(|c| c.is_buried()) {
+                down * (presented.size.y * BURY_SINK_FRACTION)
+            } else {
+                Vec2::ZERO
+            };
         }
         // Resample EVERY frame — that is the entire point.
         presented.resample(phase, interpolate);

@@ -67,6 +67,8 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     // PARALYZED. A lock like the sleep, and it freezes the body's step: two
     // peers that disagree about it disagree about where the body is.
     paralysis_timer: f32,
+    // BURIED. The same: a lock that freezes the body's step.
+    bury_timer: f32,
     // SLOWED. A status like the sleep above it: two peers that disagree about
     // how long a body wades through honey resimulate different matches.
     slow_timer: f32,

@@ -336,7 +336,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 510 -> 511: native activation revisions and local call closure use replay-safe provenance.
 // 511 -> 512: a technique's ask to slow the primary observer's clock rolls back with its body.
 // 512 -> 513: BodyCombat encodes its paralysis timer.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 513;
+// 513 -> 514: BodyCombat encodes its bury timer.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 514;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

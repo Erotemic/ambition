@@ -351,6 +351,54 @@ ambition_extension_sdk::port_record! {
 
 ambition_extension_sdk::script_port!(ParalyzePort);
 
+/// The request port marker for a burial of the struck body.
+///
+/// Port card:
+///
+/// * **Operation** — the body the invocation ran for, if it stands on the
+///   ground, is buried for at least `duration_s`: driven into the floor, it
+///   is held where it is and cannot act. The burial REPLACES the reaction of
+///   the hit that buried it: that hit's launch, velocity, stun and recoil
+///   lock are dropped. A body in the air is not buried and keeps its hit as
+///   it was (a spike stays a spike). A body already buried for longer keeps
+///   its time. A real hit ends a burial; the game's mash rule buys time back.
+///   A duration that is not finite, or is not above 0, is refused.
+/// * **Owner** — `ambition_combat::extension::reaction`, which writes
+///   `BodyCombat::bury_timer`.
+/// * **Scope** — the body the invocation ran for: in `hit_reaction`, the body
+///   a strike struck.
+/// * **Time** — `hit_reaction`, after the strike's own reaction, which is the
+///   reaction it replaces.
+pub struct BuryPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bury {
+    pub duration_s: f32,
+}
+
+impl Port for BuryPort {
+    const KEY: PortKey = PortKey::new("ambition.combat.bury", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = Bury;
+
+    fn encode(v: &Bury, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Bury, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    Bury {
+        /// Seconds the body stays buried (world seconds).
+        duration_s: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(BuryPort);
+
 /// The request port marker for a refill of one of the body's resources.
 ///
 /// Port card:

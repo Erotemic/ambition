@@ -1,9 +1,10 @@
-//! Paralysis: a strike that holds the body it struck.
+//! Paralysis and burial: strikes that hold the body they struck.
 //!
 //! The strike is the module `ambition_demo_smash_modules::paralyze`, which
 //! asks `ambition.combat.paralyze` to hold the struck body; the hold is the
-//! engine's (`BodyCombat::paralysis_timer`). What stays here is this game's
-//! rule of how a paralyzed fighter buys time back.
+//! engine's (`BodyCombat::paralysis_timer`), and so is a burial's
+//! (`ambition_demo_smash_modules::bury`, `BodyCombat::bury_timer`). What stays
+//! here is this game's rule of how a held fighter buys time back.
 
 use bevy::prelude::*;
 
@@ -26,17 +27,41 @@ pub fn mash_out_of_paralysis(
         if combat.paralysis_timer <= 0.0 {
             continue;
         }
-        let frame = &control.0;
-        let pressed = frame.melee_pressed
-            || frame.jump_pressed
-            || frame.burst_pressed
-            || frame.special_pressed
-            || frame.grab_pressed
-            || frame.projectile_pressed;
-        if pressed {
+        if pressed_any(control) {
             combat.paralysis_timer = (combat.paralysis_timer - mash).max(0.0);
         }
     }
+}
+
+/// A buried fighter's press digs it out: the same one credit a tick, at the
+/// burial's own rate.
+pub fn mash_out_of_burial(
+    mut buried: Query<(
+        &mut ambition_platformer2d::characters::actor::BodyCombat,
+        &ambition_platformer2d::characters::control::ActorControl,
+    )>,
+) {
+    let mash = crate::rules::smash_rules().bury_mash_seconds;
+    for (mut combat, control) in &mut buried {
+        if combat.bury_timer <= 0.0 {
+            continue;
+        }
+        if pressed_any(control) {
+            combat.bury_timer = (combat.bury_timer - mash).max(0.0);
+        }
+    }
+}
+
+/// Any action press this tick: a specific button would be a control-scheme
+/// choice, and mashing the "wrong" one would look broken.
+fn pressed_any(control: &ambition_platformer2d::characters::control::ActorControl) -> bool {
+    let frame = &control.0;
+    frame.melee_pressed
+        || frame.jump_pressed
+        || frame.burst_pressed
+        || frame.special_pressed
+        || frame.grab_pressed
+        || frame.projectile_pressed
 }
 
 #[cfg(test)]
@@ -52,8 +77,11 @@ mod tests {
     use ambition_platformer2d::extension::ExtensionSet;
 
     fn app(road: Road) -> App {
-        let mut app = app_on(road, ambition_demo_smash_modules::paralyze::module);
-        app.add_systems(Update, mash_out_of_paralysis.after(ExtensionSet::Lower(HIT_REACTION)));
+        let mut app = crate::module_road::app_with(
+            road,
+            &[ambition_demo_smash_modules::paralyze::module, ambition_demo_smash_modules::bury::module],
+        );
+        app.add_systems(Update, (mash_out_of_paralysis, mash_out_of_burial).after(ExtensionSet::Lower(HIT_REACTION)));
         app
     }
 
@@ -62,13 +90,17 @@ mod tests {
     }
 
     fn strike(app: &mut App, owner: Entity, victim: Entity, duration_s: f32) {
+        strike_with(app, owner, victim, PARALYZE, duration_s);
+    }
+
+    fn strike_with(app: &mut App, owner: Entity, victim: Entity, key: &str, duration_s: f32) {
         app.world_mut().write_message(OnHitEffectMessage {
             owner,
             victim,
             volume: ae::CombatVolume::Circle { center: ae::Vec2::ZERO, radius: 1.0 },
             contact: ae::Vec2::ZERO,
             effect: ambition_platformer2d::entity_catalog::EffectRef {
-                key: PARALYZE.to_string(),
+                key: key.to_string(),
                 params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&ParalyzeParams { duration_s }).unwrap(),
             },
         });
@@ -112,5 +144,54 @@ mod tests {
         app.update();
         let rule = crate::rules::smash_rules().paralysis_mash_seconds;
         assert!((held(&app, victim) - (0.6 - rule)).abs() < 1e-6, "a chord bought {} s", 0.6 - held(&app, victim));
+    }
+
+    /// A body struck standing is buried: held, and the hit's launch, velocity
+    /// and stun are dropped, because the burial replaces them. A body struck
+    /// in the air is not buried and keeps its hit. On both roads.
+    #[test]
+    fn a_burying_strike_buries_a_standing_body_and_spares_one_in_the_air() {
+        use ambition_platformer2d::entity_catalog::smash_bury::BURY;
+        for road in [Road::Linked, Road::Loaded] {
+            let mut app = app(road);
+            let striker = body(&mut app);
+            let launched = |app: &mut App, on_ground: bool| {
+                let victim = body(app);
+                let mut flight = ae::BodyFlightState::default();
+                flight.stage_launch(ae::Vec2::new(0.0, 300.0), false, Default::default());
+                let ground = ae::BodyGroundState { on_ground, ..Default::default() };
+                let mut combat = BodyCombat::default();
+                combat.hitstun_timer = 0.4;
+                app.world_mut().entity_mut(victim).insert((flight, ground, combat));
+                app.world_mut().get_mut::<ae::BodyKinematics>(victim).unwrap().vel = ae::Vec2::new(0.0, 300.0);
+                victim
+            };
+            let standing = launched(&mut app, true);
+            let flying = launched(&mut app, false);
+            strike_with(&mut app, striker, standing, BURY, 1.0);
+            strike_with(&mut app, striker, flying, BURY, 1.0);
+            app.update();
+            let combat = *app.world().get::<BodyCombat>(standing).unwrap();
+            assert!(combat.is_buried() && combat.bury_timer == 1.0, "{road:?}: {combat:?}");
+            assert_eq!(combat.hitstun_timer, 0.0, "{road:?}: the burial replaces the stun");
+            assert!(app.world().get::<ae::BodyFlightState>(standing).unwrap().pending_launch_state().is_empty(), "{road:?}: the launch was not dropped");
+            assert_eq!(app.world().get::<ae::BodyKinematics>(standing).unwrap().vel, ae::Vec2::ZERO);
+            let spared = *app.world().get::<BodyCombat>(flying).unwrap();
+            assert!(!spared.is_buried() && spared.hitstun_timer == 0.4, "{road:?}: a body in the air was buried: {spared:?}");
+            assert!(!app.world().get::<ae::BodyFlightState>(flying).unwrap().pending_launch_state().is_empty(), "{road:?}: the spike was dropped");
+        }
+    }
+
+    /// A buried fighter digs out at the burial's own rate.
+    #[test]
+    fn a_press_digs_out_at_the_burial_rate() {
+        let mut app = app(Road::Linked);
+        let victim = body(&mut app);
+        app.world_mut().get_mut::<BodyCombat>(victim).unwrap().bury_timer = 1.0;
+        app.world_mut().get_mut::<ActorControl>(victim).unwrap().0.melee_pressed = true;
+        app.update();
+        let rule = crate::rules::smash_rules().bury_mash_seconds;
+        let left = app.world().get::<BodyCombat>(victim).unwrap().bury_timer;
+        assert!((left - (1.0 - rule)).abs() < 1e-6, "one press dug {} s", 1.0 - left);
     }
 }

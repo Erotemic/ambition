@@ -481,6 +481,16 @@ fn a_paralyzed_body_is_held_and_its_stun_waits() {
     assert_eq!(combat.paralysis_timer, 0.0);
     assert!((combat.hitstun_timer - 0.2).abs() < 1e-6, "the stun ran only past the end of the hold: {combat:?}");
     combat.paralysis_timer = 0.5;
+    combat.bury_timer = 0.5;
     combat.reset();
-    assert!(!combat.is_paralyzed(), "a body put back to spawn is still held");
+    assert!(!combat.is_held_in_place(), "a body put back to spawn is still held");
+}
+
+/// A buried body is held as a paralyzed one is: it does not travel.
+#[test]
+fn a_buried_body_is_held() {
+    let mut body = body_travelling();
+    let mut combat = BodyCombat { bury_timer: 0.5, ..BodyCombat::default() };
+    assert!(combat.is_buried() && combat.hard_lock_timer() > 0.0);
+    assert_eq!(travel(&mut body, &mut combat), 0.0, "a buried body travelled");
 }

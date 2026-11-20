@@ -198,3 +198,43 @@ fn a_real_hit_ends_a_paralysis() {
     assert!(app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > before, "the jab must land");
     assert!(!app.world().get::<BodyCombat>(victim).unwrap().is_paralyzed(), "the hit ended the paralysis");
 }
+
+/// S0.8: Bob's authored pile driver buries a standing body. The victim is
+/// held where it stood (its box stays on the floor), cannot act, and is not
+/// launched: the burial replaced the spike. It stands where it was when the
+/// burial ends.
+#[test]
+fn the_pile_driver_buries_a_standing_body_instead_of_spiking_it() {
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    let (mut app, [bob, victim]) = two_fighters(["npc_bob", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    let stood_at = app.world().get::<ae::BodyKinematics>(victim).unwrap().pos;
+    {
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(bob).unwrap();
+        kin.pos = stood_at - ae::Vec2::new(0.0, 50.0);
+        kin.vel = ae::Vec2::ZERO;
+    }
+    app.world_mut().get_mut::<ae::BodyGroundState>(bob).unwrap().on_ground = false;
+    let spec = app.world().get::<ActorMoveset>(bob).unwrap().0.moves.iter()
+        .find(|spec| spec.id == "pile_driver").unwrap().clone();
+    app.world_mut().entity_mut(bob).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0).started_in_stance(false));
+    let mut buried = false;
+    for _ in 0..60 {
+        app.update();
+        if app.world().get::<BodyCombat>(victim).unwrap().is_buried() {
+            buried = true;
+            break;
+        }
+    }
+    assert!(buried, "the authored pile driver must bury the standing body it lands on");
+    let held_at = app.world().get::<ae::BodyKinematics>(victim).unwrap().pos;
+    assert!((held_at.y - stood_at.y).abs() < 1.0, "the burial embedded the box: {held_at:?} from {stood_at:?}");
+    while app.world().get::<BodyCombat>(victim).unwrap().is_buried() {
+        assert_eq!(app.world().get::<ae::BodyKinematics>(victim).unwrap().pos, held_at, "the buried body moved");
+        app.update();
+    }
+    for _ in 0..10 {
+        app.update();
+    }
+    let after = app.world().get::<ae::BodyKinematics>(victim).unwrap().pos;
+    assert!((after - held_at).length() < 2.0, "the burial's hit still launched the body: {after:?} from {held_at:?}");
+}

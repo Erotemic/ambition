@@ -53,6 +53,7 @@ pub use hazard::{MoveHazard, ThreatTravel, RANGED_ACTION_REACH};
 /// `ambition_characters::smash_hold_state`.
 pub mod smash_bolt;
 pub mod smash_bomb;
+pub mod smash_bury;
 pub mod smash_capture;
 pub mod smash_counter;
 pub mod smash_flyline;

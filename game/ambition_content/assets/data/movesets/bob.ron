@@ -1078,7 +1078,8 @@
                             flow: None,
                         ),
                         // (`let d_air = strike(Strike {`)
-                        // DOWN AIR — `pile_driver`. He puts his whole weight through it.
+                        // DOWN AIR — `pile_driver`. He puts his whole weight through it. A
+                        // standing body it lands on is buried for 1.0 s (`smash.bury`).
                         (
                             id: "pile_driver",
                             display_name: None,
@@ -1116,7 +1117,15 @@
                                             knockback_growth: Some(2.05),
                                             launch_dir: Some((0.0, 1.0)),
                                             reaction: None,
-                                            on_hit: None,
+                                            on_hit: Some((
+                                                // Met standing, the pile goes in: the body is
+                                                // driven into the floor. Met in the air it is
+                                                // the spike the launch says.
+                                                key: "smash.bury",
+                                                params: ({
+                                                    "duration_s": 1.0,
+                                                }),
+                                            )),
                                             vfx: Some("slash_arc"),
                                             hit_sfx: Some("player.hit"),
                                         ),

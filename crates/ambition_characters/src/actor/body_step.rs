@@ -63,9 +63,10 @@ pub fn step_body(
         ctx.dt = 0.0;
         return ae::step_motion(model, clusters, ctx);
     }
-    if combat.is_paralyzed() {
-        // Held where it was struck: no step, no SDI. Its velocity and any
-        // staged launch wait for the end of it, as they wait for a freeze.
+    if combat.is_held_in_place() {
+        // Paralyzed or buried: held where it is, no step, no SDI. A
+        // paralysis's velocity and staged launch wait for the end of it, as
+        // they wait for a freeze; a burial dropped its hit's launch.
         ctx.dt = 0.0;
         return ae::step_motion(model, clusters, ctx);
     }

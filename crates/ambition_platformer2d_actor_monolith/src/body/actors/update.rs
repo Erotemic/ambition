@@ -2772,6 +2772,7 @@ mod body_combat_rebuild_contract {
             sleep_timer: _,
             // A paralysis a hit applied: the same.
             paralysis_timer: _,
+            bury_timer: _,
             // A slow a puddle applied: owned by the body, never rewritten
             // from the cluster.
             slow_timer: _,

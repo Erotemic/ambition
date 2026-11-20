@@ -8,6 +8,7 @@
 |---|---|
 | [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the same stick you walk with. |
 | [`bomb`](src/bomb.rs) | The bomb: a ground item with a fuse. |
+| [`bury`](src/bury.rs) | The burial: a strike that drives a standing body into the floor; the burial is the engine's. |
 | [`counter`](src/counter.rs) | The counter stance: while it is live, its fighter parries. |
 | [`dilation`](src/dilation.rs) | Time dilation: a body runs on a slower clock for a while. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |

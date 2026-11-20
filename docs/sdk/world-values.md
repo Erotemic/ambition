@@ -63,6 +63,23 @@ write of that key, at the session, on the next read cut. `this.trigger` is
 `#{key, value, revision}`. The session's root owns its records, so give it
 `attachment: "session"` schemas. A load is not a change.
 
+## Open and shut an authored gate
+
+A world value is also an authored condition, so anything an author gates on a
+condition line can follow it: a `LockWall`'s `gated_by`, a route, a dialogue
+branch. `world.value_is <key> <value>` holds while the value is that text,
+whole number or truth (`world.value_is bridge.state lowered`);
+`world.count_at_least <key> <n>` holds once a count reaches `n` (an absent
+count is 0). The gate stays with its owner: the gated wall's writer puts its
+solid in the room while the condition does not hold, exactly as for a flag.
+
+A script opens such a wall by writing the value, hears the write's outcome,
+and reads the wall's state through `lock_walls`, an `actor_think` observation
+of its own room's gated walls: `this.observe.lock_walls.walls` is a list of
+`#{id, gated_by, standing}`. A Rhai helper function cannot read `this`, so pass
+the list to it. The witness is `scripted_lock_walls`: a wall stands, opens
+after one write and stands again after another.
+
 The witnesses are `scripted_world_values`: one room writes, another reads, a
 reload keeps them, and a write from a room that rewinds alone applies once,
 only when confirmed.

@@ -251,3 +251,16 @@ port!(WorldValuesPort, "ambition.world.values", Observation, WorldValues);
 // A world value changed. Entries whose selector is the key hear it, once per
 // write, at the session, on the tick after the world domain applied it.
 port!(WorldValueChangedPort, "ambition.world.value_changed", Trigger, WorldValue);
+
+/// One authored gated wall of the invocation's room: its id, the condition
+/// line it waits on (`gated_by`), and whether it stands now. A wall stands
+/// while its condition is not satisfied (or cannot be answered).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LockWallState { pub id: String, pub gated_by: String, pub standing: bool }
+ambition_extension_sdk::port_record! { LockWallState { id: String, gated_by: String, standing: bool } }
+
+/// The gated walls of the invocation's live room, in authored order.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LockWalls { pub walls: Vec<LockWallState> }
+ambition_extension_sdk::port_record! { LockWalls { walls: Vec<LockWallState> } }
+port!(LockWallsPort, "ambition.world.lock_walls", Observation, LockWalls);

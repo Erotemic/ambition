@@ -251,6 +251,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_damage/src/extension.rs",
         "crates/ambition_platformer2d_runtime/src/behavior_inbox.rs",
         "crates/ambition_platformer2d_runtime/src/story_script.rs",
+        # The world domain (SCRIPT C3, 2026-11-20): it owns `world_values` in
+        # the save and answers and announces its writes like every action owner.
+        "crates/ambition_platformer2d_runtime/src/world_values.rs",
     ),
     "PortalViewConeConfig": (
         "crates/ambition_platformer2d_host/src/portal.rs",
@@ -286,6 +289,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/story_script.rs",
         "crates/ambition_platformer2d_runtime/src/world_posts.rs",
         "crates/ambition_abilities/src/observer_slow.rs",
+        # The world domain (SCRIPT C3, 2026-11-20): it owns `world_values` in
+        # the save and answers and announces its writes like every action owner.
+        "crates/ambition_platformer2d_runtime/src/world_values.rs",
     ),
     "BrokenBricks": (
         "game/ambition_demo_mary_o/src/bricks.rs",
@@ -318,6 +324,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_content/src/encounters.rs",
         "game/ambition_content/src/quest.rs",
         "crates/ambition_platformer2d_session/src/fact_horizon.rs",
+        # The world domain (SCRIPT C3, 2026-11-20): it owns `world_values` in
+        # the save and answers and announces its writes like every action owner.
+        "crates/ambition_platformer2d_runtime/src/world_values.rs",
     ),
     "GameAssets": (
         "crates/ambition_platformer2d/src/game_assets/mod.rs",

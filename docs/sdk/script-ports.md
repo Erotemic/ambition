@@ -700,6 +700,14 @@ Port `ambition.world.value_changed@1`, trigger: read as `this.trigger`.
 | `value` | schema-selected data |  |
 | `revision` | integer (u32) |  |
 
+## `lock_walls`
+
+Port `ambition.world.lock_walls@1`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `walls` | list of { id: text, gated_by: text, standing: bool } |  |
+
 ## `behavior_events`
 
 Port `ambition.objects.events@1`, observation: read as `this.observe.<alias>`.

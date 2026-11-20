@@ -206,6 +206,8 @@ impl bevy::prelude::Plugin for WorldFactConditionsPlugin {
         };
         app.publish_condition(flag_set_descriptor(), flag_set);
         app.publish_condition(switch_on_descriptor(), switch_on);
+        app.publish_condition(crate::world_values::value_is_descriptor(), crate::world_values::value_is);
+        app.publish_condition(crate::world_values::count_at_least_descriptor(), crate::world_values::count_at_least);
         app.publish_command(set_flag_descriptor(), set_flag);
     }
 }

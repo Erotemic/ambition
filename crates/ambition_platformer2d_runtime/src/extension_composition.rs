@@ -399,6 +399,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::behavior::AddWorldCountPort>("add_world_count")
         .add::<ambition_world_port::behavior::WorldValuesPort>("world_values")
         .add::<ambition_world_port::behavior::WorldValueChangedPort>("world_value_changed")
+        .add::<ambition_world_port::behavior::LockWallsPort>("lock_walls")
         .add::<ambition_world_port::behavior::BehaviorEventsPort>("behavior_events")
         .add::<ambition_world_port::behavior::CompleteObjectCallPort>("complete_object_call")
         .add::<ambition_world_port::behavior::BehaviorContextPort>("behavior")

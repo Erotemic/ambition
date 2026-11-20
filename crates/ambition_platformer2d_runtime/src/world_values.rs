@@ -196,6 +196,91 @@ fn queue_changes(world: &mut World) {
     }
 }
 
+/// The gated walls of the live room `scope` is in, and which of them stand:
+/// a wall stands while the gate's own writer puts its solid in that room.
+pub fn lock_walls(world: &World, scope: Entity) -> LockWalls {
+    use ambition_platformer2d_world::gated_lock_walls::{authored_gated_lock_walls, GATED_LOCK_BLOCK_PREFIX};
+    let room = world.get::<LiveRoomInstance>(scope).filter(|_| world.get::<RoomInstanceRoot>(scope).is_some()).copied()
+        .or_else(|| object_scope_room(world, scope));
+    let Some(room) = room else { return LockWalls::default(); };
+    let Some(mut roots) = world.try_query_filtered::<(Entity, &LiveRoomInstance), With<RoomInstanceRoot>>() else {
+        return LockWalls::default();
+    };
+    let Some(root) = roots.iter(world).find(|(_, live)| **live == room).map(|(root, _)| root) else {
+        return LockWalls::default();
+    };
+    let Some(spec) = ambition_platformer2d_world::rooms::live_room_spec_of(world, root) else { return LockWalls::default(); };
+    let solids = world.get::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>(root)
+        .map(|overlay| overlay.gate_solids.clone()).unwrap_or_default();
+    LockWalls {walls: authored_gated_lock_walls(spec).into_iter().map(|wall| {
+        let name = format!("{GATED_LOCK_BLOCK_PREFIX}{}", wall.id);
+        LockWallState {standing: solids.iter().any(|block| block.name == name), id: wall.id, gated_by: wall.gated_by}
+    }).collect()}
+}
+
+const KEY: ambition_platformer2d_shared_tangle::authored_logic::ParamSpec = ambition_platformer2d_shared_tangle::authored_logic::ParamSpec {
+    name: "key", kind: ambition_platformer2d_shared_tangle::authored_logic::ParamKind::Name,
+    summary: "the world value's key, as `set_world_value` writes it",
+};
+
+/// `world.value_is(key, value)`: the world value `key` is `value`.
+pub fn value_is_descriptor() -> ambition_platformer2d_shared_tangle::authored_logic::ConditionDescriptor {
+    use ambition_platformer2d_shared_tangle::authored_logic::*;
+    ConditionDescriptor {
+        id: ConditionId::new("world", "value_is"),
+        summary: "true while the named world value is the given text, whole number or truth",
+        params: &[KEY, ParamSpec {name: "value", kind: ParamKind::Name,
+            summary: "the value, written as text: `lowered`, `3`, `true`"}],
+    }
+}
+
+/// `world.value_is`: an absent value is no value, so not satisfied.
+pub fn value_is(world: &World, args: &[ambition_platformer2d_shared_tangle::authored_logic::AuthoredArg])
+    -> ambition_platformer2d_shared_tangle::authored_logic::ConditionOutcome {
+    use ambition_platformer2d_shared_tangle::authored_logic::{ConditionOutcome, WhyNot};
+    let (Some(key), Some(wanted)) = (args[0].as_name(), args[1].as_name()) else {
+        return ConditionOutcome::unanswerable("`key` and `value` must be names");
+    };
+    let Some(save) = world.get_resource::<ambition_persistence::save::AmbitionGameSave>() else {
+        return ConditionOutcome::unanswerable("no save layer is installed, so no world values exist");
+    };
+    let holds = save.data().world_value(key).is_some_and(|row| match decode(&row.value) {
+        ScriptValue::Text(text) => text == wanted,
+        ScriptValue::Int(number) => wanted.parse::<i64>() == Ok(number),
+        ScriptValue::Bool(truth) => wanted.parse::<bool>() == Ok(truth),
+        _ => false,
+    });
+    ConditionOutcome::from_bool(holds, || WhyNot::new("world.value_is", key, "the world value is not that"))
+}
+
+/// `world.count_at_least(key, at_least)`: the world count `key` has reached `at_least`.
+pub fn count_at_least_descriptor() -> ambition_platformer2d_shared_tangle::authored_logic::ConditionDescriptor {
+    use ambition_platformer2d_shared_tangle::authored_logic::*;
+    ConditionDescriptor {
+        id: ConditionId::new("world", "count_at_least"),
+        summary: "true once the named world count is at least the given number (an absent count is 0)",
+        params: &[KEY, ParamSpec {name: "at_least", kind: ParamKind::Number, summary: "the threshold"}],
+    }
+}
+
+/// `world.count_at_least`: a value that is not a count never reaches it.
+pub fn count_at_least(world: &World, args: &[ambition_platformer2d_shared_tangle::authored_logic::AuthoredArg])
+    -> ambition_platformer2d_shared_tangle::authored_logic::ConditionOutcome {
+    use ambition_platformer2d_shared_tangle::authored_logic::{ConditionOutcome, WhyNot};
+    let (Some(key), Some(threshold)) = (args[0].as_name(), args[1].as_number()) else {
+        return ConditionOutcome::unanswerable("`key` must be a name and `at_least` a number");
+    };
+    let Some(save) = world.get_resource::<ambition_persistence::save::AmbitionGameSave>() else {
+        return ConditionOutcome::unanswerable("no save layer is installed, so no world values exist");
+    };
+    let count = save.data().world_value(key).map_or(Some(0), |row| match decode(&row.value) {
+        ScriptValue::Int(count) => Some(count),
+        _ => None,
+    });
+    ConditionOutcome::from_bool(count.is_some_and(|count| count as f64 >= threshold),
+        || WhyNot::new("world.count_at_least", key, "the world count is lower"))
+}
+
 pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
     registrar.rollback_component_canonical::<WorldValueChanges>("ambition_platformer2d_runtime", "script.world_value_changes");
 }
@@ -214,6 +299,8 @@ pub(crate) fn install(app: &mut App) {
         "ambition_platformer2d_runtime", lower_adds);
     app.install_extension_observation::<WorldValuesPort>(ACTOR_THINK, "ambition_platformer2d_runtime",
         |world, _| Some(world_values(world)));
+    app.install_extension_observation::<LockWallsPort>(ACTOR_THINK, "ambition_platformer2d_runtime",
+        |world, scope| Some(lock_walls(world, scope)));
     app.install_extension_trigger::<WorldValueChangedPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", queue_changes);
     register_room_write_retractor(app, "resource.held_world_writes", retract_held_writes);
     app.add_message::<SessionScopeActivated>();

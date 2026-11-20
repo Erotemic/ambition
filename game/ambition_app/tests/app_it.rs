@@ -397,6 +397,7 @@ mod scripted_custody_outcomes;
 mod scripted_equipment_outcomes;
 mod scripted_crossing_facts;
 mod scripted_world_values;
+mod scripted_lock_walls;
 
 mod scripted_libraries;
 mod scripted_actor_creation;

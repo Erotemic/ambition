@@ -71,6 +71,10 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     bury_timer: f32,
     // FROZEN. A lock like the others; the block's travel is its own physics.
     freeze_timer: f32,
+    // CRUMPLING, and the collapse it owes: a peer that lost the latch would
+    // leave a body standing that the other put prone.
+    crumple_timer: f32,
+    crumple_collapse_owed: bool,
     // SLOWED. A status like the sleep above it: two peers that disagree about
     // how long a body wades through honey resimulate different matches.
     slow_timer: f32,

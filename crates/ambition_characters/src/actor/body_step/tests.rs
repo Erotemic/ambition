@@ -506,3 +506,46 @@ fn a_frozen_body_cannot_act_and_still_travels() {
     combat.reset();
     assert!(!combat.is_frozen());
 }
+
+/// A crumple sags in place, then the body collapses prone into the floor
+/// game, announced as a knockdown; a body with no floor game stands back up.
+#[test]
+fn a_crumple_sags_then_collapses_into_the_floor_game() {
+    let world = open_world();
+    for floor_game in [true, false] {
+        let mut body = body_travelling();
+        let mut combat = BodyCombat { crumple_timer: 0.3, crumple_collapse_owed: true, ..BodyCombat::default() };
+        let mut tuning = ae::MovementTuning::default();
+        tuning.tumble_speed = if floor_game { 250.0 } else { 0.0 };
+        let mut step = |body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat| {
+            let (model, mut clusters) = body.parts();
+            let result = step_body(
+                model,
+                &mut clusters,
+                combat,
+                tuning,
+                false,
+                false,
+                ae::MotionStepContext {
+                    admission: None,
+                    world: &world,
+                    input: ae::InputState::default(),
+                    frame: frame(),
+                    facing_intent: 0.0,
+                    dt: DT,
+                    contact: ae::BodyContactField::NONE,
+                    pose_owned_externally: false,
+                    recovery_commitment_outstanding: false,
+                },
+            );
+            let prone = matches!(&*model, ae::movement::MotionModel::AxisSwept(axis) if axis.state.knockdown_timer > 0.0);
+            (result.events.operations.contains(&ae::movement::MovementOp::Knockdown), prone)
+        };
+        let before = body.kinematics.pos;
+        assert_eq!(step(&mut body, &mut combat), (false, false), "floor game {floor_game}: the sag collapsed early");
+        assert_eq!(body.kinematics.pos, before, "the sag moved the body");
+        combat.decay_reaction_timers(0.3, 0.3);
+        assert_eq!(step(&mut body, &mut combat), (floor_game, floor_game), "floor game {floor_game}");
+        assert!(!combat.crumple_collapse_owed, "the collapse was not spent");
+    }
+}

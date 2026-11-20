@@ -103,6 +103,7 @@ mod tests {
                 ambition_demo_smash_modules::paralyze::module,
                 ambition_demo_smash_modules::bury::module,
                 ambition_demo_smash_modules::freeze::module,
+                ambition_demo_smash_modules::crumple::module,
             ],
         );
         app.add_systems(Update, (mash_out_of_paralysis, mash_out_of_burial, mash_out_of_freeze).after(ExtensionSet::Lower(HIT_REACTION)));
@@ -244,5 +245,35 @@ mod tests {
         app.update();
         let rule = crate::rules::smash_rules().freeze_mash_seconds;
         assert!((app.world().get::<BodyCombat>(victim).unwrap().freeze_timer - (1.2 - rule)).abs() < 1e-6);
+    }
+
+    /// A crumpling strike replaces a standing body's hit (no launch, no stun)
+    /// and leaves it owing the collapse; a body in the air keeps its hit. On
+    /// both roads.
+    #[test]
+    fn a_crumpling_strike_owes_a_standing_body_its_collapse() {
+        use ambition_platformer2d::entity_catalog::smash_crumple::CRUMPLE;
+        for road in [Road::Linked, Road::Loaded] {
+            let mut app = app(road);
+            let striker = body(&mut app);
+            let struck = |app: &mut App, on_ground: bool| {
+                let victim = body(app);
+                let mut flight = ae::BodyFlightState::default();
+                flight.stage_launch(ae::Vec2::new(120.0, -200.0), false, Default::default());
+                let mut combat = BodyCombat::default();
+                combat.hitstun_timer = 0.4;
+                app.world_mut().entity_mut(victim).insert((flight, ae::BodyGroundState { on_ground, ..Default::default() }, combat));
+                victim
+            };
+            let (standing, flying) = (struck(&mut app, true), struck(&mut app, false));
+            strike_with(&mut app, striker, standing, CRUMPLE, 0.7);
+            strike_with(&mut app, striker, flying, CRUMPLE, 0.7);
+            app.update();
+            let combat = *app.world().get::<BodyCombat>(standing).unwrap();
+            assert!(combat.is_crumpling() && combat.crumple_collapse_owed && combat.hitstun_timer == 0.0, "{road:?}: {combat:?}");
+            assert!(app.world().get::<ae::BodyFlightState>(standing).unwrap().pending_launch_state().is_empty(), "{road:?}");
+            let spared = *app.world().get::<BodyCombat>(flying).unwrap();
+            assert!(!spared.is_crumpling() && !spared.crumple_collapse_owed && spared.hitstun_timer == 0.4, "{road:?}: {spared:?}");
+        }
     }
 }

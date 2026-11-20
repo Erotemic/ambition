@@ -335,6 +335,14 @@ Port `ambition.combat.freeze@1`, request: `this.requests.push(request("<alias>",
 |---|---|---|---|
 | `duration_s` | number | required | Seconds the body stays encased (world seconds). |
 
+## `crumple`
+
+Port `ambition.combat.crumple@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `duration_s` | number | required | Seconds the body sags before it collapses (world seconds). |
+
 ## `group_think`
 
 Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.

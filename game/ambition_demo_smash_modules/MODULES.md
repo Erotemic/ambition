@@ -10,6 +10,7 @@
 | [`bomb`](src/bomb.rs) | The bomb: a ground item with a fuse. |
 | [`bury`](src/bury.rs) | The burial: a strike that drives a standing body into the floor; the burial is the engine's. |
 | [`counter`](src/counter.rs) | The counter stance: while it is live, its fighter parries. |
+| [`crumple`](src/crumple.rs) | The crumple: a strike that buckles a standing body to the floor; the sag and the collapse are the engine's. |
 | [`dilation`](src/dilation.rs) | Time dilation: a body runs on a slower clock for a while. |
 | [`freeze`](src/freeze.rs) | The freeze: a strike that encases the body it struck; the ice is the engine's. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |

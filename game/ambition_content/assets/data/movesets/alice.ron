@@ -670,7 +670,8 @@
                         ),
                         // (`let d_smash = strike(Strike {`)
                         // DOWN SMASH — `side_channel`. She does not read the message; she reads
-                        // what leaked out either side of it.
+                        // what leaked out either side of it. A standing body it catches crumples:
+                        // it sags for 0.7 s, then falls prone (`smash.crumple`).
                         (
                             id: "side_channel",
                             display_name: None,
@@ -708,7 +709,14 @@
                                             knockback_growth: Some(2.68),
                                             launch_dir: Some((0.8, -0.58)),
                                             reaction: None,
-                                            on_hit: None,
+                                            on_hit: Some((
+                                                // What leaked was enough: a standing body's
+                                                // knees give, and it folds to the floor.
+                                                key: "smash.crumple",
+                                                params: ({
+                                                    "duration_s": 0.7,
+                                                }),
+                                            )),
                                             vfx: Some("slash_arc"),
                                             hit_sfx: Some("player.hit"),
                                         ),

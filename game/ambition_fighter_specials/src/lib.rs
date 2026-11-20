@@ -194,6 +194,17 @@ pub fn specials() -> Vec<Special> {
             },
             module: modules::freeze::module,
         },
+        // Crumple: answered on the body a volume struck, like the burial.
+        Special {
+            key: catalog::smash_crumple::CRUMPLE,
+            offer: TechniqueOffer {
+                owner: "ambition_demo_smash_modules::crumple",
+                params: TechniqueParams::Checked(catalog::smash_crumple::check_crumple_params),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::OnHit,
+            },
+            module: modules::crumple::module,
+        },
         // Counter stance: it holds the parry window open each tick of the
         // stance (`ambition.combat.parry_window`, lowered inside `Materialize`,
         // before `Resolve` judges), and answers a parry caught in it

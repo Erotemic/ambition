@@ -360,6 +360,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ParalyzePort>("paralyze")
         .add::<ambition_combat_port::BuryPort>("bury")
         .add::<ambition_combat_port::FreezePort>("freeze")
+        .add::<ambition_combat_port::CrumplePort>("crumple")
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
         .add::<ambition_combat_port::BodyContactPort>("body_contact")
         .add::<ambition_combat_port::HitReceptionsPort>("hit_receptions")

@@ -70,6 +70,24 @@ pub fn step_body(
         ctx.dt = 0.0;
         return ae::step_motion(model, clusters, ctx);
     }
+    if combat.crumple_collapse_owed {
+        // The sag is over: the body falls prone, or stands back up when it
+        // has no floor game. Announced as the knockdown it is, so its
+        // readers (sound, pose, brains) need no crumple of their own.
+        combat.crumple_collapse_owed = false;
+        let collapsed = match model {
+            ae::movement::MotionModel::AxisSwept(axis) => {
+                ae::movement::knockdown::collapse_into_knockdown(&mut axis.state, axis.params)
+            }
+            _ => false,
+        };
+        if collapsed {
+            clusters.kinematics.vel = ae::Vec2::ZERO;
+            let mut result = ae::step_motion(model, clusters, ctx);
+            result.events.operations.push(ae::movement::MovementOp::Knockdown);
+            return result;
+        }
+    }
     if combat.is_in_hitlag() {
         // SDI is allowed during hitlag, but `step_motion` does not sweep when
         // `dt == 0`; sweep the displacement here so it cannot enter geometry.

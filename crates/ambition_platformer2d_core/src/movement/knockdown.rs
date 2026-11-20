@@ -248,6 +248,29 @@ pub fn tumble_from_footstool(
     true
 }
 
+/// A crumple's collapse: the body that sagged where it stood falls prone, on
+/// its face, into the ordinary floor game (getup options, jab lock). No launch
+/// is behind it and it was never in the air, so there is no tech: the sag was
+/// the window, and it is spent. Answers `false`, and changes nothing, for a
+/// body with no floor game (`tumble_speed <= 0.0`): it stands back up.
+pub fn collapse_into_knockdown(state: &mut AxisManeuverState, tuning: AxisSweptParams) -> bool {
+    if tuning.abilities.tumble_speed <= 0.0 {
+        return false;
+    }
+    state.tumble_timer = 0.0;
+    state.tumble_until_landing = false;
+    state.tumble_untechable = false;
+    state.tech_press_timer = 0.0;
+    state.launch_direction = None;
+    state.prone_face_down = true;
+    state.buffer_burst = 0.0;
+    state.buffer_jump = 0.0;
+    state.getup_invuln_timer = 0.0;
+    state.knockdown_timer = KNOCKDOWN_TIME;
+    state.jab_locks = 0;
+    true
+}
+
 /// The floor-game half both tumble entry points share.
 ///
 /// Entering tumble cancels the floor game the body was in: you cannot be prone

@@ -285,6 +285,9 @@ pub enum ReactionHold {
     Buried,
     /// Encased (`BodyCombat::freeze_timer`).
     Frozen,
+    /// Sagging before a collapse (`BodyCombat::crumple_timer`); like a
+    /// burial its look is a posture.
+    Crumpling,
 }
 
 impl ReactionHold {
@@ -296,6 +299,8 @@ impl ReactionHold {
             Self::Paralyzed
         } else if combat.is_buried() {
             Self::Buried
+        } else if combat.is_crumpling() {
+            Self::Crumpling
         } else {
             Self::None
         }

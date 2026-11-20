@@ -338,7 +338,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 512 -> 513: BodyCombat encodes its paralysis timer.
 // 513 -> 514: BodyCombat encodes its bury timer.
 // 514 -> 515: BodyCombat encodes its freeze timer.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 515;
+// 515 -> 516: BodyCombat encodes its crumple timer and the collapse it owes.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 516;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -380,6 +380,9 @@ pub fn apply_body_hit_reaction(
         combat.bury_timer = 0.0;
         // And it shatters an encased body.
         combat.freeze_timer = 0.0;
+        // A crumpling body is launched by it instead of collapsing.
+        combat.crumple_timer = 0.0;
+        combat.crumple_collapse_owed = false;
     }
     // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
     // authority, then regains the attack verb the instant it clears (while still in hitstun +

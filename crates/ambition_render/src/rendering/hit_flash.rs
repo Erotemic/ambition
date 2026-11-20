@@ -731,7 +731,9 @@ fn overlay_look(
     match facts.hold {
         ambition_sim_view::ReactionHold::Frozen => return (FROZEN_INTENSITY, FROZEN_TINT),
         ambition_sim_view::ReactionHold::Paralyzed => return (crackle_intensity(tick), CRACKLE_TINT),
-        ambition_sim_view::ReactionHold::Buried | ambition_sim_view::ReactionHold::None => {}
+        ambition_sim_view::ReactionHold::Buried
+        | ambition_sim_view::ReactionHold::Crumpling
+        | ambition_sim_view::ReactionHold::None => {}
     }
     // Armor: a cool steel sheen while a heavy swing cannot be staggered.
     // After the flashes (a landed hit on armor still shows as a hit) and

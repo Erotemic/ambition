@@ -56,6 +56,7 @@ pub mod smash_bomb;
 pub mod smash_bury;
 pub mod smash_capture;
 pub mod smash_counter;
+pub mod smash_crumple;
 pub mod smash_flyline;
 pub mod smash_freeze;
 pub mod smash_homing;

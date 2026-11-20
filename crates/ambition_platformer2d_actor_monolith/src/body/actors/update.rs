@@ -2774,6 +2774,8 @@ mod body_combat_rebuild_contract {
             paralysis_timer: _,
             bury_timer: _,
             freeze_timer: _,
+            crumple_timer: _,
+            crumple_collapse_owed: _,
             // A slow a puddle applied: owned by the body, never rewritten
             // from the cluster.
             slow_timer: _,

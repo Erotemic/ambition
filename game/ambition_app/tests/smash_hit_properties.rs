@@ -266,3 +266,30 @@ fn the_cellular_pulse_freezes_its_victim_and_the_block_still_flies() {
     let moved = (app.world().get::<ae::BodyKinematics>(victim).unwrap().pos - frozen_at).length();
     assert!(moved > 2.0, "the frozen block was held where it was struck ({moved}px), as hitlag would");
 }
+
+/// S0.8: Alice's authored side channel crumples a standing body: it is not
+/// launched, it sags where it stood, and then it lies prone in the floor game.
+#[test]
+fn alices_side_channel_crumples_a_standing_body_into_the_floor_game() {
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    let (mut app, [alice, victim]) = two_fighters(["npc_alice", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    let spec = app.world().get::<ActorMoveset>(alice).unwrap().0.moves.iter()
+        .find(|spec| spec.id == "side_channel").unwrap().clone();
+    app.world_mut().entity_mut(alice).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0));
+    let mut sagged_at = None;
+    for _ in 0..90 {
+        app.update();
+        if app.world().get::<BodyCombat>(victim).unwrap().is_crumpling() {
+            sagged_at = Some(app.world().get::<ae::BodyKinematics>(victim).unwrap().pos);
+            break;
+        }
+    }
+    let sagged_at = sagged_at.expect("the authored side channel must crumple the standing body it reaches");
+    while app.world().get::<BodyCombat>(victim).unwrap().is_crumpling() {
+        assert_eq!(app.world().get::<ae::BodyKinematics>(victim).unwrap().pos, sagged_at, "the sagging body moved");
+        app.update();
+    }
+    app.update();
+    let facts = app.world().get::<ae::BodyMotionFacts>(victim).unwrap();
+    assert!(facts.knocked_down, "the crumple did not end prone in the floor game");
+}

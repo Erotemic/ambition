@@ -446,6 +446,56 @@ ambition_extension_sdk::port_record! {
 
 ambition_extension_sdk::script_port!(FreezePort);
 
+/// The request port marker for a crumple of the struck body.
+///
+/// Port card:
+///
+/// * **Operation** — the body the invocation ran for, if it stands on the
+///   ground, crumples: for `duration_s` it sags where it stood, held and
+///   unable to act, and then it collapses prone into the floor game (a body
+///   with none stands back up). The crumple REPLACES the reaction of the hit
+///   that caused it: that hit's launch, velocity, stun and recoil lock are
+///   dropped. A body in the air is not crumpled and keeps its hit. A body
+///   already crumpling for longer keeps its time. A real hit during the sag
+///   ends it and launches the body instead; there is no mash, because the
+///   floor game's getups are the escape. A duration that is not finite, or
+///   is not above 0, is refused.
+/// * **Owner** — `ambition_combat::extension::reaction`, which writes
+///   `BodyCombat::crumple_timer` and the collapse it owes.
+/// * **Scope** — the body the invocation ran for: in `hit_reaction`, the body
+///   a strike struck.
+/// * **Time** — `hit_reaction`, after the strike's own reaction, which is the
+///   reaction it replaces.
+pub struct CrumplePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Crumple {
+    pub duration_s: f32,
+}
+
+impl Port for CrumplePort {
+    const KEY: PortKey = PortKey::new("ambition.combat.crumple", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = Crumple;
+
+    fn encode(v: &Crumple, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Crumple, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    Crumple {
+        /// Seconds the body sags before it collapses (world seconds).
+        duration_s: f32,
+    }
+}
+
+ambition_extension_sdk::script_port!(CrumplePort);
+
 /// The request port marker for a refill of one of the body's resources.
 ///
 /// Port card:

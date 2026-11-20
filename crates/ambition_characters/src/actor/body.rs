@@ -358,6 +358,16 @@ pub struct BodyCombat {
     /// is a gameplay freeze and not hitlag. A real hit shatters it, and the
     /// game's mash rule thaws it. `0.0` for every body nothing has frozen.
     pub freeze_timer: f32,
+    /// CRUMPLING: seconds left in which this body sags where it stood (a
+    /// `smash.crumple` hit), held and unable to act, before it collapses to
+    /// the floor. Like a burial it REPLACES the hit's launch and stun. A real
+    /// hit ends it, and that hit launches the body instead. `0.0` for every
+    /// body nothing has crumpled.
+    pub crumple_timer: f32,
+    /// The collapse a crumple owes: set with the crumple, spent by the body
+    /// step on the first step after the sag, which puts a body that has a
+    /// floor game (`tumble_speed`) prone. Cleared with the crumple by a hit.
+    pub crumple_collapse_owed: bool,
     /// SLOWED: seconds left in which this body moves at [`Self::slow_scale`]
     /// of its own speed (honey, glue). Not a control lock: the body acts and
     /// steers, only slower. Applied by [`Self::slow`]; the body step reads it
@@ -497,6 +507,7 @@ impl BodyCombat {
             .max(self.paralysis_timer)
             .max(self.bury_timer)
             .max(self.freeze_timer)
+            .max(self.crumple_timer)
             .max(self.ledge_trump_lock_timer)
     }
 
@@ -527,10 +538,15 @@ impl BodyCombat {
         self.freeze_timer > 0.0
     }
 
-    /// Whether this body is held where it is by a reaction (a paralysis or a
-    /// burial): its step is frozen.
+    /// Whether this body is sagging in a crumple now.
+    pub fn is_crumpling(&self) -> bool {
+        self.crumple_timer > 0.0
+    }
+
+    /// Whether this body is held where it is by a reaction (a paralysis, a
+    /// burial or a crumple's sag): its step is frozen.
     pub fn is_held_in_place(&self) -> bool {
-        self.is_paralyzed() || self.is_buried()
+        self.is_paralyzed() || self.is_buried() || self.is_crumpling()
     }
 
     /// Whether this body is currently in hitlag.
@@ -594,6 +610,7 @@ impl BodyCombat {
         self.paralysis_timer = (self.paralysis_timer - proper_dt).max(0.0);
         self.bury_timer = (self.bury_timer - proper_dt).max(0.0);
         self.freeze_timer = (self.freeze_timer - proper_dt).max(0.0);
+        self.crumple_timer = (self.crumple_timer - proper_dt).max(0.0);
         self.slow_timer = (self.slow_timer - proper_dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - unscaled_dt).max(0.0);
         if self.hitstop_timer == 0.0 && !self.asdi_owed {
@@ -626,6 +643,9 @@ impl BodyCombat {
         // Nor buried, nor frozen.
         self.bury_timer = 0.0;
         self.freeze_timer = 0.0;
+        // Nor crumpling, and it owes no collapse.
+        self.crumple_timer = 0.0;
+        self.crumple_collapse_owed = false;
         // A body put back to spawn is out of the honey.
         self.slow_timer = 0.0;
         self.slow_scale = 0.0;
@@ -821,6 +841,8 @@ mod hard_lock_tests {
             paralysis_timer: _,
             bury_timer: _,
             freeze_timer: _,
+            crumple_timer: _,
+            crumple_collapse_owed: _,
             // A slow runs down with the rest; its scale is read only while it does.
             slow_timer: _,
             slow_scale: _,
@@ -867,6 +889,8 @@ mod hard_lock_tests {
             paralysis_timer: _,
             bury_timer: _,
             freeze_timer: _,
+            crumple_timer: _,
+            crumple_collapse_owed: _,
             // Cleared: a body put back to spawn is out of the honey.
             slow_timer: _,
             slow_scale: _,

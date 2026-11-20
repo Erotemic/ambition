@@ -153,6 +153,8 @@ mod boss_combat_rebuild_contract {
             paralysis_timer: _,
             bury_timer: _,
             freeze_timer: _,
+            crumple_timer: _,
+            crumple_collapse_owed: _,
             // A slow a puddle applied: the same, owned by the body.
             slow_timer: _,
             slow_scale: _,

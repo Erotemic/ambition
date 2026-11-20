@@ -113,7 +113,8 @@ pub struct PresentedPose {
     /// disturbed. Zero for every body that is not frozen by a hit it took.
     jitter: Vec2,
     /// THE POSTURE A REACTION DRAWS: a buried body is drawn sunk into the
-    /// floor along its frame's down by [`BURY_SINK_FRACTION`] of its height.
+    /// floor along its frame's down by [`BURY_SINK_FRACTION`] of its height,
+    /// a crumpling one sagging by [`CRUMPLE_SAG_FRACTION`].
     /// Presentation only, as the shake is: its box stays on the floor, so a
     /// burial is never collision embedding. Zero for every other body.
     posture: Vec2,
@@ -126,6 +127,10 @@ pub struct PresentedPose {
 
 /// How much of a buried body's height is drawn under the floor.
 pub const BURY_SINK_FRACTION: f32 = 0.45;
+
+/// How far a crumpling body is drawn sagging toward the floor before it
+/// collapses, as a share of its height. Its box does not move.
+pub const CRUMPLE_SAG_FRACTION: f32 = 0.12;
 
 /// How far a struck body is drawn off its place at a reference-strength hit
 /// (px). Ultimate shakes about 2 units.
@@ -388,10 +393,10 @@ pub fn advance_presented_body_poses(
             let side = frame.map_or(Vec2::X, |frame| frame.down().perp());
             presented.jitter = hitlag_jitter(frozen, strength, tick.0, side);
             let down = frame.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-            presented.posture = if combat.is_some_and(|c| c.is_buried()) {
-                down * (presented.size.y * BURY_SINK_FRACTION)
-            } else {
-                Vec2::ZERO
+            presented.posture = match combat {
+                Some(c) if c.is_buried() => down * (presented.size.y * BURY_SINK_FRACTION),
+                Some(c) if c.is_crumpling() => down * (presented.size.y * CRUMPLE_SAG_FRACTION),
+                _ => Vec2::ZERO,
             };
         }
         // Resample EVERY frame — that is the entire point.

@@ -97,24 +97,44 @@
         (
             // The Frontier's first slice (scores/active/halfway_siding.music.yaml,
             // `techno-western-frontier-first-slice.md`): Halfway Siding, its
-            // inn and trestle, and Clinker Flats, on one motif, the detour.
+            // station and street, its inn and trestle, and Sprocket Row, on
+            // one motif, the detour.
             id: "halfway_siding",
             asset_root: "audio/music/generated/halfway_siding",
-            bpm: 84.0,
+            bpm: 88.0,
             beats_per_bar: 4.0,
             relative_volume: 1.0,
             sections: [
                 (id: "platform", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/platform/platform.full.ogg")]),
                 (id: "lie_down", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/lie_down/lie_down.full.ogg")]),
                 (id: "trestle", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/trestle/trestle.full.ogg")]),
-                (id: "clinker", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/clinker/clinker.full.ogg")]),
+                (id: "sprocket", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/sprocket/sprocket.full.ogg")]),
             ],
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "platform", section_id: "platform", gains: [(layer_id: "full", gain: 1.0)]),
                 (id: "lie_down", section_id: "lie_down", gains: [(layer_id: "full", gain: 1.0)]),
                 (id: "trestle", section_id: "trestle", gains: [(layer_id: "full", gain: 1.0)]),
-                (id: "clinker", section_id: "clinker", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "sprocket", section_id: "sprocket", gains: [(layer_id: "full", gain: 1.0)]),
+            ],
+        ),
+        (
+            // Clinker Flats, the smelter town down the line
+            // (scores/active/clinker_flats.music.yaml): the yard and the works,
+            // and the Row on the way to the railhead.
+            id: "clinker_flats",
+            asset_root: "audio/music/generated/clinker_flats",
+            bpm: 76.0,
+            beats_per_bar: 4.0,
+            relative_volume: 1.0,
+            sections: [
+                (id: "works", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/works/works.full.ogg")]),
+                (id: "row", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/row/row.full.ogg")]),
+            ],
+            layers: [(id: "full", slot: 0)],
+            states: [
+                (id: "works", section_id: "works", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "row", section_id: "row", gains: [(layer_id: "full", gain: 1.0)]),
             ],
         ),
         (
@@ -451,16 +471,16 @@
         // The first slice: Halfway Siding, the Number 9 freight, Clinker Flats.
         (room_id: "frontier_siding_station", cue_id: "halfway_siding", state: "platform"),
         (room_id: "frontier_siding_street", cue_id: "halfway_siding", state: "platform"),
-        (room_id: "frontier_sprocket_row", cue_id: "halfway_siding", state: "platform"),
+        (room_id: "frontier_sprocket_row", cue_id: "halfway_siding", state: "sprocket"),
         (room_id: "frontier_lie_down_inn", cue_id: "halfway_siding", state: "lie_down"),
         (room_id: "frontier_siding_trestle", cue_id: "halfway_siding", state: "trestle"),
         (room_id: "frontier_freight_tail", cue_id: "the_rustler", state: "boxcars"),
         (room_id: "frontier_freight_cars", cue_id: "the_rustler", state: "boxcars"),
         (room_id: "frontier_rustler_head", cue_id: "the_rustler", state: "rustler"),
-        (room_id: "frontier_clinker_yard", cue_id: "halfway_siding", state: "clinker"),
-        (room_id: "frontier_clinker_works", cue_id: "halfway_siding", state: "clinker"),
-        (room_id: "frontier_clinker_row", cue_id: "halfway_siding", state: "clinker"),
-        (room_id: "frontier_clinker_railhead", cue_id: "halfway_siding", state: "clinker"),
+        (room_id: "frontier_clinker_yard", cue_id: "clinker_flats", state: "works"),
+        (room_id: "frontier_clinker_works", cue_id: "clinker_flats", state: "works"),
+        (room_id: "frontier_clinker_row", cue_id: "clinker_flats", state: "row"),
+        (room_id: "frontier_clinker_railhead", cue_id: "clinker_flats", state: "row"),
         (room_id: "intro_hobford_lane", cue_id: "hobford_goblins", state: "lurking"),
         (room_id: "intro_high_meadow", cue_id: "hobford_goblins", state: "lurking"),
         (room_id: "intro_millstream", cue_id: "hobford_goblins", state: "lurking"),

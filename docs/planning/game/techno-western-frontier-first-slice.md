@@ -76,12 +76,17 @@ cars is a `HazardBlock` that puts the player back at the room's start.
 - People: seven chargen residents (`data/townsfolk/frontier_*.chargen.yaml`,
   catalog `npc_frontier_*`), Alice and Bob from the catalog; their lines in
   `dialogue/sandbox/frontier.yarn`, their wing in the Hall of Characters.
-- Music: `halfway_siding` (platform, lie_down, trestle, clinker) and
-  `the_rustler` (boxcars, rustler) from the music renderer's
-  `dev/compose_halfway_siding.py`, bound in `music_cues.ron`. They were
-  rendered and bundled on a VM without the music registry; nobody has
-  listened to them, and the game here plays no music in these rooms until
-  `scripts/regen/music.sh` runs where the registry is.
+- Music: `halfway_siding` (platform, lie_down, trestle, sprocket),
+  `the_rustler` (boxcars, rustler) and `clinker_flats` (works, row) from the
+  music renderer's `dev/compose_halfway_siding.py`, bound in
+  `music_cues.ron`. Jon's review of the first renders (2026-11-20): the town
+  cue opened on silence and was too schmaltzy, the train cue was unbalanced,
+  every cue must loop, and the Frontier needs more western tracks. The second
+  version starts on its first section, sets the town on a dry boom-chuck
+  guitar and a harmonica (an upright piano alone at the inn), rebalances the
+  train by measured per-section loudness, and gives Clinker Flats its own
+  cue. The game plays them once `scripts/regen/music.sh` publishes them
+  where the registry is.
 
 **Missing or deferred.** The robbery is staged, not played: no outlaw
 fights, the Rustler's grapples do not move, Scout is not knocked off the

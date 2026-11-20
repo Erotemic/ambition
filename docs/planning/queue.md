@@ -763,10 +763,12 @@ missing from 264 campaign sheets, not about 504), and the replay audit
 forgives 96 levels, measured on the two resampling differences 19 of those
 sheets refused on. Of the 12 hand-made rigs that drew `idle` struck, the
 Creator has `hurt`, `death` and `death_idle` and the four dogs share a
-`hurt` (renderer `89a8d71`, `37868ab`, 2026-11-19). Left: watch the swing
-amplitudes in the game at 60 and 144 Hz, and the reaction rows of the other
-seven (burning_flying_shark, full_stack_giant, genghis_can_v2,
-genghis_cant_v2, player_robot_fable, smirking_behemoth_boss, void_star).
+`hurt` (renderer `89a8d71`, `37868ab`, 2026-11-19). The other seven
+(burning_flying_shark, full_stack_giant, genghis_can_v2, genghis_cant_v2,
+player_robot_fable, smirking_behemoth_boss, void_star) draw a `hurt` row in
+their own idiom, and the shark and both Genghis brothers a death (renderer
+`5c8f05d`, 2026-11-20). Left: watch the swing amplitudes in the game at 60
+and 144 Hz.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp
 attack poses remain readable. Check interruptions, rollback resets, quality

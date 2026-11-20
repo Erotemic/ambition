@@ -131,7 +131,9 @@ A script can submit `story_command` with a `line` from the authored
 command catalog, or `play_cutscene` with a library `id`. Both requests keep
 the invocation's live room. The command catalog checks each line before
 dispatch. An unknown command or cutscene is refused and reported in the
-log. These ports do not give the script direct ECS access.
+log, or, with a `reply`, in an [action result](../sdk/action-results.md);
+a cutscene asked with a reply is also answered when it starts and ends.
+These ports do not give the script direct ECS access.
 
 `actor.form_up <character> <place> <spacing> <brain>` sends the bodies to
 separate points from a named place, in simulation identity order. Spacing

@@ -870,11 +870,12 @@ Port `ambition.world.stow@1`, request: `this.requests.push(request("<alias>", #{
 
 ## `play_cutscene`
 
-Port `ambition.story.play_cutscene@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.story.play_cutscene@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
 | `id` | text | required | A script id from the cutscene library. It plays in this room. |
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Optional correlated replies from cutscene playback. |
 
 ## `steer`
 

@@ -34,6 +34,52 @@ pub fn install(app: &mut App) {
         "ambition_platformer2d_runtime",
         lower_cutscenes,
     );
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "story.play_cutscene",
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
+    // After the queue starts a cutscene and before it ticks: a cutscene with
+    // no beats starts and ends on one tick, and is seen playing here.
+    let sim = ambition_platformer2d_shared_tangle::schedule::SimScheduleExt::sim_schedule(app);
+    app.add_systems(
+        sim,
+        answer_cutscene_asks
+            .run_if(|asks: Query<(), With<CutsceneAsks>>| !asks.is_empty())
+            .after(crate::cutscene::drain_cutscene_triggers)
+            .before(crate::cutscene::tick_active_cutscene)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Cutscene),
+    );
+}
+
+/// A `play_cutscene` with a reply, waiting for its cutscene to start or end.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CutsceneAsk {
+    id: String,
+    room: u32,
+    ticket: ambition_extension_sdk::action::ActionTicket,
+    began: bool,
+}
+ambition_extension_sdk::port_record! { CutsceneAsk { id: String, room: u32,
+    ticket: ambition_extension_sdk::action::ActionTicket, began: bool } }
+
+/// The cutscenes a scope asked for and has not been answered about. It sits
+/// on the entity whose mailbox holds the tickets, so it rewinds with them.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct CutsceneAsks { rows: Vec<CutsceneAsk> }
+ambition_extension_sdk::port_record! { CutsceneAsks { rows: Vec<CutsceneAsk> } }
+impl ambition_platformer2d_core::snapshot::SnapshotState for CutsceneAsks {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let mut bytes = Vec::new();
+        ambition_extension_sdk::structure::put(self, &mut bytes);
+        ambition_platformer2d_core::snapshot::put_bytes(out, &bytes);
+    }
+    fn decode(reader: &mut ambition_platformer2d_core::snapshot::Reader<'_>) -> Option<Self> {
+        ambition_extension_sdk::wire::decode_all(reader.bytes()?, ambition_extension_sdk::structure::read).ok()
+    }
+}
+/// The most cutscene asks one scope holds unanswered.
+pub const MAX_CUTSCENE_ASKS: usize = 8;
+
+pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+    registrar.rollback_component_canonical::<CutsceneAsks>("ambition_platformer2d_runtime", "script.cutscene_asks");
 }
 
 /// The selector is a room definition id. Each live instance gets its own invocation.
@@ -175,22 +221,102 @@ fn lower_commands(world: &mut World) {
     }
 }
 
-fn lower_cutscenes(
-    mut outbox: ResMut<ExtensionOutbox>,
-    library: Res<ambition_cutscene::CutsceneLibrary>,
-    rooms: LiveRooms,
-    mut queue: ResMut<ambition_cutscene::CutsceneTriggerQueue>,
-) {
-    for submitted in outbox.drain::<PlayCutscenePort>(&ACTOR_THINK) {
-        if !library.scripts.contains_key(&submitted.value.id) {
-            warn!(
-                "cutscene {:?} from {} refused: no script has this id",
-                submitted.value.id, submitted.entry
-            );
-            continue;
+fn caller_room(world: &World, scope: Entity) -> Option<LiveRoomInstance> {
+    world.get::<LiveRoomInstance>(scope).copied()
+        .or_else(|| world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(scope).map(|at| at.0))
+}
+
+fn lower_cutscenes(world: &mut World) {
+    use ambition_extension_sdk::action::ActionStage;
+    use ambition_platformer2d_shared_tangle::action_results::{begin_action_request, publish_action_result};
+    let submitted: Vec<_> = world.resource_mut::<ExtensionOutbox>().drain::<PlayCutscenePort>(&ACTOR_THINK);
+    for submitted in submitted {
+        let dispatch = begin_action_request::<PlayCutscenePort>(world, submitted.state_scope, &submitted.entry, &submitted.value);
+        if !dispatch.execute { continue; }
+        let id = submitted.value.id;
+        let asks_full = dispatch.reply.is_some() && world.get::<CutsceneAsks>(submitted.state_scope)
+            .is_some_and(|asks| asks.rows.len() >= MAX_CUTSCENE_ASKS);
+        let checked = (|| -> Result<u32, &'static str> {
+            let script = world.resource::<ambition_cutscene::CutsceneLibrary>().get(&id).ok_or("unknown_cutscene")?;
+            let room = caller_room(world, submitted.scope).ok_or("no_room")?;
+            if script.seen_flag.as_deref().is_some_and(|seen| world.get_resource::<ambition_persistence::save::AmbitionGameSave>()
+                .is_some_and(|save| save.data().flag(seen))) {
+                return Err("cutscene_already_seen");
+            }
+            if asks_full { return Err("cutscene_ask_queue_full"); }
+            Ok(room.ordinal())
+        })();
+        match checked {
+            Ok(room) => {
+                world.resource_mut::<ambition_cutscene::CutsceneTriggerQueue>().request_in(id.clone(), room);
+                if let Some(reply) = dispatch.reply.as_ref() {
+                    world.entity_mut(submitted.state_scope).entry::<CutsceneAsks>().or_default().into_mut().rows
+                        .push(CutsceneAsk {id, room, ticket: reply.ticket.clone(), began: false});
+                    publish_action_result(world, Some(reply), ActionStage::Admitted, false, "cutscene_queued", "", Vec::new());
+                }
+            }
+            Err(code) => {
+                if dispatch.reply.is_none() {
+                    warn!("cutscene {id:?} from {} refused: {code}", submitted.entry);
+                }
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Rejected, true, code, "", Vec::new());
+            }
         }
-        if let Some(room) = rooms.of(submitted.scope) {
-            queue.request_in(submitted.value.id, room.ordinal());
+    }
+}
+
+/// Answer each asked cutscene from playback: `started` the first tick it is
+/// seen playing, and terminal `cutscene_ended` the first tick after it stops.
+/// One that is neither playing nor waiting in the queue and never began was
+/// passed over by the queue (its seen flag was set meanwhile): `cutscene_not_played`.
+fn answer_cutscene_asks(world: &mut World) {
+    use ambition_extension_sdk::action::{ActionResult, ActionStage};
+    use ambition_platformer2d_shared_tangle::action_results::ActionMailbox;
+    let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
+    let playing = world.get_resource::<ambition_cutscene::ActiveCutscene>().and_then(|active| {
+        Some((active.runtime.as_ref()?.script.id.clone(), active.room?))
+    });
+    let queued = world.get_resource::<ambition_cutscene::CutsceneTriggerQueue>().map(|queue| queue.0.clone()).unwrap_or_default();
+    let replay = world.get_resource::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>().cloned();
+    let mut holders = world.query_filtered::<Entity, With<CutsceneAsks>>();
+    let holders: Vec<Entity> = holders.iter(world).collect();
+    for holder in holders {
+        let mut asks = world.get::<CutsceneAsks>(holder).unwrap().clone();
+        let mut answers = Vec::new();
+        asks.rows.retain_mut(|ask| {
+            if replay.as_ref().is_some_and(|replay| !replay.allows(Some(LiveRoomInstance::from_ordinal(ask.room)))) {
+                return true;
+            }
+            let plays = playing.as_ref().is_some_and(|(id, room)| *id == ask.id && *room == ask.room);
+            let waits = queued.iter().any(|trigger| trigger.id == ask.id && trigger.room == Some(ask.room));
+            if plays {
+                if !ask.began {
+                    ask.began = true;
+                    answers.push((ask.ticket.clone(), ActionStage::Applied, false, "cutscene_started"));
+                }
+                true
+            } else if ask.began {
+                answers.push((ask.ticket.clone(), ActionStage::Completed, true, "cutscene_ended"));
+                false
+            } else if waits {
+                true
+            } else {
+                answers.push((ask.ticket.clone(), ActionStage::Failed, true, "cutscene_not_played"));
+                false
+            }
+        });
+        let Some(mut mailbox) = world.get_mut::<ActionMailbox>(holder) else {
+            world.entity_mut(holder).remove::<CutsceneAsks>();
+            continue;
+        };
+        // A canceled or expired ticket is no longer waited for.
+        asks.rows.retain(|ask| mailbox.is_pending(&ask.ticket));
+        for (ticket, stage, terminal, code) in answers {
+            mailbox.publish(ActionResult {ticket, stage, terminal, tick: now, code: code.into(),
+                message: String::new(), subjects: Vec::new()});
+        }
+        if *world.get::<CutsceneAsks>(holder).unwrap() != asks {
+            *world.get_mut::<CutsceneAsks>(holder).unwrap() = asks;
         }
     }
 }

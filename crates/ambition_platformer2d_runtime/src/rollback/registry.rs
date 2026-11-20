@@ -340,7 +340,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 514 -> 515: BodyCombat encodes its freeze timer.
 // 515 -> 516: BodyCombat encodes its crumple timer and the collapse it owes.
 // 516 -> 517: the session root keeps the world value changes its entries have not heard.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 517;
+// 517 -> 518: a scope keeps the cutscenes it asked for until they are answered.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 518;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

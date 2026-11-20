@@ -135,8 +135,16 @@ carries the optional allocation room. There is no old descriptor decoder.
   from the command runner. For example, applying an actor direction is an
   intent change. It does not promise arrival at that direction's destination.
 
-This support does not add results to every other request port. In particular,
-`play_cutscene` does not yet report playback completion. See the open
+- `play_cutscene` reports from playback: non-terminal `cutscene_queued` when
+  the request enters the queue, `cutscene_started` (stage `applied`) the tick
+  it is seen playing, and terminal `cutscene_ended` (stage `completed`) the
+  tick after it stops, whether it played out or was skipped. Refusals:
+  `unknown_cutscene`, `no_room`, `cutscene_already_seen` (its seen flag is set)
+  and `cutscene_ask_queue_full` (8 unanswered asks per scope). One the queue
+  passes over because its seen flag was set while it waited fails with
+  `cutscene_not_played`. The witness is `scripted_cutscene_outcomes`.
+
+This support does not add results to every other request port. See the open
 [capability census](../planning/engine/script-first-capability-census.md).
 
 ## Identity and retries

@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v517",
+    "version": "ggrs-rollback-schema-v518",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
@@ -188,6 +188,7 @@
       "scope.room\tcomponent-canonical\tRoomScopedEntity",
       "scope.room_instance\tcomponent-canonical\tInRoomInstance",
       "script.behavior_instance\tcomponent-canonical\tBehaviorInstance",
+      "script.cutscene_asks\tcomponent-canonical\tCutsceneAsks",
       "script.local_call_watches\tcomponent-canonical\tLocalCallWatches",
       "script.native_event_mailbox\tcomponent-canonical\tEventMailbox",
       "script.object_call_results\tcomponent-canonical\tObjectCallResults",
@@ -298,6 +299,7 @@
     "ambition_platformer2d_core::resources::ActorResources",
     "ambition_platformer2d_interaction::ActivationState",
     "ambition_platformer2d_runtime::BehaviorInstance",
+    "ambition_platformer2d_runtime::CutsceneAsks",
     "ambition_platformer2d_runtime::EventMailbox",
     "ambition_platformer2d_runtime::LocalCallWatches",
     "ambition_platformer2d_runtime::ObjectCallResults",

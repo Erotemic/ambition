@@ -1318,6 +1318,26 @@ Marshal's fight plays through its three phases headless to his defeat and
 opens the lookout, the hall has his practice copy, and each room plays its
 own rendered cue.
 
+### SIDING — the Frontier's first slice: Halfway Siding, the Number 9, Clinker Flats
+
+**Request (Jon, 2026-11-20):** a rough outline of the first slice of the
+Frontier (`game/techno-western-frontier-first-slice.md`) with its assets:
+backgrounds, sprites, music, and a basic assembly into rooms that can be
+launched and walked; gameplay beats come later and by hand.
+
+**State (2026-11-20):** built and walkable (see the page's "Built" section):
+twelve rooms west of Dry Dock in `frontier.ldtk`, the auxiliary gate
+`SIDING`, three new backdrops and skins, 36 scenery pieces, seven residents
+and Alice and Bob at the inn, two cues (`halfway_siding`, `the_rustler`)
+rendered here and not in this VM's registry.
+
+**Next action:** walk the route by hand and judge the staging (the drop
+through the trestle's planks, the cars' gaps, the jump off the Rustler);
+decide the slice's gameplay beats with Jon. **Done when:** a dial of
+`SIDING` arrives at the station, the inn, the trestle and Sprocket Row are
+walked, a drop from the trestle lands on the freight, the freight's head
+lets out into Clinker Flats, and both of Clinker's routes reach Pad Three.
+
 ### PLAYER-DEATH — what a death is in Ambition — ✅ DONE 2026-11-17
 
 **Owner:** `session/death.rs` (the beat), the presentation owner, and the bag
@@ -2012,6 +2032,8 @@ new meta-test machinery as a proxy for behavior.
 
 **Ridden-mount crossing red (found 2026-11-20, inherited: red at `49f35c4d5` with the C2 change stashed):** `carried_item_crosses_rooms::the_whole_attachment_closure_is_recorded_as_being_in_custody` finds no occurrence (0, wanted 1) of the mount's authored identity after two ridden crossings. The second crossing now lands in `hall_of_bosses`, which `49f35c4d5` gave a new door; whether the walker takes that door instead of the one the test means is not yet measured.
 
+**Velocity-authority policy red (found 2026-11-20, inherited):** `engine.velocity-writes-are-authority-only` names four bare `vel = ZERO` writes: `ambition_characters/src/actor/body_step.rs:85` and three in `ambition_combat/src/extension/reaction.rs` (the D72 reactions, 04c005bc8 and before). Each needs routing through the kernel or a recorded waiver at its owner.
+
 **Workspace policy reds (found 2026-11-19, inherited):**
 `cargo test -p ambition_workspace_policy` was red in two scopes.
 
@@ -2029,9 +2051,10 @@ boundary was decided at its owner:
 - `ambition_platformer2d_runtime` → `ambition_camera_presentation`, allowed:
   the engine group installs the camera request appliers so headless and
   windowed runs apply the same requests (P6 step 5);
-- `ambition_abilities/src/group.rs` now requires `Res<CharacterCatalog>`: a
-  group only runs where a script binds it, and such a host assembles the
-  catalog;
+- `ambition_abilities/src/group.rs` requires `Res<CharacterCatalog>`, and its
+  install runs it only where a catalog exists (2026-11-20): the shipped modules
+  bind a group even in a host that omits the catalog
+  (`composes_through_the_sdk::a_host_that_omits_cutscenes_still_builds_and_steps`);
 - `observed_geometry.rs` no longer names `ControlledSubject`: the default
   subject is `ambition_sim_view::geometry_inspection::default_geometry_subject`;
 - `hit_feel.rs`'s attacker recoil is waived as the guard deflection is (the

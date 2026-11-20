@@ -38,7 +38,11 @@ pub fn install(app: &mut App) {
     app.install_extension_trigger::<GroupThinkPort, _>(
         ACTOR_THINK,
         "ambition_abilities",
-        queue_group_thinks.run_if(ambition_extension_host::trigger_is_bound::<GroupThinkPort>),
+        // A host with no assembled catalog has no tagged body, so no group:
+        // the shipped modules bind a group even in a host that omits it.
+        queue_group_thinks
+            .run_if(ambition_extension_host::trigger_is_bound::<GroupThinkPort>)
+            .run_if(resource_exists::<CharacterCatalog>),
     );
     app.install_extension_submitted_request::<SteerPort, _>(ACTOR_THINK, "ambition_abilities", lower_steers);
     for domain in [ambition_combat_port::custody::TAKE_DOMAIN, ambition_combat_port::custody::RELEASE_DOMAIN] {
@@ -70,7 +74,7 @@ type MemberQuery<'a> = (
 pub fn queue_group_thinks(
     admitted: Res<AdmittedExtensions>,
     time: Res<ambition_time::WorldTime>,
-    // Tags are the assembled catalog's; a host that binds a group assembles one.
+    // Tags are the assembled catalog's; the install runs this only where one exists.
     catalog: Res<CharacterCatalog>,
     mut invocations: ResMut<ExtensionInvocations>,
     bodies: Query<MemberQuery>,

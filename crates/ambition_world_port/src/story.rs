@@ -11,8 +11,11 @@ pub struct StoryTickPort;
 /// the line against `CommandCatalog`. A bad line or absent room is refused
 /// and logged. The command owner applies the effect through its usual path.
 pub struct StoryCommandPort;
-/// Queue a known cutscene in the invocation's room. A missing library id
-/// is refused and logged. Playback owns the queue, skip policy and cursor.
+/// Queue a known cutscene in the invocation's room. Playback owns the queue,
+/// skip policy and cursor. With a reply, the request is answered `queued`,
+/// then `started` when playback begins, then terminal `cutscene_ended` when it
+/// ends (played out or skipped); an unknown id, a caller with no live room or
+/// a cutscene already seen is refused.
 pub struct PlayCutscenePort;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -44,6 +47,7 @@ pub struct StoryCommand {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlayCutscene {
     pub id: String,
+    pub reply: Option<ambition_extension_sdk::action::ReplyTo>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -104,6 +108,8 @@ ambition_extension_sdk::port_record! {
     PlayCutscene {
         /// A script id from the cutscene library. It plays in this room.
         id: String,
+        /// Optional correlated replies from cutscene playback.
+        reply: Option<ambition_extension_sdk::action::ReplyTo> = None,
     }
 }
 
@@ -141,5 +147,9 @@ story_port!(
     "ambition.story.play_cutscene",
     Request,
     PlayCutscene,
-    1
+    2,
+    fn action(value: &Self::Value) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(
+            value, "story.play_cutscene", value.reply.as_ref()?))
+    }
 );

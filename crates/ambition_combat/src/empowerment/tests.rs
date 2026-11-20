@@ -7,7 +7,7 @@
 use super::*;
 
 use ambition_characters::actor::Health;
-use ambition_combat::components::CenteredAabb;
+use crate::components::CenteredAabb;
 
 /// A striker at the origin and a victim standing in it, overlapping by
 /// construction — the geometry is not what these tests are about.
@@ -18,7 +18,7 @@ fn app_with_striker_and_victim(
 ) -> (App, Entity, Entity) {
     let mut app = App::new();
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
-    ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
+    crate::hitbox::register_strike_outcome_messages(&mut app);
     let pos = ae::Vec2::new(100.0, 100.0);
     let size = ae::Vec2::new(30.0, 48.0);
     let striker = app

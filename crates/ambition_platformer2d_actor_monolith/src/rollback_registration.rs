@@ -191,13 +191,13 @@ where
     );
 
     // AN ENGINE COMPONENT IS REGISTERED ONCE, BY THE ENGINE. `Empowered`
-    // lives in `features::empowerment`, and Mary-O and Sanic each registered it
+    // lives in `ambition_combat::empowerment`, and Mary-O and Sanic each registered it
     // from their own plugin — which is fine in a composition holding one demo
     // and a PANIC in the app, which holds both: bevy_ggrs refuses a second
     // `ComponentSnapshotPlugin` for one type ("plugin was already added"), and
     // 56 app tests died on that one line. Two games owning one engine type is
     // duplicate authority; the engine owns it.
-    registrar.rollback_component_clone_probed::<crate::body::empowerment::Empowered>(
+    registrar.rollback_component_clone_probed::<ambition_combat::empowerment::Empowered>(
         OWNER,
         "feature.empowered",
         |empowered| {

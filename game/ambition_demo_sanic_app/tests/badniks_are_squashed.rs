@@ -140,7 +140,7 @@ fn rolling(body: &mut EntityWorldMut) {
 }
 
 fn harming(body: &mut EntityWorldMut) {
-    body.insert(ambition_platformer2d::actors::body::empowerment::Empowered::held(
+    body.insert(ambition_platformer2d::combat::empowerment::Empowered::held(
         ambition_platformer2d::character::Empowerment::HARMS_ON_CONTACT,
     ));
 }

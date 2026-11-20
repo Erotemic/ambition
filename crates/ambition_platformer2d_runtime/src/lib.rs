@@ -595,7 +595,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // is the ORDER (against `EmpowermentExpiry`) and whether it wants
             // `apply_contact_harm` at all.
             .add(
-                ambition_platformer2d_actor_monolith::body::empowerment::EmpowermentLifecyclePlugin,
+                ambition_combat::empowerment::EmpowermentLifecyclePlugin,
             )
             .add(RoomTransitionSchedulePlugin)
             .add(RoomTransitionComposerPlugin)

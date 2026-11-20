@@ -9,9 +9,9 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::{BodyCombat, BodyHealth, Invulnerability, CharacterForm};
 use ambition_characters::prepared::PreparedCharacterRegistry;
-use ambition_combat::components::CenteredAabb;
+use crate::components::CenteredAabb;
 use ambition_characters::actor::ActorFaction;
-use ambition_combat::events::{
+use crate::events::{
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
 use ambition_platformer2d_core as ae;
@@ -167,7 +167,7 @@ pub fn run_empowerments(
 /// end in a [`HitEvent`] the victim's own consumer resolves.
 ///
 /// Who may be hit is decided relationally, by the shared
-/// [`damage_lands_between`](ambition_combat::targeting::damage_lands_between) —
+/// [`damage_lands_between`](crate::targeting::damage_lands_between) —
 /// the same predicate every swing in the game asks. That is what makes this
 /// actor-generic rather than a player rule: an empowered NPC flattens what an
 /// NPC may flatten, without this system knowing what a player is.
@@ -178,7 +178,7 @@ pub fn run_empowerments(
 /// A game that wants it and wants the frame an empowerment ends not to also be a frame it flattens
 /// something orders it `.after(EmpowermentExpiry)`.
 pub fn apply_contact_harm(
-    mut hit_events: ambition_combat::HitWriter<'_, '_>,
+    mut hit_events: crate::HitWriter<'_, '_>,
     cast: ambition_characters::prepared::SessionCast,
     empowered: Query<
         (
@@ -188,7 +188,7 @@ pub fn apply_contact_harm(
             &ActorFaction,
             Option<&ambition_characters::control::DrivingParticipant>,
             Option<&ContactHarm>,
-            Option<&ambition_combat::targeting::MatchTeam>,
+            Option<&crate::targeting::MatchTeam>,
         ),
         Or<(With<Empowered>, With<CharacterForm>)>,
     >,
@@ -201,16 +201,16 @@ pub fn apply_contact_harm(
         &ae::BodyMotionFacts,
         &ambition_platformer2d_core::BodyShieldState,
         &BodyCombat,
-        Option<&ambition_combat::targeting::MatchTeam>,
+        Option<&crate::targeting::MatchTeam>,
         // The world's hands are off this body — a contact-harm empowerment does
         // not reach it either.
         (
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            bevy::prelude::Has<crate::death_rules::OutOfPlay>,
             Option<&ambition_platformer2d_core::DepthPlane>,
         ),
     )>,
     // The rules of the striker's own live room, and the room it touches in.
-    tuning: ambition_combat::rules::CombatTuningOf,
+    tuning: crate::rules::CombatTuningOf,
 ) {
     for (striker, (grant, worn), kin, striker_faction, striker_driver, harm, striker_team) in &empowered {
         if !empowerment_of(grant, worn, cast.get()).holds(Empowerment::HARMS_ON_CONTACT) {
@@ -239,17 +239,17 @@ pub fn apply_contact_harm(
             if victim == striker || tuning.room_of(victim) != striker_room {
                 continue;
             }
-            if ambition_combat::util::body_is_untouchable(Some(victim_health), victim_out_of_play, victim_plane) {
+            if crate::util::body_is_untouchable(Some(victim_health), victim_out_of_play, victim_plane) {
                 continue;
             }
-            if !ambition_combat::targeting::damage_lands_between(
+            if !crate::targeting::damage_lands_between(
                 tuning.relations(),
-                ambition_combat::targeting::Combatant {
+                crate::targeting::Combatant {
                     faction: *striker_faction,
                     driver: striker_driver,
                     team: striker_team,
                 },
-                ambition_combat::targeting::Combatant {
+                crate::targeting::Combatant {
                     faction: *victim_faction,
                     driver: victim_driver,
                     team: victim_team,
@@ -260,7 +260,7 @@ pub fn apply_contact_harm(
             ) {
                 continue;
             }
-            if !ambition_combat::util::body_vulnerable(
+            if !crate::util::body_vulnerable(
                 victim_health.health.invulnerable,
                 facts.evading(),
                 shield,

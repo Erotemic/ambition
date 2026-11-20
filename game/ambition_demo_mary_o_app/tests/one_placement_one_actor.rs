@@ -387,7 +387,7 @@ fn a_dead_walker_does_not_block_or_turn_a_live_walker() {
 
 #[test]
 fn cosmic_and_quasar_contact_kill_walkers_that_approach_or_walk_away() {
-    use ambition_platformer2d::actors::body::empowerment::Empowered;
+    use ambition_platformer2d::combat::empowerment::Empowered;
     use ambition_platformer2d::characters::actor::{BodyHealth, CharacterForm};
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::input::ControlFrame;

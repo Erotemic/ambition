@@ -1647,7 +1647,7 @@ impl Plugin for MaryORulesPlugin {
         // `CombatSet::Resolve`, inside `CoreSimulation` — which precedes BOTH
         // phases, so the hit lands on the next frame either way.
         let after_the_star = (
-            ambition_platformer2d::actors::body::empowerment::apply_contact_harm,
+            ambition_platformer2d::combat::empowerment::apply_contact_harm,
             // Before the theme is decided, not after: victory ENDS the quasar,
             // so by the time `play_star_music` looks there is one claimant
             // rather than two racing for one slot. See
@@ -1657,7 +1657,7 @@ impl Plugin for MaryORulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
-            .after(ambition_platformer2d::actors::body::empowerment::EmpowermentExpiry);
+            .after(ambition_platformer2d::combat::empowerment::EmpowermentExpiry);
         // Mary-O's locomotion POLICY and her spark's press edge. Both read the
         // `run` technique edge, which the control gate routes (in `WorldPrep`,
         // after both control publications), so they sit after the gate and
@@ -1855,7 +1855,7 @@ fn spend_lives_on_death(
     // clearing the rows above cannot reach it.
     commands
         .entity(body)
-        .remove::<ambition_platformer2d::actors::body::empowerment::Empowered>();
+        .remove::<ambition_platformer2d::combat::empowerment::Empowered>();
 }
 
 /// Running out of time is a death, so it goes out the same door.

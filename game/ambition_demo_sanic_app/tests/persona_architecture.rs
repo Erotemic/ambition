@@ -458,8 +458,8 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
 /// both away. The demo states the form in data and presents it in code.
 #[test]
 fn the_super_form_s_traits_are_stated_by_its_row() {
-    use ambition_platformer2d::actors::body::empowerment::empowerment_of;
-use ambition_platformer2d::actors::body::empowerment::Empowered;
+    use ambition_platformer2d::combat::empowerment::empowerment_of;
+use ambition_platformer2d::combat::empowerment::Empowered;
 use ambition_platformer2d::character::Empowerment;
     use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
     use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;

@@ -19,6 +19,7 @@
 //! supply the vocabulary, and something downstream decides what a named cue
 //! sounds and looks like.
 
+pub mod empowerment;
 pub mod allegiance;
 pub mod damage_box;
 pub mod action_emission;

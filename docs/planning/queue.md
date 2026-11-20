@@ -2258,6 +2258,11 @@ obsolete exceptions. The owner tests and installation scan pass; the kernel
 module graph remains a DAG. Do not add host-installation exceptions for these
 effects.
 
+**Built 2026-11-20 (K36):** empowerment is `ambition_combat::empowerment`;
+the plan's [residual body inventory](engine/actor-monolith-decomposition.md#residual-body-inventory-measured-2026-11-20)
+names `fade_rows` and `death_beat` as the next combat-owned cuts and records
+why `perception` stays with the brain dispatch.
+
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure/measure_kernel_module_graph.py --scc --cuts --edges 80`
 is run after it.

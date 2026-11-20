@@ -690,7 +690,7 @@ impl Plugin for SanicRulesPlugin {
         // reason; the super row states the traits.
         app.configure_sets(
             sim,
-            ambition_platformer2d::actors::body::empowerment::EmpowermentExpiry
+            ambition_platformer2d::combat::empowerment::EmpowermentExpiry
                 .before(emit_sanic_skid_sfx),
         );
         let milestone_sfx = emit_sanic_milestone_sfx

@@ -50,7 +50,7 @@ pub fn install(app: &mut App) {
 /// a trait the body holds (its grant and the character it wears), not a name
 /// it wears.
 fn touchers_of(world: &World, context: ObservationContext<'_>) -> Option<Vec<ToucherFacts>> {
-    use ambition_platformer2d::actors::body::empowerment::{empowerment_of, Empowered};
+    use ambition_platformer2d::combat::empowerment::{empowerment_of, Empowered};
     use ambition_platformer2d::characters::actor::CharacterForm;
     let table = world.get_resource::<ambition_platformer2d::combat::extension::contact::ContactTouchers>()?;
     let Some((_, _, touchers)) = table.0.iter().find(|(body, ..)| *body == context.scope) else {

@@ -17,7 +17,6 @@ mod integration;
 pub use ae::{BodyFrameOutput, BodyReset};
 pub(crate) mod npcs;
 
-pub mod empowerment;
 pub mod ledge_grab;
 pub mod movement_fx;
 pub mod swim;

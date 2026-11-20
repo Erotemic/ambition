@@ -754,6 +754,46 @@ Guards: nine owner, 14 kernel, 145 runtime/session, 45 app and 35 policy tests p
 The default app compiles without warnings. State and schedules stay the same.
 Keep body construction at its core owner. Full feature union and Android were not run.
 
+### K36 — Empowerment at its combat owner — DONE 2026-11-20
+
+`body::empowerment` (the timed or held `Empowered` grant, `empowerment_of`,
+contact harm as ordinary `HitEvent`s, `EmpowermentLifecyclePlugin` and its
+`EmpowermentExpiry` set) named nothing else in the monolith; its only
+monolith reader was the rollback registrar. Every crate it read is already a
+dependency of `ambition_combat`, whose vocabulary it writes (hits,
+invulnerability reasons), so it is `ambition_combat::empowerment`, with its
+12 tests. The runtime installs the plugin from there; Mary-O, Sanic, the Smash
+tests and the demo app tests name `ambition_platformer2d::combat::empowerment`.
+The old path is gone. The `feature.empowered` rollback row stays in the
+monolith's registrar with its owner string, so wire identity is unchanged.
+Moving the registration to combat's registrar changes the owner it records
+and is a separate commit with `rollback_codec_shape.py`. Guards: combat 891,
+monolith 595, runtime 285 (unified features), Mary-O 194 and Sanic 102 lib
+tests; the workspace checks at all targets.
+
+### Residual body inventory (measured 2026-11-20)
+
+`body` holds 20,812 production lines in 39 submodules after K36 (21,168 before;
+`measure_kernel_module_graph.py`; the module graph is still a DAG). The census counts
+`crate::` and `super::` paths in non-comment lines, so it cannot see names
+reached through `use super::*`, which 20 modules use; only a compile proves
+those modules are leaves. Modules with neither a path nor the glob:
+
+| module | lines | reads | disposition |
+|---|---:|---|---|
+| `fade_rows` | 75 | characters, combat, sprite_sheet, time | its rule is `ambition_combat::fade`, and combat has all four: next candidate |
+| `death_beat` | 92 | characters, combat, shared_tangle, world, time | advances `ambition_combat::components::DeathBeat`; combat has all five: candidate |
+| `perception` | 1,401 | characters, combat, projectiles, construction, game_shell, dev_tools, body_seed | no crate below the monolith has them all, and it feeds the brain dispatch (`brain_tick`), which lives here because only this crate sees every destination. Not cut |
+| `integration`, `reactions` | 178, 141 | core, characters, combat | body execution and the shared reaction clocks (K26): kernel |
+| `ledge_grab`, `swim` | 122, 16 | core | thin adapters over the core's own step; fold into callers or delete, each with its readers checked first |
+| `beat_cues`, `character_policy`, `drawn_ledges` | 35, 32, 46 | presentation, policy, mount | small; `drawn_ledges` needs `sprite_sheet`, which `ambition_mount` does not depend on |
+
+The brain feed (`aggression`, `brain_command`, `brain_effects`, `rally`,
+`errand`, `navigation`, `visit`, `direction`, `life`) and the NPC conduct
+modules (`interact`, `npcs`, `pet`, `talk_spacing`, `wallet_shield`, `wear`,
+`summon`, `transform_beat`, `fighter_ladder`) read through the glob or each
+other. Their owner question is the brain dispatch's, not a module move.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

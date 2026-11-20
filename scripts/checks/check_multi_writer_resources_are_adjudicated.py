@@ -281,6 +281,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/object_behaviors.rs",
         "crates/ambition_platformer2d_runtime/src/story_script.rs",
         "crates/ambition_platformer2d_runtime/src/world_posts.rs",
+        "crates/ambition_abilities/src/observer_slow.rs",
     ),
     "BrokenBricks": (
         "game/ambition_demo_mary_o/src/bricks.rs",
@@ -1302,6 +1303,8 @@ ADJUDICATED: dict[str, str] = {
         "action cancellation, actor and breakable creation, signals, contact and self "
         "consumption, object behaviours and calls, story commands and cutscenes, world "
         "posts); their `push`/`retain` calls are on their own local lists. Same shape."
+        " The observer-slow adapter `hold_slows` (Contextual Blink level 3, 2026-11-20) "
+        "drains only `ObserverSlowPort` in TECHNIQUE_EXECUTION. Same shape."
     ),
     "BrokenBricks": (
         "A SET THAT ONLY GROWS IN A TICK, ON DISJOINT NAMES (read 2026-10-12). "

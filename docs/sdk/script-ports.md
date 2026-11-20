@@ -611,6 +611,26 @@ Port `ambition.objects.collected@1`, trigger: read as `this.trigger`.
 | `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
 | `by` | { session: text, allocation_room: integer (u32) or (), sequence: text } or () |  |
 
+## `object_crossed`
+
+Port `ambition.objects.crossed@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `from` | text |  |
+| `to` | text |  |
+
+## `object_crossing_refused`
+
+Port `ambition.objects.crossing_refused@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `to` | text |  |
+| `code` | text |  |
+
 ## `emit_signal`
 
 Port `ambition.objects.emit_signal@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

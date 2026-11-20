@@ -169,6 +169,21 @@ pub struct ObjectCollected { pub object: ObjectRef, pub by: Option<ObjectRef> }
 ambition_extension_sdk::port_record! { ObjectCollected { object: ObjectRef, by: Option<ObjectRef> } }
 port!(ObjectCollectedPort, "ambition.objects.collected", Trigger, ObjectCollected);
 
+/// A body crossed into another room: the room it left and the room it
+/// arrived in, by authored room id. The room owner commits it once the
+/// destination published, so the body already stands in `to`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectCrossed { pub object: ObjectRef, pub from: String, pub to: String }
+ambition_extension_sdk::port_record! { ObjectCrossed { object: ObjectRef, from: String, to: String } }
+port!(ObjectCrossedPort, "ambition.objects.crossed", Trigger, ObjectCrossed);
+
+/// A crossing the room owner refused after it began: the body is still in the
+/// room it tried to leave, which is unchanged. `code` says why.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectCrossingRefused { pub object: ObjectRef, pub to: String, pub code: String }
+ambition_extension_sdk::port_record! { ObjectCrossingRefused { object: ObjectRef, to: String, code: String } }
+port!(ObjectCrossingRefusedPort, "ambition.objects.crossing_refused", Trigger, ObjectCrossingRefused);
+
 /// A script's named message from the object it runs for, to each method
 /// subscribed to that object whose entry's selector is `topic`. The runtime
 /// admits it to every such method or to none, and answers with the recipients.

@@ -2010,6 +2010,8 @@ new meta-test machinery as a proxy for behavior.
 
 **Trailhead arch reds (found 2026-11-20, inherited: red at `c71bc51af` too):** `the_gate_network::the_jungles_arches_chain_along_the_trail` and `a_route_over_rooms::autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail`. Standing in the open arch at `primeval_trailhead`, the traveller's Interact opens a talk with Ranger Brandvold (`placement:NpcSpawn-500050`, authored at x 744) instead of crossing, and the arch never fires. A `Door` zone keeps the press only from a talker farther than the zone's centre (`InteractReach::a_door_keeps_the_press`), so Brandvold must be within talking reach and nearer than the arch's centre when the press lands; his position at the press is not yet measured.
 
+**Ridden-mount crossing red (found 2026-11-20, inherited: red at `49f35c4d5` with the C2 change stashed):** `carried_item_crosses_rooms::the_whole_attachment_closure_is_recorded_as_being_in_custody` finds no occurrence (0, wanted 1) of the mount's authored identity after two ridden crossings. The second crossing now lands in `hall_of_bosses`, which `49f35c4d5` gave a new door; whether the walker takes that door instead of the one the test means is not yet measured.
+
 **Workspace policy reds (found 2026-11-19, inherited):**
 `cargo test -p ambition_workspace_policy` was red in two scopes.
 

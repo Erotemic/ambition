@@ -143,6 +143,18 @@ carries the optional allocation room. There is no old descriptor decoder.
   and `cutscene_ask_queue_full` (8 unanswered asks per scope). One the queue
   passes over because its seen flag was set while it waited fails with
   `cutscene_not_played`. The witness is `scripted_cutscene_outcomes`.
+- `summon_ride` (a `technique_execution` request) answers `ride_summoning`
+  when it asks the summon executor, then on the next tick terminal
+  `ride_summoned` (stage `completed`) whose subject is the mount, or
+  `ride_not_made` (stage `failed`) when the executor built nothing. The
+  executor builds one tick's summons as one batch and refuses the whole batch
+  when any character resolves nothing. Refusals: `invalid_label` (empty) and
+  `no_body`. The witness is `scripted_summon_outcomes`.
+- `held_portal_pair` is held, not answered: a module asks for its slot each
+  tick it wants the pair. `held_portal_pairs` reads back every slot the body's
+  modules hold, `#{module, slot, open}`; `open` is false once the pair closed
+  on use or fizzled, and a slot asked for and absent was refused (logged).
+  The witness is `scripted_held_portal_pair`.
 
 This support does not add results to every other request port. See the open
 [capability census](../planning/engine/script-first-capability-census.md).

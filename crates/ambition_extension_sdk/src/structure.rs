@@ -285,6 +285,30 @@ impl<T, C: Field<T>> Field<Vec<T>> for Vec<C> {
     }
 }
 
+/// The codec of exactly two values, each with codec `C`: the two in order on
+/// the wire, a list of two in a script (the two ends of a pair).
+pub struct Pair<C>(std::marker::PhantomData<C>);
+
+impl<T, C: Field<T>> Field<[T; 2]> for Pair<C> {
+    fn shape() -> Shape {
+        Shape::List(Box::new(C::shape()))
+    }
+    fn put(v: &[T; 2], out: &mut Vec<u8>) {
+        C::put(&v[0], out);
+        C::put(&v[1], out);
+    }
+    fn read(r: &mut WireReader<'_>) -> Result<[T; 2], WireError> {
+        Ok([C::read(r)?, C::read(r)?])
+    }
+    fn to_script(v: &[T; 2]) -> ScriptValue {
+        ScriptValue::List(v.iter().map(C::to_script).collect())
+    }
+    fn from_script(v: &ScriptValue) -> Result<[T; 2], String> {
+        let [a, b] = v.as_list()? else { return Err("expected a list of two".into()); };
+        Ok([C::from_script(a).map_err(|e| format!("[0]: {e}"))?, C::from_script(b).map_err(|e| format!("[1]: {e}"))?])
+    }
+}
+
 /// The codec of a table from text keys to values: `(key, value)` pairs on
 /// the wire (a count, then each key and value), a map in a script.
 pub struct TextMap<C>(std::marker::PhantomData<C>);

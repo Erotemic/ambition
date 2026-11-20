@@ -138,6 +138,7 @@ pub fn ride_of(special: &FighterSpecial) -> Result<SummonRide, Fault> {
         board_within: number("board_radius")?,
         board_deadline_s: number("board_deadline_s")?,
         holds: SUMMONED.into(),
+        reply: None,
     })
 }
 
@@ -272,6 +273,7 @@ mod tests {
                 board_within: 200.0,
                 board_deadline_s: 1.0,
                 holds: SUMMONED.into(),
+                reply: None,
             }
         );
     }

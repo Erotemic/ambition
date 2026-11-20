@@ -1,7 +1,8 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v518",
+    "version": "ggrs-rollback-schema-v519",
     "rows": [
+      "ability.ride_summons\tcomponent-canonical\tRideSummons",
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -200,6 +201,7 @@
     ]
   },
   "encoded_types": [
+    "ambition_abilities::RideSummons",
     "ambition_characters::actor::ActorFaction",
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

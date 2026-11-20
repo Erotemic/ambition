@@ -399,6 +399,8 @@ mod scripted_crossing_facts;
 mod scripted_world_values;
 mod scripted_lock_walls;
 mod scripted_cutscene_outcomes;
+mod scripted_summon_outcomes;
+mod scripted_held_portal_pair;
 
 mod scripted_libraries;
 mod scripted_actor_creation;

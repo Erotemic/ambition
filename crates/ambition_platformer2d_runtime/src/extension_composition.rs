@@ -420,6 +420,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::PlayCutscenePort>("play_cutscene")
         .add::<ambition_combat_port::SteerPort>("steer")
         .add::<ambition_combat_port::TakeItemPort>("take")
+        .add::<ambition_combat_port::SummonRidePort>("summon_ride")
         .add::<ambition_combat_port::ReleaseItemPort>("release")
         .add::<ambition_combat_port::WhereaboutsPort>("whereabouts")
         .add::<ambition_combat_port::ParriedPort>("parried")
@@ -432,6 +433,11 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::InPlayPort>("in_play")
         .add::<ambition_combat_port::HoldStatusPort>("hold_status")
         .add::<ambition_combat_port::StatusTickPort>("status_tick");
+    // A game with no portals offers no held pair, so no script names one.
+    #[cfg(feature = "portal")]
+    ports
+        .add::<ambition_portal2d::extension::HeldPortalPairPort>("held_portal_pair")
+        .add::<ambition_portal2d::extension::HeldPortalPairsPort>("held_portal_pairs");
     ports
 }
 

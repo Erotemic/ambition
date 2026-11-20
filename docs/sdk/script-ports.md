@@ -897,6 +897,23 @@ Port `ambition.item.take@2`, request: `this.requests.push(request("<alias>", #{ 
 | `supporter` | text or () | `()` | The member that carries it with the taker, or `()` to carry it alone. |
 | `reply` | { request: integer (u32), selector: text } or () | `()` | Where the action result goes, or `()` for none. |
 
+## `summon_ride`
+
+Port `ambition.world.summon_ride@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `label` | text | required | The mount's id and save key; not empty. |
+| `character_id` | text | required | The character the mount wears. |
+| `half_size` | [x, y] | required | The mount's box, half width and half height. |
+| `health` | integer (u32) or () | `()` | Replaces the character's health; absent keeps it. |
+| `keeps_contact_damage` | bool | `false` | Keep the character's contact hazard. |
+| `seconds` | number | required | How long the asker rides it. |
+| `board_within` | number | required | How near the asker must be to board. |
+| `board_deadline_s` | number | required | How long the mount waits for its rider. |
+| `holds` | text | `""` | A status the mount holds from birth; empty for none. |
+| `reply` | { request: integer (u32), selector: text } or () | `()` | Optional correlated replies from the summon owner. |
+
 ## `release`
 
 Port `ambition.item.release@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
@@ -1006,4 +1023,23 @@ Port `ambition.body.status_tick@1`, trigger: read as `this.trigger`.
 |---|---|---|
 | `position` | [x, y] | The body's centre (world units, +Y down). |
 | `facing` | number | The sign of the way it faces (`1.0` or `-1.0`). |
+
+## `held_portal_pair`
+
+Port `ambition.portal.held_pair@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `slot` | integer (u32) | required | The module's name for the pair. |
+| `ends` | list of { at: [x, y], normal: [x, y], half_length: number, half_thickness: number or () } | required | The two ends; a body that goes into one comes out of the other. |
+| `looks` | list of integer 0..=255 | `[0, 0]` | The authored channel index that draws each end. |
+| `closes_on_use` | bool | `false` | Close the pair the first time a body comes out of it. |
+
+## `held_portal_pairs`
+
+Port `ambition.portal.held_pairs@1`, observation: read as `this.observe.<alias>`.
+
+| field | value | meaning |
+|---|---|---|
+| `pairs` | list of { module: text, slot: integer (u32), open: bool } | The held slots, by module and slot. |
 

@@ -22,7 +22,9 @@ use ambition_extension_sdk::Phase;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, SessionCommands, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use ambition_portal_port::{HeldPortalPairPort, LightLinePort, PortalEnd};
+use ambition_portal_port::{LightLinePort, PortalEnd};
+/// The held pair's request and its read-back, for a composition's script aliases.
+pub use ambition_portal_port::{HeldPortalPairPort, HeldPortalPairsPort};
 use bevy::prelude::*;
 use crate::rooms::PortalRooms;
 
@@ -38,7 +40,9 @@ pub fn install_for_boss_conduct(app: &mut App) {
         "ambition_portal2d",
         lower_held_portal_pairs::<InBossConduct>,
     )
-    .install_extension_request::<LightLinePort, _>(BOSS_CONDUCT, "ambition_portal2d", lower_light_lines);
+    .install_extension_request::<LightLinePort, _>(BOSS_CONDUCT, "ambition_portal2d", lower_light_lines)
+    .install_extension_observation::<ambition_portal_port::HeldPortalPairsPort>(
+        BOSS_CONDUCT, "ambition_portal2d", held_pairs_of);
 }
 
 /// Install the held pair in `technique_execution`: a move's special can hold
@@ -50,6 +54,21 @@ pub fn install_for_technique_execution(app: &mut App) {
         "ambition_portal2d",
         lower_held_portal_pairs::<InTechniqueExecution>,
     );
+    app.install_extension_observation::<ambition_portal_port::HeldPortalPairsPort>(
+        TECHNIQUE_EXECUTION, "ambition_portal2d", held_pairs_of);
+}
+
+/// The slots `scope`'s modules hold (`ambition.portal.held_pairs`): what the
+/// adapter's record says, as of the last lowering.
+fn held_pairs_of(world: &World, scope: Entity) -> Option<ambition_portal_port::HeldPairs> {
+    let mut pairs: Vec<_> = world.get::<HeldPortalPairs>(scope).map_or_else(Vec::new, |held| {
+        held.0.iter().map(|record| ambition_portal_port::HeldPairState {
+            module: record.module.to_string(), slot: record.slot, open: !record.spent,
+        }).collect()
+    });
+    pairs.sort_by(|a, b| (&a.module, a.slot).cmp(&(&b.module, b.slot)));
+    pairs.dedup();
+    Some(ambition_portal_port::HeldPairs { pairs })
 }
 
 /// The limb a held line of light is on (the port's own type).

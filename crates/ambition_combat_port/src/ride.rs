@@ -33,9 +33,12 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   makes. An empty label is refused.
 /// * **Time** — `technique_execution`. The executor makes the mount this
 ///   tick; its status is first ticked on the next.
-/// * **Result** — submitted is not applied: a character that does not
-///   resolve refuses the summon (logged), and a refused board leaves the
-///   mount riderless ([`SaddlePort`]).
+/// * **Result** (v2) — with a `reply`, the owner answers in the domain
+///   `world.summon_ride`: non-terminal `ride_summoning` when it asks the
+///   executor, then on the next tick terminal `ride_summoned` naming the
+///   mount, or `ride_not_made` when the executor built nothing (a character
+///   that does not resolve). Refusals: `invalid_label` (empty) and `no_body`.
+///   A refused board leaves the mount riderless ([`SaddlePort`]).
 pub struct SummonRidePort;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -49,39 +52,55 @@ pub struct SummonRide {
     pub board_within: f32,
     pub board_deadline_s: f32,
     pub holds: String,
+    pub reply: Option<ambition_extension_sdk::action::ReplyTo>,
 }
 
+ambition_extension_sdk::port_record! {
+    SummonRide {
+        /// The mount's id and save key; not empty.
+        label: String,
+        /// The character the mount wears.
+        character_id: String,
+        /// The mount's box, half width and half height.
+        half_size: [f32; 2],
+        /// Replaces the character's health; absent keeps it.
+        health: Option<u32> = None,
+        /// Keep the character's contact hazard.
+        keeps_contact_damage: bool = false,
+        /// How long the asker rides it.
+        seconds: f32,
+        /// How near the asker must be to board.
+        board_within: f32,
+        /// How long the mount waits for its rider.
+        board_deadline_s: f32,
+        /// A status the mount holds from birth; empty for none.
+        holds: String = String::new(),
+        /// Optional correlated replies from the summon owner.
+        reply: Option<ambition_extension_sdk::action::ReplyTo> = None,
+    }
+}
+
+/// The action domain of a summoned ride.
+pub const SUMMON_RIDE_DOMAIN: &str = "world.summon_ride";
+
 impl Port for SummonRidePort {
-    const KEY: PortKey = PortKey::new("ambition.world.summon_ride", 1);
+    /// Version 2 (2026-11-20): a correlated `reply`, and the record codec.
+    const KEY: PortKey = PortKey::new("ambition.world.summon_ride", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = SummonRide;
 
-    fn encode(v: &SummonRide, out: &mut Vec<u8>) {
-        wire::put_str(out, &v.label);
-        wire::put_str(out, &v.character_id);
-        wire::put_vec2(out, v.half_size);
-        wire::put_opt(out, v.health, wire::put_u32);
-        wire::put_bool(out, v.keeps_contact_damage);
-        wire::put_f32(out, v.seconds);
-        wire::put_f32(out, v.board_within);
-        wire::put_f32(out, v.board_deadline_s);
-        wire::put_str(out, &v.holds);
+    fn action(value: &SummonRide) -> Option<ambition_extension_sdk::action::ActionSubmission<'_>> {
+        Some(ambition_extension_sdk::action::ActionSubmission::encoded::<Self>(
+            value, SUMMON_RIDE_DOMAIN, value.reply.as_ref()?))
     }
-
+    fn encode(v: &SummonRide, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
     fn decode(r: &mut WireReader<'_>) -> Result<SummonRide, WireError> {
-        Ok(SummonRide {
-            label: r.str()?.to_owned(),
-            character_id: r.str()?.to_owned(),
-            half_size: r.vec2()?,
-            health: r.opt(WireReader::u32)?,
-            keeps_contact_damage: r.bool()?,
-            seconds: r.f32()?,
-            board_within: r.f32()?,
-            board_deadline_s: r.f32()?,
-            holds: r.str()?.to_owned(),
-        })
+        ambition_extension_sdk::structure::read(r)
     }
 }
+ambition_extension_sdk::script_port!(SummonRidePort);
 
 /// The observation port marker for what a body rides.
 ///
@@ -408,6 +427,7 @@ mod tests {
             board_within: 200.0,
             board_deadline_s: 1.0,
             holds: "smash.summoned_ride".into(),
+            reply: None,
         };
         assert_eq!(round_trip::<SummonRidePort>(summon.clone()), summon);
         for ride in [Ride::None, Ride::Awaiting, Ride::Aboard { mount_alive: false }, Ride::Aboard { mount_alive: true }] {

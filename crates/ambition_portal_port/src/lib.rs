@@ -31,7 +31,13 @@
 //!   only. Pairing never reads it.
 //! * **Replay** — the adapter's record of what each body holds is rollback
 //!   state on the body.
-//! * **Result** — submitted is not applied. No acknowledgement port yet.
+//! * **Result** — submitted is not applied. [`HeldPortalPairsPort`] reads
+//!   back each slot the body's modules hold: open, or spent (it closed on
+//!   use, or fizzled because an end would overlap a portal). A slot asked
+//!   for and absent was refused (an invalid end, or an owner with no
+//!   simulation identity or live room; logged).
+//! * **Scripts** — reachable from Rhai as a record: `ends` and `looks` are
+//!   lists of two. The wire stays the version 2 field order.
 //!
 //! Port card for [`LightLinePort`]:
 //!
@@ -86,9 +92,79 @@ pub struct HeldPortalPair {
     pub closes_on_use: bool,
 }
 
+ambition_extension_sdk::port_record! {
+    PortalEnd {
+        /// The middle of the end's line, world units, +Y down.
+        at: [f32; 2],
+        /// Out of the line into the room.
+        normal: [f32; 2],
+        /// Half the line's length.
+        half_length: f32,
+        /// How deep the opening is; absent is the portal's own.
+        half_thickness: Option<f32> = None,
+    }
+}
+ambition_extension_sdk::port_record! {
+    HeldPortalPair {
+        /// The module's name for the pair.
+        slot: u32,
+        /// The two ends; a body that goes into one comes out of the other.
+        ends: [PortalEnd; 2] as ambition_extension_sdk::structure::Pair<PortalEnd>,
+        /// The authored channel index that draws each end.
+        looks: [u8; 2] as ambition_extension_sdk::structure::Pair<u8> = [0, 0],
+        /// Close the pair the first time a body comes out of it.
+        closes_on_use: bool = false,
+    }
+}
+
 /// The request port marker for a HELD pair of portals. See the port card
 /// at the top of this crate.
 pub struct HeldPortalPairPort;
+
+/// The observation port marker for the held pairs of the invocation's body:
+/// each slot its modules hold, and whether its ends are open.
+pub struct HeldPortalPairsPort;
+
+/// One held slot.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HeldPairState {
+    pub module: String,
+    pub slot: u32,
+    pub open: bool,
+}
+/// Every slot a body's modules hold, by module and slot.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct HeldPairs {
+    pub pairs: Vec<HeldPairState>,
+}
+ambition_extension_sdk::port_record! {
+    HeldPairState {
+        /// `provider::module`, the module that holds it.
+        module: String,
+        /// The module's slot.
+        slot: u32,
+        /// Its ends are open; false once it closed on use or fizzled.
+        open: bool,
+    }
+}
+ambition_extension_sdk::port_record! {
+    HeldPairs {
+        /// The held slots, by module and slot.
+        pairs: Vec<HeldPairState>,
+    }
+}
+impl Port for HeldPortalPairsPort {
+    const KEY: PortKey = PortKey::new("ambition.portal.held_pairs", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = HeldPairs;
+    fn encode(v: &HeldPairs, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+    fn decode(r: &mut WireReader<'_>) -> Result<HeldPairs, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+ambition_extension_sdk::script_port!(HeldPortalPairsPort);
 
 fn put_end(out: &mut Vec<u8>, end: &PortalEnd) {
     wire::put_vec2(out, end.at);
@@ -131,6 +207,7 @@ impl Port for HeldPortalPairPort {
         })
     }
 }
+ambition_extension_sdk::script_port!(HeldPortalPairPort);
 
 /// A line of a portal's light that a module asks for: a look, and no way
 /// through.

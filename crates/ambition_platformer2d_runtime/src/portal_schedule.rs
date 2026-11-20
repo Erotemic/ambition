@@ -27,6 +27,9 @@ impl Plugin for PortalSchedulePlugin {
         app.add_plugins(ambition_portal2d::PortalSimulationPlugin);
         // The consequences of a transit for the body a seat drives.
         app.add_message::<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>();
+        // The numeric fault effect writes room effects; a game that takes
+        // portals without the engine's core resources still gets the channel.
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_systems(
             sim,
             (

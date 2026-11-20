@@ -1,10 +1,10 @@
 //! Every body's death beat: how long a dead body is drawn
-//! ([`DeathBeat`](ambition_combat::components::DeathBeat)).
+//! ([`DeathBeat`](crate::components::DeathBeat)).
 
 use bevy::prelude::*;
 
 use ambition_characters::actor::Corpse;
-use ambition_combat::components::DeathBeat;
+use crate::components::DeathBeat;
 
 /// Advance each body's death beat by one sim tick, and fix what its corpse
 /// does on the tick it dies: the body's own `corpse` trait, else the rule of
@@ -19,13 +19,13 @@ pub fn advance_death_beats(
         Entity,
         &ambition_characters::actor::BodyHealth,
         &mut DeathBeat,
-        Option<&ambition_combat::CombatCapabilities>,
+        Option<&crate::CombatCapabilities>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     // The kill's own beat, as the game of the body's room states it.
-    beats: ambition_platformer2d_world::governing_rules::RulesOf<ambition_combat::KillBeat>,
+    beats: ambition_platformer2d_world::governing_rules::RulesOf<crate::KillBeat>,
     tick: Option<Res<ambition_time::SimTick>>,
-    mut hold: Option<ResMut<ambition_combat::impact_hitstop::ImpactHitstop>>,
+    mut hold: Option<ResMut<crate::impact_hitstop::ImpactHitstop>>,
     mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
     // A death row plays at its room's pace, and a kill holds its own room
     // (ISL-1b): with several live rooms the shared hold stops no clock.
@@ -36,7 +36,7 @@ pub fn advance_death_beats(
 ) {
     // Sim clock: a death row slows with bullet time, as the body did.
     let dt = world_time.sim_dt();
-    let mut beat_of_kills: Option<ambition_combat::KillBeat> = None;
+    let mut beat_of_kills: Option<crate::KillBeat> = None;
     // The loudest kill of each live room shakes that room's views (ISL-1b).
     let mut shake_of_rooms: std::collections::BTreeMap<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, f32> =
         std::collections::BTreeMap::new();
@@ -58,7 +58,7 @@ pub fn advance_death_beats(
                     let freeze = freeze_of_rooms.entry(room.0).or_insert(0.0f32);
                     *freeze = freeze.max(kill.freeze_s);
                 }
-                beat_of_kills = Some(beat_of_kills.map_or(kill, |held| ambition_combat::KillBeat {
+                beat_of_kills = Some(beat_of_kills.map_or(kill, |held| crate::KillBeat {
                     freeze_s: held.freeze_s.max(kill.freeze_s),
                     shake_px: held.shake_px.max(kill.shake_px),
                 }));

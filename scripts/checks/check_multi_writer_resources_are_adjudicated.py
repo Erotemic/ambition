@@ -816,7 +816,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "ImpactHitstop": (
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_combat/src/impact_hitstop/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/body/death_beat.rs",
+        "crates/ambition_combat/src/death_beat.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
 
@@ -2343,7 +2343,7 @@ ADJUDICATED: dict[str, str] = {
         "`request_impact_hitstop_on_resolved_hits` (`impact_hitstop/mod.rs`, a "
         "hit's hitlag), `boss_phase_transition_feedback` (`ambition_boss_encounter/"
         "src/systems.rs`, a boss's death) and `advance_death_beats` "
-        "(`body/death_beat.rs`, a kill's beat), all in the sim schedule "
+        "(`ambition_combat/src/death_beat.rs`, a kill's beat), all in the sim schedule "
         "and unordered against one another. Each writes `until_tick = "
         "max(held, until)`, which commutes, so their order cannot change the "
         "freeze; the resource is rollback-registered. The fourth file is "

@@ -59,7 +59,6 @@ mod brain_effects;
 pub(crate) mod character_policy;
 mod damage;
 pub use damage::enemy_death_flag;
-pub mod death_beat;
 mod death_effects;
 mod dismounted_rider;
 pub mod dormancy;
@@ -252,7 +251,7 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // (a blast, two halves): on the tick the row ends.
         app.add_systems(
             sim,
-            (death_beat::advance_death_beats, death_effects::run_death_row_finales)
+            (ambition_combat::death_beat::advance_death_beats, death_effects::run_death_row_finales)
                 .chain()
                 .run_if(any_with_component::<ambition_combat::components::DeathBeat>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),

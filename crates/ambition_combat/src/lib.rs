@@ -40,6 +40,7 @@ pub mod components;
 pub mod crowd;
 /// What a death MEANS for the run — the interlude and the roster question that
 /// decides a level reset (ADR 0033).
+pub mod death_beat;
 pub mod death_rules;
 pub mod dormancy_rule;
 pub mod events;

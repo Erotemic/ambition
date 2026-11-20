@@ -1087,7 +1087,7 @@ fn segments_cross(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
     (d1 * d2 < 0.0) && (d3 * d4 < 0.0)
 }
 
-impl crate::layered::Spatial for Block {
+impl crate::spatial::Spatial for Block {
     fn spatial_bounds(&self) -> Aabb {
         self.aabb
     }
@@ -1099,7 +1099,7 @@ impl crate::layered::Spatial for Block {
     }
 }
 
-impl crate::layered::Spatial for SurfaceChain {
+impl crate::spatial::Spatial for SurfaceChain {
     fn spatial_bounds(&self) -> Aabb {
         crate::layered::bounds_of(&self.points)
     }

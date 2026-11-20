@@ -8,6 +8,7 @@
 pub mod combat_volume;
 pub mod geometry;
 pub mod reference_frame;
+pub mod spatial;
 pub mod swing_shape;
 pub mod volume_shape;
 

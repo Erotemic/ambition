@@ -183,22 +183,34 @@ impl DamageableVolumes {
         &self,
         body: Option<&ae::BodyKinematics>,
     ) -> Result<Vec<ae::CombatVolume>, ae::frame::thread::Refusal> {
-        if self.domains().is_empty() {
-            return Ok(Vec::new());
-        }
+        let mut volumes = Vec::new();
+        self.write_world_volumes(body, &mut volumes)?;
+        Ok(volumes)
+    }
+
+    /// Project into reusable output storage. A refusal clears the output.
+    pub fn write_world_volumes(
+        &self,
+        body: Option<&ae::BodyKinematics>,
+        out: &mut Vec<ae::CombatVolume>,
+    ) -> Result<(), ae::frame::thread::Refusal> {
+        out.clear();
+        if self.domains().is_empty() { return Ok(()); }
         let map = self.material(body)?;
-        self.domains()
-            .iter()
-            .map(|domain| {
-                ae::frame::thread::map_volume(domain, &map).map_err(|fault| {
-                    ae::frame::thread::Refusal {
-                        path: Vec::new(),
-                        link: None,
+        out.reserve(self.domains().len());
+        for domain in self.domains() {
+            match ae::frame::thread::map_volume(domain, &map) {
+                Ok(volume) => out.push(volume),
+                Err(fault) => {
+                    out.clear();
+                    return Err(ae::frame::thread::Refusal {
+                        path: Vec::new(), link: None,
                         reason: ae::frame::thread::RefusalReason::Numeric(fault),
-                    }
-                })
-            })
-            .collect()
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Partition source material with the current room and body policy.

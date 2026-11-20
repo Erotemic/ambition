@@ -68,7 +68,7 @@ struct PhysicalPiece {
 }
 
 struct Envelope { sample: usize, bounds: ae::Aabb }
-impl ae::layered::Spatial for Envelope {
+impl ae::spatial::Spatial for Envelope {
     fn spatial_bounds(&self) -> ae::Aabb { self.bounds }
 }
 

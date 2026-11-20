@@ -258,11 +258,7 @@ impl<T> std::ops::Deref for Base<T> {
     }
 }
 
-/// An entry that is somewhere: a block's box, a line's bounds.
-pub trait Spatial {
-    fn spatial_bounds(&self) -> Aabb;
-    fn swept_bounds(&self) -> Aabb { self.spatial_bounds() }
-}
+use ambition_geometry::spatial::Spatial;
 
 /// Where the entries of a list are: each grid cell, the entries whose bounds
 /// reach it, in list order.

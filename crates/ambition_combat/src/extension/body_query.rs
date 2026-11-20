@@ -73,26 +73,7 @@ impl SnapshotState for BodyQueryHistory {
 pub fn install(app: &mut App) {
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, QUERY_DOMAIN,
         ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
-    use ambition_extension_host::{
-        InActorThink, InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick,
-        InTechniqueExecution, InWieldedUse,
-    };
-    macro_rules! phase {
-        ($marker:ty) => {
-            app.install_extension_submitted_request::<BodyQueryPort, _>(
-                <$marker>::PHASE,
-                "ambition_combat",
-                lower::<$marker>,
-            );
-        };
-    }
-    phase!(InActorThink);
-    phase!(InTechniqueExecution);
-    phase!(InWieldedUse);
-    phase!(InBossConduct);
-    phase!(InModuleEntityTick);
-    phase!(InBodyContact);
-    phase!(InHitReaction);
+    ambition_extension_host::install_submitted_request_in_body_phases!(app, BodyQueryPort, "ambition_combat", lower);
     app.install_extension_context_observation::<BodyQueryResultPort>(
         ACTOR_THINK,
         "ambition_combat",

@@ -1,7 +1,7 @@
 //! Native character construction with declared script-state initialization.
 
 use bevy::{ecs::system::SystemState, prelude::*};
-use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionAppExt, ExtensionOutbox, LowersIn};
+use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionOutbox, LowersIn};
 use ambition_extension_sdk::action::ActionStage;
 use ambition_platformer2d_construction::runtime::{ActorCreationLimits, RuntimeActor, RuntimeLink, ComposedInitialization};
 use ambition_platformer2d_shared_tangle::action_results::publish_action_result;
@@ -13,14 +13,8 @@ pub const CREATE_DOMAIN: &str = "world.create_actors";
 pub fn install(app: &mut App) {
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, CREATE_DOMAIN,
         ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
-    use ambition_extension_host::{InActorThink, InTechniqueExecution, InWieldedUse,
-        InBossConduct, InModuleEntityTick, InBodyContact, InHitReaction};
-    macro_rules! phase {
-        ($marker:ty) => { app.install_extension_submitted_request::<CreateActorsPort, _>(
-            <$marker>::PHASE, "ambition_platformer2d_construction", lower::<$marker>); };
-    }
-    phase!(InActorThink); phase!(InTechniqueExecution); phase!(InWieldedUse);
-    phase!(InBossConduct); phase!(InModuleEntityTick); phase!(InBodyContact); phase!(InHitReaction);
+    ambition_extension_host::install_submitted_request_in_body_phases!(app, CreateActorsPort,
+        "ambition_platformer2d_construction", lower);
 }
 
 type CreationRules = SystemState<RulesOf<'static, 'static, ActorCreationLimits>>;

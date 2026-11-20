@@ -1140,6 +1140,13 @@ fn publish_ambition_tuning(
         Some(rules) => {
             // The day is part of the tuning: its clock and its light follow
             // the file at the same boundary.
+            // The row the player starts as: the next session resolves its
+            // character from the provider's authored default.
+            if let Some(mut authored) =
+                world.get_resource_mut::<ambition_platformer2d::character::PlatformerAuthoredCatalogRegistry>()
+            {
+                authored.restate_starting_character(crate::provider::AMBITION_EXPERIENCE, &rules.starting_character);
+            }
             world.insert_resource(crate::day_cycle::day_cycle(&rules.day));
             world.insert_resource(crate::day_cycle::daylight(&rules.day));
             // The arena room stages the new duel the next time its

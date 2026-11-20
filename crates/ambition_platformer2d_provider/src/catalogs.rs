@@ -144,6 +144,20 @@ impl PlatformerAuthoredCatalogRegistry {
         Ok(())
     }
 
+    /// Restate the character `experience_id` starts the player as, from a
+    /// content generation the provider published: the next session resolves
+    /// its character from this default. `false` for an experience that never
+    /// registered.
+    pub fn restate_starting_character(&mut self, experience_id: &str, starting_character: &str) -> bool {
+        match self.by_experience.get_mut(experience_id) {
+            Some(fragments) => {
+                fragments.starting_character = starting_character.to_owned();
+                true
+            }
+            None => false,
+        }
+    }
+
     pub fn deterministic_dump(&self) -> String {
         let mut out = String::new();
         for (experience, fragment) in &self.by_experience {

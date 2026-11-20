@@ -4826,6 +4826,57 @@ fn a_candidate_that_changes_only_the_launcher_words_restates_the_row() {
     assert_eq!(description, words.line("launcher.description"), "a word the edit did not touch moved");
 }
 
+/// CONTENT-AS-DATA: a reload that starts the player as another row restates
+/// the provider's authored default, which the next session resolves its
+/// character from (`prepare_platformer_content`). It was read once, when the
+/// provider registered, so the next session started as the old row.
+#[test]
+fn a_candidate_that_changes_the_starting_character_restates_the_providers_default() {
+    use ambition_platformer2d::character::PlatformerAuthoredCatalogRegistry;
+    use ambition_platformer2d::provider::AuthoredCatalogFragments;
+    let mut app = host_with_the_shipped_cast();
+    let live = live_pack(&app);
+    let shipped = crate::character_catalog::starting_character(&live);
+    let mut registry = PlatformerAuthoredCatalogRegistry::default();
+    registry
+        .try_register(crate::provider::AMBITION_EXPERIENCE, AuthoredCatalogFragments::new(shipped.clone(), "ambition"))
+        .unwrap();
+    app.world_mut().insert_resource(registry);
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        crate::pack::compile_pack_with(|declared, text| {
+            if declared != "data/ambition_rules.ron" {
+                return text;
+            }
+            edited = true;
+            text.replacen(r#"starting_character: "player_robot_v3","#, r#"starting_character: "player_robot_v2","#, 1)
+        })
+        .unwrap_or_else(|failure| panic!("{}", failure.render())),
+    );
+    assert!(edited, "the edit reached no `ambition_rules` source");
+    let default = |app: &bevy::app::App| {
+        app.world()
+            .resource::<PlatformerAuthoredCatalogRegistry>()
+            .get(crate::provider::AMBITION_EXPERIENCE)
+            .unwrap()
+            .starting_character
+            .clone()
+    };
+
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, (adopt_preparation_transaction, commit_content_generation).chain());
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(std::sync::Arc::clone(&candidate), Some(live.fingerprint)),
+    );
+    assert!(matches!(outcome, ReloadRequest::Requested { .. }), "a starting-row candidate was not requested; got {outcome:?}");
+    assert_eq!(default(&app), shipped, "the REQUEST restated the default; generation N stays until activation");
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut().write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_eq!(default(&app), "player_robot_v2", "the activation did not restate the provider's starting character");
+}
+
 /// A reload that changes only the projectile looks restates Ambition's rows at
 /// the activation: an edited look is drawn with its new art, and a withdrawn
 /// one leaves the catalog. A look another provider registered stays.

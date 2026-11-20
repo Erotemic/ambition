@@ -294,7 +294,7 @@ Each item of the [completion gate](#completion-gate-and-handoff), with its evide
 4. **Editing cycle, evidence and cost.** Run: the project's script edited in the running host is published 155 ms after the save and lowers the bridge on the next fallen post ([README](../../../examples/projects/bridge_warden/README.md#edit-it-while-it-runs)); every C-slice witness runs on a sync-test host with rewinds; refusals and cancellation are the [cancellation receipt](script-first-capability-census.md#native-cancellation-contract-receipt) and the C-slice refusal codes; cost is [bridge-warden-cost.md](../../../dev/benchmark-candidates/bridge-warden-cost.md) (a story entry run every tick is the dominant cost; the reactive methods are 0.3 ms a call in Rhai, 0.76 ms as WASM, debug build). A sync-test host refuses a reload, by design.
 5. **The census.** Run: rewritten to the source of 2026-11-20 (the alias list read from `script_ports()`; each row with its state, owner and witness). What stays outside a row's contract is named there: durable dynamic actors, faction gate rules (a product decision), camera/HUD contracts (P2).
 
-Follow-ups the capstone found, none of them a gate item: a once-per-visit room trigger, so a room's setup does not run a story entry every tick (queue.md, SCRIPT-ROOM-ONCE).
+Follow-up the capstone found, not a gate item: a once-per-visit room trigger, so a room's setup does not run a story entry every tick. Done the same day as `story_began` (queue.md, SCRIPT-ROOM-ONCE).
 
 ## Existing owners and references
 

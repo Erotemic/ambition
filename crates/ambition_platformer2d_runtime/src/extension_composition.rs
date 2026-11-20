@@ -411,6 +411,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_extension_sdk::action::ActionResultPort>("action_result")
         .add::<ambition_extension_sdk::action::ActionResultsPort>("action_history")
         .add::<ambition_world_port::StoryTickPort>("story_tick")
+        .add::<ambition_world_port::StoryBeganPort>("story_began")
         .add::<ambition_world_port::StoryCommandPort>("story_command")
         .add::<ambition_world_port::inventory::InventoryExchangePort>("inventory_exchange")
         .add::<ambition_world_port::consumption::ConsumeContactPort>("consume_contact")

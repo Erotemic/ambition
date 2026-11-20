@@ -52,7 +52,7 @@ The [runtime registry](../../../crates/ambition_platformer2d_runtime/src/extensi
 - Objects and behaviors: `resolve_authored_objects`, `attach_behaviors`, `behavior`, `behavior_events`, `call_object`, `object_method`, `complete_object_call`, `object_call_result`.
 - Object facts: `object_activated`, `object_activation`, `object_born`, `object_defeated`, `object_broken`, `object_collected`, `object_crossed`, `object_crossing_refused`, `object_retired`.
 - Signals and world state: `emit_signal`, `object_signal`, `post_world_signal`, `set_world_value`, `add_world_count`, `world_values`, `world_value_changed`, `lock_walls`.
-- Room story: `story_tick`, `story_command`, `play_cutscene`.
+- Room story: `story_tick`, `story_began` (once per room instance), `story_command`, `play_cutscene`.
 - Action outcomes: `action_result`, `action_history`, `cancel_action`.
 - Native damage decisions: `hit_receptions`, `projectile_outcomes`.
 - Status and hit response: `hold_status`, `status_tick`, `time_scale`, `status_clock`, `in_play`, `struck`, `parried`, `answer_parry`, `parry_window`.

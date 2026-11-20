@@ -40,6 +40,21 @@ not the mechanism. The warden's reactive methods ran 5 calls for 1.18 ms on
 the game's session (one post, after the edit): about 0.24 ms per call, and
 only when something happens.
 
+### After `story_began` (SCRIPT-ROOM-ONCE, 2026-11-20)
+
+The yard's setup moved from a guarded `story_tick` entry to `story_began`,
+which the room owner invokes once per room instance. Same runs:
+
+| Run | Ticks | Entry calls | Faults | Entry total | Backend total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Sync-test host, 4-tick rewinds | 242 | 42 | 0 | 14.77 ms | 11.54 ms |
+| Game's own session, after the live edit | 140 | 5 | 0 | 1.60 ms | 1.24 ms |
+
+Every remaining call is a reactive method (`attached`, `down`, `counted`,
+`lowered`); the yard's setup ran before the profile began. On the sync-test
+host the yard still holds one warden and two posts after the rewinds, and a
+second visit gets its own setup (`the_bridge_warden_project_is_played_through_by_its_runner`).
+
 ## Rhai and the portable module, the same methods
 
 The capstone arm in `blink_run` (80 ticks, sync-test host). The warden's
@@ -68,7 +83,6 @@ strikes. A sync-test host refuses the reload (the harness owns its timeline).
 
 The mechanism itself is cheap: event-driven methods at a few tenths of a
 millisecond, only when a post falls or an outcome arrives. A per-tick entry
-that does nothing after its first tick is the cost to avoid: a room that
-needs a once-per-visit setup pays 0.45 ms a tick in a debug build for a
-story tick that returns. A once-per-visit trigger for a room would remove
-it; until one exists, keep per-tick room entries to rooms that need them.
+that does nothing after its first tick was the cost to avoid: put a room's
+once-per-visit setup in `story_began`, and keep `story_tick` for rooms that
+act every tick.

@@ -121,6 +121,14 @@ The `story_tick` trigger selects a room by its definition id. Each live
 instance gets one invocation in `actor_think`, with its own room root as
 the scope. Body-attached records on that scope rewind with the room.
 
+A room's setup belongs in `story_began` instead: the same trigger and scope,
+invoked once when an instance first runs. A room entered again is a new
+instance and begins again, and a rewind across the first tick runs the setup
+again with the state it rewound. An entry that runs every tick only to
+return after its first one costs a call every tick (about 0.45 ms in a debug
+build; the [bridge warden's yard](../../examples/projects/bridge_warden/README.md)
+measured it before it moved to `story_began`).
+
 The trigger reports the room's bodies, named LDtk labels, true save flags,
 and whether a conversation or cutscene holds the room. Positions use room
 pixels, with +Y down. Bodies are sorted by simulation identity. A recent

@@ -12,7 +12,6 @@ fn declare() {
     #{provider: "bridge", key: "warden", schemas: [
         #{key: "yard", fields: [
             #{tag: 1, name: "made", kind: "seq 4 object"},
-            #{tag: 2, name: "asked", kind: "bool"},
             #{tag: 3, name: "attached", kind: "bool"},
         ]},
         #{key: "ward", fields: [
@@ -25,7 +24,7 @@ fn declare() {
             #{tag: 1, name: "seen", kind: "text 16"},
         ]},
     ], entries: [
-        #{key: "yard", phase: "actor_think", trigger: #{port: "story_tick", selector: "warden_yard"},
+        #{key: "yard", phase: "actor_think", trigger: #{port: "story_began", selector: "warden_yard"},
           writes: ["yard"], requests: ["create_actors"], limit: 1},
         #{key: "made", phase: "actor_think", trigger: #{port: "action_result", selector: "made"},
           writes: ["yard"], requests: ["attach_behaviors"], limit: 1},
@@ -45,10 +44,8 @@ fn actor(key, character, x, allegiance) {
     #{key: key, character: character, at: [x, 300.0], allegiance: allegiance}
 }
 
-// The yard, once per visit: the warden and the posts it keeps.
+// The yard, once per visit (`story_began`): the warden and the posts it keeps.
 fn yard() {
-    if this.state.yard.asked { return; }
-    this.state.yard.asked = true;
     this.requests.push(request("create_actors", #{reply: #{request: 1, selector: "bridge::warden/made"},
         actors: [actor("warden", "bridge_keeper", 860.0, "neutral"),
                  actor("north", "bridge_post", 560.0, "enemy"), actor("south", "bridge_post", 700.0, "enemy")]}));

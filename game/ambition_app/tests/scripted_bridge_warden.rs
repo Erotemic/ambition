@@ -403,12 +403,30 @@ fn cross(sim: &mut Platformer2dSimHarness) {
 fn the_bridge_warden_project_is_played_through_by_its_runner() {
     let mut sim = project(Vec::new(), true);
     let started = std::time::Instant::now();
-    let frames = fight(&mut sim);
+    sim.step_n(AgentAction::default(), 30);
+    assert_eq!((keepers(&mut sim), standing_posts(&mut sim).len()), (1, 2),
+        "the yard's setup ran once through the rewinds across its first tick (`story_began`)");
+    let frames = 30 + fight(&mut sim);
     cost(&sim, "bridge::", "project_sync_test", frames, started);
     assert_eq!(ward_log(&mut sim), "down;world_count_added;down;world_count_added;world_value_set;",
         "each post counted as it fell, and the warden heard its write");
     cross(&mut sim);
+    // Back west: the yard is a new copy, and its setup runs again for it.
+    let mut frames = 0;
+    while sim.observation().active_room != "warden_yard" && frames < 900 {
+        sim.step(AgentAction {move_x: -1.0, left_pressed: true, ..Default::default()});
+        frames += 1;
+    }
+    assert_eq!(sim.observation().active_room, "warden_yard", "the edge leads back to the yard");
+    sim.step_n(AgentAction::default(), 30);
+    assert_eq!((keepers(&mut sim), standing_posts(&mut sim).len()), (1, 2), "a new visit, a new yard");
     sim.rollback_health().unwrap();
+}
+
+fn keepers(sim: &mut Platformer2dSimHarness) -> usize {
+    let world = sim.world_mut();
+    world.query::<&ambition_platformer2d::characters::actor::CharacterForm>().iter(world)
+        .filter(|form| form.id() == "bridge_keeper").count()
 }
 
 /// ⭐ THE EDIT LOOP, IN THE RUNNING HOST: the project's script is edited

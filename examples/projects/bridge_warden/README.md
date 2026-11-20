@@ -10,7 +10,7 @@ cargo build -p ambition_app --bin ambition_game_bin  # once: the host
 ```
 
 The run starts in the **yard**. The yard's own script (`modules/bridge_warden.rhai`,
-entry `yard`) makes a warden and two posts the first tick it runs, and
+entry `yard`, on `story_began`: once per visit) makes a warden and two posts, and
 attaches the warden's methods to the warden, subscribed to both posts. Walk
 east and fell the posts (Attack). Each fall is a native defeat the warden
 hears (`object_defeated`); it counts it in the world (`add_world_count`),

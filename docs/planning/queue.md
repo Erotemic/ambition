@@ -116,7 +116,7 @@ or updating their source. Check with
 
 **Program completion (Jon, 2026-11-20: "It is the top priority to finish that completely"):** done 2026-11-20. Slices C1–C7 of the [completion plan](engine/script-first-ambition-gameplay.md#completion-plan-2026-11-20) are done, and the [handoff](engine/script-first-ambition-gameplay.md#completion-handoff-2026-11-20) gives each gate item its evidence. The capstone is the playable [bridge warden](../../examples/projects/bridge_warden/README.md) project.
 
-### SCRIPT-ROOM-ONCE — a room's setup without a per-tick story entry
+### SCRIPT-ROOM-ONCE — a room's setup without a per-tick story entry — ✅ DONE 2026-11-20
 
 **Found 2026-11-20 by the bridge warden's [cost](../../dev/benchmark-candidates/bridge-warden-cost.md):** a room that sets itself up once per visit can only do it from `story_tick`, which runs every tick the room is live and carries every body, flag and mark of the room. The yard's entry returns at once after its first tick and still costs about 0.45 ms a tick in a debug build, 98% of the project's script cost.
 
@@ -126,7 +126,9 @@ or updating their source. Check with
 
 **Acceptance:** the bridge warden's yard uses it; its cost row loses the per-tick entry; a sync-test witness shows one setup per visit.
 
-### INUGAMI-CHASE — a spirit you run from
+**State:** done 2026-11-20. `story_began` (`ambition.story.began`) is the room story's once-per-instance trigger: the same facts and scope as `story_tick`, invoked the first running tick of each live instance. The room root carries `StoryBegun` (canonical rollback state, GGRS schema 521) beside the records the setup wrote, so a rewind across the first tick runs it again with the state it rewound. The bridge warden's yard uses it: the project's entry calls fell from 966 to 42 on the sync-test host (472 ms to 15 ms) and from 133 to 5 on the game's session ([cost](../../dev/benchmark-candidates/bridge-warden-cost.md)); `the_bridge_warden_project_is_played_through_by_its_runner` shows one warden and two posts through the rewinds and a fresh set on a second visit. Guide: [room story scripts](../recipes/iterating-without-a-rebuild.md#room-story-scripts).
+
+### INUGAMI-CHASE — a spirit you run from — ✅ DONE 2026-11-19
 
 **Request (Jon, 2026-11-19):** it got stuck and the rubber band did not feel like running from it. No collision in the chase, homing on you; it swells until you cannot get around it; her talismans shrink it to a size you fight.
 

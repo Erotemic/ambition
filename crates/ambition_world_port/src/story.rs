@@ -7,6 +7,12 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// definition. Its scope is the room root. No invocation runs while its
 /// room clock is held. The trigger contains simulation facts only.
 pub struct StoryTickPort;
+/// One `actor_think` invocation when a live instance of the selected room
+/// definition first runs: its setup, once per visit. A room entered again is
+/// a new instance and begins again; a rewind across the first tick runs it
+/// again with the state it rewound. The trigger is the room's `story_tick`
+/// facts on that tick.
+pub struct StoryBeganPort;
 /// Submit an authored command in the invocation's room. Lowering prepares
 /// the line against `CommandCatalog`. A bad line or absent room is refused
 /// and logged. The command owner applies the effect through its usual path.
@@ -131,6 +137,7 @@ macro_rules! story_port {
     };
 }
 story_port!(StoryTickPort, "ambition.story.tick", Trigger, StoryTick, 1);
+story_port!(StoryBeganPort, "ambition.story.began", Trigger, StoryTick, 1);
 story_port!(
     StoryCommandPort,
     "ambition.story.command",

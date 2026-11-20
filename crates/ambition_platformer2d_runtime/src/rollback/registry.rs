@@ -343,7 +343,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 517 -> 518: a scope keeps the cutscenes it asked for until they are answered.
 // 518 -> 519: a body keeps the rides it summoned with a reply until they are answered.
 // 519 -> 520: a subscriber keeps the retirements it has heard.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 520;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 521;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -22,7 +22,12 @@ pub fn install(app: &mut App) {
     app.install_extension_trigger::<StoryTickPort, _>(
         ACTOR_THINK,
         "ambition_platformer2d_runtime",
-        queue_story_ticks.run_if(ambition_extension_host::trigger_is_bound::<StoryTickPort>),
+        queue_story::<StoryTickPort>.run_if(ambition_extension_host::trigger_is_bound::<StoryTickPort>),
+    );
+    app.install_extension_trigger::<StoryBeganPort, _>(
+        ACTOR_THINK,
+        "ambition_platformer2d_runtime",
+        queue_story::<StoryBeganPort>.run_if(ambition_extension_host::trigger_is_bound::<StoryBeganPort>),
     );
     app.install_extension_submitted_request::<StoryCommandPort, _>(
         ACTOR_THINK,
@@ -78,13 +83,35 @@ impl ambition_platformer2d_core::snapshot::SnapshotState for CutsceneAsks {
 /// The most cutscene asks one scope holds unanswered.
 pub const MAX_CUTSCENE_ASKS: usize = 8;
 
-pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
-    registrar.rollback_component_canonical::<CutsceneAsks>("ambition_platformer2d_runtime", "script.cutscene_asks");
+/// A room instance whose `story_began` entries have run. It sits on the room
+/// root, beside the records they wrote, so a rewind across the first tick
+/// takes both away and the setup runs again.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct StoryBegun { begun: bool }
+ambition_extension_sdk::port_record! { StoryBegun { begun: bool } }
+impl ambition_platformer2d_core::snapshot::SnapshotState for StoryBegun {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let mut bytes = Vec::new();
+        ambition_extension_sdk::structure::put(self, &mut bytes);
+        ambition_platformer2d_core::snapshot::put_bytes(out, &bytes);
+    }
+    fn decode(reader: &mut ambition_platformer2d_core::snapshot::Reader<'_>) -> Option<Self> {
+        ambition_extension_sdk::wire::decode_all(reader.bytes()?, ambition_extension_sdk::structure::read).ok()
+    }
 }
 
-/// The selector is a room definition id. Each live instance gets its own invocation.
+pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+    registrar.rollback_component_canonical::<CutsceneAsks>("ambition_platformer2d_runtime", "script.cutscene_asks");
+    registrar.rollback_component_canonical::<StoryBegun>("ambition_platformer2d_runtime", "script.story_begun");
+}
+
+/// The selector is a room definition id. Each live instance gets its own
+/// invocation: every running tick for `story_tick`, the first for
+/// `story_began`.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-fn queue_story_ticks(
+fn queue_story<P: Port<Value = StoryTick>>(
+    mut commands: Commands,
+    begun: Query<(), With<StoryBegun>>,
     admitted: Res<AdmittedExtensions>,
     time: Res<ambition_time::WorldTime>,
     mut invocations: ResMut<ExtensionInvocations>,
@@ -114,7 +141,7 @@ fn queue_story_ticks(
         .0
         .entries
         .iter()
-        .filter(|entry| entry.descriptor.trigger.port == StoryTickPort::KEY)
+        .filter(|entry| entry.descriptor.trigger.port == P::KEY)
         .map(|entry| entry.descriptor.trigger.selector.to_string())
         .collect();
     let mut roots: Vec<_> = roots.iter().collect();
@@ -129,6 +156,13 @@ fn queue_story_ticks(
         else {
             continue;
         };
+        let once = P::KEY == StoryBeganPort::KEY;
+        if once {
+            if begun.contains(root) {
+                continue;
+            }
+            commands.entity(root).insert(StoryBegun {begun: true});
+        }
         let busy = cutscene.is_playing()
             && cutscene
                 .room
@@ -179,7 +213,7 @@ fn queue_story_ticks(
             })
             .collect();
         marks.sort_by(|a, b| a.name.cmp(&b.name));
-        invocations.trigger::<StoryTickPort>(
+        invocations.trigger::<P>(
             &ACTOR_THINK,
             spec.id.clone(),
             root,

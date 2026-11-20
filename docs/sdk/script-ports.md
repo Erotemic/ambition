@@ -813,6 +813,17 @@ Port `ambition.story.tick@1`, trigger: read as `this.trigger`.
 | `bodies` | list of { id: text, form: text, position: [x, y], size: [x, y], on_ground: bool, alive: bool, driven: bool, struck_recently: bool } | This room's bodies, sorted by simulation identity. |
 | `marks` | list of { name: text, position: [x, y] } | Named LDtk labels and their points, in room pixels. |
 
+## `story_began`
+
+Port `ambition.story.began@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `busy` | bool | A conversation or cutscene currently holds this room. |
+| `flags` | list of text | The save flags that are true, sorted by name. |
+| `bodies` | list of { id: text, form: text, position: [x, y], size: [x, y], on_ground: bool, alive: bool, driven: bool, struck_recently: bool } | This room's bodies, sorted by simulation identity. |
+| `marks` | list of { name: text, position: [x, y] } | Named LDtk labels and their points, in room pixels. |
+
 ## `story_command`
 
 Port `ambition.story.command@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.

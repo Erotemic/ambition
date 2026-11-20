@@ -307,6 +307,26 @@ impl LowersIn for InHitReaction {
     const PHASE: Phase = ambition_extension_sdk::phases::HIT_REACTION;
 }
 
+/// Install `$adapter::<L>` as the submitted-request adapter of `$port`,
+/// owned by `$owner`, in the phase of each [`LowersIn`] marker `L`: one
+/// generic adapter for every body phase, written once.
+#[macro_export]
+macro_rules! install_submitted_request_in_body_phases {
+    ($app:expr, $port:ty, $owner:expr, $adapter:ident) => {
+        $crate::install_submitted_request_in_body_phases!(@each $app, $port, $owner, $adapter;
+            InActorThink, InTechniqueExecution, InWieldedUse, InBossConduct,
+            InModuleEntityTick, InBodyContact, InHitReaction)
+    };
+    (@each $app:expr, $port:ty, $owner:expr, $adapter:ident; $($marker:ident),*) => {{
+        use $crate::ExtensionAppExt as _;
+        $($app.install_extension_submitted_request::<$port, _>(
+            <$crate::$marker as $crate::LowersIn>::PHASE,
+            $owner,
+            $adapter::<$crate::$marker>,
+        );)*
+    }};
+}
+
 /// A recorded fault. Diagnostic only: it is not rollback state.
 #[derive(Clone, Debug)]
 pub struct FaultRecord {

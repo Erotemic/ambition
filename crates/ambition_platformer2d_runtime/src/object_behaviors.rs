@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionAppExt,
     ExtensionOutbox, InvocationEvent, ObservationContext};
-use ambition_extension_sdk::{Attachment, ObjectRef, Port, action::*, phases::ACTOR_THINK, script::ScriptValue};
+use ambition_extension_sdk::{ObjectRef, Port, action::*, phases::ACTOR_THINK, script::ScriptValue};
 use ambition_platformer2d_core::snapshot::{SnapshotState, Reader, put_bytes};
 use ambition_platformer2d_shared_tangle::{action_results::{self, ActionReply, ActionDeliveryPolicy},
     lifecycle::*};
@@ -253,24 +253,9 @@ fn prepare_bindings(world: &World, bindings: &[BehaviorBinding],
         let subscriptions = crate::behavior_events::prepare(world, &binding.methods, &references,
             &binding.subscriptions, limits.max_subscriptions)?;
         let mut records = BodyRecords::default();
-        let mut seeded = BTreeSet::new();
-        for seed in &binding.state {
-            let mut matches = writes.iter().filter(|key| key.key == seed.schema.as_str() || key.to_string() == seed.schema);
-            let key = matches.next().ok_or_else(|| format!("Behavior {} cannot initialize schema {}.", binding.key, seed.schema))?;
-            if matches.next().is_some() || !seeded.insert(key.clone()) {
-                return Err("A behavior state seed is ambiguous or repeated.".into());
-            }
-            let declared = &admitted.schemas[key];
-            if declared.schema.attachment != Attachment::Body {
-                return Err("Behavior initialization requires private body-attached records.".into());
-            }
-            let record = ambition_extension_sdk::script::record_from_script(&declared.schema, &seed.value)
-                .map_err(|error| format!("Behavior {} state {}: {error}", binding.key, seed.schema))?;
-            declared.schema.check(&record).map_err(|error| format!("Behavior {} state {}: {error}", binding.key, seed.schema))?;
-            let mut encoded = Vec::new(); record.put_wire(&mut encoded);
-            bytes = bytes.saturating_add(encoded.len());
-            if bytes > limits.max_state_bytes as usize { return Err("Behavior state exceeds the byte bound.".into()); }
-            records.put(key.clone(), declared.shape, record);
+        for (key, shape, record) in crate::record_seeds::prepare_record_seeds(admitted, &writes, &binding.state,
+            &mut bytes, limits.max_state_bytes, &format!("Behavior {}", binding.key))? {
+            records.put(key, shape, record);
         }
         Ok(PreparedBehaviorState {key: binding.key.clone(), bundle: BehaviorInitialization {
             instance: BehaviorInstance {key: binding.key.clone(), methods: binding.methods.clone(), params,

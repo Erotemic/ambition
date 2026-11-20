@@ -55,19 +55,18 @@ pub fn retract_room_portal_frames(
     room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     saved_at: u64,
 ) {
-    let Some(mut log) = world.get_resource_mut::<PortalFramesInRooms>() else {
+    let Some(log) = world.get_resource_mut::<PortalFramesInRooms>() else {
         return;
     };
-    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+    let taken = ambition_platformer2d_shared_tangle::lifecycle::take_rewound(
+        log.map_unchanged(|log| &mut log.writes), room, saved_at, |(write, ..)| *write);
+    if taken.is_empty() {
         return;
     }
-    let (taken, kept): (Vec<_>, Vec<_>) =
-        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
-    log.writes = kept;
     let Some(mut history) = world.get_resource_mut::<PortalFrameHistory>() else {
         return;
     };
-    for (_, key, replaced) in taken.into_iter().rev() {
+    for (_, key, replaced) in taken {
         match replaced {
             Some(aperture) => {
                 history.0.insert(key, aperture);

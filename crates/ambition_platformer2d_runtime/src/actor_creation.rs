@@ -1,8 +1,8 @@
 //! Native character construction with declared script-state initialization.
 
 use bevy::{ecs::system::SystemState, prelude::*};
-use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionAppExt, ExtensionOutbox, LowersIn};
-use ambition_extension_sdk::{Attachment, Record, SchemaKey, action::ActionStage};
+use ambition_extension_host::{AdmittedExtensions, BodyRecords, ExtensionOutbox, LowersIn};
+use ambition_extension_sdk::action::ActionStage;
 use ambition_platformer2d_construction::runtime::{ActorCreationLimits, RuntimeActor, RuntimeLink, ComposedInitialization};
 use ambition_platformer2d_shared_tangle::action_results::publish_action_result;
 use ambition_platformer2d_world::governing_rules::RulesOf;
@@ -13,14 +13,8 @@ pub const CREATE_DOMAIN: &str = "world.create_actors";
 pub fn install(app: &mut App) {
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, CREATE_DOMAIN,
         ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
-    use ambition_extension_host::{InActorThink, InTechniqueExecution, InWieldedUse,
-        InBossConduct, InModuleEntityTick, InBodyContact, InHitReaction};
-    macro_rules! phase {
-        ($marker:ty) => { app.install_extension_submitted_request::<CreateActorsPort, _>(
-            <$marker>::PHASE, "ambition_platformer2d_construction", lower::<$marker>); };
-    }
-    phase!(InActorThink); phase!(InTechniqueExecution); phase!(InWieldedUse);
-    phase!(InBossConduct); phase!(InModuleEntityTick); phase!(InBodyContact); phase!(InHitReaction);
+    ambition_extension_host::install_submitted_request_in_body_phases!(app, CreateActorsPort,
+        "ambition_platformer2d_construction", lower);
 }
 
 type CreationRules = SystemState<RulesOf<'static, 'static, ActorCreationLimits>>;
@@ -71,12 +65,12 @@ fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>
     }
 }
 
-type InitialState = (SchemaKey, u64, Record);
 fn prepare_state(world: &World, entry: &str, request: &CreateActors, limits: ActorCreationLimits)
-    -> Result<Vec<Vec<InitialState>>, String> {
+    -> Result<Vec<Vec<crate::record_seeds::PreparedSeed>>, String> {
     if request.actors.len() > limits.max_actors as usize { return Err("Too many requested actors.".into()); }
     let admitted = &world.resource::<AdmittedExtensions>().0;
     let entry = admitted.entries.iter().find(|active| active.path == entry).ok_or("The source entry is no longer installed.")?;
+    // The byte bound covers the whole request, not each actor.
     let mut bytes = 0usize;
     request.actors.iter().map(|actor| {
         if actor.at.iter().chain(&actor.half_extents).any(|n| !n.is_finite())
@@ -84,22 +78,8 @@ fn prepare_state(world: &World, entry: &str, request: &CreateActors, limits: Act
             return Err(format!("Actor {} has an invalid placement box.", actor.key));
         }
         if actor.state.len() > limits.max_state_records as usize { return Err("Too many initial state records.".into()); }
-        let mut keys = std::collections::BTreeSet::new();
-        actor.state.iter().map(|seed| {
-            let key = entry.descriptor.writes.iter().find(|key| key.key == seed.schema.as_str())
-                .ok_or_else(|| format!("Actor {}: the entry cannot initialize schema {}.", actor.key, seed.schema))?;
-            let declared = &admitted.schemas[key];
-            if declared.schema.attachment != Attachment::Body || !keys.insert(key.clone()) {
-                return Err(format!("Actor {}: state must have unique body-attached schemas.", actor.key));
-            }
-            let record = ambition_extension_sdk::script::record_from_script(&declared.schema, &seed.value)
-                .map_err(|e| format!("Actor {} state {}: {e}", actor.key, seed.schema))?;
-            declared.schema.check(&record).map_err(|e| format!("Actor {} state {}: {e}", actor.key, seed.schema))?;
-            let mut encoded = Vec::new(); record.put_wire(&mut encoded);
-            bytes = bytes.saturating_add(encoded.len());
-            if bytes > limits.max_state_bytes as usize { return Err("Initial state exceeds the room's byte bound.".into()); }
-            Ok((key.clone(), declared.shape, record))
-        }).collect()
+        crate::record_seeds::prepare_record_seeds(admitted, &entry.descriptor.writes, &actor.state,
+            &mut bytes, limits.max_state_bytes, &format!("Actor {}", actor.key))
     }).collect()
 }
 

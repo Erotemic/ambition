@@ -155,6 +155,51 @@ impl InteractReach {
     }
 }
 
+/// What a press does to the target it is for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum InteractKind {
+    Talk,
+    Activate,
+    Open,
+}
+
+/// One target that a press reaches: what the press does to it, its distance
+/// from the point the body reaches with ([`InteractReach::preference`]), and
+/// a stable identity that breaks a tie.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InteractCandidate<Id> {
+    pub kind: InteractKind,
+    pub preference: f32,
+    pub id: Id,
+}
+
+/// The targets one press reaches, in the order the press tries them. The one
+/// rule of the press and of its prompt, so the prompt names the target the
+/// press is for.
+///
+/// - The nearest target of each kind goes first, and equal distances go to
+///   the lesser `id`, so the order does not depend on query order.
+/// - Bodies to talk to come before switches, and switches before chests (the
+///   chest system takes only a press that nothing else took).
+/// - When the nearest switch is nearer than every body to talk to, the
+///   bodies drop out: the switch takes the press. A tie goes to the body.
+///
+/// The executor of each kind revalidates its target and can refuse it (a
+/// conversation with nothing to say); the press then goes to the next target.
+pub fn interact_order<Id: Ord>(candidates: impl IntoIterator<Item = InteractCandidate<Id>>) -> Vec<InteractCandidate<Id>> {
+    let mut order: Vec<_> = candidates.into_iter().collect();
+    order.sort_by(|a, b| {
+        a.kind.cmp(&b.kind).then(a.preference.total_cmp(&b.preference)).then_with(|| a.id.cmp(&b.id))
+    });
+    let nearest = |kind| order.iter().find(|candidate| candidate.kind == kind).map(|candidate| candidate.preference);
+    if let (Some(talk), Some(switch)) = (nearest(InteractKind::Talk), nearest(InteractKind::Activate)) {
+        if switch < talk {
+            order.retain(|candidate| candidate.kind != InteractKind::Talk);
+        }
+    }
+    order
+}
+
 /// Play the interact gesture on the body that ACTED.
 pub fn pose_interact(
     anims: &mut Query<&mut ambition_characters::actor::BodyAnimFacts>,

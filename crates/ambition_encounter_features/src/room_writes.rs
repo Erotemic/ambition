@@ -7,7 +7,9 @@
 //! waiting on the clear. The encounter's own save row is a mirror of its
 //! lifecycle, which the room's snapshot rewinds, so it heals by itself.
 
-use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomWrite, ROOM_REWIND_HORIZON_TICKS};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    LiveRoomInstance, RoomWrite, take_beyond_the_horizon, take_rewound_superseded,
+};
 use bevy::prelude::*;
 
 /// One clear: the room and tick, the encounter, and each linked switch with
@@ -43,11 +45,7 @@ impl EncounterClearsInRooms {
     /// Add `clear`, and drop the clears no rewind can reach any longer;
     /// those are returned, so their quest causes can be forgotten.
     pub fn record(&mut self, clear: EncounterClear) -> Vec<EncounterClear> {
-        let now = clear.written.tick;
-        let (old, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.clears)
-            .into_iter()
-            .partition(|kept| kept.written.tick.saturating_add(ROOM_REWIND_HORIZON_TICKS) < now);
-        self.clears = kept;
+        let old = take_beyond_the_horizon(&mut self.clears, clear.written.tick, |kept| kept.written.tick);
         self.clears.push(clear);
         old
     }
@@ -56,16 +54,9 @@ impl EncounterClearsInRooms {
     /// tick, newest first, each with whether a later clear of the same
     /// encounter still stands (then its switches and quest steps stay).
     pub fn retract_room(&mut self, room: LiveRoomInstance, saved_at: u64) -> Vec<(EncounterClear, bool)> {
-        let mut taken = Vec::new();
-        for at in (0..self.clears.len()).rev() {
-            if !self.clears[at].written.retracted_by(room, saved_at) {
-                continue;
-            }
-            let clear = self.clears.remove(at);
-            let superseded = self.clears[at..].iter().any(|later| later.encounter == clear.encounter);
-            taken.push((clear, superseded));
-        }
-        taken
+        take_rewound_superseded(&mut self.clears, room, saved_at, |clear| clear.written, |later, taken| {
+            later.encounter == taken.encounter
+        })
     }
 
     /// Entity-free value projection.
@@ -120,6 +111,7 @@ pub fn retract_room_encounter_clears(world: &mut World, room: LiveRoomInstance, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS;
 
     fn clear(room: u32, tick: u64, encounter: &str) -> EncounterClear {
         EncounterClear {

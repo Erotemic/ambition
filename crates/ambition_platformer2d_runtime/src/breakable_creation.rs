@@ -1,7 +1,7 @@
 //! Correlated native breakable creation in every body request phase.
 
 use ambition_breakables::creation::{BreakableCreationLimits, RuntimeBreakable};
-use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox, LowersIn};
+use ambition_extension_host::{ExtensionOutbox, LowersIn};
 use ambition_extension_sdk::action::ActionStage;
 use ambition_platformer2d_shared_tangle::action_results::publish_action_result;
 use ambition_platformer2d_world::governing_rules::RulesOf;
@@ -11,26 +11,8 @@ use bevy::{ecs::system::SystemState, prelude::*};
 pub fn install(app: &mut App) {
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "world.create_breakables",
         ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
-    use ambition_extension_host::{
-        InActorThink, InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick,
-        InTechniqueExecution, InWieldedUse,
-    };
-    macro_rules! phase {
-        ($marker:ty) => {
-            app.install_extension_submitted_request::<CreateBreakablesPort, _>(
-                <$marker>::PHASE,
-                "ambition_breakables",
-                lower::<$marker>,
-            );
-        };
-    }
-    phase!(InActorThink);
-    phase!(InTechniqueExecution);
-    phase!(InWieldedUse);
-    phase!(InBossConduct);
-    phase!(InModuleEntityTick);
-    phase!(InBodyContact);
-    phase!(InHitReaction);
+    ambition_extension_host::install_submitted_request_in_body_phases!(app, CreateBreakablesPort,
+        "ambition_breakables", lower);
 }
 type CreationRules = SystemState<RulesOf<'static, 'static, BreakableCreationLimits>>;
 fn lower<L: LowersIn>(world: &mut World, mut rules: Local<Option<CreationRules>>) {

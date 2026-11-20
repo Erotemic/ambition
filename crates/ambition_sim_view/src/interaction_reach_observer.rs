@@ -60,6 +60,7 @@ fn reach_of_subject(
     actors: Talkers,
     chests: Chests,
     switches: Switches,
+    objects: ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
 ) -> Vec<GeometryObservation> {
     let Some(subject) = query.subject else {
         return Vec::new();
@@ -70,7 +71,7 @@ fn reach_of_subject(
     let room = rooms.live().of(subject);
     let reach = InteractReach::of(kin, step, frame, room);
     let door = rooms.nearest_door_under(subject, reach.collision_box(), reach.pos());
-    let chosen = chosen_in_reach(&reach, door, rooms.live(), &actors, &chests, &switches).map(|(entity, _)| entity);
+    let chosen = chosen_in_reach(&reach, door, rooms.live(), &objects, &actors, &chests, &switches).map(|(entity, _)| entity);
     let name = |entity: Entity| names.get(entity).map_or_else(|_| format!("{entity}"), |id| id.as_str().to_owned());
     let me = name(subject);
     let (touch, talk) = (reach.collision_box(), reach.talk_box());
@@ -102,14 +103,12 @@ fn reach_of_subject(
                 ObservedShape::aabb(zone.aabb.min.to_array(), zone.aabb.max.to_array()), refused));
         }
     }
-    for (entity, aabb, disposition, _, health, out_of_play, plane, requires_facing) in &actors {
+    for (entity, aabb, disposition, aggression, health, out_of_play, plane, requires_facing) in &actors {
         if entity == subject || rooms.live().of(entity) != room {
             continue;
         }
-        let refused = if disposition.is_hostile() {
-            Some("hostile")
-        } else if ambition_combat::util::body_is_untouchable(health, out_of_play, plane) {
-            Some("untouchable (dead or out of play)")
+        let refused = if let Some(reason) = ambition_combat::util::talk_refusal(*disposition, aggression, health, out_of_play, plane) {
+            Some(reason)
         } else if let Some(reason) = reach.refuses_talk(room, aabb, requires_facing) {
             Some(reason)
         } else if InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos())) {

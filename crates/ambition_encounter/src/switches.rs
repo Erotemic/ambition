@@ -542,19 +542,18 @@ pub fn retract_room_switch_presses(
     room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     saved_at: u64,
 ) {
-    let Some(mut log) = world.get_resource_mut::<SwitchPressesInRooms>() else {
+    let Some(log) = world.get_resource_mut::<SwitchPressesInRooms>() else {
         return;
     };
-    if !log.writes.iter().any(|(write, ..)| write.retracted_by(room, saved_at)) {
+    let taken = ambition_platformer2d_shared_tangle::lifecycle::take_rewound(
+        log.map_unchanged(|log| &mut log.writes), room, saved_at, |(write, ..)| *write);
+    if taken.is_empty() {
         return;
     }
-    let (taken, kept): (Vec<_>, Vec<_>) =
-        log.writes.drain(..).partition(|(write, ..)| write.retracted_by(room, saved_at));
-    log.writes = kept;
     let Some(mut save) = world.get_resource_mut::<ambition_persistence::save::AmbitionGameSave>() else {
         return;
     };
-    for (_, id, replaced) in taken.into_iter().rev() {
+    for (_, id, replaced) in taken {
         save.data_mut().set_switch(&id, replaced);
     }
 }

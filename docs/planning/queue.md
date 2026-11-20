@@ -1289,6 +1289,26 @@ at hand; the later-work list in the design page.
 fight runs with the Boss riding the guitar robot, in phases, with its intro,
 music cue and art; the ending follows the retirement rule.
 
+### LEADENSADDLE — the Frontier dimension and Marshal Gallus
+
+**Request (Jon, 2026-11-20):** a robot chicken boss between a big chicken and
+a person with a chicken's head (a swaggering rooster cyborg with a cowboy
+hat and kit), a western biome for him with its own environment and western
+music and a boss theme, an industrial spaceport town, reached by the gate
+address `LEADENSADDLE`. Original work only: the named films and shows are
+mood references.
+
+**Design:** [`game/leadensaddle.md`](game/leadensaddle.md): the dimension
+`frontier` (`frontier.ldtk`), the town of Dry Dock in the Leaden Saddle, the
+boss Marshal Gallus in the Ore Corral, four music cues.
+
+**Next action:** build the slices of the design page in order (art, rooms
+and gate, fight, music, people). **Done when:** a dial of `LEADENSADDLE`
+arrives on Pad Three, the town and the refinery lead to the corral, the
+Marshal's fight plays through its three phases headless to his defeat and
+opens the lookout, the hall has his practice copy, and each room plays its
+own rendered cue.
+
 ### PLAYER-DEATH — what a death is in Ambition — ✅ DONE 2026-11-17
 
 **Owner:** `session/death.rs` (the beat), the presentation owner, and the bag

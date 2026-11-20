@@ -15,6 +15,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 mod body_feedback;
 mod actor_creation;
 mod object_behaviors;
+mod record_seeds;
 mod behavior_inbox;
 pub mod behavior_events;
 mod breakable_creation;

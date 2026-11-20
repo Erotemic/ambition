@@ -177,11 +177,26 @@ def _first_added_dates(tool: Path) -> dict[str, str]:
     return dates
 
 
+def _behind_pin(repo: Path, path: str) -> str | None:
+    """`scripts/lib/submodule_pin.py`, when this repo has it."""
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("submodule_pin", repo / "scripts/lib/submodule_pin.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.behind_pin(repo, path)
+    except (OSError, ImportError, AttributeError):
+        return None
+
+
 def music(ctx: dict) -> list[dict]:
     repo, out, config = ctx["repo"], ctx["out"], ctx["config"]
     root = ctx["root"]
     tool = repo / "tools" / config["tool"]
     scores = tool / "scores" / "active"
+    stale = _behind_pin(repo, tool.relative_to(repo).as_posix())
+    if stale:
+        ctx["notices"].append(f"The music tool's checkout is behind its pin, so newer scores are not listed: {stale}.")
     ctx["added_dates"] = _first_added_dates(tool)
     policy = {}
     if config.get("policy"):

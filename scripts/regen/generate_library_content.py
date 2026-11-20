@@ -317,6 +317,13 @@ def run(family: str, arguments: list[str]) -> int:
     if only_missing and any(arg in {"--force", "--force-render", "--clean"} for arg in arguments):
         raise ValueError("--only-missing cannot be combined with --force or --clean")
     worker_arguments = [arg for arg in arguments if arg not in {"--only-missing", "--missing-only"}]
+    # The producer discovers its inputs in its tool's tree: a tool checkout
+    # behind its pin would publish old products and call new ones present.
+    from lib.submodule_pin import behind_pin
+    stale = TOOLS.get(family) and behind_pin(ROOT, "tools/" + TOOLS[family])
+    if stale and not os.environ.get("AMBITION_ALLOW_STALE_TOOL"):
+        print(f"{family}: refused: {stale}. (AMBITION_ALLOW_STALE_TOOL=1 runs it anyway.)", file=sys.stderr)
+        return 2
     if family == "backgrounds" and only_missing:
         return subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh"), *arguments], cwd=ROOT)
     selected = library()

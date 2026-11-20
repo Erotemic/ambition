@@ -11,7 +11,7 @@
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{AnswerParryPort, BuryPort, CrumplePort, FreezePort, MendPort, ParalyzePort, Parried, ParriedPort, Struck};
+use ambition_combat_port::{AnswerParryPort, BuryPort, CrumplePort, FreezePort, MendPort, ParalyzePort, SeizeStruckPort, Parried, ParriedPort, Struck};
 pub use ambition_combat_port::StruckPort;
 use ambition_entity_catalog::ParamValue;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
@@ -49,6 +49,8 @@ pub fn install_for_hit_reaction(app: &mut App) {
     app.install_extension_submitted_request::<FreezePort, _>(HIT_REACTION, "ambition_combat", lower_freezes);
     app.install_extension_submitted_request::<CrumplePort, _>(HIT_REACTION, "ambition_combat", lower_crumples);
     app.install_extension_submitted_request::<MendPort, _>(HIT_REACTION, "ambition_combat", lower_mends);
+    app.add_message::<crate::capture::CaptureAttemptRequested>();
+    app.install_extension_submitted_request::<SeizeStruckPort, _>(HIT_REACTION, "ambition_combat", lower_struck_seizes);
     super::status::install_for_hit_reaction(app);
 }
 
@@ -123,6 +125,54 @@ pub fn lower_crumples(
             combat.crumple_timer = duration_s;
         }
         combat.crumple_collapse_owed = true;
+    }
+}
+
+/// Seize each struck body for the striker a module named (see the port card):
+/// a grab aimed at that one body, judged by the grab's rules in this tick's
+/// acquisition. When both bodies stand where a grab is possible, the hit's
+/// reaction is dropped, as a burial drops it, because the hold replaces it; a
+/// seize the grab rules would refuse anyway leaves the hit as it was.
+pub fn lower_struck_seizes(
+    mut outbox: ResMut<ExtensionOutbox>,
+    strikers: Query<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
+    held: Query<(Entity, &crate::capture::CapturedBy)>,
+    grounds: Query<&ambition_platformer2d_core::BodyGroundState>,
+    mut bodies: Query<(
+        &mut ambition_characters::actor::BodyCombat,
+        &mut ambition_platformer2d_core::BodyKinematics,
+        &mut ambition_platformer2d_core::BodyFlightState,
+    )>,
+    mut attempts: MessageWriter<crate::capture::CaptureAttemptRequested>,
+) {
+    for submitted in outbox.drain::<SeizeStruckPort>(&HIT_REACTION) {
+        let ambition_combat_port::SeizeStruck { striker, hold_offset } = submitted.value;
+        let victim = submitted.scope;
+        let Some((captor, _)) = strikers.iter().find(|(_, id)| super::blast::credit_of(id) == striker) else {
+            warn!("extension entry {} asked a credit that names no body to seize; refused", submitted.entry);
+            continue;
+        };
+        let standing = |body: Entity| grounds.get(body).is_ok_and(|ground| ground.on_ground);
+        // In a hold already, either way round: a captive, or a captor.
+        let in_a_hold = |body: Entity| held.iter().any(|(captive, by)| captive == body || by.captor == body);
+        if captor == victim || !standing(captor) || !standing(victim) || in_a_hold(captor) || in_a_hold(victim) {
+            continue;
+        }
+        let Ok((mut combat, mut kin, mut flight)) = bodies.get_mut(victim) else {
+            continue;
+        };
+        flight.take_launch();
+        kin.vel = ambition_platformer2d_core::Vec2::ZERO;
+        combat.hitstun_timer = 0.0;
+        combat.recoil_lock_timer = 0.0;
+        attempts.write(crate::capture::CaptureAttemptRequested {
+            captor,
+            offset: ambition_platformer2d_core::Vec2::ZERO,
+            half_extents: ambition_platformer2d_core::Vec2::ZERO,
+            hold_offset: ambition_platformer2d_core::Vec2::from(hold_offset),
+            move_instance: None,
+            target: Some(victim),
+        });
     }
 }
 

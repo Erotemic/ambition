@@ -352,6 +352,15 @@ Port `ambition.combat.mend@1`, request: `this.requests.push(request("<alias>", #
 | `body` | text | required | The credit of the body that mends. |
 | `amount` | integer (i32) | required | Health it mends (health points). |
 
+## `seize_struck`
+
+Port `ambition.combat.seize_struck@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `striker` | text | required | The credit of the body that struck and now seizes. |
+| `hold_offset` | [x, y] | required | Where the seized body is held, in the striker's local frame (world units). |
+
 ## `group_think`
 
 Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.

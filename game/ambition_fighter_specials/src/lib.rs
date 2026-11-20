@@ -205,6 +205,18 @@ pub fn specials() -> Vec<Special> {
             },
             module: modules::crumple::module,
         },
+        // Hit-grab: answered on the body a volume struck; the striker seizes
+        // it through the capture relation (`ambition.combat.seize_struck`).
+        Special {
+            key: catalog::smash_hit_grab::HIT_GRAB,
+            offer: TechniqueOffer {
+                owner: "ambition_demo_smash_modules::hit_grab",
+                params: TechniqueParams::Checked(catalog::smash_hit_grab::check_hit_grab_params),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::OnHit,
+            },
+            module: modules::hit_grab::module,
+        },
         // Lifesteal: answered on the body a volume struck, and mends the
         // body that struck it (`ambition.combat.mend`, by its credit).
         Special {

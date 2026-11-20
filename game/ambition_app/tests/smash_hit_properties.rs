@@ -347,3 +347,22 @@ fn the_oni_leaders_iaijutsu_mends_him_by_what_it_cuts() {
     assert!(app.world().get::<BodyHealth>(victim).unwrap().damage_taken() > before, "the iaijutsu did not land");
     assert_eq!(app.world().get::<BodyHealth>(oni).unwrap().damage_taken(), 26, "the oni was not mended his 4");
 }
+
+/// Post-gate: the Goblin's headlong charge tackles a standing rival into his
+/// grab: the rival is held by him, not launched.
+#[test]
+fn the_goblins_headlong_charge_tackles_a_standing_rival_into_his_grab() {
+    let (mut app, [goblin, victim]) = two_fighters(["goblin", ambition_demo_smash::SMASH_GEORGE_BOOUL]);
+    let spec = app.world().get::<ActorMoveset>(goblin).unwrap().0.moves.iter()
+        .find(|spec| spec.id == "headlong_charge").unwrap().clone();
+    app.world_mut().entity_mut(goblin).insert(MovePlayback::new(std::sync::Arc::new(spec), 1.0));
+    let mut held_by = None;
+    for _ in 0..60 {
+        app.update();
+        if let Some(by) = app.world().get::<ambition_platformer2d::combat::capture::CapturedBy>(victim) {
+            held_by = Some(by.captor);
+            break;
+        }
+    }
+    assert_eq!(held_by, Some(goblin), "the charge did not tackle the standing rival into the goblin's grab");
+}

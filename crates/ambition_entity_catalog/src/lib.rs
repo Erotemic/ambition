@@ -61,6 +61,7 @@ pub mod smash_lifesteal;
 pub mod smash_seeker;
 pub mod smash_flyline;
 pub mod smash_freeze;
+pub mod smash_hit_grab;
 pub mod smash_homing;
 pub mod smash_limit;
 pub mod smash_mark;

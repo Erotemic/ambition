@@ -120,6 +120,12 @@ pub struct CaptureAttemptRequested {
     /// CONNECTED (`MovePlayback::landed_hit`), the way a throw and a strike
     /// mark theirs; `None` (a seize no move authored) marks nothing.
     pub move_instance: Option<u32>,
+    /// The one body this attempt may catch, or `None` to search the reach. A
+    /// strike that seizes what it struck (`ambition.combat.seize_struck`)
+    /// names its victim: the strike already found it, and a box search could
+    /// catch a different body. A named body is caught without the reach test
+    /// and under every other rule a grab is judged by.
+    pub target: Option<Entity>,
 }
 
 /// Two bodies grabbed each other on one tick, and neither grab holds.

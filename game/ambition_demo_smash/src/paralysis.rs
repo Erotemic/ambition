@@ -105,6 +105,7 @@ mod tests {
                 ambition_demo_smash_modules::freeze::module,
                 ambition_demo_smash_modules::crumple::module,
                 ambition_demo_smash_modules::lifesteal::module,
+                ambition_demo_smash_modules::hit_grab::module,
             ],
         );
         app.add_systems(Update, (mash_out_of_paralysis, mash_out_of_burial, mash_out_of_freeze).after(ExtensionSet::Lower(HIT_REACTION)));
@@ -323,6 +324,58 @@ mod tests {
             assert_eq!(health(&app, victim), (70, 30), "{road:?}: the struck body was mended");
             assert_eq!(health(&app, nameless), (70, 30), "{road:?}: a striker with no identity was mended");
             assert_eq!(health(&app, gone), (70, 30), "{road:?}: a striker out of play was mended");
+        }
+    }
+
+    /// A hit-grab asks the capture relation for the struck body by name, held
+    /// where the move says, and drops the hit's launch and stun, because the
+    /// hold replaces them. A body struck in the air keeps its hit and is not
+    /// asked for. On both roads.
+    #[test]
+    fn a_hit_grab_asks_for_the_body_it_struck() {
+        use ambition_platformer2d::combat::capture::CaptureAttemptRequested;
+        use ambition_platformer2d::entity_catalog::smash_hit_grab::{HitGrabParams, HIT_GRAB};
+        use ambition_platformer2d::platformer::sim_id::SimId;
+        use bevy::ecs::message::Messages;
+        for road in [Road::Linked, Road::Loaded] {
+            let mut app = app(road);
+            let grounded = |app: &mut App, slot: u8, on_ground: bool| {
+                let who = body(app);
+                let mut flight = ae::BodyFlightState::default();
+                flight.stage_launch(ae::Vec2::new(120.0, -200.0), false, Default::default());
+                let mut combat = BodyCombat::default();
+                combat.hitstun_timer = 0.4;
+                app.world_mut().entity_mut(who).insert((
+                    SimId::player_slot(slot),
+                    flight,
+                    ae::BodyGroundState { on_ground, ..Default::default() },
+                    combat,
+                ));
+                who
+            };
+            let striker = grounded(&mut app, 1, true);
+            let standing = grounded(&mut app, 2, true);
+            let flying = grounded(&mut app, 3, false);
+            for victim in [standing, flying] {
+                app.world_mut().write_message(OnHitEffectMessage {
+                    owner: striker,
+                    victim,
+                    volume: ae::CombatVolume::Circle { center: ae::Vec2::ZERO, radius: 1.0 },
+                    contact: ae::Vec2::ZERO,
+                    effect: ambition_platformer2d::entity_catalog::EffectRef {
+                        key: HIT_GRAB.to_string(),
+                        params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&HitGrabParams { hold_offset: (13.0, 3.0) }).unwrap(),
+                    },
+                });
+            }
+            app.update();
+            let messages = app.world().resource::<Messages<CaptureAttemptRequested>>();
+            let asked: Vec<_> = messages.get_cursor().read(messages).map(|a| (a.captor, a.target, a.hold_offset)).collect();
+            assert_eq!(asked, vec![(striker, Some(standing), ae::Vec2::new(13.0, 3.0))], "{road:?}");
+            let seized = *app.world().get::<BodyCombat>(standing).unwrap();
+            assert!(seized.hitstun_timer == 0.0, "{road:?}: the seized body kept its stun");
+            assert!(app.world().get::<ae::BodyFlightState>(standing).unwrap().pending_launch_state().is_empty(), "{road:?}");
+            assert_eq!(app.world().get::<BodyCombat>(flying).unwrap().hitstun_timer, 0.4, "{road:?}: the body in the air lost its hit");
         }
     }
 }

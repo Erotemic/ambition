@@ -1284,7 +1284,7 @@
                             flow: None,
                         ),
                         // (`let side_b = strike(Strike {`)
-                        // Side: `headlong_charge`. It runs at you. `ImpulseMode::Set`, so a falling
+                        // Side: `headlong_charge`. It runs at you, and a standing body it reaches is tackled into its grab. `ImpulseMode::Set`, so a falling
                         // goblin gets the same charge as a standing one. The tail damps steering to
                         // 0.1, not 0.0, so a scrappy fighter can still adjust.
                         (
@@ -1324,7 +1324,21 @@
                                             knockback_growth: Some(1.9),
                                             launch_dir: Some((0.95, -0.35)),
                                             reaction: None,
-                                            on_hit: None,
+                                            // A tackle: what the charge reaches standing, it takes
+                                            // hold of (`smash.hit_grab`), and the goblin's grab
+                                            // kit (pummel, throws, the carry) follows. A body in
+                                            // the air is launched as before; a shield stops the
+                                            // tackle as it stops the strike. Held where his
+                                            // grab holds.
+                                            on_hit: Some((
+                                                key: "smash.hit_grab",
+                                                params: ({
+                                                    "hold_offset": [
+                                                        13.0,
+                                                        3.0,
+                                                    ],
+                                                }),
+                                            )),
                                             vfx: Some("slash_arc"),
                                             hit_sfx: Some("enemy.goblin.hit"),
                                         ),

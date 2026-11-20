@@ -496,6 +496,62 @@ ambition_extension_sdk::port_record! {
 
 ambition_extension_sdk::script_port!(CrumplePort);
 
+/// The request port marker for a strike that seizes the body it struck.
+///
+/// Port card:
+///
+/// * **Operation** — the body `striker` names (a credit:
+///   [`crate::Struck::striker`]) grabs the body the invocation ran for, the
+///   one its strike struck, and holds it at `hold_offset` (the striker's
+///   local frame: +x the way it faces, +y toward its feet), as its grab
+///   would. The seize REPLACES the reaction of the hit that caused it: that
+///   hit's launch, velocity, stun and recoil lock are dropped; its damage
+///   stays. It is judged by every rule a grab is (both bodies on the ground,
+///   neither already holding or held, the damage relation, one captor and
+///   one captive a tick, a mutual grab is a parry) except the reach: the
+///   strike already found the body. A seize those rules refuse leaves the
+///   hit as it was. A shield that turns the strike aside turns the seize
+///   aside with it: a blocked strike lands nothing, so nothing is struck.
+///   A credit that names no body is refused.
+/// * **Owner** — `ambition_combat::extension::reaction`, through the
+///   capture relation (`ambition_combat::capture`).
+/// * **Scope** — the body the invocation ran for: in `hit_reaction`, the body
+///   a strike struck.
+/// * **Time** — `hit_reaction`, after the strike's own reaction; the hold
+///   begins this tick, when grabs are acquired.
+pub struct SeizeStruckPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SeizeStruck {
+    pub striker: u64,
+    pub hold_offset: [f32; 2],
+}
+
+impl Port for SeizeStruckPort {
+    const KEY: PortKey = PortKey::new("ambition.combat.seize_struck", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = SeizeStruck;
+
+    fn encode(v: &SeizeStruck, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<SeizeStruck, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    SeizeStruck {
+        /// The credit of the body that struck and now seizes.
+        striker: u64,
+        /// Where the seized body is held, in the striker's local frame (world units).
+        hold_offset: [f32; 2],
+    }
+}
+
+ambition_extension_sdk::script_port!(SeizeStruckPort);
+
 /// The request port marker for mending a body a strike names.
 ///
 /// Port card:

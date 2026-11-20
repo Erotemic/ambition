@@ -13,7 +13,7 @@
 //! something on the stage (a plate) asks the world for a module entity, and
 //! the module ticks it; one that leaves something on a body (a slow, a mark)
 //! holds a status there and keeps its state in records on the body; one
-//! that holds the body itself (a paralysis, a burial, a freeze, a crumple) asks the engine for the hold.
+//! that holds the body itself (a paralysis, a burial, a freeze, a crumple, a hit-grab) asks the engine for the hold.
 
 pub mod bolt;
 pub mod bomb;
@@ -22,6 +22,7 @@ pub mod counter;
 pub mod crumple;
 pub mod dilation;
 pub mod freeze;
+pub mod hit_grab;
 pub mod homing;
 pub mod lifesteal;
 pub mod limit;
@@ -48,6 +49,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     crumple::module,
     dilation::module,
     freeze::module,
+    hit_grab::module,
     homing::module,
     lifesteal::module,
     limit::module,

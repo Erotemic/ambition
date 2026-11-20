@@ -298,7 +298,7 @@ a simultaneous new grab may latch before the trump resolves.
 | Grab-release beat/pose | ▢ | S/M | E1 | Publish a released/escaped fact if presentation needs it. |
 | Grounded command grab | ✔ | S/M | E1 | `lunge_grab` (stand-in `special_forward`). Zero starts in one complete shipped-ladder match. |
 | Aerial command grab | Not planned | — | — | S0.4 ruling: no airborne captures. |
-| Hit-grab | ▢ | M | E1 | A second consumer of `OnHitEffectMessage` (beside `apply_pogo_bounce`) plus an optional target on the capture attempt, because acquisition searches a box and can catch a different body. A connected hit is shield-blocked, unlike the overlap grab; choose that out loud. |
+| Hit-grab | ✔ | M | E1 | 2026-11-20. `smash.hit_grab` (on hit, `ambition_demo_smash_modules::hit_grab`) asks `ambition.combat.seize_struck`: the striker grabs the body its strike struck, through the capture relation, with a capture attempt that NAMES its victim (`CaptureAttemptRequested::target`), so no box search can catch a different body. It is judged by every grab rule but the reach (both standing, neither held, the damage relation, the matching, a mutual grab is a parry); when it will be judged, the hold replaces the hit's launch and stun, and a body in the air keeps its hit. **Shield: blocked, said out loud.** A blocked strike lands no `LandedBodyHit`, so it strikes nothing and seizes nothing; unlike the overlap grab, a hit-grab does not beat a shield. Customer: the Goblin's headlong charge tackles a standing body into his grab kit (pummel, throws, carry). Guards: `a_named_attempt_catches_its_target_and_only_it` (capture), `a_hit_grab_asks_for_the_body_it_struck` (module road, linked and wasm); match-path `the_goblins_headlong_charge_tackles_a_standing_rival_into_his_grab` needs the music registry. |
 | Tether grab | ✔ | M | E1 | Projectile Polygon has a standing tether capture and a distinct aerial tether hit. The air move creates no capture relationship. |
 | Grab-vs-grab cancellation | ✔ | S/M | E1 | `S0.2`: a mutual grab parries. |
 | Hitbox-vs-grab arbitration | ✔ | M | E1 | `S0.2`: an ordinary hit beats a same-tick grab. |
@@ -581,8 +581,7 @@ post-gate order, each step one coherent customer at a time:
    headless match waits for entry music, so this needs a machine with the
    music registry.
 2. **Strike-seam rows that reuse S0.8/S0.9 seams** (E1, settled policy):
-   hit-grab (a consumer of `OnHitEffectMessage` with a target on the capture
-   attempt), recoil on hit (the inverse of `ambition.combat.mend`), the
+   hit-grab (✔ 2026-11-20), recoil on hit (the inverse of `ambition.combat.mend`), the
    ledge-trump commitment window, a grab-release fact.
 3. **Item attribution**: thrown-item damage through normal hit attribution,
    then thrower/KO attribution, item catch and item lifetime policy.

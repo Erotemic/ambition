@@ -184,6 +184,9 @@ pub fn acquire_captures(
             if victim.entity == attempt.captor || tuning.room_of(victim.entity) != captor_room {
                 continue;
             }
+            if attempt.target.is_some_and(|target| target != victim.entity) {
+                continue;
+            }
             if victim.is_corpse() || victim.is_intangible() {
                 continue;
             }
@@ -221,7 +224,7 @@ pub fn acquire_captures(
             // The published silhouette when there is one, the coarse box when
             // there is not — the same fallback every body-overlap road uses.
             let body = victim.aabb.aabb();
-            if !reach.intersects(&body) {
+            if attempt.target.is_none() && !reach.intersects(&body) {
                 continue;
             }
             //  a body with no `SimId` cannot participate in the deterministic
@@ -805,6 +808,7 @@ mod tests {
             half_extents: ae::Vec2::new(12.0, 14.0),
             hold_offset: ae::Vec2::new(18.0, 0.0),
             move_instance: None,
+            target: None,
         }
     }
 
@@ -832,6 +836,35 @@ mod tests {
             assert_eq!(app.world().get::<ActorFaction>(captor), Some(&ActorFaction::Enemy));
             assert_eq!(app.world().get::<ActorFaction>(victim), Some(&ActorFaction::Enemy));
         }
+    }
+
+    /// A named attempt (a strike that seizes what it struck) catches that one
+    /// body without the reach test: not a nearer body in the box, and the
+    /// named one even outside it. Every other grab rule still judges it: a
+    /// named body in the air is not caught.
+    #[test]
+    fn a_named_attempt_catches_its_target_and_only_it() {
+        use ambition_characters::actor::ActorFaction;
+        let mut app = capture_app();
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let near = grounded_body(&mut app, "near", ae::Vec2::new(16.0, 0.0));
+        let named = grounded_body(&mut app, "named", ae::Vec2::new(90.0, 0.0));
+        for body in [near, named] {
+            app.world_mut().entity_mut(body).insert(ActorFaction::Player);
+        }
+        app.world_mut().write_message(CaptureAttemptRequested { target: Some(named), ..attempt(captor) });
+        app.update();
+        assert_eq!(app.world().get::<CapturedBy>(named).map(|by| by.captor), Some(captor), "the named body was not caught");
+        assert!(app.world().get::<CapturedBy>(near).is_none(), "a body in the reach was caught instead of the named one");
+
+        let mut app = capture_app();
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let named = grounded_body(&mut app, "named", ae::Vec2::new(16.0, 0.0));
+        app.world_mut().entity_mut(named).insert(ActorFaction::Player);
+        app.world_mut().get_mut::<ae::BodyGroundState>(named).unwrap().on_ground = false;
+        app.world_mut().write_message(CaptureAttemptRequested { target: Some(named), ..attempt(captor) });
+        app.update();
+        assert!(app.world().get::<CapturedBy>(named).is_none(), "a named body in the air was caught");
     }
 
     /// ⭐ A GRAB THAT CATCHES HAS CONNECTED: the catch marks the grab's own
@@ -3501,6 +3534,7 @@ pub fn translate_authored_capture_effects(
                         half_extents: ambition_platformer2d_core::Vec2::new(p.half_extents.0, p.half_extents.1),
                         hold_offset: ambition_platformer2d_core::Vec2::new(p.hold_offset.0, p.hold_offset.1),
                         move_instance: message.move_instance,
+                        target: None,
                     }),
                     Err(err) => {
                         warn!("smash capture attempt params did not hydrate: {err}");

@@ -23,6 +23,7 @@
 | [`smash_crumple`](src/smash_crumple.rs) | Authored payload for a crumple applied by a damaging hit. |
 | [`smash_flyline`](src/smash_flyline.rs) | Authored payload for a flyline recovery. |
 | [`smash_freeze`](src/smash_freeze.rs) | Authored payload for a freeze applied by a damaging hit. |
+| [`smash_hit_grab`](src/smash_hit_grab.rs) | Authored payload for a hit-grab: a strike that seizes the body it struck. |
 | [`smash_homing`](src/smash_homing.rs) | Authored payload for a homing dash. |
 | [`smash_lifesteal`](src/smash_lifesteal.rs) | Authored payload for lifesteal: a strike that mends the body that struck. |
 | [`smash_limit`](src/smash_limit.rs) | Authored Limit-meter fill policy and the technique that fills the meter directly. |
@@ -42,7 +43,7 @@
 | [`smash_trapdoor`](src/smash_trapdoor.rs) | Authored payload for entering and leaving the submerged body mode. |
 | [`smash_vitality`](src/smash_vitality.rs) | Authored payload for changing the mover's own health. |
 
-_35 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -13,6 +13,7 @@
 | [`crumple`](src/crumple.rs) | The crumple: a strike that buckles a standing body to the floor. |
 | [`dilation`](src/dilation.rs) | Time dilation: a body runs on a slower clock for a while. |
 | [`freeze`](src/freeze.rs) | The freeze: a strike that encases the body it struck. |
+| [`hit_grab`](src/hit_grab.rs) | The hit-grab: a strike that seizes the body it struck. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
 | [`lifesteal`](src/lifesteal.rs) | Lifesteal: a strike that mends the body that struck. |
 | [`limit`](src/limit.rs) | A move that fills its own fighter's Limit meter. |
@@ -27,7 +28,7 @@
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_20 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

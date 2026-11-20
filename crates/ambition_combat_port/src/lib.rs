@@ -67,7 +67,7 @@ pub use contact::{
 pub use hold::{BodyHold, BodyHoldPort};
 pub use ledge::{BodyLine, BodyLinePort, LedgeAhead, LedgeAheadPort, LedgeSight, OnGroundPort, LEDGE_SEARCH_REACH};
 pub use special::{
-    AimedStick, AimedStickPort, BodyStrike, BodyStrikePort, Bury, BuryPort, Crumple, CrumplePort, Freeze, FreezePort, FighterSpecial, FighterSpecialPort, Mend, MendPort, ParryWindow,
+    AimedStick, AimedStickPort, BodyStrike, BodyStrikePort, Bury, BuryPort, Crumple, CrumplePort, Freeze, FreezePort, FighterSpecial, FighterSpecialPort, Mend, MendPort, SeizeStruck, SeizeStruckPort, ParryWindow,
     Paralyze, ParalyzePort, ParryWindowPort, RefillResource, RefillResourcePort, SleepArea, SleepAreaPort, SpecialParam,
 };
 pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};

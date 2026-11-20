@@ -529,6 +529,26 @@ Port `ambition.objects.defeated@1`, trigger: read as `this.trigger`.
 | `object` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
 | `by` | { session: text, allocation_room: integer (u32) or (), sequence: text } or () |  |
 
+## `emit_signal`
+
+Port `ambition.objects.emit_signal@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `topic` | text | required |  |
+| `data` | schema-selected data | `()` |  |
+
+## `object_signal`
+
+Port `ambition.objects.signal@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `from` | { session: text, allocation_room: integer (u32) or (), sequence: text } |  |
+| `topic` | text |  |
+| `data` | schema-selected data |  |
+
 ## `behavior_events`
 
 Port `ambition.objects.events@1`, observation: read as `this.observe.<alias>`.

@@ -44,6 +44,55 @@ other: a mailbox at capacity drops it and reports the drop in `behavior_events`.
 Keep the native state you need (for example, a body query of the living guards)
 when the mechanism must survive a dropped wakeup.
 
+## Send a signal
+
+A signal is your own named message, as a Godot signal is: the object a script
+runs for emits it, and each method subscribed to that object for that topic
+hears it. Unlike `object_defeated`, a signal is not a fact the engine vouches for.
+It is a request that the runtime admits or refuses.
+
+Emit with `emit_signal` from an `actor_think` entry that declares it in
+`requests`:
+
+```rhai
+this.requests.push(request("emit_signal", #{topic: "opened", data: #{by: "lever"},
+    reply: #{request: 0, selector: "my_mod::door/sent"}}));
+```
+
+Subscribe as to a defeat. The difference is that the method's entry names the
+topic as its selector on the `object_signal` port:
+
+```rhai
+#{key: "hear_open", phase: "actor_think", trigger: #{port: "object_signal", selector: "opened"}, writes: ["gate"]}
+// in the binding:
+references: #{door: door_object},
+methods: [#{name: "on_open", entry: "my_mod::gate/hear_open"}],
+subscriptions: [#{key: "door_open", source: "door", method: "on_open"}]
+```
+
+The handler reads `this.trigger.from` (the emitting object), `this.trigger.topic`
+and `this.trigger.data`. The runtime names the sender. A script cannot claim
+to be another object. A topic names only signals: it is kept apart from native
+facts, so no topic can be heard as `object_defeated` or any other fact.
+
+Admission is all or nothing. The sender's `reply` is `applied`, with one
+`recipient` subject for each object that will hear it (none is fine). If the
+signal cannot reach every subscriber, the reply is `rejected` and nobody hears
+it. The refusal codes are:
+
+- `invalid_signal_topic`: the topic is not 1 to 48 bytes of `a-z0-9_.-`;
+- `signal_data_bound`: the data exceeds `ObjectBehaviorLimits.max_data_bytes`
+  (4096) or a recipient's mailbox bound;
+- `signal_recipient_bound`: there are more than 16 subscribers;
+- `signal_queue_full`: a subscriber's mailbox holds only undelivered rows;
+- `cross_island_signal_unsupported`: a subscriber is in another rollback
+  island.
+
+Delivery waits for the next actor read cut and shares the receiver's per-tick
+budget with every other addressed payload. A subscription names one exact
+occurrence. In a duplicated room, a copy whose references came from
+`resolve_authored_objects` hears only its own copy's emitter.
+
 ## Find authored objects
 
 `resolve_authored_objects` takes `placements` and a normal `reply`. It uses the

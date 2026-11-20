@@ -9,9 +9,10 @@ Date: 2026-11-17. This audit reads Ambition, Mary-O, and Sanic. It does not chan
 The [playable toll mechanism](../../sdk/reactive-mechanisms.md) now combines scoped
 authored lookup, native switch activation, private methods, native inspection and
 atomic destructible/inventory outcomes. This is a local proof. Accepted defeat
-is a subscribable fact (`object_defeated`, 2026-11-19). Signals, retirement
-facts, full duplicated-room gameplay and committed world-domain communication
-remain open.
+is a subscribable fact (`object_defeated`, 2026-11-19). Authored signals are
+admitted whole or refused (`emit_signal`/`object_signal`, 2026-11-19).
+Retirement facts, full duplicated-room gameplay and committed world-domain
+communication remain open.
 
 The [program](script-first-ambition-gameplay.md#reactive-capability-direction)
 now selects an island-local reactive model. This census supplies owner and
@@ -156,7 +157,7 @@ Typed native journals keep ticket ownership and explicit call completion.
 The loaded `requests_and_native_outcomes_share_one_private_receiver_budget_through_replay`
 guard checks their shared budget. The existing Rhai and WASM witnesses cover
 native outcomes, private state, faults, cancellation and replay. Additional
-native sources, signals, mixed factory batches and confirmed delivery remain
+native sources, mixed factory batches and confirmed delivery remain
 open under the [delivery evaluation](addressed-behavior-inbox.md).
 
 ### Local construction reference receipt
@@ -168,8 +169,8 @@ reference without births or spent creation IDs, and check actual native outcomes
 through Rhai, WASM and GGRS. Actor/prop publication and live attachment guards
 also pass. `abaa59138` stores external addresses without reading foreign liveness.
 Native operations retain liveness and scope checks. `6056d42a1` adds bounded Rhai
-composite values and fingerprints their execution budgets. Authored signals and
-confirmed cross-island transport remain open. Do not treat local names as
+composite values and fingerprints their execution budgets. Confirmed
+cross-island transport remains open. Do not treat local names as
 durable object addresses.
 
 ### Native birth subscription receipt
@@ -181,7 +182,7 @@ workers, accepted/refused native inventory, bounded quarantine and GGRS.
 The native guard checks occurrence isolation, queue overflow, reconstruction
 and travel. `e456dde26` declares island policy for host room replay and guest
 prediction. Both guest prediction guards pass after the merge. Other native
-sources, signals, live subscription replacement and confirmed transport remain
+sources, live subscription replacement and confirmed transport remain
 open. Do not publish a native fact before its owning domain commits it.
 
 ### Pending projectile room ownership receipt
@@ -214,7 +215,8 @@ Keep the full capability program open while these contracts lack evidence:
   calls currently run in `actor_think`; technique and reaction phases remain
   separate capability work. Reach and scope rules belong to native owners.
 - Runtime birth facts now use bounded subscriptions to named methods through
-  the shared inbox. Additional native facts and authored signals remain open.
+  the shared inbox, as do accepted defeats and admitted authored signals.
+  Additional native facts remain open.
   Birth, retirement and important state changes must retain provenance. Delivery
   must reuse host commit receipts, with inspectable retry or terminal failure.
   Component removal during rollback reconstruction is not gameplay retirement.
@@ -227,7 +229,7 @@ Directed calls and actor/prop bindings at birth have loaded replay witnesses.
 Typed local references within actor and prop factory batches have loaded Rhai
 and WASM witnesses. Runtime birth subscriptions have a cross-object witness.
 Mixed construction batches, general discovery, live subscription replacement,
-other native sources, authored signals and cross-room message causality during
+other native sources and cross-room message causality during
 independent room replay remain open. See
 [object behaviors](../../sdk/object-behaviors.md).
 

@@ -271,7 +271,8 @@ reward, cancellation, GGRS, and private-state reconstruction through room
 snapshots. Native birth subscriptions also start a relay/worker interaction,
 retain handler quarantine and run native fact handlers and workers through Rhai
 or actual WASM with
-GGRS replay. General discovery, authored signals, mixed actor/prop batches,
+GGRS replay. Authored signals are admitted whole or refused
+([reactive mechanisms](reactive-mechanisms.md#send-a-signal)). General discovery, mixed actor/prop batches,
 live subscription replacement and other native event families remain open.
 Message causality under independent room replay also remains open; refusing a
 foreign speculative write does not implement confirmed transport.

@@ -149,7 +149,7 @@ fn context(world: &World, context: ObservationContext<'_>) -> Option<Option<Beha
     })))
 }
 fn tick(world: &World) -> u64 { world.resource::<ambition_time::SimTick>().0 }
-fn limits(world: &mut World, subject: Entity) -> ObjectBehaviorLimits {
+pub(crate) fn limits(world: &mut World, subject: Entity) -> ObjectBehaviorLimits {
     let mut state = SystemState::<RulesOf<ObjectBehaviorLimits>>::new(world);
     state.get(world).ok().and_then(|rules| rules.of(subject).copied()).unwrap_or_default()
 }
@@ -159,7 +159,7 @@ fn target(world: &World, caller: Entity, reference: ObjectRef) -> Result<Entity,
     if !shares_simulation_island(world, caller, target) { return Err("object_not_live_in_authority"); }
     Ok(target)
 }
-fn checked_data(data: &ScriptValue, max: u32) -> Option<ScriptValue> {
+pub(crate) fn checked_data(data: &ScriptValue, max: u32) -> Option<ScriptValue> {
     use ambition_extension_sdk::structure::Field;
     let data = <ScriptValue as Field<ScriptValue>>::from_script(data).ok()?;
     let mut bytes = Vec::new(); <ScriptValue as Field<ScriptValue>>::put(&data, &mut bytes);

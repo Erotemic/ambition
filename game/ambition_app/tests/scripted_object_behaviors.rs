@@ -797,3 +797,132 @@ fn a_subscribed_method_hears_the_defeat_of_its_source_once() {
     sim.rollback_health().unwrap();
     let _ = std::fs::remove_file(path);
 }
+
+const SIGNAL_SOURCE: &str = r#"
+fn declare() {
+    #{provider: "bell_probe", key: "ring", schemas: [
+        #{key: "root", fields: [
+            #{tag: 1, name: "started", kind: "bool"},
+            #{tag: 2, name: "listeners", kind: "seq 4 object"},
+            #{tag: 3, name: "attached", kind: "u32"},
+            #{tag: 4, name: "rung", kind: "u32"},
+            #{tag: 5, name: "heard_by", kind: "u32"},
+            #{tag: 6, name: "refused", kind: "text 64"},
+        ]},
+        #{key: "listener", fields: [
+            #{tag: 1, name: "heard", kind: "u32"},
+            #{tag: 2, name: "from", kind: "opt object"},
+            #{tag: 3, name: "peal", kind: "u32"},
+        ]}
+    ], entries: [
+        #{key: "start", phase: "technique_execution", trigger: #{port: "status_tick", selector: "bell_probe.start"},
+          writes: ["root"], requests: ["body_query"], limit: 1},
+        #{key: "found", phase: "actor_think", trigger: #{port: "action_result", selector: "found"},
+          reads: ["body_query_result"], writes: ["root"], requests: ["attach_behaviors"], limit: 2},
+        #{key: "attached", phase: "actor_think", trigger: #{port: "action_result", selector: "attached"},
+          writes: ["root"], requests: ["emit_signal"], limit: 2},
+        #{key: "rang", phase: "actor_think", trigger: #{port: "action_result", selector: "rang"}, writes: ["root"]},
+        #{key: "forged", phase: "actor_think", trigger: #{port: "action_result", selector: "forged"}, writes: ["root"]},
+        #{key: "hear", phase: "actor_think", trigger: #{port: "object_signal", selector: "rung"}, writes: ["listener"]},
+    ]}
+}
+fn start() {
+    if this.state.root.started { return; }
+    this.state.root.started = true;
+    this.requests.push(request("body_query", #{reply: #{request: 0, selector: "bell_probe::ring/found"},
+        origin: this.trigger.position, radius: 4000.0, limit: 5, include_self: true}));
+}
+fn found() {
+    if this.trigger.stage != "applied" { return; }
+    let bell = ();
+    let others = [];
+    for target in this.observe.body_query_result.targets {
+        if target.driven { bell = target.object; } else if others.len() < 2 { others.push(target.object); }
+    }
+    if bell == () { throw "the query found no driven body"; }
+    // Each listener hears the bell: its subscription names the bell's object,
+    // and its method's entry names the topic.
+    let n = 0;
+    for listener in others {
+        this.state.root.listeners.push(listener);
+        this.requests.push(request("attach_behaviors", #{target: listener, bindings: [#{key: "listener",
+            references: #{bell: bell}, methods: [#{name: "hear", entry: "bell_probe::ring/hear"}],
+            subscriptions: [#{key: "bell", source: "bell", method: "hear"}]}],
+            reply: #{request: n, selector: "bell_probe::ring/attached"}}));
+        n += 1;
+    }
+}
+fn attached() {
+    if this.trigger.stage == "rejected" { throw this.trigger.message; }
+    if !this.trigger.terminal { return; }
+    this.state.root.attached += 1;
+    if this.state.root.attached != this.state.root.listeners.len() { return; }
+    // The bell (the body this runs for) rings once; a topic no entry could
+    // name is refused before anyone hears it.
+    this.requests.push(request("emit_signal", #{topic: "rung", data: #{peal: 3},
+        reply: #{request: 0, selector: "bell_probe::ring/rang"}}));
+    this.requests.push(request("emit_signal", #{topic: "ambition.objects.defeated@1", data: (),
+        reply: #{request: 1, selector: "bell_probe::ring/forged"}}));
+}
+fn rang() {
+    if !this.trigger.terminal { return; }
+    if this.trigger.stage != "applied" { throw this.trigger.code; }
+    this.state.root.rung += 1;
+    this.state.root.heard_by = this.trigger.subjects.len();
+}
+fn forged() {
+    if !this.trigger.terminal { return; }
+    this.state.root.refused = this.trigger.code;
+}
+fn hear() {
+    this.state.listener.heard += 1;
+    this.state.listener.from = this.trigger.from;
+    this.state.listener.peal = this.trigger.data.peal;
+}
+"#;
+
+/// ⭐ AN AUTHORED SIGNAL REACHES EVERY SUBSCRIBER, OR NONE. A script emits a
+/// named message from the object it runs for; the runtime admits it to each
+/// method subscribed to that object whose entry names the topic, answers the
+/// sender with who heard it, and refuses a topic no entry could name.
+#[test]
+fn an_emitted_signal_is_heard_once_by_each_subscriber_and_names_its_sender() {
+    let dir = std::env::temp_dir().join(format!("ambition_signal_probe_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("bell_probe.rhai");
+    std::fs::write(&path, SIGNAL_SOURCE).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("basement_enemies")
+            .with_extension_module_files(vec![path.clone()])).unwrap();
+    let world = sim.world_mut();
+    let player = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+    world.entity_mut(player).insert(BodyStatuses(vec!["bell_probe.start".into()]));
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 40);
+
+    let root = SchemaKey::new("bell_probe", "root", 1);
+    let listener = SchemaKey::new("bell_probe", "listener", 1);
+    let record = sim.world().get::<BodyRecords>(player).unwrap().get(&root).cloned().expect("the probe started");
+    let Value::Seq(listeners) = record.get(FieldRef(1)).unwrap() else { panic!("the probe lists its listeners") };
+    assert_eq!(listeners.len(), 2, "the premise: the gallery has two bodies near the player");
+    assert_eq!(record.get(FieldRef(3)).unwrap(), &Value::U32(1), "the signal was admitted");
+    assert_eq!(record.get(FieldRef(4)).unwrap(), &Value::U32(2), "the sender is told both heard it");
+    assert_eq!(record.get(FieldRef(5)).unwrap(), &Value::Text("invalid_signal_topic".into()),
+        "a topic spelled like a native port is refused");
+    let bell = sim.world().get::<ambition_platformer2d::platformer::lifecycle::ObjectOccurrence>(player).map(|occurrence| {
+        let session = sim.world().get::<ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>(player).unwrap().0;
+        occurrence.reference(session)
+    }).expect("the bell has an occurrence");
+    let world = sim.world_mut();
+    let heard: Vec<_> = world.query::<&BodyRecords>().iter(world).filter_map(|records| records.get(&listener).cloned()).collect();
+    assert_eq!(heard.len(), 2, "two listeners");
+    for row in heard {
+        assert_eq!(row.get(FieldRef(0)).unwrap(), &Value::U32(1), "heard once");
+        assert_eq!(row.get(FieldRef(1)).unwrap(), &Value::Opt(Some(Box::new(Value::Object(bell)))), "the runtime names the bell");
+        assert_eq!(row.get(FieldRef(2)).unwrap(), &Value::U32(3), "the data arrives");
+    }
+    let faults = sim.world().resource::<ExtensionFaults>();
+    assert_eq!(faults.total, 0, "{:?}", faults.recent);
+    sim.rollback_health().unwrap();
+    let _ = std::fs::remove_dir_all(dir);
+}

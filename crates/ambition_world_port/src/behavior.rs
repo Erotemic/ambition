@@ -152,3 +152,25 @@ port!(ObjectActivationPort, "ambition.objects.activation", Observation, Option<O
 pub struct ObjectDefeated { pub object: ObjectRef, pub by: Option<ObjectRef> }
 ambition_extension_sdk::port_record! { ObjectDefeated { object: ObjectRef, by: Option<ObjectRef> } }
 port!(ObjectDefeatedPort, "ambition.objects.defeated", Trigger, ObjectDefeated);
+
+/// A script's named message from the object it runs for, to each method
+/// subscribed to that object whose entry's selector is `topic`. The runtime
+/// admits it to every such method or to none, and answers with the recipients.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmitSignal { pub reply: ReplyTo, pub topic: String, pub data: ScriptValue }
+ambition_extension_sdk::port_record! {
+    EmitSignal { reply: ReplyTo, topic: String, data: ScriptValue = ScriptValue::Unit }
+}
+action_port!(EmitSignalPort, "ambition.objects.emit_signal", 1, EmitSignal, "objects.emit_signal");
+/// An admitted signal as its subscriber hears it. `from` is the emitting
+/// object, named by the runtime, never by the script that emitted it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObjectSignal { pub from: ObjectRef, pub topic: String, pub data: ScriptValue }
+ambition_extension_sdk::port_record! { ObjectSignal { from: ObjectRef, topic: String, data: ScriptValue } }
+port!(ObjectSignalPort, "ambition.objects.signal", Trigger, ObjectSignal);
+/// A signal topic: 1 to 48 bytes of `a-z`, `0-9`, `_`, `.` and `-`. The
+/// subscriber's entry selector names it.
+pub fn valid_signal_topic(topic: &str) -> bool {
+    (1..=48).contains(&topic.len())
+        && topic.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'.' | b'-'))
+}

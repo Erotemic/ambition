@@ -12,23 +12,42 @@ use crate::object_behaviors::BehaviorInstance;
 
 type Dispatch = fn(&mut ExtensionInvocations, &str, &str, InvocationScope, &[u8], InvocationReceipt)
     -> Result<(), ambition_extension_sdk::wire::WireError>;
+/// A source's events: one fixed selector, or (authored signals) one event per
+/// topic, the subscribing entry's selector naming the topic.
 #[derive(Clone)]
-pub(crate) struct NativeSource { pub port: PortKey, pub selector: String, pub dispatch: Dispatch }
+pub(crate) struct NativeSource { pub port: PortKey, pub selector: String, pub topical: bool, pub dispatch: Dispatch }
+impl NativeSource {
+    /// The routing key of this source's event at `selector`. A topic is kept
+    /// behind `#`, so no topic can spell another source's key.
+    fn event(&self, selector: &str) -> String {
+        if self.topical { format!("{}#{selector}", self.port) } else { self.port.to_string() }
+    }
+}
 #[derive(Resource, Default)]
 pub(crate) struct NativeSources(BTreeMap<String, NativeSource>);
 impl NativeSources {
-    pub(crate) fn get(&self, event: &str) -> Option<&NativeSource> { self.0.get(event) }
+    /// The source of a routed event and the selector its entries carry.
+    pub(crate) fn get<'a>(&'a self, event: &'a str) -> Option<(&'a NativeSource, &'a str)> {
+        match event.split_once('#') {
+            Some((port, topic)) => self.0.get(port).filter(|source| source.topical).map(|source| (source, topic)),
+            None => self.0.get(event).filter(|source| !source.topical).map(|source| (source, source.selector.as_str())),
+        }
+    }
     pub(crate) fn for_entry(&self, entry: &ambition_extension_host::AdmittedEntry) -> Option<&NativeSource> {
-        self.0.get(&entry.descriptor.trigger.port.to_string()).filter(|source|
-            entry.descriptor.phase == ACTOR_THINK && entry.descriptor.trigger.selector.as_ref() == source.selector)
+        let selector = entry.descriptor.trigger.selector.as_ref();
+        self.0.get(&entry.descriptor.trigger.port.to_string()).filter(|source| entry.descriptor.phase == ACTOR_THINK
+            && if source.topical { valid_signal_topic(selector) } else { selector == source.selector })
     }
 }
 
 /// Install a typed native fact source. The domain owns publication of its values.
 /// Facts wait for a later actor read cut. This does not install a physics authority.
 pub fn install_native_source<P: Port>(app: &mut App, owner: &'static str, selector: &str) {
+    install_source::<P>(app, owner, selector, false);
+}
+fn install_source<P: Port>(app: &mut App, owner: &'static str, selector: &str, topical: bool) {
     assert_eq!(P::ROLE, ambition_extension_sdk::PortRole::Trigger);
-    let source = NativeSource {port: P::KEY, selector: selector.into(), dispatch: dispatch::<P>};
+    let source = NativeSource {port: P::KEY, selector: selector.into(), topical, dispatch: dispatch::<P>};
     let mut sources = app.world_mut().get_resource_or_init::<NativeSources>();
     assert!(sources.0.insert(P::KEY.to_string(), source).is_none(), "a native event has one source contract");
     app.install_extension_trigger::<P, _>(ACTOR_THINK, owner,
@@ -120,7 +139,7 @@ pub(crate) fn prepare(world: &World, methods: &[BehaviorMethod], references: &[(
         let source = sources.for_entry(entry)
             .ok_or_else(|| format!("Subscription {} method {} is not bound to a native fact source and selector.", subscription.key, method.name))?;
         Ok(PreparedSubscription {key: subscription.key.clone(), source: subscription.source.clone(),
-            method: method.name.clone(), event: source.port.to_string()})
+            method: method.name.clone(), event: source.event(entry.descriptor.trigger.selector.as_ref())})
     }).collect()
 }
 pub(crate) fn initialized(subscriptions: &[PreparedSubscription], references: &[(String, ObjectRef)],
@@ -159,15 +178,31 @@ fn publish_captured<P: Port>(world: &mut DeferredWorld<'_>, source: ObjectRef, a
     value: &P::Value) -> NativePublication {
     let event = P::KEY.to_string();
     assert!(world.resource::<NativeSources>().get(&event).is_some(), "the native fact source must be installed");
-    let routes = world.resource::<EventRoutes>().routes.get(&(source, event.clone())).cloned().unwrap_or_default();
-    if routes.is_empty() { return NativePublication::default(); }
+    let mut bytes = Vec::new(); P::encode(value, &mut bytes);
+    let recipients = recipients(world, source, &event);
+    publish_encoded(world, source, authority, &event, recipients, &bytes)
+}
+/// The live mailboxes subscribed to `event` from `source`, in delivery order.
+fn recipients(world: &DeferredWorld<'_>, source: ObjectRef, event: &str) -> Vec<(ObjectRef, Entity, String)> {
+    let routes = world.resource::<EventRoutes>().routes.get(&(source, event.to_owned())).cloned().unwrap_or_default();
+    if routes.is_empty() { return Vec::new(); }
     let objects = ObjectIndex::capture(world);
     let mut recipients: Vec<_> = routes.into_iter().filter_map(|(entity, key)| {
         let reference = object_reference(world, entity)?;
         (objects.resolve(SessionScopeId(source.session), reference) == Ok(entity)).then_some((reference, entity, key))
     }).collect();
     recipients.sort_by(|a, b| (a.0, &a.2).cmp(&(b.0, &b.2)));
-    let mut bytes = Vec::new(); P::encode(value, &mut bytes);
+    recipients
+}
+/// Whether `mailbox` takes a row of `len` bytes now, and which settled row it
+/// gives up for it.
+fn room_for(mailbox: &EventMailbox, len: usize) -> Result<Option<usize>, ()> {
+    if len > mailbox.max_bytes as usize || mailbox.capacity == 0 || mailbox.next_sequence == u64::MAX { return Err(()); }
+    if mailbox.rows.len() < mailbox.capacity as usize { return Ok(None); }
+    mailbox.rows.iter().position(|row| !row.delivery.progress.pending()).map(Some).ok_or(())
+}
+fn publish_encoded(world: &mut DeferredWorld<'_>, source: ObjectRef, authority: SimulationIsland, event: &str,
+    recipients: Vec<(ObjectRef, Entity, String)>, bytes: &[u8]) -> NativePublication {
     let now = world.resource::<ambition_time::SimTick>().0;
     let mut report = NativePublication::default();
     for (_, entity, key) in recipients {
@@ -176,23 +211,48 @@ fn publish_captured<P: Port>(world: &mut DeferredWorld<'_>, source: ObjectRef, a
             continue;
         }
         let mut mailbox = world.get_mut::<EventMailbox>(entity).unwrap();
-        if bytes.len() > mailbox.max_bytes as usize || mailbox.capacity == 0 || mailbox.next_sequence == u64::MAX {
-            mailbox.dropped = mailbox.dropped.saturating_add(1); report.overflow += 1; continue;
-        }
-        if mailbox.rows.len() >= mailbox.capacity as usize {
-            if let Some(index) = mailbox.rows.iter().position(|row| !row.delivery.progress.pending()) {
-                mailbox.rows.remove(index);
-            } else {
-                mailbox.dropped = mailbox.dropped.saturating_add(1); report.overflow += 1; continue;
-            }
+        match room_for(&mailbox, bytes.len()) {
+            Err(()) => { mailbox.dropped = mailbox.dropped.saturating_add(1); report.overflow += 1; continue; }
+            Ok(Some(settled)) => { mailbox.rows.remove(settled); }
+            Ok(None) => {}
         }
         let sequence = mailbox.next_sequence; mailbox.next_sequence += 1;
         mailbox.rows.push(EventRow {delivery: BehaviorEventDelivery {sequence, subscription: key, source,
-            event: event.clone(), tick: now, progress: DeliveryProgress::default()},
-            bytes: bytes.clone(), max_attempts: 1});
+            event: event.to_owned(), tick: now, progress: DeliveryProgress::default()},
+            bytes: bytes.to_vec(), max_attempts: 1});
         report.queued += 1;
     }
     report
+}
+
+/// The most methods one signal reaches. A signal admitted to fewer than all
+/// its subscribers would be a partial fact, so a larger set refuses.
+pub const MAX_SIGNAL_RECIPIENTS: usize = 16;
+
+/// Admit `signal` from `source` to every method subscribed to it, or to none.
+/// Returns the recipients' objects, in delivery order.
+pub(crate) fn admit_signal(world: &mut World, source: ObjectRef, authority: SimulationIsland, signal: &ObjectSignal)
+    -> Result<Vec<ObjectRef>, &'static str> {
+    if !valid_signal_topic(&signal.topic) { return Err("invalid_signal_topic"); }
+    let event = world.resource::<NativeSources>().0.get(&ObjectSignalPort::KEY.to_string())
+        .filter(|source| source.topical).ok_or("signals_not_installed")?.event(&signal.topic);
+    let mut world = DeferredWorld::from(world);
+    let recipients = recipients(&world, source, &event);
+    if recipients.len() > MAX_SIGNAL_RECIPIENTS { return Err("signal_recipient_bound"); }
+    let mut bytes = Vec::new(); ObjectSignalPort::encode(signal, &mut bytes);
+    // Every recipient is checked before any changes: a refusal leaves all as they were.
+    for (_, entity, _) in &recipients {
+        if simulation_island(&world, *entity) != Some(authority) { return Err("cross_island_signal_unsupported"); }
+        let mailbox = world.get::<EventMailbox>(*entity).ok_or("signal_recipient_unavailable")?;
+        if bytes.len() > mailbox.max_bytes as usize { return Err("signal_data_bound"); }
+        room_for(mailbox, bytes.len()).map_err(|()| "signal_queue_full")?;
+    }
+    // A behavior's mailbox is its own occurrence: the sender hears of the object it runs for.
+    let heard: Vec<_> = recipients.iter().map(|(reference, entity, _)|
+        world.get::<ObjectScopeOwner>(*entity).map_or(*reference, |owner| owner.0)).collect();
+    let report = publish_encoded(&mut world, source, authority, &event, recipients, &bytes);
+    debug_assert_eq!(report.queued as usize, heard.len(), "admission checked every recipient");
+    Ok(heard)
 }
 
 impl EventMailbox {
@@ -252,6 +312,10 @@ pub(crate) fn install(app: &mut App) {
     app.add_systems(schedule, publish_defeats.in_set(Platformer2dSimulationPhase::GameplayEffects)
         .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events));
     install_native_source::<ObjectBornPort>(app, "ambition_platformer2d_runtime", "born");
+    install_source::<ObjectSignalPort>(app, "ambition_platformer2d_runtime", "", true);
+    ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "objects.emit_signal",
+        ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
+    app.install_extension_submitted_request::<EmitSignalPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", emit_signals);
     app.install_extension_context_observation::<BehaviorEventsPort>(ACTOR_THINK, "ambition_platformer2d_runtime",
         |world, context| Some(world.get::<EventMailbox>(context.state_scope).map_or_else(BehaviorEventHistory::default, EventMailbox::history)));
     app.add_observer(|notice: On<ObjectPublished>, mut world: DeferredWorld| {
@@ -275,7 +339,7 @@ mod tests {
         world.init_resource::<EventRoutes>();
         world.insert_resource(ambition_time::SimTick(10));
         world.insert_resource(NativeSources(BTreeMap::from([(ObjectBornPort::KEY.to_string(), NativeSource {
-            port: ObjectBornPort::KEY, selector: "born".into(), dispatch: dispatch::<ObjectBornPort>} )])));
+            port: ObjectBornPort::KEY, selector: "born".into(), topical: false, dispatch: dispatch::<ObjectBornPort>} )])));
         let session = SessionScopeId(1);
         let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
         let bodies = rooms.map(|room| {
@@ -323,6 +387,34 @@ mod tests {
     }
 }
 
+
+/// Admit each emitted signal whole or refuse it, and answer its sender. The
+/// sender is the object its script runs for; a script cannot name another.
+fn emit_signals(world: &mut World) {
+    use ambition_platformer2d_shared_tangle::action_results::{begin_action_request, publish_action_result};
+    use ambition_extension_sdk::action::{ActionStage, ActionSubject};
+    let requests = world.resource_mut::<ambition_extension_host::ExtensionOutbox>().drain::<EmitSignalPort>(&ACTOR_THINK);
+    for submitted in requests {
+        let request = submitted.value;
+        let dispatch = begin_action_request::<EmitSignalPort>(world, submitted.state_scope, &submitted.entry, &request);
+        if !dispatch.execute { continue; }
+        let result = (|| -> Result<Vec<ObjectRef>, &'static str> {
+            if !valid_signal_topic(&request.topic) { return Err("invalid_signal_topic"); }
+            ensure_object_occurrence(world, submitted.scope).ok_or("emitter_without_identity")?;
+            let from = object_reference(world, submitted.scope).ok_or("emitter_without_identity")?;
+            let authority = simulation_island(world, submitted.scope).ok_or("emitter_without_authority")?;
+            let bound = crate::object_behaviors::limits(world, submitted.scope).max_data_bytes;
+            let data = crate::object_behaviors::checked_data(&request.data, bound).ok_or("signal_data_bound")?;
+            admit_signal(world, from, authority, &ObjectSignal {from, topic: request.topic.clone(), data})
+        })();
+        let (stage, code, subjects) = match result {
+            Ok(heard) => (ActionStage::Applied, "signal_admitted", heard.into_iter()
+                .map(|object| ActionSubject {key: "recipient".into(), object: Some(object)}).collect()),
+            Err(code) => (ActionStage::Rejected, code, Vec::new()),
+        };
+        publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, "", subjects);
+    }
+}
 
 type ActivationReads = bevy::ecs::system::SystemState<ambition_platformer2d_core::replay_messages::ReplayMessageReader<'static, 'static, ambition_platformer2d_interaction::ActivationCommitted>>;
 fn publish_activations(world: &mut World, mut reader: Local<Option<ActivationReads>>) {

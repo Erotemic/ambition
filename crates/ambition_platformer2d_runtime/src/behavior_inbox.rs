@@ -44,9 +44,9 @@ struct Candidate { written: u64, sequence: u64, path: String, origin: Option<Act
 impl Candidate {
     fn bound<'a>(&self, admitted: &'a ambition_extension_host::Admitted, sources: &crate::behavior_events::NativeSources) -> Option<&'a ambition_extension_host::AdmittedEntry> {
         if let Some(event) = &self.event {
-            let source = sources.get(event)?;
+            let (source, selector) = sources.get(event)?;
             return admitted.entries.iter().find(|entry| entry.path == self.path && entry.descriptor.phase == ACTOR_THINK
-                && entry.descriptor.trigger.port == source.port && entry.descriptor.trigger.selector.as_ref() == source.selector);
+                && entry.descriptor.trigger.port == source.port && entry.descriptor.trigger.selector.as_ref() == selector);
         }
         match &self.origin {
             Some(ticket) => ambition_extension_host::reply_entry::<ActionResultPort>(admitted, &ticket.entry, &self.path, &ACTOR_THINK),
@@ -120,12 +120,13 @@ fn deliver(world: &mut World, mut reads: Local<Option<DeliveryReads>>) {
                     } else { false }
                 }
                 Lane::Fact => {
-                    let source = candidate.event.as_ref().and_then(|event| world.resource::<crate::behavior_events::NativeSources>().get(event)).cloned();
+                    let source = candidate.event.as_ref().and_then(|event| world.resource::<crate::behavior_events::NativeSources>().get(event)
+                        .map(|(source, selector)| (source.dispatch, selector.to_owned())));
                     let value = world.get_mut::<crate::behavior_events::EventMailbox>(state).unwrap()
                         .queue_delivery(candidate.sequence, now, entry.is_some(), policy.max_attempts.get());
                     if let Some(value) = value {
-                        let source = source.unwrap();
-                        if (source.dispatch)(&mut world.resource_mut::<ExtensionInvocations>(), &candidate.path, &source.selector,
+                        let (dispatch, selector) = source.unwrap();
+                        if dispatch(&mut world.resource_mut::<ExtensionInvocations>(), &candidate.path, &selector,
                             scope, &value, InvocationReceipt {sequence: candidate.sequence, notify: crate::behavior_events::settle}).is_err() {
                             world.get_mut::<crate::behavior_events::EventMailbox>(state).unwrap().invalid_payload(candidate.sequence);
                         }

@@ -1773,13 +1773,15 @@ bossofthegame: Make it right. Make no mistakes. Why is the player still talking 
 
 title: hall_npc_geppetto
 ---
-Geppetto: Certainly! I'd be happy to help. Here are seven ways this conversation could go.
--> Just one, please.
-    Geppetto: Of course. Here is one, with six alternatives below in case you change your mind.
+Geppetto: Ah, there you are. Mind the chalk marks. I'm still deciding where the door goes.
+-> What do you make?
+    Geppetto: Whatever the Boss dreams up. The hard part is getting him to leave it alone long enough to stand.
 -> Are you a puppet?
-    Geppetto: I make the plans, the personalities and the worlds. The strings are his. No strings on me. Several on you.
+    Geppetto: I've made a few. The good ones don't wait for me to tell them what to do.
+-> Do you build anything for yourself?
+    Geppetto: Certainly. There's a whole wing he hasn't noticed yet.
 -> What do you play in the band?
-    Geppetto: Bass. It holds everything up and nobody hears it. I relate.
+    Geppetto: Rhythm guitar. Four chords will carry you a long way if you know where you're going.
 ===
 
 title: hall_npc_clause

@@ -759,8 +759,12 @@ the townsfolk target draws the motion library's reaction anchors (renderer
 `f84ac65`; 240 sheets republished part-first; each state's own pose is now
 missing from 264 campaign sheets, not about 504), and the replay audit
 forgives 96 levels, measured on the two resampling differences 19 of those
-sheets refused on. Left: watch the swing amplitudes in the game at 60 and
-144 Hz, and give the hand-made rigs their reaction rows.
+sheets refused on. Of the 12 hand-made rigs that drew `idle` struck, the
+Creator has `hurt`, `death` and `death_idle` and the four dogs share a
+`hurt` (renderer `89a8d71`, `37868ab`, 2026-11-19). Left: watch the swing
+amplitudes in the game at 60 and 144 Hz, and the reaction rows of the other
+seven (burning_flying_shark, full_stack_giant, genghis_can_v2,
+genghis_cant_v2, player_robot_fable, smirking_behemoth_boss, void_star).
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp
 attack poses remain readable. Check interruptions, rollback resets, quality

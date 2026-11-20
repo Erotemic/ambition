@@ -55,7 +55,7 @@ and the livery are interiors, so their ways in are doors
 | `frontier_main_street` | The town's main street: a boardwalk under the shop awnings (a low tier), the roofs of the shops (a high tier), the water tower. The saloon door, the livery door. The Marshal's notices on a board. | Gus Bell (outside his livery), townsfolk. |
 | `frontier_wet_whistle` | The saloon: the bar, the piano, the stage; the balcony is a tier up. | Mae Calloway (behind the bar), Elias Crane (a prospector), the piano player. |
 | `frontier_livery` | The livery: stalls of hover-mules, a hayloft over them. | Gus Bell's daughter June, who shoes the mules. |
-| `frontier_refinery` | The refinery on the flank of the east mesa: terraces cut into the slope, pipe racks, tanks, the cracking tower, catwalks. The Marshal's posse are here (chickens). | Ruth Okafor, the night-shift foreman. |
+| `frontier_refinery` | The refinery on the flank of the east mesa: terraces cut into the slope, pipe racks, tanks, the cracking tower, catwalks. The Marshal's posse are here (chickens). | Ruth Harlan, the night-shift foreman. |
 | `frontier_ore_corral` | The arena: a level yard on a shelf of the mesa, ore carts, the corral fence, the steam whistle on its stack. Two raised loading docks at the sides, one jump up. | Marshal Gallus. |
 | `frontier_saddle_lookout` | The top of the east mesa, behind the corral's grille: the whole town below, the pads and the ships. The Marshal sits on an ore cart there, hoarse. The reward chest. | Marshal Gallus, beaten. |
 | `hall_marshal_gallus_corral` | The Hall of Bosses' practice copy of the corral (placement `hall.marshal_gallus`). | |
@@ -119,63 +119,69 @@ for the arena's entry:
 
 ## The fight
 
-The encounter is `marshal_gallus` (profile and encounter rows, placement
-`frontier.marshal_gallus`). His resolve: 64 HP. Thresholds: phase 2 at 60%,
-enrage at 25%. He walks the yard (`AnchorSway` on the floor, no bob, a chase
-toward the player). His body hurts to touch.
+The encounter is `marshal_gallus` (`boss_profiles.ron`,
+`boss_encounters/marshal_gallus.ron`), placed as `frontier.marshal_gallus`
+in the corral and as `hall.marshal_gallus` in the Hall of Bosses' copy. His
+resolve: 60 HP. Phase 2 at 65%, enrage at 30%. He walks the yard
+(`AnchorSway` on the floor, no bob, a chase toward the player) and plants his
+feet to shoot (`strike_speed_scale` 0.15). His body hurts to touch.
 
-His moves are `Special` keys that a Rhai script performs
-(`game/ambition_content/rhai/marshal_gallus.rhai`, `boss_special` triggers),
-and two generic body strikes:
+His moves are `Special` keys that the Rhai script
+`game/ambition_content/rhai/marshal_gallus.rhai` performs (one entry per
+move on the `boss_special` port), and one generic body strike:
 
 | Move | Key | Tell | What it does | Dodge |
 | --- | --- | --- | --- | --- |
-| Quick draw | `gallus_quickdraw` | He drops his hand to the holster; a click. | Three shots aimed at the player, one after the other. | Move across the line, or jump. |
-| Spur kick | `Strike("side_sweep")` | He rears back on one leg. | A wide kick in front of him. | Keep away, or jump over it. |
-| Lasso | `gallus_lasso` | He twirls a loop over his head; a ring shows where you stand. | The loop drops on that spot. A body in it is yanked to his feet. | Leave the ring. |
-| Dynamite | `gallus_dynamite` | He lights three sticks (a fuse spark). | Three sticks in arcs; each bursts where it lands. | Stand between the bursts. |
-| Tumbleweeds | `gallus_tumbleweeds` | He whistles a short note; dust at the far wall. | Burning tumbleweeds bounce across the floor from the far wall. | Jump each one, or stand on a dock. |
-| Steam whistle | `gallus_whistle` | He puffs his chest; the plates shake. | He crows. A ring of steam bursts round him and hurts at close range. | Keep out of his reach. |
-| High noon | `gallus_high_noon` | He steps back and squares up; a bell tolls twelve times (a tell of 1.6 s). | Six shots across the yard, high and low by turn. | Duck the high ones, jump the low ones. |
-| Reload | (a `Rest` after high noon) | | He breaks open the cylinder; empty shells fall. | The long punish window. |
+| Quick draw | `gallus_quickdraw` | the `quickdraw` row; a ping at the muzzle. | Three shots, 0.14 s apart, each aimed where you are as it leaves. | Keep moving across the line. |
+| Spur kick | `Strike("side_sweep")` | the `spur_kick` row. | A kick in front of him. | Keep away, or jump it. |
+| Lasso | `gallus_lasso` | the `lasso` row; a ping where you stand. | The loop (a module entity, 88 x 80) drops on that spot; a body in it is thrown toward him, into the spur kick that follows. | Leave the spot. |
+| Dynamite | `gallus_dynamite` | the `dynamite` row; a ping on the floor under you. | Three sticks lobbed to land round you (96 apart), each a burst (`splash_half_extent` 52). | Stand between the bursts, or on a catwalk. |
+| Tumbleweeds | `gallus_tumbleweeds` | the `call` or `whistle` row; dust at both docks. | A pair of tumbleweeds bounds in from the docks' inner faces each second of the strike. | Jump each one, or stand on a dock. |
+| Shift whistle | `gallus_whistle` | the `whistle` row; steam at his chest. | A ring of sound runs the floor both ways from his feet. | Jump it. |
+| High noon | `gallus_high_noon` | the `high_noon` row; he marks where you stand and the mark pings until he fires. | Six shots down the line to the mark, 0.05 s apart. | Be off the line when the warning ends. |
+
+Each move is classified in `boss_seeds.ron` (the quick draw a spread
+volley, the dynamite a slam, the tumbleweeds projectile rain, the whistle a
+sweep, the lasso and high noon beams), inside the bands those seeds already
+measure.
 
 Phases:
 
-1. **Morning Shift (100% to 60%).** Quick draw, spur kick when you are near,
-   lasso when you are far. Each move is followed by a rest that is long
-   enough to hit him.
-2. **Overtime (60% to 25%).** Adds dynamite and the tumbleweeds; the steam
-   whistle comes when you stand next to him. Shorter rests.
-3. **High Noon (25% to 0).** He loses his hat in the change (the hat is
-   blown off by his own whistle), and the high noon volley joins the cycle,
-   always followed by the reload.
+1. **Morning Shift (100% to 65%).** The quick draw, then by where you stand:
+   the spur kick (near), the dynamite (far) or the draw again (above, on a
+   catwalk).
+2. **Overtime (65% to 30%).** The whistle, the tumbleweeds, the lasso into
+   the spur kick, then the dynamite, the draw or the kick by where you stand.
+3. **High Noon (30% to 0).** High noon, then the long rest (1.4 s, his
+   reload) that is the punish window, then everything faster. His art for
+   the change is the `enrage` row: the hat pushed back and the boiler glowing
+   (the art does not knock the hat off).
 
-**Defeat.** His whistle cracks. He drops to one knee, and the grille of the
-corral opens (`boss.cleared frontier.marshal_gallus`). On the lookout he sits
-on an ore cart and talks in a hoarse voice; without the whistle, the shift
-starts at sunrise.
+**Defeat.** The sundown section of his theme plays, he falls (the `death`
+row), and the corral's gate to the mesa top opens (`boss.cleared
+frontier.marshal_gallus`); the chest he drops holds 300.
 
-**The arena.** `frontier_ore_corral`, about 1600 x 640: a level floor, a
-loading dock at each side one jump up (64), a high catwalk over each dock a
-double jump up (128 over the dock), the steam whistle's stack at the back.
-The docks are where the tumbleweeds cannot reach. The camera holds the yard.
+**The arena.** `frontier_ore_corral`, 1600 x 640: a level yard (floor 576), a
+loading dock at each side one jump up (64), a catwalk over each a double jump
+up (128 over the dock). The docks are where the tumbleweeds start, so they
+are behind them.
 
-**The posse.** Chickens (`chicken`, `chicken_hen`) on the refinery terraces.
-They are his flock. They do not join the fight in the corral.
+**The posse.** Game chickens (`chicken`, `chicken_hen`) on the refinery
+terraces. They do not join the fight in the corral.
 
 ### What the scripts can and cannot do
 
-The scripted seams (`boss_special` in `technique_execution`) can request
-projectiles, effects, sounds, blasts, drawn rows, module entities (the lasso's
-loop; its tick reads its touchers and requests `launch_toucher`) and body
-velocity. They cannot request `held_damage_box`, `conducted_pose`,
+The scripted seams (`boss_special` in `technique_execution`) request
+projectiles, effects, sounds and module entities here (the lasso's loop;
+its `module_entity_tick` entry reads its touchers and requests
+`launch_toucher`). They cannot request `held_damage_box`, `conducted_pose`,
 `summon`, `burst`, `camera_shake` or `speech_bubble`: the runtime's script
-alias table (`ambition_platformer2d_runtime::extension_composition::script_ports`)
-does not name them. So:
+alias table (`ambition_platformer2d_runtime::extension_composition`) does
+not name them. So:
 
-- the spur kick and the stomp use the generic body strikes of the boss
-  pattern (`Strike(...)`), not a script;
-- the whistle's hurt ring is a `blast`, and its steam is effects;
+- the spur kick is the generic body strike of the boss pattern
+  (`Strike("side_sweep")`), not a script;
+- the whistle hurts with projectiles (rings along the floor), not a burst;
 - the Marshal does not walk under script control. His walk is the pattern's
   `AnchorSway`.
 
@@ -196,20 +202,24 @@ dog, an alligator. A new chargen hat, `cowboy`, is added for them.
 | June Bell | horse | the livery | she shoes the mules, and she wants a new file. |
 | Mae Calloway | cat | the saloon, behind the bar | to sell you a drink; she knows the Marshal's habits. |
 | Elias Crane | alligator | the saloon | a prospector who pans the creek for lead; he talks too much. |
-| Ruth Okafor | dog | the refinery | the night-shift foreman; the Marshal crows at four in the morning and the shift has to start. |
+| Ruth Harlan | dog | the refinery | the night-shift foreman; the Marshal crows at four in the morning and the shift has to start. |
 | Marshal Gallus | (the boss) | the corral; the lookout after | |
 
 ## The music
 
-Four original cues, rendered by the music renderer with the full instrument
-set (no General MIDI fallback; `optional: false` on every sampled instrument).
+Two original cues, rendered by the music renderer with the full instrument
+set (no General MIDI fallback; `optional: false` on every sampled
+instrument), generated by `tools/ambition_music_renderer/dev/compose_leaden_saddle.py`.
+The game binds their sections to the rooms and the fight
+(`game/ambition_content/assets/audio/music_cues.ron`).
 
-| Cue | Where | What it is |
+| Cue / section | Where | What it is |
 | --- | --- | --- |
-| `leaden_saddle` | the pad, Main Street, the livery, the lookout | The town: a slow shuffle; a fingerpicked acoustic guitar, a harmonica, whistling, an upright bass, brushes, an anvil on the off beat far back. |
-| `wet_whistle` | the saloon | A honky-tonk upright piano with a banjo and a fiddle. |
-| `refinery_shift` | the refinery | A steady train beat; a baritone guitar with tremolo, low strings, metal percussion (anvil, pipes), a harmonica that wails over it. |
-| `marshal_gallus_showdown` | the fight | A boss theme in sections (intro, phase 1, phase 2, enrage): a solo trumpet over a whistled call, a choir's "ah", a tremolo guitar, timpani and anvils, a bell on high noon. |
+| `leaden_saddle` / `dry_dock` | the pad, Main Street, the livery | 96 BPM, A minor: a boom-chick acoustic guitar, upright bass, a clip-clop rim; the saddle motif (A C D E, G E D C D) on a fiddle and a trumpet; a Rhodes for the spaceport. |
+| `leaden_saddle` / `wet_whistle` | the saloon | Stride upright piano, the saddle turned major, brushes, a walking bass. |
+| `leaden_saddle` / `refinery_shift` | the refinery, the corral, the hall's copy | A heavy half-time kit, a pulse of effected strings (String Cyborgs), the saddle in the low brass, a twang guitar. |
+| `leaden_saddle` / `mesa_top` | the mesa top | The guitar alone, a distant trumpet, strings. |
+| `marshal_gallus_showdown` ("Cock of the Walk") | the fight | 132 BPM, E minor, on the crow motif (E E B, A G E): `standoff` (intro), `duel` (phases 1 and 2: a galloping snare, a twang ostinato, trumpets, a male choir), `high_noon` (the enrage, up a semitone), `sundown` (the defeat: the crow slowed into the saddle, ending on E major). |
 
 ## The gate
 
@@ -217,8 +227,9 @@ A gate (a triangle) on the apron of Pad Three. Zone `frontier_pad_gate`,
 facility `dry_dock_pad` ("Dry Dock Pad Three", dimension `frontier`),
 terminal `frontier_gate_terminal`, address `LEADENSADDLE`, posted `LEGAL`.
 Not hidden. Its row in `gate_network.ron`, its portal in `gate_portals.ron`,
-the world in `worlds.ron`, an area card ("Dry Dock" / "The Frontier
-Dimension"; the corral "The Ore Corral").
+the world in `worlds.ron`, area cards ("Dry Dock", "The Refinery", "The
+Mesa Top", each "The Leaden Saddle"; the corral shows the Marshal's own
+card).
 
 ## Slices
 

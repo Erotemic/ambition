@@ -5034,3 +5034,48 @@ Fanihi: *it hangs and chews a fig*
 -> Are you safe?
     Fanihi: Hunting and the brown tree snake nearly ended my kind on Guam. Leave me in my tree.
 ===
+
+title: hall_npc_frontier_clerk
+---
+Dolores: Name, origin, cargo.
+-> What do you do here?
+    Dolores: Twelve credits a head. It goes in a box in the Marshal's office and the box never comes out.
+-> Anything else?
+    Dolores: I've logged freighters, mule trains and a man who came through the gate in his bath.
+===
+
+title: hall_npc_frontier_liveryman
+---
+Gus: Mules by the day.
+-> What do you do here?
+    Gus: Six mules. My sister shoes them and I do the rest.
+-> Anything else?
+    Gus: Folks see my face and ask after my cousins. I tell them the cousins are mules.
+===
+
+title: hall_npc_frontier_barkeep
+---
+Mae: Water's two. Coffee's three.
+-> What do you do here?
+    Mae: The water came eleven hundred miles on a tanker. I charge two credits and I'm still the cheapest thing on the street.
+-> Anything else?
+    Mae: The Marshal tips in somebody else's money.
+===
+
+title: hall_npc_frontier_prospector
+---
+Elias: Forty years in this pass.
+-> What do you do here?
+    Elias: The refinery pays by the pound and the Marshal takes a cut by the pound.
+-> Anything else?
+    Elias: I panned every creek from here to the far pads. I'll tell you about each one, in order.
+===
+
+title: hall_npc_frontier_foreman
+---
+Ruth: Hat on, or off the terrace.
+-> What do you do here?
+    Ruth: The shift starts when the Marshal whistles. He whistles at four in the morning.
+-> Anything else?
+    Ruth: I run the night shift at a refinery on a mesa. I wear the hard hat for the chickens.
+===

@@ -88,4 +88,9 @@
     // ---- the Boss dimension (the stage shows the boss's own card) ----
     (name: "The Final Tour", subtitle: Some("The Boss Dimension"), rooms: ["boss_lobby"]),
     (name: "The Green Room", subtitle: Some("The Boss Dimension"), rooms: ["boss_green_room"]),
+
+    // ---- the Frontier dimension (the corral shows the Marshal's own card) ----
+    (name: "Dry Dock", subtitle: Some("The Leaden Saddle"), rooms: ["frontier_landing_pad", "frontier_main_street", "frontier_wet_whistle", "frontier_livery"]),
+    (name: "The Refinery", subtitle: Some("The Leaden Saddle"), rooms: ["frontier_refinery"]),
+    (name: "The Mesa Top", subtitle: Some("The Leaden Saddle"), rooms: ["frontier_saddle_lookout"]),
 ]

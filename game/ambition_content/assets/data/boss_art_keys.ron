@@ -26,6 +26,8 @@
         "wolfenstein_inugami": "wolfenstein_inugami_spritesheet.png",
         // The final boss (renderer target `bossofthegame_boss`).
         "bossofthegame": "bossofthegame_boss_spritesheet.png",
+        // Marshal Gallus (renderer target `marshal_gallus`).
+        "marshal_gallus": "marshal_gallus_spritesheet.png",
     },
     special_animation_rows: {
         "overfit_volley": ["spike_halo", "eye_beam"],
@@ -110,6 +112,13 @@
         "boss_keystroke_rain": ["floor_slam"],
         "boss_backspace": ["side_sweep"],
         "boss_subagents": ["spike_halo"],
+        // Marshal Gallus: each move on the row of its own.
+        "gallus_quickdraw": ["quickdraw"],
+        "gallus_dynamite": ["dynamite"],
+        "gallus_tumbleweeds": ["call", "whistle"],
+        "gallus_whistle": ["whistle"],
+        "gallus_lasso": ["lasso"],
+        "gallus_high_noon": ["high_noon", "quickdraw"],
     },
     // The sheet rows each geometry strike claims. The first row is the
     // canonical runtime key; the others are row-name aliases, so a

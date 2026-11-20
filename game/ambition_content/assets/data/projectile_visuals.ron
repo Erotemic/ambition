@@ -988,4 +988,36 @@
         label: "trex_rock",
         expiry_vfx: None,
     ),
+    // Marshal Gallus's dynamite and the tumbleweeds of his whistle
+    // (`targets/projectiles/frontier_shots.py`): the stick draws its own spin.
+    "gallus_dynamite": (
+        source: Sheet(
+            target: "gallus_dynamite",
+            animation: "travel",
+            animate: true,
+        ),
+        size: FixedWidth(30.0),
+        rotation: GravityUpright,
+        debug_tint: (0.75, 0.16, 0.13, 1.0),
+        label: "gallus_dynamite",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 1.0,
+        )),
+    ),
+    "gallus_tumbleweed": (
+        source: Sheet(
+            target: "gallus_tumbleweed",
+            animation: "travel",
+            animate: true,
+        ),
+        size: FixedWidth(40.0),
+        rotation: GravityUpright,
+        debug_tint: (0.6, 0.47, 0.28, 1.0),
+        label: "gallus_tumbleweed",
+        expiry_vfx: Some((
+            fx: "leaf_swirl",
+            scale: 0.6,
+        )),
+    ),
 }

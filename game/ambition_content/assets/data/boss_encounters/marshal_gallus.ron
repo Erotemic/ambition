@@ -1,0 +1,20 @@
+// Boss encounter spec: Marshal Gallus, the law of Dry Dock, in the Ore
+// Corral (`docs/planning/game/leadensaddle.md`). His moves are in
+// `assets/data/boss_profiles.ron` and `rhai/marshal_gallus.rhai`; his art in
+// `boss_sheets.ron`.
+//
+// Music: `marshal_gallus_showdown` (the Frontier's own cues,
+// `tools/ambition_music_renderer/scores/active/`).
+(
+    id: "marshal_gallus",
+    name: "Marshal Gallus",
+    max_hp: 60,
+    phase1_to_transition_hp: 0.65,
+    phase2_to_enrage_hp: 0.3,
+    intro_seconds: 2.4,
+    transition_seconds: 1.8,
+    music_intro: "marshal_gallus_showdown",
+    music_phase1: "marshal_gallus_showdown",
+    music_phase2: "marshal_gallus_showdown",
+    music_enrage: "marshal_gallus_showdown",
+)

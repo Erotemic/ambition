@@ -2762,4 +2762,184 @@
             size: (54.0, 54.0),
         ),
     ),
+    // ============================================================
+    // Marshal Gallus, the law of Dry Dock (`docs/planning/game/leadensaddle.md`):
+    // a rooster built back up as a machine, in a hat. He walks the Ore Corral
+    // and fights like a gunfighter: the quickdraw at range, the spur kick up
+    // close, the lasso that hauls you from across the yard to that kick.
+    // His moves are the Rhai script `rhai/marshal_gallus.rhai`; the spur kick
+    // is the body's `side_sweep`. Each move tells by a row of his own.
+    //
+    // Phase 1, "Morning Shift": the draw, then the kick, the dynamite or the
+    // draw again by where you stand. Phase 2, "Overtime": the shift whistle
+    // (rings along the floor) and the tumbleweeds it drives in, the lasso
+    // into the kick. Enrage, "High Noon": he marks where you stand and fans
+    // the hammer down that line; everything else comes faster.
+    // ============================================================
+    "marshal_gallus": (
+        id: "marshal_gallus",
+        title: Some("Cock of the Walk"),
+        reward_ability: None,
+        signature_gauntlet: None,
+        movement: AnchorSway(
+            x_radius: 260.0,
+            y_bob: 0.0,
+            x_frequency: 0.35,
+            y_frequency: 0.0,
+            chase_scale: 0.3,
+            chase_limit: 200.0,
+            speed: 150.0,
+        ),
+        movement_phase2: Some(AnchorSway(
+            x_radius: 300.0,
+            y_bob: 0.0,
+            x_frequency: 0.45,
+            y_frequency: 0.0,
+            chase_scale: 0.4,
+            chase_limit: 260.0,
+            speed: 190.0,
+        )),
+        movement_enrage: Some(AnchorSway(
+            x_radius: 320.0,
+            y_bob: 0.0,
+            x_frequency: 0.6,
+            y_frequency: 0.0,
+            chase_scale: 0.55,
+            chase_limit: 300.0,
+            speed: 240.0,
+        )),
+        // He plants his feet to shoot.
+        strike_speed_scale: 0.15,
+        macro_tuning: (
+            too_close_distance: 100.0,
+            too_far_distance: 520.0,
+            engage_distance: 240.0,
+            approach_duration_s: 2.6,
+            retreat_duration_s: 1.8,
+            engage_max_duration_s: 8.0,
+            approach_speed_scale: 1.3,
+            retreat_speed_scale: 0.8,
+            retreat_distance: 240.0,
+        ),
+        attacks: [
+            Strike("side_sweep"),
+            Special("gallus_quickdraw"),
+            Special("gallus_dynamite"),
+            Special("gallus_tumbleweeds"),
+            Special("gallus_whistle"),
+            Special("gallus_lasso"),
+            Special("gallus_high_noon"),
+        ],
+        attack_cooldown: 1.0,
+        attack_windup: 0.5,
+        attack_active: 0.35,
+        attack_damage: 2,
+        body_damage: 1,
+        projectile_origin_offset: (70.0, -18.0),
+        attack_pattern: Scripted(
+            phase1: (steps: [
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("gallus_quickdraw"), duration: 0.8,
+                    telegraph: Some((pose: Some("quickdraw"), cue: Some("enemy.chicken.tell")))),
+                Strike(profile: Special("gallus_quickdraw"), duration: 0.5),
+                Rest(duration: 0.9),
+                Select(table: [
+                    // Up close: the spur kick.
+                    (weight: 1.2, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Strike("side_sweep"), duration: 0.6,
+                            telegraph: Some((pose: Some("spur_kick"), cue: Some("enemy.chicken.tell")))),
+                        Strike(profile: Strike("side_sweep"), duration: 0.35),
+                        Rest(duration: 1.0),
+                    ]),
+                    // Across the yard: the dynamite.
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("gallus_dynamite"), duration: 0.9,
+                            telegraph: Some((pose: Some("dynamite"), cue: None))),
+                        Strike(profile: Special("gallus_dynamite"), duration: 0.6),
+                        Rest(duration: 1.1),
+                    ]),
+                    // On a catwalk: the draw again.
+                    (weight: 1.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("gallus_quickdraw"), duration: 0.7,
+                            telegraph: Some((pose: Some("quickdraw"), cue: Some("enemy.chicken.tell")))),
+                        Strike(profile: Special("gallus_quickdraw"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+            ]),
+            phase2: (steps: [
+                Telegraph(profile: Special("gallus_whistle"), duration: 0.9,
+                    telegraph: Some((pose: Some("whistle"), cue: None))),
+                Strike(profile: Special("gallus_whistle"), duration: 0.3),
+                Rest(duration: 0.4),
+                Telegraph(profile: Special("gallus_tumbleweeds"), duration: 0.5,
+                    telegraph: Some((pose: Some("call"), cue: None))),
+                Strike(profile: Special("gallus_tumbleweeds"), duration: 2.2),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("gallus_lasso"), duration: 0.8,
+                    telegraph: Some((pose: Some("lasso"), cue: Some("enemy.chicken.tell")))),
+                Strike(profile: Special("gallus_lasso"), duration: 0.4),
+                // The haul lands you at his feet: a breath to act before the kick.
+                Rest(duration: 0.25),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.5,
+                    telegraph: Some((pose: Some("spur_kick"), cue: None))),
+                Strike(profile: Strike("side_sweep"), duration: 0.35),
+                Rest(duration: 1.2),
+                Select(table: [
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("gallus_dynamite"), duration: 0.8,
+                            telegraph: Some((pose: Some("dynamite"), cue: None))),
+                        Strike(profile: Special("gallus_dynamite"), duration: 0.6),
+                        Rest(duration: 1.0),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("gallus_quickdraw"), duration: 0.6,
+                            telegraph: Some((pose: Some("quickdraw"), cue: Some("enemy.chicken.tell")))),
+                        Strike(profile: Special("gallus_quickdraw"), duration: 0.5),
+                        Rest(duration: 0.8),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Strike("side_sweep"), duration: 0.55,
+                            telegraph: Some((pose: Some("spur_kick"), cue: Some("enemy.chicken.tell")))),
+                        Strike(profile: Strike("side_sweep"), duration: 0.35),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+            ]),
+            enrage: (steps: [
+                // High noon: the mark, the hammer fanned down that line, and
+                // the reload after it, the long window.
+                Telegraph(profile: Special("gallus_high_noon"), duration: 1.1,
+                    telegraph: Some((pose: Some("high_noon"), cue: None))),
+                Strike(profile: Special("gallus_high_noon"), duration: 0.5),
+                Rest(duration: 1.4),
+                Telegraph(profile: Special("gallus_quickdraw"), duration: 0.5,
+                    telegraph: Some((pose: Some("quickdraw"), cue: Some("enemy.chicken.tell")))),
+                Strike(profile: Special("gallus_quickdraw"), duration: 0.5),
+                Rest(duration: 0.4),
+                Telegraph(profile: Special("gallus_tumbleweeds"), duration: 0.5,
+                    telegraph: Some((pose: Some("call"), cue: None))),
+                Strike(profile: Special("gallus_tumbleweeds"), duration: 3.2),
+                Rest(duration: 0.4),
+                Telegraph(profile: Special("gallus_lasso"), duration: 0.6,
+                    telegraph: Some((pose: Some("lasso"), cue: Some("enemy.chicken.tell")))),
+                Strike(profile: Special("gallus_lasso"), duration: 0.4),
+                // The haul lands you at his feet: a breath to act before the kick.
+                Rest(duration: 0.25),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.5,
+                    telegraph: Some((pose: Some("spur_kick"), cue: None))),
+                Strike(profile: Strike("side_sweep"), duration: 0.35),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("gallus_dynamite"), duration: 0.6,
+                    telegraph: Some((pose: Some("dynamite"), cue: None))),
+                Strike(profile: Special("gallus_dynamite"), duration: 0.6),
+                Rest(duration: 1.0),
+            ]),
+        ),
+        reward: DropChest(
+            pickup: Currency(amount: 300),
+            offset: (0.0, 30.0),
+            size: (52.0, 52.0),
+        ),
+    ),
 }

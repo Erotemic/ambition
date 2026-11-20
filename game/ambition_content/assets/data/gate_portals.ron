@@ -156,6 +156,12 @@
         portal_sprite_name: "Lobby Gate Portal",
         ring_sprite_name: "Lobby Gate Ring",
     ),
+    // The Frontier's ring, on Pad Three of Dry Dock (LEADENSADDLE).
+    "frontier_pad_gate": (
+        command: Dialed,
+        portal_sprite_name: "Pad Three Gate Portal",
+        ring_sprite_name: "Pad Three Gate Ring",
+    ),
     // The Noodle dimension's ring, in the square of Brothlehem.
     "noodle_village_gate": (
         command: Dialed,

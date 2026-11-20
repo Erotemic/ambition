@@ -1300,10 +1300,19 @@ mood references.
 
 **Design:** [`game/leadensaddle.md`](game/leadensaddle.md): the dimension
 `frontier` (`frontier.ldtk`), the town of Dry Dock in the Leaden Saddle, the
-boss Marshal Gallus in the Ore Corral, four music cues.
+boss Marshal Gallus in the Ore Corral, two music cues (the town's four
+sections and the boss theme).
 
-**Next action:** build the slices of the design page in order (art, rooms
-and gate, fight, music, people). **Done when:** a dial of `LEADENSADDLE`
+**State (2026-11-20):** slices 1 to 6 are built: the art, the world and its
+gate, the fight (Rhai), the music (rendered here, not in this VM's
+registry), the residents and their wing of the Hall of Characters.
+`fight_discovery` plays the fight through its three phases; the aggressor
+policy brought him to 7 of 60 and died, so his defeat and the opening of
+the lookout's gate were not reached headless.
+
+**Next action:** see the defeat headless (a policy or a probe that wins),
+and play the corral by hand: a knockback can carry the player out by the
+west edge mid-fight, as nothing seals a boss arena. **Done when:** a dial of `LEADENSADDLE`
 arrives on Pad Three, the town and the refinery lead to the corral, the
 Marshal's fight plays through its three phases headless to his defeat and
 opens the lookout, the hall has his practice copy, and each room plays its

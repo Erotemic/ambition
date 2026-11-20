@@ -15019,5 +15019,95 @@
             ),
             hall_dialogue_id: Some("hall_npc_primeval_feld"),
         ),
+        "npc_frontier_clerk": (
+            display_name: "Dolores Pike",
+            // The clerk of Pad Three, who logs every arrival and every toll.
+            manifest: "sprites/frontier_clerk_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Name, origin, cargo.", "Pad Three, arrivals. Sign the log."],
+                hall: ["Twelve credits a head. It goes in a box in the Marshal's office and the box never comes out.", "I've logged freighters, mule trains and a man who came through the gate in his bath."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_clerk"),
+        ),
+        "npc_frontier_liveryman": (
+            display_name: "Gus Bell",
+            // A horse who keeps the livery and hires out mules by the day.
+            manifest: "sprites/frontier_liveryman_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 186 cm.
+            standing_height: Some(72.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Mules by the day.", "I don't have a horse. Don't ask."],
+                hall: ["Six mules. My sister shoes them and I do the rest.", "Folks see my face and ask after my cousins. I tell them the cousins are mules."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_liveryman"),
+        ),
+        "npc_frontier_barkeep": (
+            display_name: "Mae Calloway",
+            // A cat who keeps the bar of The Wet Whistle.
+            manifest: "sprites/frontier_barkeep_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Water's two. Coffee's three.", "The blue one is coolant. Put it down."],
+                hall: ["The water came eleven hundred miles on a tanker. I charge two credits and I'm still the cheapest thing on the street.", "The Marshal tips in somebody else's money."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_barkeep"),
+        ),
+        "npc_frontier_prospector": (
+            display_name: "Elias Crane",
+            // An alligator who pans the creek for lead and talks too much.
+            manifest: "sprites/frontier_prospector_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Forty years in this pass.", "Lead! In the gravel. Grey as a bad tooth."],
+                hall: ["The refinery pays by the pound and the Marshal takes a cut by the pound.", "I panned every creek from here to the far pads. I'll tell you about each one, in order."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_prospector"),
+        ),
+        "npc_frontier_foreman": (
+            display_name: "Ruth Harlan",
+            // A dog, the refinery's night-shift foreman.
+            manifest: "sprites/frontier_foreman_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "frontier", "peaceful"],
+            barks: (
+                idle: ["Hat on, or off the terrace.", "Mind the chickens. They don't swerve."],
+                hall: ["The shift starts when the Marshal whistles. He whistles at four in the morning.", "I run the night shift at a refinery on a mesa. I wear the hard hat for the chickens."],
+            ),
+            hall_dialogue_id: Some("hall_npc_frontier_foreman"),
+        ),
     },
 )

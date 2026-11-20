@@ -35,7 +35,7 @@ pub fn describe(pack: &PreparedContentPack) -> Value {
         .map(|rows| rows.iter().map(|(id, row)| (id.clone(), row.target(id).to_owned())).collect::<BTreeMap<_, _>>());
     let platforms = ambition_sprite_sheet::prop_sheets::lowered_platform_looks(pack)
         .map(|rows| rows.iter().map(|(id, row)| (id.clone(), row.sheet.as_ref().unwrap_or(id).clone())).collect::<BTreeMap<_, _>>());
-    let bosses = lowered_rules::<ambition_boss_encounter::BossArtKeys>(pack, "boss_art_keys")
+    let bosses = lowered_rules::<ambition_boss_encounter::BossArtKeys>(pack, ambition_boss_encounter::pattern::content_schema::BOSS_ART_KEYS_SCHEMA)
         .map(|keys| &keys.sprite_filenames);
     let world_items = ambition_items::content_schema::world_item_art::lowered_world_item_art(pack)
         .map(|rows| rows.iter().map(|(id, row)| (id.clone(), row.path.clone())).collect::<BTreeMap<_, _>>());

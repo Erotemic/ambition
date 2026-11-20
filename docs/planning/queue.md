@@ -1825,7 +1825,7 @@ narrows its field of view so the active face fills 96% of the height, not
 about 13 px. The inventory face is next. Maintainer 2026-11-17: mobile UX
 waits behind higher-value queue items, so the rest of this row is deferred.
 
-### INPUT-GLYPH-ART — draw prompts and a controller layout from the published glyphs
+### INPUT-GLYPH-ART — draw prompts and a controller layout from the published glyphs — ✅ DONE 2026-11-19
 
 **Art done 2026-11-18** (renderer target `input_glyphs`, published under `sprites/input_glyphs/`): gamepad glyphs for each `GamepadStyle` (xbox, playstation, switch, generic), keycaps named by `key_label`, mouse glyphs, and xbox/playstation/switch/generic pad, keyboard and mouse pictures, each with a `_layout.ron` that places every control (Bevy `GamepadButton`/`KeyCode`/`MouseButton` names) in the full-size picture. The naming rule (style, control) → file is in the target's docstring; ⚠ Bevy's `LeftTrigger` is the bumper and `LeftTrigger2` the trigger.
 
@@ -1841,7 +1841,43 @@ OUT 1280x720 --warmup 200 --player-beside npc_math_monty --interact-at 90
 --include-ui` shows the F and Backspace keycaps (a long key keeps its wide
 cap); at 640x360 the hint wraps to two lines.
 
-**Next action:** give the control prompt (`ambition_sim_view::control_prompt`) the glyph image for the seat's device, with the text as fallback, and add a controller-layout page to the controls settings that draws the device picture with each bound action at its layout spot. The layout RON is published at full size only: scale spots by shown size ÷ `size`.
+**Done 2026-11-19, the control prompt and the signs that name controls:**
+`PromptEntry::glyph` is the picture of the control `binding` names, from
+the same owner by the same choice (`SeatBindings::glyph_for_slot`), so a
+rebind or another pad moves both. A sign written `{action:ID}`
+(`ControlLegend`) draws that picture in place of the name when the catalog
+has it, and the name when not: the sign becomes text spans, the control a
+padded placeholder span, and a sprite sits on that span's laid-out run box
+(`place_legend_glyphs`, which also gives the spans the sign's font and fade).
+A view's mirrored copy keeps the names. Three sandbox signs now name their
+controls (`basement_treasure`, `basement_npcs`, `gap_run`). Witnesses: the
+prompt tests assert the Z keycap, the F13 rebind, Xbox A and PlayStation
+Cross paths; `capture_scene basement_treasure player OUT 1280x720 --warmup
+120 --player-at 1100,600 [--device xbox|playstation]` shows the F keycap, RB
+and R1 (`--device` is new).
+
+**Done 2026-11-19, the controller-layout page:** System → Controller Layout
+(after Rebind Controls) draws the seat's device picture with each gameplay
+action it binds on that device named in a column beside the picture, joined
+to its control by a leader line. Controls on the picture's left half are
+named in the left column and the others in the right; a column spreads its
+labels so none overlaps. The app loads every device's `_layout.ron`
+(`DeviceLayout`, `bindings.rs`). The page reads the live `SeatBindings`, so
+a rebind moves the label, and the seat's device chooses the picture. Menu-only
+actions (`is_menu_only`) are left out: they share the play buttons and would
+crowd them. The entry is absent until the device's layout has loaded. The
+menu model gained `MenuNode::Image`, drawn by the cube and by `bevy_ui`.
+Witness: `capture_scene crawl_lab player OUT 1280x720 --include-ui --press
+"i,wait:60,e,wait:90,down,down,down,down,down,enter,wait:60"` (keyboard), or
+`--device xbox|playstation --press
+"i,wait:60,touch:1023x360,wait:90,touch:640x455,wait:60"`.
+
+⛔ Before this page, `capture_scene --include-ui` had not drawn the open cube
+menu at all. Bevy measures a camera's target only when the camera is added
+or its projection, viewport or window changes. The cube camera was measured
+against the window, then retargeted to the capture image, so it had no target
+size and the renderer skipped it. `adopt_menu_camera` now touches the
+projection, so the cube films again.
 
 **Acceptance:** a prompt shows the pressed button's glyph for keyboard, an Xbox-like and a PlayStation-like pad; a rebind moves the glyph; the layout page names every bound action on its control.
 
@@ -1872,6 +1908,18 @@ and `ShellRouteCatalog::restate_preparation_label`); the launcher draws its
 rows from the registry, so the edited words are the next frame's. Witness:
 `a_candidate_that_changes_only_the_launcher_words_restates_the_row` (edit
 the file, reload, activate: about 15 s, with no Cargo build of the content).
+
+**Boss art keys restated (2026-11-19):** `data/boss_art_keys.ron` (which sheet
+draws each boss, which rows each move claims) is part of the boss catalog
+fragment, but it was not a participating domain, so saving it refused the
+whole reload (`RefusedUnsupportedChangedDomain`) and the running game kept the
+old rows until a restart. It is now in `BOSS_DOMAINS` (`BOSS_ART_KEYS_SCHEMA`),
+staged with the candidate catalog like `boss_profiles`. Witness:
+`a_boss_art_key_saved_while_the_game_runs_is_played` (mockingbird's snap row
+`chomp` → `dive`; failed with no reload before the change). Edit-to-play: 22
+frames after the save; the test runs in about 35 s with no Cargo build of the
+content. Still refused in Ambition's pack: `world_manifest`, which the LDtk
+world reload owns.
 
 **Deferred:** game-specific movement VFX overrides have an agreed optional
 `room_rules` policy but no game currently authors a different look. Promote
@@ -2415,7 +2463,7 @@ only.
 3. A two-body shared-page test that reads the pixels of both cells needs a
    GPU; the three proofs above are on the draw geometry.
 
-### DENSE-MELEE-ROOM — author the dense-melee development room
+### DENSE-MELEE-ROOM — author the dense-melee development room — ✅ DONE 2026-11-19
 
 **Owner:** content; first measured customer
 [`engine/bounded-perception-and-attention.md`](engine/bounded-perception-and-attention.md#acceptance-for-the-open-increment).
@@ -2423,12 +2471,26 @@ only.
 **Ruling:** Q93 (2026-10-04): keep or create a deliberate dense-melee
 development/stress room. It is a real scenario, not polished content.
 
-**Current state:** no such room; the density script fakes density by widening
-the viewport over the Hall's `stand_still` cast.
+**Done 2026-11-19:** `dense_melee_pit` in the sandbox, written by
+`game/ambition_map_assets/ambition_content/generators/dense_melee_pit/make_specs.py`:
+a 960×448 pit with two one-way ledges and 200 `EnemySpawn`s (goblin, goblin
+raider, goblin squat, lab raider; each names the `medium_striker` policy, which
+builds the tactical view). The way in is a door at the east end of
+`basement_enemies`. `measure_perception_density.sh --room dense_melee_pit
+--brain "" --extents shipped --populations "4 8 12 25 50 100 200"` measures it
+on its own cast. Shipped viewport, 600 ticks:
 
-**Next action:** after the P1 correctness rows above, author one room (LDtk or
-a generated spec) with many tactical-brain fighters in close melee, reachable
-by an ordinary route and by `measure_perception_density.sh`.
+| population | offered | visible | kept |
+|---|---|---|---|
+| 4 / 8 / 12 | 5 / 9 / 13 | 4 / 8 / 12 | 4 / 8 / 12 |
+| 25 / 50 / 100 / 200 | 26 / 51 / 101 / 201 | 25 / 44.7 / 68.2 / 141.7 | 16 (the budget) |
+
+The population cap had never applied to an `EnemySpawn`: only `NpcSpawn`
+counted, which is all the hall holds, so a capped run of this room built all
+200 (`offered` 201 at every cap). Authored enemies now spend the same quota,
+after the placements (`RoomFeatureConstructionPlan::prepare`). The census and
+`ms_per_tick` come from the one `hall_bench` run; camera framing needs a
+rendered run (the pit's camera zone is the whole room) and was not read here.
 
 **Acceptance:** in the room `kept` tracks population until the budget caps it,
 and the census, frame time and camera framing are readable from one run.

@@ -649,8 +649,22 @@ impl RoomFeatureConstructionPlan {
             construction.prepared,
         ));
         requests.extend(ambition_platformer2d_construction::authored_static_requests(room));
+        // ⭐ AN AUTHORED ENEMY IS AN AUTHORED ACTOR, so it spends the same
+        // measurement quota as an NPC, in authored order after the placements.
+        // Before, only `NpcSpawn` counted: the hall is nothing else, and a room
+        // of `EnemySpawn`s (the dense-melee pit) ignored the cap entirely. A
+        // boss is not part of a crowd and is not capped.
+        let capped_room;
+        let actor_room = if admission.cap().cap().is_some() {
+            let mut room = room.clone();
+            room.enemy_spawns.retain(|_| admission.admit_actor());
+            capped_room = room;
+            &capped_room
+        } else {
+            room
+        };
         requests.extend(ambition_platformer2d_construction::authored_actor_requests(
-            room,
+            actor_room,
             &paths,
             construction.prepared,
         ));

@@ -608,6 +608,59 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
     }
 }
 
+/// ⭐ A BOSS ART KEY EDIT IS PLAYED WITHOUT A RESTART. `boss_art_keys.ron`
+/// (which sheet draws each boss, which rows each move claims) is part of the
+/// boss catalog fragment, so it reloads with the catalog, as `boss_profiles`
+/// does. The session the reload prepares freezes the edited row.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_boss_art_key_saved_while_the_game_runs_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    fn snap_rows(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec<String> {
+        sim.world()
+            .resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
+            .bosses
+            .special_animation_keys("mockingbird_snap")
+            .to_vec()
+    }
+    let mut sim = common::fixed_60hz_room_sim("mockingbird_sky");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    assert_eq!(snap_rows(&mut sim), ["chomp"], "the premise: the snap plays the chomp row");
+
+    let root = std::env::temp_dir().join(format!("ambition_boss_art_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("data/boss_art_keys.ron");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let row = "\"mockingbird_snap\": [\"chomp\"]";
+        assert!(text.contains(row), "the art keys name the snap's row");
+        std::fs::write(&path, text.replace(row, "\"mockingbird_snap\": [\"dive\"]")).unwrap();
+
+        let mut frames = 0;
+        while snap_rows(&mut sim) != ["dive"] {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the snap plays {:?}; reloads requested: {}",
+                snap_rows(&mut sim),
+                sim.world().resource::<ContentSourceWatch>().requested,
+            );
+        }
+        let catalog = sim.world().resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
+        assert_eq!(catalog.special_animation_keys("mockingbird_snap"), ["dive"], "the App's catalog is the published one");
+        eprintln!("a saved boss art key was played {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
 /// ⭐ THE SAVED EDIT UNDER THE SHIPPED OWNERSHIP MODE: a timeline the local
 /// maintainer owns is rebased onto the reloaded generation, not crossed by it.
 #[cfg(not(feature = "static_content"))]

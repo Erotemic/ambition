@@ -21,8 +21,16 @@
 # the pinned value on every row so a reader cannot mistake which experiment they
 # are holding.
 #
+# ⭐ THE DENSE ROOM. `--room dense_melee_pit` measures the dense-melee
+# development room (DENSE-MELEE-ROOM) on its own cast, which already builds
+# tactical views: pass `--brain ""` to keep the cast's brains, and
+# `--populations "25 50 100 200"` to vary population at one extent (the first
+# of `--extents`, or `shipped` for no override). There `visible` should track
+# population and `kept` should stop at the budget.
+#
 # Usage:
-#   scripts/measure/measure_perception_density.sh [--population N] [--ticks N] [--extents "a b c"]
+#   scripts/measure/measure_perception_density.sh [--room ID] [--population N] [--ticks N] [--extents "a b c"]
+#   scripts/measure/measure_perception_density.sh --room dense_melee_pit --brain "" --extents shipped --populations "25 50 100 200"
 set -euo pipefail
 
 POPULATION="${POPULATION:-130}"
@@ -36,6 +44,10 @@ POPULATION="${POPULATION:-130}"
 BRAIN="${BRAIN:-ambition::medium_striker}"
 TICKS="${TICKS:-600}"
 EXTENTS="${EXTENTS:-480x320 960x640 1440x960 1920x1280 2880x1920}"
+ROOM="${ROOM:-hall_of_characters}"
+# Empty: sweep extents at one population. Set: sweep these populations at the
+# first extent instead.
+POPULATIONS="${POPULATIONS:-}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -43,7 +55,9 @@ while [ $# -gt 0 ]; do
         --ticks)      TICKS="$2";      shift 2 ;;
         --extents)    EXTENTS="$2";    shift 2 ;;
         --brain)      BRAIN="$2";      shift 2 ;;
-        -h|--help)    sed -n '2,25p' "$0"; exit 0 ;;
+        --room)       ROOM="$2";       shift 2 ;;
+        --populations) POPULATIONS="$2"; shift 2 ;;
+        -h|--help)    sed -n '2,35p' "$0"; exit 0 ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -59,33 +73,47 @@ cargo build --example hall_bench --profile profiling >&2
 BIN="target/profiling/examples/hall_bench"
 [ -x "$BIN" ] || { echo "hall_bench not at $BIN" >&2; exit 1; }
 
-printf '%-12s %8s %9s %9s %8s %10s   %s\n' extent views offered visible kept kept_max note
-for extent in $EXTENTS; do
+# One arm: the census row of one run at EXTENT ("shipped" = no override) and
+# POPULATION ARM_POP.
+arm() {
+    local extent="$1" pop="$2" row
+    local -a env=(AMBITION_PROFILE_CENSUS=1 AMBITION_ACTOR_POPULATION_CAP="$pop")
+    [ -n "$BRAIN" ] && env+=(AMBITION_ACTOR_BRAIN_PROFILE="$BRAIN")
+    [ "$extent" != shipped ] && env+=(AMBITION_PERCEPTION_VIEWPORT_HALF="$extent")
     # ⛔ THE CENSUS ROW IS THE LAST ONE: earlier windows include startup, whose
     # `ticks=1` window reads 0.000 for every phase and understated a published
     # figure by up to a third once already.
     row=$(
-        AMBITION_PROFILE_CENSUS=1 \
-        AMBITION_ACTOR_POPULATION_CAP="$POPULATION" \
-        AMBITION_ACTOR_BRAIN_PROFILE="$BRAIN" \
-        AMBITION_PERCEPTION_VIEWPORT_HALF="$extent" \
-        "$BIN" --ticks "$TICKS" 2>&1 \
+        env "${env[@]}" "$BIN" --room "$ROOM" --ticks "$TICKS" 2>&1 \
         | grep '\[census\] sim_phases' | grep 'kept=' | tail -1 || true
     )
     if [ -z "$row" ]; then
         printf '%-12s %8s %9s %9s %8s %10s   %s\n' "$extent" - - - - - \
             "NO CENSUS ROW - is the cast re-brained? a None-requirement brain builds no view"
-        continue
+        return
     fi
     views=$(sed -n 's/.* views=\([0-9]*\).*/\1/p' <<<"$row")
     offered=$(sed -n 's/.* offered=\([0-9.]*\).*/\1/p' <<<"$row")
     visible=$(sed -n 's/.* visible=\([0-9.]*\).*/\1/p' <<<"$row")
     kept=$(sed -n 's/.* kept=\([0-9.]*\).*/\1/p' <<<"$row")
     kept_max=$(sed -n 's/.* kept_max=\([0-9]*\).*/\1/p' <<<"$row")
-    printf '%-12s %8s %9s %9s %8s %10s   pop=%s ticks=%s\n' \
+    printf '%-12s %8s %9s %9s %8s %10s   room=%s pop=%s ticks=%s\n' \
         "$extent" "${views:--}" "${offered:--}" "${visible:--}" "${kept:--}" "${kept_max:--}" \
-        "$POPULATION" "$TICKS"
-done
+        "$ROOM" "$pop" "$TICKS"
+}
+
+printf '%-12s %8s %9s %9s %8s %10s   %s\n' extent views offered visible kept kept_max note
+if [ -n "$POPULATIONS" ]; then
+    # ⛔ ONE AXIS: the extent is pinned to the first one named.
+    pinned="${EXTENTS%% *}"
+    for pop in $POPULATIONS; do
+        arm "$pinned" "$pop"
+    done
+else
+    for extent in $EXTENTS; do
+        arm "$extent" "$POPULATION"
+    done
+fi
 
 cat >&2 <<'NOTE'
 
@@ -99,6 +127,8 @@ cat >&2 <<'NOTE'
    exceeds 16 is a bug.
 ⛔ A run whose `offered` MOVES with extent is measuring something else - the
    population changed under you, or the room did. Stop and find out which.
+   (In a `--populations` sweep `offered` and `visible` RISE with population:
+   that is the subject. `kept` is still the line that must stop at the budget.)
 ⚠ These runs are CAPPED (AMBITION_ACTOR_POPULATION_CAP) and WIDENED
    (AMBITION_PERCEPTION_VIEWPORT_HALF). Neither is the shipped hall, and no
    number here describes it.

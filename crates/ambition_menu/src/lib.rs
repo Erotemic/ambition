@@ -140,6 +140,12 @@ pub enum MenuNode<Action> {
         align: MenuTextAlign,
         color: MenuColor,
     },
+    /// A picture, stretched to `rect` (the caller keeps its aspect). Pure
+    /// decoration: it takes no cursor and no click. `image` is an asset path.
+    Image {
+        rect: MenuRect,
+        image: String,
+    },
     Control {
         rect: MenuRect,
         kind: MenuControlKind,
@@ -297,20 +303,20 @@ impl<Action> MenuNode<Action> {
     pub fn action(&self) -> Option<&Action> {
         match self {
             Self::Panel { action, .. } | Self::Control { action, .. } => action.as_ref(),
-            Self::Text { .. } | Self::DynamicText { .. } => None,
+            Self::Text { .. } | Self::DynamicText { .. } | Self::Image { .. } => None,
         }
     }
 
     pub fn action_mut(&mut self) -> Option<&mut Action> {
         match self {
             Self::Panel { action, .. } | Self::Control { action, .. } => action.as_mut(),
-            Self::Text { .. } | Self::DynamicText { .. } => None,
+            Self::Text { .. } | Self::DynamicText { .. } | Self::Image { .. } => None,
         }
     }
 
     pub fn rect(&self) -> Option<MenuRect> {
         match self {
-            Self::Panel { rect, .. } | Self::Control { rect, .. } => Some(*rect),
+            Self::Panel { rect, .. } | Self::Control { rect, .. } | Self::Image { rect, .. } => Some(*rect),
             Self::Text { .. } | Self::DynamicText { .. } => None,
         }
     }
@@ -366,6 +372,14 @@ impl<PageId, Action> MenuPageModel<PageId, Action> {
             text: text.into(),
             align,
             color,
+        });
+    }
+
+    /// A picture at `rect` (see [`MenuNode::Image`]).
+    pub fn image(&mut self, rect: MenuRect, image: impl Into<String>) {
+        self.nodes.push(MenuNode::Image {
+            rect,
+            image: image.into(),
         });
     }
 

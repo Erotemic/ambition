@@ -29,6 +29,8 @@ enum NodeShape {
         actionable: bool,
     },
     Text,
+    /// A picture: a textured plane.
+    Image,
     /// The slot is the host's handle on the line's content.
     DynamicText {
         slot: u32,
@@ -51,6 +53,7 @@ fn node_shape<Action>(node: &MenuNode<Action>) -> NodeShape {
             actionable: action.is_some(),
         },
         MenuNode::Text { .. } => NodeShape::Text,
+        MenuNode::Image { .. } => NodeShape::Image,
         MenuNode::DynamicText { slot, .. } => NodeShape::DynamicText { slot: *slot },
         MenuNode::Control {
             kind,
@@ -399,6 +402,23 @@ fn patch_node<Action>(
                         .entity(thumb_plane)
                         .insert(thumb_layout(*thumb));
                 }
+            }
+        }
+        (
+            MenuNode::Image {
+                rect: old_rect,
+                image: old_image,
+            },
+            MenuNode::Image { rect, image },
+        ) => {
+            let mut plane = out.commands.entity(entity);
+            if old_rect != rect {
+                plane.insert(rect_layout(*rect));
+            }
+            if old_image != image {
+                let handle = out.asset_server.load::<Image>(image.clone());
+                let material = out.materials.add(icon_material(handle, Color::WHITE));
+                plane.insert(MeshMaterial3d(material));
             }
         }
         _ => unreachable!("patch_node is only called for nodes of one shape"),

@@ -382,6 +382,35 @@ impl PhysicalControl {
 /// Where the renderer's `input_glyphs` target publishes its pictures.
 pub const GLYPH_FOLDER: &str = "sprites/input_glyphs";
 
+impl PhysicalControl {
+    /// The name the published device layouts key this control by: Bevy's own
+    /// `KeyCode` / `GamepadButton` name (`KeyF`, `South`). `None` for a
+    /// control no layout places.
+    pub fn layout_name(&self) -> Option<String> {
+        match self {
+            Self::Key(key) => Some(format!("{key:?}")),
+            Self::Button(button) => Some(format!("{button:?}")),
+            Self::Other(_) => None,
+        }
+    }
+}
+
+/// The published picture of the whole device a seat holds, and the layout
+/// that places each of its controls in that picture at full size
+/// (`input_device_{keyboard|xbox|playstation|switch|generic}[_layout.ron]`,
+/// the renderer's `input_glyphs` target).
+pub fn device_picture(device: crate::ActiveDevice) -> (String, String) {
+    let word = if device.draws_keyboard_glyphs() {
+        "keyboard"
+    } else {
+        style_word(device.gamepad_style())
+    };
+    (
+        format!("{GLYPH_FOLDER}/input_device_{word}.png"),
+        format!("{GLYPH_FOLDER}/input_device_{word}_layout.ron"),
+    )
+}
+
 /// The word a glyph file names a pad family by.
 fn style_word(style: crate::GamepadStyle) -> &'static str {
     match style {
@@ -434,6 +463,19 @@ impl ActionBindings {
         self.control_for(action, device)
             .or_else(|| self.controls(action).first())
             .map(|control| control.label_for(device.gamepad_style()))
+    }
+
+    /// The published picture of the control [`Self::label_for`] names, by
+    /// the same choice of control. `None` when nothing binds the action or
+    /// the renderer's rule names no file for the control.
+    pub fn glyph_for(
+        &self,
+        action: &Platformer2dInputActionMonolith,
+        device: crate::ActiveDevice,
+    ) -> Option<String> {
+        self.control_for(action, device)
+            .or_else(|| self.controls(action).first())
+            .and_then(|control| control.glyph_path(device.gamepad_style()))
     }
 
     /// The control a prompt names for confirm (`MenuSelect`) on this device.
@@ -530,6 +572,17 @@ impl SeatBindings {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
         self.for_seat(seat)
             .label_for(&action_for_slot(slot)?, device)
+    }
+
+    /// The picture of the control [`Self::label_for_slot`] names.
+    pub fn glyph_for_slot(
+        &self,
+        seat: u8,
+        slot: ambition_entity_catalog::action_scheme::ControlSlot,
+        devices: Option<&crate::SeatActiveDevices>,
+    ) -> Option<String> {
+        let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
+        self.for_seat(seat).glyph_for(&action_for_slot(slot)?, device)
     }
 
 }

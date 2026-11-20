@@ -42,7 +42,7 @@ pub use combat_geometry_view::{
 pub use control_prompt::{
     derive_weapon_readiness, project_prompt_readiness, publish_frontend_context_prompt,
     rebuild_control_prompt,
-    ControlContextKind, ControlPrompt, ControlPromptRebuilt, PromptEntry, PromptNaming,
+    ControlContextKind, ControlPrompt, ControlPromptRebuilt, LegendPiece, PromptEntry, PromptNaming,
     LEGEND_ACTION_OPEN,
 };
 // Re-exported so `ControlPrompt` consumers (the touch overlay) can name the

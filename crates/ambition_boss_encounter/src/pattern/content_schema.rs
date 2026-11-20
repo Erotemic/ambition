@@ -61,10 +61,14 @@ fn canonical<T: std::fmt::Debug>(value: &T) -> String {
     format!("{value:?}")
 }
 
+/// The authored FILE kind: which sheet draws each boss and which rows each
+/// move claims (`data/boss_art_keys.ron`).
+pub const BOSS_ART_KEYS_SCHEMA: &str = "boss_art_keys";
+
 /// The art bindings used by the boss catalog and authoring tools.
 pub fn boss_art_keys_schema() -> SchemaRegistration {
     ambition_content_pack::rules_schema::<crate::BossArtKeys>(
-        "boss_art_keys", 1, BOSS_PATTERN_CAPABILITY,
+        BOSS_ART_KEYS_SCHEMA, 1, BOSS_PATTERN_CAPABILITY,
         "Boss sprite paths and animation bindings.", |_| Vec::new(),
     )
 }

@@ -30,6 +30,7 @@ use ambition_platformer2d::items::{EquippedItems, Item, ItemCatalog, Inventory, 
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_platformer2d::settings_menu::system::{
+    LayoutPage,
     DevSnapshot, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemMenuTarget, SystemOptionId,
 };
@@ -811,6 +812,8 @@ pub fn system_rows_with_quality_prompt(
                 SystemMenuTarget::Rebind(rows) => (0..rows.len())
                     .map(|index| SystemRow::Option(SystemOptionId::Rebind(index)))
                     .collect(),
+                // A picture, not a list: only the Back row.
+                SystemMenuTarget::Layout(_) => Vec::new(),
                 // An Action entry never opens a screen; defensively empty.
                 SystemMenuTarget::Action(_) => Vec::new(),
             };
@@ -1010,6 +1013,86 @@ fn system_row_action(model: &SystemMenuModel, row: SystemRow) -> Option<MenuPage
 // description in a BOTTOM panel. This both improves finger/mouse pick targets
 // and helps the perspective raycast land on the rows (thin rows read as dead).
 
+/// Where the controller-layout screen draws: under the Back row, above the
+/// description panel. The device takes the middle; its labels take the sides.
+const SYSTEM_LAYOUT_RECT: MenuRect = MenuRect {
+    x: 6.0,
+    y: 31.0,
+    w: 88.0,
+    h: 44.0,
+};
+/// The share of [`SYSTEM_LAYOUT_RECT`]'s width the device picture may use.
+const SYSTEM_LAYOUT_PICTURE_SHARE: f32 = 0.56;
+/// The label size on the controller-layout screen.
+const SYSTEM_LAYOUT_FONT: f32 = SYSTEM_ROW_FONT * 0.72;
+
+/// The device picture, and each spot's actions in a column beside it, joined
+/// to its control by a leader line. A control on the picture's left half is
+/// named in the left column, one on its right half in the right column; a
+/// column spreads its labels so none overlaps the next. The layout is
+/// published at the picture's full size, so a control's place scales by
+/// shown size ÷ `size`.
+fn draw_layout_page(model: &mut MenuPageModel<MenuPage, MenuPageAction>, page: &LayoutPage) {
+    let area = SYSTEM_LAYOUT_RECT;
+    let (width, height) = (page.size.0.max(1.0), page.size.1.max(1.0));
+    let room = area.w * SYSTEM_LAYOUT_PICTURE_SHARE;
+    let scale = (room / width).min(area.h / height);
+    let shown = MenuRect {
+        x: area.x + (area.w - width * scale) / 2.0,
+        y: area.y + (area.h - height * scale) / 2.0,
+        w: width * scale,
+        h: height * scale,
+    };
+    model.image(shown, page.image.clone());
+    let line = colour(menu_look().heading);
+    let gap = SYSTEM_LAYOUT_FONT * 1.5;
+    for left in [true, false] {
+        let mut spots: Vec<(f32, f32, &str)> = page
+            .spots
+            .iter()
+            .filter(|spot| (spot.center.0 < width / 2.0) == left)
+            .map(|spot| {
+                (shown.x + spot.center.0 * scale, shown.y + spot.center.1 * scale, spot.label.as_str())
+            })
+            .collect();
+        spots.sort_by(|a, b| a.1.total_cmp(&b.1));
+        let ys = spread_labels(spots.iter().map(|spot| spot.1), gap, area.y, area.y + area.h);
+        // The column between the picture and the area's edge.
+        let (column_x, column_edge) = if left {
+            ((area.x + shown.x) / 2.0, shown.x - 0.6)
+        } else {
+            let right = shown.x + shown.w;
+            ((right + area.x + area.w) / 2.0, right + 0.6)
+        };
+        for ((x, y, label), label_y) in spots.into_iter().zip(ys) {
+            model.text(column_x, label_y, SYSTEM_LAYOUT_FONT, label, MenuTextAlign::Center, line);
+            // Out from the column along the label's row, then up or down to
+            // the control.
+            let (from, to) = if left { (column_edge, x) } else { (x, column_edge) };
+            model.panel(MenuRect { x: from.min(to), y: label_y - 0.15, w: (to - from).abs(), h: 0.3 }, line, None);
+            if (label_y - y).abs() > 0.3 {
+                model.panel(MenuRect { x: x - 0.15, y: label_y.min(y), w: 0.3, h: (label_y - y).abs() }, line, None);
+            }
+        }
+    }
+}
+
+/// Rows for labels that want to sit at `wanted` (ascending): each as near its
+/// own as it can be, `gap` from the next, all between `top` and `bottom`.
+fn spread_labels(wanted: impl Iterator<Item = f32>, gap: f32, top: f32, bottom: f32) -> Vec<f32> {
+    let mut rows: Vec<f32> = Vec::new();
+    for want in wanted {
+        let floor = rows.last().map_or(top + gap / 2.0, |last| last + gap);
+        rows.push(want.max(floor));
+    }
+    let mut ceiling = bottom - gap / 2.0;
+    for row in rows.iter_mut().rev() {
+        *row = row.min(ceiling);
+        ceiling = *row - gap;
+    }
+    rows
+}
+
 /// Centered, widened option column. Spans most of the face width (the items
 /// page's right-hand detail panel room is reclaimed here since the System
 /// description now lives on the bottom).
@@ -1203,6 +1286,14 @@ pub fn build_system_page_with_quality_prompt(
             MenuTextAlign::Center,
             colour(menu_look().body),
         );
+    }
+
+    if let Some(SystemMenuTarget::Layout(page)) = open_entry
+        .filter(|id| *id == SystemMenuEntryId::Layout)
+        .and_then(|id| sys_model.entry(id))
+        .map(|entry| &entry.target)
+    {
+        draw_layout_page(&mut model, page);
     }
 
     // Lay the VISIBLE rows as one centered vertical column. The pitch is sized to

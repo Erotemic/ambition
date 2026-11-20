@@ -147,6 +147,14 @@ capacity, rig/impostor scaling and combat readability, so each owner can
 measure there. `scripts/measure/measure_perception_density.sh` widens the viewport over
 the Hall instead; keep it as a control, not as the dense room.
 
+**The room exists (2026-11-19): `dense_melee_pit`.** At the shipped viewport,
+`kept` equals `visible` up to 12 bodies and stops at 16 from 25 to 200, while
+`visible` climbs to 141.7 (`--room dense_melee_pit --brain "" --extents
+shipped --populations ...`; the table is on the queue row). That is the
+structural clause measured in a dense room. The empirical clause — decision
+cost flat with the budget and rising without it — still needs interleaved
+timing arms on a quiet machine.
+
 ## Forbidden regressions
 
 - Do not answer cost with `if StandStill { continue }` or with dormancy. Distant

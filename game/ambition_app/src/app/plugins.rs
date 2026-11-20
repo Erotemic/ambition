@@ -413,6 +413,9 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // platform-neutral so desktop and Android stay in sync unless a build profile
     // intentionally opts out of a backend.
     crate::menu::kaleidoscope_app::install_unified_menu_shared(app);
+    // The controller-layout screen's device pictures.
+    #[cfg(feature = "input")]
+    crate::menu::bindings::install_device_layouts(app);
     // The cube backend exists only when its feature is on. The runtime constant
     // below is the SELECTION (a build may compile the cube and still boot on the
     // grid); the cfg is whether there is a cube to select at all. Both are

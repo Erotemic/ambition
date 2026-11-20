@@ -407,6 +407,8 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::consumption::ConsumeSelfPort>("consume_self")
         .add::<ambition_world_port::consumption::DestructibleStatePort>("destructible")
         .add::<ambition_world_port::inventory::InventoryViewPort>("inventory")
+        .add::<ambition_world_port::inventory::EquipItemPort>("equip")
+        .add::<ambition_world_port::inventory::StowHandPort>("stow")
         .add::<ambition_world_port::PlayCutscenePort>("play_cutscene")
         .add::<ambition_combat_port::SteerPort>("steer")
         .add::<ambition_combat_port::TakeItemPort>("take")

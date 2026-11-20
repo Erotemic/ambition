@@ -117,6 +117,15 @@ carries the optional allocation room. There is no old descriptor decoder.
   `nothing_held` for a release. The `reply` is optional; without one a refusal
   is only logged.
 
+- `equip` and `stow` (the party's owned items on a body a seat drives) go
+  through the same hand (`ambition_held_items::change_hand`) and worn set
+  (`narrative::wear_item`) as the menu's equip. `equip` reports terminal
+  `item_equipped` (into the hand, putting down what it carried) or `item_worn`
+  (into the worn set); `stow` reports `hand_stowed`. Each names the body.
+  Refusals: `no_such_body`, `not_a_party_body`, `unknown_item`, `not_owned`,
+  `not_equippable`, `no_hand`, `no_room_to_release`, and `nothing_held` for a
+  stow of an empty hand. Equipping spends nothing from the bag.
+
 - `world.set_flag` reports `flags_written` after the native flag consumer applies
   the batch and its quest updates.
 - The room-look cycle uses one flag batch. Its reply follows both changes.
@@ -183,7 +192,7 @@ Each installed action domain declares one native cancellation policy:
 | `authored.command` | Each queued consumer checks the pending ticket before mutation. Cancellation stops submitted or admitted work. |
 | `projectiles.spawn` | The native handler removes queued emissions. It refuses once the queue no longer owns the work. |
 | `world.create_actors`, `world.create_breakables` | Unsupported. Construction finishes in one native call. |
-| `inventory.exchange`, `world.consume_contact`, `combat.body_query`, `item.take`, `item.release` | Unsupported. These operations finish in one native call. |
+| `inventory.exchange`, `world.consume_contact`, `combat.body_query`, `item.take`, `item.release`, `inventory.equip`, `inventory.stow` | Unsupported. These operations finish in one native call. |
 | `actions.cancel` | Unsupported. Cancellation finishes in one native call. |
 
 An unregistered domain refuses cancellation. It cannot inherit mailbox-only

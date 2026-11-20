@@ -782,6 +782,25 @@ Port `ambition.world.inventory@1`, observation: read as `this.observe.<alias>`.
 | `items` | list of { id: text, count: integer (u32), capacity: integer (u32) } |  |
 | `wallet` | integer (i32) or () |  |
 
+## `equip`
+
+Port `ambition.world.equip@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required | Where the action result goes. |
+| `body` | text | required | The body's identity (its `SimId`). |
+| `item` | text | required | The catalog item's id. |
+
+## `stow`
+
+Port `ambition.world.stow@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required | Where the action result goes. |
+| `body` | text | required | The body's identity (its `SimId`). |
+
 ## `play_cutscene`
 
 Port `ambition.story.play_cutscene@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

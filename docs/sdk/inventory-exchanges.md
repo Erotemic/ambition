@@ -94,9 +94,10 @@ before choosing a backend for a costly mechanic.
 
 This service does not change equipment or held-item custody. Their native
 owners remain responsible: a body's custody of an item goes through `take` and
-`release`, which report their own [results](action-results.md#installed-command-results).
+`release`, and equipping an owned item through `equip` and `stow`; each
+reports its own [results](action-results.md#installed-command-results).
 The current bag also retains its fixed 24-slot catalog. General catalog growth
-and equipment results remain open in the
+remains open in the
 [capability census](../planning/engine/script-first-capability-census.md).
 
 The loaded [exchange fixture](../../game/ambition_app/tests/scripted_inventory_exchanges.rs)

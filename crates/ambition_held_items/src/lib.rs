@@ -1091,76 +1091,164 @@ pub fn item_in_hand(
 /// it replays it and a seat changes only its own hand. Of one participant's
 /// requests on one tick, the last equip wins over a stow. An item that is not
 /// owned is refused with a log.
-pub fn apply_hand_requests(
+pub fn apply_hand_requests(world: &mut World, mut reads: Local<Option<HandReads>>) {
+    use std::collections::BTreeMap;
+    let reads = reads.get_or_insert_with(|| HandReads::new(world));
+    // What each participant's hand ends the tick holding: `None` empty.
+    let mut wanted: BTreeMap<ambition_characters::control::PlayerSlot, Option<ambition_items::Item>> = BTreeMap::new();
+    let mut bodies: BTreeMap<ambition_characters::control::PlayerSlot, Option<Entity>> = BTreeMap::new();
+    {
+        let (mut equips, mut stows, items, drivers, owned) = reads.get_mut(world).expect("the hand's requests are installed");
+        let catalog = items.get();
+        for stow in stows.read() {
+            wanted.insert(stow.participant, None);
+        }
+        for equip in equips.read() {
+            if held_spec_for_item(catalog, equip.item).is_none() {
+                // An ability, or nothing a hand holds: not this applier's.
+                continue;
+            }
+            // Refused here, so it does not undo a stow of the same tick.
+            if !owned.has(equip.item) {
+                warn!("an equip of {:?} into a hand was asked for, and it is not owned", equip.item);
+                continue;
+            }
+            wanted.insert(equip.participant, Some(equip.item));
+        }
+        for participant in wanted.keys() {
+            let mut driving = drivers.iter().filter(|(_, driver)| driver.0 == *participant);
+            let body = match (driving.next(), driving.next()) {
+                (Some((body, _)), None) => Some(body),
+                _ => None,
+            };
+            bodies.insert(*participant, body);
+        }
+    }
+    for (participant, item) in wanted {
+        let Some(body) = bodies[&participant] else {
+            warn!("a hand request of {participant:?} was refused: it drives no one body");
+            continue;
+        };
+        match world.run_system_cached_with(change_hand, (body, item)) {
+            Ok(Ok(_)) => {}
+            Ok(Err(refusal)) => warn!("a hand request of {participant:?} for {item:?} was refused: {}", refusal.code()),
+            Err(error) => warn!(%error, "the hand could not take a request of {participant:?}"),
+        }
+    }
+}
+
+/// The stamped requests [`apply_hand_requests`] reads.
+pub type HandReads = bevy::ecs::system::SystemState<(
+    ReplayMessageReader<'static, 'static, ambition_items::ItemEquipRequested>,
+    ReplayMessageReader<'static, 'static, ambition_items::ItemStowRequested>,
+    ambition_items::ItemCatalogRead<'static>,
+    Query<'static, 'static, (Entity, &'static ambition_characters::control::DrivingParticipant)>,
+    Res<'static, ambition_items::OwnedItems>,
+)>;
+
+/// Why the hand refused a change.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HandRefusal {
+    /// The body has no hand (no repertoire).
+    NoHand,
+    /// The item is not one a hand holds.
+    NotHeld,
+    /// The bag does not hold the item.
+    NotOwned,
+    /// What the hand carries could not be put down.
+    NoRoomToRelease,
+}
+
+impl HandRefusal {
+    /// The refusal's code in an action result.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::NoHand => "no_hand",
+            Self::NotHeld => "not_held_in_a_hand",
+            Self::NotOwned => "not_owned",
+            Self::NoRoomToRelease => "no_room_to_release",
+        }
+    }
+}
+
+/// What a hand change did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HandChange {
+    /// The hand holds the item now, or is empty now.
+    Changed,
+    /// The hand already held that, or was already empty.
+    Unchanged,
+}
+
+/// THE HAND'S ONE CHANGE: `body`'s hand ends holding `item`, or empty for
+/// `None`. Whatever it carries is put down first (an admitted release), then
+/// the hand is emptied and takes the new item. The menu's stamped requests
+/// ([`apply_hand_requests`]) and a script's `equip` and `stow` both come here.
+#[allow(clippy::too_many_arguments)]
+pub fn change_hand(
+    In((body, item)): In<(Entity, Option<ambition_items::Item>)>,
     mut commands: Commands,
-    mut equips: ReplayMessageReader<ambition_items::ItemEquipRequested>,
-    mut stows: ReplayMessageReader<ambition_items::ItemStowRequested>,
     owned: Res<ambition_items::OwnedItems>,
     items: ambition_items::ItemCatalogRead,
-    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     mut hands: Query<RepertoireQuery>,
     kinematics: Query<&BodyKinematics>,
     supports: Query<&SupportedCarry>,
     mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody, &HeldMaterialBasis)>,
     release_world: ItemReleaseWorld,
-) {
-    use std::collections::BTreeMap;
+) -> Result<HandChange, HandRefusal> {
     let catalog = items.get();
-    // What each participant's hand ends the tick holding: `None` empty.
-    let mut wanted: BTreeMap<ambition_characters::control::PlayerSlot, Option<ambition_items::Item>> = BTreeMap::new();
-    for stow in stows.read() {
-        wanted.insert(stow.participant, None);
-    }
-    for equip in equips.read() {
-        if held_spec_for_item(catalog, equip.item).is_none() {
-            // An ability, or nothing a hand holds: not this applier's.
-            continue;
-        }
-        if !owned.has(equip.item) {
-            warn!("an equip of {:?} into a hand was asked for, and it is not owned", equip.item);
-            continue;
-        }
-        wanted.insert(equip.participant, Some(equip.item));
-    }
-    for (participant, item) in wanted {
-        let mut driving = drivers.iter().filter(|(_, driver)| driver.0 == participant);
-        let (Some((body, _)), None) = (driving.next(), driving.next()) else {
-            warn!("a hand request of {participant:?} was refused: it drives no one body");
-            continue;
-        };
-        let Ok(mut repertoire) = hands.get_mut(body) else { continue };
-        if item.and_then(|item| held_spec_for_item(catalog, item)).is_some_and(|spec|
-            repertoire.held.is_some_and(|held| held.id() == spec.id.as_str())) { continue; }
-        let prepared = (|| {
-            let mut releases = Vec::new();
-            for (item, _, stored, custody, basis) in &carried {
-                if !custody.held_by(body) { continue; }
-                let holder = kinematics.get(body).map_err(|_| ae::frame::thread::Refusal {
-                    path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::MissingMaterial,
-                })?;
-                let pos = supports.get(body).ok()
-                    .filter(|support| release_world.rooms.of(body) == release_world.rooms.of(support.supporter))
-                    .and_then(|support| kinematics.get(support.supporter).ok())
-                    .map_or(holder.pos, |partner| SupportedCarry::anchor(holder, partner, Vec2::Y));
-                releases.push((item, release_world.prepare_release(body, Some(item), holder, stored, *basis, pos, Vec2::ZERO)?));
+    let spec = match item {
+        None => None,
+        Some(item) => {
+            let spec = held_spec_for_item(catalog, item).ok_or(HandRefusal::NotHeld)?;
+            if !owned.has(item) {
+                return Err(HandRefusal::NotOwned);
             }
-            Ok::<_, ae::frame::thread::Refusal>(releases)
-        })();
-        let releases = match prepared {
-            Ok(releases) => releases,
-            Err(refusal) => { warn!(?refusal, "hand change refused"); continue; }
-        };
-        for (item, released) in releases {
-            if let Ok((_, _, _, mut custody, _)) = carried.get_mut(item) {
-                released.put_down(&mut commands, item, &mut custody);
-            }
+            Some(spec)
         }
-        // The hand holds one thing: empty it, then take the new one.
-        empty_hand(&mut commands, body, &mut repertoire);
-        if let Some(spec) = item.and_then(|item| held_spec_for_item(catalog, item)) {
-            equip_held_spec(&mut commands, body, &mut repertoire, spec);
+    };
+    let mut repertoire = hands.get_mut(body).map_err(|_| HandRefusal::NoHand)?;
+    let carrying = carried.iter().any(|(_, _, _, custody, _)| custody.held_by(body));
+    let unchanged = match &spec {
+        Some(spec) => repertoire.held.is_some_and(|held| held.id() == spec.id.as_str()),
+        None => repertoire.held.is_none() && !carrying,
+    };
+    if unchanged {
+        return Ok(HandChange::Unchanged);
+    }
+    let prepared = (|| {
+        let mut releases = Vec::new();
+        for (item, _, stored, custody, basis) in &carried {
+            if !custody.held_by(body) { continue; }
+            let holder = kinematics.get(body).map_err(|_| ae::frame::thread::Refusal {
+                path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::MissingMaterial,
+            })?;
+            let pos = supports.get(body).ok()
+                .filter(|support| release_world.rooms.of(body) == release_world.rooms.of(support.supporter))
+                .and_then(|support| kinematics.get(support.supporter).ok())
+                .map_or(holder.pos, |partner| SupportedCarry::anchor(holder, partner, Vec2::Y));
+            releases.push((item, release_world.prepare_release(body, Some(item), holder, stored, *basis, pos, Vec2::ZERO)?));
+        }
+        Ok::<_, ae::frame::thread::Refusal>(releases)
+    })();
+    let releases = match prepared {
+        Ok(releases) => releases,
+        Err(refusal) => {
+            debug!(?refusal, "hand change refused");
+            return Err(HandRefusal::NoRoomToRelease);
+        }
+    };
+    for (item, released) in releases {
+        if let Ok((_, _, _, mut custody, _)) = carried.get_mut(item) {
+            released.put_down(&mut commands, item, &mut custody);
         }
     }
+    // The hand holds one thing: empty it, then take the new one.
+    empty_hand(&mut commands, body, &mut repertoire);
+    if let Some(spec) = spec {
+        equip_held_spec(&mut commands, body, &mut repertoire, spec);
+    }
+    Ok(HandChange::Changed)
 }
 
 /// RELEASE custody of a held item — the twin of [`equip_held_spec`].

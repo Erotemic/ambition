@@ -31,6 +31,7 @@ baked_pages:
   hooded_sentinel_boss: "Boss art (boss_art_keys.ron): no character draws its parts (no catalog row)."
   gnu_ton_scholar_boss: "Boss art (boss_art_keys.ron): publishes no part flipbook."
   gram_reaper: "Boss art (boss_art_keys.ron): publishes no part flipbook."
+  marshal_gallus: "Boss art (boss_art_keys.ron): publishes no part flipbook."
   player_robot_v3: "Every LDtk world's PlayerStart tileset (`sprite_player_robot_v3`) is this page, and the runtime decodes it at boot; retarget it first (Q180 in docs/planning/awaiting-maintainer-decision.md)."
 
 # The clips a part-first target's flipbook tweens, where they differ from

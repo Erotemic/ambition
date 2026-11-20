@@ -383,6 +383,46 @@ ambition_extension_sdk::port_record! {
 
 ambition_extension_sdk::script_port!(SetVelocityPort);
 
+/// The request port marker for the observer's slow.
+///
+/// Port card:
+///
+/// * **Operation** — while the body the invocation ran for asks every tick,
+///   the world runs at the observer's slow (the feel's bullet-time scale, the
+///   one a precision aim takes) when that body is the one the primary
+///   observer drives. A request for a body nobody observes changes nothing;
+///   a tick without a request lets the world ease back to full speed.
+/// * **Owner** — `ambition_abilities::observer_slow` (the ask, held on the
+///   body) and the runtime's time control (the slow).
+/// * **Scope** — the body the invocation ran for.
+/// * **Time** — `technique_execution`. Time control reads the ask on the next
+///   tick.
+pub struct ObserverSlowPort;
+
+/// An ask for the observer's slow. It carries nothing: the scale is the feel's.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ObserverSlow {}
+
+impl Port for ObserverSlowPort {
+    const KEY: PortKey = PortKey::new("ambition.body.observer_slow", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = ObserverSlow;
+
+    fn encode(v: &ObserverSlow, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<ObserverSlow, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    ObserverSlow {}
+}
+
+ambition_extension_sdk::script_port!(ObserverSlowPort);
+
 /// The request port marker for a hit mark: the mark that shows where a hit
 /// or a catch landed.
 ///

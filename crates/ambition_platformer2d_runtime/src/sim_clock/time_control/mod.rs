@@ -34,6 +34,7 @@ pub fn emit_primary_observer_time_intent(
         &ambition_platformer2d_core::BodyMotionFacts,
         &BodyCombat,
         Option<&ambition_platformer2d_core::BodyAbilities>,
+        Option<&ambition_abilities::observer_slow::ObserverSlowAsked>,
     )>,
     feel: Res<Platformer2dFeelTuningMonolith>,
     // The match hold is independent of the local observer.
@@ -67,6 +68,7 @@ pub fn emit_primary_observer_time_intent(
     ),
 ) {
     let wall_dt = world_time.as_deref().map_or(0.0, ambition_time::WorldTime::wall_dt);
+    let now = tick.as_deref().map(|tick| tick.0);
     let one_room = !ambition_platformer2d_shared_tangle::lifecycle::rooms_keep_their_own_clocks(live_rooms.iter().count());
     // A root with no pace yet takes the handed scale as its start.
     let seed = clock.as_deref_mut().and_then(|clock| {
@@ -91,7 +93,7 @@ pub fn emit_primary_observer_time_intent(
     );
     let observed = observed_body.and_then(|body| bodies.get(body).ok());
     // No unique observed body means no retained body may hold the world clock.
-    let Some((facts, combat, abilities)) = observed else {
+    let Some((facts, combat, abilities, slow_asked)) = observed else {
         // Nor any room's: every room eases home.
         ease_room_clocks(&mut roots, &mut commands, None, seed, &feel, wall_dt);
         writer.write(ClockScaleRequest {
@@ -124,6 +126,14 @@ pub fn emit_primary_observer_time_intent(
             feel.blink_hold_slow_scale,
             ClockRequester::Player(ClockObserver::PRIMARY),
             "blink_hold_slow",
+        )
+    } else if slow_asked.is_some_and(|asked| now.is_some_and(|now| asked.holds_on(now))) {
+        // A technique asks the observer's slow while it lasts (Contextual
+        // Blink's choice of a foe), at the precision aim's scale.
+        (
+            feel.bullet_time_scale,
+            ClockRequester::Player(ClockObserver::PRIMARY),
+            "technique_slow",
         )
     } else {
         (1.0, ClockRequester::Engine, "default")

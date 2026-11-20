@@ -305,6 +305,12 @@ Port `ambition.motion.velocity@1`, request: `this.requests.push(request("<alias>
 |---|---|---|---|
 | `velocity` | [x, y] | required | The body's new velocity (world frame, units per second, +Y down). |
 
+## `observer_slow`
+
+Port `ambition.body.observer_slow@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+No fields: `request("observer_slow", #{})`.
+
 ## `group_think`
 
 Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.

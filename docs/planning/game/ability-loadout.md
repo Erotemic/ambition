@@ -172,7 +172,22 @@ tests (bounce, one-way landing, strike rules).
    lists level 2 (`stack: 2`); the demo bag starts at level 2. Witness
    `a_contextual_blink_lands_behind_the_foe_a_tick_after_the_press` (app_it,
    under a GGRS sync-test session) and the module's unit tests.
-   **Open:** level 3, the double tap that slows time to choose the foe.
+   **Level 3 built 2026-11-20** (`contextual_blink_3`, 320 px; the items row
+   lists it, `stack: 3`). A press is level 2's blink; a second press within
+   0.3 s of the first (allowed while the cooldown runs) starts the choice.
+   While the slot is held the world runs at the bullet-time scale, the stick
+   picks the foe in reach nearest its direction (at rest, the nearest), and a
+   small burst flashes on that foe every 0.1 s. Letting go, or a second of
+   choosing, blinks behind it. The slow is a technique request,
+   `ambition.body.observer_slow` (script alias `observer_slow`): the body
+   holds the tick of the last ask (`ambition_abilities::observer_slow`,
+   rollback state `ability.observer_slow`, schema 512), and the time
+   control slows the primary observer's room while the ask is from this tick
+   or the last. Only the observed body's ask slows the world, as with the
+   blink aim. Witnesses: the module's unit tests
+   (`a_double_tap_holds_the_world_for_the_choice`, `the_stick_picks_the_foe`,
+   `a_choice_ends_and_a_late_press_is_a_blink`) and
+   `a_fresh_technique_slow_ask_slows_the_observers_room` (time control).
    The module cannot see walls: a wall right behind the foe stops the body
    short of the far side (never inside the wall).
 2. **Precision Blink tiers** (Jon's notes): level 1 directional instant;

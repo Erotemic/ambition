@@ -116,6 +116,7 @@
         dialog_id: "contextualblink",
         // The Blink slot is the `contextual_blink` module's technique.
         // Level 1: an enemy that is near. Level 2: one further away.
+        // Level 3: a double tap slows the world while held; aim picks the enemy.
         wears: Some((
             id: "contextual_blink",
             exclusive_slot: Some("blink"),
@@ -133,8 +134,16 @@
                     display_name: Some("Contextual Blink"), gate: Technique("contextual_blink_2"),
                 ))],
             ),
+            (
+                id: "contextual_blink_3",
+                exclusive_slot: Some("blink"),
+                grants: [Technique((
+                    id: ("contextual_blink_3"), slot: Blink,
+                    display_name: Some("Contextual Blink"), gate: Technique("contextual_blink_3"),
+                ))],
+            ),
         ],
-        stack: 2,
+        stack: 3,
     ),
     (
         display_name: "Dash",

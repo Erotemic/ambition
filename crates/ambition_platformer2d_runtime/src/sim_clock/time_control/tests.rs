@@ -414,3 +414,47 @@ fn an_aim_without_the_blink_slow_verb_leaves_the_world_at_full_speed() {
     let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
     assert_eq!((request.scale, request.reason), (bullet, "bullet_blink"), "control: with the verb the aim slows the world");
 }
+
+/// A technique's ask for the observer's slow (Contextual Blink's choice)
+/// slows Player 1's room like bullet time while it is fresh, and the room
+/// eases home once the technique stops asking.
+#[test]
+fn a_fresh_technique_slow_ask_slows_the_observers_room() {
+    use ambition_abilities::observer_slow::ObserverSlowAsked;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+    let mut app = App::new();
+    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    app.insert_resource(ambition_time::SimTick(100));
+    app.add_message::<ClockScaleRequest>();
+    app.add_systems(Update, emit_primary_observer_time_intent);
+    for room in [here, there] {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+    }
+    let player = app
+        .world_mut()
+        .spawn((
+            DrivingParticipant(PlayerSlot::PRIMARY),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            BodyCombat::default(),
+            InRoomInstance(here),
+        ))
+        .id();
+    for _ in 0..30 {
+        let now = app.world().resource::<ambition_time::SimTick>().0;
+        app.world_mut().entity_mut(player).insert(ObserverSlowAsked { tick: now });
+        app.update();
+        app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
+    }
+    let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
+    assert_eq!(pace_of(&mut app, here), bullet, "the asked slow did not reach the bullet scale");
+    assert_eq!(pace_of(&mut app, there), 1.0, "the other room was slowed");
+
+    // The technique stops asking: the last ask goes stale and the room eases home.
+    for _ in 0..60 {
+        app.update();
+        app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
+    }
+    assert_eq!(pace_of(&mut app, here), 1.0, "a stale ask kept the room slow");
+}

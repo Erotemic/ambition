@@ -356,6 +356,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::ActorThinkPort>("actor_think")
         .add::<ambition_combat_port::ActorFirePort>("fire")
         .add::<ambition_combat_port::SetVelocityPort>("velocity")
+        .add::<ambition_combat_port::ObserverSlowPort>("observer_slow")
         .add::<ambition_combat_port::GroupThinkPort>("group_think")
         .add::<ambition_combat_port::BodyContactPort>("body_contact")
         .add::<ambition_combat_port::HitReceptionsPort>("hit_receptions")

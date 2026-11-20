@@ -150,6 +150,7 @@ pub fn install_for_technique_execution(app: &mut App) {
     );
     crate::ride::install_for_technique_execution(app);
     crate::pending_transit::install_for_technique_execution(app);
+    crate::observer_slow::install_for_technique_execution(app);
 }
 
 /// Install the module-entity trigger port and its ports in

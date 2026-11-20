@@ -1,9 +1,10 @@
-ggrs-rollback-schema-v511
+ggrs-rollback-schema-v512
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.held_course	component-clone	HeldCourse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.module_entity	component-clone	ModuleEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+ability.observer_slow	component-clone	ObserverSlowAsked	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.pending_transit	component-clone	PendingTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actions.mailbox	component-canonical	ActionMailbox	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -109,6 +110,7 @@ body.guard_state	component-clone-custom-checksum	GuardState	bevy_ggrs clone snap
 body.health	component-canonical	BodyHealth	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.jump	component-canonical	BodyJumpState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.kinematics	component-canonical	BodyKinematics	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.passes_solids	component-clone-custom-checksum	PassesSolids	bevy_ggrs clone snapshot + a body whose own movement meets none of its room's solids
 body.resources	component-canonical	ActorResources	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.restart_latch	component-canonical	BodyRestartLatch	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.shield	component-canonical	BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -389,6 +391,7 @@ message.body_teleported	message-clear	BodyTeleported	clear abandoned-future mess
 message.boss_defeat_retracted	message-clear	BossDefeatRetracted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.boss_phase_changed	message-clear	BossPhaseChanged	clear abandoned-future message buffer in LoadWorld::Mapping
 message.brain_command	message-clear	BrainCommand	clear abandoned-future message buffer in LoadWorld::Mapping
+message.broken_committed	message-clear	BrokenCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.camera_shake_request	message-clear	CameraShakeRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.capture_attempt_requested	message-clear	CaptureAttemptRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.capture_carry_requested	message-clear	CaptureCarryRequested	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -400,11 +403,13 @@ message.checkpoint_establish_requested	message-clear	CheckpointEstablishRequeste
 message.clear_portals	message-clear	ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_reset_request	message-clear	ClockResetRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_scale_request	message-clear	ClockScaleRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.collected_committed	message-clear	CollectedCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.conversation_cut_bark	message-clear	ConversationCutBark	clear abandoned-future message buffer in LoadWorld::Mapping
 message.conversation_ended	message-clear	ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.cut_rope_room_replay_requested	message-clear	CutRopeRoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.damage_box_request	message-clear	DamageBoxRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.debris_burst	message-clear	DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.defeat_committed	message-clear	DefeatCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.deflected_body_hit	message-clear	DeflectedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.dismount_requested	message-clear	DismountRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.encounter_command	message-clear	EncounterCommand	clear abandoned-future message buffer in LoadWorld::Mapping

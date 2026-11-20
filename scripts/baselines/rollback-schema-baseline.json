@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v511",
+    "version": "ggrs-rollback-schema-v512",
     "rows": [
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
@@ -54,6 +54,7 @@
       "body.health\tcomponent-canonical\tBodyHealth",
       "body.jump\tcomponent-canonical\tBodyJumpState",
       "body.kinematics\tcomponent-canonical\tBodyKinematics",
+      "body.passes_solids\tcomponent-clone-custom-checksum\tPassesSolids\tbevy_ggrs clone snapshot + a body whose own movement meets none of its room's solids",
       "body.resources\tcomponent-canonical\tActorResources",
       "body.restart_latch\tcomponent-canonical\tBodyRestartLatch",
       "body.shield\tcomponent-canonical\tBodyShieldState",

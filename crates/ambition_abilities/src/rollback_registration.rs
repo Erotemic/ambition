@@ -60,6 +60,13 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {    // 
         "ability.pending_transit",
         crate::pending_transit::pending_transit_probe,
     );
+    // A technique's ask for the observer's slow: how fast the world runs next
+    // tick. The tick of the ask is the value.
+    registrar.rollback_component_clone_probed::<crate::observer_slow::ObserverSlowAsked>(
+        OWNER,
+        "ability.observer_slow",
+        crate::observer_slow::observer_slow_probe,
+    );
     registrar.declare_rollback_derived_resource::<crate::module_entity::ModuleEntityTouchers>(
         OWNER,
         "derived.module_entity_touchers",

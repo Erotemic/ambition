@@ -186,8 +186,10 @@ Defeat is now a subscribable fact (`a_subscribed_method_hears_the_defeat_of_its_
 A room entered again is a new copy: a subscription made in the old copy hears
 nothing from the new one, and a fresh lookup subscribes to the new copy's
 object (`a_room_entered_again_is_a_new_copy_and_only_its_own_watch_hears_its_barrier`).
-Two copies of one room live at once, body retirement facts and a locking-door
-capability remain open. The toll barrier uses the
+No production road holds two copies of one room live at once (a crossing
+into a live room joins it), so that case is the locator check's alone. Body
+retirement facts wait for a customer mechanic; a locking-door capability
+remains open. The toll barrier uses the
 existing destructible return policy; it is not a general locking door.
 
 The first committed world-domain consequence is a posted signal (see

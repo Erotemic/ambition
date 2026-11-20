@@ -15,8 +15,9 @@ both 2026-11-19). Authored signals are
 admitted whole or refused (`emit_signal`/`object_signal`, 2026-11-19), and a
 posted signal crosses rollback islands once its sending tick is confirmed
 (`post_world_signal`, 2026-11-19). A room entered again is a new copy whose
-subscriptions are its own. Retirement facts, two copies of one room live at
-once, and world-domain state beyond a transient post remain open.
+subscriptions are its own; no production road keeps two copies of one room
+live at once. Retirement facts (waiting for a customer mechanic) and
+world-domain state beyond a transient post remain open.
 
 The [program](script-first-ambition-gameplay.md#reactive-capability-direction)
 now selects an island-local reactive model. This census supplies owner and

@@ -583,16 +583,17 @@ post-gate order, each step one coherent customer at a time:
 2. **Strike-seam rows that reuse S0.8/S0.9 seams** (E1, settled policy):
    ✔ 2026-11-20. Hit-grab and recoil on hit shipped; the ledge-trump
    commitment window had already shipped (`ledge_trump_lockout`). The
-   grab-release fact waits for a presentation consumer (step 5).
-3. **Item attribution**: thrown-item damage through normal hit attribution,
-   then thrower/KO attribution, item catch and item lifetime policy.
-4. **Training and match-rule knobs** that need no new semantics: reset
+   grab-release fact waits for a presentation consumer (step 4).
+3. **Training and match-rule knobs** that need no new semantics: reset
    fighters / set percent, frame-data display, timer selector, random stage,
    handicap / starting damage in match preparation.
-5. **Presentation and audio** rows (§12), which wait on art and sound more than
+4. **Presentation and audio** rows (§12), which wait on art and sound more than
    on code; take them with the feel audit.
 
-Design calls stay out of this order until ruled: which fighter pulls (vacuum),
+Items wait on Jon (§8: *"we don't need items in smash right now"*): when
+they are wanted, start with item attribution (thrown-item damage through
+normal hit attribution, thrower/KO attribution, catch, lifetime). Design calls
+stay out of this order until ruled: which fighter pulls (vacuum),
 George's TRUE/FALSE stance (Q81), a separate stage-select screen, Final Smash.
 
 A cheap lower row is not higher priority. A shipped-but-unreached mechanic is not

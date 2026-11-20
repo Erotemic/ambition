@@ -217,7 +217,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_hosted_world/src/room_rollback.rs",
         "game/ambition_app/src/dev/frame_step.rs",
     ),
-    "ConversationBagSinceCheckpoint": (
+    "BagChangesSinceCheckpoint": (
+        "crates/ambition_platformer2d_items/src/inventory.rs",
         "crates/ambition_platformer2d_items/src/narrative.rs",
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
@@ -1072,10 +1073,12 @@ ADJUDICATED: dict[str, str] = {
         "for each replayed fixed tick and `Time<Virtual>` back after it. "
         "Neither file writes the other's type."
     ),
-    "ConversationBagSinceCheckpoint": (
-        "CORRECT — ONE LOG, ONE RECORDER, ONE RETRACTOR, ONE RESET (DIALOGUE-CHECKPOINT 3, "
-        "2026-11-13). `narrative.rs` only `record`s a conversation's grant or sale with "
-        "its room and tick; `minted_horizon.rs` forgets it at a checkpoint, keeps it "
+    "BagChangesSinceCheckpoint": (
+        "CORRECT — ONE LOG, TWO RECORDERS, ONE RETRACTOR, ONE RESET (DIALOGUE-CHECKPOINT 3, "
+        "2026-11-13; renamed from ConversationBagSinceCheckpoint by the atomic inventory "
+        "exchanges, e36f11750). `narrative.rs` only `record`s a conversation's grant or sale "
+        "with its room and tick, and `inventory.rs` only `record`s the changes an applied "
+        "exchange made; `minted_horizon.rs` forgets it at a checkpoint, keeps it "
         "through a restore and `retract_room`s it at a room's rewind; `teardown.rs` "
         "resets it at the session edge. ⇒ Nothing here is two owners of one fact."
     ),

@@ -288,9 +288,10 @@ pub fn damage_lands_between(
 /// [`ActorDisposition::Peaceful`]. Match participation is not inferred from
 /// whether a target exists.
 ///
-/// The current implementation is O(n²) in the all-actor case. A many-body build
-/// can swap in a spatial index here without changing the consumer side.
+/// Candidate bounds and relationship summaries are rebuilt once per tick.
+/// Exact nearest queries retain the canonical candidate order for ties.
 pub fn select_actor_targets(
+    mut spatial: Local<TargetSelectionIndex>,
     relations: Option<Res<FactionRelations>>,
     // The player carries an `ActorFaction` (Player) like every body — read it so the
     // player is a RELATIONAL candidate (a foe only if this actor's faction opposes
@@ -429,6 +430,7 @@ pub fn select_actor_targets(
         (None, Some(_)) => std::cmp::Ordering::Greater,
         (None, None) => a.0.cmp(&b.0),
     });
+    let teams = spatial.rebuild(&candidates);
     for (
         self_entity,
         aabb,
@@ -457,58 +459,12 @@ pub fn select_actor_targets(
         // candidate like any other — it's hunted because the actor's faction opposes
         // Player (a born Enemy) or it's the grudge target (a provoked NPC), never
         // because it is "the player". Nearest foe wins.
-        let mut best: Option<(Entity, ae::Vec2, f32)> = None;
-        if policy != AggressionTarget::None {
-            for (entity, pos, cand_faction, _, cand_team, cand_room) in &candidates {
-                if *entity == self_entity || *cand_room != self_room {
-                    continue;
-                }
-                let d = distance_squared(*pos, actor_pos);
-                // Only a strictly nearer candidate can win (see `better`
-                // below), so the relation is not asked of the others.
-                if best.is_some_and(|(_, _, best_d)| d >= best_d) {
-                    continue;
-                }
-                // THE one relationship policy, the same call the damage side makes.
-                //
-                // `has_allegiance` still gates the matrix arm: a body with neither an
-                // authored faction nor player control has no faction-relational foes
-                // and can only be pointed by a grudge. A TEAM, on the other hand,
-                // speaks for itself — being seated in a match IS an allegiance.
-                let relation = combat_relation(
-                    has_allegiance.then_some(&relations),
-                    Combatant {
-                        faction: self_faction,
-                        driver: None,
-                        team: self_team,
-                    },
-                    aggression.grudge,
-                    *entity,
-                    Combatant {
-                        faction: *cand_faction,
-                        driver: None,
-                        team: *cand_team,
-                    },
-                );
-                if !relation.is_target() {
-                    continue;
-                }
-                // Deterministic nearest-foe selection: strictly-nearer wins, and an
-                // EXACT distance tie is decided by the canonical candidate ORDER
-                // established above (first-seen wins), not by comparing raw `Entity`
-                // ids. That distinction is load-bearing under GGRS: bevy_ggrs
-                // destroys and recreates rollback entities, so `Entity` values are
-                // NOT stable across a rewind and an id comparison could silently
-                // flip the target of a symmetric two-foe setup mid-resimulation.
-                let better = match best {
-                    None => true,
-                    Some((_, _, best_d)) => d < best_d,
-                };
-                if better {
-                    best = Some((*entity, *pos, d));
-                }
-            }
-        }
+        let best = (policy != AggressionTarget::None).then(|| spatial.nearest(
+            &candidates, &teams, self_entity, actor_pos, self_room,
+            has_allegiance.then_some(&relations),
+            Combatant { faction: self_faction, driver: None, team: self_team },
+            aggression.grudge,
+        )).flatten();
         if let Some((entity, pos, _)) = best {
             target.pos = pos;
             target.entity = Some(entity);
@@ -690,3 +646,6 @@ pub(crate) fn observed_relation(world: &World, source: Entity, target: Entity)
         CombatRelation::Neutral => TargetRelation::Neutral,
     })
 }
+
+mod spatial;
+pub use spatial::TargetSelectionIndex;

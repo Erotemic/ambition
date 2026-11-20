@@ -1253,3 +1253,57 @@ fn participant_damage_has_its_own_policy_without_changing_teams_or_npc_allies() 
             DamagePolicy { allies: true, participants: Some(enabled) }, None, body));
     }
 }
+
+#[derive(Component)]
+struct TargetGoal(ae::Vec2, f32);
+
+#[derive(Resource, Default)]
+struct TargetClock(u32);
+
+fn move_target_crowd(mut clock: ResMut<TargetClock>, mut bodies: Query<(&mut CenteredAabb, &TargetGoal)>) {
+    let t = clock.0 as f32 * 0.04;
+    for (mut bounds, goal) in &mut bodies {
+        bounds.center = goal.0 + ae::Vec2::new((t + goal.1).sin() * 90.0, (t * 0.7 + goal.1).cos() * 40.0);
+    }
+    clock.0 += 1;
+}
+
+#[test]
+#[ignore = "measurement: moving target selection"]
+fn measure_moving_target_selection() {
+    println!("workload,bodies,sample,ns_per_update,target_hash");
+    for workload in ["mixed", "opposed", "teams", "neutral"] {
+        for count in [32, 128, 512, 1024] {
+            for sample in 0..3 {
+                let mut app = App::new();
+                app.init_resource::<TargetClock>();
+                app.add_systems(Update, (move_target_crowd, select_actor_targets).chain());
+                for index in 0..count {
+                    let at = ae::Vec2::new((index % 32) as f32 * 80.0, (index / 32) as f32 * 90.0);
+                    let faction = match workload {
+                        "neutral" => ActorFaction::Neutral,
+                        "mixed" => match index % 10 { 0 => ActorFaction::Player, 1 => ActorFaction::Enemy, _ => ActorFaction::Npc },
+                        _ => if index % 2 == 0 { ActorFaction::Player } else { ActorFaction::Enemy },
+                    };
+                    let mut body = app.world_mut().spawn((FeatureSimEntity,
+                        CenteredAabb::from_center_size(at, ae::Vec2::new(20.0, 28.0)),
+                        ActorTarget::default(), ActorAggression::hostile(), ActorDisposition::Hostile,
+                        faction, alive(), SimId::placement(&format!("moving-{index:05}")),
+                        TargetGoal(at, index as f32 * 0.37)));
+                    if workload == "teams" { body.insert(MatchTeam::new(format!("team-{}", index % 4))); }
+                }
+                for _ in 0..10 { app.update(); }
+                let start = std::time::Instant::now();
+                for _ in 0..40 { app.update(); }
+                let elapsed = start.elapsed().as_nanos() / 40;
+                let mut query = app.world_mut().query::<(&SimId, &ActorTarget, &ActorDisposition)>();
+                let mut rows: Vec<_> = query.iter(app.world()).map(|(id, target, disposition)|
+                    (id.clone(), format!("{:?}:{:?}:{disposition:?}", target.pos,
+                        target.entity.and_then(|e| app.world().get::<SimId>(e))))).collect();
+                rows.sort_by(|a,b| a.0.cmp(&b.0));
+                let hash = rows.iter().flat_map(|r| r.1.bytes()).fold(0_u64, |h,b| h.wrapping_mul(31).wrapping_add(u64::from(b)));
+                println!("{workload},{count},{sample},{elapsed},{hash}");
+            }
+        }
+    }
+}

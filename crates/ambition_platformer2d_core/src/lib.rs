@@ -153,3 +153,5 @@ pub use world::{
     ClimbableSpec, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceJunction, SurfaceKind,
     SurfacePort, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,
 };
+
+pub use ambition_geometry::spatial;

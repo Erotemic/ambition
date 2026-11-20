@@ -114,6 +114,29 @@ Complete round-tripping is not required for every backend. Do not design the IR
 so that future review/edit tools are impossible, but prioritize faithful runtime
 semantics and useful diagnostics over speculative perfect source reconstruction.
 
+## Runtime query indexes
+
+[`ambition_geometry::spatial`](../../crates/ambition_geometry/src/spatial.rs)
+owns the shared `Spatial` bounds contract and `SpatialTree`. The tree accepts
+owned objects or borrowed objects. Rebuild it after its inputs move or change.
+Rebuilds reuse storage and reject nonfinite or reversed bounds. Points are valid
+zero-size bounds. A rejected rebuild leaves an empty tree.
+
+`nearest` finds the closest accepted bounds by squared Euclidean distance.
+Exact ties use input order. Supply objects in stable semantic identity order
+when the result affects simulation. `query_bounds` visits bounds that touch or
+overlap a rectangle; its output uses tree order. A consumer can order those
+results when its own operation requires that order.
+
+Callers can add subtree summaries and a `SpatialFilter` to reject whole regions.
+The caller owns the meaning of each summary and must keep rejection
+conservative. Combat owns the room partition, factions, teams, and grudges in
+its target-selection adapter. The tree owns geometric search only.
+
+The world's `Layered` grid uses the same `Spatial` trait for its near and swept
+queries. The grid and tree serve different query patterns. A consumer that
+needs a motion envelope must supply bounds that cover that motion.
+
 ## Reopen triggers
 
 Broader spatial-unification work becomes active when one of these is demonstrated:

@@ -295,7 +295,7 @@ def role_tags(pack: Path) -> dict[str, set[str]]:
 
 
 def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=None, deep=False, runtime_path=None,
-            product_report=None, cargo=False, log=print) -> dict:
+            product_report=None, cargo=False, dates=False, log=print) -> dict:
     """`product_report`: the renderer's report, when the caller started it early."""
     if product_report is None:
         product_report = sources.products(repo, python, deep=deep)
@@ -304,6 +304,9 @@ def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=No
     files = [p for root in roots(repo) if root.tier == "full" for p in root.path.rglob("*") if p.is_file()]
     runtime = json.loads(runtime_path.read_text()) if runtime_path else None
     report = assemble(repo, product_report, prepared, local_files=files, runtime=runtime)
+    if dates and prepared.get("state") == "available":
+        from .chronology import attach
+        attach(report, prepared, repo)
     roles = role_tags(sources.pack_dir(repo, profile))
     for identity in report["identities"].values():
         extra = roles.get(identity.get("id"), set())

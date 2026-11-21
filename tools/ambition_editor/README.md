@@ -41,6 +41,16 @@ pack, so another engine game is inspected the same way (`--profile`,
 - **Characters** and **Inventory** read the sprite publication and the game
   catalog, as described below. A character a pack declares as a Smash fighter
   (a `smash_fighter` source naming it) is tagged `smash-fighter`.
+  Sort characters by name, date added to the game, or art generation date.
+  Both date sorts offer newest and oldest first. Added dates use the first
+  character key in available catalog Git history, across file renames.
+  Generation dates use the latest render receipt for the character's art units.
+  Without a receipt, the page uses the latest published image file date and
+  labels it as a file date. A copy or restore can change that date.
+  Unknown dates sort last. A group uses its main character's added date and
+  the latest generation date across its forms and parts. Use All catalog entries
+  to sort each entry by its own dates. The page build reads catalog history;
+  ordinary status queries do not.
 - Every image asset has one top-level category, each with its own tab: Props,
   Held items, Effects, Backgrounds, Terrain & tiles, Entities & pickups,
   Icons & UI and Reference art (`asset_index/categories.py`). The renderer

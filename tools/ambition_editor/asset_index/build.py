@@ -77,7 +77,7 @@ def build(
     inspection = None
     if targets is None:
         inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path,
-                                       product_report=early.result(), cargo=cargo, log=log)
+                                       product_report=early.result(), cargo=cargo, dates=True, log=log)
         if inspection["profile"]["state"] != "available":
             # The art, generators and lineages still index; the page names the problem and its fix.
             problem = inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]

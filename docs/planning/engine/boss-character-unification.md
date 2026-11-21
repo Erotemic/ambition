@@ -1,7 +1,7 @@
 # Boss characters: one identity and one construction path
 
-**State:** ready for handoff. Scope set by Jon on 2026-11-20.
-**Queue:** [BOSS-CHARACTER](../queue.md#boss-character--one-character-path-for-bosses).
+**State:** done 2026-11-21 (slices 1–4 recorded below). Scope set by Jon on 2026-11-20.
+**Queue:** [BOSS-CHARACTER](../queue.md#boss-character--one-character-path-for-bosses---done-2026-11-21).
 **Related:** [boss system](boss-system.md),
 [one body, one path](../../concepts/one-body-one-path.md),
 [actor content](../../systems/actors-brains-and-character-content.md).
@@ -401,8 +401,52 @@ slice 4 can re-run the same build on the same machine.
 | `you_have_to_cut_the_rope` (Smirking Behemoth) | 3.94 | 3.95 | 3.87 | 1.73 | 1.07–1.12 |
 | `frontier_ore_corral` (Marshal Gallus) | 4.42 | 4.41 | 4.57 | 1.89–2.00 | 1.16–1.25 |
 
-Not yet recorded: hurt volumes and action repertoire per pose. These come from
-the app-level scenarios in slice 4, through the real encounter paths.
+**Slice 4: cost (2026-11-21, tree `da60968d5`).** Same script settings: the
+`profiling` build without Tracy, 2000 ticks, 3 reps, the median of the census
+windows (ms per frame).
+
+| Room | Rep 1 | Rep 2 | Rep 3 | PreUpdate | Update | Baseline median |
+| --- | --- | --- | --- | --- | --- | --- |
+| `hall_of_characters` | 30.52 | 28.91 | 29.28 | 16.0–16.7 | 9.3–9.9 | 29.66 |
+| `you_have_to_cut_the_rope` | 3.80 | 3.92 | 3.77 | 1.60–1.69 | 1.10–1.14 | 3.94 |
+| `frontier_ore_corral` | 4.25 | 4.53 | 4.49 | 1.83–1.88 | 1.18–1.28 | 4.42 |
+
+Every difference is inside the spread between reps. The Hall, which holds the
+ordinary characters, costs what it did, so ordinary actors gained no boss
+work. The boss rooms show no measurable frame change either way. The
+duplicate work removed was at construction:
+* the provisional health of 18 that activation rewrote (2b);
+* the boss road's own cluster (2c);
+* the sheet body that construction sized and then overwrote (3c).
+
+None of it ran per frame, so no frame gain is claimed.
+
+The kept baseline binary could not be re-run beside the new one. A dev build
+compiles its content from the repository path baked in at build time
+(`ambition_content::pack::source_root`), and today's data has fields the
+`feb420d2a` pack refuses (`character`, `escort`, `scale`). Pointing
+`BEVY_ASSET_ROOT` at an extract of that commit's assets does not redirect the
+pack. So the comparison is against the recorded baseline table, on the same
+machine, script and build settings. A future binary baseline must keep a
+source checkout of its commit, or embed its content with
+`--features ambition_content/static_content`.
+
+**Behaviour (slice 4).** The real encounter paths were checked by each slice's
+app_it lane, not by a separate table:
+* Gallus's phases and death (`leadensaddle`, `gallus`);
+* a shared-art sentinel (`warden`, `boss_sheet`);
+* the articulated Flying Spaghetti Monster (`fsm_fight`);
+* the T-Rex (`trex`);
+* Wolfenstein's transformation (`wolfenstein`, `inugami`);
+* GNU-ton, his mount and GNU2's portal (`gnu_ton_fight`, `the_gnu_ton_handle`);
+* possession specials (`boss_possession`);
+* rewind retraction (`boss_replay_retraction`);
+* the Hall (`hall_of`).
+
+Their pose-derived hurt geometry and death policy pass. The failures left in
+those lanes were red before this work: `gnu_ton_in_a_match` and two T-Rex
+drawing tests. A per-pose table of hurt volumes was not written. The lanes
+assert the geometry, and a table would be a second copy of it.
 
 Keep each integration slice coherent. A temporary migration seam must have a
 short `TODO(compat-remove)` with its replacement and deletion condition. Do not

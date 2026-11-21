@@ -320,6 +320,42 @@ mod boss_pass {
     }
 
     #[test]
+    fn a_part_drawn_boss_binds_and_requests_its_character_without_a_baked_image() {
+        use ambition_characters::load_demand::CharacterLoadDemand;
+        use ambition_sprite_sheet::boss::{BossAnimator, BossSheetSpec, BossSpriteAsset, BossSpritePage};
+
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app.init_asset::<bevy::image::TextureAtlasLayout>();
+        let texture = ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+        let layout = app.world_mut().resource_mut::<Assets<bevy::image::TextureAtlasLayout>>()
+            .add(bevy::image::TextureAtlasLayout::new_empty(bevy::math::UVec2::splat(128)));
+        let spec = BossSheetSpec { parts: Some("boss_character".into()), ..BossSheetSpec::unauthored() };
+        let mut record = spec.synth_record("boss_spritesheet.png");
+        record.drawn_from_parts = true;
+        let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
+        assets.characters.declare("boss_character");
+        assets.boss = Some(BossSpriteAsset { pages: vec![BossSpritePage { texture: texture.clone(), layout }], record, spec, layers: Vec::new() });
+        app.insert_resource(assets);
+        app.init_resource::<CharacterLoadDemand>();
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(BOSS_ID.to_string(), a_feature_view())]));
+        app.insert_resource(ambition_sim_view::BossRenderIndex::from_rows([(BOSS_ID.to_string(), ambition_sim_view::BossRenderView {
+            name: "Part boss".into(), behavior_id: "part_boss".into(), title: None,
+            stage: Default::default(), awake: true, fighting: true, finish: 0.0,
+        })]));
+        let body = app.world_mut().spawn(FeatureVisual { id: BOSS_ID.into() }).id();
+        app.add_systems(Update, (
+            crate::rendering::actors::upgrade_boss_sprites,
+            crate::rendering::actors::demand_boss_part_sheets,
+        ).chain());
+        app.update();
+        assert!(app.world().get::<BossAnimator>(body).is_some());
+        assert_eq!(app.world().resource::<CharacterLoadDemand>().pending().collect::<Vec<_>>(), ["boss_character"]);
+        assert!(!app.world().resource::<Assets<Image>>().contains(&texture));
+    }
+
+    #[test]
     fn the_boss_sprite_upgrade_survives_its_target_being_retired() {
         use ambition_sprite_sheet::boss::{BossSheetSpec, BossSpriteAsset, BossSpritePage};
 

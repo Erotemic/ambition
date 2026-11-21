@@ -104,6 +104,21 @@ or updating their source. Check with
 
 ## P0 — architecture and correctness
 
+### BOSS-CHARACTER — one character path for bosses
+
+**State:** ready for another agent, 2026-11-20. Jon requested a temporary
+inspector bridge now and a full unification plan for handoff.
+**Defect:** boss construction bypasses the prepared character body path. Hall
+entries duplicate some boss characters; others, including Gallus, are absent.
+**Next:** follow [the owner plan](engine/boss-character-unification.md), starting
+with the identity mapping and a headless baseline. Compose boss attributes on
+character instances; keep multi-character encounters separate. Do not enlarge
+ordinary characters or add boss work to their tick.
+**Acceptance:** Hall and fight use one prepared character and common body
+construction; existing fights and encounter persistence pass; ordinary actors
+have no added boss state or runtime cost; delete the temporary inspector bridge.
+
+
 ### SCRIPT-COMPLETION — author gameplay scenarios without an engine build — ✅ DONE 2026-11-20
 
 **Request (Jon, 2026-11-19, above queue order):** finish the reactive scripting road: signals, further lifecycle facts, full duplicated-room gameplay, committed world-domain communication, and the authoring guide ([reactive mechanisms](../sdk/reactive-mechanisms.md)). The aim is gameplay scenarios authored in scripts, with no engine rebuild, at the level of a general-purpose engine.

@@ -127,8 +127,11 @@ world-post admission.
 **Next bounded work:**
 
 1. At the active independent-room boundary, run
-   [CW1](engine/causal-world-commit.md#cw1--prove-the-dependent-reader-case-and-complete-held-outcomes),
-   then migrate one native atomic item use through CW2. This precedes
+   [CW1](engine/causal-world-commit.md#cw1--prove-the-dependent-reader-case-and-complete-held-outcomes)
+   (done 2026-11-21: the dependent-reader case is a measured failing baseline
+   on the shared bag, and a held world-value write reports `Admitted`, then
+   its real decision under the same ticket), then migrate one native atomic
+   item use through CW2. This precedes
    extending eager shared writes to more domains; unrelated local work continues.
 2. [Effects phase 6a](engine/actor-effects-and-modifier-composition.md#6a-preserve-issuer-identity-in-control-and-pose)
    preserves independent hold and pose issuers. Phases 6b/6c extend that same

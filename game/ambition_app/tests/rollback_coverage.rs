@@ -1054,7 +1054,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "ambition_platformer2d_runtime::world_values::HeldWorldWrites",
-        "World value writes from rooms that rewind alone, held until their writing tick is confirmed (room-stamped; the registered room-write retractor drops a rewound room's writes, and session activation clears them). This is the world road's input history, as WorldPosts is: rewinding it with the simulation would lose writes a replay will not make again. With one rollback authority (GGRS) a write applies at once and this store stays empty; the values live in the registered save and the changes in the registered session mailbox.",
+        "World value writes from rooms that rewind alone, held until their writing tick is confirmed (room-stamped; the registered room-write retractor drops a rewound room's writes, and session activation clears them), and the decisions told to their writers by tick, which a writer room's replay tells again into the mailbox it restored. This is the world road's input history, as WorldPosts is: rewinding it with the simulation would lose writes and decisions a replay will not make again. With one rollback authority (GGRS) a write applies at once and this store stays empty; the values live in the registered save and the changes in the registered session mailbox.",
     ),
     (
         "ambition_platformer2d_runtime::world_posts::WorldPosts",

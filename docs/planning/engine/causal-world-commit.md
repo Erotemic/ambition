@@ -245,6 +245,47 @@ about which functions may mention RoomWrite.
 the two-room causal case is an explicit failing baseline or a demonstrated
 existing refusal, not an assumed result.
 
+**CW1 record (2026-11-21).**
+
+*The dependent-reader case is an explicit failing baseline.* The probe used
+the two-room fixture of `a_room_rewinds_alone.rs` (Alice in
+`basement_breakables`, Bob in the hub) with an empty bag. Alice's conversation
+grants a health cell in a window her room later rewinds. Bob spends it, and
+his hp goes from 1 to 2. Alice's room then rewinds with the retractors and
+replays without the grant. Results:
+
+| Point | Bag | Bob's hp |
+| --- | --- | --- |
+| At N | 0 | 1 |
+| After Alice's grant | 1 | 1 |
+| After Bob's use | 0 | 2 |
+| After Alice's replay | 0 | 2 |
+
+The item owner (`OwnedItems`, through `apply_item_uses`) let Bob spend a
+grant that a later input removed. The grant's inverse could not take back a
+cell that was gone. So Bob kept a heal paid for by a cell that never existed,
+as the table above predicts. CW2 replaces this road. The probe was deleted
+after this measurement.
+
+*World values cannot be read before they are final.* An island's write is
+held, and no reader sees it until its tick is confirmed (the existing
+`a_world_count_from_a_rewinding_room_applies_once_when_confirmed`). The
+dependent-reader defect is the shared stores that write eagerly: the bag,
+flags and quest steps.
+
+*A held write is not reported as applied.* `world_values` now answers a held
+write `Admitted`, which is not terminal, and keeps the writer's
+`ActionReply` with it. When the tick is confirmed, the world applies the
+write and tells the writer, under the same ticket, `Applied` or the real
+refusal. A replay of the writer's room repeats that decision at the tick it
+was first told, into the mailbox its rewind restored
+(`HeldWorldWrites::decided`, kept for the rewind horizon). The island witness
+now holds three writes in one window: a count and two compare-and-sets
+against revision 0. Each writer hears `admitted` and no outcome while held.
+At confirmation the count reports `world_count_added`, the first set reports
+`world_value_set`, and the second reports `revision_changed`. The value is the
+first set's, at revision 1.
+
 ### CW2 — One native shared-item operation uses the committed road
 
 Choose one cell grant/spend path in

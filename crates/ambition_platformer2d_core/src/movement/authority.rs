@@ -506,6 +506,21 @@ pub fn halt_body(kinematics: &mut crate::body_clusters::BodyKinematics) {
     kinematics.vel = Vec2::ZERO;
 }
 
+/// A REACTION THAT HOLDS THE BODY WHERE IT STANDS — a burial, a crumple, a
+/// seize into a hold, a crumple's collapse into its knockdown — replaces the
+/// hit it answers, and the hit's knockback goes with it: clear the velocity.
+///
+/// ⚠ This is the velocity of an `AxisSwept` body, whose state IS `vel`. A
+/// surface-momentum body republishes `vel` from its own `v_t` every step, so
+/// pinning one of those must go through its model; no reaction pins one today
+/// (the reactions are fighters' and walkers').
+///
+/// The staged launch is the caller's to drop (`BodyFlightState::take_launch`),
+/// because it lives in a cluster this body-shape authority does not hold.
+pub fn pin_body_in_place(kinematics: &mut crate::body_clusters::BodyKinematics) {
+    kinematics.vel = Vec2::ZERO;
+}
+
 /// Sweep a displacement while ordinary body integration is held.
 /// SDI during hitlag and passage scenes use this path. Full solid geometry
 /// stops the shift. Velocity and movement state stay unchanged.

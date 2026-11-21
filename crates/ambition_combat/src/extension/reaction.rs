@@ -82,7 +82,7 @@ pub fn lower_burials(
             continue;
         }
         flight.take_launch();
-        kin.vel = ambition_platformer2d_core::Vec2::ZERO;
+        ambition_platformer2d_core::movement::pin_body_in_place(&mut kin);
         combat.hitstun_timer = 0.0;
         combat.recoil_lock_timer = 0.0;
         if combat.bury_timer < duration_s {
@@ -119,7 +119,7 @@ pub fn lower_crumples(
             continue;
         }
         flight.take_launch();
-        kin.vel = ambition_platformer2d_core::Vec2::ZERO;
+        ambition_platformer2d_core::movement::pin_body_in_place(&mut kin);
         combat.hitstun_timer = 0.0;
         combat.recoil_lock_timer = 0.0;
         if combat.crumple_timer < duration_s {
@@ -163,7 +163,7 @@ pub fn lower_struck_seizes(
             continue;
         };
         flight.take_launch();
-        kin.vel = ambition_platformer2d_core::Vec2::ZERO;
+        ambition_platformer2d_core::movement::pin_body_in_place(&mut kin);
         combat.hitstun_timer = 0.0;
         combat.recoil_lock_timer = 0.0;
         attempts.write(crate::capture::CaptureAttemptRequested {

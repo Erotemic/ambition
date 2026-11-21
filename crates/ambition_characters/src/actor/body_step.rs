@@ -82,7 +82,7 @@ pub fn step_body(
             _ => false,
         };
         if collapsed {
-            clusters.kinematics.vel = ae::Vec2::ZERO;
+            ae::movement::pin_body_in_place(clusters.kinematics);
             let mut result = ae::step_motion(model, clusters, ctx);
             result.events.operations.push(ae::movement::MovementOp::Knockdown);
             return result;

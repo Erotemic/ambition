@@ -394,7 +394,7 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Random character | ✔ | — | — | `SlotPick::Random`. |
 | Rematch | ✔ | S/M | — | `coming_back_to_the_select_screen_offers_a_fresh_match`. |
 | True Time / stamina / coin modes | ▢ | M | E1 | Match scoring or elimination policy. |
-| Timer selector | ▢ | S | — | |
+| Timer selector | ✔ | S | — | 2026-11-21: `SelectTarget::Clock`, left of stocks, walks `clock_choices_seconds` in `smash_rules.ron` (3, 5, 8 min; the default is match_rules.ron's eight). The select road writes it onto the published roster's `time_limit_ticks`; every other road keeps the pack's clock. Guard `the_clock_button_sets_the_clock_the_published_match_runs`. |
 | Teams selector | ▢ | M | — | |
 | Friendly-fire toggle UI | ◐ | S | — | `CombatRules::friendly_fire` exists. |
 | Rules presets | ▢ | M | — | |
@@ -585,8 +585,8 @@ post-gate order, each step one coherent customer at a time:
    commitment window had already shipped (`ledge_trump_lockout`). The
    grab-release fact waits for a presentation consumer (step 4).
 3. **Training and match-rule knobs** that need no new semantics: reset
-   fighters / set percent, frame-data display, timer selector, random stage,
-   handicap / starting damage in match preparation.
+   fighters / set percent, frame-data display, timer selector (✔ 2026-11-21),
+   random stage, handicap / starting damage in match preparation.
 4. **Presentation and audio** rows (§12), which wait on art and sound more than
    on code; take them with the feel audit.
 

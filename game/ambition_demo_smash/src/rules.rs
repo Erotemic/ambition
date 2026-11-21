@@ -37,6 +37,9 @@ pub struct SmashRules {
     /// The stock counts the select screen's stocks button offers, in the
     /// order it walks them.
     pub stock_choices: Vec<u32>,
+    /// The match clocks the select screen's clock button offers, in seconds,
+    /// in the order it walks them.
+    pub clock_choices_seconds: Vec<u32>,
     /// How long Back is held on the select screen before it leaves, in
     /// seconds. Holding Back is navigation; tapping Back is token
     /// manipulation.
@@ -105,6 +108,18 @@ impl SmashRules {
             }
             if self.stock_choices[..index].contains(count) {
                 problems.push(format!("`stock_choices[{index}]` repeats {count}; the stocks button would offer it twice"));
+            }
+        }
+        if self.clock_choices_seconds.is_empty() {
+            problems.push("`clock_choices_seconds` is empty; the clock button offers at least one clock".to_string());
+        }
+        for (index, seconds) in self.clock_choices_seconds.iter().enumerate() {
+            // Zero is the engine's "no clock"; this button offers clocks.
+            if *seconds == 0 {
+                problems.push(format!("`clock_choices_seconds[{index}]` is 0; a match with no time ends before it starts"));
+            }
+            if self.clock_choices_seconds[..index].contains(seconds) {
+                problems.push(format!("`clock_choices_seconds[{index}]` repeats {seconds}; the clock button would offer it twice"));
             }
         }
         let melee = self.seating_melee;

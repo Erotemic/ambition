@@ -973,6 +973,23 @@ fn the_stock_choices_are_the_rules_file() {
     assert_eq!(seen, sorted, "the stocks button cannot reach every count");
 }
 
+/// The clock button offers the rules' `clock_choices_seconds`, and the match's
+/// own clock (`time_limit_ticks` in match_rules.ron) is one of them: the button
+/// starts there, and its default sets exactly that clock.
+#[test]
+fn the_clock_choices_are_the_rules_file() {
+    let offered = &crate::rules::smash_rules().clock_choices_seconds;
+    assert_eq!(crate::SmashClockChoice::all().iter().map(|choice| choice.seconds()).collect::<Vec<_>>(), *offered);
+    assert_eq!(crate::SmashClockChoice::default().ticks(), crate::smash_time_limit_ticks());
+    assert!(offered.contains(&crate::SmashClockChoice::default().seconds()), "{offered:?} does not offer match_rules.ron's clock");
+    assert_eq!(crate::SmashClockChoice::of(480).label(), "8:00");
+    let mut walk = crate::SmashClockChoice::default();
+    for _ in 0..offered.len() {
+        walk = walk.next();
+    }
+    assert_eq!(walk, crate::SmashClockChoice::default(), "the clock button does not come back after a lap");
+}
+
 #[test]
 fn every_stage_is_reachable_by_the_cycle_and_names_itself_uniquely() {
     use std::collections::BTreeSet;

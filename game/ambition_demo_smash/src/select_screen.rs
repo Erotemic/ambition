@@ -45,6 +45,8 @@ pub enum SelectTarget {
     Stage,
     /// The stocks cycle, left of the stage: also a match decision.
     Stocks,
+    /// The match clock's cycle, left of the stocks.
+    Clock,
     /// Begin the match.
     Start,
     /// Leave the lobby — see [`LeaveRequested`].
@@ -70,6 +72,8 @@ pub enum Anchored {
     Stage,
     /// The stocks cycle, left of the stage.
     Stocks,
+    /// The match clock's cycle, left of the stocks.
+    Clock,
     CardPortrait(usize),
     Start,
     Back,
@@ -120,6 +124,15 @@ pub struct StocksButtonLabel;
 /// What the stocks button reads. Prefixed like the stage button's.
 pub fn stocks_button_text(choice: crate::SmashStockChoice) -> String {
     crate::text::smash_text().fill("select.stocks", &[("stocks", &choice.label())])
+}
+
+/// The clock button's own label marker.
+#[derive(Component, Clone, Copy)]
+pub struct ClockButtonLabel;
+
+/// What the clock button reads. Prefixed like the stage button's.
+pub fn clock_button_text(choice: crate::SmashClockChoice) -> String {
+    crate::text::smash_text().fill("select.clock", &[("clock", &choice.label())])
 }
 
 /// The chosen fighter's portrait on a card.
@@ -826,6 +839,28 @@ pub fn spawn_select_screen(
                 ));
             });
 
+            let mut clock = anchored(Anchored::Clock);
+            clock.1.justify_content = JustifyContent::Center;
+            clock.1.align_items = AlignItems::Center;
+            clock.1.border = UiRect::all(Val::Px(2.0));
+            clock.1.border_radius = BorderRadius::all(Val::Px(6.0));
+            root.spawn((
+                clock,
+                BackgroundColor(select_look().button()),
+                BorderColor::all(select_look().panel_edge()),
+                GlobalZIndex(610),
+                Name::new("clock button"),
+            ))
+            .with_children(|node| {
+                node.spawn((
+                    ClockButtonLabel,
+                    // Seeded with the default, like the stage button.
+                    Text::new(clock_button_text(crate::SmashClockChoice::default())),
+                    text_font(14.0),
+                    TextColor(select_look().ink()),
+                ));
+            });
+
             for slot in 0..MAX_SMASH_SEATS {
                 let mut card = anchored(Anchored::Card(slot));
                 card.1.flex_direction = FlexDirection::Column;
@@ -1013,6 +1048,8 @@ pub(crate) fn drive_the_cursor(
     // A required `ResMut`, like `stage`; fixtures register it. An `Option`
     // would silently no-op the button in production if registration dropped.
     mut stocks: ResMut<crate::SmashStockChoice>,
+    // Required, like `stocks`.
+    mut clock: ResMut<crate::SmashClockChoice>,
     policy: Res<SelectInteractionPolicy>,
     inputs: SelectScreenInputs,
     mut local: Local<SelectDriverLocal>,
@@ -1481,6 +1518,10 @@ pub(crate) fn drive_the_cursor(
                 (None, None, Some(SelectTarget::Stocks)) => {
                     *stocks = stocks.next();
                 }
+                // And the clock, as for stocks.
+                (None, None, Some(SelectTarget::Clock)) => {
+                    *clock = clock.next();
+                }
                 (None, None, Some(SelectTarget::Start)) => {
                     if select.ready() {
                         start.0 = true;
@@ -1562,6 +1603,7 @@ pub fn place_the_screen(
             Anchored::RoleButton(slot) => Some(layout.role_button(slot)),
             Anchored::Stage => Some(layout.stage_button()),
             Anchored::Stocks => Some(layout.stocks_button()),
+            Anchored::Clock => Some(layout.clock_button()),
             Anchored::CardPortrait(slot) => Some(layout.card_portrait(slot)),
             Anchored::Start => Some(layout.start_button()),
             Anchored::Back => Some(layout.back_button()),
@@ -1777,7 +1819,16 @@ pub fn sync_select_chrome(
     refusal: Option<Res<ambition_platformer2d::versus_match::MatchPreparationProblems>>,
     mut start_button: Query<&mut BorderColor, With<StartButton>>,
     mut prompt: Query<&mut Text, With<SelectPrompt>>,
+    clock: Res<crate::SmashClockChoice>,
+    mut clock_label: Query<&mut Text, (With<ClockButtonLabel>, Without<SelectPrompt>)>,
 ) {
+    for mut text in &mut clock_label {
+        let next = clock_button_text(*clock);
+        if text.0 != next {
+            text.0 = next;
+        }
+    }
+
     for mut border in &mut start_button {
         set_border(&mut border, if select.ready() { select_look().ink() } else { select_look().panel_edge() });
     }
@@ -1951,6 +2002,7 @@ mod touch_tests {
         // touch test fails without it.
         app.init_resource::<crate::SmashStageChoice>();
         app.init_resource::<crate::SmashStockChoice>();
+        app.init_resource::<crate::SmashClockChoice>();
         // See the note in `lib.rs`'s fixture: the cursor integrates a clock.
         app.init_resource::<Time>();
         app.init_resource::<Touches>();

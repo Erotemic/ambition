@@ -25,6 +25,7 @@ fn app_with(pause_open: bool) -> App {
     // The screen's driver writes the stage the START press will use.
     app.init_resource::<crate::SmashStageChoice>();
     app.init_resource::<crate::SmashStockChoice>();
+    app.init_resource::<crate::SmashClockChoice>();
     // `drive_the_cursor` integrates a held stick against `Time`, so the
     // fixture needs a clock (a real composition has `TimePlugin`).
     app.init_resource::<Time>();

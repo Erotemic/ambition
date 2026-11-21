@@ -802,6 +802,73 @@ fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
     );
 }
 
+/// The clock button is reachable and the match runs the clock it says.
+///
+/// As for stocks: the real button, the real START, and the clock read from the
+/// roster the screen published.
+#[test]
+fn the_clock_button_sets_the_clock_the_published_match_runs() {
+    use ambition_demo_smash::SmashClockChoice;
+
+    let mut app = build_demo_app();
+    install_press_port(&mut app);
+    plug_in(&mut app, 2);
+    app.update();
+    let layout = layout(&app);
+
+    assert_eq!(
+        *app.world().resource::<SmashClockChoice>(),
+        SmashClockChoice::of(480),
+        "the default is match_rules.ron's eight minutes"
+    );
+    // The cycle wraps from the last clock to the first.
+    click(&mut app, 0, layout.clock_button());
+    assert_eq!(*app.world().resource::<SmashClockChoice>(), SmashClockChoice::of(180));
+    assert!(
+        clock_label_text(&mut app).contains("3:00"),
+        "the button reads {:?} after the clock changed",
+        clock_label_text(&mut app)
+    );
+    // Any seat can cycle it.
+    click(&mut app, 1, layout.clock_button());
+    assert_eq!(*app.world().resource::<SmashClockChoice>(), SmashClockChoice::of(300));
+
+    click(&mut app, 0, layout.role_button(0));
+    click(&mut app, 1, layout.role_button(1));
+    let token = placed_token(&app, 0);
+    click(&mut app, 0, token);
+    let cell = layout.portrait(nth(&app, 0)).expect("an authored portrait");
+    click(&mut app, 0, cell);
+    let token = placed_token(&app, 1);
+    click(&mut app, 1, token);
+    let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
+    click(&mut app, 1, cell);
+    click(&mut app, 0, layout.start_button());
+
+    let roster = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("clicking START publishes the roster the screen decided")
+        .clone();
+    assert_eq!(
+        roster.rules.time_limit_ticks,
+        300 * 60,
+        "the lobby said five minutes and the published match runs {} ticks",
+        roster.rules.time_limit_ticks
+    );
+}
+
+/// What the clock button is currently showing.
+fn clock_label_text(app: &mut App) -> String {
+    use ambition_demo_smash::select_screen::ClockButtonLabel;
+    app.world_mut()
+        .query_filtered::<&Text, With<ClockButtonLabel>>()
+        .iter(app.world())
+        .next()
+        .map(|text| text.0.clone())
+        .unwrap_or_default()
+}
+
 /// What the stocks button is currently showing.
 fn stocks_label_text(app: &mut App) -> String {
     use ambition_demo_smash::select_screen::StocksButtonLabel;

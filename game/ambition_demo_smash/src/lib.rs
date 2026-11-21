@@ -1374,6 +1374,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // the stage all recorded measurements used.
         app.init_resource::<SmashStageChoice>();
         app.init_resource::<SmashStockChoice>();
+        app.init_resource::<SmashClockChoice>();
         app.init_resource::<select::SmashSelect>();
         // The pointer state lives outside `SmashSelect`: where a cursor points
         // is not part of what the screen decided.
@@ -1843,6 +1844,7 @@ fn start_the_battle_when_asked(
     // The lobby's stocks choice, passed to `roster_seeded` as a value (see
     // that parameter's note).
     stocks: bevy::prelude::Res<SmashStockChoice>,
+    clock: bevy::prelude::Res<SmashClockChoice>,
 ) {
     if !asked.0 {
         return;
@@ -1866,7 +1868,7 @@ fn start_the_battle_when_asked(
     // handshake the project does not have yet.
     let seed = agreed_match_seed(&select);
 
-    let Some(decided) = select.roster_seeded(
+    let Some(mut decided) = select.roster_seeded(
         &fighters,
         &skins.as_deref().cloned().unwrap_or_default(),
         seed,
@@ -1889,6 +1891,10 @@ fn start_the_battle_when_asked(
     ) else {
         return;
     };
+    // What the lobby's clock button decided. Written here, not threaded
+    // through `roster_seeded`: the other roads keep the pack's clock, which is
+    // the button's default.
+    decided.rules.time_limit_ticks = clock.ticks();
     // The seat plan this match decided, published under this experience's
     // name. Devices are not participants (a CPU seat has no device), so the
     // session must not be sized from what is plugged in. It lands in the same
@@ -2212,6 +2218,69 @@ impl SmashStockChoice {
     pub fn next(self) -> Self {
         let all = Self::all();
         let here = all.iter().position(|count| *count == self).expect("a choice is made from `all`");
+        all[(here + 1) % all.len()]
+    }
+}
+
+/// How long this match's clock runs: one of `clock_choices_seconds` in the
+/// pack's `smash_rules.ron`.
+///
+/// Feeds `MatchRules::time_limit_ticks` on the select screen's road; every
+/// other road keeps the pack's clock, which is this choice's default.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SmashClockChoice(u32);
+
+impl Default for SmashClockChoice {
+    fn default() -> Self {
+        let ticks = smash_time_limit_ticks();
+        let seconds = ticks / Self::TICKS_PER_SECOND;
+        assert_eq!(
+            seconds * Self::TICKS_PER_SECOND,
+            ticks,
+            "match_rules.ron's clock ({ticks} ticks) is not a whole number of seconds"
+        );
+        Self(seconds)
+    }
+}
+
+impl SmashClockChoice {
+    /// The sim's ticks per second, which the match clock counts.
+    const TICKS_PER_SECOND: u32 = ambition_platformer2d::runtime::SIM_TICK_HZ as u32;
+
+    /// The clock of `seconds`. Panics when the rules do not offer it.
+    pub fn of(seconds: u32) -> Self {
+        assert!(
+            crate::rules::smash_rules().clock_choices_seconds.contains(&seconds),
+            "`smash_rules.ron` does not offer a {seconds} s clock"
+        );
+        Self(seconds)
+    }
+
+    /// The clock's length in seconds.
+    pub fn seconds(self) -> u32 {
+        self.0
+    }
+
+    /// The clock in sim ticks, as `MatchRules::time_limit_ticks` counts it.
+    pub fn ticks(self) -> u32 {
+        self.0 * Self::TICKS_PER_SECOND
+    }
+
+    /// What the clock button shows (`8:00`): derived from [`Self::seconds`],
+    /// so the button cannot disagree with the clock it sets.
+    pub fn label(self) -> String {
+        format!("{}:{:02}", self.0 / 60, self.0 % 60)
+    }
+
+    /// Every clock, in cycle order (`clock_choices_seconds`).
+    pub fn all() -> Vec<Self> {
+        crate::rules::smash_rules().clock_choices_seconds.iter().copied().map(Self).collect()
+    }
+
+    /// The next clock in the cycle, for a single button that walks them.
+    pub fn next(self) -> Self {
+        let all = Self::all();
+        let here = all.iter().position(|clock| *clock == self).expect("a choice is made from `all`");
         all[(here + 1) % all.len()]
     }
 }

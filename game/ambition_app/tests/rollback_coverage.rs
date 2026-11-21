@@ -2055,6 +2055,17 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          match change its stock count mid-session, this waiver is wrong.",
     ),
     (
+        "ambition_demo_smash::SmashClockChoice",
+        "HOW LONG the next match's clock runs — the stocks choice's twin, read \
+         to its readers: written only by `drive_the_cursor` (the clock button), \
+         read once by `start_the_battle_when_asked` behind its `on_select` \
+         guard, which copies it onto the published roster's \
+         `rules.time_limit_ticks`, and read by the button's label. The match \
+         runs on that roster's copy; nothing inside a live match touches this \
+         resource. ⛔ Not `derived`: a player presses a button. If a rule ever \
+         lets a match change its clock mid-session, this waiver is wrong.",
+    ),
+    (
         "ambition_demo_smash::select::SmashSelect",
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),

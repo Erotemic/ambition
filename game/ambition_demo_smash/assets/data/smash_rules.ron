@@ -100,6 +100,11 @@
     // was measured there), so that count is one of these. One leaves no room
     // to learn the matchup; five makes an early mistake recoverable.
     stock_choices: [1, 3, 5],
+    // The match clocks the clock button offers, in seconds, in the order it
+    // walks them. A match starts on `time_limit_ticks` in match_rules.ron
+    // (eight minutes), so that clock is one of these. Three and five minutes
+    // are the short sets of a training evening.
+    clock_choices_seconds: [180, 300, 480],
     // How long Back is held on the select screen before it leaves (seconds).
     // A tap moves a token; a hold leaves.
     back_hold_to_leave_seconds: 0.55,

@@ -34,6 +34,7 @@
     // The stage and stocks buttons: prefixed, so they read as controls.
     "select.stage": "Stage: {stage}",
     "select.stocks": "Stocks: {stocks}",
+    "select.clock": "Time: {clock}",
     // Who sits in a slot.
     "select.not_playing": "NOT PLAYING",
     "select.controller": "CONTROLLER {number}",

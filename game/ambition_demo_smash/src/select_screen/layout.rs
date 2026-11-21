@@ -30,6 +30,9 @@ const STAGE_W: f32 = 132.0;
 /// The stocks cycle's width: narrower than the stage's (a one-digit label),
 /// and well over [`MIN_TOUCH_PX`].
 const STOCKS_W: f32 = 108.0;
+/// The clock cycle's width: a four-character label (`8:00`), as wide as the
+/// stocks'.
+const CLOCK_W: f32 = 108.0;
 const START_H: f32 = 34.0;
 /// Back control width, paired with the start control.
 const BACK_W: f32 = 150.0;
@@ -301,6 +304,18 @@ impl SelectLayout {
         )
     }
 
+    /// The clock cycle, left of the stocks: the match's other length.
+    pub fn clock_button(&self) -> HitRect {
+        let strip = self.control_strip();
+        HitRect::from_center_size(
+            Vec2::new(
+                strip.max.x - START_W - GAP - STAGE_W - GAP - STOCKS_W - GAP - CLOCK_W * 0.5,
+                strip.center().y,
+            ),
+            Vec2::new(CLOCK_W, START_H),
+        )
+    }
+
     pub fn start_button(&self) -> HitRect {
         let strip = self.control_strip();
         HitRect::from_center_size(
@@ -326,7 +341,11 @@ impl SelectLayout {
         let strip = self.control_strip();
         HitRect {
             min: Vec2::new(strip.min.x, strip.center().y - 10.0),
-            max: Vec2::new(strip.min.x + 520.0, strip.center().y + 10.0),
+            // Short of the match controls, which reach into it on a phone.
+            max: Vec2::new(
+                (strip.min.x + 520.0).min(self.clock_button().min.x - GAP),
+                strip.center().y + 10.0,
+            ),
         }
     }
 
@@ -393,6 +412,8 @@ impl SelectLayout {
         targets.push((SelectTarget::Stage, self.stage_button()));
         // Appended after `Stage`, by the same contract.
         targets.push((SelectTarget::Stocks, self.stocks_button()));
+        // Appended after `Stocks`, by the same contract.
+        targets.push((SelectTarget::Clock, self.clock_button()));
         targets
     }
 }

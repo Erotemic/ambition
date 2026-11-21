@@ -36,9 +36,12 @@ pub struct DrawnBossBar {
     slot: usize,
 }
 
-/// How far each bar of a stack is under the one before it, in UI pixels:
-/// a panel's least height and a gap.
-const BAR_STACK_STEP: f32 = 66.0;
+/// A boss panel's height, in UI pixels: its padding, the name line, the
+/// track, the HP line and its border, with room to spare. Fixed, so a stack
+/// of bars is laid out from a height the panel cannot exceed.
+const BAR_PANEL_HEIGHT: f32 = 92.0;
+/// How far each bar of a stack is under the one before it: a panel and a gap.
+const BAR_STACK_STEP: f32 = BAR_PANEL_HEIGHT + 8.0;
 
 /// The player-facing boss health bars, at the top of each local view, one for
 /// each boss being fought in that view's live room (in the order of their
@@ -178,7 +181,8 @@ fn spawn_boss_bar(
             root.spawn((
                 Node {
                     width: Val::Px(panel_width),
-                    min_height: Val::Px(58.0),
+                    height: Val::Px(BAR_PANEL_HEIGHT),
+                    overflow: Overflow::clip(),
                     padding: UiRect::axes(Val::Px(18.0), Val::Px(8.0)),
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(6.0),

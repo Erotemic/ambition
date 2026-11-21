@@ -88,6 +88,12 @@ pub struct BossEncounterSpec {
     /// second definition of him. 1 (the default) is the character's own size.
     #[serde(default = "unit_scale")]
     pub scale: f32,
+    /// The boss stands beside the one it wakes after (`wakes_after`) rather
+    /// than being fought: no hit lands on it, it shows no health bar, and it
+    /// falls when that predecessor is cleared. GNU2 escorts GNU-ton: the
+    /// fight is the rider, and two giants with one bar read as a mistake.
+    #[serde(default)]
+    pub escort: bool,
 }
 
 fn unit_scale() -> f32 {
@@ -328,6 +334,9 @@ pub struct ActorPhaseState {
     pub start_phase: BossEncounterPhase,
     /// Phase queued behind an active `transition_lock`.
     pending: Option<BossEncounterPhase>,
+    /// An escort (`BossEncounterSpec::escort`) takes no hit in any phase.
+    /// Spec data, so not in the rollback cursor.
+    pub escort: bool,
 }
 
 impl ActorPhaseState {
@@ -351,6 +360,7 @@ impl ActorPhaseState {
             triggers,
             start_phase,
             pending: None,
+            escort: false,
         }
     }
 
@@ -371,7 +381,7 @@ impl ActorPhaseState {
 
     /// Build the intrinsic triggers a legacy [`BossEncounterSpec`] implies.
     pub fn from_spec(spec: &BossEncounterSpec) -> Self {
-        Self::new(PhaseTrigger::intrinsic_from_spec(spec))
+        Self { escort: spec.escort, ..Self::new(PhaseTrigger::intrinsic_from_spec(spec)) }
     }
 
     /// The health fraction at which the boss next leaves its current phase:
@@ -392,9 +402,10 @@ impl ActorPhaseState {
     /// Whether the boss currently rejects player damage. True during the
     /// `transition_lock` tell beat, plus the phases the vocabulary marks
     /// invulnerable (`Dormant` / `Intro` / `Transition` / `Death`) — so the
-    /// intro title-card + the legacy transition beat stay invulnerable.
+    /// intro title-card + the legacy transition beat stay invulnerable. An
+    /// escort always is.
     pub fn boss_invulnerable(&self) -> bool {
-        self.transition_lock > 0.0 || self.phase.boss_invulnerable()
+        self.escort || self.transition_lock > 0.0 || self.phase.boss_invulnerable()
     }
 
     /// True once the boss is dead and simulation time has run since it died.

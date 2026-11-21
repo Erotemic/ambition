@@ -210,14 +210,12 @@ impl<'a> BossRef<'a> {
         ae::mirror_side(self.kin.facing, self.unmirrored)
     }
 
-    /// World offset from `kin.pos` to the body's bounding-AABB center.
-    /// Non-zero for bosses whose sprite metadata reports an off-center
-    /// body bbox; `ZERO` otherwise.
+    /// World offset from the drawn frame's centre to the body's: non-zero for
+    /// a sheet whose body is off its frame's centre (the giant's frame, which
+    /// GNU2 wears, has its body a fifth of the frame under its middle).
     ///
-    /// Mirrored by [`Self::drawn_side`]: the sprite flips to face
-    /// the player, so an off-center body's collision/contact envelope must flip
-    /// with it (otherwise it lands on the wrong side). No-op for a centered body
-    /// (`combat_offset.x == 0`).
+    /// Mirrored by [`Self::drawn_side`]: the sprite flips to face the player,
+    /// so an off-centre body's offset flips with it.
     pub fn combat_offset(&self) -> ae::Vec2 {
         let raw = self
             .status
@@ -228,11 +226,22 @@ impl<'a> BossRef<'a> {
         ae::Vec2::new(raw.x * self.drawn_side(), raw.y)
     }
 
+    /// The centre of the drawn frame: the body's centre less
+    /// [`Self::combat_offset`]. What reads the sheet's pixels (its drawing, a
+    /// per-frame hurt or hit box) places the frame here.
+    ///
+    /// ⛔ THE BODY IS `kin`, AND THE FRAME IS PLACED FROM IT. It was the other
+    /// way: `kin.pos` was the frame's centre and the body sat at
+    /// `kin.pos + combat_offset`. The kernel and every conductor sweep and
+    /// place `kin`, so a body off its frame's centre was a box the kernel
+    /// never moved: GNU2's kin box stood on the floor while its body, its hurt
+    /// volume and its drawing were 184 under it.
+    pub fn frame_center(&self) -> ae::Vec2 {
+        self.kin.pos - self.combat_offset()
+    }
+
     pub fn aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(
-            self.kin.pos + self.combat_offset(),
-            self.combat_size() * 0.5,
-        )
+        ae::Aabb::new(self.kin.pos, self.combat_size() * 0.5)
     }
 
     /// World-space anchor for a combat-banter speech bubble, from the

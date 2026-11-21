@@ -95,7 +95,8 @@ impl<'a> BossVolumeContext<'a> {
     ) -> Self {
         Self {
             boss_catalog,
-            pos: boss.kin.pos,
+            // The frame's centre: the per-frame boxes are in its pixels.
+            pos: boss.frame_center(),
             // The sprite render basis: the world scale sprite-metric hurtboxes
             // derive from. `kin.size` is the collision envelope, so read the
             // render basis explicitly.

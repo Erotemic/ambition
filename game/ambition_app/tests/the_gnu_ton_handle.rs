@@ -335,7 +335,8 @@ fn the_inversion_gallery_is_crossed_on_its_ceiling() {
 
 /// THE SHOULDERS. GNU-ton rides his giant here under his own placement, and
 /// the way home has two grilles: each stands until its boss's defeat (his,
-/// and GNU2's) is recorded.
+/// and GNU2's) is recorded. GNU2 escorts him (`escort`) and falls with him,
+/// so his record brings GNU2's.
 #[test]
 fn gnu_ton_waits_at_the_end_and_his_defeat_opens_the_way_home() {
     use ambition_platformer2d::boss_encounter::BossConfig;
@@ -355,15 +356,23 @@ fn gnu_ton_waits_at_the_end_and_his_defeat_opens_the_way_home() {
 
     assert!(standing(&mut sim).contains(&"gated_lock:shoulders_exit_grille_gnu2".to_string()), "{:?}", standing(&mut sim));
 
-    // His defeat opens his grille; GNU2's grille waits for GNU2's.
+    // His record alone: his escort falls with him (`escort`), its fall is
+    // recorded, and both grilles open.
     let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_boss(PLACEMENT, ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
     let mut half = room_with(ARENA, save.clone());
     assert!(!gnu_tons(&mut half).iter().any(|(_, alive)| *alive), "a cleared placement is not built alive");
     assert_eq!(
         standing(&mut half).into_iter().filter(|name| name.contains("shoulders_exit_grille")).collect::<Vec<_>>(),
-        ["gated_lock:shoulders_exit_grille_gnu2".to_string()]
+        Vec::<String>::new(),
+        "GNU2 escorts him and falls with him"
     );
+    assert_eq!(
+        half.world().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().boss(GNU2_PLACEMENT),
+        ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
+        "the escort's fall is recorded"
+    );
+    // Each grille reads its own record.
     save.set_boss(GNU2_PLACEMENT, ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
     let mut won = room_with(ARENA, save);
     assert!(!standing(&mut won).iter().any(|name| name.contains("shoulders_exit_grille")), "{:?}", standing(&mut won));

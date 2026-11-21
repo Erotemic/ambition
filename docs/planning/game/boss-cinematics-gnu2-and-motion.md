@@ -195,6 +195,68 @@ opens when GNU2 is cleared too), and the handle's two-grille tests.
 are deleted. Its record is v2: `call_t` (the call's clock) replaces the
 launch's four fields. The space helmet stays a worn-gear row.
 
+**Polish 2026-11-21 (Jon: "not embarrassing if I present it to someone").**
+- **A wider hall.** Both arenas are 1024 wider (`gnu_ton_arena` 2816,
+  `gnu_ton_shoulders` 2944): the floor repeated at the middle, what stood
+  east of the cut moved east, the camera zone stretched. The giant and the
+  scholar stand 96 east of where they stood (the giant's middle at x 992):
+  a player at the entry door is within `stride::FAR` (640) of it, so it
+  stands for his arrival as it did. At the hall's middle it walked at the
+  player from the first frame, and the fist witnesses that run GGRS's sync
+  test (`a_gnu_ton_fist_hits_once_after_three_cuts...`,
+  `both_gnu_ton_fists_damage_separate_bodies...`) failed at frame 13: a
+  giant walking from the build is a case those lanes do not cover, and may be
+  a rollback defect of its walk (open; see the queue row). The Flying Spaghetti Monster's arena moved out of
+  the widened hall's way.
+- **GNU2 came in upside down.** The game glues pairs by the Rotation
+  convention (`PortalTuning::default`), under which two ends that face the
+  same way map by a half turn: GNU2 walked out of the far end on its back.
+  The near end is now in the cell's EAST wall facing west, the far end in the
+  hall's west wall facing east; opposite ends map by the identity, so it
+  walks west into the near end and on, upright, out of the far end. Its
+  placement is at the cell's west end. This replaces "both ends upright with
+  normal +x" and the "walk east once past the near end" rule above.
+- **GNU2 escorts GNU-ton** (`BossEncounterSpec::escort`, `gnu2.ron`). Jon:
+  "it's weird gnu2 gets a healthbar, but gnu1 doesn't have one. We should
+  probably make both of the gnu invulnerable." An escort is never hit
+  (`ActorPhaseState::boss_invulnerable` is true in every phase), is not
+  "fighting" for the bar (`BossRenderView::fighting`), and is killed when
+  the save records the boss it wakes after cleared, so its death settles and
+  it is recorded `Cleared` itself: the gate still waits for both placements.
+- **Bars cannot overlap.** A bar panel is a fixed 92 px with its content
+  clipped, and bars stack 100 px apart (`health.rs`).
+- **Arms by default.** The giants die with their arms on, and GNU2 stomps
+  in a new `armed_stomp` row. Jon: "The armless thing for when we do portals
+  and disjoint arms should be the exception, not the rule."
+- **GNU2 stood 184 under the floor.** Bosses read `kin.pos` as the drawn
+  frame's centre and put the body at `kin.pos + combat_offset`; the kernel
+  and every conductor sweep and place the kin box. Every boss sheet but one
+  has its body at its frame's centre (offsets of 0 to 11 px), so the two
+  agreed; GNU2 wears the giant's 840x680 frame, whose body is a fifth of the
+  frame under its middle (184 world units). Its kin box stood 2 px over the
+  floor while its body, its hurt box and its drawing were 184 under it. Now
+  a boss's body is its kin box (`BossRef::aabb`), and what reads the sheet's
+  pixels places the frame from it (`BossRef::frame_center`): the drawing
+  (`FeatureView::sprite_offset`) and the per-frame attack boxes. The cells
+  are 320 deeper (both arenas 2368 high, the cell's floor at 2240), since
+  GNU2's drawn head stands 394 over its body and would have come up through
+  the hall's floor; the Hall of Bosses' arena moved 320 up in the world to
+  stay clear of the biome rooms under it.
+- **The trees stand on real islands.** In `gnu_ton_shoulders` each apple tree
+  grows on a floating island of earth whose top is a one-way row of the
+  room: west and east at y 992 (128 over the low ledges), Newton's island in
+  the middle at y 656, over the giant's back. Each tree carries three real
+  apples (`GroundItem`, `hang_seconds` 5/10/15, `regrow_seconds`,
+  `regrow_limit 2`), the gravity works' orchard mechanism: they ripen, fall
+  onto the island and grow again.
+
+Witnessed in `app_it`: `at_his_enrage_gnu2_walks_into_the_hall_through_its_pair`
+(it is upright, stands on the floor, is unhit, and is not fought for the bar) and
+`defeating_him_opens_the_arena_and_his_body_going_does_not_close_it` (his
+escort falls with him and the way opens). Ideas past this pass, Jon's
+scaling-portal fight among them, are in
+`docs/brainstorms/2026-11-21-gnu-ton-fight-ideas.md`.
+
 What step 2 needed first, measured 2026-11-19: no boss takes its body from a
 character entry (`BossSpawn` has no `character_id`; `BossProfile` names
 none), so GNU2 as a boss needs a boss sheet (`boss_sheets.ron`, its rows as

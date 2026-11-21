@@ -728,7 +728,12 @@ pub fn rebuild_feature_view_index(
                 hit_strength: 0.0,
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
-                sprite_offset: None,
+                // Its frame is drawn where its body puts it: off the body's
+                // centre when the sheet's body is off the frame's.
+                sprite_offset: {
+                    let offset = boss.frame_center() - boss.kin.pos;
+                    (offset != ae::Vec2::ZERO).then_some(offset)
+                },
                 room: live.of(entity),
             },
         );
@@ -902,7 +907,8 @@ pub struct BossRenderView {
     /// Its fight has begun: it is past its intro. Its health bar comes up
     /// with its fight, not with its wake (Jon, 2026-10-24: "boss bar comes up
     /// to early"): the Inugami's bar was up through the whole of
-    /// Wolfenstein's death and its own rise.
+    /// Wolfenstein's death and its own rise. An escort, which stands beside
+    /// the fight and is not hit, never is.
     pub fighting: bool,
     /// How deep in its slow-motion finish it is, 0 to 1
     /// (`ambition_boss_encounter::finish`): presentation drains the picture
@@ -1014,7 +1020,9 @@ pub fn rebuild_boss_render_index(
     for (id, boss) in &bosses {
         let phase = boss.status.encounter_phase();
         let awake = phase != ambition_boss_encounter::BossEncounterPhase::Dormant;
-        let fighting = awake && phase != ambition_boss_encounter::BossEncounterPhase::Intro;
+        // An escort is never the fight (`BossEncounterSpec::escort`).
+        let escort = boss.config.seed.encounter.escort;
+        let fighting = awake && phase != ambition_boss_encounter::BossEncounterPhase::Intro && !escort;
         let finish = ambition_boss_encounter::finish::finish_of(boss.config, boss.status);
         let stage = staged_with_its_card(boss.config, boss.status);
         let fresh = |view: &BossRenderView| {

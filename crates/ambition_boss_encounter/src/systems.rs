@@ -221,7 +221,9 @@ pub fn update_boss_encounters(
             let triggers = overrides
                 .and_then(|o| o.phase_triggers.clone())
                 .unwrap_or_else(|| crate::PhaseTrigger::intrinsic_from_spec(&spec));
-            feature.status.encounter = Some(crate::ActorPhaseState::new(triggers));
+            let mut state = crate::ActorPhaseState::new(triggers);
+            state.escort = spec.escort;
+            feature.status.encounter = Some(state);
         }
 
         // Persisted "cleared" is keyed to this placement, not the archetype. A
@@ -290,6 +292,15 @@ pub fn update_boss_encounters(
                 && spec.wake_radius.is_none_or(near)
             {
                 phase_events.extend(phase.wake());
+            }
+            // An escort falls with the boss it escorts: once the save records
+            // that one cleared, whatever phase it stands in.
+            if alive
+                && spec.escort
+                && !matches!(phase.phase, crate::BossEncounterPhase::Death)
+                && feature.config.wakes_after.as_deref().is_some_and(|predecessor| crate::placement_is_cleared(save.data(), predecessor))
+            {
+                phase_events.extend(phase.kill());
             }
             phase_events.extend(phase.tick(dt, hp_fraction));
         }

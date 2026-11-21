@@ -6,6 +6,11 @@
 // of portals from the cell's floor to the air over the hall. It fights in
 // one phase: it walks the hall, stomps, and bucks a body off its back. See
 // the `gnu2` row in `boss_profiles.ron`.
+//
+// It escorts GNU-ton (`escort`): no hit lands on it and it shows no health
+// bar, and it falls when he is cleared. The fight is the rider; the giants
+// are the stage he fights on (Jon, 2026-11-21: "we should probably make both
+// of the gnu invulnerable").
 (
     id: "gnu2",
     name: "GNU2",
@@ -20,4 +25,5 @@
     music_phase1: "",
     music_phase2: "",
     music_enrage: "",
+    escort: true,
 )

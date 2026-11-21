@@ -633,6 +633,23 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
+        // Peyote Lean's long-barrelled revolver (the Frontier): a slow, heavy
+        // round from the hand. The same shot as his action set
+        // (`peyote_revolver` in the character catalog).
+        items.insert(
+            "frontier_revolver",
+            HeldItemSpec {
+                id: "frontier_revolver".into(),
+                melee: None,
+                ranged: Some(
+                    RangedActionSpec::pistol(640.0, 2)
+                        .with_visual("pistol_round")
+                        .with_muzzle(Muzzle::Hand { ahead: 22.0 })
+                        .with_refire(0.42),
+                ),
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
         items
     });
 

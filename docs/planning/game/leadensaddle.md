@@ -117,6 +117,41 @@ for the arena's entry:
 > **Marshal Gallus:** I blew the whistle an hour ago. You did not hear it? Everybody hears it.
 > **Marshal Gallus:** Hold still. This is the good hat.
 
+## Peyote Lean, his partner
+
+Jon, 2026-11-21: Marshal Gallus was a lawman and is now a train robber, and
+he has a partner: **Peyote Lean**, a coyote outlaw (concept art
+`assets/concept_art/misc/Peyote Lean*.png`). His name is a quiet nod to the
+Lean proof assistant, as the Marshal's card title is to Coq/Rocq; it is not
+his personality.
+
+**The look.** Tall and rangy against the Marshal's round bulk: large pointed
+ears that stand up through a wide-brimmed hat, a long snout in a steel basket
+muzzle held by leather straps with a brass buckle, a red poncho with a pale
+stepped band and a fringe over a long brown duster, a gun belt with brass
+cartridges and a holster, boots, a bushy tail with a pale underside and a dark
+tip, and amber eyes. He is organic, not a cyborg. He is a character of the
+generator (`chargen`), so he has the views and the clips of every generated
+resident: renderer resident `peyote_lean`, his gear in
+`targets/characters/_western_gear.py` (`cowboy_hat`, `muzzle_cage`,
+`bushy_tail`, `poncho`, `gun_belt`). His revolver is the held item
+`frontier_revolver` (renderer prop `frontier_revolver`), drawn in his hand by
+the game and turned to where he aims.
+
+**Who he is.** Quiet and watchful where the Marshal is loud. His story is not
+set: the muzzle is there to make a player curious, and no line explains it.
+He and the Marshal ride together as equals, not as a hero and a sidekick.
+
+**How he fights.** Catalog row `npc_peyote_lean` (198 cm, 8 HP), action set
+`peyote_revolver`: a `Skirmisher` that keeps its distance, aims for half a
+second, fires two shots through the revolver's 0.42 s refire and cocks it
+again (1.3 s, the time to close in); close in, he clubs with the butt.
+
+**Where he is.** On the tender of the Rustler, the outlaw engine at the head
+of the Number 9 freight (`frontier_rustler_head`): he shoots at anyone who
+comes up the train. He is also in the Hall of Characters, in the wing of
+Halfway Siding and Clinker Flats.
+
 ## The fight
 
 The encounter is `marshal_gallus` (`boss_profiles.ron`,
@@ -249,6 +284,11 @@ card).
 6. The people, their talk, signs, captures of the main rooms.
 
 ## Open
+
+- Jon, 2026-11-21: the Marshal was a lawman and is now a train robber. "Who
+  he is" above, his card and his lines in the game are older: they make him the
+  marshal of Dry Dock. Align them with the train robber, and decide if he
+  rides the Rustler with Peyote Lean.
 
 - The boss's art is a baked sheet. PART-FIRST
   ([part-first publication](../engine/part-first-publication.md)) may move it

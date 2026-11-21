@@ -158,6 +158,7 @@ npc_frontier_brakeman
 npc_frontier_yardmaster
 npc_frontier_crane_driver
 npc_frontier_laundress
+npc_peyote_lean
 
 [The orbital station]
 npc_station_okafor

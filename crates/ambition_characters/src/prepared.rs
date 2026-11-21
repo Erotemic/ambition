@@ -209,6 +209,9 @@ pub struct CharacterBodyBlueprint<'a> {
     /// [`crate::actor::definition::Vitals::knockback_weight`]: `None` leaves the
     /// constructor's reference weight.
     pub knockback_weight: Option<f32>,
+    /// [`crate::actor::definition::Vitals::poise`]: the armor this body holds
+    /// while no move's window grants one.
+    pub resting_armor: crate::actor::ArmorPolicy,
     /// [`PreparedCharacterDefinition::actor_abilities`]: resolved, so a
     /// constructor has no default to reach for.
     pub abilities: ambition_platformer2d_core::AbilitySet,
@@ -323,6 +326,7 @@ impl PreparedCharacterDefinition {
             held_item: self.held_item.as_deref(),
             death_traits: self.death_traits.as_ref(),
             knockback_weight: self.vitals.knockback_weight,
+            resting_armor: self.vitals.resting_armor(),
             abilities: self.actor_abilities,
             ranged_vfx: self.ranged_vfx.as_deref(),
             body: self.body.as_ref(),
@@ -2090,6 +2094,7 @@ fn finalize_character(
                 // it. Clamped once, at the barrier, so no consumer has to.
                 .map(|max| max.max(1)),
             mass: vitals.mass.or_else(|| catalog_row?.mass),
+            poise: vitals.poise.or_else(|| catalog_row?.poise),
             ..vitals
         },
         // An authored model, else the policy the authored locomotion names,

@@ -1502,6 +1502,7 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
         "demo_provider",
     );
     heavy.vitals = ambition_characters::actor::definition::Vitals {
+        poise: None,
         max_health: Some(40),
         mass: Some(6.5),
         knockback_weight: None,
@@ -1693,6 +1694,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
         (
             "heavy_duelist",
             ambition_characters::actor::definition::Vitals {
+                poise: None,
                 max_health: Some(DUELIST_MAX_HEALTH),
                 mass: Some(DUELIST_MASS),
                 knockback_weight: None,
@@ -1829,6 +1831,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
         let mut definition =
             ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
         definition.vitals = ambition_characters::actor::definition::Vitals {
+            poise: None,
             max_health: None,
             mass,
             knockback_weight: None,
@@ -2033,6 +2036,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(prepared_duelist(
         ambition_characters::actor::definition::Vitals {
+            poise: None,
             max_health: Some(60),
             mass: Some(2.0),
             knockback_weight: None,

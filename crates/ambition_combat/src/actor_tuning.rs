@@ -50,6 +50,9 @@ pub struct ActorTuning {
     pub respawn: RespawnPolicy,
     /// Knockback weight; larger values reduce launch growth. `1.0` is the reference body.
     pub weight: f32,
+    /// The armor this body holds while no move's window grants one (the
+    /// character's poise). Read by `project_move_defense_windows`.
+    pub resting_armor: ambition_characters::actor::ArmorPolicy,
     /// Flies: no gravity, aerial slot class.
     pub is_aerial: bool,
     /// If true, flight consumes the brain's desired velocity directly instead of smoothing it.
@@ -75,6 +78,7 @@ impl Default for ActorTuning {
             respawn: RespawnPolicy::default(),
             // Reference body: the default must not zero out the growth divisor.
             weight: 1.0,
+            resting_armor: ambition_characters::actor::ArmorPolicy::None,
             is_aerial: false,
             flight_direct_velocity: false,
             body_contact_damage: false,
@@ -235,6 +239,7 @@ mod authority_split_tests {
             surface_walker: _,
             cling_breaks_on_hit: _,
             weight: _,
+            resting_armor: _,
             is_aerial: _,
             flight_direct_velocity: _,
             // (The controller-policy projections `patrol_speed`/`chase_speed`

@@ -390,7 +390,8 @@ pub struct BodyCombat {
     /// DERIVED, republished every tick from the live `MovePlayback` by
     /// `ambition_platformer2d::combat::moveset::project_move_defense_windows` — so a move
     /// ending retracts it by being rewritten rather than by anyone remembering
-    /// to clear it. Never write it from anywhere else.
+    /// to clear it. With no window open it is the character's poise
+    /// (`ActorTuning::resting_armor`). Never write it from anywhere else.
     ///
     /// ⛔⛤ **THIS WAS A `bool` AND A BOOLEAN CANNOT SAY WHAT S0.5 ASKS.**
     /// *"Suppress the reaction"* and *"suppress the reaction for hits under

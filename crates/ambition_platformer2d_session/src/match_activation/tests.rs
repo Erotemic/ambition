@@ -1852,6 +1852,7 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     let mut app = seating_app();
     let mut tank = CharacterDefinition::new("tank", "Tank", "demo");
     tank.vitals = ambition_characters::actor::definition::Vitals {
+        poise: None,
         max_health: Some(60),
         mass: Some(1.0),
         knockback_weight: None,
@@ -1914,12 +1915,14 @@ fn a_declared_match_pool_levels_two_fighters_their_home_games_sized_differently(
         // own games author them.
         let mut glass = CharacterDefinition::new("glass", "Glass", "demo");
         glass.vitals = ambition_characters::actor::definition::Vitals {
+            poise: None,
             max_health: Some(1),
             mass: Some(1.0),
             knockback_weight: None,
         };
         let mut fighter = CharacterDefinition::new("fighter", "Fighter", "demo");
         fighter.vitals = ambition_characters::actor::definition::Vitals {
+            poise: None,
             max_health: Some(100),
             mass: Some(1.0),
             knockback_weight: None,
@@ -2658,6 +2661,7 @@ fn a_seated_fighter_carries_its_authored_mass() {
     let mut app = seating_app();
     let mut heavy = CharacterDefinition::new("anvil", "Anvil", "demo");
     heavy.vitals = ambition_characters::actor::definition::Vitals {
+        poise: None,
         max_health: Some(40),
         mass: Some(6.5),
         knockback_weight: None,
@@ -3028,6 +3032,7 @@ fn one_character_definition_seats_two_independent_fighters() {
     let mut app = seating_app();
     let mut fretjaw = CharacterDefinition::new("fretjaw", "Fretjaw", "demo");
     fretjaw.vitals = ambition_characters::actor::definition::Vitals {
+        poise: None,
         max_health: Some(40),
         mass: Some(1.0),
         knockback_weight: None,

@@ -878,6 +878,14 @@ pub struct CharacterCatalogEntry {
     /// registered definition's own.
     #[serde(default)]
     pub mass: Option<f32>,
+    /// POISE: a hit that deals less than this does not stagger the body while
+    /// no move's armor window is open (no launch, no hitstun; the damage is
+    /// paid). `None` (the default): every hit staggers, as it always has.
+    /// Without it a striker who swings faster than this body's windup keeps
+    /// it in hitstun and it never swings back. Folded at preparation under a
+    /// registered definition's own.
+    #[serde(default)]
+    pub poise: Option<i32>,
     /// What this character can ride, and what it is as a mount. `None` (the
     /// default): it rides nothing and nobody rides it. Folded at preparation
     /// under a registered definition's own.

@@ -6705,6 +6705,9 @@
             standing_height: Some(70.0),
             composition: None,
             default_action_set: "barrow_king_slash",
+            // A jab (1 or 2) does not stagger him; a heavier blow does. The
+            // player's three-hit chain kept him in hitstun and he never swung.
+            poise: Some(3),
             locomotion: Some((run_speed: 95.0, move_style: Walk)),
             autonomous_profile: Some((
                 template: MeleeBrute,

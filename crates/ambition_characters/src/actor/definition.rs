@@ -78,6 +78,20 @@ pub struct Vitals {
     /// This is independent of [`Self::mass`], which controls mount-pair physics.
     /// `None` preserves the body or roster value.
     pub knockback_weight: Option<f32>,
+    /// Hits that deal less than this do not stagger the body out of a move
+    /// ([`crate::actor::ArmorPolicy::Damage`] at rest). `None`: every hit
+    /// staggers.
+    pub poise: Option<i32>,
+}
+
+impl Vitals {
+    /// The armor this body holds while no move's window grants one: its poise
+    /// as a damage threshold, or none.
+    pub fn resting_armor(&self) -> crate::actor::ArmorPolicy {
+        self.poise.map_or(crate::actor::ArmorPolicy::None, |breaks_at| {
+            crate::actor::ArmorPolicy::Damage { breaks_at }
+        })
+    }
 }
 
 /// Authority for body collision geometry.

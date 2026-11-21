@@ -457,6 +457,10 @@ impl ActorClusterSeed {
             weight: physical
                 .and_then(|physical| physical.knockback_weight())
                 .unwrap_or(ambition_combat::actor_tuning::ActorTuning::default().weight),
+            resting_armor: prepared_character.map_or(
+                ambition_characters::actor::ArmorPolicy::None,
+                |prepared| prepared.vitals.resting_armor(),
+            ),
             max_run_speed: authored_body
                 .as_ref()
                 .map_or(ambition_platformer2d_core::MAX_RUN_SPEED, |body| {
@@ -670,6 +674,7 @@ impl ActorClusterSeed {
             sheet_sizing,
             death_traits,
             knockback_weight,
+            resting_armor,
             ..
         } = body;
         // a body with no policy still needs one to be paced against. The
@@ -737,6 +742,7 @@ impl ActorClusterSeed {
             ranged_visual: ranged_vfx.unwrap_or_default().to_string(),
             weight: knockback_weight
                 .unwrap_or(ambition_combat::actor_tuning::ActorTuning::default().weight),
+            resting_armor,
             ..Default::default()
         };
         // ONE spelling of the authored scale, read by the live surface state
@@ -897,6 +903,7 @@ pub fn fixture_body_blueprint(
         held_item: None,
         death_traits: None,
         knockback_weight: None,
+        resting_armor: ambition_characters::actor::ArmorPolicy::None,
         abilities: ae::AbilitySet::classic_actor(),
         ranged_vfx: None,
         body: None,
@@ -983,6 +990,7 @@ mod tests {
             held_item: None,
             death_traits: None,
             knockback_weight: None,
+            resting_armor: ambition_characters::actor::ArmorPolicy::None,
             abilities: ae::AbilitySet::classic_actor(),
             ranged_vfx: None,
             body: None,

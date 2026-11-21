@@ -4118,17 +4118,21 @@ pub fn project_move_defense_windows(
         Option<&mut ambition_characters::actor::BodyHealth>,
         Option<&MovePlayback>,
         Option<&ambition_platformer2d_core::body_clusters::BodyModeState>,
+        Option<&crate::actor_tuning::ActorConfig>,
     )>,
 ) {
-    for (mut combat, health, playback, body_mode) in &mut bodies {
+    for (mut combat, health, playback, body_mode, config) in &mut bodies {
         let intangible = playback.is_some_and(MovePlayback::intangible_now);
         let submerged = body_mode.is_some_and(|m| {
             m.body_mode == ambition_platformer2d_core::player_state::BodyMode::Submerged
         });
-        let armor = playback.map_or(
-            ambition_characters::actor::ArmorPolicy::None,
-            MovePlayback::armor_now,
-        );
+        // A move's open window speaks first; with none open, the character's
+        // poise (its resting armor) holds.
+        let armor = playback
+            .map(MovePlayback::armor_now)
+            .filter(|armor| *armor != ambition_characters::actor::ArmorPolicy::None)
+            .or_else(|| config.map(|config| config.tuning.resting_armor))
+            .unwrap_or_default();
         // Compared before writing: these run for every combat body every tick,
         // and an unconditional write would mark both components changed forever.
         if combat.armor != armor {

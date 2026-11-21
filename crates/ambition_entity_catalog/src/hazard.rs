@@ -76,15 +76,16 @@ pub enum ThreatTravel {
     /// An object put somewhere, which goes off by itself after
     /// `detonates_by_s` and can hurt somebody within `reach`. A bomb on a fuse.
     Placed {
-        /// How far from the body the blast can touch somebody.
-        ///
-        /// Known debt: this is a radius, but the placement is a vector. The
-        /// polygon's bomb is authored at `offset (-16, +14)` (behind and
-        /// below) with a 56px blast, and this collapses that to
-        /// `|offset.x| + blast_radius` = 72px, discarding direction and `y`. The
-        /// fix is to carry the region, not another scalar (tracked on
-        /// queue.md's BRAIN row).
-        reach: f32,
+        /// Where the object appears, body-local (`+x` toward facing, `+y`
+        /// gravity-down), the frame its authored offset is written in.
+        at: (f32, f32),
+        /// How far from `at` the blast can touch somebody. The hazardous
+        /// region is this disc, not a radius around the body: the polygon's
+        /// bomb sits at `(-16, +14)`, behind and below, with a 56px blast, so
+        /// it covers somebody behind her that a radius from her body would
+        /// call out of reach, and misses somebody 70px in front that the old
+        /// scalar (`|offset.x| + blast`, 72px) said it reached.
+        radius: f32,
         /// Seconds after the object appears before it goes off by itself.
         ///
         /// A deadline, not an earliest time. The shipped bomb detonates after
@@ -103,7 +104,7 @@ impl ThreatTravel {
             Self::Boomerang { v0, out_s, free } => {
                 free + (v0.max(0.0) * out_s.max(0.0) / 2.0)
             }
-            Self::Placed { reach, .. } => reach,
+            Self::Placed { at, radius, .. } => (at.0 * at.0 + at.1 * at.1).sqrt() + radius.max(0.0),
         }
     }
 
@@ -238,6 +239,20 @@ impl ShotLaunch {
 }
 
 impl MoveHazard {
+    /// Does this hazard's dangerous region come within `slack` of somebody at
+    /// `foe_local` (body-local, as [`ThreatTravel::Placed::at`])? A placed
+    /// object answers with its own disc; anything that flies answers with its
+    /// reach from the body, since it can be aimed.
+    pub fn reaches(self, foe_local: (f32, f32), slack: f32) -> bool {
+        let length = |v: (f32, f32)| (v.0 * v.0 + v.1 * v.1).sqrt();
+        match self {
+            Self::Spawned { travel: ThreatTravel::Placed { at, radius, .. }, .. } => {
+                length((foe_local.0 - at.0, foe_local.1 - at.1)) <= radius.max(0.0) + slack
+            }
+            _ => length(foe_local) <= self.reach() + slack,
+        }
+    }
+
     /// What this hazard throws its target for, when anything states it.
     pub fn launch(self) -> Option<ShotLaunch> {
         match self {
@@ -382,7 +397,8 @@ pub(crate) fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
             .map(|p| {
                 MoveHazard::Spawned {
                     travel: ThreatTravel::Placed {
-                        reach: p.offset.0.abs() + p.blast_radius,
+                        at: p.offset,
+                        radius: p.blast_radius,
                         // The fuse. It is the latest moment, not the only one:
                         // a bomb also detonates on a hard enough impact
                         // (`impact_speed`), which depends on others. The
@@ -403,4 +419,42 @@ pub(crate) fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
     // A non-positive reach is no hazard. The admission rule reads absence as
     // "offers nothing", and a `Some` of 0.0 would be admitted at point blank.
     hazard.filter(|h| h.reach() > 0.0)
+}
+
+#[cfg(test)]
+mod placed_region_tests {
+    use super::*;
+
+    /// The projectile polygon's bomb as shipped (`movesets/projectile_polygon.ron`):
+    /// it appears behind and below her, `(-16, 14)`, with a 56px blast.
+    fn polygon_bomb() -> MoveHazard {
+        MoveHazard::Spawned {
+            travel: ThreatTravel::Placed { at: (-16.0, 14.0), radius: 56.0, detonates_by_s: 4.0 },
+            damage: 12,
+            launch: None,
+        }
+    }
+
+    /// A placed hazard's region is its own disc, not a radius around the body.
+    /// The old scalar (`|offset.x| + blast`, 72px) admitted a foe 70px in front
+    /// and was blind to the blast's real shape.
+    #[test]
+    fn a_placed_bomb_reaches_its_own_region_not_a_radius_around_the_body() {
+        let bomb = polygon_bomb();
+        // Behind her, inside the blast.
+        assert!(bomb.reaches((-40.0, 0.0), 0.0));
+        // 70px in front: about 87px from where the bomb sits, out of a 56px
+        // blast even with 24px of slack.
+        assert!(!bomb.reaches((70.0, 0.0), 24.0));
+        // The farthest it can touch, from the body.
+        assert!((bomb.reach() - ((16.0f32 * 16.0 + 14.0 * 14.0).sqrt() + 56.0)).abs() < 1e-4);
+        // Something that flies is still measured from the body.
+        let shot = MoveHazard::Spawned {
+            travel: ThreatTravel::Straight { speed: 300.0, span: 200.0, free: 0.0 },
+            damage: 4,
+            launch: None,
+        };
+        assert!(shot.reaches((-150.0, 0.0), 0.0));
+        assert!(!shot.reaches((230.0, 0.0), 24.0));
+    }
 }

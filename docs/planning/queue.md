@@ -2582,6 +2582,17 @@ fixed-range or stale-view brain workaround.
      (move-usage census of the projectile fighters before and after).
 2. Placed traps: resolve the hazardous region relative to the attacker,
    rather than treating placement radius as attack reach.
+   **Done 2026-11-21:** `ThreatTravel::Placed` carries its region:
+   `at` (the authored offset, body-local) and `radius` (the blast). The old
+   scalar `reach` (`|offset.x| + blast`) is gone. `MoveHazard::reaches`
+   answers admission with that disc for a placed object, and with the reach
+   from the body for anything that flies. `reach()` is still "how far from
+   the body" (`|at| + radius`). On the polygon's shipped bomb, `(-16, 14)`
+   with a 56px blast, a foe 70px in front is no longer admitted and one
+   behind her is. Witness
+   `a_placed_bomb_reaches_its_own_region_not_a_radius_around_the_body`.
+   Traps still earn no strike payoff (`strikes_on_arrival` is false); pricing
+   stage control is a separate feature.
 3. Teleports: expose the resolved destination (`behind_nearest_foe`,
    `behind_gap`, aim) to the attack offer.
 4. Difficulty ladder: measure `--rungs 3,4,6,7,8` and distinguish step size

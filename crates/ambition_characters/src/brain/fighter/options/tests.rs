@@ -1825,7 +1825,8 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
     // would put a second variable in it.
     bolt.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
         travel: ambition_entity_catalog::ThreatTravel::Placed {
-            reach: 700.0,
+            at: (0.0, 0.0),
+            radius: 700.0,
             detonates_by_s: 0.0,
         },
         // This arm is about the ADMISSION rule, so the hazard deals what the
@@ -2789,7 +2790,8 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
     // so that a refusal above can only be about the flight.
     let placed_and_live = ambition_entity_catalog::MoveHazard::Spawned {
         travel: ambition_entity_catalog::ThreatTravel::Placed {
-            reach: 700.0,
+            at: (0.0, 0.0),
+            radius: 700.0,
             detonates_by_s: 0.0,
         },
         damage: 0,
@@ -2831,7 +2833,8 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
     // yet and that is written down on the type rather than patched in here.
     let on_a_fuse = ambition_entity_catalog::MoveHazard::Spawned {
         travel: ambition_entity_catalog::ThreatTravel::Placed {
-            reach: 700.0,
+            at: (0.0, 0.0),
+            radius: 700.0,
             detonates_by_s: 4.0,
         },
         damage: 0,
@@ -2982,7 +2985,8 @@ fn a_laid_trap_is_not_priced_as_damage_that_lands_when_it_is_laid() {
     };
     // A bomb: reaches 72px, goes off by itself in four seconds.
     let laid = ambition_entity_catalog::ThreatTravel::Placed {
-        reach: 72.0,
+        at: (0.0, 0.0),
+        radius: 72.0,
         detonates_by_s: 4.0,
     };
     // The SAME reach and the same zero flight, but it flies — `free` is the

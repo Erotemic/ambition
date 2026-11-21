@@ -1378,9 +1378,10 @@ pub fn generate_options(
             // bomb, the body's own shot. Priced against its own reach, the
             // same absolute question the hit arm asks.
             if let Some(hazard) = attack.frames.hazard {
+                // A placed object answers with its own region (where it
+                // appears, and its blast), not a radius around the body.
                 let aim = lead_of(arrival_of(&attack.frames, hazard));
-                let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
-                return gap <= hazard.reach() + ADMISSION_SLACK_PX;
+                return hazard.reaches(aim, ADMISSION_SLACK_PX);
             }
             // ⛔⛤ **AND A ROUTE THAT CARRIES THE BODY IS NOT AN ATTACK,
             // THOUGH THIS ARM ADMITTED ONE FOR A WHILE.** A teleport lands no

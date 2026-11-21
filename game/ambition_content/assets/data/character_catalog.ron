@@ -10346,10 +10346,98 @@
             ),
             hall_dialogue_id: Some("hall_npc_valley_shepherd"),
         ),
+        // The goblins of Hobford's outskirts (the moor and the barrow): the
+        // raider's look, armed with a gun-sword taken off the gate's freight
+        // (it shoots swords; they found the button). Tougher than the raid's
+        // goblins: danger rises with distance from town.
+        "npc_goblin_scavenger": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Goblin Scavenger",
+            manifest: "sprites/goblin_raider_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_action_set: "striker_swipe",
+            held_item: Some("gun_sword"),
+            attack_vfx: Some("goblin_strike_fx"),
+            locomotion: Some((run_speed: 180.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.80, amount: 1)),
+            named_autonomous_profile: Some("medium_striker"),
+            max_health: Some(8),
+            tags: ["enemy", "intro", "valley_outskirts"],
+            barks: (
+                on_hit: ["Oi! That's salvage!", "It shoots swords! Who builds that?", "Mind the pointy end!"],
+                provoked: ["Get it! It's worth batteries!"],
+                hall: ["Found it on a freight crate. It shoots swords. I don't ask.", "Every time I press the button, a sword leaves."],
+            ),
+            hall_dialogue_id: Some("hall_npc_goblin_scavenger"),
+        ),
+        // Hobford's adventurers (Jon, 2026-11-20): fantasy kit, and the
+        // imports the gate brought them (`targets/characters/_townsfolk_gear.py`
+        // draws their gear). A low-magic valley that got laser swords.
+        "npc_valley_knight": (
+            display_name: "Knight-Errant",
+            // Mail and a breastplate, and an imported laser sword with a brass
+            // crossguard fitted to it so that it looks like a sword.
+            manifest: "sprites/valley_knight_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "valley_village", "adventurer", "peaceful"],
+            barks: (
+                idle: ["It hums. I've stopped noticing.", "Third scabbard this month."],
+                hall: ["I cleared the miller's cellar of rats with it. And the cellar of its door, and its shelves.", "A sword you never have to sharpen. You have to charge it, which is worse."],
+            ),
+            hall_dialogue_id: Some("hall_npc_valley_knight"),
+        ),
+        "npc_valley_wizard": (
+            display_name: "Hedge Wizard",
+            // A long blue robe, a pointed hat, and an imported pocket calculator
+            // he reads as a book of sums.
+            manifest: "sprites/valley_wizard_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "valley_village", "adventurer", "peaceful"],
+            barks: (
+                idle: ["Seven times eight. Fifty-six. Again it knows.", "The sun charges it. I have not told the sun."],
+                hall: ["Forty years of three charms, and then a box that does every sum there is.", "It has never once been wrong. That is how you know it is cursed."],
+            ),
+            hall_dialogue_id: Some("hall_npc_valley_wizard"),
+        ),
+        "npc_valley_ranger": (
+            display_name: "Ranger",
+            // Leather and green, and an imported head torch over her brow.
+            manifest: "sprites/valley_ranger_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 167 cm.
+            standing_height: Some(64.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "valley_village", "adventurer", "peaceful"],
+            barks: (
+                idle: ["Batteries. Goblins went this way.", "Mind the trail. It's theirs now."],
+                hall: ["My grandmother tracked by bent grass. I track by dead batteries. It's faster.", "The light on my head scares deer and draws goblins. I'm still deciding."],
+            ),
+            hall_dialogue_id: Some("hall_npc_valley_ranger"),
+        ),
         // The shepherd's flock on the fell: the fell prop's sheep drawn to move
         // (`targets/characters/fell_sheep.py`). They graze a long while and amble
         // slowly to another place they can walk to; they cannot jump, so a wall
-        // or a crag stops them.
+        // or a crag stops them. They are cloud sheep (Jon, 2026-11-20): killed,
+        // a sheep's fleece swells and lifts it, and the cloud it becomes
+        // (`npc_sheep_cloud`) rises from where it fell (`rhai/cloud_sheep.rhai`,
+        // which follows the `cloud_sheep` tag).
         "npc_fell_sheep": (
             display_name: "Sheep",
             manifest: "sprites/fell_sheep_spritesheet.ron",
@@ -10363,7 +10451,10 @@
             locomotion: Some((run_speed: 60.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             abilities: Some([Walk]),
             max_health: Some(3),
-            tags: ["animal", "sheep", "quadruped", "valley_village", "peaceful"],
+            // Its death row is the swelling into a cloud; the cloud takes its
+            // place, so nothing of the sheep is left on the grass.
+            death_traits: Some((corpse: Some(Gone))),
+            tags: ["animal", "sheep", "quadruped", "valley_village", "peaceful", "cloud_sheep"],
             fallback_dialogue: ["Baa.", "The sheep looks at you and goes on chewing."],
             barks: (
                 on_hit: ["Baa!", "*it skips away, bleating*"],
@@ -10371,6 +10462,31 @@
                 hall: ["Baa.", "The sheep looks at you and goes on chewing."],
             ),
             hall_dialogue_id: Some("hall_npc_fell_sheep"),
+        ),
+        // A LOOK of the fell sheep: what it becomes when it is killed, a small
+        // cumulus with the sheep's face and legs still in it
+        // (`targets/characters/sheep_cloud.py`). It floats; `cloud_sheep.rhai`
+        // lifts it into the sky and lets the wind take it. It cannot be killed
+        // twice: struck, it blows apart and gathers again.
+        "npc_sheep_cloud": (
+            display_name: "Cloud Sheep",
+            manifest: "sprites/sheep_cloud_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(52.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            locomotion: Some((run_speed: 60.0, move_style: Float, baseline_free_flight: Some(true))),
+            max_health: Some(3),
+            death_traits: Some((never_dies: true)),
+            tags: ["animal", "sheep", "cloud", "valley_village", "peaceful", "sheep_cloud"],
+            fallback_dialogue: ["The cloud has a sheep's face. It has its eyes shut."],
+            barks: (
+                on_hit: ["*it blows apart and drifts back together*", "Baa?"],
+                idle: ["Baa.", "*a soft, distant baa*"],
+            ),
+            form_of: Some("npc_fell_sheep"),
         ),
 
         // ===== Residents of the gate network's districts (2026-10-24): ordinary

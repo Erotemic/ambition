@@ -274,7 +274,7 @@ The hen looks at you with one eye, then the other, and goes back to the ground.
 
 title: hobford_sheep
 ---
-The sheep lifts its black face, chews twice, and puts its head down to the grass again.
+The sheep lifts its black face, chews twice, and puts its head down to the grass again. Its fleece is very white and very light, and the wind moves it like the top of a cloud.
 -> ⟨leave it⟩
 ===
 
@@ -390,6 +390,56 @@ title: valley_gatekeeper
 <<endif>>
 ===
 
+title: valley_knight
+---
+<<present_speaker "npc_valley_knight">>
+Knight-Errant: Stand back, it's on. It's always on. I can't find where it goes off.
+-> Where did you get a laser sword?
+    Knight-Errant: The gate goods shop, between the lamp oil and the salt. I traded my father's sword for it. He took it badly. So did the scabbard.
+    Knight-Errant: I had the smith put a proper crossguard on it. It was only a handle. You can't swear an oath on a handle.
+-> What do you use it for?
+    Knight-Errant: Rats, mostly. The cellar rats of this valley have never been so frightened, or so well done.
+    Knight-Errant: When it's charged I'm going up to the barrow on the moor, past the fell. Nobody has come out of it with anything. I'll be the first with a light.
+-> There are goblins at the siding. <<if not condition("encounter.cleared", "intro_freight_yard_fight")>>
+    Knight-Errant: I know. I'm waiting for it to charge. It charges in the Plough's window, when there's sun.
+-> You could have helped with the goblins. <<if condition("encounter.cleared", "intro_freight_yard_fight")>>
+    Knight-Errant: You did it with your hands? No sword at all?
+    Knight-Errant: Never mind the barrow. I'm putting this back on the shelf and asking for my father's sword back.
+-> ⟨go⟩
+===
+
+title: valley_wizard
+---
+<<present_speaker "npc_valley_wizard">>
+Hedge Wizard: Don't touch the book. The book is very old. Nearly a year.
+-> What book?
+    Hedge Wizard: The Book of Sums. Ask it anything with a number in. Seven times eight. *he presses it* Fifty-six. Every time. Every single time.
+    Hedge Wizard: Forty years I had three charms: one for warts, one for lost keys, one for a fair wind on a Tuesday. Now I have every sum there is.
+-> Is it magic?
+    Hedge Wizard: It came through the gate in a crate of forty, so no. Magic is rare. This is common. That's what frightens me about it.
+-> Do you know any real spells?
+    Hedge Wizard: Three. I've just told you all of them.
+    Hedge Wizard: The Tuesday one is quite good.
+-> The man in the barn. <<if condition("world.flag_set", "intro_creator_dead")>>
+    Hedge Wizard: He could make a thing that talks back. I can make a wart go. I'd have liked to compare notes.
+-> ⟨go⟩
+===
+
+title: valley_ranger
+---
+<<present_speaker "npc_valley_ranger">>
+Ranger: Quiet. You're standing on the trail.
+-> What are you tracking?
+    Ranger: Goblins. They go through batteries like bread. *she holds one up* Still warm. They went up the hill path an hour ago.
+    Ranger: My grandmother tracked by bent grass. I'd like to see her try it on goblins.
+-> What's that on your head?
+    Ranger: A head torch. It came through the gate. It lights the way, scares the deer, and tells every goblin in the woods exactly where I am.
+    Ranger: I'm still deciding if that's good.
+-> The goblins at the siding are beaten. <<if condition("encounter.cleared", "intro_freight_yard_fight")>>
+    Ranger: I saw the batteries stop. Thank you. Now I've nothing to follow but deer, and the deer can see me coming.
+-> ⟨go⟩
+===
+
 title: valley_shepherd
 ---
 <<present_speaker "npc_valley_shepherd">>
@@ -397,12 +447,20 @@ title: valley_shepherd
     Shepherd: Forty-one. Forty-two. Don't stand there, you're putting me off.
     -> What can you see from up here?
         Shepherd: The whole valley. The mill, the Plough's chimney, the woods, the gate. Past the gate, nothing. The weather doesn't go through it either.
+    -> One of your sheep is in the sky. <<if condition("world.flag_set", "hobford_sheep_clouded")>>
+        Shepherd: I saw. That was forty-three.
+        Shepherd: A fell sheep goes up when it goes. The fleece is too light to stay down without a sheep inside holding on.
+        Shepherd: Half the weather in this valley is my grandfather's flock. I'd thank you not to add to it.
+    -> Why do your sheep look like clouds? <<if not condition("world.flag_set", "hobford_sheep_clouded")>>
+        <<jump valley_shepherd__clouds>>
     -> ⟨go⟩
 <<else>>
     <<command "world.set_flag" "valley_shepherd_met" true>>
     Shepherd: You climbed the fell for the view? Nobody climbs the fell for the view. They climb it for a sheep.
     -> The dog in the meadow. Is it yours?
         Shepherd: She's minding the hut. She minds everything. She'd mind the gate if they let her near it.
+    -> Why do your sheep look like clouds?
+        <<jump valley_shepherd__clouds>>
     -> Did you see goblins come past the siding?
         Shepherd: Five, with a handcart. They sat on their crate and ate the bread I'd left on the wall.
         <<if condition("world.flag_set", "intro_creator_dead")>>
@@ -410,6 +468,15 @@ title: valley_shepherd
         <<endif>>
     -> ⟨go⟩
 <<endif>>
+===
+
+title: valley_shepherd__clouds
+---
+<<present_speaker "npc_valley_shepherd">>
+Shepherd: Because one day they will be. A fell sheep that dies goes up, fleece and all. That's what the fleece is for, as far as anyone knows.
+Shepherd: The cloud on the top most mornings isn't mist. That's the old flock, keeping an eye on the young one.
+Shepherd: When the gate opened, the gatekeeper wanted to stamp them as exports. I said, you catch one.
+-> ⟨go⟩
 ===
 
 title: hobford_dog

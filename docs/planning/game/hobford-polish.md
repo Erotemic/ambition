@@ -32,6 +32,175 @@ applies are in the [level design guide](../../authoring/level-design-guide.md).
    slopes, not platforms put in the air. A mountainous region beside the
    town gives more natural height.
 
+## Jon's direction (2026-11-20): ridiculous, rural, imported
+
+Jon, 2026-11-20: "I think the sheep in hobford should be cloud sheep. If
+you kill them they raise into the air as clouds. I think hobford should
+have a level of ridiculousness to it like this. It needs adventurers and
+dungeons where imports from other dimensions are giving people things like
+laser swords to go with their more fantasy-style armor and other equipment.
+They were a low-magic fantasy dimension before the gate connected, but they
+are also rural. The town and path to it and the creator mount is reasonably
+safe, but it gets more dangerous on the outskirts. ... There is a town, and
+note, towns should be vertical as well as horizontal. We can play with what
+screen up and down mean."
+
+### The tone
+
+Hobford was a low-magic fantasy place before the gate: a farming valley
+with a smith, an inn, a hedge-wise woman who knows three charms, and
+adventurers who mostly cleared rats out of cellars and walked the barrow on
+the moor for a dare. It is still rural. The gate came a year ago, and now
+the gate goods shop sells batteries next to horseshoes. The joke is the
+mix, told straight: the people of the valley use the imports as if they
+were always there, and use them wrong with confidence. Plate armour with a
+torch taped to the helm. A laser sword in a leather scabbard it has cut
+through three times. A wizard who reads a calculator as a book of sums.
+Nobody in Hobford thinks this is strange; the robot is the stranger.
+
+Rules for the ridiculous:
+
+- **Straight faces.** The world never winks. A villager states an absurd
+  fact as a fact, and the next line goes on with the day.
+- **The valley's own nature is odd too, and older than the gate.** Cloud
+  sheep were here before the gate. The imports are new; the strangeness of
+  the place is not.
+- **Imports are goods, not magic.** They came through the freight window
+  and they were bought. They run out of charge, they need parts, the
+  gatekeeper stamps them. That is where most of the jokes are.
+- **Puns when they are good** (the guide's rule): a silver lining, a
+  forecast that is a head count.
+- **No contrived mechanics.** A cloud sheep is a death beat and scenery,
+  not a puzzle that needs one.
+
+### Cloud sheep
+
+The fell sheep (`npc_fell_sheep`) are cloud sheep. A fell sheep's fleece is
+so light that it takes the sheep up with it when the sheep dies. Struck
+down, a sheep's legs go slack, its fleece swells into a small cumulus and
+lifts it off the grass, and as it fades the cloud it became
+(`npc_sheep_cloud`, a look of the sheep: the cloud with the sheep's black
+face, eyes shut, and its legs hanging under it) rises from that place. It
+climbs about 200 px over eight seconds, slowing, then hangs in the sky and drifts east on
+the wind, bobbing. It cannot be killed again: struck, it blows apart and
+gathers. The shepherd knows: "That was forty-three." The cloud on the
+fell's top most mornings is the old flock.
+
+How it is built (no engine change):
+
+- The sheep's death row is the swelling (`targets/characters/fell_sheep.py`
+  in the sprite renderer), and its corpse is `Gone`.
+- `game/ambition_content/rhai/cloud_sheep.rhai` (shipped by `IntroPlugin`)
+  has a `group_think` entry on the `cloud_sheep` tag: when a member has
+  died, it waits 0.6 s (the death row fades from then), makes the cloud
+  where the sheep is (`create_actors`), and sets `hobford_sheep_clouded`.
+  A second entry on the `sheep_cloud` tag steers each cloud: up, then the
+  wind. Any character with the tag is a cloud sheep, in any room.
+- The clouds are dynamic actors with room lifetime: a room entered again
+  has its sky empty and its sheep as authored.
+
+### Adventurers and the imports
+
+New residents (chargen, ids without proper names; shown names are what
+they are):
+
+| id | shown name | where | the joke |
+|---|---|---|---|
+| `npc_valley_knight` | Knight-Errant | the village, by the notice board | chain mail and a tabard, and a laser sword she bought at the gate goods shop; it hums, it cuts its own scabbard, and she is saving for the barrow |
+| `npc_valley_wizard` | Hedge Wizard | the village, on the inn's porch | a robe and a pointed hat, and a pocket calculator that he reads as a book of sums ("it has never once been wrong, which is how you know it is cursed") |
+| `npc_valley_ranger` | Ranger | the woods' edge, on the goblins' trail | leather and a hood, a longbow and a head torch; she tracks the goblins by the batteries they drop |
+
+Their talk is in `intro.yarn`. They read the world: the Creator's death,
+the siding fight, cloud sheep.
+
+### Danger rises with distance
+
+The workshop's hill (the Creator's mount), the lane, the millstream and
+the village are safe: no hostile body in them. The woods have one goblin
+lookout; the gate clearing has a barrier; the siding is the goblins' camp.
+Past the fell is the moor, the outskirts proper, and the barrow under it:
+the most dangerous place in the valley, and where the adventurers want to
+go.
+
+| Room | Danger |
+|---|---|
+| workshop (after the raid), lane, millstream, village | none |
+| meadow, clearing, fell | animals only |
+| woods | one goblin lookout |
+| siding | the goblins' fight (two waves) |
+| the moor (new, east of the fell's top) | goblin scavengers in pairs, with imported kit |
+| the barrow (new, a door off the moor) | dark; its old dead wear imports too; the hardest fight in level 1 |
+
+### A vertical village
+
+`intro_hobford` is one flat street with porches and roofs as ledges. A
+village in hill country is built up a slope: a lower street and an upper
+street, houses whose ground floor is on the lower street and whose top
+floor opens on the upper one, steps between, and a tower over all. The
+village room becomes a hill room (the upper and lower bands, as the lane):
+
+- The lower street keeps its floor, the well where it is (the salt run's
+  well foot is under it) and its edges to the millstream and the woods.
+- A slope and a stair path go up behind the smithy to the upper street:
+  the cottages and the adventurers' guild hall, which is three storeys
+  stacked into the bank.
+- Over the upper street the old watch tower, with a lookout camera zone.
+- "What screen up and down mean": the guild's top room has an imported
+  gravity plate in its floor that someone fitted upside down. Inside it,
+  down is up (`GravityZone`), and the guild's trophies hang on the floor.
+  The room is a side room off the climb: nothing required goes through it.
+
+The edges stay at the valley floor on both sides, so the line of rooms
+does not change; the room grows upward into the upper band.
+
+### Rooms changed or added
+
+| Room | Change | Purpose |
+|---|---|---|
+| `intro_fell` | its sheep are cloud sheep; the east wall at the top is an edge to the moor (done) | the flock, and the way to the outskirts |
+| `intro_high_meadow` | two sheep on the shepherd's terrace | the cloud sheep seen near the village too |
+| `intro_hobford` | a hill room: lower street, upper street, the guild hall, the tower; the knight and the wizard | the vertical village; the adventurers |
+| `intro_woods` | the ranger at the east end, on the goblins' trail | an adventurer on the road out |
+| `intro_moor` (new) | THE MOOR: east of the fell's top, open heather at summit height, a barrow mound with its door | the outskirts: more dangerous than anything before it |
+| `intro_barrow` (new) | THE BARROW: an interior through the mound's door, dark, two chambers and a stair down | the first dungeon |
+
+All of them are written by `generators/intro/make_specs.py` (one owner per
+room); the specs are not committed, and an unchanged re-apply leaves the
+world byte-identical.
+
+### State (2026-11-20)
+
+| Work | State |
+|---|---|
+| Direction written | done (this section) |
+| Cloud sheep: death row, cloud look, script, shepherd's lines, Hall look | done |
+| Sheep on the meadow's terrace | done |
+| Adventurers: art, catalog rows, talk, placement | done: three chargen residents whose gear the generator had no slot for (`game.gear` in a resident's spec, drawn by `targets/characters/_townsfolk_gear.py`: the laser sword with its brass crossguard, the wizard's hat, the calculator, the head torch); Yarn nodes `valley_knight`, `valley_wizard`, `valley_ranger` and Hall nodes; a wing in the Hall of Characters |
+| The moor and the barrow | done (first pass): built, placed, captured; not yet walked by `walked_route_census`; the barrow's fight is not tuned |
+| Goblin scavengers (`npc_goblin_scavenger`) | done: the raider's look, a held gun-sword off the freight (it fires its bolt), eight health |
+| Vertical village | open (below) |
+
+**The vertical village: what blocks the simple versions.** Measured on the
+generator, 2026-11-20:
+
+- The village cannot grow wider without moving every room east of it and
+  the salt run's east end: `SALT_RUN_W` and the run's floor table assume the
+  millstream, the village and the woods are each `COUNTRY_W`, and the run's
+  well foot is under the village's well at x 1248.
+- A hill made of filled slopes (`slope()`) fills the earth to the room's
+  floor, so a street cannot pass under a slope; a knoll in the middle of
+  the street would cut the street, and both edges must stay at the street's
+  height on flat ground.
+- So the vertical village is a taller room (both bands, as the lane) whose
+  street stays where it is, with the upper town built over it on solid
+  rock and timber, not on slopes: an arch where the street goes under the
+  upper square (solid blocks with the street's headroom under them), stone
+  steps and the houses' porches and roofs as the way up, the guild hall
+  stacked on the rock, and the tower over it. It needs new building art
+  (the guild hall, the arch, the tower) and a `--relayout` of the village
+  alone (its top left moves up a band; `--keep-position` keeps the old
+  one). The gravity room is a `GravityZone` in the guild's top floor.
+
 ## Plan and state
 
 ### Optional workshop lesson (2026-11-17)

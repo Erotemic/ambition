@@ -135,6 +135,10 @@ npc_valley_innkeeper
 npc_valley_trader
 npc_valley_gatekeeper
 npc_valley_shepherd
+npc_valley_knight
+npc_valley_wizard
+npc_valley_ranger
+npc_goblin_scavenger
 
 [Dry Dock, the Frontier's spaceport town]
 npc_frontier_clerk

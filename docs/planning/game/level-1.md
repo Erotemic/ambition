@@ -106,6 +106,11 @@ or walk around the country. Every way is open from the start.
 ## Map
 
 ```
+                                                                                                                          [THE FELL's top]--[THE MOOR]
+                                                                                                                                             intro_moor
+                                                                                                                                              | door
+                                                                                                                                             [THE BARROW]
+                                                                                                                                              intro_barrow
 [THE WORKSHOP]--[HOBFORD LANE]                                          [THE HIGH MEADOW]--[THE GATE CLEARING]
  intro_wake_room  intro_hobford_lane                                     intro_high_meadow   intro_gate_clearing
                         \ the bank path down             the hill path up /                   \ the freight track down
@@ -130,13 +135,15 @@ under the gate stack, outside level 1 (D5).
 |---|---|---|---|
 | `intro_wake_room` | THE WORKSHOP | walk, the first jump (the test plinth), up to the parts loft and back down (drop through) | the Creator |
 | `intro_hobford_lane` | HOBFORD LANE | the first open air, high on the west hill; the bank path down to the mill | Alice, hens |
-| `intro_high_meadow` | THE HIGH MEADOW | the hill path up from the woods, the shepherd's terrace, a dry-stone wall | a farm dog |
+| `intro_high_meadow` | THE HIGH MEADOW | the hill path up from the woods, the shepherd's terrace, a dry-stone wall | a farm dog, two cloud sheep |
 | `intro_gate_clearing` | THE GATE CLEARING | the gate on the hilltop, the guard post, the barrier and its lever, the freight track down | the gatekeeper (`npc_valley_gatekeeper`, D20) |
 | `intro_freight_yard` | THE FREIGHT SIDING | the goblins' camp: a fight in tiers of stacked freight | goblin raiders, their foreman |
-| `intro_fell` | THE FELL | the climb: the drove road up slopes, the sheepfold's wall, the scree, two crags, the top and its cairn | the shepherd (`npc_valley_shepherd`) |
+| `intro_fell` | THE FELL | the climb: the drove road up slopes, the sheepfold's wall, the scree, two crags, the top and its cairn; east from the top, the moor | the shepherd (`npc_valley_shepherd`), cloud sheep |
+| `intro_moor` | THE MOOR | the outskirts at the fell's height: heather, a peat cut with water in it, a stone row, the barrow's mound and its door | goblin scavengers in pairs (`npc_goblin_scavenger`, a gun-sword off the freight) |
+| `intro_barrow` | THE BARROW | dark: the passage down in steps, the old dead in the first chamber, a slab over a pit, the king's chamber and the scavengers' stash, his grave goods | the old dead (`npc_evil_zombie`), scavengers, the king (`decomposing_specter`) |
 | `intro_millstream` | THE MILLSTREAM | stepping stones, the mill wheel, the pond (swim), a cracked wall behind the wheel | the miller (`npc_valley_miller`) |
-| `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | the trader and the innkeeper (`npc_valley_trader`, `npc_valley_innkeeper`) |
-| `intro_woods` | HOBFORD WOODS | roots and fallen trunks, the goblins' trail, a hollow tree | Bob |
+| `intro_hobford` | HOBFORD | the street, roofs and lofts, the notice board, the well | the trader and the innkeeper (`npc_valley_trader`, `npc_valley_innkeeper`); the knight-errant and the hedge wizard (`npc_valley_knight`, `npc_valley_wizard`) |
+| `intro_woods` | HOBFORD WOODS | roots and fallen trunks, the goblins' trail, a hollow tree | Bob; the ranger (`npc_valley_ranger`) |
 | `intro_salt_run` | THE SALT RUN | under the valley, dark (75%): the old mill race's steps and channel, the foot of the well, boards up the oak's roots | puppy slugs |
 
 ## Scene by scene
@@ -298,6 +305,24 @@ the lost hen, a goblin lookout at the far end. **Bob**, `bob_woods`:
   `map_private_marks_unlocked`). That takes up Alice's line across the lane.
 
 East, the goblins' trail out of the trees and up the hill path.
+
+### The moor (`intro_moor`) and the barrow (`intro_barrow`)
+
+Added 2026-11-20 ([Hobford polish](hobford-polish.md), Jon's direction of
+that day: danger rises with distance from town). From the fell's top an
+edge goes east onto the moor, level with the summit. The moor is open
+heather, a peat cut with standing water (a swim and a step out), a row of
+old stones to hop, and the barrow's mound, walked over on slopes. Goblin
+scavengers work it in pairs: the raiders' look with a gun-sword taken off
+the gate's freight, which shoots swords (eight health to the raid
+goblin's five; the player's kit in level 1 has no shot, so they are the
+first enemies that fire). The barrow's door, at the mound's
+foot, goes into the grave: dark, a stepped passage down to two of the old
+dead, a stone slab over a stinging pit (fallen in, the way out is the
+chamber's side, a step of 48), and the king's chamber, where three
+scavengers stack stolen freight ("AND HIS TOASTERS"), and the king, who
+objects. His grave goods are the chest at the end. The knight-errant in the
+village is saving up for it.
 
 ### Choices
 

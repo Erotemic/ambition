@@ -21,6 +21,12 @@ impl Plugin for IntroPlugin {
             "game/ambition_content/rhai/intro_training.rhai",
             include_str!("../../rhai/intro_training.rhai"),
         );
+        // Hobford's sheep rise into the sky as clouds when they are killed.
+        ambition_platformer2d::extension::add_shipped_script(
+            app,
+            "game/ambition_content/rhai/cloud_sheep.rhai",
+            include_str!("../../rhai/cloud_sheep.rhai"),
+        );
         // The flag chains the selected pack states (`data/flag_chains.ron`).
         super::route_state::register(app);
         // The flag chains are not an installer. They re-derive a table from

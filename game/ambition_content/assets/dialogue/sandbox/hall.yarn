@@ -1847,6 +1847,34 @@ Shepherd: Forty-one. Forty-two. Don't move, you'll put me off.
     Shepherd: Mine. She minds the hut. She'd mind the gate if they let her near it.
 ===
 
+title: hall_npc_goblin_scavenger
+---
+Goblin Scavenger: Found it on a freight crate. It shoots swords.
+-> Where do the swords come from?
+    Goblin Scavenger: Don't know. Every time I press the button, one leaves. I'm not going to look in it.
+===
+
+title: hall_npc_valley_knight
+---
+Knight-Errant: A sword you never have to sharpen. You have to charge it, which is worse.
+-> Can I hold it?
+    Knight-Errant: No. It isn't that I don't trust you. It's that I don't trust it.
+===
+
+title: hall_npc_valley_wizard
+---
+Hedge Wizard: Seven times eight. *click* Fifty-six. Again!
+-> What does the button with the C do?
+    Hedge Wizard: Forgets everything. I never press it. A wizard can't afford to forget.
+===
+
+title: hall_npc_valley_ranger
+---
+Ranger: Every goblin in the valley can see my light. It saves them looking, and it saves me looking for them.
+-> Do you ever turn it off?
+    Ranger: Once. The deer came right up to me. I didn't know what to do with a deer.
+===
+
 title: hall_npc_fell_sheep
 ---
 Sheep: *munch, munch*
@@ -1854,6 +1882,12 @@ Sheep: *munch, munch*
     Sheep: *it moves before you finish, so you start again*
 -> Say hello.
     Sheep: Baa.
+-> Ask what it will be one day.
+    <<transform "npc_sheep_cloud">>
+    Sheep: *it lifts off the plinth, eyes shut, and hangs there like weather*
+-> Ask it to come back down.
+    <<transform "npc_fell_sheep">>
+    Sheep: *it settles, a little damp, and goes on chewing*
 ===
 
 title: hall_npc_village_nagisa

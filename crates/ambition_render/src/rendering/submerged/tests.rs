@@ -1,4 +1,5 @@
 use super::*;
+use ambition_platformer2d_shared_tangle::{lifecycle::PlayerVisual, sim_id::SimId};
 
 // ---------------------------------------------------------------------------
 // The door
@@ -50,7 +51,7 @@ fn a_submerged_body_is_given_a_door_on_the_floor_it_went_through() {
     let mut app = door_app();
     let body = app
         .world_mut()
-        .spawn((PlayerVisual, body_pose(true)))
+        .spawn((PlayerVisual, SimId::player_slot(0), body_pose(true)))
         .id();
     app.update();
     let found = doors(&mut app);
@@ -79,7 +80,7 @@ fn the_door_goes_when_she_surfaces() {
     let mut app = door_app();
     let body = app
         .world_mut()
-        .spawn((PlayerVisual, body_pose(true)))
+        .spawn((PlayerVisual, SimId::player_slot(0), body_pose(true)))
         .id();
     app.update();
     assert_eq!(doors(&mut app).len(), 1, "the premise: she is under the stage");
@@ -96,10 +97,10 @@ fn the_door_goes_when_she_surfaces() {
 #[test]
 fn two_submerged_fighters_get_two_doors() {
     let mut app = door_app();
-    let a = app.world_mut().spawn((PlayerVisual, body_pose(true))).id();
+    let a = app.world_mut().spawn((PlayerVisual, SimId::player_slot(0), body_pose(true))).id();
     let mut second = body_pose(true);
     second.pos.x = 900.0;
-    let b = app.world_mut().spawn((PlayerVisual, second)).id();
+    let b = app.world_mut().spawn((PlayerVisual, SimId::player_slot(1), second)).id();
     app.update();
     let found = doors(&mut app);
     assert_eq!(found.len(), 2, "two submerged bodies, two doors");
@@ -146,7 +147,7 @@ fn actor_view(submerged: bool) -> ambition_sim_view::FeatureView {
         unhittable: false,
         defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
         sprite_offset: None,
-        room: None,
+        room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
     }
 }
 

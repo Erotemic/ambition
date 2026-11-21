@@ -191,7 +191,7 @@ fn sync_gate_portal_fx(
                 continue;
             };
             let strength = if showcase { phase_strength(phase) } else { 0.0 };
-            let (Some(size), Some(uv_rect)) = (sprite.custom_size, frame_uv_rect(sprite, &layouts)) else {
+            let (Some(size), Some(uv_rect)) = (sprite.custom_size, ambition_sprite_fx::sprite_uv_rect(sprite, &layouts)) else {
                 visibility.set_if_neq(Visibility::Hidden);
                 continue;
             };
@@ -228,20 +228,7 @@ fn sync_gate_portal_fx(
 }
 
 /// The sprite's current frame on its texture, normalized.
-fn frame_uv_rect(sprite: &Sprite, layouts: &Assets<TextureAtlasLayout>) -> Option<Vec4> {
-    let Some(atlas) = sprite.texture_atlas.as_ref() else {
-        return Some(Vec4::new(0.0, 0.0, 1.0, 1.0));
-    };
-    let layout = layouts.get(&atlas.layout)?;
-    let rect = layout.textures.get(atlas.index)?;
-    let size = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
-    Some(Vec4::new(
-        rect.min.x as f32 / size.x,
-        rect.min.y as f32 / size.y,
-        rect.max.x as f32 / size.x,
-        rect.max.y as f32 / size.y,
-    ))
-}
+
 
 #[cfg(test)]
 mod tests {

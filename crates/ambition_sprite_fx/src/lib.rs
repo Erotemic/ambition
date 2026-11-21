@@ -561,6 +561,25 @@ pub struct SpriteFrameBasis {
     pub size: Vec2,
 }
 
+/// The normalized UV rectangle of the selected frame, or the whole image.
+pub fn sprite_uv_rect(sprite: &Sprite, layouts: &Assets<TextureAtlasLayout>) -> Option<Vec4> {
+    match sprite.texture_atlas.as_ref() {
+        Some(atlas) => Some(atlas_frame_basis(layouts.get(&atlas.layout)?, atlas.index)?.uv_rect),
+        None => Some(Vec4::new(0.0, 0.0, 1.0, 1.0)),
+    }
+}
+
+fn atlas_frame_basis(layout: &TextureAtlasLayout, index: usize) -> Option<SpriteFrameBasis> {
+    let rect = layout.textures.get(index)?;
+    let tex = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
+    let min = rect.min.as_vec2();
+    let max = rect.max.as_vec2();
+    Some(SpriteFrameBasis {
+        uv_rect: Vec4::new(min.x / tex.x, min.y / tex.y, max.x / tex.x, max.y / tex.y),
+        size: max - min,
+    })
+}
+
 /// Resolve the [`SpriteFrameBasis`] for `sprite` (atlas frame or whole image),
 /// sampling exactly the pixels the sprite renderer would.
 pub fn sprite_frame_basis(
@@ -572,14 +591,8 @@ pub fn sprite_frame_basis(
     // require main-world image access. Whole-image sprites still need the image.
     let (uv_rect, frame_px) = if let Some(atlas) = sprite.texture_atlas.as_ref() {
         let layout = layouts.get(&atlas.layout)?;
-        let rect = layout.textures.get(atlas.index)?;
-        let tex = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
-        let min = Vec2::new(rect.min.x as f32, rect.min.y as f32);
-        let max = Vec2::new(rect.max.x as f32, rect.max.y as f32);
-        (
-            Vec4::new(min.x / tex.x, min.y / tex.y, max.x / tex.x, max.y / tex.y),
-            max - min,
-        )
+        let frame = atlas_frame_basis(layout, atlas.index)?;
+        (frame.uv_rect, frame.size)
     } else if let Some(size) = sprite.custom_size {
         // A whole-image sprite drawn at a stated size samples the whole
         // texture, so its basis needs no main-world image: an image kept for

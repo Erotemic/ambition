@@ -10,11 +10,12 @@
 | [`exec`](src/exec.rs) | Serial invocation: triggers in, staged state and requests out. |
 | [`inspect`](src/inspect.rs) | Text views of the extension host, for a developer or an agent that has no access to the `World` (fast-iteration I7 item 5). |
 | [`native_build`](src/native_build.rs) | Native code identity is read once, before simulation or preparation. |
+| [`observer_delivery`](src/observer_delivery.rs) | Transient routing policy for typed native observers. |
 | [`reload`](src/reload.rs) | Replacing a loaded module while the game runs. |
 | [`save`](src/save.rs) | The records a save road keeps, as save rows, and their adoption on a load. |
 | [`store`](src/store.rs) | The host-owned stores for module state. |
 
-_7 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

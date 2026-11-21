@@ -40,9 +40,7 @@ FIELD = re.compile(r"^\s*(?:pub )?(body|owner|source): Entity,")
 #: needs the seam; one that merely references it does not, and says why here.
 CENSUS = {
     "WornGearVisual": "draws gear on its body; has PresentationOf",
-    "FlylineVisual": "draws a wire holding the body up — has the seam",
-    "TrapdoorVisual": "draws the door the submerged body went through — has the seam",
-    "TetherVisual": "draws the line from the reaching body — has the seam",
+    "BodyAttachedVisual": "the shared attachment constructor sets PresentationOf",
     "HitFlashOverlay": "the body's own silhouette, a sibling mesh — has the seam",
     "SlashVisual": "the swing's art, placed in the owner's frame — has the seam",
     "BodyClockVisual": "the body's fuse/clock telegraph bar — has the seam",

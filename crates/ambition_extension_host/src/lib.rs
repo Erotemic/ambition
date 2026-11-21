@@ -745,3 +745,5 @@ fn install_observation<'a, P: Port>(app: &'a mut App, phase: Phase, owner: &'sta
         .insert(P::KEY, (supplier, ambition_extension_sdk::encode_erased::<P>));
     app
 }
+
+pub mod observer_delivery;

@@ -555,23 +555,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── Which part of which move is live ──
-    let live = match (&bear.active, &bear.telegraph) {
-        (Some(active), _) if Move::from_key(&active.key).is_some() => {
-            Move::from_key(&active.key).map(|mv| (mv, true, active.remaining))
-        }
-        (_, Some(tell)) => Move::from_key(&tell.key).map(|mv| (mv, false, tell.remaining)),
-        _ => None,
-    };
+    let live = bear.move_phase(Move::from_key);
     let prev = c.part();
-    let fresh = match (prev, live) {
-        (Some(prev), Some((mv, striking, remaining))) => {
-            prev.mv != mv || prev.striking != striking || remaining > c.last_remaining + 1e-3
-        }
-        (None, Some(_)) => true,
-        _ => false,
-    };
+    let fresh = live.is_some_and(|phase| phase.entered_from(
+        prev.map(|part| (part.mv, part.striking)), c.last_remaining));
     let part = match live {
-        Some((mv, striking, remaining)) => {
+        Some(ambition_boss_special_port::BossMovePhase { mv, striking, remaining }) => {
             if fresh {
                 if !striking {
                     // A tell gets him up and turned to you.
@@ -613,7 +602,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         None => None,
     };
     c.set_part(part);
-    c.last_remaining = live.map_or(0.0, |(_, _, remaining)| remaining);
+    c.last_remaining = live.map_or(0.0, |phase| phase.remaining);
 
     // ── Between phases: he stops, turns to you and roars ──
     if bear.between_phases {

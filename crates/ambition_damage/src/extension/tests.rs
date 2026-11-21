@@ -4,7 +4,7 @@ use super::*;
 use ambition_extension_host::{BodyRecords, ExtensionHostPlugin};
 use ambition_extension_sdk::{
     record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
-    ModuleDescriptor, ModuleKey, SchemaKey, TriggerBinding,
+    ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
     InRoomInstance, LiveRoomInstance, SessionScopeId,
@@ -81,7 +81,7 @@ fn scope(app: &mut App, name: &str, session: u64, room: u32) -> Entity {
             SimId::placement(name),
             SessionScopedEntity(SessionScopeId(session)),
             InRoomInstance(LiveRoomInstance::from_ordinal(room)),
-            BodyStatuses(vec!["observe".into()]),
+            BodyStatuses(vec!["observe".into(), "missing".into(), "observe".into()]),
         ))
         .id()
 }

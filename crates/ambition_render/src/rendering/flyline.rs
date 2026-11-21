@@ -1,38 +1,20 @@
-//! The wire: a rope from a point in the flies down to a body on it.
-//!
-//! Same shape as `submerged.rs` and `morph_ball.rs`: a procedural per-body
-//! visual, spawned while a state holds and retired when it ends. Kept in that
-//! shape so the three can later be generalized together (see the note at the
-//! end of `morph_ball.rs`).
-//!
-//! Procedural, like the trapdoor: the rope must exist for the whole lift and
-//! change length every frame as the winch shortens it. An FX-atlas row plays
-//! once at a fixed size.
-//!
-//! Both body roads are required. `PlayerVisual` is only on the session's
-//! single exploration player, so a visual gated on it never appears in a
-//! versus match. Every match fighter is a `FeatureVisual` that reads
-//! `FeatureViewIndex`.
+//! A wire from an anchor to the body it holds.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, PlayerVisual, SessionSpawnScope, SpawnSessionScopedExt,
-};
+use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
 
 /// The wire a body is currently hanging from.
 ///
 /// One per body on a wire. A versus match has four fighters and any of them
 /// may be the Performer; a singleton would draw one rope and move it between
 /// them.
-#[derive(Component)]
-pub struct FlylineVisual {
-    /// The body this wire is holding up.
-    pub body: Entity,
-}
+pub enum FlylineEffect {}
+
+pub type FlylineVisual = super::attached_visuals::BodyAttachedVisual<FlylineEffect>;
 
 /// The rope's texture handle, built once.
 #[derive(Resource, Clone, Default)]
@@ -113,104 +95,24 @@ pub fn build_flyline_sprite(mut commands: Commands, mut images: ResMut<Assets<Im
 /// length to the centre. A rope to the ankles would swing out of step.
 pub fn sync_flyline_visuals(
     mut commands: Commands,
-    // Each drawable is placed by the geometry of its body's own live room.
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
+    bodies: super::presented_bodies::PresentedBodies,
     sprite: Option<Res<FlylineSprite>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    bodies: Query<
-        (
-            Entity,
-            &ambition_sim_view::BodyPoseView,
-            Option<&ambition_sim_view::PresentedPose>,
-        ),
-        With<PlayerVisual>,
-    >,
-    // The other road, used by match fighters. See the module doc.
-    actors: Query<(Entity, &crate::rendering::FeatureVisual), Without<PlayerVisual>>,
-    // `Option`: a plain `Res` stops any composition that does not build the
-    // index with "Resource does not exist". No index means nothing to draw.
-    feature_views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
-    mut wires: Query<(Entity, &FlylineVisual, &mut Transform, &mut Sprite)>,
+    mut wires: Query<(Entity, &mut FlylineVisual, &mut Transform, &mut Sprite)>,
 ) {
-    // Both roads reduced to two facts: where the rope hangs from and where the
-    // body is. The code below reads only this.
-    let mut hanging: Vec<(Entity, bevy::math::Vec2, bevy::math::Vec2)> = Vec::new();
-    for (body, pose, presented) in &bodies {
-        if let Some(anchor) = pose.wire_anchor {
-            hanging.push((
-                body,
-                bevy::math::Vec2::new(anchor.x, anchor.y),
-                ambition_sim_view::presented_pose::draw_pos(pose, presented),
-            ));
-        }
-    }
-    for (body, visual) in &actors {
-        let Some(view) = feature_views.as_ref().and_then(|i| i.get(&visual.id)) else {
-            continue;
-        };
-        if let Some(anchor) = view.wire_anchor {
-            hanging.push((
-                body,
-                bevy::math::Vec2::new(anchor.x, anchor.y),
-                bevy::math::Vec2::new(view.pos.x, view.pos.y),
-            ));
-        }
-    }
-    // Retire the wires whose body was let go or went away, and move the rest.
-    let mut standing = bevy::platform::collections::HashSet::new();
-    for (wire, owner, mut transform, mut art) in &mut wires {
-        let Some((_, anchor, at)) = hanging.iter().copied().find(|(b, _, _)| *b == owner.body)
-        else {
-            commands.entity(wire).despawn();
-            continue;
-        };
-        standing.insert(owner.body);
-        // A body whose live room cannot be told keeps its last placement.
-        let Some(world) = rooms.of(owner.body) else {
-            continue;
-        };
-        place_wire(&world.0, &mut transform, &mut art, anchor, at);
-    }
-    let Some(sprite) = sprite else {
-        return;
-    };
-    if sprite.handle == Handle::default() {
-        return;
-    }
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
-    else {
-        return;
-    };
-    for (body, anchor, at) in hanging {
-        if standing.contains(&body) {
-            continue;
-        }
-        let Some(world) = rooms.of(body) else {
-            continue;
-        };
-        let mut transform = Transform::default();
-        let mut art = Sprite {
-            image: sprite.handle.clone(),
-            ..default()
-        };
-        place_wire(&world.0, &mut transform, &mut art, anchor, at);
-        commands.spawn_session_scoped(
-            session_scope,
-            (
-                art,
-                transform,
-                Visibility::Visible,
-                FlylineVisual { body },
-                // Which body this drawable draws, in the shared spelling that any
-                // consumer can query. `FlylineVisual` above keeps it for placement.
-                ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(body),
-                Name::new("Flyline Visual"),
-            ),
-        );
-    }
+    super::attached_visuals::reconcile_presented_visuals(
+        &mut commands,
+        &bodies,
+        active_session.as_deref(),
+        sprite
+            .as_ref()
+            .map(|s| &s.handle)
+            .filter(|handle| **handle != Handle::default()),
+        &mut wires,
+        "Flyline Visual",
+        |body| body.wire_anchor.map(|anchor| (anchor, body.pos)),
+        |room, transform, art, (anchor, at)| place_wire(room, transform, art, *anchor, *at),
+    );
 }
 
 /// Stretch and rotate the rope so it runs from `anchor` to `at`.

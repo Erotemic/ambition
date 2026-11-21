@@ -1003,3 +1003,6 @@ mod schedule_tests {
         );
     }
 }
+
+pub mod presented_bodies;
+pub mod attached_visuals;

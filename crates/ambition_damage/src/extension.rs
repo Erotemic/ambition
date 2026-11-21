@@ -5,10 +5,11 @@ use ambition_combat::HitIdentity;
 use ambition_combat::{extension::status::BodyStatuses, rules::HitReceptionRules};
 use ambition_combat_port::{
     HitReception, HitReceptions, HitReceptionsPort, ReceptionBody, ReceptionDecision,
-    ReceptionSource, ReceptionProjectile,
+    ReceptionProjectile, ReceptionSource,
 };
+use ambition_extension_host::observer_delivery::{ordered_observer_scopes, ObserverDeliveryPlan};
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations};
-use ambition_extension_sdk::{phases::HIT_REACTION, Port};
+use ambition_extension_sdk::{phases::HIT_REACTION};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_platformer2d_shared_tangle::{
     lifecycle::{LiveRooms, RoomInstanceRoot, SessionScopedEntity},
@@ -59,7 +60,11 @@ fn fact(
         projectile: hit.projectile.as_ref().map(|origin| {
             let local = origin.session == session;
             ReceptionProjectile {
-                id: origin.id.as_ref().filter(|_| local).map(|id| id.as_str().into()),
+                id: origin
+                    .id
+                    .as_ref()
+                    .filter(|_| local)
+                    .map(|id| id.as_str().into()),
                 room: origin.room.filter(|_| local).map(|room| room.ordinal()),
             }
         }),
@@ -124,41 +129,26 @@ fn queue_receptions(
             .then(a.identity.room.cmp(&b.identity.room))
             .then(a.identity.id.cmp(&b.identity.id))
     });
-    let bound: std::collections::BTreeSet<_> = admitted
-        .0
-        .entries
-        .iter()
-        .filter(|entry| entry.descriptor.trigger.port == HitReceptionsPort::KEY)
-        .map(|entry| entry.descriptor.trigger.selector.to_string())
-        .collect();
-    let mut scopes: Vec<_> = scopes.iter().collect();
-    scopes.sort_by(|a, b| {
-        a.3.map(|s| s.0)
-            .cmp(&b.3.map(|s| s.0))
-            .then(rooms.of(a.0).cmp(&rooms.of(b.0)))
-            .then(a.1.cmp(b.1))
-    });
-    for (scope, _, statuses, session, root) in scopes {
+    let plan = ObserverDeliveryPlan::<HitReceptionsPort>::new(&admitted);
+    let order =
+        ordered_observer_scopes(scopes.iter().map(|(entity, id, _, session, _)| {
+            ((session.map(|s| s.0), rooms.of(entity), id), entity)
+        }));
+    for scope in order {
+        let Ok((_, _, statuses, session, root)) = scopes.get(scope) else {
+            continue;
+        };
         let session = session.map(|session| session.0);
         let room = rooms.of(scope);
         let limits = rules.of(scope).cloned().unwrap_or_default();
         if !limits.problems().is_empty() {
             continue;
         }
-        let selectors = if root {
-            &limits.room_observers
-        } else {
-            let Some(statuses) = statuses else {
-                continue;
-            };
-            &statuses.0
-        };
-        let mut keys: Vec<_> = selectors
-            .iter()
-            .filter(|key| bound.contains(*key))
-            .collect();
-        keys.sort();
-        keys.dedup();
+        let keys = plan.selectors(
+            root,
+            statuses.map(|statuses| statuses.0.as_slice()),
+            &limits.room_observers,
+        );
         if keys.is_empty() {
             continue;
         }
@@ -186,16 +176,7 @@ fn queue_receptions(
             events,
             truncated: matching.next().is_some(),
         };
-        for key in keys {
-            invocations.trigger::<HitReceptionsPort>(
-                &HIT_REACTION,
-                key.clone(),
-                scope,
-                None,
-                false,
-                batch.clone(),
-            );
-        }
+        plan.deliver(&mut invocations, &HIT_REACTION, scope, keys, batch);
     }
 }
 

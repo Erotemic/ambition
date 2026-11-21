@@ -62,6 +62,8 @@ impl std::fmt::Display for SchemaKey {
 /// Where the records of a schema live, and when they retire.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Attachment {
+    /// One view owns these records. They are not gameplay rollback or save state.
+    View,
     /// One record for each scope an entry is invoked for: the body, or the
     /// room's root for a group (`group_think`). The record retires with its
     /// scope.
@@ -687,6 +689,7 @@ impl StateSchema {
         d.u8(match self.attachment {
             Attachment::Body => 1,
             Attachment::Session => 2,
+            Attachment::View => 3,
         });
         d.u8(match self.save {
             SaveEligibility::Transient => 1,
@@ -729,6 +732,7 @@ impl StateSchema {
             match self.attachment {
                 Attachment::Body => 1,
                 Attachment::Session => 2,
+            Attachment::View => 3,
             },
         );
         put_u8(
@@ -748,6 +752,7 @@ impl StateSchema {
         let attachment = match r.u8()? {
             1 => Attachment::Body,
             2 => Attachment::Session,
+            3 => Attachment::View,
             other => return Err(WireError::BadTag(other)),
         };
         let save = match r.u8()? {

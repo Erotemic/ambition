@@ -60,6 +60,8 @@ impl Phase {
 /// entry in it runs, not which private system runs it.
 pub mod phases {
     use super::Phase;
+    /// A local view selects its framing once per presentation frame.
+    pub const CAMERA_POLICY: Phase = Phase::new("camera_policy");
 
     /// A body's move or brain has asked for a keyed technique this tick.
     /// Guarantees: the asking body's kinematics and target for this tick are
@@ -222,6 +224,11 @@ pub struct ModuleDescriptor {
 }
 
 impl ModuleDescriptor {
+    /// A presentation module has at least one entry and no simulation entries.
+    pub fn is_presentation(&self) -> bool {
+        !self.entries.is_empty() && self.entries.iter().all(|entry| entry.phase == phases::CAMERA_POLICY)
+    }
+
     /// The full name of one of this module's entries: `provider::module/entry`.
     pub fn entry_path(&self, entry: &EntryDescriptor) -> String {
         format!("{}/{}", self.key, entry.key)

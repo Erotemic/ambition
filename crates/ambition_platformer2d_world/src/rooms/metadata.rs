@@ -140,6 +140,9 @@ impl RoomNameplatePolicy {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RoomMetadata {
+    /// Presentation policy entry. No value selects the engine native policy.
+    #[serde(default)]
+    pub camera_policy: Option<String>,
     pub biome: Option<String>,
     /// What plays in this room when nothing louder asks: a fight, a
     /// conversation, or the radio outrank it. LDtk level field `music_track`.

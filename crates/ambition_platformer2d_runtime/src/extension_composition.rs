@@ -130,6 +130,12 @@ impl Plugin for ExtensionCompositionPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.add_plugins(ExtensionHostPlugin::new(sim));
+        {
+            use ambition_extension_host::ExtensionAppExt;
+            use ambition_world_port::camera::{CameraPolicyPort, CameraIntentPort};
+            app.install_view_policy_ports::<CameraPolicyPort, CameraIntentPort>("ambition_sim_view")
+                .add_extension_module(ambition_world_port::camera::module());
+        }
         // A module's clock is its scope's room's: a kill's hold or a slow-down
         // in one live room does not run another room's modules slow.
         app.insert_resource(ambition_extension_host::ScopePace(Box::new({
@@ -335,6 +341,8 @@ pub fn add_prepared_script(app: &mut App, artifact: &str, prepared: &PreparedScr
 pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
     let mut ports = ambition_extension_sdk::script::ScriptPorts::default();
     ports
+        .add::<ambition_world_port::camera::CameraPolicyPort>("camera_policy")
+        .add::<ambition_world_port::camera::CameraIntentPort>("camera_intent")
         .add::<ambition_boss_special_port::BossSpecialCast>("boss_special")
         .add::<ambition_boss_special_port::BossConductPort>("boss_conduct")
         .add::<ambition_boss_special_port::MountViewPort>("mount")

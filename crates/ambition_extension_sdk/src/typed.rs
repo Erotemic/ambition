@@ -11,10 +11,12 @@
 //! declares one record for the whole session instead, shared by every
 //! invocation of the module (a session tally, a cursor across bodies).
 //!
-//! A record is transient: it lives in the simulation only. `, kept durable;`
-//! after the attachment asks the durable world save to keep it (a session
-//! record only, and only in a composition that installs that save road; the
-//! host refuses it elsewhere).
+//! `= KEY, per view;` declares presentation memory for one view. It is not
+//! saved or rewound. A camera entry can write only view records.
+//!
+//! A record is transient unless a save road is requested. `, kept durable;`
+//! after the attachment asks the native save road to keep it. The host
+//! refuses the schema if the composition has no road for that attachment.
 //!
 //! ```
 //! use ambition_extension_sdk::{record, SchemaKey};
@@ -266,6 +268,7 @@ macro_rules! record {
     };
     (@max $max:expr) => { Some($max) };
     (@max) => { None };
+    (@attach view) => { $crate::Attachment::View };
     (@attach session) => { $crate::Attachment::Session };
     (@attach body) => { $crate::Attachment::Body };
     (@attach) => { $crate::Attachment::Body };

@@ -13,3 +13,5 @@ pub mod breakables;
 pub mod behavior;
 
 pub mod object_target;
+
+pub mod camera;

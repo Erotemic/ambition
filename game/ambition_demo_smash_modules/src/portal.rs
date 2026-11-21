@@ -166,7 +166,7 @@ fn status(held: bool) -> HoldStatus {
 fn open(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let special = inv.trigger::<FighterSpecialPort>()?.clone();
     let aim_x = inv.observe::<AimedStickPort>()?.stick.map_or(0.0, |[x, _]| x);
-    let pair = pair_of(&special, aim_x, &Pair::load(inv)?, inv.tick())?;
+    let pair = pair_of(&special, aim_x, &Pair::load(inv)?, inv.tick().expect("a simulation entry"))?;
     pair.store(inv)?;
     inv.submit::<HoldStatusPort>(status(true))?;
     inv.submit::<HeldPortalPairPort>(held(&pair))
@@ -175,7 +175,7 @@ fn open(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 /// Keep her pair open for another tick, or let it close.
 fn hold(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let pair = Pair::load(inv)?;
-    match age(&pair, inv.tick(), inv.dt()) {
+    match age(&pair, inv.tick().expect("a simulation entry"), inv.dt()) {
         Some(left) => {
             left.store(inv)?;
             inv.submit::<HeldPortalPairPort>(held(&left))

@@ -388,6 +388,7 @@ dependencies = [
  "bevy",
  "bevy_yarnspinner",
  "serde",
+ "yarnspinner",
 ]
 
 [[package]]
@@ -1256,6 +1257,8 @@ dependencies = [
  "ambition_dialog",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_geometry_observation",
  "ambition_held_items",
  "ambition_input",
@@ -1275,6 +1278,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_world_items",
+ "ambition_world_port",
  "bevy",
  "bevy_math",
  "leafwing-input-manager",

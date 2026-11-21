@@ -8,6 +8,9 @@
 //! checksum of every record. The records retire with their entity: a body's
 //! with the body, a session's with the session root.
 //!
+//! [`ViewRecords`] holds transient policy memory for one view. It is not
+//! rollback state and does not enter a save.
+//!
 //! The composition decides which entity is the session root: it makes
 //! [`SessionRecords`] a required component of its root marker. There is at
 //! most one: with none, a session-attached record cannot be read and the
@@ -28,7 +31,7 @@ pub struct StoredRecord {
     pub record: Record,
 }
 
-/// Module records in schema-key order: the value of both stores.
+/// Module records in schema-key order: the value of each store.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RecordSet {
     records: Vec<StoredRecord>,
@@ -41,6 +44,10 @@ pub struct BodyRecords(pub RecordSet);
 /// Every session-attached module record of one session, on its root entity.
 #[derive(Component, Clone, Debug, Default, PartialEq, Deref, DerefMut)]
 pub struct SessionRecords(pub RecordSet);
+
+/// Local policy state. The view owns its lifetime; simulation never snapshots it.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct ViewRecords { pub records: RecordSet, pub code_identity: u64 }
 
 impl RecordSet {
     pub fn get(&self, key: &SchemaKey) -> Option<&Record> {

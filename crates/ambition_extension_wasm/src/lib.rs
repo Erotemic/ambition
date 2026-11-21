@@ -39,7 +39,7 @@ pub const DEFAULT_FUEL: u64 = 20_000_000;
 pub enum LoadError {
     /// The bytes are not a valid module.
     Compile(String),
-    /// The module does not have the `ambition-ext-2` exports, or imports
+    /// The module does not have the `ambition-ext-3` exports, or imports
     /// something.
     Abi(String),
     /// `amb_describe` failed or returned bytes that do not decode.

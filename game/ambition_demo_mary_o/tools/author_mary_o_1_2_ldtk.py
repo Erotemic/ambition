@@ -59,7 +59,13 @@ def build() -> Level:
     lv.rock(WIDTH - WALL, 0, WALL, HEIGHT)
     # The camera stays on the corridor: a room this high would show the top
     # road over each part of it.
-    lv.camera_zone("mary_o_1_2_corridor", "Corridor", TOP - 1, HEIGHT - (TOP - 1))
+    lv.camera_zone("mary_o_1_2_corridor", "Corridor", TOP - 1, HEIGHT - (TOP - 1),
+                   sample="feet", fit="fit_view", exit_margin=8.0, transition_seconds=0.4)
+    # Entry uses the body's feet. The view can include space outside the activation box.
+    lv.camera_zone("mary_o_1_2_upper", "Upper Road", ATTIC, ATTIC_FLOOR - ATTIC,
+                   priority=10, sample="feet", exit_margin=16.0, transition_seconds=0.35, lock_y=True, target_y=240.0,
+                   view_bounds=True, view_bounds_min_x=0.0, view_bounds_min_y=0.0,
+                   view_bounds_max_x=float(WIDTH*T), view_bounds_max_y=float(HEIGHT*T))
 
     arrival(lv)
     shell_alley(lv)

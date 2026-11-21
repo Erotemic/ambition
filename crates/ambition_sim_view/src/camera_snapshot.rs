@@ -43,11 +43,12 @@ pub struct CameraSnapshot2d {
     /// Bevy orthographic scale required to show [`Self::visible_view`] in the
     /// current physical viewport.
     pub orthographic_scale: f32,
-    /// World-space focus/target after look-ahead, camera-zone offsets, blink
-    /// interpolation, and optional target easing.
+    /// Composed goal after framing and constraints, before temporal response.
     pub target_world: ae::Vec2,
     /// Final world-space camera center before presentation-only shake.
     pub center_world: ae::Vec2,
+    /// A room director owns this center. Continuity adapters must retain it.
+    pub director_applied: bool,
     /// Camera center without optional clamp padding. Equal to
     /// [`Self::center_world`] for ordinary/headless captures.
     pub unpadded_center_world: ae::Vec2,
@@ -170,6 +171,7 @@ impl Default for CameraSnapshot2d {
             orthographic_scale: 1.0,
             target_world: ae::Vec2::ZERO,
             center_world: ae::Vec2::ZERO,
+            director_applied: false,
             unpadded_center_world: ae::Vec2::ZERO,
             rotation_radians: 0.0,
             active_camera_zones: 0,
@@ -300,6 +302,8 @@ pub enum CameraSnapshotResolveMode {
 
 /// Pure input bundle for resolving a follow-camera snapshot.
 pub struct CameraSnapshotResolveInput<'a> {
+    pub policy: Option<&'a ambition_world_port::camera::CameraIntent>,
+    pub cutscene: Option<ambition_cutscene::CutsceneCamera>,
     pub world: &'a ae::World,
     pub camera_zones: &'a [CameraZoneSpec],
     pub focus: CameraFocus2d,
@@ -372,57 +376,95 @@ pub fn resolve_follow_camera_snapshot(
     input: CameraSnapshotResolveInput<'_>,
     mut ease_state: Option<&mut CameraEaseState>,
 ) -> CameraSnapshot2d {
-    let mut framing_focus = input.focus;
-    if let Some(state) = ease_state.as_deref_mut() {
-        if input.ease_tuning.hold_jump_height && !input.overview_camera && input.must_frame_world.is_none() {
-            let down = input.subject_down.unwrap_or(ae::Vec2::Y);
-            let resize = ae::Vec2::new(0.0, (input.focus.base_size.y - input.focus.size.y) * 0.5);
-            let at = input.focus.tick_center_world - resize;
-            let anchor = state.ground_focus.get_or_insert(at);
-            if input.snap_camera || !state.target_initialized || input.focus.grounded || at.dot(down) > anchor.dot(down) {
-                *anchor = at;
-            }
-            // Keep the subject in view when a rise is larger than half a frame.
-            let (view, _) = fit_camera_view(
-                input.base_view * input.focus.scale, input.viewport_px, input.aspect_policy,
+    let previous_composition = ease_state
+        .as_deref()
+        .and_then(|state| state.active_composition);
+    let native_intent;
+    let intent = match input.policy {
+        Some(intent) => intent,
+        None => {
+            native_intent = ambition_world_port::camera::native_policy(
+                &crate::camera_policy::facts(&input, ease_state.as_deref()),
             );
-            let reach = ((view - input.focus.base_size).dot(down.abs()) * 0.5).max(0.0);
-            let hold = (anchor.dot(down) - at.dot(down)).clamp(0.0, reach);
-            if hold > 0.0 {
-                framing_focus.center_world += down * (hold - (input.focus.center_world - input.focus.tick_center_world).dot(down));
-                framing_focus.tick_center_world += down * hold;
-            }
-        } else {
-            state.ground_focus = None;
+            &native_intent
         }
+    };
+    let mut weights: Vec<(Option<&CameraZoneSpec>, f32)> = intent
+        .regions
+        .iter()
+        .filter_map(|weight| {
+            input
+                .camera_zones
+                .iter()
+                .find(|zone| zone.id == weight.id)
+                .map(|zone| (Some(zone), weight.weight))
+        })
+        .filter(|(_, weight)| *weight > 0.0)
+        .collect();
+    let total: f32 = weights.iter().map(|(_, weight)| weight).sum();
+    if total < 1.0 {
+        weights.push((None, 1.0 - total));
     }
-    // Which zones frame the subject, and how much each: a zone frames it alone
-    // deep inside, and near its edge it shares the frame with what is past
-    // the edge (`zone_weights`). The zone with the most of the frame is the
-    // active one.
-    let weights = zone_weights(input.camera_zones, framing_focus.tick_center_world, input.base_view * 0.5);
     let active_camera_zones = weights.iter().filter(|(zone, _)| zone.is_some()).count();
     let active_zone = weights
         .iter()
         .max_by(|a, b| a.1.total_cmp(&b.1))
         .and_then(|(zone, _)| *zone);
 
+    let selection = active_zone.and_then(|zone| {
+        input
+            .camera_zones
+            .iter()
+            .position(|candidate| std::ptr::eq(candidate, zone))
+    });
+    let composition_changed = selection != previous_composition;
     let camera_zone_scale: f32 = weights
         .iter()
         .map(|(zone, weight)| zone.map_or(1.0, CameraZoneSpec::effective_zoom) * weight)
         .sum();
-    let target_scale = if input.overview_camera {
+    let mut target_scale = if input.overview_camera {
         input.overview_scale
     } else {
         input.encounter_scale.max(camera_zone_scale)
     }
     .max(1.0);
+    if let Some(zoom) = intent.zoom {
+        target_scale = zoom;
+    }
+    let fit_bounds = active_zone
+        .filter(|zone| !input.overview_camera && zone.composition.fit == ambition_platformer2d_world::rooms::CameraFit::FitView)
+        .and_then(|zone| {
+            use ambition_world_port::camera::BoundsRequest;
+            match &intent.bounds {
+                BoundsRequest::Footprint(rect) => Some(ae::Aabb {min:rect.min.into(),max:rect.max.into()}),
+                BoundsRequest::Centers(_) | BoundsRequest::Unbounded => None,
+                BoundsRequest::Inherit => match zone.clamp_mode {
+                    CameraClampMode::None => None,
+                    CameraClampMode::RoomBounds => Some(input.view_box.unwrap_or(ae::Aabb {min:ae::Vec2::ZERO.into(),max:input.world.size.into()})),
+                    CameraClampMode::ZoneBounds if zone.composition.bounds_space == ambition_platformer2d_world::rooms::CameraBoundsSpace::Footprint => Some(zone.composition.bounds.unwrap_or(zone.aabb)),
+                    CameraClampMode::ZoneBounds => None,
+                },
+            }
+        });
+    if let Some(bounds) = fit_bounds {
+        let (view, _) = fit_camera_view(
+            input.base_view * target_scale * input.focus.scale,
+            input.viewport_px,
+            input.aspect_policy,
+        );
+        let span: ae::Vec2 = (bounds.max - bounds.min).into();
+        target_scale *= (span.x / view.x).min(span.y / view.y).min(1.0);
+    }
     let dt = input.dt.clamp(0.0, MAX_CAMERA_SMOOTH_DT);
+    let cut = input.snap_camera
+        || intent.cut
+        || input.overview_camera
+        || active_zone.is_some_and(|zone| zone.composition.cut);
     let camera_scale = match input.mode {
         CameraSnapshotResolveMode::Instant => target_scale,
         CameraSnapshotResolveMode::Eased => {
             if let Some(state) = ease_state.as_deref_mut() {
-                if input.overview_camera || input.snap_camera {
+                if cut {
                     state.live_scale = target_scale;
                     target_scale
                 } else {
@@ -441,7 +483,7 @@ pub fn resolve_follow_camera_snapshot(
                     if (state.live_scale - target_scale).abs() < input.ease_tuning.snap_epsilon {
                         state.live_scale = target_scale;
                     }
-                    state.live_scale.max(1.0)
+                    state.live_scale
                 }
             } else {
                 target_scale
@@ -452,11 +494,17 @@ pub fn resolve_follow_camera_snapshot(
     // The subject's scale is a chart fact, adopted at once like a chart
     // roll: it changes only where its body crosses a scaling pair, and the
     // continuity maps the camera through that pair on the same frame.
-    let camera_scale = if input.overview_camera { camera_scale } else { camera_scale * input.focus.scale };
+    let camera_scale = if input.overview_camera {
+        camera_scale
+    } else {
+        camera_scale * input.focus.scale
+    };
     let target_view_w = input.base_view.x * camera_scale;
     let target_view_h = input.base_view.y * camera_scale;
     let (visible_view, orthographic_scale) = fit_camera_view(
-        ae::Vec2::new(target_view_w, target_view_h), input.viewport_px, input.aspect_policy,
+        ae::Vec2::new(target_view_w, target_view_h),
+        input.viewport_px,
+        input.aspect_policy,
     );
     let half_view_w = visible_view.x * 0.5;
     let half_view_h = visible_view.y * 0.5;
@@ -464,7 +512,47 @@ pub fn resolve_follow_camera_snapshot(
     let desired_target_world = if input.overview_camera {
         input.focus.stable_center()
     } else {
-        let mut desired = framing_focus.stable_center();
+        let mut desired = input.focus.stable_center();
+        let tracking = intent.tracking == ambition_world_port::camera::TrackingRequest::Grounded
+            || (intent.tracking == ambition_world_port::camera::TrackingRequest::Authored
+                && active_zone.is_some_and(|zone| {
+                    zone.composition.tracking
+                        == ambition_platformer2d_world::rooms::CameraTracking::Grounded
+                }));
+        if let Some(state) = ease_state.as_deref_mut() {
+            let selection = active_zone.and_then(|zone| {
+                input
+                    .camera_zones
+                    .iter()
+                    .position(|candidate| std::ptr::eq(candidate, zone))
+            });
+            if state.active_composition != selection || input.snap_camera {
+                state.ground_focus = None;
+            }
+            state.active_composition = selection;
+            if tracking
+                && !input.overview_camera
+                && input.must_frame_world.is_none()
+                && input.chart_transit.is_none()
+                && input.extra_clamp_center_world.is_none()
+            {
+                let down = input.subject_down.unwrap_or(ae::Vec2::Y);
+                let at = input.focus.tick_center_world
+                    - ae::Vec2::new(0.0, (input.focus.base_size.y - input.focus.size.y) * 0.5);
+                let anchor = state.ground_focus.get_or_insert(at);
+                if input.focus.grounded || at.dot(down) > anchor.dot(down) {
+                    *anchor = at;
+                }
+                let hold = (anchor.dot(down) - at.dot(down)).max(0.0);
+                if hold > 0.0 {
+                    desired += down
+                        * (hold
+                            - (input.focus.center_world - input.focus.tick_center_world).dot(down));
+                }
+            } else {
+                state.ground_focus = None;
+            }
+        }
         let (bias_x, bias_y) =
             input
                 .framing
@@ -472,11 +560,7 @@ pub fn resolve_follow_camera_snapshot(
         desired.x += bias_x;
         desired.y += bias_y;
 
-        // ⛔ Not the zone's offset or lock: those are the zone's composition,
-        // put on after the ease with the zone's clamp (see `compose_zone`).
-        // Eased here, a zone's offset started the ease at its full speed on
-        // the tick the zone changed: 160 units of look-ahead out of the throne
-        // room's arena went at 1300 units a second.
+        // Zone composition and bounds set the goal before temporal response.
 
         if let Some(blink) = input.blink {
             if blink.blink_in_timer > 0.0 && blink.blink_in_duration > 0.0 {
@@ -503,11 +587,7 @@ pub fn resolve_follow_camera_snapshot(
                 // First resolve for this view: ADOPT.
                 None => target_roll,
                 Some(current) => {
-                    ambition_camera_presentation::ease_roll_radians(
-                        current,
-                        target_roll,
-                        input.dt,
-                    )
+                    ambition_camera_presentation::ease_roll_radians(current, target_roll, input.dt)
                 }
             };
             state.live_observer_roll = Some(eased);
@@ -555,65 +635,75 @@ pub fn resolve_follow_camera_snapshot(
     // A held look leans the view along the subject's down, after the soft
     // framing so its deadzone cannot swallow the lean; the ease below pans
     // it, and the clamp keeps it in the room.
-    let desired_target_world = if input.overview_camera || input.focus.look == 0.0 {
+    let desired_target_world = if input.overview_camera
+        || input.focus.look == 0.0
+        || !intent.allow_look
+        || active_zone.is_some_and(|zone| !zone.composition.allow_look)
+    {
         desired_target_world
     } else {
         let down = input.subject_down.unwrap_or(ae::Vec2::Y);
         desired_target_world + down * (input.focus.look * LOOK_SHARE_OF_VIEW * visible_view.y)
     };
 
-    // The target is adopted, not eased, on the first resolve of a room.
-    let target_world = match input.mode {
-        CameraSnapshotResolveMode::Instant => desired_target_world,
-        CameraSnapshotResolveMode::Eased => {
-            if let Some(state) = ease_state.as_deref_mut() {
-                if input.overview_camera || input.snap_camera || !state.target_initialized {
-                    state.target_initialized = true;
-                    state.live_target_world = desired_target_world;
-                    desired_target_world
-                } else {
-                    let target_ease_hz = active_zone
-                        .and_then(|zone| zone.easing_hz)
-                        .unwrap_or(DEFAULT_TARGET_EASE_HZ)
-                        .max(0.0);
-                    let alpha = (1.0 - (-target_ease_hz * dt).exp()).clamp(0.0, 1.0);
-                    let previous_target_world = state.live_target_world;
-                    let eased_target_world = previous_target_world
-                        + (desired_target_world - previous_target_world) * alpha;
-                    state.live_target_world = eased_target_world;
-                    eased_target_world
-                }
-            } else {
-                desired_target_world
-            }
-        }
+    let target_world = desired_target_world;
+    let policy_bounds = match &intent.bounds {
+        ambition_world_port::camera::BoundsRequest::Footprint(rect)
+        | ambition_world_port::camera::BoundsRequest::Centers(rect) => Some(ae::Aabb {
+            min: rect.min.into(),
+            max: rect.max.into(),
+        }),
+        _ => None,
     };
-
+    let center_bounds = matches!(
+        intent.bounds,
+        ambition_world_port::camera::BoundsRequest::Centers(_)
+    );
+    let release_bounds = matches!(
+        intent.bounds,
+        ambition_world_port::camera::BoundsRequest::Unbounded
+    );
     // Clamp the axis-aligned footprint of the rolled view, not the upright viewport dimensions.
     let (clamp_half_w, clamp_half_h) =
         rolled_view_half_extents(half_view_w, half_view_h, rotation_radians);
-    // Each zone that frames the subject puts the camera where its composition
-    // (its lock and its offset) and its clamp put it, and the centre is those
-    // places mixed by the zones' weights. A zone's rules are a step at its
-    // edge; mixed over the band, the camera moves only as the subject moves
-    // across it (Jon, 2026-10-22: off the stair tower's top, the tower's clamp
-    // held the camera at the tower's middle and the walk's look-ahead put it
-    // 430 units on, and the camera made that up on its own in under a second).
+    // Compose and constrain each spatial contribution before the temporal response.
     let frame_in = |zone: Option<&CameraZoneSpec>, padding: Option<ae::Vec2>| {
-        let composed = if input.overview_camera { target_world } else { compose_zone(target_world, zone) };
+        let composed = if input.overview_camera {
+            target_world
+        } else {
+            compose_zone(target_world, zone)
+        };
+        let composed = intent.target.map(ae::Vec2::from).unwrap_or(composed);
+        let composed = ae::Vec2::new(
+            intent.target_x.unwrap_or(composed.x),
+            intent.target_y.unwrap_or(composed.y),
+        );
+        let composed = if center_bounds {
+            let bounds = policy_bounds.expect("center bounds");
+            composed.clamp(bounds.min.into(), bounds.max.into())
+        } else {
+            composed
+        };
+        let mode = if center_bounds || release_bounds {
+            CameraClampMode::None
+        } else if policy_bounds.is_some() {
+            CameraClampMode::RoomBounds
+        } else {
+            zone.map(|zone| zone.clamp_mode).unwrap_or_default()
+        };
         clamp_camera_target(
             input.world,
             world_to_centered_render(input.world, composed),
             clamp_half_w,
             clamp_half_h,
-            zone.map(|zone| zone.clamp_mode).unwrap_or_default(),
+            mode,
             zone,
             padding,
             //  the must-frame relaxation applies to the UNPADDED diagnostic too:
             // `unpadded_center_world` reports the camera without the portal
             // adapter's PADDING, not without the framing the game asked for.
             input.must_frame_world,
-            input.view_box,
+            policy_bounds.or(input.view_box),
         )
     };
     let mix = |padding: Option<ae::Vec2>| {
@@ -622,13 +712,110 @@ pub fn resolve_follow_camera_snapshot(
             (x + zx * weight, y + zy * weight)
         })
     };
-    let target_world = if input.overview_camera { target_world } else { compose_zone(target_world, active_zone) };
     let (normal_host_x, normal_host_y) = mix(None);
     let (host_x, host_y) = match input.extra_clamp_center_world {
-        Some(padding_center) => mix(Some(padding_center)),
+        Some(padding) => mix(Some(padding)),
         None => (normal_host_x, normal_host_y),
     };
-
+    let goal = ae::Vec2::new(
+        host_x + input.world.size.x * 0.5,
+        input.world.size.y * 0.5 - host_y,
+    );
+    let response = intent
+        .response_hz
+        .or_else(|| active_zone.and_then(|zone| zone.easing_hz))
+        .unwrap_or(DEFAULT_TARGET_EASE_HZ);
+    let mut presented = match ease_state
+        .as_deref_mut()
+        .filter(|_| input.mode == CameraSnapshotResolveMode::Eased)
+    {
+        Some(state) => {
+            let duration = intent
+                .transition_seconds
+                .or_else(|| active_zone.and_then(|zone| zone.composition.transition_seconds));
+            if (composition_changed || intent.transition_id != state.transition_id)
+                && state.target_initialized
+            {
+                state.transition_from = state.live_target_world;
+                state.transition_elapsed = 0.0;
+                state.transition_duration = duration.unwrap_or(0.0);
+                state.transition_active = state.transition_duration > 0.0;
+            }
+            state.transition_id = intent.transition_id;
+            let at = if cut || !state.target_initialized {
+                state.transition_active = false;
+                goal
+            } else if state.transition_active {
+                state.transition_elapsed =
+                    (state.transition_elapsed + dt).min(state.transition_duration);
+                let t = smoothstep(state.transition_elapsed / state.transition_duration);
+                if state.transition_elapsed == state.transition_duration {
+                    state.transition_active = false;
+                }
+                state.transition_from + (goal - state.transition_from) * t
+            } else {
+                state.live_target_world
+                    + (goal - state.live_target_world) * (1.0 - (-response.max(0.0) * dt).exp())
+            };
+            state.target_initialized = true;
+            state.live_target_world = at;
+            at
+        }
+        None => goal,
+    };
+    let recover = intent.keep_visible
+        && active_zone.is_none_or(|zone| {
+            zone.composition.visibility
+                == ambition_platformer2d_world::rooms::CameraVisibility::Recover
+        });
+    if recover
+        && !input.overview_camera
+        && input.must_frame_world.is_none()
+        && (input.cutscene.is_none() || !intent.honor_director)
+    {
+        let framing = input.screen_framing.unwrap_or_default();
+        presented = apply_soft_subject_framing(
+            presented,
+            presented,
+            input.focus,
+            visible_view,
+            orthographic_scale,
+            CameraScreenFraming {
+                active: true,
+                ..framing
+            },
+            rotation_radians,
+        );
+    }
+    let transition_bounds = policy_bounds
+        .filter(|_| !center_bounds)
+        .or_else(|| active_zone.and_then(|zone| zone.composition.transition_bounds))
+        .or(input.view_box);
+    let (presented_x, presented_y) = if release_bounds {
+        (
+            presented.x - input.world.size.x * 0.5,
+            input.world.size.y * 0.5 - presented.y,
+        )
+    } else {
+        clamp_to_world_bounds(
+            input.world,
+            world_to_centered_render(input.world, presented),
+            clamp_half_w,
+            clamp_half_h,
+            input.extra_clamp_center_world,
+            input.must_frame_world,
+            transition_bounds,
+        )
+    };
+    // Padding must remain until the presented center can use the normal bounds.
+    let (unpadded_x, unpadded_y) = if release_bounds {
+        (presented_x, presented_y)
+    } else {
+        clamp_to_world_bounds(input.world, world_to_centered_render(input.world, presented),
+            clamp_half_w, clamp_half_h, None, input.must_frame_world, transition_bounds)
+    };
+    let (host_x, host_y) = (presented_x, presented_y);
+    let target_world = goal;
     // `host_x` is centered-render x, which is monotone in world x.
     //
     // Leaving the zone clears the watermark: the clamp is per-visit, not per-room.
@@ -650,11 +837,37 @@ pub fn resolve_follow_camera_snapshot(
         input.world.size.y * 0.5 - host_y,
     );
     let unpadded_center_world = ae::Vec2::new(
-        normal_host_x + input.world.size.x * 0.5,
-        input.world.size.y * 0.5 - normal_host_y,
+        unpadded_x + input.world.size.x * 0.5,
+        input.world.size.y * 0.5 - unpadded_y,
     );
 
+    if let Some(state) = ease_state.as_deref_mut() {
+        state.live_target_world = center_world;
+        state.active_composition = selection;
+    }
+    let center_world = if let Some(camera) = input.cutscene.filter(|_| intent.honor_director) {
+        let at = camera.center([center_world.x, center_world.y]);
+        let (x, y) = clamp_to_world_bounds(
+            input.world,
+            world_to_centered_render(input.world, ae::Vec2::new(at[0], at[1])),
+            clamp_half_w,
+            clamp_half_h,
+            None,
+            None,
+            None,
+        );
+        ae::Vec2::new(x + input.world.size.x * 0.5, input.world.size.y * 0.5 - y)
+    } else {
+        center_world
+    };
+    let director_applied = input.cutscene.is_some() && intent.honor_director;
+    let unpadded_center_world = if director_applied {
+        center_world
+    } else {
+        unpadded_center_world
+    };
     CameraSnapshot2d {
+        director_applied,
         base_view: input.base_view,
         requested_view: ae::Vec2::new(target_view_w, target_view_h),
         visible_view,
@@ -669,60 +882,6 @@ pub fn resolve_follow_camera_snapshot(
     }
 }
 
-/// The zones that frame a subject at `at`, each with its part of the frame;
-/// `None` is the room with no zone. The parts sum to one.
-///
-/// A zone's own part is a smoothstep of how deep `at` is in it, measured in
-/// `band` (half the view, on each axis): a zone starts to take the frame half
-/// a band before its edge, has half of it on the edge, and all of it half a
-/// band inside. So the frame changes zone over about a view's travel, as the
-/// zone comes on screen, and the camera moves with the subject (a band of 256
-/// units still moved the camera three times the walk off the stair tower).
-/// Zones of one priority share what they cover in proportion; a higher
-/// priority is laid over the lower ones by what it covers, as a layer over a
-/// picture.
-fn zone_weights(zones: &[CameraZoneSpec], at: ae::Vec2, band: ae::Vec2) -> Vec<(Option<&CameraZoneSpec>, f32)> {
-    let mut weights: Vec<(Option<&CameraZoneSpec>, f32)> = vec![(None, 1.0)];
-    let mut priorities: Vec<i32> = zones.iter().map(|zone| zone.priority).collect();
-    priorities.sort_unstable();
-    priorities.dedup();
-    for priority in priorities {
-        let level: Vec<(&CameraZoneSpec, f32)> = zones
-            .iter()
-            .filter(|zone| zone.priority == priority)
-            .map(|zone| (zone, smoothstep(depth_in(zone.aabb, at, band) + 0.5)))
-            .filter(|(_, part)| *part > 0.0)
-            .collect();
-        let total: f32 = level.iter().map(|(_, part)| part).sum();
-        if total <= 0.0 {
-            continue;
-        }
-        let covered = total.min(1.0);
-        for (_, weight) in &mut weights {
-            *weight *= 1.0 - covered;
-        }
-        weights.extend(level.into_iter().map(|(zone, part)| (Some(zone), covered * part / total)));
-    }
-    weights.retain(|(_, weight)| *weight > 0.0);
-    weights
-}
-
-/// How far `at` is inside `aabb` from its nearest edge, in `band`s (each axis
-/// in its own); negative outside it, by how far it is from the box.
-fn depth_in(aabb: ae::Aabb, at: ae::Vec2, band: ae::Vec2) -> f32 {
-    let band = band.max(ae::Vec2::ONE);
-    let inside = ((at.x - aabb.left()) / band.x)
-        .min((aabb.right() - at.x) / band.x)
-        .min((at.y - aabb.top()) / band.y)
-        .min((aabb.bottom() - at.y) / band.y);
-    if inside >= 0.0 {
-        return inside;
-    }
-    let dx = (aabb.left() - at.x).max(at.x - aabb.right()).max(0.0) / band.x;
-    let dy = (aabb.top() - at.y).max(at.y - aabb.bottom()).max(0.0) / band.y;
-    -(dx * dx + dy * dy).sqrt()
-}
-
 fn smoothstep(u: f32) -> f32 {
     let u = u.clamp(0.0, 1.0);
     u * u * (3.0 - 2.0 * u)
@@ -732,8 +891,17 @@ fn smoothstep(u: f32) -> f32 {
 /// cinematic lock, then moved by the zone's offset.
 fn compose_zone(target_world: ae::Vec2, zone: Option<&CameraZoneSpec>) -> ae::Vec2 {
     match zone {
-        Some(zone) if zone.cinematic_lock => zone.aabb.center() + zone.target_offset,
-        Some(zone) => target_world + zone.target_offset,
+        Some(zone) => {
+            let at = if zone.cinematic_lock {
+                zone.aabb.center()
+            } else {
+                target_world
+            } + zone.target_offset;
+            ae::Vec2::new(
+                zone.composition.target_x.unwrap_or(at.x),
+                zone.composition.target_y.unwrap_or(at.y),
+            )
+        }
         None => target_world,
     }
 }
@@ -876,10 +1044,12 @@ fn clamp_camera_target(
                     view_box,
                 );
             };
-            let min_x = zone.aabb.left() + half_view_w - world.size.x * 0.5;
-            let max_x = zone.aabb.right() - half_view_w - world.size.x * 0.5;
-            let min_y = world.size.y * 0.5 - (zone.aabb.bottom() - half_view_h);
-            let max_y = world.size.y * 0.5 - (zone.aabb.top() + half_view_h);
+            let bounds = zone.composition.bounds.unwrap_or(zone.aabb);
+            let (half_view_w,half_view_h) = if zone.composition.bounds_space == ambition_platformer2d_world::rooms::CameraBoundsSpace::Centers {(0.0,0.0)} else {(half_view_w,half_view_h)};
+            let min_x = bounds.left() + half_view_w - world.size.x * 0.5;
+            let max_x = bounds.right() - half_view_w - world.size.x * 0.5;
+            let min_y = world.size.y * 0.5 - (bounds.bottom() - half_view_h);
+            let max_y = world.size.y * 0.5 - (bounds.top() + half_view_h);
             let (min_x, max_x, min_y, max_y) = expand_clamp_bounds_for_padding(
                 world,
                 min_x,
@@ -1475,6 +1645,7 @@ pub fn resolve_camera_observation(
             Option<&crate::local_view::ViewSubject>,
             &mut ambition_camera_presentation::CameraEaseState,
             &mut ResolvedCameraSnapshot,
+            &mut crate::camera_policy::CameraPolicyState,
         ),
         bevy::prelude::With<crate::local_view::LocalView>,
     >,
@@ -1553,10 +1724,15 @@ pub fn resolve_camera_observation(
         // The followed body's held look (`BodyPoseView::gaze_secs`).
         bevy::prelude::Query<&crate::pose_view::BodyPoseView>,
         bevy::prelude::Query<&ae::BodyGroundState>,
+        bevy::prelude::Query<&ambition_extension_host::ViewObservations>,
+        bevy::prelude::Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<bevy::prelude::Res<ambition_extension_host::AdmittedExtensions>>,
+        Option<bevy::prelude::Res<ambition_extension_host::InstalledPortCodecs>>,
+        Option<bevy::prelude::Res<ambition_cutscene::ActiveCutscene>>,
     ),
 ) {
     let cast_framing_tuning = cast_framing.as_deref().copied().unwrap_or_default();
-    let (body_kinematics, presented, subject_frames, poses, grounds) = followed_body;
+    let (body_kinematics, presented, subject_frames, poses, grounds, view_observations, ids, admitted, codecs, cutscene) = followed_body;
     let (mut live_cast, mut live_members, mut cast_last_seen, mut settling) = cast_framing_state;
     // Dev tools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
@@ -1643,10 +1819,11 @@ pub fn resolve_camera_observation(
                         // rather than eased from a target that predates the gap —
                         // the same rule `live_observer_roll`'s `None` already
                         // states for roll, applied to the target it eases toward.
-                        for (.., mut ease, mut resolved) in &mut views {
+                        for (.., mut ease, mut resolved, mut policy) in &mut views {
                             *resolved = ResolvedCameraSnapshot(None);
                             ease.target_initialized = false;
                             ease.live_observer_roll = None;
+                            *policy = Default::default();
                         }
                         return;
                     };
@@ -1849,7 +2026,7 @@ pub fn resolve_camera_observation(
                 tick_center_world: kin.pos,
                 grounded: grounds.get(subject).is_ok_and(|g| g.on_ground),
                 size: kin.size(),
-                base_size: kin.size(),
+                base_size: poses.get(subject).map_or(kin.size(), |pose| pose.base_size),
                 facing: kin.facing,
                 velocity_world: kin.vel,
                 look: poses.get(subject).map_or(0.0, |pose| camera_look(pose.gaze_secs)),
@@ -1859,6 +2036,7 @@ pub fn resolve_camera_observation(
             center,
         ))
     };
+    let cast_subjects = &framed.0;
     //  what to look at is a world question; how to present it is a VIEW
     // question. Everything above is resolved once — the followed body and the
     // framing focus — and everything below is answered per observer, the room
@@ -1874,12 +2052,14 @@ pub fn resolve_camera_observation(
         declared_body,
         mut camera_state,
         mut resolved,
+        mut policy_state,
     ) in &mut views
     {
         if view_subject.0.is_none() && (declared_participant.is_some() || declared_body.is_some()) {
             *resolved = ResolvedCameraSnapshot(None);
             camera_state.target_initialized = false;
             camera_state.live_observer_roll = None;
+            *policy_state = Default::default();
             continue;
         }
         //  A VIEW MAY NAME ITS OWN SUBJECT, and everything that follows
@@ -1964,7 +2144,8 @@ pub fn resolve_camera_observation(
                 true
             }
         };
-        if camera_state.ground_subject != Some(framed) {
+        let subject_changed = camera_state.ground_subject != Some(framed);
+        if subject_changed {
             camera_state.ground_focus = None;
             camera_state.ground_subject = Some(framed);
         }
@@ -1991,42 +2172,184 @@ pub fn resolve_camera_observation(
         let portal_presents_this_translation =
             presentation.extra_clamp_center_world.is_some() || presentation.chart_transit.is_some();
         let snap_camera = snap_camera || (subject_placed && !portal_presents_this_translation);
-        let snapshot = resolve_follow_camera_snapshot(
-            CameraSnapshotResolveInput {
-                world: &room_geometry.0,
-                camera_zones: &active_spec.camera_zones,
-                focus,
-                base_view,
-                viewport_px: viewport.px,
-                aspect_policy: user_settings.video.camera_aspect,
-                framing: user_settings.video.camera_framing,
-                overview_scale,
-                // The zoom of the encounters of the room this view frames.
-                encounter_scale: encounter_view
-                    .as_deref()
-                    .map_or(1.0, |view| view.camera_zoom_in(Some(room)))
-                    .max(1.0),
-                overview_camera: developer_tools.overview_camera,
-                snap_camera,
-                blink,
-                dt: time.delta_secs(),
-                mode: CameraSnapshotResolveMode::Eased,
-                extra_clamp_center_world: presentation.extra_clamp_center_world,
-                ease_tuning: *ease_tuning,
-                screen_framing: Some(*screen_framing),
-                // THIS VIEW's frame policy, read off the view that is being resolved.
-                reference_frame: *reference_frame,
-                subject_down,
-                // Written pre-resolve by the portal adapter, exactly like the
-                // extra clamp beside it — so the snapshot states the view's
-                // ACTUAL final orientation instead of one the renderer
-                // overwrites afterwards.
-                chart_transit: presentation.chart_transit,
-                must_frame_world,
-                view_box,
-            },
-            Some(&mut *camera_state),
-        );
+        let mut resolve_input = CameraSnapshotResolveInput {
+            policy: None,
+            cutscene: None,
+            world: &room_geometry.0,
+            camera_zones: &active_spec.camera_zones,
+            focus,
+            base_view,
+            viewport_px: viewport.px,
+            aspect_policy: user_settings.video.camera_aspect,
+            framing: user_settings.video.camera_framing,
+            overview_scale,
+            // The zoom of the encounters of the room this view frames.
+            encounter_scale: encounter_view
+                .as_deref()
+                .map_or(1.0, |view| view.camera_zoom_in(Some(room)))
+                .max(1.0),
+            overview_camera: developer_tools.overview_camera,
+            snap_camera,
+            blink,
+            dt: time.delta_secs(),
+            mode: CameraSnapshotResolveMode::Eased,
+            extra_clamp_center_world: presentation.extra_clamp_center_world,
+            ease_tuning: *ease_tuning,
+            screen_framing: Some(*screen_framing),
+            // THIS VIEW's frame policy, read off the view that is being resolved.
+            reference_frame: *reference_frame,
+            subject_down,
+            // Written pre-resolve by the portal adapter, exactly like the
+            // extra clamp beside it — so the snapshot states the view's
+            // ACTUAL final orientation instead of one the renderer
+            // overwrites afterwards.
+            chart_transit: presentation.chart_transit,
+            must_frame_world,
+            view_box,
+        };
+        resolve_input.cutscene = cutscene
+            .as_deref()
+            .and_then(|cutscene| cutscene.of_room(Some(room.ordinal())))
+            .and_then(|playing| playing.presentation.camera);
+        let program = active_spec
+            .metadata
+            .camera_policy
+            .as_deref()
+            .unwrap_or(ambition_world_port::camera::DEFAULT_POLICY);
+        let reset_policy = room_changed
+            || subject_changed
+            || (blink_snap && !policy_state.was_snapping)
+            || (subject_placed && !portal_presents_this_translation);
+        policy_state.was_snapping = blink_snap;
+        if reset_policy || policy_state.program != program {
+            camera_state.scroll_watermark_x = None;
+            camera_state.active_composition = None;
+            camera_state.transition_active = false;
+            policy_state.records = Default::default();
+            policy_state.last_intent = None;
+            policy_state.program = program.to_owned();
+        }
+        policy_state.frame = policy_state.frame.wrapping_add(1);
+        let mut observation = crate::camera_policy::facts(&resolve_input, Some(&camera_state));
+        observation.reset = reset_policy;
+        use ambition_world_port::camera::CameraContinuity;
+        observation.continuity = if room_changed {
+            CameraContinuity::RoomChanged
+        } else if subject_changed {
+            CameraContinuity::SubjectChanged
+        } else if portal_presents_this_translation {
+            CameraContinuity::ChartTransit
+        } else if subject_placed {
+            CameraContinuity::Placed
+        } else {
+            CameraContinuity::Continuous
+        };
+        observation.subjects[0].id = ids
+            .get(framed)
+            .map_or_else(|_| String::new(), |id| id.to_string());
+        observation.previous_center = resolved
+            .0
+            .as_ref()
+            .map_or(focus.center_world, |frame| frame.snapshot.center_world)
+            .into();
+        observation.room = active_spec.id.clone();
+        observation.room_instance = u64::from(room.ordinal());
+        if cast_declared && view_subject.0.is_none() {
+            observation.subjects = cast_subjects
+                .iter()
+                .filter_map(|subject| {
+                    let (_, kin, _) = body_kinematics.get(*subject).ok()?;
+                    if geometry.room_of(*subject) != Some(room) {
+                        return None;
+                    }
+                    Some(ambition_world_port::camera::CameraSubject {
+                        id: ids
+                            .get(*subject)
+                            .map_or_else(|_| String::new(), |id| id.to_string()),
+                        previous_position: None,
+                        position: (kin.pos
+                            + presented
+                                .get(*subject)
+                                .map_or(ae::Vec2::ZERO, |pose| pose.delta()))
+                        .into(),
+                        physical_position: kin.pos.into(),
+                        size: kin.size().into(),
+                        standing_size: poses
+                            .get(*subject)
+                            .map_or(kin.size(), |pose| pose.base_size)
+                            .into(),
+                        velocity: kin.vel.into(),
+                        down: subject_frames
+                            .get(*subject)
+                            .map_or(ae::Vec2::Y, |frame| frame.down())
+                            .into(),
+                        grounded: grounds.get(*subject).is_ok_and(|ground| ground.on_ground),
+                        facing: kin.facing,
+                        look: poses
+                            .get(*subject)
+                            .map_or(0.0, |pose| camera_look(pose.gaze_secs)),
+                    })
+                })
+                .collect();
+        }
+        observation.subjects.sort_by(|a, b| a.id.cmp(&b.id));
+        if !reset_policy && observation.continuity == CameraContinuity::Continuous {
+            if let Some(previous) = policy_state.last_observation.as_ref() {
+                for subject in &mut observation.subjects {
+                    subject.previous_position = previous
+                        .subjects
+                        .iter()
+                        .find(|was| !subject.id.is_empty() && was.id == subject.id)
+                        .map(|was| was.physical_position);
+                }
+            }
+        }
+        let result = match (admitted.as_deref(), codecs.as_deref()) {
+            (Some(admitted), Some(codecs)) => ambition_extension_host::invoke_view_policy::<
+                ambition_world_port::camera::CameraPolicyPort,
+                ambition_world_port::camera::CameraIntentPort,
+            >(
+                &admitted.0,
+                codecs,
+                program,
+                policy_state.frame,
+                time.delta_secs(),
+                &observation,
+                &view_observations
+                    .get(view)
+                    .expect("view observation bundle")
+                    .0,
+                &mut policy_state.records,
+                |intent| crate::camera_policy::validate(intent, &observation),
+            ),
+            _ if program == ambition_world_port::camera::DEFAULT_POLICY => {
+                Ok(ambition_world_port::camera::native_policy(&observation))
+            }
+            _ => Err(ambition_extension_sdk::Fault::Module(
+                format!("camera policy {program} needs an extension host").into(),
+            )),
+        };
+        match result {
+            Ok(intent) => {
+                policy_state.last_intent = Some(intent);
+                policy_state.fault = None;
+            }
+            Err(fault) => {
+                let message = fault.to_string();
+                if policy_state.fault.as_deref() != Some(&message) {
+                    bevy::log::error!("camera policy {program}: {message}");
+                }
+                policy_state.fault = Some(message);
+            }
+        }
+        policy_state.last_observation = Some(observation);
+        let Some(intent) = policy_state.last_intent.as_ref() else {
+            *resolved = ResolvedCameraSnapshot(None);
+            continue;
+        };
+        resolve_input.policy = Some(intent);
+        let snapshot = resolve_follow_camera_snapshot(resolve_input, Some(&mut camera_state));
+
         *resolved = ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
             snapshot,
             follow_world,
@@ -2178,6 +2501,8 @@ fn apply_camera_reference_frame_setting(
 /// facts each view owns.
 pub fn local_view_facts() -> impl bevy::prelude::Bundle {
     (
+        crate::camera_policy::CameraPolicyState::default(),
+        ambition_extension_host::ViewObservations::default(),
         CameraViewport::default(),
         CameraScreenFraming::default(),
         CameraPresentationInputs::default(),
@@ -2246,6 +2571,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
                 crate::local_view::resolve_view_subjects,
                 // Each view's HUD meters follow the subject just resolved.
                 crate::facts::rebuild_view_hud_facts,
+                ambition_extension_host::collect_view_observations,
                 resolve_camera_observation,
                 crate::facts::rebuild_party_return_prompts,
             )
@@ -2271,6 +2597,7 @@ mod m2_forward_scroll_tests {
 
     fn zone(policy: CameraScrollPolicy) -> CameraZoneSpec {
         CameraZoneSpec {
+            composition: Default::default(),
             id: "scroll".into(),
             name: "scroll".into(),
             aabb: ae::Aabb::new(ae::Vec2::new(2000.0, 300.0), ae::Vec2::new(2000.0, 300.0)),
@@ -2292,6 +2619,7 @@ mod m2_forward_scroll_tests {
     ) -> f32 {
         let snap = resolve_follow_camera_snapshot(
             CameraSnapshotResolveInput {
+                policy: None, cutscene: None,
                 world,
                 camera_zones: zones,
                 focus: CameraFocus2d {
@@ -2380,9 +2708,7 @@ mod zone_change_tests {
 
     const ZONE_TOP: f32 = 256.0;
     const BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
-    /// Her feet this far into the zone put her centre more than half a band
-    /// (the band is half the 270-unit view) inside it: the zone frames her
-    /// alone.
+    /// A sample well inside the lower corridor.
     const DEEP: f32 = 200.0;
 
     fn world() -> ae::World {
@@ -2391,6 +2717,7 @@ mod zone_change_tests {
 
     fn corridor() -> CameraZoneSpec {
         CameraZoneSpec {
+            composition: Default::default(),
             id: "corridor".into(),
             name: "corridor".into(),
             aabb: ae::Aabb::new(ae::Vec2::new(2000.0, 464.0), ae::Vec2::new(2000.0, 208.0)),
@@ -2415,6 +2742,8 @@ mod zone_change_tests {
         let tick = ae::Vec2::new(2000.0, feet - BODY.y * 0.5);
         resolve_follow_camera_snapshot(
             CameraSnapshotResolveInput {
+                policy: None,
+                cutscene: None,
                 world: &world(),
                 camera_zones: zones,
                 focus: CameraFocus2d {
@@ -2453,13 +2782,37 @@ mod zone_change_tests {
     }
 
     #[test]
-    fn grounded_framing_holds_a_roof_jump_and_follows_a_drop() {
-        let zones = [corridor()];
+    fn fitting_uses_viewing_bounds_instead_of_the_activation_gate() {
+        use ambition_platformer2d_world::rooms::CameraFit;
+        let mut gate = corridor();
+        gate.aabb = ae::Aabb::new(ae::Vec2::new(2000.0,380.0),ae::Vec2::new(10.0,10.0));
+        gate.composition.fit = CameraFit::FitView;
+        gate.clamp_mode = CameraClampMode::RoomBounds;
+        let frame = resolve(&[gate.clone()],400.0,0.0,&mut CameraEaseState::default());
+        assert_eq!(frame.zoom_multiplier,1.0);
+        gate.clamp_mode = CameraClampMode::ZoneBounds;
+        gate.composition.bounds = Some(ae::Aabb::new(ae::Vec2::new(2000.0,336.0),ae::Vec2::new(2000.0,336.0)));
+        let frame = resolve(&[gate],400.0,0.0,&mut CameraEaseState::default());
+        assert_eq!(frame.zoom_multiplier,1.0);
+    }
+
+    #[test]
+    fn a_fixed_roof_composition_holds_a_jump_and_releases_on_drop() {
+        let mut upper = corridor();
+        upper.id = "upper".into();
+        upper.aabb = ae::Aabb::new(ae::Vec2::new(2000.0,128.0),ae::Vec2::new(2000.0,128.0));
+        upper.priority = 10;
+        upper.composition.sample = ambition_platformer2d_world::rooms::CameraActivationSample::Feet;
+        upper.composition.target_y = Some(240.0);
+        upper.clamp_mode = CameraClampMode::RoomBounds;
+        let zones = [corridor(),upper];
         let mut ease = CameraEaseState::default();
         let resolve = |y: f32, grounded: bool, snap: bool, state: &mut CameraEaseState| {
             let at = ae::Vec2::new(2000.0, y);
             resolve_follow_camera_snapshot(
                 CameraSnapshotResolveInput {
+                    policy: None,
+                    cutscene: None,
                     world: &world(),
                     camera_zones: &zones,
                     focus: CameraFocus2d {
@@ -2497,7 +2850,6 @@ mod zone_change_tests {
                     must_frame_world: None,
                     view_box: None,
                     ease_tuning: CameraEaseTuning {
-                        hold_jump_height: true,
                         ..Default::default()
                     },
                     screen_framing: None,
@@ -2521,15 +2873,11 @@ mod zone_change_tests {
             resolve(roof + y as f32, false, false, &mut ease);
         }
         assert!(resolve(roof + 240.0, true, false, &mut ease).center_world.y > standing + 100.0);
-        let higher = resolve(roof - 64.0, true, true, &mut ease).center_world.y;
-        assert!(
-            (resolve(roof - 100.0, false, false, &mut ease)
-                .center_world
-                .y
-                - higher)
-                .abs()
-                < 0.001
-        );
+        let airborne = resolve(roof - 64.0, false, false, &mut ease);
+        assert_eq!(airborne.active_camera_zone.as_deref(),Some("upper"));
+        assert_eq!(airborne.target_world.y,240.0);
+        let landed = resolve(roof, true, false, &mut ease);
+        assert_eq!(landed.target_world.y,airborne.target_world.y);
     }
 
     /// She comes down on the top line of the zone. The drawn body is under the
@@ -2890,6 +3238,7 @@ mod soft_framing_tests {
 
     fn zone(cinematic_lock: bool) -> CameraZoneSpec {
         CameraZoneSpec {
+            composition: Default::default(),
             id: "lock".into(),
             name: "lock".into(),
             aabb: ae::Aabb::new(ae::Vec2::splat(20_000.0), ae::Vec2::splat(10_000.0)),
@@ -2914,6 +3263,7 @@ mod soft_framing_tests {
     ) -> CameraSnapshot2d {
         resolve_follow_camera_snapshot(
             CameraSnapshotResolveInput {
+                policy: None, cutscene: None,
                 world,
                 camera_zones: zones,
                 focus: CameraFocus2d {
@@ -3429,6 +3779,8 @@ mod observer_roll_continuity_tests {
     ) -> f32 {
         let snap = resolve_follow_camera_snapshot(
             CameraSnapshotResolveInput {
+                policy: None,
+                cutscene: None,
                 world: w,
                 camera_zones: &[],
                 focus: CameraFocus2d {
@@ -3856,6 +4208,46 @@ mod resolved_snapshot_lifetime_tests {
         view.frame().cloned()
     }
 
+    #[test]
+    fn a_cutscene_directs_the_shared_snapshot_only_in_its_room() {
+        let here =
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.ordinal();
+        for (scope, expected) in [
+            (Some(here), 1400.0),
+            (None, 1400.0),
+            (Some(here + 1), 1000.0),
+        ] {
+            let mut app = app_with_a_framed_cast();
+            let subject = cast_member(&mut app, ae::Vec2::new(1000.0, 2000.0));
+            app.world_mut()
+                .resource_mut::<ambition_platformer2d_shared_tangle::markers::FramedCast>()
+                .0 = vec![subject];
+            let mut runtime =
+                ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript::new(
+                    "look",
+                    vec![
+                        ambition_cutscene::CutsceneBeat::CameraPan {
+                            target: [1400.0, 2000.0],
+                            seconds: 0.5,
+                        },
+                        ambition_cutscene::CutsceneBeat::Wait { seconds: 5.0 },
+                    ],
+                ));
+            runtime.tick(1.0, false);
+            app.insert_resource(ambition_cutscene::ActiveCutscene::playing(runtime, scope));
+            for _ in 0..3 {
+                app.update();
+            }
+            let snapshot = frame_of(&app).unwrap().snapshot;
+            assert!((snapshot.center_world.x - expected).abs() < 0.001);
+            assert_eq!(
+                snapshot.director_applied,
+                scope.is_none() || scope == Some(here)
+            );
+            assert_eq!(snapshot.unpadded_center_world, snapshot.center_world);
+        }
+    }
+
     /// A match frames its cast whoever is seated in it. The home avatar is a
     /// member, not the subject: with a primary player at one end of the room
     /// and a CPU seat at the other, the frame holds both (human play got the
@@ -4113,6 +4505,7 @@ mod zone_blend_tests {
 
     fn zone(id: &str, x0: f32, x1: f32, offset: f32, zoom: Option<f32>, clamp: CameraClampMode) -> CameraZoneSpec {
         CameraZoneSpec {
+            composition: Default::default(),
             id: id.into(),
             name: id.into(),
             aabb: ae::Aabb::new(ae::Vec2::new((x0 + x1) * 0.5, 1880.0), ae::Vec2::new((x1 - x0) * 0.5, 424.0)),
@@ -4135,10 +4528,14 @@ mod zone_blend_tests {
     #[test]
     fn walking_out_of_an_arena_the_camera_never_steps() {
         let world = ae::World::new("throne", ae::Vec2::new(9600.0, 2304.0), ae::Vec2::ZERO, Vec::new());
-        let zones = [
+        let mut zones = [
             zone("throne", 0.0, 1920.0, 0.0, None, CameraClampMode::ZoneBounds),
             zone("gallery", 1920.0, 4480.0, 160.0, Some(0.85), CameraClampMode::default()),
         ];
+        for zone in &mut zones {
+            zone.composition.selection = ambition_platformer2d_world::rooms::CameraRegionSelection::BlendEdge;
+            zone.composition.blend_width = 512.0;
+        }
         let mut ease = CameraEaseState::default();
         let mut last: Option<ae::Vec2> = None;
         let mut last_step: Option<ae::Vec2> = None;
@@ -4148,6 +4545,8 @@ mod zone_blend_tests {
             let at = ae::Vec2::new(x, 2180.0);
             let snap = resolve_follow_camera_snapshot(
                 CameraSnapshotResolveInput {
+                    policy: None,
+                    cutscene: None,
                     world: &world,
                     camera_zones: &zones,
                     focus: CameraFocus2d { center_world: at, tick_center_world: at, grounded: false, size: ae::Vec2::new(30.0, 48.0), base_size: ae::Vec2::new(30.0, 48.0), facing: 1.0, velocity_world: ae::Vec2::new(300.0, 0.0), look: 0.0, scale: 1.0 },
@@ -4199,6 +4598,8 @@ mod held_look_tests {
         let at = ae::Vec2::new(2000.0, 2000.0);
         resolve_follow_camera_snapshot(
             CameraSnapshotResolveInput {
+                policy: None,
+                cutscene: None,
                 world: &world,
                 camera_zones: &[],
                 focus: CameraFocus2d {

@@ -86,8 +86,7 @@ fn input(i: u32, state: &[(SchemaKey, Record)]) -> Vec<u8> {
     let mut trigger = Vec::new();
     ModuleEntityTickPort::encode(&value, &mut trigger);
     InvocationInput {
-        tick: i as u64,
-        dt,
+        clock: ambition_extension_sdk::InvocationClock::Simulation {tick: i as u64,dt},
         occurrence: None,
         trigger_port: &ModuleEntityTickPort::KEY,
         trigger: &trigger,

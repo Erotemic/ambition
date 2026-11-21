@@ -95,7 +95,7 @@ fn think(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if to_target.abs() > SIGHT {
         return Ok(());
     }
-    let tick = inv.tick();
+    let tick = inv.tick().expect("a simulation entry");
     if throws_on(tick) {
         // Along the bridge, toward the target, whichever way it goes.
         inv.submit::<ActorFirePort>(ActorFire { direction: throw_direction(tick, to_target) })?;

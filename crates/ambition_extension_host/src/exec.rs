@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ambition_extension_sdk::abi::{self, InvocationInput, InvocationOutput};
-use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload, StagedRequest};
+use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload};
 use ambition_extension_sdk::{
     encode_erased, DecodeFn, EncodeFn, Fault, Invocation, Name, Phase, Port, PortKey,
     Record, SchemaKey,
@@ -383,6 +383,56 @@ impl ObservationContext<'_> {
 pub type Supplier =
     Arc<dyn Fn(&World, ObservationContext<'_>) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
 
+pub type ViewSupplier =
+    Arc<dyn Fn(&World, Entity) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
+
+/// One frame's read cut. These projections retire with the view.
+#[derive(Component, Default)]
+pub struct ViewObservations(pub Vec<Observation>);
+
+/// Collect native view observations before any view policy runs.
+pub fn collect_view_observations(world: &mut World) {
+    let (Some(codecs), Some(admitted)) = (
+        world.get_resource::<InstalledPortCodecs>(),
+        world.get_resource::<crate::AdmittedExtensions>(),
+    ) else {
+        return;
+    };
+    let codecs = codecs.clone();
+    let admitted = admitted.0.clone();
+    let phase = ambition_extension_sdk::phases::CAMERA_POLICY;
+    let required = admitted
+        .entries_in(&phase)
+        .flat_map(|entry| entry.descriptor.reads.iter().cloned())
+        .collect::<std::collections::BTreeSet<_>>();
+    let views = world
+        .query_filtered::<Entity, With<ViewObservations>>()
+        .iter(world)
+        .collect::<Vec<_>>();
+    let projections = views
+        .into_iter()
+        .map(|view| {
+            let values = required
+                .iter()
+                .filter_map(|port| {
+                    let (supplier, _) = codecs.view_suppliers.get(port)?;
+                    supplier(world, view).map(|value| Observation {
+                        port: port.clone(),
+                        value: OwnedPayload::Native(value),
+                    })
+                })
+                .collect();
+            (view, values)
+        })
+        .collect::<Vec<_>>();
+    for (view, values) in projections {
+        world
+            .get_mut::<ViewObservations>(view)
+            .expect("live view")
+            .0 = values;
+    }
+}
+
 /// The native action owner records preparation and cost refusals.
 pub type ActionRefusalHandler = fn(&mut World, Entity, &str,
     &ambition_extension_sdk::action::ActionSubmission<'_>, ambition_extension_sdk::action::ActionRefusal);
@@ -405,6 +455,7 @@ impl RequestCodec {
 #[derive(Resource, Default, Clone)]
 pub struct InstalledPortCodecs {
     pub(crate) suppliers: Arc<HashMap<PortKey, (Supplier, EncodeFn)>>,
+    pub(crate) view_suppliers: Arc<HashMap<PortKey, (ViewSupplier, EncodeFn)>>,
     pub(crate) request_codecs: Arc<HashMap<PortKey, RequestCodec>>,
     pub(crate) refuse_action: Option<ActionRefusalHandler>,
 }
@@ -538,19 +589,16 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                 let mut backend_time = started.map(|_| Duration::ZERO);
                 invocation.notify(world, InvocationEvent::Started);
                 let result = read_state(world, &admitted, invocation.scope.state, session, &descriptor.writes)
-                    .and_then(|state| match &entry.runner {
-                    EntryRunner::Native(run) => {
-                        run_native(world, entry, *run, invocation, &codecs, (tick, dt), state, &mut backend_time)
-                    }
-                    EntryRunner::Loaded {
-                        backend,
-                        module,
-                        entry: index,
-                    } => run_loaded(
-                        world, &admitted, entry, backend.as_ref(), *module, *index, invocation,
-                        &codecs, (tick, dt), state, &mut backend_time,
-                    ),
-                })
+                    .and_then(|state| {
+                        let observations = entry.descriptor.reads.iter().filter_map(|port| {
+                            let (supply, _) = codecs.suppliers.get(port)?;
+                            supply(world, ObservationContext { scope: invocation.scope.subject, state_scope: invocation.scope.state, entry: &entry.path, invocation })
+                                .map(|value| Observation { port: port.clone(), value: OwnedPayload::Native(value) })
+                        }).collect::<Vec<_>>();
+                        execute_entry(entry, ambition_extension_sdk::InvocationClock::Simulation { tick, dt },
+                            invocation.occurrence, &invocation.port, invocation.value.as_ref(), invocation.encode,
+                            &observations, state, &admitted, &codecs, &mut backend_time)
+                    })
                 .and_then(|staged| {
                     staged.0.iter().try_for_each(|(key, record)| {
                         admitted.schemas[key]
@@ -636,134 +684,214 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
     }
 }
 
+/// Run a prepared read cut through the selected backend. Both clock domains use this path.
 #[allow(clippy::too_many_arguments)]
-fn run_native(
-    world: &World,
+fn execute_entry(
     entry: &AdmittedEntry,
-    run: ambition_extension_sdk::EntryFn,
-    invocation: &PendingInvocation,
-    codecs: &InstalledPortCodecs,
-    (tick, dt): (u64, f32),
+    clock: ambition_extension_sdk::InvocationClock,
+    occurrence: Option<u32>,
+    trigger_port: &PortKey,
+    trigger: &(dyn Any + Send + Sync),
+    encode: EncodeFn,
+    observations: &[Observation],
     mut state: Vec<(SchemaKey, Record)>,
-    backend_time: &mut Option<Duration>,
-) -> Result<Staged, Fault> {
-    let observations: Vec<Observation> = entry
-        .descriptor
-        .reads
-        .iter()
-        .filter_map(|port| {
-            let (supply, _) = codecs.suppliers.get(port)?;
-            supply(world, ObservationContext { scope: invocation.scope.subject, state_scope: invocation.scope.state, entry: &entry.path, invocation }).map(|value| Observation {
-                port: port.clone(),
-                value: OwnedPayload::Native(value),
-            })
-        })
-        .collect();
-    let mut requests: Vec<StagedRequest> = Vec::new();
-    let mut call = Invocation::from_host(HostParts {
-        entry: &entry.descriptor,
-        tick,
-        dt,
-        occurrence: invocation.occurrence,
-        trigger_port: &invocation.port,
-        trigger: Payload::Native(invocation.value.as_ref()),
-        observations: &observations,
-        state: &mut state,
-        requests: &mut requests,
-    });
-    let started = backend_time.is_some().then(Instant::now);
-    let result = run(&mut call);
-    if let Some(started) = started { *backend_time = Some(started.elapsed()); }
-    result?;
-    drop(call);
-    Ok((state, requests.into_iter().map(|r| (r.port, r.value)).collect()))
-}
-
-/// Run an entry of a loaded module: encode the read cut, call the backend,
-/// and accept its output only if every record matches a DECLARED write and
-/// every request is a declared port that decodes, within the entry's limit.
-#[allow(clippy::too_many_arguments)]
-fn run_loaded(
-    world: &World,
     admitted: &Admitted,
-    entry: &AdmittedEntry,
-    backend: &dyn crate::ModuleBackend,
-    module: u32,
-    index: u32,
-    invocation: &PendingInvocation,
     codecs: &InstalledPortCodecs,
-    (tick, dt): (u64, f32),
-    state: Vec<(SchemaKey, Record)>,
     backend_time: &mut Option<Duration>,
 ) -> Result<Staged, Fault> {
     let descriptor = &entry.descriptor;
-    let mut trigger = Vec::new();
-    (invocation.encode)(invocation.value.as_ref(), &mut trigger);
-    let observations: Vec<(PortKey, Vec<u8>)> = descriptor
-        .reads
-        .iter()
-        .filter_map(|port| {
-            let (supply, encode) = codecs.suppliers.get(port)?;
-            let value = supply(world, ObservationContext { scope: invocation.scope.subject, state_scope: invocation.scope.state, entry: &entry.path, invocation })?;
+    let requests = match &entry.runner {
+        EntryRunner::Native(run) => {
+            let mut requests = Vec::new();
+            let mut call = Invocation::from_host(HostParts {
+                entry: descriptor,
+                clock,
+                occurrence,
+                trigger_port,
+                trigger: Payload::Native(trigger),
+                observations,
+                state: &mut state,
+                requests: &mut requests,
+            });
+            let started = backend_time.is_some().then(Instant::now);
+            run(&mut call)?;
+            if let Some(started) = started {
+                *backend_time = Some(started.elapsed());
+            }
+            requests
+                .into_iter()
+                .map(|request| (request.port, request.value))
+                .collect()
+        }
+        EntryRunner::Loaded {
+            backend,
+            module,
+            entry: index,
+        } => {
             let mut bytes = Vec::new();
-            encode(value.as_ref(), &mut bytes);
-            Some((port.clone(), bytes))
+            encode(trigger, &mut bytes);
+            let observations = observations
+                .iter()
+                .filter(|observation| descriptor.reads.contains(&observation.port))
+                .map(|observation| {
+                    let bytes = match &observation.value {
+                        OwnedPayload::Wire(bytes) => bytes.clone(),
+                        OwnedPayload::Native(value) => {
+                            let encode = codecs
+                                .suppliers
+                                .get(&observation.port)
+                                .map(|(_, encode)| encode)
+                                .or_else(|| {
+                                    codecs
+                                        .view_suppliers
+                                        .get(&observation.port)
+                                        .map(|(_, encode)| encode)
+                                })
+                                .expect("installed observation codec");
+                            let mut bytes = Vec::new();
+                            encode(value.as_ref(), &mut bytes);
+                            bytes
+                        }
+                    };
+                    (observation.port.clone(), bytes)
+                })
+                .collect::<Vec<_>>();
+            let input = InvocationInput {
+                clock,
+                occurrence,
+                trigger_port,
+                trigger: &bytes,
+                observations: &observations,
+                state: &state,
+            }
+            .encode();
+            let started = backend_time.is_some().then(Instant::now);
+            let output = backend
+                .invoke(*module, *index, &input)
+                .map_err(|e| Fault::Module(e.into()))?;
+            if let Some(started) = started {
+                *backend_time = Some(started.elapsed());
+            }
+            let output = abi::read_output(&output, |key| {
+                descriptor
+                    .writes
+                    .contains(key)
+                    .then(|| admitted.schemas.get(key).map(|s| &s.schema))
+                    .flatten()
+            })
+            .map_err(|e| Fault::Module(format!("module output does not decode: {e}").into()))?;
+            let (out_state, out_requests) = match output {
+                InvocationOutput::Ok { state, requests } => (state, requests),
+                InvocationOutput::Fault(message) => return Err(Fault::Module(message.into())),
+            };
+            if out_requests.len() > descriptor.limits.max_requests as usize {
+                return Err(Fault::RequestLimit {
+                    limit: descriptor.limits.max_requests,
+                });
+            }
+            for (key, record) in out_state {
+                let slot = state
+                    .iter_mut()
+                    .find(|(found, _)| *found == key)
+                    .ok_or_else(|| Fault::UndeclaredState(key.clone()))?;
+                slot.1 = record;
+            }
+            let mut requests = Vec::new();
+            for (port, bytes) in out_requests {
+                if !descriptor.requests.contains(&port) {
+                    return Err(Fault::UndeclaredRequest(port));
+                }
+                let codec = codecs
+                    .request_codecs
+                    .get(&port)
+                    .ok_or_else(|| Fault::UndeclaredRequest(port.clone()))?;
+                let value = (codec.decode)(&bytes)
+                    .map_err(|e| Fault::Module(format!("request {port}: {e}").into()))?;
+                requests.push((port, value));
+            }
+            requests
+        }
+    };
+    for (key, record) in &state {
+        admitted.schemas[key]
+            .schema
+            .check(record)
+            .map_err(|error| Fault::Schema {
+                schema: key.clone(),
+                error,
+            })?;
+    }
+    Ok((state, requests))
+}
+
+/// Invoke one view policy. A fault commits neither state nor the result.
+pub fn invoke_view_policy<P: Port, R: Port>(
+    admitted: &Admitted,
+    codecs: &InstalledPortCodecs,
+    path: &str,
+    frame: u64,
+    dt: f32,
+    trigger: &P::Value,
+    observations: &[Observation],
+    records: &mut crate::ViewRecords,
+    validate: impl FnOnce(&R::Value) -> Result<(), Fault>,
+) -> Result<R::Value, Fault> {
+    let phase = ambition_extension_sdk::phases::CAMERA_POLICY;
+    let entry = admitted
+        .entries_in(&phase)
+        .find(|entry| entry.path == path && entry.descriptor.trigger.port == P::KEY)
+        .ok_or_else(|| Fault::Module(format!("no presentation policy {path}").into()))?;
+    let state = entry
+        .descriptor
+        .writes
+        .iter()
+        .map(|key| {
+            let schema = &admitted.schemas[key];
+            let record = (records.code_identity == entry.module_identity)
+                .then(|| records.records.get_stored(key))
+                .flatten()
+                .filter(|stored| stored.shape == schema.shape)
+                .map_or_else(
+                    || schema.schema.initial_record(),
+                    |stored| stored.record.clone(),
+                );
+            (key.clone(), record)
         })
         .collect();
-    let input = InvocationInput {
-        tick,
-        dt,
-        occurrence: invocation.occurrence,
-        trigger_port: &invocation.port,
-        trigger: &trigger,
-        observations: &observations,
-        state: &state,
+    let (state, mut requests) = execute_entry(
+        entry,
+        ambition_extension_sdk::InvocationClock::Presentation { frame, dt },
+        None,
+        &P::KEY,
+        trigger,
+        ambition_extension_sdk::encode_erased::<P>,
+        observations,
+        state,
+        admitted,
+        codecs,
+        &mut None,
+    )?;
+    if requests.len() != 1 || requests[0].0 != R::KEY {
+        return Err(Fault::Module(
+            "a view policy must return one framing intent".into(),
+        ));
     }
-    .encode();
-    let started = backend_time.is_some().then(Instant::now);
-    let output = backend.invoke(module, index, &input);
-    if let Some(started) = started { *backend_time = Some(started.elapsed()); }
-    let output = output
-        .map_err(|e| Fault::Module(format!("the loaded module failed: {e}").into()))?;
-    let output = abi::read_output(&output, |key| {
-        descriptor
-            .writes
-            .contains(key)
-            .then(|| admitted.schemas.get(key).map(|a| &a.schema))
-            .flatten()
-    })
-    .map_err(|e| Fault::Module(format!("the module's output does not decode: {e}").into()))?;
-    let (out_state, out_requests) = match output {
-        InvocationOutput::Fault(message) => return Err(Fault::Module(message.into())),
-        InvocationOutput::Ok { state, requests } => (state, requests),
-    };
-    let limit = descriptor.limits.max_requests;
-    if out_requests.len() > limit as usize {
-        return Err(Fault::RequestLimit { limit });
+    let result = requests
+        .remove(0)
+        .1
+        .downcast::<R::Value>()
+        .map_err(|_| Fault::UndeclaredRequest(R::KEY))?;
+    validate(&result)?;
+    if records.code_identity != entry.module_identity {
+        records.records = RecordSet::default();
     }
-    // The staged state starts as the read state; the module's records replace
-    // the ones it returned. A record it did not return keeps its value.
-    let mut staged = state;
-    for (key, record) in out_state {
-        if let Some(slot) = staged.iter_mut().find(|(k, _)| *k == key) {
-            slot.1 = record;
-        }
+    records.code_identity = entry.module_identity;
+    for (key, record) in state {
+        records
+            .records
+            .put(key.clone(), admitted.schemas[&key].shape, record);
     }
-    let mut requests = Vec::with_capacity(out_requests.len());
-    for (port, bytes) in out_requests {
-        if !descriptor.requests.contains(&port) {
-            return Err(Fault::UndeclaredRequest(port));
-        }
-        let decode = codecs
-            .request_codecs
-            .get(&port)
-            .ok_or_else(|| Fault::UndeclaredRequest(port.clone()))?;
-        let value = (decode.decode)(&bytes).map_err(|e| {
-            Fault::Module(format!("request to {port} does not decode: {e}").into())
-        })?;
-        requests.push((port, value));
-    }
-    Ok((staged, requests))
+    Ok(*result)
 }
 
 /// `IdlePolicy::ResetState`: put the entry's records back to their initial
@@ -824,6 +952,7 @@ fn read_state(
             let schema = &admitted_schema.schema;
             let stored = match schema.attachment {
                 Attachment::Body => world.get::<BodyRecords>(scope).map(|r| &r.0),
+                Attachment::View => return Err(Fault::Module("view state requires a presentation invocation".into())),
                 Attachment::Session => {
                     let home = session.ok_or_else(|| Fault::NoSession(key.clone()))?;
                     world.get::<SessionRecords>(home).map(|r| &r.0)

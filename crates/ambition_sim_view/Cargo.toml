@@ -24,6 +24,9 @@ portal = ["ambition_platformer2d_actor_monolith/portal"]
 dialogue = ["dep:ambition_dialog", "dep:ambition_conversation"]
 
 [dependencies]
+ambition_world_port = { path = "../ambition_world_port" }
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_platformer2d_interaction = { path = "../ambition_platformer2d_interaction" }
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_breakables = { path = "../ambition_breakables" }

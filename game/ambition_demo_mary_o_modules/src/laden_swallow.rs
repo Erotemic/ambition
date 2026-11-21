@@ -76,7 +76,7 @@ fn think(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let (Some(target), Some(placement)) = (body.target, body.placement.as_deref()) else {
         return Ok(());
     };
-    if over(body.position, target) && drops_on(inv.tick(), placement) {
+    if over(body.position, target) && drops_on(inv.tick().expect("a simulation entry"), placement) {
         inv.submit::<ActorFirePort>(ActorFire { direction: DROP_DIRECTION })?;
     }
     Ok(())

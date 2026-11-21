@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`abi`](src/abi.rs) | The loaded-module ABI, `ambition-ext-2`: the bytes a host and a guest exchange, and the guest half that runs an entry from them. |
+| [`abi`](src/abi.rs) | The loaded-module ABI, `ambition-ext-3`: the bytes a host and a guest exchange, and the guest half that runs an entry from them. |
 | [`action`](src/action.rs) | Scoped replies from domain actions. |
 | [`choices`](src/choices.rs) | One declaration for an enum's native, wire, and script choices. |
 | [`contract`](src/contract.rs) | Compare module declarations across code backends. |

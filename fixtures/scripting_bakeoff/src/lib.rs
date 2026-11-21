@@ -186,7 +186,7 @@ pub fn invoke_script(module: &ModuleDescriptor, entry: u32, input: &[u8], script
             state.insert(short_name(schema).to_owned(), record_to_json(schema, &record));
         }
         let input = json!({
-            "tick": inv.tick(),
+            "tick": inv.tick().expect("a simulation entry"),
             "dt": inv.dt(),
             "trigger": trigger_json(inv, module, entry)?,
             "state": state,

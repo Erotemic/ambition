@@ -438,7 +438,8 @@ pub fn invoke_script(
             state.push((state_name(schema).to_owned(), record_to_script(schema, &record).map_err(fault)?));
         }
         let inv_value = ScriptValue::Map(vec![
-            ("tick".into(), ScriptValue::Int(inv.tick() as i64)),
+            ("tick".into(), inv.tick().map_or(ScriptValue::Unit, |tick| ScriptValue::Int(tick as i64))),
+            ("frame".into(), inv.frame().map_or(ScriptValue::Unit, |frame| ScriptValue::Int(frame as i64))),
             ("dt".into(), ScriptValue::Num(inv.dt())),
             ("trigger".into(), trigger),
             ("observe".into(), ScriptValue::Map(observe)),

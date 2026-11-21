@@ -356,6 +356,8 @@ fn resolve_headless_snapshot(
     let body = ae::default_player_body_size();
     resolve_follow_camera_snapshot(
         CameraSnapshotResolveInput {
+            policy: None,
+            cutscene: None,
             world: &room.world,
             camera_zones: &room.camera_zones,
             focus: CameraFocus2d {

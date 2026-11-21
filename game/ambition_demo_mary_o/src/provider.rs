@@ -207,16 +207,7 @@ impl Plugin for MaryOExperiencePlugin {
         .with_launcher_look("starlight")
         // A fixed 4:3 gameplay rectangle everywhere; the surround belongs to
         // HUD and controls rather than to the level.
-        .with_presentation_profiles({
-            let mut profiles = profiles::fixed_four_by_three();
-            for profile in std::iter::once(&mut profiles.default)
-                .chain(profiles.touch_primary.iter_mut())
-                .chain(profiles.handheld.iter_mut())
-            {
-                profile.camera_feel.ease.hold_jump_height = true;
-            }
-            profiles
-        })
+        .with_presentation_profiles(profiles::fixed_four_by_three())
         // Four readouts across the reserved top surround — this profile keeps
         // a 4:3 gameplay rectangle precisely so the HUD has somewhere to live
         // that is not over the level.

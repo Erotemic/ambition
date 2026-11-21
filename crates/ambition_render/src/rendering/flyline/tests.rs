@@ -3,6 +3,7 @@
 //! `PlayerVisual` cannot catch a rope missing from a versus match.
 
 use super::*;
+use ambition_platformer2d_shared_tangle::{lifecycle::PlayerVisual, sim_id::SimId};
 
 fn wire_app() -> App {
     let mut app = App::new();
@@ -57,7 +58,7 @@ fn actor_view(
         unhittable: false,
         defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
         sprite_offset: None,
-        room: None,
+        room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
     }
 }
 
@@ -179,6 +180,7 @@ fn the_exploration_player_gets_a_rope_too() {
         .world_mut()
         .spawn((
             PlayerVisual,
+            SimId::player_slot(0),
             ambition_sim_view::BodyPoseView {
                 pos: AT,
                 size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),

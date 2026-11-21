@@ -83,6 +83,7 @@ pub fn update_boss_encounters(
             &ambition_combat::FeatureId,
             Option<&ambition_world_items::containers::Opened>,
             Option<&ambition_world_items::containers::FallingChest>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         With<ambition_world_items::containers::ChestFeature>,
     >,

@@ -329,7 +329,7 @@ pub fn retract_boss_defeats_on_replay(
     mut since: ResMut<BossDefeatsSinceCheckpoint>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
-    chests: Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_world_items::containers::ChestFeature>,
+    chests: Query<(Entity, &ambition_combat::BossRewardChest, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>), With<ambition_world_items::containers::ChestFeature>,
     >,
     mut retracted: MessageWriter<BossDefeatRetracted>,
 ) {
@@ -352,8 +352,16 @@ pub fn retract_boss_defeats_on_replay(
         };
         for (placement, defeat) in taken {
             retract_defeat_records(save.data_mut(), &mut quests, &placement);
-            for (chest, reward) in &chests {
-                if reward.encounter_id == placement {
+            let replayed = replay.subject.as_ref().and_then(|subject| subject.room)
+                .or_else(|| rooms.live().sole());
+            for (chest, reward, at) in &chests {
+                let room = at.map(|at| at.0);
+                let retracts_room = if replay.to_checkpoint {
+                    !room.is_some_and(|room| replay.spared.contains(&room))
+                } else {
+                    room == replayed
+                };
+                if reward.encounter_id == placement && retracts_room {
                     commands.entity(chest).despawn();
                 }
             }
@@ -385,10 +393,10 @@ pub fn retract_boss_defeats_on_room_rewind(world: &mut bevy::prelude::World, roo
         });
     });
     let chests: Vec<Entity> = world
-        .query_filtered::<(Entity, &ambition_combat::BossRewardChest), With<ambition_world_items::containers::ChestFeature>>()
+        .query_filtered::<(Entity, &ambition_combat::BossRewardChest, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>), With<ambition_world_items::containers::ChestFeature>>()
         .iter(world)
-        .filter(|(_, reward)| taken.iter().any(|(placement, _)| reward.encounter_id == *placement))
-        .map(|(chest, _)| chest)
+        .filter(|(_, reward, at)| at.map(|at| at.0) == Some(room) && taken.iter().any(|(placement, _)| reward.encounter_id == *placement))
+        .map(|(chest, _, _)| chest)
         .collect();
     for chest in chests {
         world.despawn(chest);

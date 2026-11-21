@@ -8,8 +8,7 @@
 //! `features::ecs` with the `EncounterMob` wave vocabulary.
 
 use super::BossRewardProfile;
-use ambition_combat::{
-    BossRewardChest, CenteredAabb, FeatureId, FeatureName};
+use ambition_combat::{BossRewardChest, CenteredAabb, FeatureId, FeatureName};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     FeatureSimEntity, RoomVisual, SessionSpawnScope, SpawnSessionScopedExt,
@@ -47,12 +46,17 @@ pub fn sync_boss_reward_chests_ecs(
             &FeatureId,
             Option<&Opened>,
             Option<&FallingChest>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         With<ChestFeature>,
     >,
 ) {
-    for BossRewardAnchor { placement_id, spawn: boss_spawn, reward,
-    } in boss_placements {
+    for BossRewardAnchor {
+        placement_id,
+        spawn: boss_spawn,
+        reward,
+    } in boss_placements
+    {
         let BossRewardProfile::DropChest {
             pickup,
             offset,
@@ -71,10 +75,10 @@ pub fn sync_boss_reward_chests_ecs(
         let looted = save.flag(&ambition_encounter::encounter_reward_looted_flag(
             placement_id,
         ));
-        let existing = chests
-            .iter()
-            .find(|(_, reward, _, _, _)| reward.encounter_id == *placement_id);
-        if let Some((entity, _, _, opened, falling)) = existing {
+        let existing = chests.iter().find(|(_, reward, _, _, _, room)| {
+            reward.encounter_id == *placement_id && room.map(|room| room.0) == session_scope.room()
+        });
+        if let Some((entity, _, _, opened, falling, _)) = existing {
             match (looted, opened.is_some()) {
                 (true, false) => {
                     commands.entity(entity).insert(Opened);

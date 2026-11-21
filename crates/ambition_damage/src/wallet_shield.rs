@@ -73,7 +73,7 @@ impl Plugin for WalletShieldPlugin {
             project_wallet_shields
                 .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .after(PlayerInputSet::Persona)
-                .before(ambition_damage::PlayerHitResolutionSet),
+                .before(crate::PlayerHitResolutionSet),
         );
     }
 }

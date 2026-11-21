@@ -597,7 +597,7 @@ impl Plugin for SanicRulesPlugin {
             // absorb a hit here, and the rings scatter.
             app.declare_rules(
                 scope,
-                ambition_platformer2d::actors::body::wallet_shield::WalletShieldRule,
+                ambition_platformer2d::damage::wallet_shield::WalletShieldRule,
             );
             // Sanic's portal windows are the small authored cone. The
             // viewer-dependent cone misdraws at Sanic's speed. This is Sanic's

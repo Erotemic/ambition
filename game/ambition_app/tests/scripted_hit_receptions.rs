@@ -120,8 +120,8 @@ fn loaded_rules_receive_bounded_native_decisions_on_either_controller_and_replay
     for body in [player, teacher] {
         world.entity_mut(body).insert(CharacterForm::new("sanic"));
     }
-    world.get_resource_or_insert_with(DeclaredRules::<ambition_platformer2d::actors::body::wallet_shield::WalletShieldRule>::default)
-        .declare(RulesScope::EveryRoom, ambition_platformer2d::actors::body::wallet_shield::WalletShieldRule);
+    world.get_resource_or_insert_with(DeclaredRules::<ambition_platformer2d::damage::wallet_shield::WalletShieldRule>::default)
+        .declare(RulesScope::EveryRoom, ambition_platformer2d::damage::wallet_shield::WalletShieldRule);
     sim.step_n(AgentAction::default(), 4);
     let world = sim.world_mut();
     for (body, balance) in [(player, 11), (teacher, 7)] {

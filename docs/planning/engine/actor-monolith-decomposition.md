@@ -825,6 +825,23 @@ the ladder writes `Brain`, so the chain only ordered two disjoint systems,
 and dormancy's commands still flush at the set boundary. One system, one set,
 no new state.
 
+### K40 — The wallet shield at damage — DONE 2026-11-21
+
+`project_wallet_shields` derives `BodyWalletShield` from the worn character's
+`wallet_shield` and the room's `WalletShieldRule`, before
+`ambition_damage::PlayerHitResolutionSet`, whose resolvers read it.
+`ambition_damage` already depends on characters, world and shared_tangle and
+owns that resolution and `WalletShieldSpent`, so the module is
+`ambition_damage::wallet_shield` with its plugin and tests; the runtime
+installs the plugin from there and Sanic names
+`ambition_platformer2d::damage::wallet_shield::WalletShieldRule`. Same set,
+same order, derived state only.
+
+`transform_beat` names nothing else in the crate either, but its components
+are registered for rollback under the monolith's owner strings, and the
+candidate owner (it pins rows, requests clock scale and sets invulnerability)
+is not obvious: `ambition_sprite_sheet` is a vocabulary crate. Not cut here.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

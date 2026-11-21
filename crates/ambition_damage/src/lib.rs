@@ -1653,5 +1653,6 @@ pub fn install_staged_hit_lifecycle_guard(
 }
 
 pub mod healing;
+pub mod wallet_shield;
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;

@@ -35,6 +35,10 @@ ambition_combat_port = { path = "../ambition_combat_port" }
 # rustdoc. Compiler-confirmed unused under default AND --all-features,
 # 2026-09-18 (docs/planning/triage/unused-dependency-census.md).
 ambition_projectiles = { path = "../ambition_projectiles" }
+# `wallet_shield`'s tests prepare a cast (`prepare_and_finalize_for_test`)
+ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
+# ... and build a two-game session (`governing_rules::test_fixtures`).
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world", features = ["test-support"] }
 
 [features]
 default = []

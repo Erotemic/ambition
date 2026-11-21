@@ -468,7 +468,7 @@ fn a_participating_slot_puts_a_visible_token_on_the_grid() {
 /// asserts that the prepared world followed.
 #[test]
 fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
-    use ambition_demo_smash::SmashStageChoice;
+    use ambition_demo_smash::{SmashStageChoice, SmashStageOffer};
 
     let mut app = build_demo_app();
     install_press_port(&mut app);
@@ -477,15 +477,15 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
     let layout = layout(&app);
 
     assert_eq!(
-        *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::of(ambition_demo_smash::SMASH_STAGE_ROOM_ID),
+        *app.world().resource::<SmashStageOffer>(),
+        SmashStageOffer::Stage(SmashStageChoice::of(ambition_demo_smash::SMASH_STAGE_ROOM_ID)),
         "the default is the stage every recorded measurement was taken on"
     );
 
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
-        *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::of(ambition_demo_smash::SMASH_PLATFORM_STAGE_ROOM_ID),
+        *app.world().resource::<SmashStageOffer>(),
+        SmashStageOffer::Stage(SmashStageChoice::of(ambition_demo_smash::SMASH_PLATFORM_STAGE_ROOM_ID)),
         "pressing the stage button did not change the stage"
     );
 
@@ -501,16 +501,61 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
     // fails here.
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
-        *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::of(ambition_demo_smash::SMASH_NARROW_STAGE_ROOM_ID),
+        *app.world().resource::<SmashStageOffer>(),
+        SmashStageOffer::Stage(SmashStageChoice::of(ambition_demo_smash::SMASH_NARROW_STAGE_ROOM_ID)),
         "the third stage is not reachable from the button"
     );
     click(&mut app, 0, layout.stage_button());
+    assert_eq!(*app.world().resource::<SmashStageOffer>(), SmashStageOffer::Random, "Random follows the last stage");
+    assert!(stage_label_text(&mut app).contains("RANDOM"), "the button reads {:?}", stage_label_text(&mut app));
+    click(&mut app, 0, layout.stage_button());
     assert_eq!(
-        *app.world().resource::<SmashStageChoice>(),
-        SmashStageChoice::of(ambition_demo_smash::SMASH_STAGE_ROOM_ID),
+        *app.world().resource::<SmashStageOffer>(),
+        SmashStageOffer::Stage(SmashStageChoice::of(ambition_demo_smash::SMASH_STAGE_ROOM_ID)),
         "the stage cycle does not return to its start"
     );
+}
+
+/// START under a Random stage prepares one of the offered stages, the one the
+/// match's agreed seed draws, so two peers that agree on the lobby agree on it.
+#[test]
+fn a_random_stage_resolves_from_the_agreed_seed_at_start() {
+    use ambition_demo_smash::{SmashStageChoice, SmashStageOffer};
+
+    let mut app = build_demo_app();
+    install_press_port(&mut app);
+    plug_in(&mut app, 2);
+    app.update();
+    let layout = layout(&app);
+    let stages = SmashStageChoice::all().len();
+    for _ in 0..stages {
+        click(&mut app, 0, layout.stage_button());
+    }
+    assert_eq!(*app.world().resource::<SmashStageOffer>(), SmashStageOffer::Random);
+
+    click(&mut app, 0, layout.role_button(0));
+    click(&mut app, 1, layout.role_button(1));
+    let token = placed_token(&app, 0);
+    click(&mut app, 0, token);
+    let cell = layout.portrait(nth(&app, 0)).expect("an authored portrait");
+    click(&mut app, 0, cell);
+    let token = placed_token(&app, 1);
+    click(&mut app, 1, token);
+    let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
+    click(&mut app, 1, cell);
+    let seed = ambition_demo_smash::agreed_match_seed(app.world().resource::<ambition_demo_smash::select::SmashSelect>());
+    click(&mut app, 0, layout.start_button());
+
+    assert!(
+        app.world().get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>().is_some(),
+        "premise: START published a match"
+    );
+    assert_eq!(
+        *app.world().resource::<SmashStageChoice>(),
+        SmashStageOffer::Random.resolve(seed),
+        "the match does not play the stage its seed draws"
+    );
+    assert_eq!(*app.world().resource::<SmashStageOffer>(), SmashStageOffer::Random, "START rewrote the button");
 }
 
 /// The stage button's fill and each token's rim are `select_look`'s

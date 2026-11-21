@@ -377,7 +377,7 @@ stage beside the others rather than editing one, and keep the shared envelope
 |---|---:|---:|---:|---|
 | Stage selection | ◐ | C | — | A stage cycle on the character-select screen (`SmashStageChoice`). A separate screen is a design question. |
 | Stage metadata and thumbnails | ▢ | M | — | |
-| Random stage | ▢ | S | — | Deterministic choice from the allowed catalog. |
+| Random stage | ✔ | S | — | 2026-11-21: the stage button walks the offered stages, then Random (`SmashStageOffer`). START resolves Random into `SmashStageChoice` from the agreed match seed, so every reader of the stage still sees one room and peers that agree on the lobby draw the same stage. Guard `a_random_stage_resolves_from_the_agreed_seed_at_start`. |
 | Moving-platform / hazard stage | ▢ | S/M | — | Existing mechanics; author a stage. |
 | Hazards on/off knob | ▢ | M | E1 | Hazards read match rules. |
 | Standardized stage forms | ▢ | M | — | Authored variants first. |
@@ -585,8 +585,8 @@ post-gate order, each step one coherent customer at a time:
    commitment window had already shipped (`ledge_trump_lockout`). The
    grab-release fact waits for a presentation consumer (step 4).
 3. **Training and match-rule knobs** that need no new semantics: reset
-   fighters / set percent, frame-data display, timer selector (✔ 2026-11-21),
-   random stage, handicap / starting damage in match preparation.
+   fighters / set percent, frame-data display, timer selector and random
+   stage (✔ 2026-11-21), handicap / starting damage in match preparation.
 4. **Presentation and audio** rows (§12), which wait on art and sound more than
    on code; take them with the feel audit.
 

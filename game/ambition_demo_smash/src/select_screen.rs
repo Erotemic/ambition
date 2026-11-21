@@ -113,7 +113,7 @@ pub struct StageButtonLabel;
 
 /// What the stage button reads. Prefixed so it reads as a control, not only a
 /// state.
-pub fn stage_button_text(choice: crate::SmashStageChoice) -> String {
+pub fn stage_button_text(choice: crate::SmashStageOffer) -> String {
     crate::text::smash_text().fill("select.stage", &[("stage", &choice.label())])
 }
 
@@ -811,7 +811,7 @@ pub fn spawn_select_screen(
                     StageButtonLabel,
                     // Seeded with the default, so it is not blank before its
                     // sync system first runs.
-                    Text::new(stage_button_text(crate::SmashStageChoice::default())),
+                    Text::new(stage_button_text(crate::SmashStageOffer::default())),
                     text_font(14.0),
                     TextColor(select_look().ink()),
                 ));
@@ -1042,9 +1042,9 @@ pub(crate) fn drive_the_cursor(
     // composition with no skins table has no skins.
     skins: Option<Res<SmashSkins>>,
     mut page: ResMut<SelectPage>,
-    // The stage the START below plays on. Outside `SmashSelect`, like the
-    // cursor: no seat decided it.
-    mut stage: ResMut<crate::SmashStageChoice>,
+    // What the stage button says; START resolves it into the stage the match
+    // plays on. Outside `SmashSelect`, like the cursor: no seat decided it.
+    mut stage: ResMut<crate::SmashStageOffer>,
     // A required `ResMut`, like `stage`; fixtures register it. An `Option`
     // would silently no-op the button in production if registration dropped.
     mut stocks: ResMut<crate::SmashStockChoice>,
@@ -1691,7 +1691,7 @@ pub fn sync_select_cards(
     mut cards: Query<(&SlotCardFrame, &mut BorderColor)>,
     mut role_labels: Query<(&RoleButtonLabel, &mut Text), Without<CardName>>,
     mut card_names: Query<(&CardName, &mut Text, &mut TextColor), Without<RoleButtonLabel>>,
-    stage: Res<crate::SmashStageChoice>,
+    stage: Res<crate::SmashStageOffer>,
     mut stage_label: Query<
         &mut Text,
         (
@@ -2001,6 +2001,7 @@ mod touch_tests {
         // The stage the START press plays on. The driver writes it, so every
         // touch test fails without it.
         app.init_resource::<crate::SmashStageChoice>();
+        app.init_resource::<crate::SmashStageOffer>();
         app.init_resource::<crate::SmashStockChoice>();
         app.init_resource::<crate::SmashClockChoice>();
         // See the note in `lib.rs`'s fixture: the cursor integrates a clock.

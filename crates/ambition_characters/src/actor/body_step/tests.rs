@@ -517,7 +517,7 @@ fn a_crumple_sags_then_collapses_into_the_floor_game() {
         let mut combat = BodyCombat { crumple_timer: 0.3, crumple_collapse_owed: true, ..BodyCombat::default() };
         let mut tuning = ae::MovementTuning::default();
         tuning.tumble_speed = if floor_game { 250.0 } else { 0.0 };
-        let mut step = |body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat| {
+        let step = |body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat| {
             let (model, mut clusters) = body.parts();
             let result = step_body(
                 model,

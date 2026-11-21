@@ -218,17 +218,17 @@ impl From<usize> for SlotPick {
 ///
 /// ADR 0023 forbids ambient RNG, so the caller seeds it. The mixer is the same
 /// 64-bit LCG the boss patterns use, kept local.
-struct RandomPick(u64);
+pub(crate) struct RandomPick(u64);
 
 impl RandomPick {
-    fn seeded(seed: u64) -> Self {
+    pub(crate) fn seeded(seed: u64) -> Self {
         // A zero seed is a real input, and a zero state would make the LCG
         // constant, so mix it once.
         Self(seed ^ 0x9E37_79B9_7F4A_7C15)
     }
 
     /// A uniform index into `0..len`, or `None` for an empty grid.
-    fn draw(&mut self, len: usize) -> Option<usize> {
+    pub(crate) fn draw(&mut self, len: usize) -> Option<usize> {
         if len == 0 {
             return None;
         }

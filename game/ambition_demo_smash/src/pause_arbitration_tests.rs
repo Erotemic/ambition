@@ -24,6 +24,7 @@ fn app_with(pause_open: bool) -> App {
     app.init_resource::<select_screen::SelectInteractionPolicy>();
     // The screen's driver writes the stage the START press will use.
     app.init_resource::<crate::SmashStageChoice>();
+    app.init_resource::<crate::SmashStageOffer>();
     app.init_resource::<crate::SmashStockChoice>();
     app.init_resource::<crate::SmashClockChoice>();
     // `drive_the_cursor` integrates a held stick against `Time`, so the

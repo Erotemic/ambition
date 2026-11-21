@@ -1373,6 +1373,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // `Res<SmashStageChoice>` panics when a match prepares. The default is
         // the stage all recorded measurements used.
         app.init_resource::<SmashStageChoice>();
+        app.init_resource::<SmashStageOffer>();
         app.init_resource::<SmashStockChoice>();
         app.init_resource::<SmashClockChoice>();
         app.init_resource::<select::SmashSelect>();
@@ -1845,6 +1846,10 @@ fn start_the_battle_when_asked(
     // that parameter's note).
     stocks: bevy::prelude::Res<SmashStockChoice>,
     clock: bevy::prelude::Res<SmashClockChoice>,
+    // What the stage button says, resolved below into the stage the match
+    // prepares.
+    offer: bevy::prelude::Res<SmashStageOffer>,
+    mut stage: bevy::prelude::ResMut<SmashStageChoice>,
 ) {
     if !asked.0 {
         return;
@@ -1895,6 +1900,8 @@ fn start_the_battle_when_asked(
     // through `roster_seeded`: the other roads keep the pack's clock, which is
     // the button's default.
     decided.rules.time_limit_ticks = clock.ticks();
+    // Before the route request below, which prepares the stage this names.
+    *stage = offer.resolve(seed);
     // The seat plan this match decided, published under this experience's
     // name. Devices are not participants (a CPU seat has no device), so the
     // session must not be sized from what is plugged in. It lands in the same
@@ -2282,6 +2289,65 @@ impl SmashClockChoice {
         let all = Self::all();
         let here = all.iter().position(|clock| *clock == self).expect("a choice is made from `all`");
         all[(here + 1) % all.len()]
+    }
+}
+
+/// What the select screen's stage button says: one offered stage, or Random.
+///
+/// The button's state, not the match's: START resolves it into
+/// [`SmashStageChoice`], the stage the match prepares, so every reader of the
+/// stage (the preparation source, `ladder_rig --stage`) still sees one room.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SmashStageOffer {
+    /// This stage.
+    Stage(SmashStageChoice),
+    /// A stage drawn from the offered ones when the match starts.
+    Random,
+}
+
+impl Default for SmashStageOffer {
+    fn default() -> Self {
+        Self::Stage(SmashStageChoice::default())
+    }
+}
+
+impl SmashStageOffer {
+    /// Mixed into the agreed seed, so the stage draw is not the fighter draw's
+    /// first number.
+    const STAGE_SALT: u64 = 0x5354_4147_455f_5244;
+
+    /// The next offer: each offered stage in order, then Random, then round.
+    pub fn next(self) -> Self {
+        let all = SmashStageChoice::all();
+        match self {
+            Self::Random => Self::Stage(all[0]),
+            Self::Stage(stage) if Some(&stage) == all.last() => Self::Random,
+            Self::Stage(stage) => Self::Stage(stage.next()),
+        }
+    }
+
+    /// What the stage button shows.
+    pub fn label(self) -> String {
+        match self {
+            Self::Stage(stage) => stage.label(),
+            Self::Random => crate::text::line("select.random"),
+        }
+    }
+
+    /// The stage a match started under this offer plays on. `seed` is the
+    /// match's agreed seed (ADR 0023: no ambient RNG), so peers that agree on
+    /// the lobby draw the same stage.
+    pub fn resolve(self, seed: u64) -> SmashStageChoice {
+        match self {
+            Self::Stage(stage) => stage,
+            Self::Random => {
+                let all = SmashStageChoice::all();
+                let index = select::RandomPick::seeded(seed ^ Self::STAGE_SALT)
+                    .draw(all.len())
+                    .expect("`smash_stages.ron` offers at least one stage");
+                all[index]
+            }
+        }
     }
 }
 

@@ -2055,6 +2055,15 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          match change its stock count mid-session, this waiver is wrong.",
     ),
     (
+        "ambition_demo_smash::SmashStageOffer",
+        "WHAT THE STAGE BUTTON SAYS (a stage, or Random) — read to its readers: \
+         written only by `drive_the_cursor` (the stage button), read by the \
+         button's label and once by `start_the_battle_when_asked` behind its \
+         `on_select` guard, which resolves it into `SmashStageChoice` (waived \
+         above) from the agreed match seed. Nothing inside a live match reads \
+         it. ⛔ Not `derived`: a player presses a button.",
+    ),
+    (
         "ambition_demo_smash::SmashClockChoice",
         "HOW LONG the next match's clock runs — the stocks choice's twin, read \
          to its readers: written only by `drive_the_cursor` (the clock button), \

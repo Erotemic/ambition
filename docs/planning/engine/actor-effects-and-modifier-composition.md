@@ -1,493 +1,291 @@
 # Actor effects and modifier composition
 
-**State:** PHASES 0-5 DONE (2026-11-16); phase 6 waits for a true status
-effect. [`queue.md`](../queue.md) alone selects execution order.
-
-**Progress (2026-11-16).** `ambition_platformer2d_core::effects`:
-`BodyEffects` (a body's live effects, rollback `body.effects`), `EffectSource`,
-`NumericAttribute`, `NumericOp` and the shared `fold`. Equipment's
-`resolved_param` folds through it (phase 1). Speed Shoes and the timed gravity
-modifier are sources on it (phases 3-4); `MomentumBoost` and the
-scale/timer pair are deleted. Stacking is one instance per (source,
-attribute): a re-application replaces its own instance, and sources are
-independent. The cross-source fixture (phase 5) is
-`two_effects_on_one_number_expire_apart_and_rewind_across_both` (app_it, a
-sync-test session). The sections below are the design as planned; where they
-describe `ModifierOp`, `MomentumBoost` or the gravity pair, they describe the
-code before this work.
-
-**Scope:** numeric actor modifiers, timed buffs/debuffs, effect lifetime and the
-boundary between effects, capabilities, resources and intrinsic actor tuning.
-
-## Maintainer direction
-
-Characters need a general way to carry buffs and debuffs without adding one
-field for each item, pickup or game mechanic.
-
-The durable rule is:
-
-```text
-intrinsic actor facts
-+ source-owned live effects
--> resolved actor semantics
-```
-
-A source must add and remove only its own contribution. It must not save an old
-resolved value, overwrite the live value and restore the saved value later.
-
-"Buff" and "debuff" are useful game and presentation words. The engine concept
-is neutral. An effect can help in one context and hurt in another.
-
-Do not build one untyped bag that mixes numeric attributes, capabilities,
-resources and arbitrary behavior. Keep those semantic domains separate and let
-one active effect contribute to more than one domain when needed.
-
-## Why this work exists
-
-The repository already has several correct pieces of this model, but each piece
-is local to one feature.
-
-### Equipment numeric modifiers
-
-`ambition_characters::equipment` already defines:
-
-```text
-ParamModifier
-ModifierOp::Add / ModifierOp::Mul
-ModifierScope::Body / Move / Verb
-```
-
-`resolved_param` applies all matching additions before all matching
-multiplications:
-
-```text
-(base + sum(additions)) * product(multiplications)
-```
-
-The fold is independent of equipment order. It is also a pure read. Equipment
-does not write the resolved value back into the base value.
-
-This arithmetic is not inherently equipment-specific. Equipment is one possible
-source of a numeric modifier.
-
-### Capability contributions
-
-`ambition_platformer2d_core::AbilityContributions` already implements the
-source-ownership rule for discrete capabilities:
-
-```text
-BodyAbilities = (AbilityBase union every lend) intersect every ceiling
-```
-
-Each live source owns one keyed contribution. A source removes only its own key.
-It never restores a value that another source owns.
-
-Keep this as a typed capability domain. Do not replace it with numeric modifier
-machinery.
-
-### Invulnerability reasons
-
-`ambition_characters::actor::Invulnerability` is another source-owned
-composition precedent. Transformation, empowerment, scripted protection, move
-windows, respawn and submersion hold independent reasons. One reason ending does
-not clear the others.
-
-Keep invulnerability as a typed combat semantic unless a later design proves a
-more general typed relation. Do not turn it into a numeric attribute only to make
-one system look uniform.
-
-### Speed Shoes
-
-Sanic's Speed Shoes currently install one `MomentumBoost` on
-`SurfaceMomentumMotion`:
-
-```text
-top_speed_scale = 1.4
-ground_accel_scale = 1.5
-remaining_s = 8.0
-```
-
-The movement kernel folds the live boost into `MomentumParams` and spends the
-boost timer. This is already better than the old save/mutate/restore pattern.
-The authored movement parameters remain unchanged.
-
-The remaining limitation is composition: `boost: Option<MomentumBoost>` is one
-special slot for one source and one fixed pair of movement parameters.
-
-### Timed gravity modifier
-
-`AxisManeuverState` has another local timed modifier:
-
-```text
-gravity_modifier_scale
-gravity_modifier_timer
-```
-
-The movement domain owns the timer and the read rule. This also avoids restoring
-a saved gravity value. However, the current rule is an implicit replacement
-rule: the last caller wins because stacking has not been authored.
-
-This should become an explicit effect/stacking policy rather than remain another
-special timed modifier representation.
-
-### EffectRef
-
-`ambition_entity_catalog::EffectRef` is an authored effect reference and
-parameter payload. It is a useful delivery seam for moves and content, but it is
-not the runtime authority for an actor's active effects.
-
-A content-owned `EffectRef` can eventually ask an effect handler to add, refresh
-or remove an actor effect. The active effect state then owns its lifetime and
-contributions.
-
-### BODY-PROFILE and intrinsic tuning
-
-BODY-PROFILE work and `AuthoredMovementTuning` describe intrinsic/prepared actor
-configuration. They are not buffs or debuffs.
-
-Keep this distinction:
-
-```text
-intrinsic/prepared tuning
-    = what this actor normally is
-
-live effect contributions
-    = what currently changes that actor
-
-resolved semantics
-    = what the consuming system uses now
-```
-
-## Target model
-
-The names below describe responsibilities. They are not approved Rust type or
-crate names.
-
-### 1. Active effect state owns lifetime and provenance
-
-An active effect instance needs enough identity to answer:
-
-- which semantic effect is active;
-- which source owns this instance;
-- when it expires, if it is timed;
-- how another application of the same effect composes with it;
-- which typed contributions it provides.
-
-The runtime identity must be deterministic and rollback-safe. Do not copy
-`AbilityContributions`' current `&'static str` key type blindly if content-defined
-or independently repeated effect instances need a richer identity.
-
-Effects can have different lifetime policies:
-
-- while equipment is worn;
-- for a simulation duration;
-- while a world condition is true;
-- until explicitly consumed;
-- until an actor lifecycle boundary.
-
-The owning effect or source controls that lifetime. Consumers must not own effect
-expiry.
-
-### 2. Numeric contributions use one deterministic resolver
-
-Equipment, temporary pickups, statuses, forms and environment effects must not
-each invent their own arithmetic for the same numeric fact.
-
-The first target is a source-owned numeric contribution model. It should preserve
-the useful equipment rule:
-
-```text
-resolved = (base + sum(additions)) * product(multiplications)
-```
-
-An attribute owner may add semantic clamps or validation after the common fold.
-Do not make a global clamp rule that ignores what the attribute means.
-
-A source ending removes only that source's contribution. There is no inverse
-operation such as "divide by 1.4" and no saved old value to restore.
-
-### 3. Keep typed semantic domains
-
-The target is not one `HashMap<String, Value>` for the whole actor.
-
-Use separate domains:
-
-```text
-numeric attributes
-    composable numeric facts such as movement scales or body scale
-
-capabilities
-    discrete permissions/verbs through AbilityContributions or another typed owner
-
-invulnerability / defense reasons
-    typed combat facts with independent causes
-
-resources
-    stateful quantities such as Mana, Limit, Fuel or Catalyst
-
-behavioral effects
-    typed event/periodic behavior such as damage-over-time or heal-on-hit
-```
-
-One active effect may contribute to several domains. For example, a future heavy
-armor effect could reduce movement speed and add a defense capability. This does
-not make the domains one authority.
-
-### 4. Resources stay resources
-
-Do not model Mana, Limit, stamina, ammo or another stateful quantity as a numeric
-attribute modifier.
-
-[`composable-actor-resources.md`](composable-actor-resources.md) owns stateful
-resource pools, costs and transactions. An effect may change a resource-related
-policy through a named semantic seam, but a resource value is still authoritative
-state with its own lifecycle.
-
-### 5. Intrinsic values stay intrinsic
-
-Do not move authored movement tuning, BODY-PROFILE fields or other immutable base
-facts into active effect state only to make resolution uniform.
-
-The normal shape is:
-
-```text
-base semantic value
-+ live contributions
--> resolved value
-```
-
-The resolved value may be cached if measurement requires it, but the cache is a
-derived projection. It must not become a second semantic authority.
-
-## Attribute vocabulary
-
-Do not create one universal `ActorAttributes` string map.
-
-Start with real semantic values that already have multiple modifier sources or
-special modifier machinery. The initial numeric family should cover the minimum
-needed to migrate the current customers, for example:
-
-- surface-momentum top speed;
-- surface-momentum ground acceleration;
-- gravity multiplier;
-- existing equipment body parameters when the generic resolver takes ownership
-  of them.
-
-If content-defined attributes later need to grow without a host rebuild, use the
-same stable-id -> prepared-handle lesson as actor resources, but keep a separate
-storage and lifetime model. Do not introduce dynamic lookup in a movement hot
-path only to make the authoring vocabulary look general.
-
-## Stacking policy
-
-Stacking is semantic policy. Do not let component shape or insertion order decide
-it accidentally.
-
-An effect kind must be able to state the policy needed by its game meaning. The
-minimum useful policies are likely:
-
-- **refresh:** one semantic effect exists; a new application refreshes/replaces
-  its duration or payload;
-- **replace:** one source wins by an explicit deterministic rule;
-- **independent:** repeated instances remain independent and each contributes;
-- **strongest:** only the strongest eligible instance contributes while all
-  instances can retain their own lifetime.
-
-Do not implement every policy before a real effect needs it. The runtime model
-must, however, avoid making one implicit "last writer wins" rule the only shape
-that can ever exist.
-
-Speed Shoes should initially preserve their current re-wear behavior. The gravity
-modifier should preserve current behavior during migration unless a maintainer or
-authored mechanic deliberately selects a new stacking rule.
-
-## Time and rollback
-
-Timed effects are simulation state.
-
-- Spend their timers on the correct simulation/gameplay clock.
-- Register authoritative effect instances for rollback when they affect
-  simulation.
-- Do not use wall-clock time.
-- Re-simulation must produce the same active instances and resolved values.
-- A derived resolved-attribute cache must either be rollback-derived or restored
-  consistently from its authoritative inputs.
-
-Do not store only the final number if the semantic state is "Speed Shoes from
-source X are active until tick Y". The effect instance is the reason the number
-has its current value.
-
-## Preparation and authoring
-
-Authoring can name effects and numeric parameters. Preparation must validate and
-resolve those names before a hot simulation path uses them when practical.
-
-The target authoring flow is:
-
-```text
-authored effect / equipment / move
--> preparation and validation
--> typed/prepared contribution plan
--> admitted active effect instance
--> deterministic projection
--> movement/combat/other consumer
-```
-
-A missing required attribute/effect handler must refuse at preparation or
-admission. Do not silently fall back to an engine default that changes the
-meaning of the effect.
-
-## Migration plan
-
-### Phase 0 — freeze current behavior with focused witnesses
-
-Before moving ownership, add or identify tests for these existing semantics:
-
-1. equipment addition/multiplication is order-independent;
-2. Speed Shoes change top speed and ground acceleration for their timed life;
-3. reapplying Speed Shoes has the current refresh/replace behavior;
-4. a movement/base-tuning change while Speed Shoes are live does not require an
-   old value to be restored later;
-5. the gravity modifier expires to the intrinsic gravity result;
-6. independent `AbilityContributions` sources do not clear one another.
-
-These are migration witnesses, not reasons to preserve accidental type names.
-
-### Phase 1 — extract the numeric modifier algebra
-
-Move the generic `Add`/`Mul` vocabulary and fold out of equipment ownership.
-
-Equipment remains an effect/modifier **source**. `WornEquipment` still owns what
-is worn and equipment-specific rules such as slots, grants and armor spending.
-It no longer owns the generic meaning of numeric addition/multiplication.
-
-Keep move/verb-scoped modifier semantics if they remain useful, but do not force
-body attributes and move parameters into one runtime storage model merely because
-they share arithmetic.
-
-### Phase 2 — introduce source-owned numeric actor contributions
-
-Add the smallest contribution representation that can express current body-level
-numeric customers without a scan over unrelated actor state in the movement hot
-path.
-
-Prove:
-
-```text
-source A changes attribute X
-source B changes attribute X
-A ends
--> B still contributes
-```
-
-and prove that contribution order does not change the answer.
-
-### Phase 3 — migrate Speed Shoes
-
-Replace `SurfaceMomentumMotion::boost: Option<MomentumBoost>` with the generic
-source-owned effect/contribution road.
-
-The movement kernel should consume resolved movement semantics. It must not know
-that Speed Shoes exist.
-
-Preserve these behaviors:
-
-- top speed and ground acceleration both change;
-- the effect expires on the simulation clock;
-- reapplication follows the selected Speed Shoes stacking rule;
-- changing the underlying movement tuning while the effect is live changes the
-  base under the modifier; there is no restore step.
-
-Delete `MomentumBoost` when no other semantic purpose remains.
-
-### Phase 4 — migrate the timed gravity modifier
-
-Replace the dedicated `gravity_modifier_scale` + `gravity_modifier_timer` pair
-with the same active-effect/contribution model.
-
-Make its replacement/stacking rule explicit. Do not accidentally change the
-current last-application behavior during the ownership migration.
-
-Delete the dedicated pair after all producers and consumers use the new road.
-
-### Phase 5 — prove cross-source composition
-
-Add one acceptance fixture with at least two independent numeric sources on the
-same actor and same attribute family. Good candidates are:
-
-- equipment plus a timed movement effect;
-- Speed Shoes plus a slowing status/environment effect.
-
-The fixture must prove that ending either source leaves the other source's
-contribution intact.
-
-### Phase 6 — use the model for a true status effect
-
-When a real poison, slow, haste or similar status effect needs runtime state,
-make it an `ActiveEffect` customer instead of creating another dedicated
-modifier/timer pair.
-
-An authored `EffectRef` may deliver the request, but it does not become the
-active-state authority.
-
-## Non-goals
-
-This plan does not require:
-
-- one universal actor property map;
-- converting every boolean/capability into a number;
-- converting resources into attributes;
-- moving intrinsic tuning into rollback state;
-- replacing typed combat semantics such as invulnerability reasons;
-- a scripting language for arbitrary effect behavior;
-- every possible stacking mode before a mechanic needs it;
-- preserving the current `MomentumBoost` or gravity-modifier type names.
-
-## Acceptance
-
-The program is complete when the following are true:
-
-- equipment numeric modifiers use the shared numeric modifier vocabulary;
-- Speed Shoes use a source-owned actor effect/contribution instead of a special
-  movement boost slot;
-- the timed gravity modifier uses the same lifetime/contribution model instead
-  of its dedicated scale/timer pair;
-- two independent sources can modify the same numeric actor semantic and either
-  can end without removing the other;
-- resolved values are deterministic and independent of insertion order where the
-  selected stacking policy says order must not matter;
-- the movement kernel consumes resolved semantics and contains no Speed Shoes or
-  other named-content knowledge;
-- authoritative base values are never overwritten and later restored as effect
-  implementation;
-- timed effects rollback and re-simulate deterministically;
-- resources, capabilities and invulnerability keep their own typed authorities;
-- a new timed numeric buff/debuff can be added without adding another dedicated
-  modifier field to a body or movement-policy struct.
-
-## Review traps
-
-Do not accept these shapes as completion:
-
-```text
-one Option<SpecialBoost> per mechanic
-```
-
-```text
-apply effect -> mutate base value -> save old value -> restore later
-```
-
-```text
-one generic HashMap<String, Value> for every actor fact
-```
-
-```text
-active effect list + independently mutable resolved attribute authority
-```
-
-```text
-resource value treated as an attribute because both are numbers
-```
-
-Prefer one source-owned effect lifetime and one deterministic projection into the
-typed semantic domain that consumes it.
+**State:** numeric phases 0–5 DONE (2026-11-16). Phase 6 below is PLANNED
+(2026-11-21). It replaces the former instruction to wait for a new status
+effect. The current control and pose ports already expose the ownership
+problem. [The queue](../queue.md) selects execution order.
+
+**Scope:** source-owned contributions, their application lifetime, and their
+typed projections into actor semantics. Resources and payments stay with
+[actor resources](composable-actor-resources.md). Immutable contribution
+definitions use [capability linking and prepared facets](capability-linking-and-prepared-facets.md).
+
+## Completed numeric slice
+
+Commit `a65b8a3a` introduced
+`ambition_platformer2d_core::effects::{BodyEffects, EffectSource, NumericAttribute,
+NumericOp, fold}`. Equipment uses the shared Add/Mul fold. Speed Shoes and
+maneuver gravity use source-owned entries in `BodyEffects`; the dedicated
+`MomentumBoost` and gravity scale/timer pair are deleted.
+<!-- cite-ok: deleted names -->
+
+The implemented rule is one numeric operation per (source, attribute).
+Reapplication replaces that entry; another source remains independent.
+`body.effects` is rollback state. The app witness
+`two_effects_on_one_number_expire_apart_and_rewind_across_both` proves
+cross-source expiry and rewind.
+
+Preserve these results. Never overwrite an intrinsic value and later restore
+a saved old value. Keep resource amounts, numeric attributes, capabilities,
+defense and behavior under their own typed authorities. The remaining work
+concerns who owns a contribution, not another numeric modifier engine.
+
+## Finding: ownership has several independent dimensions
+
+The source review at `6895e5168638` found these representations:
+
+| Source owner | Current identity or lifetime | Limit |
+| --- | --- | --- |
+| `crates/ambition_platformer2d_core/src/effects.rs` | One operation and timer per `(EffectSource, NumericAttribute)` | One application cannot both add and multiply the same attribute. Its second operation replaces the first. Several attributes repeat the lifetime. |
+| `crates/ambition_platformer2d_core/src/ability_projection.rs` | One `AbilityContribution` variant per static source name | A source cannot both lend swimming and impose a flight ceiling without extra source names. Those names need coordinated withdrawal. |
+| `crates/ambition_combat/src/extension/contact.rs` | Every `ControlHoldPort` producer writes the `Sequence` bit | One module can release another module's hold. The adapter discards the producer identity. |
+| `crates/ambition_platformer2d_actor_monolith/src/body/transform_beat.rs` and the pose port in `combat::extension::contact` | Both write or remove `ActorAnimOverride` | A transform's expiry can remove a pose supplied by another owner. `PinnedRow.writer` only partly solves this for named clips. |
+| `crates/ambition_combat/src/empowerment.rs` | One `Empowered` value with one timer and trait set | Independent temporary grants cannot coexist. A form and one grant can coexist through `empowerment_of`. |
+
+These are source-derived counterexamples. This review did not run a new
+simulation. For control, the sequence is sufficient to expose the mismatch:
+A holds, B holds, A releases, and the shared bit is clear. A and B are
+independent loaded owners on the same body. The port's
+contract says another holder remains held.
+
+The earlier plan already allowed one effect to contribute to several
+domains. That statement is insufficient. The current APIs also collapse
+**definition, application and contribution identity**. A more general timer
+around those APIs would retain the defect.
+
+## Selected model
+
+Keep these facts separate. The names describe roles, not fixed Rust names.
+
+| Fact | Meaning |
+| --- | --- |
+| Effect definition | Authored semantics and typed prepared contribution plans |
+| Issuer occurrence | Provenance: the native owner or behavior attachment that issued the application |
+| Lifetime owner and binding | The body, source occurrence, room or session whose declared boundary ends the application |
+| Application key | This independently revocable application |
+| Refresh key | The explicit policy that makes a later application replace or refresh an earlier one |
+| Contribution channel | One typed term supplied by that application |
+
+One application can contain two numeric terms on one attribute, or a
+capability lend and ceiling, without pretending that these terms have different
+owners. It can also contribute to several domains. Retiring the application
+withdraws all its terms at the declared publication boundary.
+
+An application is authoritative state. The resolved outputs are projections.
+Do not keep a timer per output, a saved old output, or a marker that says an
+independent output was applied.
+
+### Issuer and application identity
+
+Reuse the existing stable object and behavior-attachment occurrence identity.
+A script request's `Submitted<T>` already carries `state_scope`, `entry`,
+subject scope and optional move occurrence. Preserve the relevant issuer
+identity through the adapter. A module path alone does not distinguish two
+attachments of that module.
+
+An entry path is not necessarily the application owner either. A start handler
+and a completion handler in one attachment can name the same local grant key.
+They must be able to release that application's terms without authority over a
+different attachment's terms.
+
+A native owner supplies an equally explicit occurrence and local application
+key. Use a deterministic local ordinal only when the stacking policy needs
+independent applications. No portable key contains a Bevy `Entity`, component
+id, wall-clock timestamp, or global cache insertion order. Do not assume that
+the host's execution-order `InvocationId` is a persistent application id.
+
+Definition identity does not establish refresh policy. Preserve current intent:
+
+- a second pair of Speed Shoes refreshes its own pair;
+- a second quasar refreshes the quasar;
+- a second transformation restarts the transform beat;
+- two independent script attachments hold separate claims.
+
+Refresh authority comes from the admitted policy. The target's quasar policy
+can accept another pickup into the same quasar application. Reusing an authored
+source path does not grant authority to refresh or revoke an unrelated
+application.
+
+### Issuer provenance does not own every lifetime
+
+Select the lifetime binding at admission. Reuse the existing body, object,
+room and session vocabulary in
+[instance lifetime](instance-lifetime-provenance-and-persistence.md); do not
+create another scope taxonomy.
+
+- A source-bound claim, such as a script hold or pose, ends when its live
+  source releases it or retires.
+- A granted interval can transfer to the target body. Its declared clock and
+  target lifecycle then own expiry. Consuming its pickup or retiring its caster
+  does not end it. The issuer remains provenance, not a required live entity.
+- A room- or session-owned application follows that scope's stated retirement
+  boundary, even when its issuer has already gone.
+
+The transfer and accepted revokers are explicit. A detached script must lose
+its source-bound claims; it must not remove a target-owned poison or buff that
+the domain has already granted. A definition change does not silently move
+this ownership.
+
+### Share ownership; keep the reduction laws typed
+
+The common facility owns application identity, validity and lifetime.
+A domain owns the type, meaning and reduction of its contributions.
+
+| Domain | Reduction |
+| --- | --- |
+| Numeric values | Add terms, then multiply terms; apply semantic clamps at the attribute owner |
+| Capabilities | Union lends, intersect physical ceilings, and apply access permissions under the current ability law |
+| Control holds | Suppress control while any eligible hold is live |
+| Defense | Combine independent semantic reasons |
+| Pose | Select by an explicit priority and tie policy; keep losing proposals so they can become visible later |
+| Time | Use the time owner's clock domain, regime and arbitration policy |
+
+Numeric staging does not make floating-point arithmetic associative. Use a
+canonical source/channel order when exact reproducibility is required. Pose
+selection is not a sum, and an access grant is not a physical capability.
+
+Keep simple derived facts simple. Submersion, a form's permanent traits, and
+the fixed possession/mount relation need not become allocated effect objects.
+Their adapters can supply typed facts without a stored timer. The protocol
+must support multiplicity where it exists, not impose one physical layout on
+all sources.
+
+### Data placement and dependency direction
+
+Put the small identity and owned-term utilities below their users. Keep domain
+schemas and prepared payloads with their capability owners. The core must not
+gain dependencies on combat, sprite, time-policy or extension-host code to
+interpret every contribution type.
+
+The prepared application binds typed facets through the selected composition.
+There is no central enum of all gameplay mutations, `Any` registry, arbitrary
+attribute map, or common message bus that owns the reducers.
+
+Use target-local sparse storage for live applications unless a measured
+customer needs independent entity identity. A body with no dynamic
+applications needs no allocation. Index the relevant domain terms during
+preparation or activation. A movement read must not scan unrelated pose,
+inventory or story state.
+
+### Activation, clocks and read cuts
+
+Validate all required contribution facets before publication. If one required
+facet cannot bind, reject the application without a partial hold or pose.
+
+The application advances once on its declared clock. A consumer reads its
+typed projection; it does not spend the interval. Preserve each migrated
+customer's current clock until a deliberate gameplay change selects another.
+In particular, a transform beat uses the unscaled simulation-step duration
+so that its own slowdown does not extend it. `WorldTime::wall_dt` is a
+per-step snapshot; no new OS-clock read belongs in this state.
+
+Publication follows the existing semantic phases. State exactly when a request
+takes effect. For example, a control request submitted in `BODY_CONTACT`
+currently affects the next brain read; this work must not silently move it
+earlier. At that next declared read cut, every term from the application sees
+the same live or retired decision. At transform expiry, defense, pose and
+clock-policy readers must not observe different lifetimes.
+
+Atomic retirement means atomic visibility at those cuts. It does not require
+one exclusive system to mutate every domain. Domain caches can rebuild in
+their own ordered systems, provided no consumer can read a stale output between
+retirement and projection.
+
+### Rollback, removal and reload
+
+Snapshot the application key, issuer occurrence, lifetime binding and state, dynamic
+parameters and the identity of the prepared meaning that interprets them.
+Retain that immutable meaning while a snapshot can name it. A rewind must not
+resolve an old application through the current replacement definition.
+
+Derived masks, resolved numbers and pose winners must rebuild from the restored
+authority before their next read. Do not independently restore a cached winner
+and a source table that can disagree.
+
+A lifetime owner's removal retires its applications through the same protocol.
+For source-bound claims this includes behavior detachment and module replacement.
+For target-owned grants it includes the target's declared retirement boundary,
+not the issuer's death. Room/session bindings follow their own boundaries.
+A replacement module at the same authored path is not the old live occurrence.
+Preserve a source-bound claim across replacement only through an admitted
+mapping. A transferred grant retains its admitted meaning until expiry or an
+explicit migration; it does not depend on the issuing module remaining loaded.
+
+Track lifetime-owner-to-target bindings when applications cross targets. Reuse
+the existing scope lifecycle; do not add a whole-world cleanup scan. A failed
+reload candidate cannot retire applications in the active generation. A
+cross-target binding does not authorize writes across independent rollback
+histories: [causal world commit](causal-world-commit.md) governs that crossing.
+
+## Phase 6 — implement the shared ownership protocol
+
+### 6a. Preserve issuer identity in control and pose
+
+Start with two independent loaded owners on the same body. Each acquires its own hold
+and pose claim. Release A while B remains active. The body stays held and
+B's pose remains available. An explicit pose policy determines the winner;
+registration order does not.
+
+Run a native `TransformBeat` over the same body. Its expiry removes only its
+pose and defense contributions. A later script pose must survive. Replace the
+per-adapter source encodings with the common application identity and typed
+owned terms. Do not fix this with one new `ControlHold` bit per script.
+
+### 6b. Make one native interval supply several domains
+
+Use Mary-O's pocket quasar in `game/ambition_demo_mary_o/src/star.rs`.
+It currently turns an equipment token into `Empowered`, projects
+untouchability/contact harm, claims music, and ends at course completion.
+
+The quasar becomes one identified application. Course completion retires the
+quasar, not an entire component that a separate empowerment can own.
+Admission transfers the interval to the body, so consumption or retirement of
+the pickup token does not retire the granted quasar.
+Presentation observes that application. Music must not infer “quasar” from
+the presence of any `Empowered` value.
+
+Keep the current refresh behavior and the current native damage path.
+Contact harm continues to submit ordinary hits. A grant does not become a
+second combat reducer. A permanent super form remains a character fact.
+
+### 6c. Reuse the protocol for numeric and capability channels
+
+Migrate one current numeric source through the same ownership and lifetime
+road. Keep its explicit refresh rule and clock. Permit two channels on one
+attribute and a lend plus ceiling from one application. Each application has
+one interval, regardless of the number of terms it supplies.
+
+Delete the migrated per-channel timers and independent cleanup rules. The
+result must remove four competing ownership protocols: script holds, script
+poses, the selected native interval, and numeric source lifetime. A utility
+that merely wraps each existing setter without taking ownership does not
+complete the slice.
+
+The existing numeric fold and typed ability/defense laws remain useful.
+Extract only the shared identity, owned-term storage and lifecycle operations
+that these customers need. Do not add a status language or periodic behavior
+scheduler. A later poison effect sends damage requests to combat.
+
+## Evidence required for completion
+
+Use a focused real-path scenario plus narrow reduction checks where needed.
+The scenario must distinguish:
+
+- two independent issuers from repeated application under one refresh key;
+- two terms on one attribute from two separate effect owners;
+- a control/pose release from removal of another owner's claim;
+- one interval's end from the continued life of a concurrent grant;
+- a rewind before application from a rewind before retirement;
+- source-bound detachment from a granted interval that survives its issuer;
+- successful replacement from a refused reload.
+
+Inspect the same semantic facts at the declared read cuts. Preserve the
+current transform/quasar/Speed Shoes behavior. Measure the empty case and the
+selected overlap case before claiming a runtime improvement. No new source-text
+guard, global census, or full-buff test matrix is required.
+
+This phase is complete when a native mechanic and independently loaded behavior
+can share one revocable application protocol without sharing their reducer,
+clock policy, schema owner or game vocabulary. The protocol must make the next
+compound mechanic require typed declarations and policy, not another set of
+paired apply/restore systems.

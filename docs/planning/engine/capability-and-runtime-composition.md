@@ -1,5 +1,13 @@
 # Capability and runtime composition
 
+**2026-11-21 planned revision:** Move from full-engine installation followed by
+omission toward explicit selected owner contributions. Keep compiled offers,
+installed native services, experience requirements and room permission as
+different facts. [Capability linking and prepared
+facets](capability-linking-and-prepared-facets.md) owns the design and bounded
+pilots. The profile receipts below describe the current implementation; this
+revision does not claim new runtime or Cargo absence.
+
 **2026-10-26 scope change:** Default minimum engine games should run deterministic fixed-step
 gameplay **without GGRS/rollback or Avian in their resolved dependency closure**; opt-in
 rollback is needed for Smash, while Mary-O/Sanic may choose level-scoped synchronization and
@@ -67,12 +75,40 @@ A passing optional-plugin suite does not prove compile closure. A green SDK
 allowlist does not prove a good API. A falling foreign-installation count does
 not prove the new installer owns the behavior.
 
+## Selection and room permission
+
+The current `shared_tangle::capability::Capability` enum serves three relations:
+plugin omission, room system gates and a partial mapping to content schemas.
+These relations are not one-to-one. Collection and held use can consume the
+same item vocabulary; an installed capture service can be permitted in one
+room and dormant in another. A compiler can understand a schema without
+installing its native interpreter.
+
+The target composition selects native service owners and their prerequisites.
+An App installs the union needed by its mounted experiences. Each experience
+declares its requirements and each room retains local use policy. Native
+plugins do not load and unload when a body changes rooms.
+
+Schema, port, construction and rewind offers must describe that selected
+composition. They must not advertise an executable operation solely because
+its metadata occurs in the repository. Keep the current four proof axes:
+deriving related offers from one selected owner does not prove dependency
+absence or runtime behavior by itself.
+
 ## Capability installation contract
 
 A capability declares required resources and services, optional integrations,
 private systems, public milestones, state scope, rollback participation and
 retirement. It owns its internal ordering. An installer is an ordinary Bevy
 function or plugin; no new trait hierarchy.
+
+The planned unit is the owner's complete contribution. Select its systems,
+preparation support, ports, typed rewind declaration and retirement together.
+Use direct typed owner functions and the existing registrars. Do not add an
+independent table that claims what an opaque plugin should have installed.
+`ModuleDraft::capability` currently stores such opaque closures; improving that
+surface must keep ordinary Bevy plugins valid while making supported service
+composition inspectable before content admission.
 
 A missing required prerequisite fails with a concrete installation or
 preparation diagnostic. Model supported absence on purpose. Do not require
@@ -160,6 +196,20 @@ Cargo features unify across paths, so an opt-out on one edge does not remove
 another edge's request. Check normal, build, dev and target closures
 separately. Do not infer binary bytes from graph counts.
 
+The hard cut can be in interpretation rather than plugin installation.
+`ActorConstructionServices` and `SessionMechanics` currently require boss
+catalogs even where boss plugins are omitted. `ambition_engine_schemas` obtains
+schemas from complete native capability crates. Adding a Cargo flag above
+these paths leaves the dependency present. Move a selected pure authored/linked
+contract below its native adapter, and let construction consume only the
+selected owner values. Do this with the existing common-body work; do not
+create a second boss body contract to preserve the old dependency.
+
+L3 and L4 in [capability linking](capability-linking-and-prepared-facets.md)
+define the bounded cutscene pilot and actual consumer graphs. An all-schema
+tool may intentionally select all contracts. A minimum runtime does not have
+to inherit that preset. Measure rebuild time separately from graph absence.
+
 **The graph the suite compiles is not the graph the game ships.** `relativity`
 is out of `all_capabilities`, and `cargo tree -e normal -p ambition_app` has no
 `ambition_relativity2d`. A `--workspace` invocation unifies features and links
@@ -171,10 +221,16 @@ feature-resolved tree and measures the right graph.
 
 ## Supported profiles
 
-**Implemented 2026-10-08 (A9).** The profile set is a registry, not a convention:
+**Current implementation, 2026-10-08 (A9).** The profile set is a registry, not a convention:
 `ambition_platformer2d_runtime::profile` declares each `EngineProfile` (name, face,
 the `Capability` set it omits) and `PlatformerEnginePlugins::for_profile` builds the
 group it names.
+
+Preserve these supported behaviors while the selected-contribution path is
+introduced. The subtraction model is an implementation to migrate, not the
+target native service taxonomy. Full/default should become a positive preset
+over the same owners that smaller compositions select. Do not drop a profile
+promise merely because the representation changes.
 
 | profile | face | omits |
 | --- | --- | --- |
@@ -268,6 +324,13 @@ registrar. Register an optional domain only when its profile includes it.
 Loading or unloading arbitrary rewind-owning native plugins at runtime is out of
 scope. Preserve wire IDs and encoding during an ownership-only move; the
 same-build policy stands.
+
+The current `register_engine_rollback_state` still composes broad built-in
+declarations independently of runtime omissions. A broad schema is not itself
+a desync. The planned selection must drive both the schema and concrete backend
+passes. Keep them typed: `RollbackRegistrar` has generic methods and cannot be
+used as an object-safe `dyn` service. Do not add type-erased rollback lookup to
+make contribution storage convenient.
 
 `crates/ambition_platformer2d_runtime/src/external_effects.rs` is a bounded
 confirmed-effects journal: replacement on resimulation, empty-frame

@@ -127,8 +127,16 @@ authority (local play, GGRS) a post is delivered at once. The witness
 host's cases: a speculative post retracted by a late input, a post held for
 another guest's input whose sender leaves play before it is admitted, a
 recipient that travelled to another room, and a recipient-room rewind across
-the admission tick. A world-domain store with persistent state, rather than a transient
-signal, is still open.
+the admission tick. Named world values now provide a persistent-state road
+through `world_values.rs`. Their held-operation outcome and replay-stable
+read contract still need the correction in
+[causal world commit](causal-world-commit.md).
+
+That plan also brings native shared-item, quest and flag consequences under
+the same boundary. A store's undo log is not proof of causal isolation:
+another room may already have used the provisional value. Keep local
+notifications immediate inside one rollback authority. Use confirmed
+domain operations and recorded destination admission across authorities.
 
 Existing deferred native action publishers still need their work ownership
 and traveling-recipient audit. A stable occurrence reference alone does not

@@ -135,6 +135,9 @@ links to.
   — target contract for the actor kernel.
 - [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md)
   — capability and plugin composition.
+- [`engine/capability-linking-and-prepared-facets.md`](engine/capability-linking-and-prepared-facets.md)
+  — typed domain linking, prepared facets, native service selection and the
+  pure-contract/native-adapter dependency boundary (planned 2026-11-21).
 - [`engine/system-composition-audit.md`](engine/system-composition-audit.md)
   — which systems each game runs, and the plan to run only what it uses.
 - [`engine/performance-and-composition-findings.md`](engine/performance-and-composition-findings.md)
@@ -181,6 +184,9 @@ links to.
   — audit and plan: a simulation rate other than 60 Hz (PLANNED).
 - [`engine/netcode.md`](engine/netcode.md) — netcode and the rollback host.
 - [`engine/island-rollback-and-compact-peer-input.md`](engine/island-rollback-and-compact-peer-input.md) — GGRS compact-input problem and conditional independent rollback branch; live portals stay local.
+- [`engine/causal-world-commit.md`](engine/causal-world-commit.md)
+  — planned correction to shared-world undo: confirmed domain operations,
+  retained decisions and replay-stable destination inputs.
 - [`engine/hosted-world-networking-experiment.md`](engine/hosted-world-networking-experiment.md) — selected authoritative-host versus GGRS experiment and per-game synchronization decision.
 - [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)
 - [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)

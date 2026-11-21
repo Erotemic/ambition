@@ -15,7 +15,9 @@ Related owners: [character authoring](character-authoring-package.md) (the
 and mechanical reload), [extension model](extension-model.md),
 [expressive move capabilities](expressive-move-capabilities.md),
 [simulation authority](simulation-authority-and-determinism.md) (rollback and
-peer determinism).
+peer determinism), and
+[capability linking and prepared facets](capability-linking-and-prepared-facets.md)
+(the shared composition context; this plan owns its resource facet).
 
 ## Decision
 
@@ -186,10 +188,12 @@ A Smash game must not install one global Limit meaning on every fighter. Q67
 
 ## Preparation boundary
 
-`PreparedCharacterDefinition` holds character-authored resource facts. It is not
-always the final binding boundary: a match can grant a moveset and a loadout can
-add a resource later. Finish the layout and bindings at the last composition
-boundary that knows all inputs:
+In the selected design, character authoring supplies resource declarations
+through the resource owner's typed facet. Composition joins them with ruleset grants,
+moves and loadout. `PreparedCharacterDefinition` is not a mandate to place
+every new capability's schema in the central character type. A match can grant
+a moveset and a loadout can add a resource later. Finish layout and role binding
+at the last composition boundary that knows all selected inputs:
 
 ```text
 prepared character facts + ruleset facets and grants + moveset + build/loadout
@@ -204,6 +208,28 @@ canonical order of stable identity and shape. Slot 0 can mean different
 resources in different layouts; the layout identity prevents cross-layout use.
 Prepare one bound move view per distinct layout rather than keep a semantic
 lookup in the move-start hot path.
+
+**One composition context, separate typed results.** The resource preparer
+consumes the admitted repertoire and role requirements. It does not decide
+character inheritance, equipment precedence, a ruleset's move overrides, or
+which move a control slot selects. Those decisions belong to their facet
+owners under the same linked generation. Do not create a second actor compiler
+inside `PreparedActorResourcePlan` to reconstruct them.
+
+`ResourceLayoutId`, `PreparedActorResourcePlanId` and the selected actor
+composition identity remain different facts. A changed cost or role binding
+can change the resource plan while retaining the layout. An unrelated art
+change need not duplicate the resource plan. Reuse an immutable facet only
+when its complete semantic inputs agree; never use a cache insertion index as
+its identity.
+
+An admitted equipment or form transition publishes compatible repertoire,
+resource bindings and plan selection at one declared semantic boundary. A
+consumer must not read new costs through old slots. The resource owner maps
+live amounts by stable resource identity and applies its stated removal and
+capacity policies. A selection change is not a reset to starting amounts.
+Prepare only selected combinations; do not enumerate the product of every
+character, ruleset and loadout. R10–R14 still govern retained plan lifetime.
 
 ## Runtime
 
@@ -232,6 +258,13 @@ with equipment or progression, prepare a compact effective cost plan at that
 change. No generic modifier language for resource values, costs or transactions.
 Numeric actor effects are a separate concern owned by
 [`actor-effects-and-modifier-composition.md`](actor-effects-and-modifier-composition.md).
+
+An effect application may supply a typed cost-policy or capacity contribution
+when a real mechanic needs it. That does not turn spending into a reversible
+modifier: expiry must not refund a payment or restore an earlier pool value.
+Rebind or reduce that policy through the resource owner, then use the ordinary
+atomic transaction. The effect's occurrence and the payment's occurrence are
+different facts.
 
 **Resource-set changes during play** create or select a new layout through an
 explicit admitted transition that maps stable identities and applies an

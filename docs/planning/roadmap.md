@@ -44,15 +44,16 @@ in [tracks](tracks.md).
 | Authored gameplay data (moves, characters, rules, items, quests, dialogue, encounters, audio registry) | Save source -> compile/validate pack -> admit -> reconstruct affected session -> observe; **no Cargo or host link** | Implemented for many families; coverage and duplicate Rust readers remain. [Content generation](engine/content-generation-and-reload.md), [I2/I3](engine/fast-iteration-implementation.md), [content-as-data queue](queue.md#content-as-data--content-still-written-as-rust) |
 | LDtk rooms and spatial relationships | Edit -> semantic validation -> candidate world rebuild -> observe; **no host link** | World reload and semantic tools exist; field authorability, typed references, diagnostics and integration with other candidate changes remain. [LDtk tools](engine/ldtk-authoring-and-world-tools.md) |
 | Images, sprite rigs, music, SFX and shaders | Produce/choose local asset -> select -> restart or safe visual refresh; **no host link** | Published assets and some live restatement exist; selected-file/tool agreement and inexpensive publish/preview remain. [Asset library](engine/asset-library-editor-and-delivery.md), [asset preparation](engine/asset-preparation-and-residency.md) |
-| Custom gameplay algorithm with new state | Build **small independent** Rust/WASM module -> admit -> run/rebase -> observe; **no host link**, but the module still compiles | WASM backend and shipped migrated customers exist. Lifecycle cleanup, complete domain coverage, scenario-level reload and scaling proof remain. [Extension model](engine/extension-model.md), [execution](engine/extension-state-and-execution.md) |
-| Literal no-compiler custom algorithm | Edit an interpreted script -> admit -> observe; **no module compilation** | Not a shipped guarantee. Lua/Rhai or another interpreter is a conditional binding choice; it must use the existing procedural state/port contract, not a second authority. [Extension model](engine/extension-model.md#two-scripting-modes-one-procedural-contract) |
+| Custom gameplay algorithm with new state | Build **small independent** Rust/WASM module -> admit -> run/rebase -> observe; **no host link**, but the module still compiles | The [first-class authoring receipt](engine/first-class-procedural-game-authoring.md#acceptance-receipt) proves the selected Linux project through Rhai, WASM and linked Rust, with documented limits. New services extend the existing domain contract. |
+| Literal no-compiler custom algorithm | Edit a Rhai script -> admit -> observe; **no module compilation** | Implemented. The [script-first completion handoff](engine/script-first-ambition-gameplay.md#completion-handoff-2026-11-20) records C1-C7 and Bridge Warden. Broader platform or mechanic claims need their own evidence; the interpreter choice is no longer an unbuilt proposal. |
 | New physics/simulation/renderer service or native Bevy plugin | Build/test engine source | Intentionally outside the no-host-rebuild content promise. [Architecture](engine/architecture.md), [SDK](engine/public-sdk-1.0.md) |
 
-**Current coverage:** the core ownership and extension model is specified and
-substantially implemented, but the whole *author-to-running-game-to-release*
-path is not yet one proven product contract. Do not call a reload family complete
-because a watcher fired, a schema parsed, or an artifact was accepted without
-observing the changed behavior in the actual host.
+**Current coverage:** first-class procedural authoring has an A1-A10 receipt
+for the selected Linux project; the script-first gate is complete as of
+2026-11-20. Reuse those proofs. The gates below still cover other content,
+composition and platform boundaries, but they must not restart the completed
+program. Each new claim names its actual host, prepared selection, observed
+behavior and release scope.
 
 ### Dependency-ordered completion gates
 
@@ -153,6 +154,39 @@ not require a Godot clone, a language marketplace, no engine compilation ever,
 background simulation everywhere, or a new central ECS. Keep the broader game
 and runtime programs below active independently when their real customers demand
 work.
+
+## Structural composition revision (2026-11-21)
+
+The [architecture review](engine/architecture.md#structural-direction-from-the-2026-11-21-review)
+changes the implementation path through the gates above. Its evidence comes
+from source at `6895e5168638`; the proposed changes are not implemented.
+[ARCHITECTURE-COMPOSITION](queue.md#architecture-composition--link-owned-facts-and-preserve-causal-boundaries)
+selects the bounded work.
+
+| Architectural result | Revision to the existing roadmap |
+| --- | --- |
+| One owner interprets each selected domain fact | Add typed binding after declarations and references resolve. Domain-owned prepared facets replace repeated catalog interpretation in character, construction and candidate contexts. |
+| Optional services have honest boundaries | Separate compiled code, installed native services and room permission. Pure authoring contracts sit below native adapters. The full-game profile is an explicit preset. |
+| Compound gameplay can share state without sharing ownership | Preserve issuer, application, refresh and contribution-channel identity. Typed control, pose, ability and numeric reducers consume one declared lifetime. |
+| Independent room histories stay independent | Replace externally visible shared-store undo with confirmed typed operations and recorded destination admission. Local speculative feedback follows its actual authority. |
+| Authored structures can be reused | Bind stable local child keys and explicit external slots through current construction; prove two different mechanisms before adding a general format. |
+| Incremental preparation is sound and explorable | Derive inspection and reuse from definition uses, actual input observations and immutable product selection. Retain selected mechanical product versions through publication. |
+
+The linking work improves G1/G3 and the G5 consumer boundary. Contribution
+ownership and local assemblies improve G2. Derived binding explanations
+improve G4. The causal correction applies when those mechanics cross
+independent simulation histories; it does not block a local game.
+
+Definition linkage, body specialization and live eligibility have different
+lifetimes. Equipping an item does not reload the content generation. A changed
+generation can reuse unchanged facet values, while its selection receipt
+still names the complete admitted combination.
+
+The first dependency experiment is a bounded pure-format/native-adapter cut.
+Prove its independent consumer's resolved graph and then measure the actual
+edit loop. No numerical compile-time improvement follows from this review.
+The [prevalidated-artifact hold](engine/prevalidated-content-artifacts.md)
+remains in force.
 
 ## Engineering priority order
 

@@ -20,6 +20,80 @@ Workspace-policy rows (`source_doc`) and Rust comments cite this path. When you
 move a rule out of this page, move the argument with it and update the citing
 rows in the same commit.
 
+## Structural direction from the 2026-11-21 review
+
+**State:** planned changes, reviewed against source
+`6895e516863872eb6d38093a27225ed8e2973d70`. No new runtime or compile-time
+result is claimed. [The queue](../queue.md) selects implementation.
+
+The next work removes repeated interpretations of the same facts. Three
+distinctions guide it:
+
+- A definition, an application of that definition, and the contributions
+  owned by that application have different identities.
+- Code compiled into a program, services installed in an App, and behavior
+  permitted in one experience are different selections.
+- A speculative local result and a committed fact another history may use
+  have different lifetimes.
+
+The current engine already preserves these distinctions in several strong
+boundaries: hidden candidate publication, stable object occurrences, domain
+action receipts and confirmed world posts. Apply those meanings where
+central structs, category bits or undo logs currently discard them.
+
+| Direction | Knowledge or duplicate path to remove | Owner and first proof |
+| --- | --- | --- |
+| Link capability-owned prepared facts | The central character/context must know each optional domain's fields; reference validation is separate from the lowered value it claims to prove | [Capability linking and prepared facets](capability-linking-and-prepared-facets.md): character/repertoire binding and a bounded pure-format consumer |
+| Preserve contribution occurrence identity | A category bit or one source/attribute slot stands in for several independent grants and terms | [Actor effects](actor-effects-and-modifier-composition.md): overlapping script holds/poses and a native transform, with typed reducer laws |
+| Commit cross-history consequences | Shared-store inverse logs try to repair decisions made by independent readers | [Causal world commit](causal-world-commit.md): dependent grant/spend and a held compare-and-set refusal |
+| Bind reusable authored instances | Scripts repeat child creation and relationship wiring that construction already knows how to verify | [World composition](reusable-authored-world-composition.md): existing local bindings, then two different authored structures |
+| Reuse preparation from observed inputs | A reference graph or broad repository digest is treated as the complete reason a product is current | [Content generation](content-generation-and-reload.md), [asset delivery](asset-library-editor-and-delivery.md): distinct use, computation and product edges |
+
+These directions reinforce one another without requiring one framework.
+The content linker resolves immutable domain inputs. The constructor gives
+one live occurrence those inputs. A temporary contribution has its own
+issuer and retirement. A world operation states when another authority can
+observe its result. Do not merge these into one generic object, transaction
+or registry type.
+
+### Revision to dependency and ownership work
+
+Move pure schemas and binders below their native ECS adapters when a real
+authoring consumer needs that boundary. Select services positively and keep
+room permission separate. A domain supplies its own typed preparation,
+construction, install, rollback and port participation; the composition root
+supplies the selected combination and cross-domain milestones.
+
+The target removes catalog-specific knowledge from common construction.
+Moving the same catalog union to another crate does not achieve it. An
+absent boss service, for example, must not require an empty boss catalog
+merely to satisfy a common body-building context.
+
+Bevy plugins remain the native installation mechanism. The backend-neutral
+rollback registrar has generic typed methods; do not make it a dynamic
+service locator to force all contributions through one object-safe trait.
+The all-schema CLI and full-game preset may intentionally select a broad
+set. Their convenience does not define the minimum consumer.
+
+### Order and evidence
+
+Correct the causal contract when extending independent-room world writes.
+The effect-ownership pilot can run independently. The linker pilot removes
+one repeated interpretation, then one justified format/adapter dependency
+cut proves the compile claim. Authored assemblies reuse the existing local
+reference pass. General incremental reuse follows complete input evidence.
+
+Keep BOSS-CHARACTER's common body seed as a current customer; do not make
+every remaining actor carve a prerequisite. Do not reopen completed
+script-first, part-first, editor-shell or numeric-effect work. The new proof
+is composition across those boundaries.
+
+Use one source-derived explanation of each selected definition and binding
+to improve exploration: authored field, selected provider, domain binder,
+prepared facet, native consumer and refusal. Feed that projection to the
+existing query/editor tools. Do not create a second manually maintained
+concept catalog or require a new planning document to author each mechanic.
+
 ## Converged shape
 
 Code against these facts. Each one is in source and has a guard.
@@ -27,7 +101,7 @@ Code against these facts. Each one is in source and has a guard.
 | Fact | Where it is |
 | --- | --- |
 | **Crate tiers.** Engine crates live under `crates/`. Named games, providers, content and app shells live under `game/`. | workspace `Cargo.toml`; policy `repository.tier-manifests-exist` |
-| **One session root.** Live platformer world state (`RoomSet`, `RoomGeometry`, `StartingCharacter`, `LdtkRuntimeIndex`, encounter music requests) is a set of components on the exact `SessionRoot` entity. There is exactly one `SessionRoot`, alive or hidden. No process `Resource` and no projection bridge holds this state. | `ambition_platformer2d_shared_tangle::lifecycle::session::{SessionRoot, session_world_component}`; policy `engine.canonical-session-world-only` |
+| **One session root.** Live platformer world state (`RoomSet`, `RoomGeometry`, `StartingCharacter`, `LdtkRuntimeIndex`, encounter music requests) is a set of components on the exact `SessionRoot` entity. A running session has one active `SessionRoot`; hidden candidate sessions carry `CandidateSessionRoot` until publication. No process `Resource` and no projection bridge holds this state. | `ambition_platformer2d_shared_tangle::lifecycle::session::{SessionRoot, session_world_component}`; policy `engine.canonical-session-world-only` |
 | **Candidate-world publication.** A reload or room transaction builds a hidden candidate. Candidate roots carry the disabling component `InactiveCandidate`, so ordinary queries do not see them. A candidate session carries `CandidateSessionRoot`, not `SessionRoot`. Publication removes the component (`publish_candidate`, `publish_candidate_session`). Recipes receive `ConstructionRootCtx` / `RootScope`, which expose no `Commands`. | `ambition_platformer2d_shared_tangle::construction`; absence contracts `only-the-candidate-builder-hides-a-root`, `only-the-publication-authority-publishes-a-candidate` |
 | **Frozen session cast.** A running session reads the cast its generation was prepared against (`ActiveSessionCast`), through `SessionCast`. With no session, readers see the published cast. Generation inputs that a candidate must see at N+1 travel in `PendingGenerationInputs`, not through global publication. | `ambition_characters::session_cast`; `ambition_platformer2d_runtime::content_identity::PendingGenerationInputs` |
 | **Several live rooms.** Each live room is a `RoomInstanceRoot` entity with a `LiveRoomInstance` and a `LiveRoomDefinition`. Entities carry `InRoomInstance`. `LiveRooms` answers which room an entity is in. `RoomSet::activation` is a prepared fact, read only when a session activates. | `ambition_platformer2d_shared_tangle::lifecycle::room_instance`; `game/ambition_app/tests/two_players_two_live_rooms.rs` |

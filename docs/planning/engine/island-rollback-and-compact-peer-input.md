@@ -4,6 +4,26 @@
 **Execution:** [SIMULATION-ISLANDS](../queue.md#simulation-islands--room-level-rollback-inside-a-hybrid-world) (selected 2026-11-10); [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs) builds the hosted half; [NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) (done) compacted the current GGRS hot path.
 **Owners:** [netcode](netcode.md), [peer room commits](peer-room-commit-protocol.md), [open-world residency](open-world-runtime-and-residency.md), [simulation authority](simulation-authority-and-determinism.md), [multiplayer/multiview](multiplayer-and-multiview.md).
 
+## Current architecture correction: shared values need causal isolation
+
+**Planned 2026-11-21:** [causal world commit](causal-world-commit.md)
+revises the shared-store part of ISL-2d. The existing inverse/undo logs can
+restore a writer's values. They cannot undo another room's decisions made
+from those provisional values. A shared bag grant that another room spends
+is the first required witness.
+
+The target is local speculative state, confirmed typed world operations and
+recorded destination admission. Reuse the existing world-post road. Native
+items, quests and flags must have the same causal boundary as portable
+world-value requests. Held acceptance remains nonterminal until the domain
+applies or refuses the operation.
+
+The dated retraction receipts below describe implemented behavior. They are
+useful migration evidence; they do not establish that arbitrary readers in
+independent rooms are isolated. Keep the selected room topology, transport
+work and successful local replay proofs. Execute CW1-CW3 at the shared-world
+boundary before extending that boundary to more gameplay domains.
+
 ## Why this work was selected, and what it measured
 
 Until 2026-11-10 `ambition_platformer2d_rollback_ggrs/src/peer_input.rs` serialized a fixed-width `PeerInput` of **168 bytes per player per frame** at wire identity 8: **72 bytes** of `ControlFrame` plus **96 bytes** of `PeerVerdict` (operation, two content identities, plan digest, verdict), paid even when no room operation was pending. Wire identity 9 replaces the verdict with an 8-byte `PeerVerdictToken`, so a `PeerInput` is **80 bytes**. See [the result below](#result-2026-11-10).
@@ -253,18 +273,15 @@ restore would then take back two grants for one coin. An idempotent world write
 (the save's flag) survives a replay that repeats it, but would stay wrong after
 a replay in which the pickup no longer happens.
 
-**Design (chosen, not built):** a world record written from a room carries the
-room and the tick (`SimTick`) it was written on. A room rewind to tick N
-announces itself (room, N), and each world store that takes room writes
-retracts that room's records after N; the replay writes them again. An
-overwrite (a save flag) keeps the value it replaced, so the retraction restores
-it. The alternative, holding a room's world writes in an outbox until its
-frames are confirmed, delays every world consequence by the rollback window
-and needs read-your-own-writes; retraction keeps world facts immediate. It is
-built with the room rollback host (the code that decides when a room rewinds),
-not before it: today only tests restore a room. Its first customers are the
-grant record and the save's pickup flags; the census of world stores written
-from rooms comes with it.
+**Design revision (2026-11-21):** the implemented room/tick logs below remove
+duplicate writes and restore the writer's values. The previous choice of
+eager shared writes in place of confirmed admission is superseded by
+[causal world commit](causal-world-commit.md). Retraction does not repair an
+independent reader that already acted on the value. Keep speculative effects
+local, then admit cross-history operations at the owning world domain.
+Private pending work can still use room/tick retraction. Local body state
+does not acquire network latency merely because shared world state requires
+confirmation.
 
 **Built, first customer (review 2026-11-10, finding 7):** the retraction
 mechanism is in `ambition_platformer2d_shared_tangle::lifecycle::room_writes`:
@@ -333,6 +350,12 @@ they must be unique and ordered, not equal, and
 the checkpoint baselines (written at a commit), the Smash match state (one
 rollback domain), the portals (the portal owner's), and the conversation,
 the cutscene and the bullet-time scale (ISL-1b couplings).
+
+**Limit of the dated keyed-store receipts:** the following distinguishes
+write arithmetic. It does not prove that foreign readers cannot observe a
+provisional result. Migrate externally visible consequences through
+[CW1-CW3](causal-world-commit.md#implementation-packets); do not generalize
+these undo rules into the final shared-world protocol.
 
 ⭐ **TWO KINDS OF KEYED STORE.** A key one room owns (an occurrence, a
 feature, a participant) can be put back to the value it had: nothing else

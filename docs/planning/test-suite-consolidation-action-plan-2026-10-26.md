@@ -209,6 +209,22 @@ oracle sweep unless an equivalent tool has taken their place.
 and where an agent should now go for diagnosis. Do not delete probes solely
 because `#[ignore]` appears above them.
 
+**Classified 2026-11-21 (first review queue):**
+
+| Ignored test | Role | Action |
+|---|---|---|
+| `sky_census::pirate_sky_sfx_census` | superseded | Deleted. Question: why was `pirate_sky_lookout` loud while its pirates were inert? Closed: the inert pirates were posted outside the player's view, fixed by the crew call-out and pinned in `pirate_sky_crew`. The sound question goes to the `room_census` tool (`ambition_app_tools`), which attributes every `SfxMessage` kind to a body; this census counted only `Play`. |
+| `enemy_body_scale::print_enemy_bodies_against_the_player` and its control `the_enemy_body_report_is_actually_measuring_something` | superseded | Deleted. Question: are enemies too big against the player? The module doc said it could not answer: it compared sheet-pixel boxes across sheets of different densities. The control existed only to keep that report honest. Diagnosis now: `every_characters_drawing_is_the_size_of_the_body_it_collides_with`. |
+| `enemy_body_scale::print_the_two_render_size_publishers` | superseded | Deleted. Question: do the two render-size publishers agree? Now asserted over every character by `every_characters_drawing_is_the_size_of_the_body_it_collides_with`, which reads the same `publishers()` helper. |
+| `enemy_body_scale::print_the_height_each_legacy_row_already_has` | superseded | Deleted. Question: what `standing_height` should each of nineteen legacy-road rows author? Closed: all nineteen author one (checked in `character_catalog.ron`). |
+| `hall_redecode_census::the_halls_entry_is_counted_for_art_it_decodes_twice` | needs process isolation | Kept, with its runner `scripts/measure/measure_hall_redecodes.sh`. |
+| `smash_cpus_damage_each_other::every_fighter_on_the_grid_can_fight_its_mirror` | measurement with a stated use (validating a scoring change) | Kept. |
+| `smash_cpus_damage_each_other::probe_where_the_goblin_pca_hit_events_come_from` | diagnostic | Kept as an opt-in probe. The sibling test asserts only the per-tick burst ceiling, not the hit rate this probe attributes. The rate question could not be rechecked here: on this VM the Smash start waits for music. |
+
+`enemy_body_scale::` passes (1 test). Next: the 14 probes in
+`a_bag_changed_mid_window_reaches_the_save.rs`, after checking Q135's
+current state.
+
 ## Step 4: consolidate repeated inputs, not the behaviors
 
 - `carried_item_crosses_rooms.rs`: share custody/identity observations; keep

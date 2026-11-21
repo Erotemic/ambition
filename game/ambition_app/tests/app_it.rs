@@ -306,7 +306,6 @@ mod shell_host_rendered;
 mod shell_host_startup;
 mod shield_ring_probe;
 mod sim_phase_pins;
-mod sky_census;
 mod smash_cpu_cognition;
 mod smash_cpus_damage_each_other;
 mod smash_in_the_host;

@@ -1,102 +1,19 @@
-//! so this asks the SHEET, at `world_per_pixel = 1.0`, which answers in
-//! sheet pixels — the unit the generator works in, and the same choice
-//! `hall_scale_spread` makes for the same reason.
+//! The picture is the body: every character's drawn quad is the size of the
+//! box it collides with, and the two render-size publishers agree.
 //!
-//! Run the report:
-//!
-//! ```text
-//! cargo test -p ambition_app --test app_it enemy_body_scale -- --ignored --nocapture
-//! ```
-//!
-//! AND THE REPORT BELOW CANNOT ANSWER THE QUESTION IT WAS POINTED AT
-//! . `print_enemy_bodies_against_the_player` asks
-//! [`posed_body_geometry`] at `world_per_pixel = 1.0`, so its `collision` column
-//! is the sheet's body bbox in sheet pixels and its `render` column is the
-//! sheet's FRAME in sheet pixels. Both are facts about a generated `.ron` file.
-//! Its `x_vs_p` / `y_vs_p` columns divide the COLLISION column by the player's,
-//! across sheets with completely different pixel densities. No change to any
-//! sizing code can move a single number in it — only regenerating art can.
-//! It was cited three times as the falsifier for the bbox-quad route; it is not
-//! one.
-
-use ambition_platformer2d::character_sprites::posed_body_geometry;
-use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
-
-/// The player is the ruler: "too big" is a statement about a RATIO, and this is
-/// its denominator.
-const REFERENCE: &str = "player_robot_v3";
-
-const SUBJECTS: &[&str] = &["player_robot_v3", "solid_snake", "ai_slop", "mary_o_v2"];
-
-fn measured(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, target: &str) -> Option<(f32, f32, f32, f32)> {
-    let g = posed_body_geometry(&sprite_content, target, CharacterAnim::Idle, 1.0)?;
-    Some((g.collision.x, g.collision.y, g.render.x, g.render.y))
-}
-
-/// The instrument. Prints each subject's body box and drawn quad in sheet
-/// pixels, and both as a multiple of the player's.
-#[test]
-#[ignore]
-fn print_enemy_bodies_against_the_player() {
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let Some((ref_w, ref_h, _, _)) = measured(&sprite_content, REFERENCE) else {
-        println!("[skip] no baked sheet for {REFERENCE} — run ./scripts/regen/sprites.sh");
-        return;
-    };
-    println!(
-        "{:>18} {:>13} {:>13} {:>8} {:>8}",
-        "target", "collision", "render", "x_vs_p", "y_vs_p"
-    );
-    for target in SUBJECTS {
-        match measured(&sprite_content, target) {
-            Some((cw, ch, rw, rh)) => println!(
-                "{target:>18} {:>6.0}x{:<6.0} {:>6.0}x{:<6.0} {:>7.2}x {:>7.2}x",
-                cw,
-                ch,
-                rw,
-                rh,
-                cw / ref_w,
-                ch / ref_h
-            ),
-            None => println!("{target:>18} (no baked sheet)"),
-        }
-    }
-}
-
-/// The instrument cannot rot silently.
-#[test]
-fn the_enemy_body_report_is_actually_measuring_something() {
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    // SKIP, not fail, when the baked art is absent: sheets are generated and
-    // gitignored, so a clean checkout has none, and a source test that goes red
-    // because a working tree was not rendered teaches people to ignore it.
-    let Some((ref_w, ref_h, _, _)) = measured(&sprite_content, REFERENCE) else {
-        eprintln!("[skip] no baked character sheets — run ./scripts/regen/sprites.sh");
-        return;
-    };
-    assert!(
-        ref_w > 0.0 && ref_h > 0.0,
-        "the reference body measured {ref_w}x{ref_h}, which is not a measurement"
-    );
-    for target in SUBJECTS {
-        let Some((cw, ch, rw, rh)) = measured(&sprite_content, target) else {
-            panic!(
-                "`{target}` has no baked sheet while `{REFERENCE}` does, so the \
-                 report above would print one row and look complete"
-            );
-        };
-        assert!(
-            cw > 0.0 && ch > 0.0 && rw > 0.0 && rh > 0.0,
-            "`{target}` measured a zero-sized body or quad"
-        );
-    }
-}
+//! The print-only instruments that measured this before it was asserted
+//! were retired on 2026-11-21 (git history has them). One printed body
+//! boxes in sheet pixels and could not answer the size question. One printed
+//! the two publishers, which the test below now asserts over every
+//! character. One printed the heights legacy-road rows would author, and
+//! all nineteen of those rows author `standing_height` now.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // What the RENDERER draws, against the box the body actually collides with.
 // ─────────────────────────────────────────────────────────────────────────────
 
 use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
+use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 use ambition_platformer2d::assets::character_sprites::{
     sheet_for_character_id_in, sprite_body_collision_for_character_id_in,
 };
@@ -156,87 +73,6 @@ fn publishers(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteConten
         ),
         stretch: (render_quad.x / frame.x) / (render_quad.y / frame.y).max(f32::EPSILON),
     })
-}
-
-/// The instrument for the bbox-quad route. For every character the shipped
-/// host registers: the box it collides with, what each of the two publishers
-/// sizes its quad to, and what the renderer's quad actually draws.
-///
-/// ```text
-/// cargo test -p ambition_app --test app_it -- \
-///     enemy_body_scale::print_the_two_render_size_publishers --ignored --nocapture
-/// ```
-#[test]
-#[ignore]
-fn print_the_two_render_size_publishers() {
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
-    let catalog = app.world().resource::<CharacterCatalog>();
-    let mut ids: Vec<&String> = catalog.iter().map(|(id, _)| id).collect();
-    ids.sort();
-
-    let mut rows: Vec<(String, Publishers)> = Vec::new();
-    for id in ids {
-        if let Some(measured) = publishers(&sprite_content, catalog, id) {
-            rows.push((id.clone(), measured));
-        }
-    }
-    if rows.is_empty() {
-        println!("[skip] no baked character sheets — run ./scripts/regen/sprites.sh");
-        return;
-    }
-    rows.sort_by(|a, b| {
-        (a.1.render_ink.y / a.1.body.y)
-            .partial_cmp(&(b.1.render_ink.y / b.1.body.y))
-            .unwrap()
-    });
-
-    println!(
-        "{:>34} {:>13} {:>13} {:>13} {:>13} {:>8} {:>8} {:>8}",
-        "character",
-        "box",
-        "quad(catalog)",
-        "quad(render)",
-        "drawn(render)",
-        "drawn/box",
-        "y",
-        "stretch"
-    );
-    for (id, m) in &rows {
-        println!(
-            "{id:>34} {:>5.1}x{:<7.1} {:>5.1}x{:<7.1} {:>5.1}x{:<7.1} {:>5.1}x{:<7.1} \
-             {:>8.2} {:>8.2} {:>8.3}",
-            m.body.x,
-            m.body.y,
-            m.catalog_quad.x,
-            m.catalog_quad.y,
-            m.render_quad.x,
-            m.render_quad.y,
-            m.render_ink.x,
-            m.render_ink.y,
-            m.render_ink.x / m.body.x,
-            m.render_ink.y / m.body.y,
-            m.stretch,
-        );
-    }
-    let ratios: Vec<f32> = rows
-        .iter()
-        .map(|(_, m)| m.render_ink.y / m.body.y)
-        .collect();
-    let lo = ratios.iter().cloned().fold(f32::MAX, f32::min);
-    let hi = ratios.iter().cloned().fold(f32::MIN, f32::max);
-    let disagree = rows
-        .iter()
-        .map(|(_, m)| (m.render_quad.y / m.catalog_quad.y.max(f32::EPSILON) - 1.0).abs())
-        .fold(0.0f32, f32::max);
-    println!(
-        "\n{} characters measured.\n  drawn/collided height: {lo:.2} .. {hi:.2} \
-         (spread {:.2}x) — 1.00 is 'the picture is the body'.\n  \
-         worst disagreement between the two publishers: {:.1}%",
-        rows.len(),
-        hi / lo.max(f32::EPSILON),
-        disagree * 100.0,
-    );
 }
 
 /// The picture is the body, and the two publishers say the same thing.
@@ -301,64 +137,4 @@ fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
         wrong.len(),
         wrong.join("\n"),
     );
-}
-
-/// WHAT EACH LEGACY-ROAD CHARACTER MEASURES UNDER ITS OWN SPAWN BOX.
-///
-/// ⛔⛔ `print_the_two_render_size_publishers` asks every character the same
-/// question with `LDTK_PLACEMENT` — a generic humanoid rectangle no boss room
-/// uses — and on the legacy road (`body_kind` with no default height) the answer
-/// is `body_px × ldtk_max × collision_scale / FRAME_H`, so it scales with the
-/// box. Quoting that table as "today's size" for a boss would resize it.
-///
-/// ⭐ THIS ASKS THE PRODUCTION FUNCTION WITH THE REAL BOX, so the number a row
-/// should author is read rather than derived. The boxes are the ones every
-/// `.ldtk` under `game/ambition_map_assets` places these characters with,
-/// measured 2026-08-28; each of these nineteen has exactly ONE, which is what
-/// makes authoring its height a road-swap and not a decision.
-#[test]
-#[ignore]
-fn print_the_height_each_legacy_row_already_has() {
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    const BOXES: &[(&str, f32, f32)] = &[
-        ("npc_bear_mauler", 48.0, 80.0),
-        ("npc_boss", 48.0, 80.0),
-        ("npc_dark_lord", 48.0, 80.0),
-        ("npc_flying_spaghetti_monster_boss", 48.0, 80.0),
-        ("npc_hunny_horror_boss", 48.0, 80.0),
-        ("npc_mantis_lancer", 48.0, 80.0),
-        ("npc_mockingbird_boss", 48.0, 80.0),
-        ("npc_raptor_stalker", 48.0, 80.0),
-        ("npc_smart_house", 48.0, 80.0),
-        ("npc_smirking_behemoth_boss", 48.0, 80.0),
-        ("npc_trex_enemy", 48.0, 80.0),
-        ("imperfect_cellular_automaton", 32.0, 48.0),
-        ("npc_hand_saint", 32.0, 48.0),
-        ("npc_le_beast", 32.0, 48.0),
-        ("npc_ninja_heavy", 32.0, 48.0),
-        ("npc_puppy_slug_variant2", 32.0, 48.0),
-        ("npc_puppy_slug_velvet", 32.0, 48.0),
-        ("npc_viking_heavy_shieldmaiden", 32.0, 48.0),
-        ("npc_viking_heavy_warrior", 32.0, 48.0),
-    ];
-    let app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
-    let catalog = app.world().resource::<CharacterCatalog>();
-    println!(
-        "{:>36} {:>10} {:>18}",
-        "character", "spawn box", "derived w x h"
-    );
-    for (id, w, h) in BOXES {
-        match sprite_body_collision_for_character_id_in(&sprite_content,
-            &Default::default(),
-            catalog,
-            id,
-            Vec2::new(*w, *h),
-        ) {
-            Some(derived) => println!(
-                "{id:>36} {:>4.0}x{:<5.0} {:>8.2} x {:<8.2}",
-                w, h, derived.collision.x, derived.collision.y
-            ),
-            None => println!("{id:>36} {:>4.0}x{:<5.0}   (no sheet)", w, h),
-        }
-    }
 }

@@ -286,6 +286,15 @@ impl BossCatalog {
     }
 }
 
+/// The image a boss sheet names for a character's art: its `spritesheet`,
+/// relative to the sprites folder boss images are named in. `None` for a
+/// sheet outside that folder.
+pub fn boss_image_of_character(
+    entry: &ambition_characters::actor::character_catalog::CharacterCatalogEntry,
+) -> Option<String> {
+    entry.spritesheet().strip_prefix("sprites/").map(str::to_owned)
+}
+
 /// A provider's boss art keys, authored as one RON file beside its sheets.
 #[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -393,6 +402,35 @@ impl BossCatalogFragment {
         boss_sheets_ron: &str,
         art: BossArtKeys,
     ) -> Result<Self, BossCatalogAssemblyError> {
+        Self::from_prepared_with_characters(
+            provider_id,
+            fallback_boss_id,
+            fallback_sheet_key,
+            behaviors,
+            encounters,
+            boss_sheets_ron,
+            art,
+            None,
+        )
+    }
+
+    /// [`Self::from_prepared`], where the sheet a boss wears is drawn from
+    /// its character's image: the image of each behaviour's sheet is the
+    /// `spritesheet` of the character the behaviour is an instance of, read
+    /// from `characters`. `art.sprite_filenames` names only the sheets no
+    /// boss character draws (a fallback sheet, a mount's), and naming one a
+    /// character draws is refused: one image, one authority.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_prepared_with_characters(
+        provider_id: impl Into<String>,
+        fallback_boss_id: Option<impl Into<String>>,
+        fallback_sheet_key: Option<impl Into<String>>,
+        behaviors: BTreeMap<String, BossBehaviorProfile>,
+        encounters: BTreeMap<String, BossEncounterSpec>,
+        boss_sheets_ron: &str,
+        mut art: BossArtKeys,
+        characters: Option<&ambition_characters::actor::character_catalog::CharacterCatalogData>,
+    ) -> Result<Self, BossCatalogAssemblyError> {
         let provider_id = provider_id.into();
         let sheets =
             ron::from_str::<BTreeMap<String, BossSheetSpec>>(boss_sheets_ron).map_err(|error| {
@@ -401,6 +439,36 @@ impl BossCatalogFragment {
                     message: error.to_string(),
                 }
             })?;
+        if let Some(characters) = characters {
+            for behavior in behaviors.values() {
+                // The sheet this behaviour wears by its own name: its
+                // `sprite_target` when that is a sheet, else its id.
+                let Some(key) = behavior
+                    .sprite_target
+                    .as_deref()
+                    .filter(|target| sheets.contains_key(*target))
+                    .or_else(|| sheets.contains_key(&behavior.id).then_some(behavior.id.as_str()))
+                else {
+                    continue;
+                };
+                let Some(entry) = characters.characters.get(&behavior.character) else {
+                    continue;
+                };
+                let Some(image) = boss_image_of_character(entry) else {
+                    continue;
+                };
+                let image = image.as_str();
+                if let Some(named) = art.sprite_filenames.get(key) {
+                    return Err(BossCatalogAssemblyError::SpriteFilenameBesideCharacter {
+                        provider_id,
+                        sheet_key: key.to_string(),
+                        filename: named.clone(),
+                        character: behavior.character.clone(),
+                    });
+                }
+                art.sprite_filenames.insert(key.to_string(), image.to_string());
+            }
+        }
         let fragment = Self {
             provider_id,
             fallback_boss_id: fallback_boss_id.map(Into::into),
@@ -801,6 +869,14 @@ pub enum BossCatalogAssemblyError {
         provider_id: String,
         sheet_key: String,
     },
+    /// The art keys name an image for a sheet a boss character draws: its
+    /// image is the character's, so a second name for it is refused.
+    SpriteFilenameBesideCharacter {
+        provider_id: String,
+        sheet_key: String,
+        filename: String,
+        character: String,
+    },
     InvalidSpecialAnimation {
         provider_id: String,
         special: String,
@@ -897,6 +973,11 @@ impl fmt::Display for BossCatalogAssemblyError {
                 f,
                 "boss catalog fragment '{provider_id}' has sheet '{sheet_key}' without a sprite filename"
             ),
+            Self::SpriteFilenameBesideCharacter { provider_id, sheet_key, filename, character } => write!(
+                f,
+                "boss catalog fragment '{provider_id}' names '{filename}' for sheet '{sheet_key}', \
+                 which its character '{character}' draws: delete the art key, the image is the character's"
+            ),
             Self::InvalidSpecialAnimation { provider_id, special } => write!(
                 f,
                 "boss catalog fragment '{provider_id}' has invalid special-animation row '{special}'"
@@ -989,24 +1070,42 @@ pub fn ambition_encounter_sources() -> Vec<String> {
         .collect()
 }
 
+/// Ambition's boss fragment from its source files, its sheets drawn from its
+/// characters as the shipped composition draws them.
+#[cfg(any(test, feature = "test-support"))]
+pub fn ambition_test_fragment(provider: &str) -> BossCatalogFragment {
+    let sources = ambition_encounter_sources();
+    let mut encounters = BTreeMap::new();
+    for source in &sources {
+        let spec = ron::from_str::<BossEncounterSpec>(source).expect("Ambition's encounter parses");
+        encounters.insert(spec.id.clone(), spec);
+    }
+    let behaviors = ron::from_str::<BTreeMap<String, BossBehaviorProfile>>(include_str!(
+        "../../../game/ambition_content/assets/data/boss_profiles.ron"
+    ))
+    .expect("Ambition's boss profiles parse");
+    let characters = ron::from_str::<ambition_characters::actor::character_catalog::CharacterCatalogData>(
+        include_str!("../../../game/ambition_content/assets/data/character_catalog.ron"),
+    )
+    .expect("Ambition's character catalog parses");
+    BossCatalogFragment::from_prepared_with_characters(
+        provider,
+        Some("clockwork_warden"),
+        Some("gradient_sentinel"),
+        behaviors,
+        encounters,
+        include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
+        BossArtKeys::from_ron(include_str!("../../../game/ambition_content/assets/data/boss_art_keys.ron"))
+            .expect("Ambition's boss art keys parse"),
+        Some(&characters),
+    )
+    .expect("Ambition boss fixture should be valid")
+}
+
 #[cfg(any(test, feature = "test-support"))]
 pub fn test_boss_catalog() -> &'static BossCatalog {
     static CATALOG: std::sync::LazyLock<BossCatalog> = std::sync::LazyLock::new(|| {
-        let sources = ambition_encounter_sources();
-        let encounters: Vec<&str> = sources.iter().map(String::as_str).collect();
-        let fragment = BossCatalogFragment::from_ron(
-            "ambition-test",
-            Some("clockwork_warden"),
-            Some("gradient_sentinel"),
-            include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
-            &encounters,
-            include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
-            BossArtKeys::from_ron(include_str!(
-                "../../../game/ambition_content/assets/data/boss_art_keys.ron"
-            ))
-            .expect("Ambition's boss art keys parse"),
-        )
-        .expect("Ambition boss fixture should be valid");
+        let fragment = ambition_test_fragment("ambition-test");
         let mut registry = BossCatalogRegistry::default();
         registry.register(fragment).unwrap();
         registry.assemble().unwrap()
@@ -1019,21 +1118,7 @@ mod tests {
     use super::*;
 
     fn fragment(provider: &str) -> BossCatalogFragment {
-        let sources = ambition_encounter_sources();
-        let encounters: Vec<&str> = sources.iter().map(String::as_str).collect();
-        BossCatalogFragment::from_ron(
-            provider,
-            Some("clockwork_warden"),
-            Some("gradient_sentinel"),
-            include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
-            &encounters,
-            include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
-            BossArtKeys::from_ron(include_str!(
-                "../../../game/ambition_content/assets/data/boss_art_keys.ron"
-            ))
-            .unwrap(),
-        )
-        .unwrap()
+        ambition_test_fragment(provider)
     }
 
     fn renamed_single_boss_fragment(provider: &str, boss_id: &str) -> BossCatalogFragment {

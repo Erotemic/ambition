@@ -367,6 +367,19 @@ So the bill is an occurrence fact, like `scale`. The subject's identity is its
 `CharacterForm`, and its health is its `BodyHealth`, so the bar keeps no second
 pool and no second identity.
 
+**3b record (2026-11-21).** A boss sheet draws its character's image.
+`BossCatalogFragment::from_prepared_with_characters` names the image of each
+behaviour's sheet: the `spritesheet` of the character the behaviour is an
+instance of, from the pack's lowered character catalog. Fourteen of the
+sixteen `sprite_filenames` entries in `boss_art_keys.ron` are deleted. Two
+remain, for sheets no boss character draws: the fallback Gradient Sentinel and
+the giant GNU-ton rides. Naming an image for a sheet a character draws is
+refused (`SpriteFilenameBesideCharacter`). The asset-scope export lists each
+boss's image by the same rule (`boss_image_of_character`), so the editor's
+preflight still finds every boss's art. The sheet's frame grid and its rows
+(`boss_sheets.ron`) stay boss data. A boss's row vocabulary is not a
+character's, and the plan does not merge animation enums.
+
 **Headless frame baseline** (tree `feb420d2a`). Measured with
 `scripts/measure/headless_room_frame.sh`: the `profiling` build without Tracy,
 2000 ticks, 3 reps, and the median of the census windows (ms per frame). The

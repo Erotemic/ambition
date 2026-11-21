@@ -165,9 +165,10 @@ from its character and its encounter (`scale`, `max_hp`); the profile's
 Slice 3a is done: a boss speaks as its character (`voice` is deleted), GNU-ton's
 row draws the sheet his fight wears, and the boss rows' generated display names
 are fixed. The bill name stays the placement's, an occurrence fact
-([3a record](engine/boss-character-unification.md)). Next is 3b: the boss art
-key's sprite filename is now a copy of the character's manifest for every
-boss, so resolve the worn sheet through the character and delete the copy.
+([3a record](engine/boss-character-unification.md)). Slice 3b: a boss sheet
+draws its character's image, and the art keys name only the sheets no boss
+character draws. Next is 3c: delete the scratch's compatibility sheet sizing
+(`resolve_sheet_body`) and the obsolete adapters, then slice 4.
 **Defect:** boss construction bypasses the prepared character body path. Hall
 entries duplicate some boss characters; others, including Gallus, are absent.
 **Next:** follow [the owner plan](engine/boss-character-unification.md), starting

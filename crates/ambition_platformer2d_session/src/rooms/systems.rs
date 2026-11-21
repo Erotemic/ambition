@@ -305,7 +305,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
         // its own side. The conversation opens later this tick, in the feature
         // interaction phase.
         if voted_zone.is_none() && matches!(zone.zone.activation, LoadingZoneActivation::Door) {
-            let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
+            let door = ambition_platformer2d_world::rooms::door_distance(zone.zone.aabb, kin.pos);
             let reach = ambition_platformer2d_interaction::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity),
             );
             if talkable.nearest_in_reach(subject_entity, &reach).is_some_and(|talk| {

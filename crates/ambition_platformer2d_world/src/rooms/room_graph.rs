@@ -551,7 +551,7 @@ impl LiveRoomSpecs<'_, '_> {
         &self.rooms
     }
 
-    /// How far `at` is from the centre of the nearest door that `body`
+    /// How far `at` is from the middle of the nearest door that `body`
     /// overlaps in the live room of `entity`, or `None` when it is in no
     /// door. A door is a [`LoadingZoneActivation::Door`] zone: the kind a
     /// press opens.
@@ -559,6 +559,8 @@ impl LiveRoomSpecs<'_, '_> {
     /// One press can be for a door or for a body to talk to. The nearer of
     /// the two takes it, and both the door and the conversation ask this
     /// distance, so the two cannot both take one press.
+    ///
+    /// Measured by [`door_distance`], which the door's own transition asks too.
     pub fn nearest_door_under(
         &self,
         entity: bevy_ecs::entity::Entity,
@@ -572,7 +574,7 @@ impl LiveRoomSpecs<'_, '_> {
             .filter(|zone| {
                 matches!(zone.activation, LoadingZoneActivation::Door) && body.strict_intersects(zone.aabb)
             })
-            .map(|zone| zone.aabb.center().distance(at))
+            .map(|zone| door_distance(zone.aabb, at))
             .min_by(f32::total_cmp)
     }
 
@@ -863,6 +865,28 @@ mod live_room_lookup_tests {
         assert!(specs.spec_of(unscoped).is_none());
         assert!(live_room_spec_of(&world, unscoped).is_none());
     }
+}
+
+/// How far `at` is from the middle of the door `door`: the press's one
+/// measure, asked by the conversation, the prompt and the door's transition,
+/// so a press cannot be refused by both a door and a body to talk to.
+///
+/// ⛔ THE MIDDLE IS THE DOOR'S LONG AXIS, NOT ITS CENTRE POINT. A door is
+/// as tall as what walks through it, and a jungle arch is 146 px tall: its
+/// centre stood 49 px above the feet of a traveller in its opening, so a
+/// ranger 33 px away won every press made from inside the arch, which
+/// never fired (`the_jungles_arches_chain_along_the_trail`). Measured to
+/// the axis, a body inside a door is as far from it as it is off its
+/// middle across it, whatever the door's height or the room's gravity.
+pub fn door_distance(door: ae::Aabb, at: ae::Vec2) -> f32 {
+    use ae::AabbExt as _;
+    let (center, half) = (door.center(), door.half_size());
+    let along = if half.y >= half.x {
+        ae::Vec2::new(center.x, at.y.clamp(center.y - half.y, center.y + half.y))
+    } else {
+        ae::Vec2::new(at.x.clamp(center.x - half.x, center.x + half.x), center.y)
+    };
+    along.distance(at)
 }
 
 #[cfg(test)]

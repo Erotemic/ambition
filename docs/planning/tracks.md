@@ -87,6 +87,13 @@ here.
 
 ### Capability, package and SDK boundaries
 
+The 2026-11-21 review selected bounded work under
+[ARCHITECTURE-COMPOSITION](queue.md#architecture-composition--link-owned-facts-and-preserve-causal-boundaries).
+Its [linking owner](engine/capability-linking-and-prepared-facets.md) joins
+prepared facts, native interpretation and dependency inversion. Further facet
+moves follow a demonstrated repeated interpretation or independent consumer;
+there is no all-crates extraction program.
+
 - ▢ **Capability/runtime composition.** Continue when a minimal consumer inherits
   a capability it did not request or a real host needs substitution. Owner:
   [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
@@ -370,9 +377,10 @@ before promotion.
 - ▢ **Launcher vanity fade (`VC5`).** The reusable launcher content fade is
   explicitly open but is cosmetic work, not a correctness interrupt. Owner:
   [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md).
-- ▢ **Actor effects/modifier composition.** Seven-phase plan needs a selected
-  concrete modifier consumer before implementation; current source may already
-  cover individual effects. Owner:
+- ▢ **Actor effects beyond the selected ownership slice.** Numeric phases 0–5
+  are complete; phase 6's control/pose and native-interval customers are selected
+  under ARCHITECTURE-COMPOSITION. Later periodic/status behavior remains a
+  domain customer of the same ownership protocol. Owner:
   [`engine/actor-effects-and-modifier-composition.md`](engine/actor-effects-and-modifier-composition.md).
 - ▢ **Simulation tick-rate compatibility.** Promote with a target game/profile
   requiring a 30/40/60/120 Hz selection and measure motion, collision, AI,

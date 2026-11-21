@@ -168,6 +168,17 @@ rather than maintaining a second lifecycle model.
 Keep the repository's target-bind/headroom policy in every repeated-Cargo entry
 point.
 
+The 2026-11-21 [linking plan](capability-linking-and-prepared-facets.md)
+selects a structural hypothesis: pure schema and binding work should not
+import the native ECS interpreter merely to describe authored content.
+That dependency currently reaches lightweight tooling through
+`ambition_engine_schemas`. Runtime plugin omission cannot remove it.
+
+Measure the dependency cut at the selected domain boundary. A smaller crate
+is not the objective. The objective is that a change in a native system does
+not invalidate a source compiler or an independent authoring consumer that
+uses only the domain's stable values.
+
 Measure and improve:
 
 - common edit-to-test paths;
@@ -258,6 +269,51 @@ Separate:
 
 Do not optimize generic plugin count based on startup intuition without an
 attributed trace.
+
+## Build invalidation follows semantic boundaries
+
+**Planned 2026-11-21; unmeasured in this review.** The compile-time experiment
+for capability linking has three different subjects:
+
+| Change | Expected unaffected consumer | Evidence required |
+| --- | --- | --- |
+| Native domain system body | The migrated domain's independent schema consumer and portable module | The implementation package is outside those consumers' resolved normal dependency closures; name surviving paths in the full CLI separately |
+| Pure schema or binding rule | Consumers of unrelated schemas | A narrow consumer imports the selected format/binder; the all-schema CLI may intentionally rebuild |
+| Authored data or script | Engine host | Existing preparation/reload road observes the change with no host Cargo invocation |
+
+Start with the bounded pure-format/native-adapter cut in the
+[linking packets](capability-linking-and-prepared-facets.md). Move the schema's
+actual validation and prepared values together. A copied DTO, a re-export
+that still imports the native owner, or two validators does not make the cut.
+Keep a module boundary until a real independent compiler/consumer needs a
+Cargo boundary; that consumer is the reason for the package.
+
+Use the existing compile telemetry for cold, no-op and representative warm
+edits on the same machine/profile. Attribute changed compiler units,
+frontend, codegen, linking and the selected behavior check. Report the
+feature-resolved closure separately from elapsed time. A closure reduction
+can be proven without claiming a speedup; a warm edit can improve without
+reducing cold third-party work.
+
+Keep the composition implementation bounded. Ordinary typed owner functions
+and monomorphic prepared values are sufficient. A generic type-level list of
+every game capability can multiply Rust instantiations and make diagnostics
+harder to read; it would work against this goal. Use type erasure only at an
+existing opaque artifact/backend boundary, with typed ownership on each side.
+
+The same distinction applies outside Rust. Content reference edges tell us
+what a definition uses. Producer input observations tell us what can change
+a result, including a newly present file, directory membership, selected
+defaults and tool/environment inputs. Use the owners' actual observations
+before reusing a prepared result. See
+[content generation](content-generation-and-reload.md) and
+[asset delivery](asset-library-editor-and-delivery.md). Reuse within a
+candidate does not authorize partial publication of mechanical generations.
+
+The explicit hold on [prevalidated content artifacts](prevalidated-content-artifacts.md)
+stays in force. This work neither selects a serialized artifact cache nor
+opens the held LDtk cleanup packets. Do not turn a useful ownership cut into
+an unrelated cache, build-system or test-runner campaign.
 
 ## Developer-iteration policy
 

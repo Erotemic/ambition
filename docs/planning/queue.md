@@ -104,6 +104,52 @@ or updating their source. Check with
 
 ## P0 — architecture and correctness
 
+### ARCHITECTURE-COMPOSITION — link owned facts and preserve causal boundaries
+
+**State:** PLANNED (architecture review, 2026-11-21). Source baseline
+`6895e516863872eb6d38093a27225ed8e2973d70`; no implementation or new
+performance result is claimed. This row selects bounded architecture work
+within the product order above.
+
+**Observed:** schema values can lower before their imports resolve; body and
+candidate contexts collect optional domain catalogs; several live-contribution
+APIs discard application identity; native shared-world undo does not account
+for decisions made by another room. The
+[architecture owner](engine/architecture.md#structural-direction-from-the-2026-11-21-review)
+links the source evidence and the revised plans.
+
+**Decision:** link typed domain contributions against exact selected inputs,
+keep their interpreters optional, preserve independently revocable application
+identity, and cross rollback authorities through committed domain operations.
+Reuse existing candidate construction, Bevy plugins, action receipts and
+world-post admission.
+
+**Next bounded work:**
+
+1. At the active independent-room boundary, run
+   [CW1](engine/causal-world-commit.md#cw1--prove-the-dependent-reader-case-and-complete-held-outcomes),
+   then migrate one native atomic item use through CW2. This precedes
+   extending eager shared writes to more domains; unrelated local work continues.
+2. [Effects phase 6a](engine/actor-effects-and-modifier-composition.md#6a-preserve-issuer-identity-in-control-and-pose)
+   preserves independent hold and pose issuers. Phases 6b/6c extend that same
+   ownership operation to a native interval and numeric/capability channels.
+3. [Linking L1/L2](engine/capability-linking-and-prepared-facets.md#bounded-implementation-slices)
+   removes the repeated equipped-repertoire interpretation, then binds a
+   mixed mechanical candidate. L3's pure cutscene consumer is an independent
+   dependency experiment; L4 measures each actual cut. BOSS-CHARACTER's
+   common seed continues without waiting for these packets.
+4. [World composition W1/W2](engine/reusable-authored-world-composition.md#implementation-slices)
+   uses existing local references, then a different mechanism. General format
+   work follows only if the operation is shared. Producer-validity delegation
+   follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
+
+**Acceptance:** a selected domain fact has one binder; independent holds and
+poses retire separately; another room cannot act on a world cause that can
+still disappear; a rejected mechanical candidate leaves the active selection
+and pinned product versions intact; a narrow authoring consumer excludes its
+native adapter. State which axis each packet proves. Code, runtime behavior
+and compile-time performance remain separate evidence.
+
 ### BOSS-CHARACTER — one character path for bosses
 
 **State:** in progress. Slices 1, 2a and 2b are done (2026-11-21). The
@@ -197,7 +243,7 @@ have no added boss state or runtime cost; delete the temporary inspector bridge.
 
 **Done 2026-11-10 (ISL-2c, shots):** a room restore despawns what was spawned after the save and re-creates what is gone (references remapped); in the rewind witness Alice's shots fired in the window are fired again by the replay and end where they did.
 
-**Measured 2026-11-10 (ISL-2d):** a coin taken in a rewound window pays the wallet once (it is on the body and rewinds) but is recorded twice in the world's grant record; the chosen design (world records stamped with room and tick, retracted on a room rewind) is built for the grant record (an append store) and for the consumed-occurrence record with the occurrence ledger (keyed: an undo log of the rows each write replaced, witnessed by a heart taken only in the mispredicted window), and for the shared bag (each write inverted: a throw only in the window is put back, and its mint leaves the occurrence ledger), and for boss defeats (with the save row, quest steps and reward the death replay already retracts), and for the world-time schedule (a mirror that heals itself except for the first departure's due time; its undo log is bounded by a 600-tick rewind horizon); and for a body's cell use from the bag (a conversation's grant waits on the one-conversation coupling); and for the save's flags and the quest steps they move (each room's flag write logged with the value it replaced, its quest advance caused by it; a later write to the flag that stands keeps both; and for wave encounter clears: the switches they green and the quest steps they move; and a pickup's `ItemCollected` quest event, retracted under a cause naming its room and tick), and the room rollback host will call it ([result](engine/island-rollback-and-compact-peer-input.md#isl-2d-measured-2026-11-10-a-world-write-in-a-rewound-window)).
+**Measured 2026-11-10 (ISL-2d):** room/tick undo removed duplicate grants and restored selected keyed world writes during room replay; the [owner receipts](engine/island-rollback-and-compact-peer-input.md#isl-2d-measured-2026-11-10-a-world-write-in-a-rewound-window) retain the individual witnesses. **Revised 2026-11-21:** these proofs do not cover another room acting on a provisional grant or flag. [Causal world commit](engine/causal-world-commit.md) replaces eager shared-store undo as the target cross-history contract. Keep correct local/private retraction while migrating each externally visible operation.
 
 **Measured 2026-11-10 (ISL-2e):** a hosted world that predicts its guest and rewinds only his room on a late input ends where an on-time run ends, at 9.4–16.3 ms of host update a frame (the late-applying host: 8.4–9.9; each GGRS peer: 33–48) ([result](engine/island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
 

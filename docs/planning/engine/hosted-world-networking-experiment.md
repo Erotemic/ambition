@@ -5,6 +5,20 @@
 **Research and candidates:** [network topology and authority](network-topology-and-authority-research.md) (models A–D, R0–R5, the comparison scenarios). This page owns the experiment's results, not the candidate list.
 **Related:** [netcode](netcode.md), [compact peer input](island-rollback-and-compact-peer-input.md), [multiplayer and multiview](multiplayer-and-multiview.md), [ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
 
+## Shared-world acceptance added by the architecture review
+
+The 2026-11-21 [causal world plan](causal-world-commit.md) adds a semantic
+obligation to the existing experiment. A room rewind can undo its writes
+while leaving another room's decisions based on those writes intact.
+The current room movement, input and presentation measurements do not cover
+that dependent-reader case.
+
+Use one native shared grant/spend and one held compare-and-set refusal as the
+next bounded proofs at this seam. Then route the chosen native consequence
+through confirmed domain admission and a recorded destination input cut.
+Preserve the existing transport choice and measurements. Do not describe
+more inverse logs as complete independent-room gameplay isolation.
+
 ## The question
 
 For persistent Ambition play with one to four participants who may be in

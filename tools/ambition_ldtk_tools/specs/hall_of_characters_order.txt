@@ -14,6 +14,7 @@ player_robot_v2
 robot
 sandbag
 sandbag_infinite
+practice_sandbag
 pointed_polygon
 pugnacious_polygon
 projectile_polygon
@@ -139,6 +140,8 @@ npc_valley_knight
 npc_valley_wizard
 npc_valley_ranger
 npc_goblin_scavenger
+npc_fell_sheep
+barrow_king
 
 [Dry Dock, the Frontier's spaceport town]
 npc_frontier_clerk
@@ -204,6 +207,8 @@ npc_tower_ruiz
 npc_math_ivo
 npc_math_fibbs
 npc_math_monty
+npc_math_goat
+npc_math_car
 npc_math_zeno
 npc_math_kleinbottle
 npc_math_lucas
@@ -420,6 +425,7 @@ performer
 goblin
 npc_goblin_brute
 npc_goblin_bruiser
+npc_raid_brute
 
 [Pirates]
 npc_pirate_admiral
@@ -638,4 +644,10 @@ npc_mantis_lancer
 npc_wolfenstein_boss
 npc_dark_lord
 npc_boss
+npc_clockwork_warden
+npc_mode_collapse
+npc_overflow
+npc_gram_reaper
+npc_marshal_gallus
 npc_giant_gnu_whole
+npc_giant_gnu2

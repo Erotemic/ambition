@@ -48,6 +48,11 @@ impl StrikeRect {
 #[serde(deny_unknown_fields)]
 pub struct BossBehaviorProfile {
     pub id: String,
+    /// The character this boss role is composed on (`npc_marshal_gallus`). A
+    /// boss is an instance of a character: the character is who it is, and
+    /// this profile is how it fights. The pack refuses a name no character
+    /// row answers, before any room builds the boss.
+    pub character: String,
     /// The line under the boss's name when it enters its fight ("The Galvanic
     /// Wolf"). `None` shows the name alone.
     #[serde(default)]

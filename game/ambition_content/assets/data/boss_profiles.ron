@@ -8,6 +8,7 @@
     // Clockwork Warden / Gradient Sentinel: scripted multi-phase profile.
     "clockwork_warden": (
         id: "clockwork_warden",
+        character: "npc_clockwork_warden",
         reward_ability: Some("markrecall"),
         // Combat size follows the visible body bbox rather than the full sprite frame.
         combat_size: Some((54.0, 56.0)),
@@ -150,6 +151,7 @@
     // ============================================================
     "mockingbird": (
         id: "mockingbird",
+        character: "npc_mockingbird_boss",
         signature_gauntlet: Some("volley"),
         combat_size: Some((500.0, 185.0)),
         movement: AnchorSway(
@@ -334,6 +336,7 @@
     "gnu_ton_rider": (
         bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
         id: "gnu_ton_rider",
+        character: "npc_gnu_ton_boss",
         reward_ability: Some("fireball"),
         signature_gauntlet: Some("meteor"),
         // The scholar's own body: his sheet's authored body box at the sheet's
@@ -639,6 +642,7 @@
     "gnu2": (
         bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
         id: "gnu2",
+        character: "npc_giant_gnu2",
         reward_ability: None,
         signature_gauntlet: None,
         // The giant's authored body box at its scale (`npc_giant_gnu`).
@@ -712,6 +716,7 @@
     // ============================================================
     "bossofthegame": (
         id: "bossofthegame",
+        character: "npc_bossofthegame",
         title: Some("Until the Day He Retires"),
         // He sits where he stopped, on the robot's top.
         corpse: Some(Stay),
@@ -936,6 +941,7 @@
     // ============================================================
     "smirking_behemoth_boss": (
         id: "smirking_behemoth_boss",
+        character: "npc_smirking_behemoth_boss",
         // It explodes when it dies: no corpse after its death row (Jon,
         // 2026-10-18).
         corpse: Some(Vanish),
@@ -1071,6 +1077,7 @@
     // Phase 2 adds the noodlings; Enrage chains the dive into the pulse.
     "flying_spaghetti_monster_boss": (
         id: "flying_spaghetti_monster_boss",
+        character: "npc_flying_spaghetti_monster_boss",
         reward_ability: Some("eyelaser"),
         // The BELL: the noodles hanging below it are not body (they sting).
         combat_size: Some((190.0, 88.0)),
@@ -1198,6 +1205,7 @@
     // to touch (a volume of the module's), so `body_damage` is 0.
     "trex_boss": (
         id: "trex_boss",
+        character: "npc_trex_enemy",
         reward_ability: Some("grapple"),
         signature_gauntlet: Some("shockwave"),
         combat_size: Some((140.0, 112.0)),
@@ -1489,6 +1497,7 @@
     // boss_encounters/mode_collapse_boss.ron.
     "mode_collapse_boss": (
         id: "mode_collapse_boss",
+        character: "npc_mode_collapse",
         signature_gauntlet: Some("vortex"),
         combat_size: Some((140.0, 132.0)),
         movement: AirSwoop(
@@ -1610,6 +1619,7 @@
     // ============================================================
     "gram_reaper_boss": (
         id: "gram_reaper_boss",
+        character: "npc_gram_reaper",
         // The placement sets the scale. The sheet defines the body.
         movement: AnchorSway(
             x_radius: 140.0,
@@ -1722,6 +1732,7 @@
     // ============================================================
     "hunny_horror_boss": (
         id: "hunny_horror_boss",
+        character: "npc_hunny_horror_boss",
         combat_size: Some((110.0, 180.0)),
         movement: AnchorSway(
             x_radius: 0.0,
@@ -1918,6 +1929,7 @@
     // Exploding Gradient + summoner Mode Collapse — pure close-range aggression.
     "overflow_boss": (
         id: "overflow_boss",
+        character: "npc_overflow",
         signature_gauntlet: Some("dive"),
         combat_size: Some((150.0, 145.0)),
         movement: AirSwoop(
@@ -2023,6 +2035,7 @@
     // after it is the flatline: his charge spent, the long punish window.
     "wolfenstein_boss": (
         id: "wolfenstein_boss",
+        character: "npc_wolfenstein_boss",
         title: Some("The Galvanic Wolf"),
         // Big (Jon, 2026-10-18: "I want the boss to be scaled bigger"); the
         // serum of his third phase grows him again (`ambition.boss.scale`).
@@ -2438,6 +2451,7 @@
     // gutter, its fire spent on the floor: the long punish window.
     "wolfenstein_inugami": (
         id: "wolfenstein_inugami",
+        character: "npc_wolfenstein_inugami",
         title: Some("The Wolf Unsewn"),
         // A giant head (Jon, 2026-10-20: "the head should also get bigger in
         // the fight. so it's a giant head"): half as tall again as he stood.
@@ -2778,6 +2792,7 @@
     // ============================================================
     "marshal_gallus": (
         id: "marshal_gallus",
+        character: "npc_marshal_gallus",
         title: Some("Cock of the Walk"),
         reward_ability: None,
         signature_gauntlet: None,

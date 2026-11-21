@@ -172,8 +172,7 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
                         units[uid]["game_use"] = "referenced"
                         units[uid]["dependents"].append({"world": world["id"], "room": level.get("identifier"), "field": "parallax_theme", "source": str(path)})
     identities = {}
-    from .boss_roster import entries as boss_entries
-    for row in [*prepared.get("characters", []), *boss_entries(prepared)]:
+    for row in prepared.get("characters", []):
         cid = f"{row['provider']}:{row['id']}"
         catalog = row["catalog"]
         target = row.get("sheet_target")
@@ -209,10 +208,6 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
                 "repair": "Register a producer for " + str(target),
                 "status": {"state": "unknown" if exists else "missing", "required": [manifest], "tiers": {},
                     "reasons": [{"code": "no-registered-producer"}]}}
-            if row.get("inspection_origin") == "boss" and not manifest:
-                units[uid]["status"]["state"] = "unknown"
-                units[uid]["registration"] = "unknown"
-                units[uid]["repair"] = "Boss art binding is not exported for this profile."
             identity["units"] = [uid]
             identity["coverage"] = [{"action": action, "tier": "full", "valid": False,
                 "resolution": {"state": "missing-product"}, "source_available": None, "profile_selected": None} for action in row.get("required_actions", [])]

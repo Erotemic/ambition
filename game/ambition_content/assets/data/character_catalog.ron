@@ -5070,6 +5070,80 @@
         ),
         hall_dialogue_id: Some("hall_npc_smirking_behemoth_boss"),
         ),
+        // ===== Bosses whose fight had no character (BOSS-CHARACTER, 2026-11-21).
+        // Each fight composes its boss role on the character named here
+        // (`boss_profiles.ron`, `character:`). The standing height is the body
+        // its fight builds at its arena box, so the Hall shows it at that size.
+        "npc_marshal_gallus": (
+            display_name: "Marshal Gallus",
+            manifest: "sprites/marshal_gallus_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            standing_height: Some(168.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "frontier", "robot", "lawman"],
+        barks: (
+            hall: ["Shift starts at six. You're late, and that's a citation.", "A rooster wakes the town. A marshal keeps it awake.", "Holster's for show. The spur's for you."],
+        ),
+        ),
+        "npc_clockwork_warden": (
+            display_name: "Clockwork Warden",
+            manifest: "sprites/clockwork_warden_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            standing_height: Some(248.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "machine", "mechanical"],
+        barks: (
+            hall: ["Tick. Tock. You are standing in my schedule.", "Every gear in me agrees about you."],
+        ),
+        ),
+        "npc_mode_collapse": (
+            display_name: "Mode Collapse",
+            manifest: "sprites/hooded_sentinel_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            standing_height: Some(175.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "summoner", "hooded"],
+        barks: (
+            hall: ["I have one idea. I have it very many times.", "Variety is a rumour. Here, have another me."],
+        ),
+        ),
+        "npc_gram_reaper": (
+            display_name: "Gram Reaper",
+            manifest: "sprites/gram_reaper_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            standing_height: Some(206.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "mathematician", "spectral"],
+        barks: (
+            hall: ["Everything ends orthogonal. I just do the projecting.", "Every guest checks in. I handle the checking out."],
+        ),
+        ),
+        "npc_overflow": (
+            display_name: "Overflow",
+            manifest: "sprites/gradient_sentinel_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Wide,
+            standing_height: Some(203.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "aerial"],
+        barks: (
+            hall: ["Bounds are a suggestion I have stopped taking.", "Add one more. Go on. See what happens."],
+        ),
+        ),
         // ===== Mathematician parodies (2026-07-20 sprite generators).
         // Runga + Cutta are one duo (they raid Oiler's Kernel together);
         // Genghis Can + Can't are the other. Yuclid and Hunny Horror are
@@ -6726,6 +6800,7 @@
             on_hit: ["My crown!", "Kneel, grave robber!"],
             provoked: ["Who wakes the king of the valley?"],
             idle: ["Sixty chargers... and not one fits.", "Mine. The toasters are mine."],
+            hall: ["A king needs a throne. A stand will do, for now.", "They buried me with my treasure. Then they kept adding to it."],
         ),
         ),
         // The Shift Operator: the hotel's ghostly housekeeper, who moves every

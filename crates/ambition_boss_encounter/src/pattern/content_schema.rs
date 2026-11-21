@@ -26,7 +26,8 @@ use crate::pattern::seeds::SeedLibrary;
 use crate::pattern::validator::ValidatorBands;
 use ambition_characters::boss_encounter::BossEncounterSpec;
 
-/// The character catalog's schema, which a boss's `voice` names a row of.
+/// The character catalog's schema. A boss profile's `character` and an
+/// encounter's `voice` each name one of its rows.
 const CHARACTER_SCHEMA: &str = "character";
 
 /// The capability that owns both schemas here.
@@ -439,6 +440,30 @@ impl ContentSchemaHandler for BossProfilesSchema {
                 id.clone(),
                 "id",
             ));
+
+            // The character the boss is an instance of. An empty name is
+            // refused here rather than read as "no character": every boss is
+            // somebody.
+            if profile.character.trim().is_empty() {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::MalformedSource,
+                            format!("boss `{key}` names no `character`"),
+                        )
+                        .about(id.clone())
+                        .at_field("character")
+                        .fix("name the character row this boss is an instance of"),
+                );
+            } else {
+                out.refer(PendingRef::new(
+                    SchemaId::new(CHARACTER_SCHEMA),
+                    profile.character.as_str(),
+                    "character",
+                    id.clone(),
+                    "character",
+                ));
+            }
 
             // The key is the lookup, and the row states its own id; they must
             // match. Runtime paths resolve a boss by map key

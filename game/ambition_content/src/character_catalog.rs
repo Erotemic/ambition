@@ -247,6 +247,31 @@ mod tests {
         app
     }
 
+    /// Every boss is an instance of a prepared character. Marshal Gallus had a
+    /// fight and art and no character, so the Hall and the art export did not
+    /// know him.
+    #[test]
+    fn every_boss_is_an_instance_of_a_prepared_character() {
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        let profiles = ambition_boss_encounter::pattern::content_schema::lowered_boss_profiles(
+            crate::pack::shipped(),
+        )
+        .expect("the pack authors bosses");
+        let unprepared: Vec<(&str, &str)> = profiles
+            .values()
+            .filter(|profile| prepared.get(&profile.character).is_none())
+            .map(|profile| (profile.id.as_str(), profile.character.as_str()))
+            .collect();
+        assert!(unprepared.is_empty(), "these bosses name no prepared character: {unprepared:?}");
+        assert_eq!(
+            prepared.get("npc_marshal_gallus").map(|gallus| gallus.display_name.as_str()),
+            Some("Marshal Gallus"),
+        );
+    }
+
     /// A row that states how its body moves is a character this game builds,
     /// with the body, policy, death, action set and traits its row states.
     ///

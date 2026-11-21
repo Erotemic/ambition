@@ -112,6 +112,121 @@ do not build a provisional body and repair it in a later projection.
    scenarios and build settings. Investigate regressions; do not offset them
    with a Hall-only optimization.
 
+### Slice 1 record (2026-11-21)
+
+**Identity mapping.** There are 15 behavior profiles and 28 shipped placements.
+The probe built each placement with `BossClusterScratch::new` on the shipped
+pack and rooms. Each placement is listed once per room.
+
+| Behavior | Character (row) | Form of | Placements (room) | Notes |
+| --- | --- | --- | --- | --- |
+| `clockwork_warden` | none, needs `npc_clockwork_warden` | | `basement_boss`, `first_system_boss` ("System Boss"), `hall_warden_arena` | Sentinel art: `clockwork_warden` sheet |
+| `mockingbird` | `npc_mockingbird_boss` | | `hall_mockingbird_sky`, `mockingbird_sky` | |
+| `gnu_ton_rider` | `npc_gnu_ton_boss` | `npc_gnu_ton` | `gnu_ton_arena`, `gnu_ton_shoulders` | Already the encounter's `voice`. The row's manifest is the scholar and the giant as one picture, but the fight wears `gnu_ton_scholar_boss` (the fighter's drawing). Slice 3 makes these one art resolution. Rides `npc_giant_gnu` (a mount character with no boss profile) and conducts its fists (`npc_giant_gnu_hands`) |
+| `gnu2` | `npc_giant_gnu2` | | `gnu_ton_arena`, `gnu_ton_shoulders` | Second encounter subject, called through a portal |
+| `bossofthegame` | `npc_bossofthegame` | | `boss_main_stage`, `hall_bossofthegame_stage` | Rides a giant (`pilotable_mount_classes: ["giant"]`) |
+| `smirking_behemoth_boss` | `npc_smirking_behemoth_boss` | | `you_have_to_cut_the_rope` | Hall duplicate; see below |
+| `flying_spaghetti_monster_boss` | `npc_flying_spaghetti_monster_boss` | | `flying_spaghetti_monster_arena`, `noodly_sanctum` | Articulated (limb routing) |
+| `trex_boss` | `npc_trex_enemy` | | `primeval_tyrant_hall`, `trex_arena` | |
+| `mode_collapse_boss` | none, needs `npc_mode_collapse` | | `mode_collapse_arena`, `overfit_annex_boss` | Sentinel art: `hooded_sentinel` |
+| `gram_reaper_boss` | none, needs `npc_gram_reaper` | | `hall_gram_reaper_arena`, `math_hotel_gram_reaper` | |
+| `hunny_horror_boss` | `npc_hunny_horror_boss` | | `hunny_horror_arena` | |
+| `overflow_boss` | none, needs `npc_overflow` | | `overflow_arena` | Wears the shared `gradient_sentinel` sheet; `npc_boss` ("Boss") wears the same art and is a different character |
+| `wolfenstein_boss` | `npc_wolfenstein_boss` | | `castle_godwin_throne`, `hall_wolfenstein_arena` | |
+| `wolfenstein_inugami` | `npc_wolfenstein_inugami` | `npc_wolfenstein_boss` | `castle_godwin_throne`, `hall_wolfenstein_arena` | Transformation: his head, risen; a second placement in the same room |
+| `marshal_gallus` | none, needs `npc_marshal_gallus` | | `frontier_ore_corral`, `hall_marshal_gallus_corral` | |
+
+Five behaviors have no character row: Clockwork Warden, Mode Collapse, Gram
+Reaper, Overflow and Marshal Gallus. Their art is published
+(`published.json` lists every sheet). Overflow is not `npc_boss`. They share a
+drawing, and the drawing does not decide identity. `npc_boss` is the nameless
+"Boss" whose own barks say it is still waiting for a name.
+
+**Hall duplicates.** Eight Hall rows carry a `standing_height` that was copied
+by hand from the fight body ("its size in its fight, its primary context",
+2026-11-11). This is the duplicate the plan names: the profile's
+`combat_size`, or the sheet body at the placement box, is a second copy of the
+same fact. The copies already disagree. The Flying Spaghetti Monster's Hall
+row says 79.1 and its fight body is 77.25 tall. For the Behemoth, the row's
+`standing_height` (266) and the profile's `combat_size` (208 × 266) agree. The
+Hall instance is the same character with a passive controller. Its
+`peaceful` action set and `stand_still` brain are placement facts, not a
+second identity.
+
+**Body dimensions at construction** (width × height in world units):
+
+| Behavior | Placement box | Collision body | Render basis | Encounter HP | Corpse |
+| --- | --- | --- | --- | --- | --- |
+| clockwork_warden (basement, hall) | 150 × 185 | 228.1 × 248.0 | 150 × 185 | 36 | default |
+| clockwork_warden (first_system_boss) | 128 × 160 | 197.3 × 214.5 | 128 × 160 | 36 | default |
+| bossofthegame | 54 × 96 | 29.0 × 112.2 | 54 × 96 | 60 | Stay |
+| wolfenstein_boss | 84 × 140 | 38.5 × 142.8 | 84 × 140 | 110 | default |
+| wolfenstein_inugami | 176 × 212 | 178.3 × 212.8 | 176 × 212 | 48 | default |
+| flying_spaghetti_monster_boss | 168 × 150 | 167.4 × 77.3 | 168 × 150 | 48 | default |
+| marshal_gallus | 96 × 140 | 115.5 × 168.6 | 96 × 140 | 60 | default |
+| gnu_ton_rider | 54 × 96 | 59.7 × 105.2 | 54 × 96 | 42 | default |
+| gnu2 | 630 × 464 | 630.5 × 464.1 | 630 × 464 | 30 | default |
+| gram_reaper_boss | 220 × 340 | 210.6 × 206.7 | 220 × 340 | 52 | default |
+| mockingbird | 130 × 130 | 318.4 × 150.2 | 130 × 130 | 40 | default |
+| mode_collapse_boss | 140 × 132 | 176.1 × 175.2 | 140 × 132 | 34 | default |
+| overflow_boss | 150 × 145 | 183.5 × 203.8 | 150 × 145 | 42 | default |
+| trex_boss | 140 × 112 | 282.2 × 165.0 | 140 × 112 | 44 | default |
+| hunny_horror_boss | 110 × 180 | 115.9 × 194.3 | 110 × 180 | 46 | default |
+| smirking_behemoth_boss | 240 × 288 | 208.0 × 266.0 | 240 × 288 | 9999 (environmental kill only) | Vanish |
+
+The placement box is the scale of the boss today. The same Warden profile is
+228 × 248 in one room and 197 × 214 in another, because the render basis is
+the box and the sheet body is drawn into it. When the character owns its
+geometry, this becomes an explicit occurrence scale.
+
+**Provisional values found.**
+* `BossClusterScratch::new` builds every boss with `Health::new(18)`.
+  `update_boss_encounters` replaces that health on the first active tick, using
+  the encounter's `max_hp` or the placement override. The constructed body
+  should carry the occurrence's health from the start.
+* `boss_actor_cluster` grants flight, direct-velocity steering and the body's
+  contact damage beside the body. These belong in the common seed, with the
+  boss controller's locomotion stated as an override before construction.
+
+**Slice 2 order.** Each step leaves one authority for the facts it moves.
+1. *Identity (2a).* Each profile names its `character`, and the pack refuses
+   a name that matches no character. The five missing rows are added, so the
+   Hall and the art export show every boss character, and the inspector bridge
+   is deleted. The encounter's `voice` names a character row for barks only.
+   Three encounters state it, and each states the character the profile
+   names. Slice 3 removes `voice`, because the boss speaks as its character.
+   That gives the other bosses their rows' `on_hit` and `idle` barks in the
+   fight, which is a deliberate change.
+2. *Geometry, death and health (2b).* The boss body is sized from its
+   character's standing height. An occurrence that differs (the Warden in
+   `first_system_boss`) states its scale. The profile's `combat_size` and
+   `corpse` move to the character row, and the body is built with the
+   occurrence's health.
+3. *Construction (2c).* The body is built by the common seed
+   (`ActorClusterSeed::new_character_in` and the prepared grant). The boss role
+   is composed on it as an override, stated before construction. This removes
+   `boss_actor_cluster` and the scratch's body seed, and the body carries
+   `CharacterForm`.
+
+`CharacterForm` is added only in 2c. It brings the body into every
+character-keyed system, and before 2c the boss body is still built by the boss
+road.
+
+**Headless frame baseline** (tree `feb420d2a`). Measured with
+`scripts/measure/headless_room_frame.sh`: the `profiling` build without Tracy,
+2000 ticks, 3 reps, and the median of the census windows (ms per frame). The
+binary is kept as `target/notrace/ambition_game_bin.baseline-feb420d2a`, so
+slice 4 can re-run the same build on the same machine.
+
+| Room | Rep 1 | Rep 2 | Rep 3 | PreUpdate | Update |
+| --- | --- | --- | --- | --- | --- |
+| `hall_of_characters` (ordinary characters, roster scale) | 29.66 | 29.79 | 28.14 | 15.5–16.5 | 9.1–9.5 |
+| `you_have_to_cut_the_rope` (Smirking Behemoth) | 3.94 | 3.95 | 3.87 | 1.73 | 1.07–1.12 |
+| `frontier_ore_corral` (Marshal Gallus) | 4.42 | 4.41 | 4.57 | 1.89–2.00 | 1.16–1.25 |
+
+Not yet recorded: hurt volumes and action repertoire per pose. These come from
+the app-level scenarios in slice 4, through the real encounter paths.
+
 Keep each integration slice coherent. A temporary migration seam must have a
 short `TODO(compat-remove)` with its replacement and deletion condition. Do not
 leave the old body builder as a fallback after the replacement works.
@@ -153,6 +268,12 @@ any broader gate the final scope requires. Use a visible capture for rendering
 and scale after headless checks pass. Do not claim visual parity from a compile.
 
 ## Temporary inspector bridge: deletion contract
+
+**Done 2026-11-21 (slice 2a).** Every boss behavior names a catalog character,
+so the ordinary export covers the bosses. The module, its assembly call, its
+tests, the origin badges and the boss date handling are deleted. The role
+filter now reads the common records' `boss` tag. No review notes were filed on
+`provider:boss/id` keys.
 
 `tools/ambition_editor/asset_index/boss_roster.py` derives inspection-only entries
 from exported boss art keys, boss references, and room placements. It keeps boss

@@ -87,20 +87,16 @@ def timestamp(value) -> float | None:
 def attach(report: dict, prepared: dict, repo: Path) -> None:
     """Attach dates for the browser. Status queries do not read Git history."""
     added = {}
-    bosses = {}
     pack = Path(prepared['pack_root'])
     for source in prepared.get('sources', []):
         if source.get('schema') == 'character_catalog':
             for key, date in first_added(pack / source['path']).items():
                 if key not in added or timestamp(date) < timestamp(added[key]):
                     added[key] = date
-    for source in prepared.get('sources', []):
-        if source.get('schema') == 'boss_profiles':
-            bosses.update(first_added(pack / source['path'], field=None))
     for actor in report['identities'].values():
         receipts = [(report['units'][uid].get('receipt') or {}) for uid in actor['units']]
         dates = [r['written_at'] for r in receipts if r.get('basis') == 'rendered' and timestamp(r.get('written_at')) is not None]
-        actor['added_at'] = bosses.get(actor['boss_id']) if actor.get('inspection_origin') == 'boss' else added.get(actor['id'])
+        actor['added_at'] = added.get(actor['id'])
         actor['generated_at'] = max(dates, key=timestamp) if dates else None
         actor['generated_at_evidence'] = 'render-receipt' if dates else 'unknown'
         if not dates:

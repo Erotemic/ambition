@@ -643,3 +643,29 @@ mod sheet_body_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod character_reference_tests {
+    /// A boss names the character it is an instance of, and a name no
+    /// character row answers is refused when the pack is prepared, before any
+    /// room builds the boss.
+    #[test]
+    fn a_boss_naming_no_character_row_is_refused_when_the_pack_is_prepared() {
+        let mut edited = false;
+        let refused = crate::pack::compile_pack_with(|path, text| {
+            if path == super::BOSS_PROFILES_SOURCE_PATH && text.contains(r#"character: "npc_marshal_gallus","#) {
+                edited = true;
+                return text.replacen(
+                    r#"character: "npc_marshal_gallus","#,
+                    r#"character: "npc_marshal_galus","#,
+                    1,
+                );
+            }
+            text
+        })
+        .expect_err("a boss that names no character row compiled");
+        assert!(edited, "the shipped roster no longer names Gallus's character");
+        let report = format!("{refused:?}");
+        assert!(report.contains("npc_marshal_galus"), "the refusal does not name the missing character: {report}");
+    }
+}

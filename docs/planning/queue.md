@@ -2552,6 +2552,36 @@ fixed-range or stale-view brain workaround.
    `behind_gap`, aim) to the attack offer.
 4. Difficulty ladder: measure `--rungs 3,4,6,7,8` and distinguish step size
    from the missing L3 planning step; shipped rungs set `rollout_depth: 0`.
+   **Measured 2026-11-21** (`smash_tool ladder-rig --rungs 3,4,6,7,8
+   --paired --seeds 6 --character smash_george_booul --opponent
+   smash_george_booul`, the shipped 480 s clock, 48 bouts). Every row is
+   within spread: with 6 paired seeds, a row needs 6 of 6 to clear the bar.
+
+   | Pair | Verdict (per seed) | Survived, median (hi : lo) | Dealt % (hi : lo) |
+   |---|---|---|---|
+   | 4 vs 3 | higher, 5:1 (83%, p 0.219) | 132.9 : 135.1 s | 301 : 245 |
+   | 6 vs 4 | higher, 4:2 (67%, p 0.688) | 126.4 : 123.6 s | 271 : 251 |
+   | 7 vs 6 | even, 3:3 | 119.0 : 116.9 s | 316 : 255 |
+   | 8 vs 7 | higher, 5:1 (83%, p 0.219) | 93.0 : 92.3 s | 253 : 208 |
+
+   Every row ended 0:0 in stocks left. The higher rung dealt 8–24% more in
+   all four rows, the even 7-vs-6 row included, and bouts get shorter up the
+   ladder. Reading: each rung is a real but small step, smaller than the
+   bout-to-bout spread at 6 seeds. Every rung prints `rollout 0/0`, so the
+   disabled planning step (`rollout.rs` exists; the ladder rows switch it
+   off) is the same on both sides of every pair. It cannot be what separates
+   adjacent rungs. It is a question only about how high the top of the
+   ladder can go. The flat 7-vs-6 row matches the smallest authored gap: the
+   two rows share `fadv 0.60` and differ by 40 ms reaction, 40 apm, 0.04
+   noise and small weight steps.
+   Before 4d4b95f27, duelist_l2/l4/l7/l8 had no published policy, so any
+   `--rungs` run that named them was refused by the noise-seed guard. An
+   earlier short default run on this VM (2 seeds, 60 s) had the higher rung
+   outfight in 3v1, 5v3, 6v5 and 9v6.
+   **Next:** measure the planning step directly: one rung against itself
+   with `rollout_depth`/`rollout_k` on for one side. The rig has
+   `--no-rollout` but no flag to turn rollout on. Re-run the adjacent
+   pairs only with enough seeds to separate a 70% majority.
 
 **Acceptance:** representative CPUs choose movement-compatible attacks
 across their authored kits without replacing attack admission with a second

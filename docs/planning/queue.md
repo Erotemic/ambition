@@ -2569,12 +2569,17 @@ fixed-range or stale-view brain workaround.
      kill-potential share reads it (witness
      `a_shot_that_states_its_launch_earns_kill_potential`). Authored bolts,
      seekers and bombs state `launch: None` until their params carry one.
-   - The coverage half is open: a launcher has no volume, so `coverage` is
-     `None` and `reach_fit` is 0. Kill potential and payoff are gated by
-     `reach_fit.max(frame_advantage)`, so a shot earns them only against a
-     committed foe. A hazard-coverage fit from `ThreatTravel` is the next
-     step. The `payoff_power` comment's "`reach_fit` and admission still see
-     the hazard" is true of admission only.
+   - The coverage half, in the kill gate: a launcher has no volume, so
+     `coverage` is `None` and `reach_fit` is 0. Payoff is gated by frame
+     advantage alone, so only kill potential lost out: it was gated by
+     `reach_fit.max(frame_advantage)`, so a shot earned it only against a
+     committed foe. Now a `hazard_fit` (the led gap inside the hazard's
+     reach: admission's own question, with `reach_fit`'s falloff) joins
+     that gate. A fused bomb touches nobody on arrival and gets 0.
+   - Deliberately not done: `hazard_fit` does not feed the `reach_fit`
+     feature. That would reweight every projectile fighter's whole menu
+     (reach is the heaviest weight), and it waits on a measured grid
+     (move-usage census of the projectile fighters before and after).
 2. Placed traps: resolve the hazardous region relative to the attacker,
    rather than treating placement radius as attack reach.
 3. Teleports: expose the resolved destination (`behind_nearest_foe`,

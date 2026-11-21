@@ -940,6 +940,23 @@ pub fn generate_options(
                 _ => power,
             };
             let reach_fit = coverage_fit(c.frames.coverage.as_ref(), foe_local, foe_extent);
+            // A launcher has no volume coverage, so `reach_fit` is 0 for it.
+            // Its coverage is its travel: it touches them when the gap it is
+            // led to is inside its reach. That is admission's own question
+            // (the `(None, None)` arm), and it falls off past the reach as
+            // `reach_fit` does. Only the kill gate reads it. Adding it to
+            // `reach_fit` would reweight every projectile fighter's whole
+            // menu, and that needs a measured grid first. A hazard whose
+            // damage waits (a fused bomb) touches nobody on arrival.
+            let hazard_fit = match c.frames.hazard {
+                Some(hazard) if hazard.strikes_on_arrival() && hazard.reach() > 0.0 => {
+                    let aim = lead_of(connects_at);
+                    let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+                    let reach = hazard.reach();
+                    (1.0 - (gap - reach).max(0.0) / (reach * REACH_TOLERANCE)).clamp(0.0, 1.0)
+                }
+                _ => 0.0,
+            };
             // ⚠ BOTH AUTHORED HALVES OF THE SELF-MOTION, because a move can
             // lunge (`start_impulse`) or command a burst (`lift_*`) and either
             // is what puts the body somewhere else. A crude integration over
@@ -1036,7 +1053,7 @@ pub fn generate_options(
                     } else {
                         0.0
                     }
-                    * reach_fit.max(fa.max(0.0)),
+                    * reach_fit.max(hazard_fit).max(fa.max(0.0)),
 
                 // ⛔⛤ **THIS WAS THE SAME NUMBER FOR EVERY CANDIDATE TOO, AND
                 // FOR THE SAME REASON `kill_potential` WAS.** `edge_proximity`

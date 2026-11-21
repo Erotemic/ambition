@@ -376,17 +376,15 @@ fn kill_potential_reads_the_victims_meter_and_the_moves_launch() {
 /// shot stating none earns nothing.
 ///
 /// Before `MoveFrameData::strongest_launch`, the scorer read the move's volume
-/// launch only, so every shot scored zero here however hard it threw.
+/// launch only, so every shot scored zero here however hard it threw. And a
+/// launcher has no volume coverage, so its gate is its travel (`hazard_fit`).
 #[test]
 fn a_shot_that_states_its_launch_earns_kill_potential() {
     let w = UtilityWeights::v1();
     let mut v = view_with(300.0, 400.0);
     v.actors[0].damage_taken = 90;
-    // In its recovery, so a fast shot lands before the answer. A launcher has
-    // no volume coverage, so its `reach_fit` is 0 and the frame advantage is
-    // the half of the gate it can pass.
-    v.actors[0].phase = crate::perception::BodyPhase::AttackRecovery;
-    v.actors[0].phase_remaining = 0.5;
+    // Not committed, so the frame advantage cannot pass the gate: the shot
+    // earns its share through its own coverage (its travel reaches the foe).
     let shot = |launch: Option<ambition_entity_catalog::ShotLaunch>| {
         let mut c = candidate("shot", 0.1, 0.0);
         c.frames.max_damage = 0;
@@ -411,6 +409,7 @@ fn a_shot_that_states_its_launch_earns_kill_potential() {
         "a shot that throws as hard as the smash earns no kill potential"
     );
     assert_eq!(kill_of(&[shot(None), candidate_with_launch("smash", 0.1, 100.0, 160.0)]), 0.0);
+
 }
 
 /// ⛔⛤ **THE FINISHER CHANGES AS THE OPPONENT WEARS DOWN, AND A COLLAPSED

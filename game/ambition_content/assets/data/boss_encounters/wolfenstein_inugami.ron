@@ -41,4 +41,8 @@
     slow_motion_finish: true,
     // Its conductor shows its name card at the end of its rise (`ambition_content_modules::inugami::rise_stage_at`).
     name_card: Conducted,
+    // A giant head (Jon, 2026-10-20: "the head should also get bigger in the
+    // fight. so it's a giant head"): half as tall again as he stood. It
+    // swells again in its later phases (`ambition.boss.scale`).
+    scale: 1.5,
 )

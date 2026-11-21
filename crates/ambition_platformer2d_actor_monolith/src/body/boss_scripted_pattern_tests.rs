@@ -15,7 +15,8 @@ use ambition_platformer2d_core::AabbExt;
 
 fn gnu_ton_runtime(sprite_content: &ambition_sprite_sheet::SpriteContent) -> ambition_boss_encounter::BossClusterScratch {
     let behavior = BossBehaviorProfile::gnu_ton_rider();
-    let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
+    // The scholar's own body box.
+    let combat_size = ae::Vec2::new(68.0, 91.0);
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
     let mut scratch = ambition_boss_encounter::BossClusterScratch::new(&sprite_content,
@@ -433,9 +434,7 @@ fn gradient_sentinel_every_special_strike_is_a_moveset_effect() {
     let moveset = boss_attack_moveset(
         &cfg.beats(),
         &behavior,
-        behavior
-            .combat_size
-            .unwrap_or(ambition_platformer2d_core::Vec2::new(100.0, 100.0)),
+        ambition_platformer2d_core::Vec2::new(54.0, 56.0),
     )
     .expect("the authored pattern has attack moves");
 

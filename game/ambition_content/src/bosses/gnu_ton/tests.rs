@@ -66,7 +66,7 @@ fn floor_gate_count(app: &App) -> usize {
 fn spawn_gnu_ton_runtime(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> BossClusterScratch {
     let behavior =
         BossBehaviorProfile::from_data(&crate::bosses::shipped_boss_catalog(&sprite_content), "gnu_ton_rider");
-    let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(54.0, 96.0));
+    let combat_size = ae::Vec2::new(54.0, 96.0);
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
     let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
@@ -91,7 +91,6 @@ fn spawn_giant_bodied_boss_runtime(sprite_content: &ambition_platformer2d::sprit
         BossBehaviorProfile::from_data(&crate::bosses::shipped_boss_catalog(&sprite_content), "gnu_ton_rider");
     behavior.sprite_target = Some("giant_gnu".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
-    behavior.combat_size = Some(combat_size);
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
     let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);

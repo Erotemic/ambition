@@ -400,6 +400,8 @@ fn boss_spawn_attaches_brain_components() {
                 root,
             ),
             &ambition_boss_encounter::test_boss_catalog(),
+            super::fixtures::fixture_cast(),
+            &Default::default(),
             &authored,
             &ambition_boss_encounter::BossOverrides::default(),
             ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,

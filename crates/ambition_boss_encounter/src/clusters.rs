@@ -370,6 +370,9 @@ impl<'w, 's> BossClusterRefItem<'w, 's> {
     }
 }
 
+/// The health of a boss whose behaviour has no encounter: the generic profile's.
+const GENERIC_BOSS_MAX_HP: i32 = 18;
+
 /// Owned aggregate for spawn construction / non-ECS callers (tests,
 /// the gnu_ton_rider encounter setup). Mirrors the enemy/NPC scratch.
 #[derive(Clone, Debug)]
@@ -403,18 +406,18 @@ impl BossClusterScratch {
         // `kin.size` holds the collision body, so the shared movement seam
         // sweeps the right box. See `resolve_sheet_body` for its source.
         let render_basis = aabb.half_size() * 2.0;
-        let collision_size = behavior.combat_size.unwrap_or(render_basis);
-        let health = ambition_characters::actor::Health::new(18);
-        // From this catalog: by the behaviour's id, else a generic profile at
-        // the body's health.
-        let seed = BossSeed::resolved(boss_catalog, &behavior.id, &name, health.max);
+        // From this catalog: by the behaviour's id, else a generic profile.
+        let seed = BossSeed::resolved(boss_catalog, &behavior.id, &name, GENERIC_BOSS_MAX_HP);
+        // The occurrence's health from the start: the encounter's. A placement
+        // override replaces it before the body is spawned.
+        let health = ambition_characters::actor::Health::new(seed.encounter.max_hp.max(1));
         let mut boss = Self {
             kin: BodyKinematics { material: Default::default(),
                 pos: center,
                 // Bosses float: the brain emits a new `desired_vel` each tick,
                 // so `vel` is never integrated and stays `ZERO`.
                 vel: ae::Vec2::ZERO,
-                canonical_size: collision_size,
+                canonical_size: render_basis,
                 facing: 1.0,
             },
             config: BossConfig {
@@ -442,11 +445,65 @@ impl BossClusterScratch {
         boss
     }
 
+    /// Size the body from its character, at its encounter's scale: the body is
+    /// the common geometry resolution every character body uses
+    /// (`CharacterBodyGeometry`), and the boss sheet draws at that body's quad
+    /// and measures its hurt parts there. Construction calls this, so a boss
+    /// and its character in the Hall are one size at one scale.
+    pub fn size_from_character(
+        &mut self,
+        sprite_content: &ambition_sprite_sheet::SpriteContent,
+        authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+        character: &ambition_characters::prepared::PreparedCharacterDefinition,
+        boss_catalog: &super::BossCatalog,
+    ) {
+        let geometry = ambition_sprite_sheet::character::catalog_join::CharacterBodyGeometry::resolve(
+            sprite_content,
+            authored,
+            character.body.as_ref(),
+            character.sheet.as_deref(),
+            character.sheet_sizing.as_ref(),
+            self.status.render_size,
+        );
+        let scale = self.config.seed.encounter.scale;
+        match geometry.render {
+            Some(render) => {
+                // The sheet draws `max(basis) x collision_scale` tall with the
+                // frame's aspect, so this basis draws exactly the character's quad.
+                let render = render * scale;
+                let collision_scale = boss_catalog
+                    .sheet_for_behavior(&self.config.behavior)
+                    .collision_scale
+                    .max(f32::EPSILON);
+                self.status.render_size = ae::Vec2::new(render.x.min(render.y), render.y) / collision_scale;
+                self.kin.canonical_size = geometry.collision * scale;
+            }
+            // A character whose sheet states no body answers with the placement
+            // box; the sheet body `new` resolved is the better fact then.
+            None => {
+                self.status.render_size *= scale;
+                self.kin.canonical_size *= scale;
+            }
+        }
+        if let Some((metrics, _)) = crate::ecs::boss_sprite_metrics_from_registry(
+            boss_catalog,
+            self.as_ref(),
+            ambition_sprite_sheet::shared_baked_sheet_registry(sprite_content),
+        ) {
+            self.status.sprite_metrics = Some(metrics);
+        }
+    }
+
     /// Size the body from the sheet it draws, when that sheet publishes
     /// `body_metrics`: the sprite metrics, and a collision body that bounds
     /// the drawn body parts. A sheet with no metrics leaves the authored
     /// `combat_size`. The sheet table is baked, so every build answers the
     /// same. Call it again after a change to `config.behavior`.
+    ///
+    /// TODO(compat-remove): construction sizes a boss from its character
+    /// ([`Self::size_from_character`]). This remains for callers that hold no
+    /// prepared cast (unit fixtures, the geometry-debug hurtboxes); delete it
+    /// when 2c builds the boss body on the common seed.
     pub fn resolve_sheet_body(&mut self, sprite_content: &ambition_sprite_sheet::SpriteContent, boss_catalog: &super::BossCatalog) {
         let Some((metrics, body)) = crate::ecs::boss_sprite_metrics_from_registry(
             boss_catalog,

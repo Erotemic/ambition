@@ -73,6 +73,11 @@ pub fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharact
             // The giant's HANDS: `giant_cluster_rows` mints two limb rows naming
             // this character, so a cast without it refuses the whole cluster.
             ("npc_giant_gnu_hands", None),
+            // A boss is an instance of its character: a fixture boss resolves
+            // to the clockwork warden's profile, which names this one.
+            ("npc_clockwork_warden", None),
+            // ...and the GNU-ton rider's profile names this one.
+            ("npc_gnu_ton_boss", None),
             // The limbed host: a character with hands lowers to host + two hand
             // rows, and a CHARACTER is the only thing that says so now.
             ("fixture_giant", Some(("giant", &[][..]))),

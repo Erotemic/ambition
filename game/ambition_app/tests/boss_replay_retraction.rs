@@ -535,10 +535,12 @@ fn defeat_a_warden_and_take_its_ability(sim: &mut Platformer2dSimHarness, placem
             .expect("the player has a body");
         (kin.pos.x, kin.pos.y)
     };
+    // Beside the player, not on them: the Warden is his character's size
+    // whatever the box, and two overlapping bodies push the player away.
     sim.spawn_boss_at(
         placement,
         "clockwork_warden",
-        (px, py),
+        (px + 200.0, py),
         (40.0, 40.0),
         ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript {
             script_id: "clockwork_warden".to_string(),

@@ -974,6 +974,8 @@ fn construct_authored_boss(
     ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into(&sprite_content,
         &mut ctx.root_scope(),
         &services.boss_catalog,
+        &services.context.prepared,
+        &services.context.sheets,
         authored,
         &ambition_boss_encounter::BossOverrides::default(),
         fate,

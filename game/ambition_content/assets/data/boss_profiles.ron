@@ -10,8 +10,6 @@
         id: "clockwork_warden",
         character: "npc_clockwork_warden",
         reward_ability: Some("markrecall"),
-        // Combat size follows the visible body bbox rather than the full sprite frame.
-        combat_size: Some((54.0, 56.0)),
         movement: AnchorSway(
             x_radius: 130.0,
             y_bob: 18.0,
@@ -153,7 +151,6 @@
         id: "mockingbird",
         character: "npc_mockingbird_boss",
         signature_gauntlet: Some("volley"),
-        combat_size: Some((500.0, 185.0)),
         movement: AnchorSway(
             x_radius: 0.0,
             y_bob: 0.0,
@@ -339,9 +336,6 @@
         character: "npc_gnu_ton_boss",
         reward_ability: Some("fireball"),
         signature_gauntlet: Some("meteor"),
-        // The scholar's own body: his sheet's authored body box at the sheet's
-        // scale (39x52 px at 1.75).
-        combat_size: Some((68.0, 91.0)),
         // ADR 0020: this boss RIDES a "giant"-class mount. `spawn_boss` attaches
         // the CanPilot tag from this list.
         pilotable_mount_classes: ["giant"],
@@ -645,8 +639,6 @@
         character: "npc_giant_gnu2",
         reward_ability: None,
         signature_gauntlet: None,
-        // The giant's authored body box at its scale (`npc_giant_gnu`).
-        combat_size: Some((630.0, 464.0)),
         pilotable_mount_classes: [],
         movement: StationaryGiant(
             sway_amplitude: 0.0,
@@ -711,20 +703,16 @@
     // giant amp-stack robot, as GNU-ton stands on his giant: the robot is a
     // mount and the stage, and he is the body that takes the hits. The bar is
     // his resolve, not his life: at its end he goes down and retires
-    // (`corpse: Stay`; the green room's scene). His moves are the
+    // (his character's `death_traits`: the body stays; the green room's scene). His moves are the
     // `bossofthegame` module of `ambition_content_modules`.
     // ============================================================
     "bossofthegame": (
         id: "bossofthegame",
         character: "npc_bossofthegame",
         title: Some("Until the Day He Retires"),
-        // He sits where he stopped, on the robot's top.
-        corpse: Some(Stay),
         bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
         reward_ability: None,
         signature_gauntlet: None,
-        // His sheet's authored body (53x158 px) at the sheet's scale.
-        combat_size: Some((40.0, 100.0)),
         // He rides a `giant`-class mount (ADR 0020).
         pilotable_mount_classes: ["giant"],
         movement: StationaryGiant(
@@ -942,19 +930,11 @@
     "smirking_behemoth_boss": (
         id: "smirking_behemoth_boss",
         character: "npc_smirking_behemoth_boss",
-        // It explodes when it dies: no corpse after its death row (Jon,
-        // 2026-10-18).
-        corpse: Some(Vanish),
         signature_gauntlet: Some("beam"),
         // Environmental puzzle boss: ordinary slashes/projectiles never
         // damage it; the only kill condition is the LDtk-authored
         // rope/anvil trap (see ambition_content::bosses::cut_rope).
         environmental_kill_only: true,
-        // Matches the generated Smirking Behemoth monolith body metrics:
-        // x=0, y=22, w=208, h=266.  The bottom sits exactly on the sprite
-        // frame floor so contact blocks morph-ball tunneling under the boss
-        // without extending below the visible body into the room floor.
-        combat_size: Some((208.0, 266.0)),
         movement: AnchorSway(
             // Smirking Behemoth's movement should be macro-driven:
             // Approach closes distance to the player, Engage holds
@@ -1079,8 +1059,6 @@
         id: "flying_spaghetti_monster_boss",
         character: "npc_flying_spaghetti_monster_boss",
         reward_ability: Some("eyelaser"),
-        // The BELL: the noodles hanging below it are not body (they sting).
-        combat_size: Some((190.0, 88.0)),
         // The conductor owns its flight (`PoseOwnedExternally`), so it names
         // no route of its own: a profile at rest.
         movement: AnchorSway(
@@ -1208,7 +1186,6 @@
         character: "npc_trex_enemy",
         reward_ability: Some("grapple"),
         signature_gauntlet: Some("shockwave"),
-        combat_size: Some((140.0, 112.0)),
         movement: AnchorSway(
             x_radius: 0.0,
             y_bob: 0.0,
@@ -1499,7 +1476,6 @@
         id: "mode_collapse_boss",
         character: "npc_mode_collapse",
         signature_gauntlet: Some("vortex"),
-        combat_size: Some((140.0, 132.0)),
         movement: AirSwoop(
             x_radius: 130.0,
             y_radius: 46.0,
@@ -1733,7 +1709,6 @@
     "hunny_horror_boss": (
         id: "hunny_horror_boss",
         character: "npc_hunny_horror_boss",
-        combat_size: Some((110.0, 180.0)),
         movement: AnchorSway(
             x_radius: 0.0,
             y_bob: 0.0,
@@ -1931,7 +1906,6 @@
         id: "overflow_boss",
         character: "npc_overflow",
         signature_gauntlet: Some("dive"),
-        combat_size: Some((150.0, 145.0)),
         movement: AirSwoop(
             x_radius: 120.0,
             y_radius: 70.0,
@@ -2037,9 +2011,6 @@
         id: "wolfenstein_boss",
         character: "npc_wolfenstein_boss",
         title: Some("The Galvanic Wolf"),
-        // Big (Jon, 2026-10-18: "I want the boss to be scaled bigger"); the
-        // serum of his third phase grows him again (`ambition.boss.scale`).
-        combat_size: Some((84.0, 140.0)),
         // He does not drift on his own: the conductor walks him.
         movement: AnchorSway(
             x_radius: 0.0,
@@ -2453,11 +2424,6 @@
         id: "wolfenstein_inugami",
         character: "npc_wolfenstein_inugami",
         title: Some("The Wolf Unsewn"),
-        // A giant head (Jon, 2026-10-20: "the head should also get bigger in
-        // the fight. so it's a giant head"): half as tall again as he stood.
-        // It rises at his head's size and swells to this; it swells again in
-        // its later phases (`ambition.boss.scale`).
-        combat_size: Some((176.0, 212.0)),
         // It does not drift on its own: the conductor flies it.
         movement: AnchorSway(
             x_radius: 0.0,

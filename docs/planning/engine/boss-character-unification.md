@@ -234,6 +234,61 @@ states a scale on the placement. The profile's `combat_size` is a dead fallback
 for every shipped boss, because each sheet publishes a body, so it is deleted
 rather than moved.
 
+**2b decisions (2026-11-21).**
+* *One resolver.* `BuiltGeometry::resolve` moves out of `ambition_body_seed`
+  into `ambition_sprite_sheet::character::catalog_join`. It reads only sprite
+  and prepared-character types, which the boss crate already depends on. The
+  seed and the boss scratch both call it, so no crate gains a dependency.
+* *Scale is encounter tuning.* `BossEncounterSpec` gains `scale` (default 1),
+  as the plan's override order allows. bossofthegame's fight states it,
+  because his character's standing body is the green room's. Both of his
+  placements share the encounter. The Warden in `first_system_boss` takes his
+  character's size. That is 15% larger than the old box: the room is
+  1280 × 768, and his 248-unit body fits.
+* *The spawn anchor stays the box centre* for a boss in 2b. Moving bosses to
+  the character road's feet-on-the-box-bottom rule shifts every boss and needs
+  a visible check. It belongs to 2c, where the common seed places the body.
+* *Health* is built at the encounter's `max_hp`, or the placement override.
+  The activation write then repeats the same value; it is no longer a
+  provisional 18.
+* *Death:* the profile's `corpse` moves to the character's `death_traits`.
+
+**2b record (2026-11-21).** Construction
+(`spawn_boss_with_overrides_into`) sizes a boss through its character with
+`BossClusterScratch::size_from_character`. That method calls
+`CharacterBodyGeometry::resolve`, the resolver the seed uses, at the
+encounter's `scale`. Then a placement's authored `combat_size` and `max_hp`
+apply. The corpse is read from the character's `death_traits`
+(bossofthegame `Stay`, the Behemoth `Vanish`). The profile's `combat_size` and
+`corpse` are deleted. A character whose sheet states no body falls back to the
+placement box, and in that case the sheet body the scratch already resolved is
+kept, scaled. That is the GNU-ton rider today: his row's manifest does not
+resolve, and slice 3 makes his art one resolution.
+
+Probe of the scratch before and after `size_from_character`, at each
+placement box of the dimensions table:
+
+| Boss | Body after | Drawn height (max of render basis) |
+| --- | --- | --- |
+| Warden (basement, hall), Wolfenstein, Mode Collapse, Overflow, T-Rex, Hunny Horror, Behemoth, GNU2, GNU-ton | unchanged | unchanged |
+| Warden (`first_system_boss`) | 228.1 × 248.0 (was 197.3 × 214.5) | 185 (was 160), as decided |
+| Inugami | 178.4 × 212.8, from `standing_height: 141.9` at `scale: 1.5` | 212.1 |
+| bossofthegame | 29.0 × 112.2, from 48 at `scale: 2.3375` | 96 |
+| Marshal Gallus | 120.2 × 168.6 | unchanged |
+| Gram Reaper | 213.4 × 206.7 | 335.3 (was 340): the idle body, not the bounding box of all parts, is the 206.7 |
+| Mockingbird | 320.1 × 151.0 | 130.7 (was 130) |
+| Flying Spaghetti Monster | 176.6 × 79.1 (was 167.4 × 77.3) | unchanged: the idle body is taller than the old box |
+
+A box no longer sizes a boss, so a fixture that spawned a small Warden on top
+of the player (`boss_replay_retraction`) now spawns him beside the player.
+His full body would push the player out at speed. Lanes run:
+`ambition_boss_encounter`, `ambition_characters`, `ambition_body_seed`,
+`ambition_sprite_sheet`, `ambition_platformer2d_publication`,
+`ambition_platformer2d_construction`, `ambition_platformer2d_actor_spawn`
+and the `ambition_content` lib, plus every app_it module that touches a boss.
+The failures that remain are environmental: the music registry, v3's art, and
+`gnu_ton_in_a_match`, whose match does not start on HEAD either.
+
 `CharacterForm` is added only in 2c. It brings the body into every
 character-keyed system, and before 2c the boss body is still built by the boss
 road.

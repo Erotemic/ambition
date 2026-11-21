@@ -54,9 +54,8 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
 
     let behavior =
         BossBehaviorProfile::from_data(crate::test_boss_catalog(), "smirking_behemoth_boss");
-    let combat_size = behavior
-        .combat_size
-        .expect("the Smirking Behemoth authors its own body box");
+    // The Behemoth's body: its character's standing height on its sheet.
+    let combat_size = ae::Vec2::new(208.0, 266.0);
     assert!(
         behavior.macro_tuning.contact_chase_mode(),
         "this test is about a CONTACT chase; the profile stopped authoring one",

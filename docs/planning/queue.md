@@ -106,14 +106,16 @@ or updating their source. Check with
 
 ### BOSS-CHARACTER — one character path for bosses
 
-**State:** in progress. Slices 1 and 2a are done (2026-11-21). The
+**State:** in progress. Slices 1, 2a and 2b are done (2026-11-21). The
 [owner plan](engine/boss-character-unification.md#slice-1-record-2026-11-21)
 records the identity mapping, the construction dimensions and a headless frame
 baseline. Each boss profile names its `character`, and the pack refuses a name
 no character row answers. Marshal Gallus, the Clockwork Warden, Mode Collapse,
 the Gram Reaper and the Overflow have character rows and Hall stands. The
-temporary inspector bridge is deleted. Next is 2b: body geometry, death and
-health from the character, with no copies.
+temporary inspector bridge is deleted. A boss's body, corpse and health come
+from its character and its encounter (`scale`, `max_hp`); the profile's
+`combat_size` and `corpse` are gone. Next is 2c: the common seed builds the
+boss body, which carries `CharacterForm`.
 **Defect:** boss construction bypasses the prepared character body path. Hall
 entries duplicate some boss characters; others, including Gallus, are absent.
 **Next:** follow [the owner plan](engine/boss-character-unification.md), starting

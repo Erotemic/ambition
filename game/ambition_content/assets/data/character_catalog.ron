@@ -2925,6 +2925,8 @@
             manifest: "sprites/bossofthegame_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
+            // He sits where he stopped: his body stays after his death row.
+            death_traits: Some((corpse: Some(Stay))),
             composition: None,
             default_action_set: "peaceful",
             // A body of his own, standing: the green room's dais and the hall
@@ -5057,6 +5059,9 @@
             manifest: "sprites/smirking_behemoth_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // It explodes when it dies: no corpse after its death row (Jon,
+            // 2026-10-18).
+            death_traits: Some((corpse: Some(Vanish))),
             // Its size in its fight, its primary context (Jon, 2026-11-11): the
             // boss's arena spawn box (240x288) x its sheet's collision_scale over the
             // frame, applied to this row's idle body.
@@ -9965,6 +9970,9 @@
             manifest: "sprites/wolfenstein_inugami_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
+            // His head as tall as Wolfenstein stood. Its fight makes it a giant
+            // head, half as tall again (`boss_encounters/wolfenstein_inugami.ron`).
+            standing_height: Some(141.9),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",

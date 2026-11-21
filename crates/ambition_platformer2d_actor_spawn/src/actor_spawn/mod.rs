@@ -367,6 +367,8 @@ pub fn spawn_staged_actor_into(sprite_content: &ambition_sprite_sheet::SpriteCon
             spawn_boss_with_overrides_into(&sprite_content,
                 &mut scope.reborrow(),
                 boss_catalog,
+                prepared,
+                authored_sheets,
                 &authored,
                 overrides,
                 fate,
@@ -915,6 +917,7 @@ const BOSS_FLIGHT_SPEED: f32 = 1200.0;
 fn boss_actor_cluster(
     config: &BossConfig,
     kin: &BodyKinematics,
+    corpse: Option<ambition_characters::actor::Corpse>,
 ) -> (
     ambition_characters::actor::ai::ActorStatus,
     ambition_combat::actor_tuning::ActorConfig,
@@ -930,9 +933,9 @@ fn boss_actor_cluster(
 ) {
     // A boss floats: its movement kit grants flight, unioned into the body's
     // `AbilitySet` below. Its death traits are default, except what its corpse
-    // does, which its profile may state.
+    // does, which its character states.
     let caps = ambition_combat::CombatCapabilities {
-        corpse: config.behavior.corpse,
+        corpse,
         ..Default::default()
     };
     let movement_kit = ae::AbilitySet {
@@ -1029,6 +1032,10 @@ fn boss_actor_cluster(
 pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
     boss_catalog: &BossCatalog,
+    // The cast the boss's character is prepared in, and the sheets a
+    // consumer authored: a boss is an instance of its character.
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_entity_catalog::placements::BossBrain,
     >,
@@ -1048,11 +1055,28 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     );
     boss.config.practice = practice;
     boss.config.wakes_after = wakes_after;
-    // A placement's authored size outranks the sheet's body. `kin.size` is
+    // A boss is an instance of its character: its body is the character's, at
+    // its encounter's scale. The pack refused a profile that names no
+    // character, so a miss here is a composition that did not prepare it.
+    let character = prepared.get(&boss.config.behavior.character).unwrap_or_else(|| {
+        panic!(
+            "boss `{}` is an instance of `{}`, which this composition has not prepared",
+            authored.id, boss.config.behavior.character,
+        )
+    });
+    boss.size_from_character(sprite_content, authored_sheets, character, boss_catalog);
+    // A placement's authored size outranks the character's body. `kin.size` is
     // the collision body; the render basis stays in `status.render_size`.
     if let Some(size) = overrides.combat_size {
         boss.kin.canonical_size = size;
     }
+    if let Some(max_hp) = overrides.max_hp {
+        boss.health = ambition_characters::actor::BodyHealth::new(
+            ambition_characters::actor::Health::new(max_hp.max(1)),
+        );
+    }
+    // What its death leaves is its character's.
+    let corpse = character.death_traits.as_ref().and_then(|traits| traits.corpse);
     bevy::log::info!(
         target: "ambition_platformer2d::boss_spawn",
         "spawn_boss id={} name={:?} brain={:?} → behavior.id={} combat_size={:?}",
@@ -1156,7 +1180,7 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     // `ActorTuning::max_health` that the boss's own `BodyHealth` already held. The boss owns
     // its health directly (§A1); handing it a copy of its own number was the duplicate this
     // slice removes.
-    let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin);
+    let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin, corpse);
     let built_body = boss.kin.clone();
     let boss_render_envelope = ambition_combat::BodyEnvelope(boss.as_ref().render_size());
     let boss_components = boss.into_components();

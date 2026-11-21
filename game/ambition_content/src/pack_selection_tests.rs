@@ -240,7 +240,8 @@ const FAMILY_EDITS: &[(&str, &str, &str)] = &[
     // fighter brain ladder
     ("data/fighter_brain_ladder.ron", "reaction_ms: 500.0", "reaction_ms: 499.0"),
     // boss roster
-    ("data/boss_profiles.ron", "combat_size: Some((54.0, 56.0)),", "combat_size: Some((54.0, 57.0)),"),
+    // (the first `x_radius: 130.0` is the Warden's sway)
+    ("data/boss_profiles.ron", "x_radius: 130.0,", "x_radius: 131.0,"),
     // character catalog
     ("data/character_catalog.ron", "display_name: \"Companion Dog\"", "display_name: \"Companion Dog, Revised\""),
 ];
@@ -347,7 +348,7 @@ struct Installed {
     items: ambition_items::ItemCatalog,
     first_rung_ms: f32,
     goblin_wave_delay_s: f32,
-    warden_combat_size: Option<(f32, f32)>,
+    warden_movement: String,
     dog_display_name: String,
     default_music_track: String,
     first_sfx_frequency: f32,
@@ -381,12 +382,14 @@ fn installed_in(app: &bevy::prelude::App, mover: &str, pack_cutscene_ids: &[Stri
             .expect("the goblin encounter")[1]
             .mobs[1]
             .delay,
-        warden_combat_size: world
-            .resource::<ambition_boss_encounter::BossCatalog>()
-            .behavior(WARDEN)
-            .expect("the warden")
-            .combat_size
-            .map(|size| (size.x, size.y)),
+        warden_movement: format!(
+            "{:?}",
+            world
+                .resource::<ambition_boss_encounter::BossCatalog>()
+                .behavior(WARDEN)
+                .expect("the warden")
+                .movement
+        ),
         dog_display_name: world
             .resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
             .get(DOG)
@@ -441,11 +444,13 @@ fn expected_from(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteCon
             .expect("the goblin encounter")[1]
             .mobs[1]
             .delay,
-        warden_combat_size: crate::bosses::boss_catalog_of(&sprite_content, pack)
-            .behavior(WARDEN)
-            .expect("the warden")
-            .combat_size
-            .map(|size| (size.x, size.y)),
+        warden_movement: format!(
+            "{:?}",
+            crate::bosses::boss_catalog_of(&sprite_content, pack)
+                .behavior(WARDEN)
+                .expect("the warden")
+                .movement
+        ),
         dog_display_name: crate::character_catalog::catalog_of(pack)
             .get(DOG)
             .expect("the dog row")
@@ -492,7 +497,7 @@ fn disagreeing_families(a: &Installed, b: &Installed) -> Vec<&'static str> {
     family!(items, "items");
     family!(first_rung_ms, "fighter ladder");
     family!(goblin_wave_delay_s, "encounter waves");
-    family!(warden_combat_size, "bosses");
+    family!(warden_movement, "bosses");
     family!(dog_display_name, "character catalog");
     family!(default_music_track, "music registry");
     family!(first_sfx_frequency, "sfx registry");

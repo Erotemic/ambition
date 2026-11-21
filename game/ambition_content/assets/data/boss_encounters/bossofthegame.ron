@@ -27,4 +27,7 @@
     music_phase2: "",
     music_enrage: "",
     voice: Some("npc_bossofthegame"),
+    // His character stands 48 tall, the size he is everywhere else; on his
+    // own stage he is the boss of the game, 112 tall (the green room's body).
+    scale: 2.3375,
 )

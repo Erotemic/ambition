@@ -174,77 +174,9 @@ fn death_beat_of(sprite_content: &ambition_sprite_sheet::SpriteContent,
     ambition_combat::components::DeathBeat::with_row(record.and_then(|record| record.row_seconds("death")))
 }
 
-/// The geometry a character's body is built from, resolved from its prepared
-/// art. Both construction roads use this one resolution.
-///
-/// 1. A `SpriteAuthored` body uses its sheet's `Idle` pose, the same call the
-///    live pose pass makes, so the first pose tick does not resize it.
-/// 2. Else a character with sheet sizing uses its sheet's body metrics.
-/// 3. Else the placement box, with no quad.
-///
-/// ⛔ The catalog is not read here. Preparation folded the sheet and its sizing
-/// into the prepared character, so construction does not ask again.
-#[derive(Clone, Copy, Debug)]
-struct BuiltGeometry {
-    collision: ae::Vec2,
-    render: Option<ae::Vec2>,
-    posed: Option<ambition_sprite_sheet::character::sheets::PosedBodyGeometry>,
-}
-
-impl BuiltGeometry {
-    fn resolve(sprite_content: &ambition_sprite_sheet::SpriteContent,
-        authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        body: Option<&ambition_characters::actor::definition::BodySource>,
-        sheet: Option<&str>,
-        sizing: Option<&ambition_characters::prepared::SheetSizing>,
-        aabb: ae::Aabb,
-    ) -> Self {
-        let placement = aabb.half_size() * 2.0;
-        // An explicit body is the box its author wrote, on every road (Q159,
-        // CHARACTER-FORM slice 1b): its sheet draws it fitted to that box and
-        // does not size it.
-        if let Some(ambition_characters::actor::definition::BodySource::Explicit { half_extents }) = body {
-            let collision = ae::Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0);
-            return Self {
-                collision,
-                render: sheet.and_then(|sheet| {
-                    ambition_sprite_sheet::character::sheets::fitted_render_size(sprite_content, sheet, collision)
-                }),
-                posed: None,
-            };
-        }
-        let posed = match (body, sheet) {
-            (
-                Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
-                    world_per_pixel,
-                }),
-                Some(sheet),
-            ) => ambition_sprite_sheet::character::sheets::posed_body_geometry(&sprite_content,
-                sheet,
-                ambition_sprite_sheet::character::CharacterAnim::Idle,
-                *world_per_pixel,
-            ),
-            _ => None,
-        };
-        if let Some(geometry) = posed {
-            return Self {
-                collision: geometry.collision,
-                render: Some(geometry.render),
-                posed,
-            };
-        }
-        let sized = sheet.zip(sizing).and_then(|(sheet, sizing)| {
-            ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_sheet(&sprite_content,
-                authored, sheet, sizing, placement,
-            )
-        });
-        Self {
-            collision: sized.map_or(placement, |body| body.collision),
-            render: sized.map(|body| body.render_size),
-            posed: None,
-        }
-    }
-}
+/// The geometry a character's body is built from: see
+/// [`ambition_sprite_sheet::character::catalog_join::CharacterBodyGeometry`].
+type BuiltGeometry = ambition_sprite_sheet::character::catalog_join::CharacterBodyGeometry;
 
 /// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
 /// runtime collision size into the actor's initial body center.
@@ -415,7 +347,7 @@ impl ActorClusterSeed {
             prepared_character.and_then(|character| character.body.as_ref()),
             prepared_character.and_then(|character| character.sheet.as_deref()),
             prepared_character.and_then(|character| character.sheet_sizing.as_ref()),
-            aabb,
+            aabb.half_size() * 2.0,
         );
         let (collision_size, render_size) = (geometry.collision, geometry.render);
         let posed = geometry.posed;
@@ -684,7 +616,7 @@ impl ActorClusterSeed {
         // The AUTHORED silhouette, resolved exactly as a peaceful NPC of the
         // same character resolves it — one body per character, however it is
         // spawned.
-        let geometry = BuiltGeometry::resolve(&sprite_content, authored, body_source, sheet, sheet_sizing.as_ref(), aabb);
+        let geometry = BuiltGeometry::resolve(&sprite_content, authored, body_source, sheet, sheet_sizing.as_ref(), aabb.half_size() * 2.0);
         let collision_size = geometry.collision;
         // ASKED ONCE, AT PREPARATION. This read
         // `locomotion.baseline_free_flight || catalog.body_kind(character_id) == Floating` — a

@@ -221,3 +221,76 @@ fn body_at_scale(record: &crate::SheetRecord, scale: f32) -> Option<SpriteBodyCo
         render_size: render,
     })
 }
+
+/// The geometry a character's body is built from, resolved from its prepared
+/// art. Both construction roads use this one resolution.
+///
+/// 1. A `SpriteAuthored` body uses its sheet's `Idle` pose, the same call the
+///    live pose pass makes, so the first pose tick does not resize it.
+/// 2. Else a character with sheet sizing uses its sheet's body metrics.
+/// 3. Else the placement box, with no quad.
+///
+/// ⛔ The catalog is not read here. Preparation folded the sheet and its sizing
+/// into the prepared character, so construction does not ask again.
+#[derive(Clone, Copy, Debug)]
+pub struct CharacterBodyGeometry {
+    pub collision: Vec2,
+    pub render: Option<Vec2>,
+    pub posed: Option<sheets::PosedBodyGeometry>,
+}
+
+impl CharacterBodyGeometry {
+    pub fn resolve(sprite_content: &crate::SpriteContent,
+        authored: &sheets::AuthoredSheets,
+        body: Option<&ambition_characters::actor::definition::BodySource>,
+        sheet: Option<&str>,
+        sizing: Option<&ambition_characters::prepared::SheetSizing>,
+        // The placement box (width, height): the size of a body nothing else
+        // sizes, and the scale basis of a sheet with no standing height.
+        placement: Vec2,
+    ) -> Self {
+        // An explicit body is the box its author wrote, on every road (Q159,
+        // CHARACTER-FORM slice 1b): its sheet draws it fitted to that box and
+        // does not size it.
+        if let Some(ambition_characters::actor::definition::BodySource::Explicit { half_extents }) = body {
+            let collision = Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0);
+            return Self {
+                collision,
+                render: sheet.and_then(|sheet| {
+                    sheets::fitted_render_size(sprite_content, sheet, collision)
+                }),
+                posed: None,
+            };
+        }
+        let posed = match (body, sheet) {
+            (
+                Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
+                    world_per_pixel,
+                }),
+                Some(sheet),
+            ) => sheets::posed_body_geometry(&sprite_content,
+                sheet,
+                CharacterAnim::Idle,
+                *world_per_pixel,
+            ),
+            _ => None,
+        };
+        if let Some(geometry) = posed {
+            return Self {
+                collision: geometry.collision,
+                render: Some(geometry.render),
+                posed,
+            };
+        }
+        let sized = sheet.zip(sizing).and_then(|(sheet, sizing)| {
+            sprite_body_collision_for_sheet(&sprite_content,
+                authored, sheet, sizing, placement,
+            )
+        });
+        Self {
+            collision: sized.map_or(placement, |body| body.collision),
+            render: sized.map(|body| body.render_size),
+            posed: None,
+        }
+    }
+}

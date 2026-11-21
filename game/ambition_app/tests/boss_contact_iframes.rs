@@ -98,9 +98,9 @@ fn read_boss(world: &mut World) -> Option<BossSnapshot> {
         &BossConfig,
         &ambition_platformer2d::characters::actor::BodyCombat,
     )>();
-    q.iter(world).next().map(|(kin, cfg, combat)| BossSnapshot {
+    q.iter(world).next().map(|(kin, _, combat)| BossSnapshot {
         pos: kin.pos,
-        combat_size: cfg.behavior.combat_size.unwrap_or(kin.size()),
+        combat_size: kin.size(),
         hit_flash: if combat.recently_struck() { 1.0 } else { 0.0 },
     })
 }

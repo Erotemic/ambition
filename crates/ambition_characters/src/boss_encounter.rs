@@ -82,6 +82,16 @@ pub struct BossEncounterSpec {
     /// wakes: when this one is cleared, or already when it enrages.
     #[serde(default)]
     pub successors_wake: SuccessorWake,
+    /// The size of this encounter's boss against its character: its body and
+    /// its quad are its character's, times this. An occurrence override, so a
+    /// fight can stage a character larger than he stands elsewhere without a
+    /// second definition of him. 1 (the default) is the character's own size.
+    #[serde(default = "unit_scale")]
+    pub scale: f32,
+}
+
+fn unit_scale() -> f32 {
+    1.0
 }
 
 /// When the bosses that wake after a boss wake.

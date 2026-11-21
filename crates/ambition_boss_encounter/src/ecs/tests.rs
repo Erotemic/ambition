@@ -215,7 +215,7 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
         "mockingbird_boss_v2",
         "mockingbird behavior must map to its 'mockingbird_boss_v2' sheet target",
     );
-    let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(500.0, 185.0));
+    let combat_size = ae::Vec2::new(500.0, 185.0);
     let pos = ae::Vec2::new(500.0, 400.0);
     let mut boss = crate::BossClusterScratch::new(&sprite_content,
         crate::test_boss_catalog(),

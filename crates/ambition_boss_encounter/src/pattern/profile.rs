@@ -57,17 +57,9 @@ pub struct BossBehaviorProfile {
     /// Wolf"). `None` shows the name alone.
     #[serde(default)]
     pub title: Option<String>,
-    /// What the boss leaves when its death row has played. `None` leaves what
-    /// the game of its room states (`DeclaredRules<Corpse>`): in Ambition the
-    /// body stays. A boss that its death takes away (it explodes) states
-    /// `Vanish`; it still plays its whole death row first.
-    #[serde(default)]
-    pub corpse: Option<ambition_characters::actor::Corpse>,
     /// Sprite-registry target. `None` uses this profile's `id`.
     #[serde(default)]
     pub sprite_target: Option<String>,
-    #[serde(default, with = "boss_vec2_option")]
-    pub combat_size: Option<ae::Vec2>,
     pub movement: BossMovementProfile,
     /// Optional per-phase movement overrides. `None` means "use
     /// `movement` during this phase." Lets a boss escalate its
@@ -224,30 +216,6 @@ impl BossRewardProfile {
 }
 
 /// Vec2 serde shim used by the boss-profile schema.
-mod boss_vec2_option {
-    use ambition_platformer2d_core as ae;
-    use serde::Deserialize;
-
-    pub fn deserialize<'de, D>(de: D) -> Result<Option<ae::Vec2>, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let raw: Option<(f32, f32)> = Option::deserialize(de)?;
-        Ok(raw.map(|(x, y)| ae::Vec2::new(x, y)))
-    }
-
-    /// The serializing half, for the canonical catalog dump. It must write
-    /// exactly the shape `deserialize` reads (a tuple), so the fingerprint
-    /// matches what a provider can author.
-    pub fn serialize<S>(value: &Option<ae::Vec2>, se: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::Serialize as _;
-        value.map(|v| (v.x, v.y)).serialize(se)
-    }
-}
-
 mod boss_vec2_required {
     use ambition_platformer2d_core as ae;
     use serde::Deserialize;
@@ -260,7 +228,9 @@ mod boss_vec2_required {
         Ok(ae::Vec2::new(x, y))
     }
 
-    /// See the sibling in `boss_vec2_option`.
+    /// The serializing half, for the canonical catalog dump. It must write
+    /// exactly the shape `deserialize` reads (a tuple), so the fingerprint
+    /// matches what a provider can author.
     pub fn serialize<S>(value: &ae::Vec2, se: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

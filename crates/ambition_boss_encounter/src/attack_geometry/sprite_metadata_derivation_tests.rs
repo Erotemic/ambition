@@ -223,8 +223,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
         animations,
     };
 
-    let mut behavior = BossBehaviorProfile::clockwork_warden();
-    behavior.combat_size = Some(ae::Vec2::new(54.0, 56.0));
+    let behavior = BossBehaviorProfile::clockwork_warden();
     let mut attack_state = BossAttackState::default();
     attack_state.active_profile = Some(BossAttackProfile::Strike("side_sweep".to_string()));
 

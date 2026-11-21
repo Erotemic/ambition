@@ -29,7 +29,7 @@ The shared resolve has four steps:
 | `selection` | `exclusive` (default), `blend_x`, `blend_y`, or `blend_edge` |
 | `sample` | `center` (default), `feet`, or `full_body` for activation |
 | `enter_margin`, `exit_margin` | Entry inset and exit extension, in world units |
-| `latched` | Keep the selected region until another region wins or the view resets; a continuous crossing can activate a thin region |
+| `latched` | Keep an exclusive region until another region wins or the view resets; a continuous crossing can activate a thin region |
 | `blend_width` | Positive spatial blend width, in world units; independent of zoom |
 | `zoom` or `camera_zoom` | View multiplier; default `1.15` |
 | `target_offset_x`, `target_offset_y` | Offset from the normal follow target |
@@ -56,9 +56,11 @@ zoom-in and zoom-out rates. A cut applies both position and zoom at once.
 
 Exclusive selection changes the desired composition at entry. Temporal response
 moves the view to that goal. Spatial selection varies influence with position;
-it must be requested explicitly. Blend weights above one are normalized. Any
-remaining weight uses the room composition. Blend X and Y increase from the
-activation box's minimum edge. Blend edge increases inward from each edge.
+it must be requested explicitly. Regions at one priority share their influence. Spatial influence at a higher
+priority covers the lower-priority composition; the remainder stays below it.
+Blend X and Y increase from the activation box's minimum edge. Blend edge spans
+each boundary, with half its width outside and half inside. Its midpoint is
+the authored edge. The width is fixed in world units.
 
 A footprint smaller than the view cannot contain it. `center` centers the view
 on that axis; `fit_view` changes the view size instead. Visibility recovery can

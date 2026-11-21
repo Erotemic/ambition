@@ -337,14 +337,15 @@ pub fn native_policy(input: &CameraPolicyInput) -> CameraIntent {
                     region.activation_max[0] - margin,
                     region.activation_max[1] - margin,
                 ];
-                let inside = (0..2).all(|axis| {
-                    let half = if region.sample == ActivationSample::FullBody {
-                        subject.size[axis] * 0.5
-                    } else {
-                        0.0
-                    };
-                    at[axis] - half >= min[axis] && at[axis] + half <= max[axis]
-                });
+                let half = if region.sample == ActivationSample::FullBody {
+                    [subject.size[0] * 0.5, subject.size[1] * 0.5]
+                } else {
+                    [0.0, 0.0]
+                };
+                let depth = region_depth(at, min, max, half);
+                let inside = depth >= 0.0
+                    || (region.blend == RegionSelection::BlendEdge
+                        && depth > -region.blend_width * 0.5);
                 let crossed = region.latched
                     && !input.reset
                     && input.continuity == CameraContinuity::Continuous
@@ -365,14 +366,10 @@ pub fn native_policy(input: &CameraPolicyInput) -> CameraIntent {
                         };
                         (at[axis] - region.activation_min[axis]) / region.blend_width.max(1.0)
                     }
-                    _ => {
-                        (0..2)
-                            .map(|axis| {
-                                (at[axis] - region.activation_min[axis])
-                                    .min(region.activation_max[axis] - at[axis])
-                            })
-                            .fold(f32::INFINITY, f32::min)
+                    RegionSelection::BlendEdge => {
+                        region_depth(at, region.activation_min, region.activation_max, half)
                             / region.blend_width.max(1.0)
+                            + 0.5
                     }
                 }
                 .clamp(0.0, 1.0);
@@ -382,42 +379,59 @@ pub fn native_policy(input: &CameraPolicyInput) -> CameraIntent {
             weight.map(|weight| (region, weight))
         })
         .collect::<Vec<_>>();
-    candidates.sort_by(|(a, _), (b, _)| b.priority.cmp(&a.priority).then_with(|| a.id.cmp(&b.id)));
-    let mut intent = CameraIntent {
-        allow_look: true,
-        keep_visible: true,
-        ..Default::default()
-    };
-    let Some((first, _)) = candidates.first() else {
-        return intent;
-    };
-    let priority = first.priority;
-    if let Some((region, _)) = candidates
-        .iter()
-        .take_while(|(region, _)| region.priority == priority)
-        .find(|(region, _)| region.blend == RegionSelection::Exclusive)
-    {
-        intent.regions.push(RegionWeight {
-            id: region.id.clone(),
-            weight: 1.0,
-        });
-        return intent;
-    }
-    intent.regions = candidates
-        .into_iter()
-        .take_while(|(region, _)| region.priority == priority)
-        .map(|(region, weight)| RegionWeight {
-            id: region.id.clone(),
-            weight,
-        })
-        .collect();
-    let total: f32 = intent.regions.iter().map(|weight| weight.weight).sum();
-    if total > 1.0 {
-        for weight in &mut intent.regions {
-            weight.weight /= total;
+    candidates.sort_by(|(a, _), (b, _)| a.priority.cmp(&b.priority).then_with(|| a.id.cmp(&b.id)));
+    let mut intent = CameraIntent::default();
+    let mut start = 0;
+    while start < candidates.len() {
+        let priority = candidates[start].0.priority;
+        let end = candidates[start..]
+            .iter()
+            .position(|(region, _)| region.priority != priority)
+            .map_or(candidates.len(), |offset| start + offset);
+        let group = &candidates[start..end];
+        if let Some((region, _)) = group
+            .iter()
+            .find(|(region, _)| region.blend == RegionSelection::Exclusive)
+        {
+            intent.regions.clear();
+            intent.regions.push(RegionWeight {
+                id: region.id.clone(),
+                weight: 1.0,
+            });
+        } else {
+            let total: f32 = group.iter().map(|(_, weight)| weight).sum();
+            if total > 0.0 {
+                let coverage = total.min(1.0);
+                for weight in &mut intent.regions {
+                    weight.weight *= 1.0 - coverage;
+                }
+                intent
+                    .regions
+                    .extend(group.iter().map(|(region, weight)| RegionWeight {
+                        id: region.id.clone(),
+                        weight: coverage * weight / total,
+                    }));
+            }
         }
+        start = end;
     }
+    intent.regions.retain(|weight| weight.weight > 0.0);
     intent
+}
+
+fn region_depth(at: [f32; 2], min: [f32; 2], max: [f32; 2], half: [f32; 2]) -> f32 {
+    let inside = (0..2)
+        .map(|axis| (at[axis] - min[axis] - half[axis]).min(max[axis] - at[axis] - half[axis]))
+        .fold(f32::INFINITY, f32::min);
+    if inside >= 0.0 {
+        return inside;
+    }
+    let distance = |axis: usize| {
+        (min[axis] + half[axis] - at[axis])
+            .max(at[axis] - max[axis] + half[axis])
+            .max(0.0)
+    };
+    -(distance(0).powi(2) + distance(1).powi(2)).sqrt()
 }
 
 fn crosses(from: [f32; 2], to: [f32; 2], min: [f32; 2], max: [f32; 2]) -> bool {
@@ -577,6 +591,56 @@ mod tests {
         input.regions.reverse();
         assert_eq!(native_policy(&input).regions[0].id, "another");
     }
+    #[test]
+    fn spatial_influence_covers_lower_priority_without_a_view_size_dependency() {
+        let mut input = input();
+        let mut lower = input.regions[0].clone();
+        lower.id = "lower".into();
+        lower.priority = 0;
+        lower.activation_max = input.room_size;
+        input.regions[0].blend = RegionSelection::BlendEdge;
+        input.regions[0].blend_width = 64.0;
+        input.regions.push(lower);
+        let center = native_policy(&input);
+        assert_eq!(center.regions.len(), 2);
+        assert!(center
+            .regions
+            .iter()
+            .all(|region| (region.weight - 0.5).abs() < 1e-6));
+        input.view_size = [1600.0, 1200.0];
+        assert_eq!(native_policy(&input), center);
+        input.subjects[0].physical_position[1] += 16.0;
+        input.subjects[0].position[1] += 16.0;
+        let outside = native_policy(&input);
+        assert!(
+            outside
+                .regions
+                .iter()
+                .find(|region| region.id == "upper")
+                .unwrap()
+                .weight
+                > 0.0
+        );
+        assert!(
+            outside
+                .regions
+                .iter()
+                .find(|region| region.id == "lower")
+                .unwrap()
+                .weight
+                > 0.5
+        );
+        input.subjects[0].physical_position[1] += 16.0;
+        input.subjects[0].position[1] += 16.0;
+        assert_eq!(
+            native_policy(&input).regions,
+            vec![RegionWeight {
+                id: "lower".into(),
+                weight: 1.0
+            }]
+        );
+    }
+
     #[test]
     fn camera_intents_have_one_native_wire_and_script_meaning() {
         use ambition_extension_sdk::structure::Field;

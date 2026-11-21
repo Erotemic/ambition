@@ -807,7 +807,13 @@ pub fn resolve_follow_camera_snapshot(
             transition_bounds,
         )
     };
-    let unpadded_delta = ae::Vec2::new(normal_host_x - host_x, normal_host_y - host_y);
+    // Padding must remain until the presented center can use the normal bounds.
+    let (unpadded_x, unpadded_y) = if release_bounds {
+        (presented_x, presented_y)
+    } else {
+        clamp_to_world_bounds(input.world, world_to_centered_render(input.world, presented),
+            clamp_half_w, clamp_half_h, None, input.must_frame_world, transition_bounds)
+    };
     let (host_x, host_y) = (presented_x, presented_y);
     let target_world = goal;
     // `host_x` is centered-render x, which is monotone in world x.
@@ -831,8 +837,8 @@ pub fn resolve_follow_camera_snapshot(
         input.world.size.y * 0.5 - host_y,
     );
     let unpadded_center_world = ae::Vec2::new(
-        host_x + unpadded_delta.x + input.world.size.x * 0.5,
-        input.world.size.y * 0.5 - (host_y + unpadded_delta.y),
+        unpadded_x + input.world.size.x * 0.5,
+        input.world.size.y * 0.5 - unpadded_y,
     );
 
     if let Some(state) = ease_state.as_deref_mut() {
@@ -4527,12 +4533,8 @@ mod zone_blend_tests {
             zone("gallery", 1920.0, 4480.0, 160.0, Some(0.85), CameraClampMode::default()),
         ];
         for zone in &mut zones {
-            let original = zone.aabb;
-            zone.composition.bounds = Some(original);
             zone.composition.selection = ambition_platformer2d_world::rooms::CameraRegionSelection::BlendEdge;
             zone.composition.blend_width = 512.0;
-            zone.aabb.min -= ae::Vec2::new(256.0,512.0);
-            zone.aabb.max += ae::Vec2::new(256.0,512.0);
         }
         let mut ease = CameraEaseState::default();
         let mut last: Option<ae::Vec2> = None;

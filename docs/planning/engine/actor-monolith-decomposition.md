@@ -803,8 +803,27 @@ those modules are leaves. Modules with neither a path nor the glob:
 The brain feed (`aggression`, `brain_command`, `brain_effects`, `rally`,
 `errand`, `navigation`, `visit`, `direction`, `life`) and the NPC conduct
 modules (`interact`, `npcs`, `pet`, `talk_spacing`, `wallet_shield`, `wear`,
-`summon`, `transform_beat`, `fighter_ladder`) read through the glob or each
-other. Their owner question is the brain dispatch's, not a module move.
+`summon`, `transform_beat`) read through the glob or each other. Their owner
+question is the brain dispatch's, not a module move.
+
+A per-module read (2026-11-21) found five that name nothing else in the crate:
+`fighter_ladder`, `wallet_shield`, `transform_beat`, `talk_spacing`, `visit`.
+Each is a move candidate on its own reads.
+
+### K39 — The fighter ladder projection at combat — DONE 2026-11-21
+
+`project_authored_fighter_ladder` reads the room's `FighterBrainLadder`
+through `RulesOf` (world) and `LiveRoomInstance` (shared_tangle) and writes
+`Brain`. `ambition_characters` depends on neither, so it is not the owner;
+`ambition_combat` depends on all three and already holds the fighter brain's
+decision code and the ladder's content schema. It is now
+`ambition_combat::brain::fighter::ladder`, with its 8 tests and a
+`FighterLadderPlugin` that installs it in `ActorDecisionSet::Prepare`; the
+runtime adds the plugin beside `BodySimulationPlugin`, its only installer.
+The chain with `assess_dormancy` is gone: dormancy writes `ActorControl` and
+the ladder writes `Brain`, so the chain only ordered two disjoint systems,
+and dormancy's commands still flush at the set boundary. One system, one set,
+no new state.
 
 ### Migration acceptance for each packet
 

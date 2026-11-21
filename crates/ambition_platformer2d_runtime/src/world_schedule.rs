@@ -548,6 +548,9 @@ impl Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.add_plugins(ambition_platformer2d_actor_monolith::body::BodySimulationPlugin);
+        // The authored difficulty rung over each fighter brain, in the same
+        // decision preparation set.
+        app.add_plugins(ambition_combat::brain::fighter::ladder::FighterLadderPlugin);
         ambition_platformer2d_world::platforms::install_moving_platform_simulation(app, sim);
         // What F1 and headless inspection read of the walls (GOBS-1).
         ambition_platformer2d_world::geometry_observers::install(app);

@@ -66,7 +66,6 @@ pub mod direction;
 mod telegraph_rows;
 #[cfg(test)]
 mod fighter_harness;
-pub mod fighter_ladder;
 mod interact;
 pub mod navigation;
 pub mod perception;
@@ -292,14 +291,9 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
 
         app.add_systems(
             sim,
-            (
-                // Prepare same-tick eligibility before maintenance. The chain flushes
-                // `assess_dormancy` commands before later phases filter on `Dormant`.
-                crate::body::dormancy::assess_dormancy,
-                crate::body::fighter_ladder::project_authored_fighter_ladder,
-            )
-                .chain()
-                .in_set(ActorDecisionSet::Prepare),
+            // Prepare same-tick eligibility before maintenance. Its commands
+            // flush at the set boundary, before later phases filter on `Dormant`.
+            crate::body::dormancy::assess_dormancy.in_set(ActorDecisionSet::Prepare),
         );
         app.add_systems(
             sim,

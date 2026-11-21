@@ -62,6 +62,8 @@ bevy = { version = "0.19.1", default-features = false }
 ambition_camera_presentation = { path = "../ambition_camera_presentation" }
 # Fixtures publish the prepared cast a barrier would (`prepare_cast_for_test`).
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
+# The fighter ladder's tests build a two-game session (`governing_rules::test_fixtures`).
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world", features = ["test-support"] }
 
 [features]
 # The authored-content schema this capability owns.

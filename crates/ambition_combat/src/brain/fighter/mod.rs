@@ -27,6 +27,7 @@ pub mod charge;
 pub mod content_schema;
 pub mod decision;
 pub mod evaluation;
+pub mod ladder;
 pub mod recovery;
 pub mod reeling;
 pub mod rollout;

@@ -2430,6 +2430,8 @@ records why `perception` stays with the brain dispatch. `fade_rows` and
 - `drawn_ledges` moved to the runtime composition, which installs it; it
   joins the mount's ledge and the sprite sheet's pin. `body` has 20,455
   production lines; still a DAG.
+- K39: the fighter ladder projection is `ambition_combat::brain::fighter::ladder`
+  with its own plugin.
 
 `beat_cues` stays: it reads the body's decision frames. Next in the
 [inventory](engine/actor-monolith-decomposition.md#residual-body-inventory-measured-2026-11-20):

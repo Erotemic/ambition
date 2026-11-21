@@ -1,10 +1,24 @@
 //! Project the authored fighter difficulty rung onto fighter brains.
 //!
-//! A projection over the fighter brains in the world — actor-kernel policy, not
-//! construction. The spawn capability builds the brain; this decides which rung
-//! a brain in the world fights at.
+//! A projection over the fighter brains in the world, not construction. The
+//! spawn capability builds the brain; this decides which rung a brain in the
+//! world fights at, from the ladder the room's rules declare
+//! ([`super::content_schema`]).
 
 use ambition_characters::brain::{Brain, StateMachineCfg};
+
+/// Installs [`project_authored_fighter_ladder`] in the decision preparation
+/// set, where it has always run.
+pub struct FighterLadderPlugin;
+
+impl bevy::prelude::Plugin for FighterLadderPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use ambition_platformer2d_shared_tangle::schedule::{ActorDecisionSet, SimScheduleExt};
+        use bevy::prelude::IntoScheduleConfigs;
+        let sim = app.sim_schedule();
+        app.add_systems(sim, project_authored_fighter_ladder.in_set(ActorDecisionSet::Prepare));
+    }
+}
 
 /// Apply each live room's authored difficulty ladder to its fighters.
 ///

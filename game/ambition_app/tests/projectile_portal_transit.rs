@@ -26,7 +26,8 @@ fn a_projectile_retains_its_pose_when_a_recipients_partition_is_refused() {
     let (owner, room) = {
         let world = sim.world_mut();
         let entity = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
-        (entity, *world.get::<InRoomInstance>(entity).unwrap())
+        (entity, (*world.get::<InRoomInstance>(entity).unwrap(),
+            *world.get::<ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>(entity).unwrap()))
     };
     let center = Vec2::new(1000.0, 400.0);
     let mut hurt = DamageableVolumes::default();
@@ -830,7 +831,8 @@ fn far_side_contact(motion:ContactMotion) {
                     let aabb=Aabb::new(exit.pos-tangent*6.0,Vec2::new(5.0,0.5));
                     world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks
                         .retain(|block|block.name!="K far-side target");
-                    let room=*world.get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(owner).unwrap();
+                    let room=(*world.get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(owner).unwrap(),
+                        *world.get::<ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>(owner).unwrap());
                     hurt_body=Some(world.spawn((room,ambition_platformer2d::characters::actor::ActorFaction::Enemy,
                         ambition_platformer2d::observation::SimId::placement("turning_exit_hurt_body"),
                         ambition_platformer2d::engine_core::CenteredAabb::new(aabb.center(),aabb.half_size()),

@@ -23,13 +23,23 @@
         ),
         // that is the whole thesis in six rows: a difficulty setting is a CONTROLLER fact, and
         // stating it required declaring a whole creature.
+        // Every rung of the ladder is published, so `ladder_rig --rungs` can
+        // seat any of them; the match roads ask for 1, 3, 5, 6 and 9.
         "duelist_l1": (
             template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
             patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 1,
         ),
+        "duelist_l2": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 2,
+        ),
         "duelist_l3": (
             template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
             patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 3,
+        ),
+        "duelist_l4": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 4,
         ),
         "duelist_l5": (
             template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
@@ -38,6 +48,14 @@
         "duelist_l6": (
             template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
             patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 6,
+        ),
+        "duelist_l7": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 7,
+        ),
+        "duelist_l8": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 8,
         ),
         "duelist_l9": (
             template: Fighter, aggro_radius: 600.0, attack_range: 48.0,

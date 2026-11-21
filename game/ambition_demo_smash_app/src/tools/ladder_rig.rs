@@ -26,10 +26,12 @@
 //! Every table names its stage, weights, design, and the ladder the fighters
 //! got.
 //!
-//! The registered ladder is sparse: levels 1, 3, 5, 6, and 9. The rig reports
-//! time to elimination, stocks remaining, and engagement evidence for each pair,
-//! using medians across deterministic seeds. Unregistered levels are invalid for
-//! this measurement because their generic fallback does not represent a ladder rung.
+//! Every level 1 to 9 is published as a `duelist_l{level}` policy, so
+//! `--rungs` may name any of them; the default walk is 1, 3, 5, 6, 9, the
+//! levels the match roads ask for. The rig reports time to elimination, stocks
+//! remaining, and engagement evidence for each pair, using medians across
+//! deterministic seeds. A level with no published policy seats no fighter
+//! brain, and the noise-seed guard refuses the bout.
 
 use bevy::ecs::system::RunSystemOnce;
 
@@ -60,7 +62,7 @@ fn ticks() -> usize {
     args().seconds.map_or_else(default_ticks, |s| s.max(1) * 60)
 }
 
-/// The rungs the demo actually registers. See the sparseness warning above.
+/// The rungs the match roads ask for: the default walk. See the note above.
 const RUNGS: &[u8] = &[1, 3, 5, 6, 9];
 
 /// The rungs this run walks — `--rungs` when given, the registered ladder

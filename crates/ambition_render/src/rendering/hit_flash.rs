@@ -250,7 +250,7 @@ pub fn attach_hit_flash_overlays(
             // `custom_size` next tick; try again then.
             continue;
         };
-        let Some(uv_rect) = current_sprite_uv_rect(sprite, &texture_layouts) else {
+        let Some(uv_rect) = ambition_sprite_fx::sprite_uv_rect(sprite, &texture_layouts) else {
             // Texture / atlas not loaded yet; try again next frame.
             continue;
         };
@@ -383,7 +383,7 @@ pub fn sync_hit_flash_overlays(
         let Some(render_size) = source_sprite.custom_size else {
             continue;
         };
-        let Some(uv_rect) = current_sprite_uv_rect(source_sprite, &texture_layouts) else {
+        let Some(uv_rect) = ambition_sprite_fx::sprite_uv_rect(source_sprite, &texture_layouts) else {
             continue;
         };
         let flip = flip_flag(source_sprite);
@@ -842,24 +842,7 @@ fn normalize_hit_flash(seconds: f32) -> f32 {
 /// three agree. Merging them needs a crate that both `ambition_render` and
 /// `ambition_portal2d_presentation` can reach; render depends on portal, so it
 /// cannot be either one.
-fn current_sprite_uv_rect(
-    sprite: &Sprite,
-    texture_layouts: &Assets<TextureAtlasLayout>,
-) -> Option<Vec4> {
-    let Some(atlas) = sprite.texture_atlas.as_ref() else {
-        // Plain-image sprite: the whole texture is the "frame".
-        return Some(Vec4::new(0.0, 0.0, 1.0, 1.0));
-    };
-    let layout = texture_layouts.get(&atlas.layout)?;
-    let rect = layout.textures.get(atlas.index)?;
-    let size = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
-    Some(Vec4::new(
-        rect.min.x as f32 / size.x,
-        rect.min.y as f32 / size.y,
-        rect.max.x as f32 / size.x,
-        rect.max.y as f32 / size.y,
-    ))
-}
+
 
 fn overlay_transform_from_source(
     source: &Transform,

@@ -225,7 +225,7 @@ pub fn sync_flames(
         flames.cold = ease(flames.cold, cold, COLD_EASE * dt);
         let hidden = matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
         let (Some(render_size), Some(uv_rect), false, true) =
-            (sprite.custom_size, sprite_uv_rect(sprite, &layouts), hidden, flames.height > 0.01)
+            (sprite.custom_size, ambition_sprite_fx::sprite_uv_rect(sprite, &layouts), hidden, flames.height > 0.01)
         else {
             *overlay_visibility = Visibility::Hidden;
             continue;
@@ -265,20 +265,7 @@ fn ease(from: f32, to: f32, step: f32) -> f32 {
 
 /// The sprite's cell in its page, as `min.xy, max.xy` in 0 to 1. A sprite with
 /// no atlas is drawn whole.
-fn sprite_uv_rect(sprite: &Sprite, layouts: &Assets<TextureAtlasLayout>) -> Option<Vec4> {
-    let Some(atlas) = sprite.texture_atlas.as_ref() else {
-        return Some(Vec4::new(0.0, 0.0, 1.0, 1.0));
-    };
-    let layout = layouts.get(&atlas.layout)?;
-    let rect = layout.textures.get(atlas.index)?;
-    let size = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
-    Some(Vec4::new(
-        rect.min.x as f32 / size.x,
-        rect.min.y as f32 / size.y,
-        rect.max.x as f32 / size.x,
-        rect.max.y as f32 / size.y,
-    ))
-}
+
 
 // ── Space, and the moon ──
 //

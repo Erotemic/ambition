@@ -649,3 +649,20 @@ fn a_rebound_sprite_stays_hidden_under_its_following_quad() {
         assert!(app.world().get::<FollowingFxSource>(entity).is_none());
     }
 }
+
+#[test]
+fn frame_uvs_preserve_atlas_edges_and_refuse_missing_frames() {
+    let mut layouts = Assets::<TextureAtlasLayout>::default();
+    let layout = layouts.add(TextureAtlasLayout {
+        size: UVec2::new(100, 50),
+        textures: vec![URect::from_corners(UVec2::new(20, 10), UVec2::new(100, 50))],
+    });
+    let mut sprite = Sprite {texture_atlas: Some(TextureAtlas {layout, index: 0}), ..default()};
+    assert_eq!(sprite_uv_rect(&sprite, &layouts), Some(Vec4::new(0.2, 0.2, 1.0, 1.0)));
+    sprite.texture_atlas.as_mut().unwrap().index = 1;
+    assert_eq!(sprite_uv_rect(&sprite, &layouts), None);
+    sprite.texture_atlas.as_mut().unwrap().layout = Handle::default();
+    assert_eq!(sprite_uv_rect(&sprite, &layouts), None);
+    sprite.texture_atlas = None;
+    assert_eq!(sprite_uv_rect(&sprite, &layouts), Some(Vec4::new(0.0, 0.0, 1.0, 1.0)));
+}

@@ -1110,11 +1110,18 @@ fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
-/// The shipped app, gameplay activated, ready to be told to reload its world.
-pub(crate) fn a_running_shipped_session() -> bevy::prelude::App {
+/// The shipped no-window app on its launcher, finished as `App::run` finishes
+/// it and updated once.
+fn the_shipped_launcher() -> bevy::prelude::App {
     let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
     app.finish();
     app.update();
+    app
+}
+
+/// The shipped app, gameplay activated, ready to be told to reload its world.
+pub(crate) fn a_running_shipped_session() -> bevy::prelude::App {
+    let mut app = the_shipped_launcher();
     app.world_mut().write_message(ShellCommand::ReplaceWith {
         route: ShellRouteId::new("ambition_gameplay"),
         request: None,
@@ -2154,9 +2161,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone())
     }
 
-    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
-    app.finish();
-    app.update();
+    let mut app = the_shipped_launcher();
 
     let gameplay = ShellRouteId::new("ambition_gameplay");
     app.world_mut().write_message(ShellCommand::ReplaceWith {
@@ -2428,9 +2433,7 @@ fn a_candidate_session_replaced_while_pending_is_discarded() {
     use ambition_platformer2d::game_shell::{PreparedSessionRegistry, ProviderLoadTransaction, ShellEvent, TransactionEnd};
     use bevy::ecs::message::Messages;
 
-    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
-    app.finish();
-    app.update();
+    let mut app = the_shipped_launcher();
     let gameplay = ShellRouteId::new("ambition_gameplay");
     let mut cursor = app.world().resource::<Messages<ShellEvent>>().get_cursor();
     let mut seen: Vec<ShellEvent> = Vec::new();
@@ -2596,9 +2599,7 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     use ambition_platformer2d::game_shell::ShellRequestId;
     use ambition_platformer2d::platformer::lifecycle::{session_root_for_scope, SessionScopeId};
 
-    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
-    app.finish();
-    app.update();
+    let mut app = the_shipped_launcher();
 
     let request = ShellRequestId::new("a10-cancel-witness");
     app.world_mut().write_message(ShellCommand::ReplaceWith {
@@ -2730,9 +2731,7 @@ fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
     };
     use ambition_platformer2d::platformer::sim_id::SimId;
 
-    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
-    app.finish();
-    app.update();
+    let mut app = the_shipped_launcher();
 
     let minted_id = "minted:a10_candidate_javelin";
     {

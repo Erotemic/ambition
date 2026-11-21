@@ -10,7 +10,10 @@ use ambition_platformer2d::engine_core::{AabbExt, ControlFrame};
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::{Entity, With};
 
-use crate::common::{base, door_to, fixed_60hz_room_sim, possess_the_authored_enemy, walk_through_the_door_to};
+use crate::common::{
+    base, door_to, fixed_60hz_room_sim, possess_by_holding_on, possess_the_authored_enemy, primary_possessed,
+    walk_through_the_door_to,
+};
 
 /// `blink_run` authors exactly one `GroundItem` (`blink_run_pickup`) and exactly
 /// one `Door` loading zone (to `portal_bridge`, which authors three doors back
@@ -91,6 +94,77 @@ fn occurrences(sim: &mut Platformer2dSimHarness, authored: &SimId) -> Vec<Entity
         .collect()
 }
 
+fn settle(sim: &mut Platformer2dSimHarness, frames: usize) {
+    for _ in 0..frames {
+        sim.step(base());
+    }
+}
+
+/// Whether `item` is held, by `holder`.
+fn held_by(sim: &Platformer2dSimHarness, item: Entity, holder: Entity) -> bool {
+    matches!(
+        custody(sim, item),
+        Some(ambition_platformer2d::held_items::ItemCustody::Held { holder: h }) if h == holder
+    )
+}
+
+/// Whether `item` lies in the world, collectible.
+fn lying_in_world(sim: &Platformer2dSimHarness, item: Entity) -> bool {
+    custody(sim, item).is_some_and(|custody| custody.in_world())
+}
+
+/// Manhattan distance between two positions.
+fn apart(a: (f32, f32), b: (f32, f32)) -> f32 {
+    (a.0 - b.0).abs() + (a.1 - b.1).abs()
+}
+
+/// `vertical_shaft`'s authored enemy, with its placement identity, after
+/// 20 frames settling.
+fn the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {
+    use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    settle(sim, 20);
+    let world = sim.world_mut();
+    let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
+    q.iter(world)
+        .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
+        .map(|(e, id, _, _)| (e, id.clone()))
+        .expect("'vertical_shaft' authors an enemy with a placement identity")
+}
+
+/// A living actor that the possession hold's scuffle cannot kill.
+fn make_invulnerable(sim: &mut Platformer2dSimHarness, actor: Entity) {
+    let mut health = sim.world_mut().get_mut::<ambition_platformer2d::actor::BodyHealth>(actor).unwrap();
+    assert!(health.alive(), "the travelling fixture starts with a living actor");
+    health.health.invulnerable.set(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
+}
+
+/// Put the possessed `actor` in its room's door to `target` and hold interact
+/// until it is in another room, for up to 90 frames. Answers the room it is in
+/// then, if it left.
+fn drive_through_the_door_to(sim: &mut Platformer2dSimHarness, actor: Entity, target: &str) -> Option<String> {
+    let before = body_room(sim, actor);
+    let centre = door_for_body(sim, actor, target).aabb.center();
+    place_body(sim, actor, (centre.x, centre.y));
+    for _ in 0..90 {
+        sim.step(AgentAction { interact: true, interact_held: true, ..base() });
+        let room = body_room(sim, actor);
+        if room != before {
+            return Some(room);
+        }
+    }
+    None
+}
+
+/// The occurrence ledger, one `"<id> = <whereabouts>"` line a row.
+fn ledger_rows(sim: &Platformer2dSimHarness) -> Vec<String> {
+    sim.world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+        .rows()
+        .map(|(occurrence, whereabouts)| format!("{} = {whereabouts:?}", occurrence.as_str()))
+        .collect()
+}
+
 /// THE NEW-GAME RESET — the road that rebuilds the WORLD.
 ///
 /// not `reset_episode()`, and the difference is the whole reason this helper
@@ -150,9 +224,7 @@ fn throw_it_down(sim: &mut Platformer2dSimHarness) {
         shield_held: true,
         ..ControlFrame::default()
     });
-    for _ in 0..30 {
-        sim.step(base());
-    }
+    settle(sim, 30);
 }
 
 /// AN AUTHORED PLACEMENT IS NOT AUTHORED TWICE, AND COMES BACK WHERE YOU LEFT IT.
@@ -173,9 +245,7 @@ fn throw_it_down(sim: &mut Platformer2dSimHarness) {
 #[test]
 fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     let (item, authored) = authored_item(&mut sim);
     let authored_pos = item_pos(&sim, item);
     assert_eq!(
@@ -190,9 +260,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
     assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
     let arrived = walk_through_the_door_to(&mut sim, SOURCE_ROOM);
     assert_eq!(arrived, SOURCE_ROOM, "back where the object was authored");
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
 
     // THE CLAIM.
     assert_eq!(
@@ -203,11 +271,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
          and both would claim {authored:?}"
     );
     assert!(
-        matches!(
-            custody(&sim, item),
-            Some(ambition_platformer2d::held_items::ItemCustody::Held { holder: h })
-                if h == holder
-        ),
+        held_by(&sim, item, holder),
         "and the one occurrence is the one still being carried"
     );
 
@@ -217,7 +281,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
     // it, and it must not be conjured back the instant it touches the floor.
     throw_it_down(&mut sim);
     assert!(
-        custody(&sim, item).is_some_and(|custody| custody.in_world()),
+        lying_in_world(&sim, item),
         "Shield+Attack puts the object back in the world"
     );
     assert_eq!(
@@ -229,7 +293,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
     // The leg below measures "back where it was left" against "back where it
     // is authored", so a drop at the authored place proves nothing.
     let dropped_pos = item_pos(&sim, item);
-    let moved = (dropped_pos.0 - authored_pos.0).abs() + (dropped_pos.1 - authored_pos.1).abs();
+    let moved = apart(dropped_pos, authored_pos);
     assert!(
         moved > 8.0,
         "the object must be put down somewhere the room does NOT author it: \
@@ -245,9 +309,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
     //
     assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
     assert_eq!(walk_through_the_door_to(&mut sim, SOURCE_ROOM), SOURCE_ROOM);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     let live = occurrences(&mut sim, &authored);
     assert_eq!(
         live.len(),
@@ -263,11 +325,11 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
     );
     let back = live[0];
     assert!(
-        custody(&sim, back).is_some_and(|custody| custody.in_world()),
+        lying_in_world(&sim, back),
         "the returning occurrence is lying in the world, collectible, not stranded in a hand"
     );
     let back_pos = item_pos(&sim, back);
-    let drift = (back_pos.0 - dropped_pos.0).abs() + (back_pos.1 - dropped_pos.1).abs();
+    let drift = apart(back_pos, dropped_pos);
     assert!(
         drift < 1.0,
         "an object put down at {dropped_pos:?} must come back THERE, not at the \
@@ -303,9 +365,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
 #[test]
 fn a_placement_dropped_in_another_room_stays_there() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     let (item, authored) = authored_item(&mut sim);
     let authored_pos = item_pos(&sim, item);
 
@@ -326,11 +386,7 @@ fn a_placement_dropped_in_another_room_stays_there() {
         "and it is the object it was authored as — no despawn, no re-mint"
     );
     assert!(
-        matches!(
-            custody(&sim, item),
-            Some(ambition_platformer2d::held_items::ItemCustody::Held { holder: h })
-                if h == holder
-        ),
+        held_by(&sim, item, holder),
         "still in the same hands on the far side of the door"
     );
     // Let go standing in the door back to `blink_run`: it is the one position in
@@ -342,19 +398,15 @@ fn a_placement_dropped_in_another_room_stays_there() {
     sim.teleport_player((stand.x, stand.y));
     throw_it_down(&mut sim);
     assert!(
-        custody(&sim, item).is_some_and(|custody| custody.in_world()),
+        lying_in_world(&sim, item),
         "Shield+Attack puts the object back in the world"
     );
 
-    for _ in 0..60 {
-        sim.step(base());
-    }
+    settle(&mut sim, 60);
     let dropped_pos = item_pos(&sim, item);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     let still = item_pos(&sim, item);
-    let creep = (still.0 - dropped_pos.0).abs() + (still.1 - dropped_pos.1).abs();
+    let creep = apart(still, dropped_pos);
     assert!(
         creep < 0.5,
         "the dropped object must be at rest before the room is unloaded: it was \
@@ -364,7 +416,7 @@ fn a_placement_dropped_in_another_room_stays_there() {
     // And it is somewhere the AUTHORED record does not put it, so "came back
     // where it was left" and "came back where the record says" are different
     // answers and the last assertion can fail.
-    let moved = (dropped_pos.0 - authored_pos.0).abs() + (dropped_pos.1 - authored_pos.1).abs();
+    let moved = apart(dropped_pos, authored_pos);
     assert!(
         moved > 8.0,
         "authored at {authored_pos:?}, dropped at {dropped_pos:?} — this test \
@@ -373,9 +425,7 @@ fn a_placement_dropped_in_another_room_stays_there() {
 
     // ── UNLOAD THE ROOM IT IS NOW IN, AND VISIT THE ONE THAT AUTHORS IT ─────
     assert_eq!(walk_through_the_door_to(&mut sim, SOURCE_ROOM), SOURCE_ROOM);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     assert!(
         sim.world().get_entity(item).is_err(),
         "an object dropped in '{TARGET_ROOM}' is a resident of it, and leaving \
@@ -393,9 +443,7 @@ fn a_placement_dropped_in_another_room_stays_there() {
 
     // ── AND BACK NEXT DOOR: THE SAME OCCURRENCE, WHERE IT WAS LEFT ──────────
     assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     let live = occurrences(&mut sim, &authored);
     assert_eq!(
         live.len(),
@@ -413,11 +461,11 @@ fn a_placement_dropped_in_another_room_stays_there() {
          `SimId` is what makes this the same occurrence"
     );
     assert!(
-        custody(&sim, back).is_some_and(|custody| custody.in_world()),
+        lying_in_world(&sim, back),
         "lying in the world, collectible, the way it was left"
     );
     let back_pos = item_pos(&sim, back);
-    let drift = (back_pos.0 - dropped_pos.0).abs() + (back_pos.1 - dropped_pos.1).abs();
+    let drift = apart(back_pos, dropped_pos);
     assert!(
         drift < 1.0,
         "it must come back at {dropped_pos:?}, where it was dropped; it came \
@@ -462,9 +510,7 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
     }
 
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     let walked_before = walk(&mut sim, 1.0).abs().max(walk(&mut sim, -1.0).abs());
     assert!(walked_before > 20.0, "premise: the player walks before the reset (moved {walked_before})");
     let (_, authored) = authored_item(&mut sim);
@@ -472,9 +518,7 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
     // Out and back without ever touching it.
     assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
     assert_eq!(walk_through_the_door_to(&mut sim, SOURCE_ROOM), SOURCE_ROOM);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     assert_eq!(
         occurrences(&mut sim, &authored).len(),
         1,
@@ -506,9 +550,7 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
     }
 
     request_sandbox_reset(&mut sim);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     assert_eq!(
         sim.observation().active_room.as_str(),
         SOURCE_ROOM,
@@ -546,7 +588,7 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
          the carried object surviving a reset that did nothing"
     );
     assert!(
-        custody(&sim, rebuilt[0]).is_some_and(|custody| custody.in_world()),
+        lying_in_world(&sim, rebuilt[0]),
         "the rebuilt placement is lying in the world, the way the record \
          authors it — not in somebody's hand"
     );
@@ -593,7 +635,6 @@ const POSSESS_TARGET_ID: &str = "carry_while_possessed";
 /// whole hold window, and the target weaves around its own attack range, so a
 /// single window can land just out of the possession radius.
 fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
-    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::combat::components::FeatureId;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
@@ -627,7 +668,7 @@ fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(actor) {
+        if primary_possessed(sim) == Some(actor) {
             return actor;
         }
     }
@@ -709,9 +750,7 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
     use ambition_platformer2d::held_items::ItemCustody;
 
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
     assert_eq!(sim.observation().active_room.as_str(), SOURCE_ROOM);
 
     let (item, authored) = authored_item(&mut sim);
@@ -782,7 +821,7 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
         "and it is the object it was authored as — no despawn, no re-mint"
     );
     assert!(
-        matches!(custody(&sim, item), Some(ItemCustody::Held { holder: h }) if h == actor),
+        held_by(&sim, item, actor),
         "it arrived still in the possessed body's custody"
     );
     assert_eq!(
@@ -813,80 +852,28 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
 /// radius. That is a spacing race, not the thing under test.
 #[test]
 fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
-    use ambition_platformer2d::actors::control::possession::PossessionState;
-    use ambition_platformer2d::characters::brain::Brain;
-    use ambition_platformer2d::engine_core::BodyKinematics;
 
     const HOME: &str = "vertical_shaft";
     const AWAY: &str = "central_hub_complex";
 
     let mut sim = fixed_60hz_room_sim(HOME);
-    for _ in 0..20 {
-        sim.step(base());
-    }
-    let (actor, id) = {
-        let world = sim.world_mut();
-        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
-        q.iter(world)
-            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
-            .map(|(e, id, _, _)| (e, id.clone()))
-            .expect("'vertical_shaft' authors an enemy with a placement identity")
-    };
+    let (actor, id) = the_authored_enemy(&mut sim);
     assert_eq!(
         occurrences(&mut sim, &id).len(),
         1,
         "setup: exactly one occurrence of the authored actor before anything happens"
     );
 
-    {
-        let mut health = sim.world_mut().get_mut::<ambition_platformer2d::actor::BodyHealth>(actor).unwrap();
-        assert!(health.alive(), "the travelling fixture starts with a living actor");
-        health.health.invulnerable.set(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
-    }
-    let mut possessed = false;
-    for i in 0..900 {
-        if let Some(here) = sim
-            .world()
-            .get::<BodyKinematics>(actor)
-            .map(|k| (k.pos.x, k.pos.y))
-        {
-            sim.teleport_player(here);
-        }
-        sim.step(AgentAction {
-            move_y: 1.0,
-            interact: i == 0,
-            interact_held: true,
-            ..base()
-        });
-        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(actor) {
-            possessed = true;
-            break;
-        }
-    }
+    make_invulnerable(&mut sim, actor);
     assert!(
-        possessed,
+        possess_by_holding_on(&mut sim, actor),
         "setup: holding Down+Interact on the authored actor never possessed it, so \
          nothing below is about a travelling body"
     );
 
     for (target, leg) in [(AWAY, "out"), (HOME, "back")] {
         let before = body_room(&sim, actor);
-        let door = door_for_body(&sim, actor, target);
-        let centre = door.aabb.center();
-        place_body(&mut sim, actor, (centre.x, centre.y));
-        let mut arrived = None;
-        for _ in 0..90 {
-            sim.step(AgentAction {
-                    interact: true,
-                    interact_held: true,
-                    ..base()
-                });
-            let room = body_room(&sim, actor);
-            if room != before {
-                arrived = Some(room);
-                break;
-            }
-        }
+        let arrived = drive_through_the_door_to(&mut sim, actor, target);
         assert_eq!(
             arrived.as_deref(),
             Some(target),
@@ -944,9 +931,7 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
     );
 
     sim.world_mut().write_message(ResetToCheckpoint);
-    for _ in 0..5 {
-        sim.step(base());
-    }
+    settle(&mut sim, 5);
 
     assert!(
         sim.world().get_entity(actor).is_ok(),
@@ -980,7 +965,6 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
 #[test]
 fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it() {
     use ambition_platformer2d::actors::control::possession::PossessionState;
-    use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
 
     let mut sim = fixed_60hz_room_sim("vertical_shaft");
     // `possess_the_authored_enemy` returns on the step the mechanic committed;
@@ -993,12 +977,7 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
     // occurrence projection cannot read the previous tick's possession state.
     // Anything that reads the ledger inside this tick — a room build, a save —
     // would otherwise see a body nobody is holding.
-    let written: Vec<String> = sim
-        .world()
-        .resource::<AuthoredOccurrences>()
-        .rows()
-        .map(|(occurrence, whereabouts)| format!("{} = {whereabouts:?}", occurrence.as_str()))
-        .collect();
+    let written = ledger_rows(&sim);
     assert!(
         written
             .iter()
@@ -1021,12 +1000,7 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
     *sim.world_mut().resource_mut::<PossessionState>() = PossessionState::default();
     sim.step(base());
 
-    let after: Vec<String> = sim
-        .world()
-        .resource::<AuthoredOccurrences>()
-        .rows()
-        .map(|(occurrence, whereabouts)| format!("{} = {whereabouts:?}", occurrence.as_str()))
-        .collect();
+    let after = ledger_rows(&sim);
     assert!(
         !after.iter().any(|row| row.starts_with(id.as_str())),
         "a custody row survived a tick with nobody holding the occurrence. On a load \
@@ -1084,7 +1058,6 @@ fn declared_limbs(sim: &Platformer2dSimHarness, mount: Entity) -> usize {
 /// closure.
 #[test]
 fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
-    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
@@ -1096,9 +1069,7 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
     // every tick: setup for the custody it reads, which a door's passage would
     // fight.
     crate::common::doors_cross_at_once(&mut sim);
-    for _ in 0..30 {
-        sim.step(base());
-    }
+    settle(&mut sim, 30);
     let (rider, mount) = {
         let world = sim.world_mut();
         let mut q = world.query::<(Entity, &RidingOn, &Brain)>();
@@ -1131,29 +1102,7 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
          own, or the ledger assertion below is about a shorter chain than it claims"
     );
 
-    for i in 0..900 {
-        if let Some(here) = sim
-            .world()
-            .get::<BodyKinematics>(rider)
-            .map(|k| (k.pos.x, k.pos.y))
-        {
-            sim.teleport_player(here);
-        }
-        sim.step(AgentAction {
-            move_y: 1.0,
-            interact: i == 0,
-            interact_held: true,
-            ..base()
-        });
-        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(rider) {
-            break;
-        }
-    }
-    assert_eq!(
-        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
-        Some(rider),
-        "setup: the rider was never possessed"
-    );
+    assert!(possess_by_holding_on(&mut sim, rider), "setup: the rider was never possessed");
 
     let recorded: Vec<String> = sim
         .world()
@@ -1254,8 +1203,6 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
 /// pin the actor to a named room; it pins position transfer and uniqueness.
 #[test]
 fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
-    use ambition_platformer2d::actors::control::possession::PossessionState;
-    use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 
@@ -1263,17 +1210,7 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
     const AWAY: &str = "central_hub_complex";
 
     let mut sim = fixed_60hz_room_sim(HOME);
-    for _ in 0..20 {
-        sim.step(base());
-    }
-    let (actor, id) = {
-        let world = sim.world_mut();
-        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
-        q.iter(world)
-            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
-            .map(|(e, id, _, _)| (e, id.clone()))
-            .expect("'vertical_shaft' authors an enemy with a placement identity")
-    };
+    let (actor, id) = the_authored_enemy(&mut sim);
     assert_eq!(
         occurrences(&mut sim, &id).len(),
         1,
@@ -1287,33 +1224,9 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
             .expect("setup: one player body to begin with")
     };
 
-    {
-        let mut health = sim.world_mut().get_mut::<ambition_platformer2d::actor::BodyHealth>(actor).unwrap();
-        assert!(health.alive(), "the travelling fixture starts with a living actor");
-        health.health.invulnerable.set(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
-    }
-    let mut possessed = false;
-    for i in 0..900 {
-        if let Some(here) = sim
-            .world()
-            .get::<BodyKinematics>(actor)
-            .map(|k| (k.pos.x, k.pos.y))
-        {
-            sim.teleport_player(here);
-        }
-        sim.step(AgentAction {
-            move_y: 1.0,
-            interact: i == 0,
-            interact_held: true,
-            ..base()
-        });
-        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(actor) {
-            possessed = true;
-            break;
-        }
-    }
+    make_invulnerable(&mut sim, actor);
     assert!(
-        possessed,
+        possess_by_holding_on(&mut sim, actor),
         "setup: holding Down+Interact on the authored actor never possessed it, so \
          nothing below is about a driven body"
     );
@@ -1324,22 +1237,7 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
     );
 
     let before = body_room(&sim, actor);
-    let door = door_for_body(&sim, actor, AWAY);
-    let centre = door.aabb.center();
-    place_body(&mut sim, actor, (centre.x, centre.y));
-    let mut arrived = None;
-    for _ in 0..90 {
-        sim.step(AgentAction {
-                interact: true,
-                interact_held: true,
-                ..base()
-            });
-        let room = body_room(&sim, actor);
-        if room != before {
-            arrived = Some(room);
-            break;
-        }
-    }
+    let arrived = drive_through_the_door_to(&mut sim, actor, AWAY);
     assert_eq!(
         arrived.as_deref(),
         Some(AWAY),
@@ -1353,9 +1251,7 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
     );
 
     // A rising edge needs a low frame first: the crossing above held interact.
-    for _ in 0..4 {
-        sim.step(base());
-    }
+    settle(&mut sim, 4);
 
     let pos_of = |sim: &Platformer2dSimHarness, e: Entity| {
         sim.world()
@@ -1368,9 +1264,7 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
     // reset to the room's spawn" put you in the same place, and the assertions below cannot tell
     // them apart. Move this back to the arrival point and the test stops discriminating.
     place_body(&mut sim, actor, (1500.0, 386.0));
-    for _ in 0..4 {
-        sim.step(base());
-    }
+    settle(&mut sim, 4);
     let stranded = pos_of(&sim, avatar);
     let let_go_at = pos_of(&sim, actor);
     assert!(
@@ -1387,16 +1281,14 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
         ..base()
     });
     assert_eq!(
-        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
+        primary_possessed(&sim),
         None,
         "setup: a fresh Down+Interact did not release the body, so the assertions \
          below are still about a POSSESSED actor"
     );
 
     // Let the release settle: the restore runs through the ordinary control seam.
-    for _ in 0..10 {
-        sim.step(base());
-    }
+    settle(&mut sim, 10);
 
     assert!(
         sim.world().get_entity(avatar).is_ok(),
@@ -1477,9 +1369,7 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
 /// coverage this test can actually speak for is possession's.
 #[test]
 fn a_mount_dying_under_a_possession_survives_rewinds() {
-    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::brain::Brain;
-    use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::platformer::temporary_control::{
         ControlClaimant, ControlClaims,
@@ -1491,9 +1381,7 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
             .with_sync_test_rollback_settings(4, 10),
     )
     .expect("the rewinding harness builds on an authored room");
-    for _ in 0..30 {
-        sim.step(base());
-    }
+    settle(&mut sim, 30);
 
     let (rider, mount) = {
         let world = sim.world_mut();
@@ -1504,27 +1392,7 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
             .expect("'pirate_sky_lookout' authors a rider on a mount")
     };
 
-    let mut possessed = false;
-    for i in 0..900 {
-        if let Some(here) = sim
-            .world()
-            .get::<BodyKinematics>(rider)
-            .map(|k| (k.pos.x, k.pos.y))
-        {
-            sim.teleport_player(here);
-        }
-        sim.step(AgentAction {
-            move_y: 1.0,
-            interact: i == 0,
-            interact_held: true,
-            ..base()
-        });
-        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(rider) {
-            possessed = true;
-            break;
-        }
-    }
-    assert!(possessed, "setup: the rider was never possessed under rewind");
+    assert!(possess_by_holding_on(&mut sim, rider), "setup: the rider was never possessed under rewind");
 
     // The possession claim has been saved and restored several times over by now.
     // ⚠ ONLY THE POSSESSION: the authored rider is carried, not mount-controlled,
@@ -1562,9 +1430,7 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
         health.damage(current);
     }
     // Well past `check_distance`, so the death frame itself is re-simulated.
-    for _ in 0..20 {
-        sim.step(base());
-    }
+    settle(&mut sim, 20);
     assert!(
         sim.world()
             .get::<ambition_platformer2d::characters::actor::BodyHealth>(mount)
@@ -1593,7 +1459,7 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
          mount dies"
     );
     assert_eq!(
-        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
+        primary_possessed(&sim),
         Some(rider),
         "and possession itself was never in question"
     );

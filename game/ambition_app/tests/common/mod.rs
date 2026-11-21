@@ -252,7 +252,6 @@ pub fn first_floor_authored_portal_pair(
 /// failed to possess anything measures a body nobody is driving, and every
 /// assertion about custody below would pass for the wrong reason.
 pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {
-    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
 
@@ -267,30 +266,41 @@ pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, 
             .map(|(e, id, _, _)| (e, id.clone()))
             .expect("'vertical_shaft' authors an enemy with a placement identity")
     };
+    assert!(
+        possess_by_holding_on(sim, actor),
+        "setup: nothing below is about a driven body unless one is being driven"
+    );
+    (actor, id)
+}
+
+/// The body the primary seat possesses, if any.
+pub fn primary_possessed(sim: &Platformer2dSimHarness) -> Option<Entity> {
+    sim.world()
+        .resource::<ambition_platformer2d::actors::control::possession::PossessionState>()
+        .get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY)
+        .possessed
+}
+
+/// Hold Down+Interact on `target` until the primary seat possesses it, for up
+/// to 900 frames. The player is put back on the target every frame: the target
+/// fights back, and a staggered player drifts out of the possession radius,
+/// which is a spacing race rather than anything a caller tests. Answers
+/// whether the possession committed; it returns on the step that committed it.
+pub fn possess_by_holding_on(sim: &mut Platformer2dSimHarness, target: Entity) -> bool {
     for i in 0..900 {
         if let Some(here) = sim
             .world()
-            .get::<BodyKinematics>(actor)
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(target)
             .map(|k| (k.pos.x, k.pos.y))
         {
             sim.teleport_player(here);
         }
-        sim.step(AgentAction {
-            move_y: 1.0,
-            interact: i == 0,
-            interact_held: true,
-            ..base()
-        });
-        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(actor) {
-            break;
+        sim.step(AgentAction { move_y: 1.0, interact: i == 0, interact_held: true, ..base() });
+        if primary_possessed(sim) == Some(target) {
+            return true;
         }
     }
-    assert_eq!(
-        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
-        Some(actor),
-        "setup: nothing below is about a driven body unless one is being driven"
-    );
-    (actor, id)
+    false
 }
 
 /// THIS App's resident character pages, judged per App.

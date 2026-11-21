@@ -17,59 +17,38 @@ use ambition_app::AgentAction;
 /// loose floor that still rules out "axis is dead" (~0 movement).
 const MIN_TRAVEL_PX: f32 = 20.0;
 
-fn fresh_sim() -> ambition_app::Platformer2dSimHarness {
-    // Default room spawns the player on flat floor; fixed 60Hz keeps the
-    // trajectory deterministic.
-    crate::common::fixed_60hz_sim()
+/// `(start_x, end_x)` of the player over 55 ticks holding `move_x`, written
+/// into `ControlFrame` each tick through the agent seam, after 5 ticks letting
+/// the spawn settle on the default room's flat floor (fixed 60 Hz, so the
+/// trajectory is deterministic).
+fn travel_holding(move_x: f32) -> (f32, f32) {
+    let mut sim = crate::common::fixed_60hz_sim();
+    sim.step_n(base(), 5);
+    let start_x = sim.observation().player_pos.0;
+    let obs = sim.step_n(AgentAction { move_x, ..base() }, 55);
+    (start_x, obs.player_pos.0)
 }
 
 #[test]
 fn move_axis_left_moves_the_player_left() {
-    let mut sim = fresh_sim();
-    // Let the spawn settle (gravity to floor) before commanding movement.
-    sim.step_n(base(), 5);
-    let start_x = sim.observation().player_pos.0;
-
-    // Hold full LEFT (axis_x = -1.0) for ~55 ticks, writing ControlFrame
-    // directly each tick via the agent seam.
-    let obs = sim.step_n(
-        AgentAction {
-            move_x: -1.0,
-            ..base()
-        },
-        55,
-    );
-
-    let dx = obs.player_pos.0 - start_x;
+    let (start_x, end_x) = travel_holding(-1.0);
+    let dx = end_x - start_x;
     assert!(
         dx < -MIN_TRAVEL_PX,
         "axis_x=-1.0 should move the player LEFT a real distance, but dx={dx} \
-         (start_x={start_x}, end_x={}). A near-zero dx means the Move axis is \
+         (start_x={start_x}, end_x={end_x}). A near-zero dx means the Move axis is \
          dead (not reaching movement).",
-        obs.player_pos.0
     );
 }
 
 #[test]
 fn move_axis_right_moves_the_player_right() {
-    let mut sim = fresh_sim();
-    sim.step_n(base(), 5);
-    let start_x = sim.observation().player_pos.0;
-
-    let obs = sim.step_n(
-        AgentAction {
-            move_x: 1.0,
-            ..base()
-        },
-        55,
-    );
-
-    let dx = obs.player_pos.0 - start_x;
+    let (start_x, end_x) = travel_holding(1.0);
+    let dx = end_x - start_x;
     assert!(
         dx > MIN_TRAVEL_PX,
         "axis_x=+1.0 should move the player RIGHT a real distance, but dx={dx} \
-         (start_x={start_x}, end_x={}). A near-zero dx means the Move axis is \
+         (start_x={start_x}, end_x={end_x}). A near-zero dx means the Move axis is \
          dead (not reaching movement).",
-        obs.player_pos.0
     );
 }

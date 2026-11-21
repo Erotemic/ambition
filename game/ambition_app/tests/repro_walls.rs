@@ -68,69 +68,144 @@ fn assert_within_displacement_budget(
     );
 }
 
-#[test]
-fn square_arena_wall_cling_does_not_teleport() {
-    // Exact subset of square_arena's wall geometry.
-    let world = World::new(
+/// The three blocks of square_arena's walls a cling on the left wall meets:
+/// the ceiling, the left wall (right edge x=48, top 32, bottom 1744) and the
+/// floor.
+fn square_arena_subset() -> World {
+    World::new(
         "square_arena_subset",
         ae::Vec2::new(1800.0, 1800.0),
         ae::Vec2::new(170.0, 1695.0),
         vec![
-            // Ceiling.
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 0.0),
-                ae::Vec2::new(1808.0, 32.0),
-            ),
-            // Left wall (top=32, bottom=1744).
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 32.0),
-                ae::Vec2::new(48.0, 1712.0),
-            ),
-            // Floor.
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 1744.0),
-                ae::Vec2::new(1808.0, 64.0),
-            ),
+            Block::solid("ldtk solid", ae::Vec2::new(0.0, 0.0), ae::Vec2::new(1808.0, 32.0)),
+            Block::solid("ldtk solid", ae::Vec2::new(0.0, 32.0), ae::Vec2::new(48.0, 1712.0)),
+            Block::solid("ldtk solid", ae::Vec2::new(0.0, 1744.0), ae::Vec2::new(1808.0, 64.0)),
         ],
-    );
+    )
+}
 
+/// The goblin encounter's lock wall at the trace's LDtk px (480,400), size
+/// (224,208); production inserts it at runtime (`sync_lock_walls`).
+fn lock_wall(name: &str) -> Block {
+    Block::solid(name, ae::Vec2::new(480.0, 400.0), ae::Vec2::new(224.0, 208.0))
+}
+
+/// The sandbox room `id` as the LDtk project builds it, and the same world
+/// with its room-authored moving platforms added (`world_with_sandbox_solids`).
+/// `None` when the project has no such room. The project is validated first.
+fn sandbox_room(id: &str) -> Option<(World, World)> {
+    let project = load_project_for_test().expect("sandbox LDtk should load");
+    let report = project.validate(&ambition_app::composed_ldtk_vocabulary());
+    assert!(report.is_ok(), "validation failed");
+    let room_set = project
+        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
+        .expect("room_set");
+    let Some(room) = room_set.rooms.iter().find(|s| s.id == id) else {
+        eprintln!("no {id} room; known rooms:");
+        for r in &room_set.rooms {
+            eprintln!("  {}", r.id);
+        }
+        return None;
+    };
+    let augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
+        &room.world,
+        &room.moving_platforms,
+        &ambition_platformer2d::world::FeatureEcsWorldOverlay::default(),
+    );
+    Some((room.world.clone(), augmented))
+}
+
+/// A body clinging to a wall on its left (the normal points +x), in the air,
+/// at `pos` with `vel`.
+fn clinging_to_a_left_wall(world: &World, pos: ae::Vec2, vel: ae::Vec2) -> BodyClusterScratch {
     let mut player = scratch_at(world.spawn);
-    player.kinematics.pos = ae::Vec2::new(62.0, 1567.91);
-    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
+    player.kinematics.pos = pos;
+    player.kinematics.vel = vel;
     player.ground.on_ground = false;
     player.wall.on_wall = true;
     player.wall.wall_normal_x = 1.0;
     player.axis_mut().wall_clinging = true;
+    player
+}
 
-    let initial = player.kinematics.pos;
-    let _ = step_axis_for_test(
-        &world,
-        &mut player,
-        InputState {
-            axes: ae::LocalAxes::new(-1.0, 0.0),
-            control_dt: 1.0 / 144.0,
-            ..Default::default()
-        },
-        1.0 / 144.0,
-        DEFAULT_TUNING,
-    );
+/// One step of `dt` pressing into the wall (left).
+fn step_pressing_left(world: &World, player: &mut BodyClusterScratch, dt: f32) {
+    let input = InputState { axes: ae::LocalAxes::new(-1.0, 0.0), control_dt: dt, ..Default::default() };
+    let _ = step_axis_for_test(world, player, input, dt, DEFAULT_TUNING);
+}
+
+fn print_body(label: &str, player: &BodyClusterScratch) {
     println!(
-        "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
+        "{label}: pos=({},{}) vel=({},{}) on_ground={} on_wall={} cling={}",
         player.kinematics.pos.x,
         player.kinematics.pos.y,
         player.kinematics.vel.x,
         player.kinematics.vel.y,
         player.ground.on_ground,
-        player.wall.on_wall
+        player.wall.on_wall,
+        player.axis().wall_clinging
     );
+}
+
+fn assert_inside_vertically(world: &World, player: &BodyClusterScratch) {
     assert!(
         player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
         "teleported out of world: pos={:?}",
         player.kinematics.pos
     );
+}
+
+/// Steps `player` 40 frames of 1/144 s with `input_at(frame)`, asserting the
+/// displacement budget on every frame.
+fn drive_within_budget(
+    world: &World,
+    player: &mut BodyClusterScratch,
+    label: &str,
+    input_at: impl Fn(usize, f32) -> InputState,
+) {
+    let dt = 1.0 / 144.0;
+    for frame in 0..40 {
+        let pre = player.kinematics.pos;
+        let pre_vel = player.kinematics.vel;
+        // The unified kernel owns intent and simulation in one deterministic tick.
+        let _ = step_axis_for_test(world, player, input_at(frame, dt), dt, DEFAULT_TUNING);
+        let moved = (player.kinematics.pos - pre).length();
+        if frame < 4 || moved > 40.0 {
+            println!(
+                "f{frame:02}: pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) moved={:.2}px cling={}",
+                player.kinematics.pos.x,
+                player.kinematics.pos.y,
+                player.kinematics.vel.x,
+                player.kinematics.vel.y,
+                moved,
+                player.axis().wall_clinging
+            );
+        }
+        assert_within_displacement_budget(&format!("{label}_f{frame}"), pre, player.kinematics.pos, pre_vel, dt);
+    }
+}
+
+/// Jump held for the first 8 frames, pressed on frame 0 when `press`.
+fn jump_input(frame: usize, dt: f32, press: bool, axis_x: f32) -> InputState {
+    InputState {
+        movement: ae::ActionEdges::EMPTY.with(
+            ae::MovementAction::Jump,
+            ae::Edge { pressed: press && frame == 0, held: frame < 8, released: false },
+        ),
+        axes: ae::LocalAxes::new(axis_x, 0.0),
+        control_dt: dt,
+        ..Default::default()
+    }
+}
+
+#[test]
+fn square_arena_wall_cling_does_not_teleport() {
+    let world = square_arena_subset();
+    let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(62.0, 1567.91), ae::Vec2::new(0.0, 31.1));
+    let initial = player.kinematics.pos;
+    step_pressing_left(&world, &mut player, 1.0 / 144.0);
+    print_body("after step", &player);
+    assert_inside_vertically(&world, &player);
     assert_within_displacement_budget(
         "square_arena_wall_cling",
         initial,
@@ -143,64 +218,13 @@ fn square_arena_wall_cling_does_not_teleport() {
 /// Same pose with sub-pixel penetration into the wall on x.
 #[test]
 fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
-    let world = World::new(
-        "square_arena_subset",
-        ae::Vec2::new(1800.0, 1800.0),
-        ae::Vec2::new(170.0, 1695.0),
-        vec![
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 0.0),
-                ae::Vec2::new(1808.0, 32.0),
-            ),
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 32.0),
-                ae::Vec2::new(48.0, 1712.0),
-            ),
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 1744.0),
-                ae::Vec2::new(1808.0, 64.0),
-            ),
-        ],
-    );
-
-    let mut player = scratch_at(world.spawn);
+    let world = square_arena_subset();
     // 0.01 px x penetration into the wall.
-    player.kinematics.pos = ae::Vec2::new(62.0 - 0.01, 1567.91);
-    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
-    player.ground.on_ground = false;
-    player.wall.on_wall = true;
-    player.wall.wall_normal_x = 1.0;
-    player.axis_mut().wall_clinging = true;
-
+    let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(62.0 - 0.01, 1567.91), ae::Vec2::new(0.0, 31.1));
     let initial = player.kinematics.pos;
-    let _ = step_axis_for_test(
-        &world,
-        &mut player,
-        InputState {
-            axes: ae::LocalAxes::new(-1.0, 0.0),
-            control_dt: 1.0 / 144.0,
-            ..Default::default()
-        },
-        1.0 / 144.0,
-        DEFAULT_TUNING,
-    );
-    println!(
-        "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
-        player.kinematics.pos.x,
-        player.kinematics.pos.y,
-        player.kinematics.vel.x,
-        player.kinematics.vel.y,
-        player.ground.on_ground,
-        player.wall.on_wall
-    );
-    assert!(
-        player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
-        "teleported out of world: pos={:?}",
-        player.kinematics.pos
-    );
+    step_pressing_left(&world, &mut player, 1.0 / 144.0);
+    print_body("after step", &player);
+    assert_inside_vertically(&world, &player);
     assert_within_displacement_budget(
         "square_arena_wall_cling_subpixel_penetration",
         initial,
@@ -214,48 +238,15 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
 /// running a downward sweep against each subset of square_arena blocks.
 #[test]
 fn locate_teleport_target_block() {
-    let project = load_project_for_test().expect("sandbox LDtk should load");
-    let report = project.validate(&ambition_app::composed_ldtk_vocabulary());
-    if !report.is_ok() {
-        panic!("validation failed");
-    }
-    let room_set = project
-        .to_room_set(
-            &ambition_content::worlds::world_manifest(),
-            &ambition_app::composed_ldtk_vocabulary(),
-        )
-        .expect("room_set");
-    let arena = room_set
-        .rooms
-        .iter()
-        .find(|s| s.id == "square_arena")
-        .expect("arena");
-    let world = arena.world.clone();
-
+    let (world, _) = sandbox_room("square_arena").expect("arena");
     // Scan: try the world with each block in turn (one block alone) to
     // see if it triggers the teleport.
     for (i, candidate) in world.blocks.iter().enumerate() {
         let single = World::new("single", world.size, world.spawn, vec![candidate.clone()]);
-        let mut player = scratch_at(world.spawn);
-        player.kinematics.pos = ae::Vec2::new(62.0, 1567.9125);
-        player.kinematics.vel = ae::Vec2::new(0.0, 31.148);
-        player.ground.on_ground = false;
-        player.wall.on_wall = true;
-        player.wall.wall_normal_x = 1.0;
-        player.axis_mut().wall_clinging = true;
+        let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(62.0, 1567.9125), ae::Vec2::new(0.0, 31.148));
         player.kinematics.facing = -1.0;
         let initial = player.kinematics.pos;
-        let _ = step_axis_for_test(
-            &single,
-            &mut player,
-            InputState {
-                axes: ae::LocalAxes::new(-1.0, 0.0),
-                control_dt: 0.0069,
-                ..Default::default()
-            },
-            0.0069,
-            DEFAULT_TUNING,
-        );
+        step_pressing_left(&single, &mut player, 0.0069);
         let dy = (player.kinematics.pos.y - initial.y).abs();
         if dy > 50.0 {
             println!(
@@ -279,146 +270,37 @@ fn locate_teleport_target_block() {
 /// precise live `real_dt` from the trace.
 #[test]
 fn square_arena_wall_cling_full_world_does_not_teleport() {
-    let project = load_project_for_test().expect("sandbox LDtk should load");
-    let report = project.validate(&ambition_app::composed_ldtk_vocabulary());
-    if !report.is_ok() {
-        panic!("validation failed");
-    }
-    let room_set = project
-        .to_room_set(
-            &ambition_content::worlds::world_manifest(),
-            &ambition_app::composed_ldtk_vocabulary(),
-        )
-        .expect("room_set");
-    let arena = room_set
-        .rooms
-        .iter()
-        .find(|s| s.id == "square_arena")
-        .expect("arena");
-    let world = arena.world.clone();
-    let platforms = arena.moving_platforms.clone();
-    let ecs_overlay = ambition_platformer2d::world::FeatureEcsWorldOverlay::default();
-    let augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
-        &world,
-        &platforms,
-        &ecs_overlay,
-    );
-
-    let mut player = scratch_at(world.spawn);
+    let (world, augmented) = sandbox_room("square_arena").expect("arena");
     // EXACT live state from frame 1087 of trace 1777905256-095151097-000000.
-    player.kinematics.pos = ae::Vec2::new(62.0, 1567.9125);
-    player.kinematics.vel = ae::Vec2::new(0.0, 31.148);
-    player.ground.on_ground = false;
-    player.wall.on_wall = true;
-    player.wall.wall_normal_x = 1.0;
-    player.axis_mut().wall_clinging = true;
+    let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(62.0, 1567.9125), ae::Vec2::new(0.0, 31.148));
     player.kinematics.facing = -1.0;
-
     let initial = player.kinematics.pos;
     let dt = 0.00677_f32; // live frame 1088 real_dt
-    let _ = step_axis_for_test(
-        &augmented,
-        &mut player,
-        InputState {
-            axes: ae::LocalAxes::new(-1.0, 0.0),
-            control_dt: dt,
-            ..Default::default()
-        },
-        dt,
-        DEFAULT_TUNING,
-    );
-    println!(
-        "FULL WORLD step: pos=({}, {}) vel=({}, {}) on_ground={} on_wall={} cling={}",
-        player.kinematics.pos.x,
-        player.kinematics.pos.y,
-        player.kinematics.vel.x,
-        player.kinematics.vel.y,
-        player.ground.on_ground,
-        player.wall.on_wall,
-        player.axis().wall_clinging
-    );
-    assert!(
-        player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
-        "teleported out of world: pos={:?}",
-        player.kinematics.pos
-    );
+    step_pressing_left(&augmented, &mut player, dt);
+    print_body("FULL WORLD step", &player);
+    assert_inside_vertically(&world, &player);
     assert_within_displacement_budget(
         "square_arena_wall_cling_full_world",
         initial,
         player.kinematics.pos,
         ae::Vec2::new(0.0, 31.148),
-        0.00677,
+        dt,
     );
 }
 
 #[test]
 fn square_arena_wall_cling_full_world_steps_many_times() {
-    let project = load_project_for_test().expect("sandbox LDtk should load");
-    let report = project.validate(&ambition_app::composed_ldtk_vocabulary());
-    if !report.is_ok() {
-        panic!("validation failed");
-    }
-    let room_set = project
-        .to_room_set(
-            &ambition_content::worlds::world_manifest(),
-            &ambition_app::composed_ldtk_vocabulary(),
-        )
-        .expect("room_set");
-    let arena = room_set
-        .rooms
-        .iter()
-        .find(|s| s.id == "square_arena")
-        .expect("arena");
-    let world = arena.world.clone();
-    let platforms = arena.moving_platforms.clone();
-    let ecs_overlay = ambition_platformer2d::world::FeatureEcsWorldOverlay::default();
-    let augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
-        &world,
-        &platforms,
-        &ecs_overlay,
-    );
-
-    let mut player = scratch_at(world.spawn);
-    player.kinematics.pos = ae::Vec2::new(62.0, 1567.9125);
-    player.kinematics.vel = ae::Vec2::new(0.0, 31.148);
-    player.ground.on_ground = false;
-    player.wall.on_wall = true;
-    player.wall.wall_normal_x = 1.0;
-    player.axis_mut().wall_clinging = true;
+    let (world, augmented) = sandbox_room("square_arena").expect("arena");
+    let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(62.0, 1567.9125), ae::Vec2::new(0.0, 31.148));
     player.kinematics.facing = -1.0;
-
     for i in 0..200 {
-        let dt = 0.0069_f32;
-        let _ = step_axis_for_test(
-            &augmented,
-            &mut player,
-            InputState {
-                axes: ae::LocalAxes::new(-1.0, 0.0),
-                control_dt: dt,
-                ..Default::default()
-            },
-            dt,
-            DEFAULT_TUNING,
-        );
+        step_pressing_left(&augmented, &mut player, 0.0069);
         if player.kinematics.pos.y < 100.0 || player.kinematics.pos.y > world.size.y - 32.0 {
-            panic!(
-                "TELEPORT at iter {i}: pos=({}, {}) vel=({}, {}) on_ground={} on_wall={}",
-                player.kinematics.pos.x,
-                player.kinematics.pos.y,
-                player.kinematics.vel.x,
-                player.kinematics.vel.y,
-                player.ground.on_ground,
-                player.wall.on_wall
-            );
+            print_body(&format!("TELEPORT at iter {i}"), &player);
+            panic!("TELEPORT at iter {i}: pos={:?}", player.kinematics.pos);
         }
     }
-    println!(
-        "after 200 steps: pos=({}, {}) vel=({}, {})",
-        player.kinematics.pos.x,
-        player.kinematics.pos.y,
-        player.kinematics.vel.x,
-        player.kinematics.vel.y
-    );
+    print_body("after 200 steps", &player);
 }
 
 /// Class-wide sweep of the wall-cling teleport: rather than four
@@ -430,30 +312,7 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
 /// so it stays fast and LDtk-independent.
 #[test]
 fn wall_cling_displacement_budget_holds_across_pose_sweep() {
-    let world = World::new(
-        "square_arena_subset",
-        ae::Vec2::new(1800.0, 1800.0),
-        ae::Vec2::new(170.0, 1695.0),
-        vec![
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 0.0),
-                ae::Vec2::new(1808.0, 32.0),
-            ),
-            // Left wall: right edge at x=48.
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 32.0),
-                ae::Vec2::new(48.0, 1712.0),
-            ),
-            Block::solid(
-                "ldtk solid",
-                ae::Vec2::new(0.0, 1744.0),
-                ae::Vec2::new(1808.0, 64.0),
-            ),
-        ],
-    );
-
+    let world = square_arena_subset();
     // Sweep y down the wall span, a few sub-pixel penetrations into the
     // wall, and a few downward speeds + frame times that mirror live
     // 144 Hz / 60 Hz play.
@@ -466,30 +325,13 @@ fn wall_cling_displacement_budget_holds_across_pose_sweep() {
         for &pen in &penetrations {
             for &vy in &speeds {
                 for &dt in &dts {
-                    let mut player = scratch_at(world.spawn);
                     // Player half-width ~14; right edge of wall is x=48,
                     // so clinging body sits at x≈62 (+ penetration).
-                    player.kinematics.pos = ae::Vec2::new(62.0 + pen, y);
-                    player.kinematics.vel = ae::Vec2::new(0.0, vy);
-                    player.ground.on_ground = false;
-                    player.wall.on_wall = true;
-                    player.wall.wall_normal_x = 1.0;
-                    player.axis_mut().wall_clinging = true;
+                    let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(62.0 + pen, y), ae::Vec2::new(0.0, vy));
                     player.kinematics.facing = -1.0;
-
                     let initial = player.kinematics.pos;
                     let pre_vel = player.kinematics.vel;
-                    let _ = step_axis_for_test(
-                        &world,
-                        &mut player,
-                        InputState {
-                            axes: ae::LocalAxes::new(-1.0, 0.0),
-                            control_dt: dt,
-                            ..Default::default()
-                        },
-                        dt,
-                        DEFAULT_TUNING,
-                    );
+                    step_pressing_left(&world, &mut player, dt);
                     // Still inside the world.
                     assert!(
                         player.kinematics.pos.y >= 0.0
@@ -525,58 +367,19 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
         ae::Vec2::new(80.0, 1232.0),
         vec![
             // Arena ceiling: top at y=0, 32px tall, full width.
-            Block::solid(
-                "arena_ceiling",
-                ae::Vec2::new(0.0, 0.0),
-                ae::Vec2::new(1808.0, 32.0),
-            ),
-            // Lock wall (runtime-inserted in production): top at y=400,
-            // height 208, x=480..704.
-            Block::solid(
-                "lockwall:mob_lab",
-                ae::Vec2::new(480.0, 400.0),
-                ae::Vec2::new(224.0, 208.0),
-            ),
+            Block::solid("arena_ceiling", ae::Vec2::new(0.0, 0.0), ae::Vec2::new(1808.0, 32.0)),
+            // Lock wall (runtime-inserted in production): x=480..704, y=400..608.
+            lock_wall("lockwall:mob_lab"),
             // Floor below.
-            Block::solid(
-                "floor",
-                ae::Vec2::new(0.0, 1232.0),
-                ae::Vec2::new(1808.0, 32.0),
-            ),
+            Block::solid("floor", ae::Vec2::new(0.0, 1232.0), ae::Vec2::new(1808.0, 32.0)),
         ],
     );
-
-    let mut player = scratch_at(world.spawn);
     // Wall-cling pose: right edge of the lock wall (x=704), player
     // sitting just outside at x=718, y=434.1 (per trace).
-    player.kinematics.pos = ae::Vec2::new(718.0, 434.1);
-    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
-    player.ground.on_ground = false;
-    player.wall.on_wall = true;
-    player.wall.wall_normal_x = 1.0; // wall on the player's left → normal points right (+x)
-    player.axis_mut().wall_clinging = true;
-
+    let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(718.0, 434.1), ae::Vec2::new(0.0, 31.1));
     let initial = player.kinematics.pos;
-    let _ = step_axis_for_test(
-        &world,
-        &mut player,
-        InputState {
-            axes: ae::LocalAxes::new(-1.0, 0.0), // pressing into the wall (cling)
-            control_dt: 1.0 / 144.0,
-            ..Default::default()
-        },
-        1.0 / 144.0,
-        DEFAULT_TUNING,
-    );
-    println!(
-        "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
-        player.kinematics.pos.x,
-        player.kinematics.pos.y,
-        player.kinematics.vel.x,
-        player.kinematics.vel.y,
-        player.ground.on_ground,
-        player.wall.on_wall
-    );
+    step_pressing_left(&world, &mut player, 1.0 / 144.0);
+    print_body("after step", &player);
     assert!(
         player.kinematics.pos.y > 32.0 && player.kinematics.pos.y < world.size.y,
         "teleport detected: pos={:?} (initial y={}, world.size={:?})",
@@ -602,37 +405,11 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
 /// corner.
 #[test]
 fn goblin_encounter_full_world_lock_wall_cling_repro() {
-    let project = load_project_for_test().expect("sandbox LDtk should load");
-    let room_set = project
-        .to_room_set(
-            &ambition_content::worlds::world_manifest(),
-            &ambition_app::composed_ldtk_vocabulary(),
-        )
-        .expect("room_set");
-    let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
-        eprintln!("no goblin_encounter room; known rooms:");
-        for r in &room_set.rooms {
-            eprintln!("  {}", r.id);
-        }
+    let Some((world, mut augmented)) = sandbox_room("goblin_encounter") else {
         return;
     };
-    let world = room.world.clone();
-    let platforms = room.moving_platforms.clone();
-    let ecs_overlay = ambition_platformer2d::world::FeatureEcsWorldOverlay::default();
-    let mut augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
-        &world,
-        &platforms,
-        &ecs_overlay,
-    );
-
-    // Append the runtime lock wall last (matches sync_lock_walls insert
-    // order). Trace coords: LDtk px (480,400) size (224,208).
-    augmented.blocks.push(ae::Block::solid(
-        "lockwall:goblin_encounter",
-        ae::Vec2::new(480.0, 400.0),
-        ae::Vec2::new(224.0, 208.0),
-    ));
-
+    // Appended last, as `sync_lock_walls` inserts it.
+    augmented.blocks.push(lock_wall("lockwall:goblin_encounter"));
     println!(
         "goblin_encounter world: size={:?} spawn={:?} blocks={}",
         world.size,
@@ -641,25 +418,13 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     );
     for b in &augmented.blocks {
         if b.aabb.min.y < 64.0 || b.name.starts_with("lockwall") {
-            println!(
-                "  block {:?} aabb min={:?} max={:?}",
-                b.name, b.aabb.min, b.aabb.max
-            );
+            println!("  block {:?} aabb min={:?} max={:?}", b.name, b.aabb.min, b.aabb.max);
         }
     }
-
-    let mut player = scratch_at(world.spawn);
     // EXACT live state from the trace: wall-clinging on the lock wall's
     // right edge (lock_wall.right=704), player just outside at x=718.
-    player.kinematics.pos = ae::Vec2::new(718.0, 434.1);
-    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
-    player.ground.on_ground = false;
-    player.wall.on_wall = true;
-    player.wall.wall_normal_x = 1.0;
-    player.axis_mut().wall_clinging = true;
+    let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(718.0, 434.1), ae::Vec2::new(0.0, 31.1));
     player.kinematics.facing = -1.0;
-
-    let dt = 1.0 / 144.0;
     // Simulate the post-wall-jump state directly (the simulation phase
     // doesn't process the jump press): a strong upward velocity, pushed
     // away from the wall. The body then rises from the lock-wall edge
@@ -667,42 +432,9 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     // edge-touching-then-vertical-sweep configuration the trace blames.
     player.kinematics.vel = ae::Vec2::new(180.0, -560.0);
     player.axis_mut().wall_clinging = false;
-    for frame in 0..40 {
-        let pre = player.kinematics.pos;
-        let pre_vel = player.kinematics.vel;
-        let input = InputState {
-            movement: ae::ActionEdges::EMPTY.with(
-                ae::MovementAction::Jump,
-                ae::Edge {
-                    pressed: false,
-                    held: frame < 8,
-                    released: false,
-                },
-            ),
-            axes: ae::LocalAxes::new(0.0, 0.0),
-            control_dt: dt,
-            ..Default::default()
-        };
-        let _ = step_axis_for_test(&augmented, &mut player, input, dt, DEFAULT_TUNING);
-        let moved = (player.kinematics.pos - pre).length();
-        if frame < 4 || moved > 40.0 {
-            println!(
-                "f{frame:02}: pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) moved={:.2}px",
-                player.kinematics.pos.x,
-                player.kinematics.pos.y,
-                player.kinematics.vel.x,
-                player.kinematics.vel.y,
-                moved
-            );
-        }
-        assert_within_displacement_budget(
-            &format!("goblin_encounter_full_world_walljump_f{frame}"),
-            pre,
-            player.kinematics.pos,
-            pre_vel,
-            dt,
-        );
-    }
+    drive_within_budget(&augmented, &mut player, "goblin_encounter_full_world_walljump", |frame, dt| {
+        jump_input(frame, dt, false, 0.0)
+    });
 }
 
 /// Faithful control+simulation wall-jump against the real goblin_encounter
@@ -714,78 +446,15 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
 /// Budget-asserts every frame so a >budget snap (the teleport) fails.
 #[test]
 fn goblin_encounter_real_walljump_repro() {
-    let project = load_project_for_test().expect("sandbox LDtk should load");
-    let room_set = project
-        .to_room_set(
-            &ambition_content::worlds::world_manifest(),
-            &ambition_app::composed_ldtk_vocabulary(),
-        )
-        .expect("room_set");
-    let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
+    let Some((world, mut augmented)) = sandbox_room("goblin_encounter") else {
         return;
     };
-    let world = room.world.clone();
-    let platforms = room.moving_platforms.clone();
-    let ecs_overlay = ambition_platformer2d::world::FeatureEcsWorldOverlay::default();
-    let mut augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
-        &world,
-        &platforms,
-        &ecs_overlay,
-    );
-    augmented.blocks.push(ae::Block::solid(
-        "lockwall:goblin_encounter",
-        ae::Vec2::new(480.0, 400.0),
-        ae::Vec2::new(224.0, 208.0),
-    ));
-
-    let mut player = scratch_at(world.spawn);
-    player.kinematics.pos = ae::Vec2::new(718.0, 434.1);
-    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
-    player.ground.on_ground = false;
-    player.wall.on_wall = true;
-    player.wall.wall_normal_x = 1.0;
-    player.axis_mut().wall_clinging = true;
+    augmented.blocks.push(lock_wall("lockwall:goblin_encounter"));
+    let mut player = clinging_to_a_left_wall(&world, ae::Vec2::new(718.0, 434.1), ae::Vec2::new(0.0, 31.1));
     player.kinematics.facing = -1.0;
-
-    let dt = 1.0 / 144.0;
-    for frame in 0..40 {
-        let pre = player.kinematics.pos;
-        let pre_vel = player.kinematics.vel;
-        let input = InputState {
-            movement: ae::ActionEdges::EMPTY.with(
-                ae::MovementAction::Jump,
-                ae::Edge {
-                    pressed: frame == 0,
-                    held: frame < 8,
-                    released: false,
-                },
-            ),
-            axes: ae::LocalAxes::new(if frame == 0 { -1.0 } else { 0.0 }, 0.0),
-            control_dt: dt,
-            ..Default::default()
-        };
-        // The unified kernel owns intent and simulation in one deterministic tick.
-        let _ = step_axis_for_test(&augmented, &mut player, input, dt, DEFAULT_TUNING);
-        let moved = (player.kinematics.pos - pre).length();
-        if frame < 4 || moved > 40.0 {
-            println!(
-                "f{frame:02}: pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) moved={:.2}px cling={}",
-                player.kinematics.pos.x,
-                player.kinematics.pos.y,
-                player.kinematics.vel.x,
-                player.kinematics.vel.y,
-                moved,
-                player.axis().wall_clinging
-            );
-        }
-        assert_within_displacement_budget(
-            &format!("goblin_encounter_real_walljump_f{frame}"),
-            pre,
-            player.kinematics.pos,
-            pre_vel,
-            dt,
-        );
-    }
+    drive_within_budget(&augmented, &mut player, "goblin_encounter_real_walljump", |frame, dt| {
+        jump_input(frame, dt, true, if frame == 0 { -1.0 } else { 0.0 })
+    });
 }
 
 /// Load the game's merged LDtk project the way a sim entry point does:

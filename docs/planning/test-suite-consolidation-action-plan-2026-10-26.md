@@ -257,6 +257,50 @@ If parameterization makes error messages less clear, keep the separate named
 tests and share only their setup. A similarity score of 1.0 is **not** proof
 that two inputs expose the same failure mode.
 
+**Done 2026-11-21.** Only setup is shared. No test was merged or removed, and
+the 30 names are unchanged. Consolidated implementation: 8,056 lines to 7,330
+across the six files and `common`.
+- `dash_stability.rs` (111 → 72 lines): `max_feet_dy_over_a_grounded_dash(move_y)`.
+  Both tests keep their own assertion and message.
+- `movement_axis.rs` (75 → 54): `travel_holding(move_x)`; left and right stay
+  separate tests.
+- `repro_walls.rs` (798 → 467) shares:
+  - the square-arena subset, the lock wall and `sandbox_room(id)` (the LDtk
+    room, raw and with its moving platforms);
+  - a clinging body, the one-step press into the wall, the 40-frame budget
+    drive and its jump input.
+  Each start state stays its own test, including the 0.01 px penetration.
+  The two goblin-encounter tests now validate the project first, as the
+  square-arena ones did.
+- `hall_transition_cover.rs` (1,158 → 948) shares:
+  - `boot_into_gameplay`;
+  - `record_transition_through(zone)`: the room-graph transition and the
+    avatar's live identity, written out three times before;
+  - `room_set`, `live_room_id`, `sprite_setting` and `npc_character_ids`.
+  The loading, readiness, visibility and teardown boundaries stay in their
+  own tests.
+- `carried_item_crosses_rooms.rs` (1,600 → 1,466) shares:
+  - `held_by`, `lying_in_world`, `apart`, `settle` and `ledger_rows`;
+  - `the_authored_enemy` and `make_invulnerable`;
+  - `drive_through_the_door_to`.
+  The hold-until-possessed loop, written four times here and once in
+  `common`, is `common::possess_by_holding_on`, and `primary_possessed` reads
+  the seat. Each room and ownership transition stays a separately witnessed
+  case.
+- `an_edit_reaches_the_shipped_game.rs`: its edit/reject setup was already
+  shared (`watch_an_edited_copy`, `name_an_unknown_character`,
+  `press_apply_reload`). The launcher prologue, written five times, is
+  `the_shipped_launcher`. Each validator keeps its own test.
+
+Lane: `dash_stability::`, `movement_axis::`, `repro_walls::`,
+`carried_item_crosses_rooms::`, `hall_transition_cover::`,
+`an_edit_reaches_the_shipped_game::`, and the two other users of the shared
+possession helper (`a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`
+and `a_replay_follows_the_body_you_are_actually_driving`): 46 passed, 1 failed.
+The failure, `a_reload_that_moves_a_tracks_file_plays_the_new_file`, stops on
+its premise: the library holds no track on this VM, which has no music
+registry. It is an environment red, not this change.
+
 ## Step 5: do a behavioral coverage review before deleting active tests
 
 Build a small per-area matrix with these columns: test name, observed failure,

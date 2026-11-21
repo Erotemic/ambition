@@ -18,50 +18,42 @@ use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 
-#[test]
-fn grounded_horizontal_dash_does_not_oscillate_pos_y() {
+/// The largest per-frame jump of the player's feet (+y down: the AABB centre
+/// plus half its height) over a grounded dash pressed on the first of 30
+/// frames with the direction held, after 15 frames settling on the hub floor.
+/// The camera follows a standing-pose centre derived from the feet, so feet
+/// stability is camera stability: the floor is stable and the body may resize,
+/// but the feet must not jump.
+fn max_feet_dy_over_a_grounded_dash(move_y: f32) -> f32 {
     let mut sim = Platformer2dSimHarness::new_with_options(
         crate::common::sandbox_options()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("central_hub_complex"),
     )
     .expect("sim builds");
-
-    // Settle on the ground for a few frames.
     for _ in 0..15 {
         sim.step(AgentAction::default());
     }
-
-    // Hold right + dash for 30 frames. dash_timer is small (<0.5s
-    // = 30 frames at 60Hz) so most of this is the dash itself plus
-    // a few post-dash frames.
-    let mut feet_ys = Vec::with_capacity(30);
-    for i in 0..30 {
-        // Press dash on first frame, hold direction throughout.
-        let action = AgentAction {
-            move_x: 1.0,
-            dash: i == 0,
-            ..AgentAction::default()
-        };
-        let obs = sim.step(action);
-        // Feet position (+Y down convention, AABB center + half-height).
-        feet_ys.push(obs.player_pos.1 + obs.player_size.1 * 0.5);
-    }
-
-    // Compute per-frame |feet dy|. The camera follows a "standing-
-    // pose center" derived from feet, so feet stability == camera
-    // stability. During a clean grounded dash the floor is stable
-    // and the body might resize, but the feet should not jump.
-    let max_feet_y_delta = feet_ys
-        .windows(2)
-        .map(|w| (w[1] - w[0]).abs())
-        .fold(0.0_f32, f32::max);
-
+    // dash_timer is under 0.5 s (30 frames at 60 Hz), so this is the dash
+    // itself plus a few frames after it.
+    let feet_ys: Vec<f32> = (0..30)
+        .map(|i| {
+            let obs = sim.step(AgentAction { move_x: 1.0, move_y, dash: i == 0, ..AgentAction::default() });
+            obs.player_pos.1 + obs.player_size.1 * 0.5
+        })
+        .collect();
+    let max_feet_y_delta = feet_ys.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0_f32, f32::max);
     if max_feet_y_delta >= 5.0 {
         for (i, y) in feet_ys.iter().enumerate() {
             eprintln!("  frame {i:>3}: feet_y = {y}");
         }
     }
+    max_feet_y_delta
+}
+
+#[test]
+fn grounded_horizontal_dash_does_not_oscillate_pos_y() {
+    let max_feet_y_delta = max_feet_dy_over_a_grounded_dash(0.0);
     assert!(
         max_feet_y_delta < 5.0,
         "grounded dash should not oscillate feet_y (camera stability proxy); max |dy| = {max_feet_y_delta}"
@@ -70,40 +62,9 @@ fn grounded_horizontal_dash_does_not_oscillate_pos_y() {
 
 #[test]
 fn grounded_horizontal_plus_down_dash_does_not_oscillate_pos_y() {
-    // The user's specific report mentioned "slide" -- which on
-    // this engine is dash + down. Dash impulse gets a downward
-    // y component which is immediately absorbed by floor contact.
-    let mut sim = Platformer2dSimHarness::new_with_options(
-        crate::common::sandbox_options()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room("central_hub_complex"),
-    )
-    .expect("sim builds");
-
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-
-    let mut feet_ys = Vec::with_capacity(30);
-    for i in 0..30 {
-        let action = AgentAction {
-            move_x: 1.0,
-            move_y: 1.0, // Down: slide
-            dash: i == 0,
-            ..AgentAction::default()
-        };
-        let obs = sim.step(action);
-        feet_ys.push(obs.player_pos.1 + obs.player_size.1 * 0.5);
-    }
-    let max_feet_y_delta = feet_ys
-        .windows(2)
-        .map(|w| (w[1] - w[0]).abs())
-        .fold(0.0_f32, f32::max);
-    if max_feet_y_delta >= 5.0 {
-        for (i, y) in feet_ys.iter().enumerate() {
-            eprintln!("  frame {i:>3}: feet_y = {y}");
-        }
-    }
+    // The user's report mentioned "slide", which on this engine is dash +
+    // down: the impulse's downward component is absorbed by floor contact.
+    let max_feet_y_delta = max_feet_dy_over_a_grounded_dash(1.0);
     assert!(
         max_feet_y_delta < 5.0,
         "grounded slide (dash + down) should not oscillate feet_y (camera stability proxy); max |dy| = {max_feet_y_delta}"

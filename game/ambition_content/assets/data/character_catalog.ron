@@ -1191,6 +1191,23 @@
             move_style: Walk,
             melee: Some(Bite(windup_s: 0.36, active_s: 0.10, recover_s: 0.42, damage: 1, reach_px: 56.0)),
         ),
+        // Peyote Lean's revolver (the held item `frontier_revolver`): one shot
+        // at a time from his hand, aimed at you inside the half he faces, with
+        // the hammer cocked again between shots. Close in, he clubs with the
+        // butt of it.
+        "peyote_revolver": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.3, active_s: 0.1, recover_s: 0.42, damage: 1, reach_px: 40.0)),
+            ranged: Some(Weapon((
+                style: Pistol,
+                speed: 640.0,
+                damage: 2,
+                visual: Some("pistol_round"),
+                refire_s: 0.42,
+                aim_assist: Some((max_angle_rad: 1.2, max_range: 560.0)),
+                discharge: Some((muzzle: Hand(ahead: 22.0))),
+            ))),
+        ),
         "officer_sidearm": (
             move_style: Walk,
             ranged: Some(Weapon((
@@ -15483,6 +15500,43 @@
                 hall: ["I do the night shift's shirts under the works. The soot comes out at one o'clock.", "The wind can't get in under the works. The soot can."],
             ),
             hall_dialogue_id: Some("hall_npc_frontier_laundress"),
+        ),
+        // Peyote Lean: a coyote outlaw who rides with Marshal Gallus (concept
+        // art `assets/concept_art/misc/Peyote Lean*.png`; renderer resident
+        // `peyote_lean`). Tall and quiet against the Marshal's noise. He keeps
+        // his distance, draws, and fires two shots from his revolver (the held
+        // item `frontier_revolver`, not his drawing); close in, he clubs with
+        // it. Placement says where he stands and whose side he is on.
+        "npc_peyote_lean": (
+            display_name: "Peyote Lean",
+            manifest: "sprites/peyote_lean_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 198 cm.
+            standing_height: Some(76.6),
+            composition: None,
+            default_action_set: "peyote_revolver",
+            held_item: Some("frontier_revolver"),
+            locomotion: Some((run_speed: 210.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 640.0,
+                attack_range: 380.0,
+                patrol_effort: 0.2,
+                chase_effort: 0.6,
+                // He aims, fires twice through the revolver's refire, and
+                // cocks it again: the pause is the time to close in.
+                ranged_volley: Some((windup_s: 0.5, firing_s: 0.5, recovery_s: 1.3)),
+            )),
+            max_health: Some(8),
+            tags: ["outlaw", "frontier", "gunslinger", "enemy"],
+            barks: (
+                idle: ["*he watches the cars behind you*", "Gallus does the talking."],
+                on_hit: ["Hm.", "That's one."],
+                provoked: ["Draw."],
+                hall: ["Gallus talks enough for two. I listen for both of us.", "*the cage on his snout clicks as he turns to look at you*"],
+            ),
+            hall_dialogue_id: Some("hall_npc_peyote_lean"),
         ),
     },
 )

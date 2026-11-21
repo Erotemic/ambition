@@ -5147,6 +5147,16 @@ Hollis: That isn't our engine up front.
 -> Anything else?
     Hollis: A brakeman rides the tail. From the tail you see everything go wrong in order.
 ===
+title: hall_npc_peyote_lean
+---
+Lean: ...
+-> What do you do here?
+    Lean: Ride with Gallus. He talks enough for two. I listen for both of us.
+-> What is that on your face?
+    Lean: *he looks at you for a long time, and says nothing*
+-> Anything else?
+    Lean: That engine doesn't stop for anyone. Neither do we.
+===
 title: hall_npc_frontier_yardmaster
 ---
 Lou: Clear the line.

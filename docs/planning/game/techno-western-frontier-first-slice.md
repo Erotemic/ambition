@@ -88,8 +88,12 @@ cars is a `HazardBlock` that puts the player back at the room's start.
   cue. The game plays them once `scripts/regen/music.sh` publishes them
   where the registry is.
 
-**Missing or deferred.** The robbery is staged, not played: no outlaw
-fights, the Rustler's grapples do not move, Scout is not knocked off the
+**The outlaw (2026-11-21).** Peyote Lean, Marshal Gallus's partner
+(`leadensaddle.md`), keeps the Rustler's tender and shoots at anyone who
+comes up the train.
+
+**Missing or deferred.** The robbery is staged, not played: one outlaw
+fights (Peyote Lean), the Rustler's grapples do not move, Scout is not knocked off the
 trestle (the player drops through the planks). Sprocket Row's workshops are
 shut and the ordinary mechanic has nothing to do yet. No new gate-sickness
 or dialer rule. The trestle is one room: the train is not seen passing under

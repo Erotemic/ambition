@@ -661,6 +661,11 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "channel -> aperture geometry; holds no entity handle (checked 2026-07-27)",
         ),
         (
+            "ambition_portal2d::eviction::PortalFramesInRooms",
+            "the history entries a live room replaced, each keyed by a room instance \
+             number and tick; holds no entity handle (checked 2026-11-21)",
+        ),
+        (
             "ambition_portal2d::generator::PortalGenerator",
             "an active flag and the next channel colour; holds no entity handle",
         ),

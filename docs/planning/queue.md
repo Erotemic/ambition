@@ -2595,6 +2595,21 @@ fixed-range or stale-view brain workaround.
    stage control is a separate feature.
 3. Teleports: expose the resolved destination (`behind_nearest_foe`,
    `behind_gap`, aim) to the attack offer.
+   **Re-measured 2026-11-21: no customer in shipped content.** Every
+   teleport is one of two kinds, and neither is an attack the offer prices
+   by where it lands:
+   - Aimed recoveries (`behind_nearest_foe: false`: robot `phase_shift`,
+     duelist A, the Director's up-B). The grid measured these off the
+     attack list (`options.rs`: 225%/223% with the move on no list,
+     against 27–39% admitted).
+   - Conditional responses: the Shadow Oni's teleport is a flow branch
+     that fires only after a blocked strike, and the Director's is his
+     counter's `response`, which `counter_value` already prices.
+
+   The work comes due when an authored move teleports as its approach (an
+   ambush that strikes after arriving). Then its coverage has to be measured
+   from the destination, and `options.rs`'s "WHAT IS OWED" note is where to
+   start.
 4. Difficulty ladder: measure `--rungs 3,4,6,7,8` and distinguish step size
    from the missing L3 planning step; shipped rungs set `rollout_depth: 0`.
    **Measured 2026-11-21** (`smash_tool ladder-rig --rungs 3,4,6,7,8

@@ -71,11 +71,11 @@ fn dynamic_drop_origin(parent: &SimId, sequence: u64) -> SpawnOrigin {
 
 /// What EVERY runtime death drop is, regardless of what it drops.
 ///
-/// ⛔⛤ **`A7` SAYS THIS PACKET'S ACCEPTANCE CLAUSE — *"reward policy … does not
-/// become an alternative item minting path"* — IS NOT MET, AND THIS IS WHY.**
-/// `GroundItem::at_rest` sealed the COMPONENT (`#[non_exhaustive]`,
-/// poison-verified at `8ce24653d`); nothing sealed the OCCURRENCE. Each of the
-/// four drop sites assembled the same four facts by hand:
+/// ⛔⛤ **WHY THERE IS ONE DROP ROAD.** `A7`'s clause is that reward policy does
+/// not become an alternative item minting path. `GroundItem::at_rest` sealed the
+/// COMPONENT (`#[non_exhaustive]`, poison-verified at `8ce24653d`); nothing
+/// sealed the OCCURRENCE, and each of the four drop sites assembled the same
+/// four facts by hand:
 ///
 /// ```text
 /// session scope        who retires it when the session ends

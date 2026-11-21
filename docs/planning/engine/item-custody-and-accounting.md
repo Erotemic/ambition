@@ -109,6 +109,32 @@ Do not build a generic item-request bus to reduce the minting count to one.
 Centralize occurrence minting only where it centralizes a real invariant
 (identity, custody, provenance, rollback ownership).
 
+### Occurrence creators and why each owns its mint (read 2026-11-21)
+
+Found by every production `SpawnOrigin::Dynamic` site and every runtime
+`GroundItem` or pickup spawn outside construction. The restore roads
+(`minted_horizon.rs`, `publication/src/stage.rs`) rebuild from a
+`MintedItemDescription`; they create nothing.
+
+| Creator | Site | Identity | Provenance | Why it owns the mint |
+|---|---|---|---|---|
+| Authored placements | construction and publication (`AuthoredOccurrences`) | authored | `Authored` / `ProviderStaged` | the room's record is what rebuilds it |
+| Death drops (coin, heart, ability pickup, weapon parcel) | `ambition_platformer2d_items::loot::spawn_death_drop`, the one road all four drop sites call | anonymous, except the weapon (`SimId::death_drop`, derived from its parent) | `Dynamic { parent, sequence }` | a quantity drop is settled by `OwnedItems`; a weapon becomes a carried object, and every durable road that gives it back is keyed by `SimId` |
+| A thrown inventory item | `ambition_held_items::throw_held_item_system` | `SimId::spawned(thrower, counter)` | `Dynamic` | throwing turns a quantity into an instance, and an instance owes an identity; the edge of the open `ItemCustody` inventory leg |
+| Match item spawns | `ambition_platformer2d_items::match_spawn::spawn_match_items` | `SimId::match_spawn(match ordinal, ordinal)` | none | the match's rules own the table; the identity is derived from terms two peers agree on, with no counter |
+| Sanic's scattered rings | `ambition_demo_sanic::scatter_rings_on_hit` | one `SimId` per ring | `Dynamic { parent: the player }` | the game's ring-loss rule: a quantity it turns into instances it can take back |
+| A summoned minion | `ambition_platformer2d_construction::summoned_minion_request` | spawned | `Dynamic` | an actor, not an item: construction owns it |
+
+Reward policy only consumes outcomes: `collect_ecs_pickups` reads a pickup's
+origin to record its `GrantSource` (`Mint { parent }` or `Authored`), and a
+chest is an interactable whose opening grants what its encounter's outcome
+names. Neither spawns an item occurrence.
+
+One asymmetry, recorded rather than fixed: match items carry an identity and
+no `SpawnOrigin`, so a provenance-keyed reader cannot see them. No reader needs
+them today (matches have no checkpoint), and items are off in Smash by Jon's
+call.
+
 ## Invariants
 
 - One live physical occurrence has one authoritative custody/disposition.

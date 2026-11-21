@@ -2510,6 +2510,13 @@ Conservation:
 - Save/load needs nothing new: the bag is saved, and a `Consumed` row is a
   saved row.
 
+**Occurrence creators read (2026-11-21):** the owner page now lists every
+runtime creator with its identity, provenance and the reason it owns its mint
+([inventory](engine/item-custody-and-accounting.md#occurrence-creators-and-why-each-owns-its-mint-read-2026-11-21)).
+Death drops already share one road (`spawn_death_drop`); reward policy only
+reads outcomes (pickup grant source, chest rewards). One asymmetry is recorded:
+match items have identity and no provenance.
+
 **Next implementation:** centralize only the occurrence decisions that share an
 actual invariant (identity, custody, provenance, rollback ownership). Do not add a
 generic request bus merely to reduce writer count.

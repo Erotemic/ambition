@@ -89,6 +89,22 @@ fn ride_up(app: &mut App, body: Entity) {
     );
 }
 fn roof_entry(app: &mut App, body: Entity) {
+    let goal = {
+        let world = app.world_mut();
+        world
+            .query::<&CameraPolicyState>()
+            .iter(world)
+            .find_map(|state| {
+                state
+                    .last_observation
+                    .as_ref()?
+                    .regions
+                    .iter()
+                    .find(|region| region.id == "mary_o_1_2_upper")?
+                    .target_y
+            })
+            .expect("the roof has an authored vertical goal")
+    };
     ride_up(app, body);
     let mut saw_airborne_upper = false;
     let mut saw_roof_landing = false;
@@ -118,13 +134,13 @@ fn roof_entry(app: &mut App, body: Entity) {
                 snapshot.active_camera_zone.as_deref(),
                 Some("mary_o_1_2_upper")
             );
-            assert!((snapshot.target_world.y - 240.0).abs() < 0.001);
+            assert!((snapshot.target_world.y - goal).abs() < 0.001);
             saw_airborne_upper = true;
         }
         if ground && on_roof {
             assert!(saw_airborne_upper, "the upper view starts before landing");
             assert!(
-                (snapshot.target_world.y - 240.0).abs() < 0.001,
+                (snapshot.target_world.y - goal).abs() < 0.001,
                 "landing does not change the composition goal"
             );
             saw_roof_landing = true;

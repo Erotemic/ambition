@@ -94,6 +94,27 @@ prepared facet, native consumer and refusal. Feed that projection to the
 existing query/editor tools. Do not create a second manually maintained
 concept catalog or require a new planning document to author each mechanic.
 
+### Portal review: accepted operations retain their meaning
+
+The source review at `b91b29d35935` applies the same ownership principle to
+spatial state. The [portal delivery plan](portal-parts-similarity-and-chirality.md)
+keeps the existing material algebra and replaces reconstruction from reduced
+facts: channel as lifetime, end pose as trajectory, static mapped vector as
+moving-frame contact velocity, and camera rectangle as presented observer.
+
+A domain's accepted operation retains its scope, selected geometry, physical
+time and result. Completed trajectory and next-step initialization have
+separate consumers. Topology occurrence, topology revision, sampled pose and
+source image are separate identities. The view's visibility eye and final
+projection are separate facts. These distinctions allow owners to share
+prepared data and remove repeated decisions without one global spatial graph.
+
+P1–P6 name current writers, crossings, failures and removals. Pure query
+specializations and prepared-input reuse address repeated runtime work;
+per-observer demand and complete image-source reuse address redundant capture.
+Do not claim a new compile-time boundary or speedup until its actual consumer
+and resolved dependencies are measured.
+
 ## Converged shape
 
 Code against these facts. Each one is in source and has a guard.

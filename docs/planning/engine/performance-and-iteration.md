@@ -373,30 +373,46 @@ contracts. Present the same topology through normal and Potato art tiers.
 Compare cold realization, second entry and an edit while the room is live.
 No game crate should maintain a parallel skin/tessellation implementation.
 
-### Portal fragments create entities and materials on every presentation frame
+### Portal work follows visible projections and source images
 
-The portal pieces use a deliberately rebuilt representation. That
-simplicity is reasonable for correctness, but it has a measurable cost to
-investigate, not an assumed performance emergency: the carry
-(`crates/ambition_portal2d_presentation/src/carry.rs`; the far-side
-compositor is retired, 2026-11-13) and `src/visuals.rs` rebuild derived pieces every update and add
-new `PortalClipMaterial` assets when clipped pieces are generated. A still
-source can thus allocate even when its transform and sheet are unchanged.
+**Current source, 2026-11-21:** the carry already retains piece entities,
+materials and meshes in `clip_material::ClipQuadPool`; unchanged appearance
+and geometry do not replace their assets. Same-size targets are reused and
+idle targets retire through `carry::resources`. The October far-side churn
+measurement concerns a retired compositor. Do not build another retained
+fragment framework to solve that historical finding.
 
-Benchmark stable and animated portals under the same graphics settings,
-visible cameras, and fixed simulation steps. Collect frame-time distribution,
-entity spawn/despawn, distinct and retained material handles, mesh allocations,
-GPU draw calls, and peak resident bytes over a long run. Compare no panes,
-one pane, and two panes; then room unload, camera switch, rollback and
-quality downgrade. Disable candidate/pane work separately to attribute the
-cost. A drop in CPU time with no material gain is not proof that a retained
-reconciler is worthwhile; a material residency increase without a live
-reference leak is not yet proof of a leak.
+The live structural work is in
+[portal view/capture delivery](portals-one-transit-for-every-mover.md#delivery-packets):
+complete observer/path/room binding, desired versus ready pictures, and image
+source reuse. Window rigs currently allocate a target for every paired end,
+even shut ones; `max_active_captures` bounds running cameras, not bytes. An
+over-budget rig can expose an opaque pane before its first capture or retain
+an indefinitely stale image. Admit current-frame open views explicitly and
+use the declared non-view fallback for excess demand. An **open** window
+refreshes every presented frame; texture age is not a quality tier.
 
-If the traced cost is significant, hand the lifetime fix to
-[render/VFX R8](render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn),
-not to each portal-using game. Preserve the presentation-only nature of the
-pieces and the portal-visibility arbitration while optimizing.
+Count source images and their finishing passes, live/held window targets and
+carry targets separately before attributing total memory. The November GNU
+image receipt records five carry families at 12.125 MiB of target descriptors
+plus 51.2578125 MiB of upstream image-pair descriptors outside that budget;
+these are dated software-renderer resource facts, not device frame-time
+measurements. A completed local image can remove a second family raster pass
+only when it includes the whole requested appearance. Keep the universal
+capture fallback and independent family roots/depths.
+
+Remaining CPU work includes repeated clipping before pool comparison,
+unconditional open-window mesh writes, room-wide occluder copies/ray scans
+and family traversal; remaining render work includes source composition and
+capture passes. Resolve their ownership and demand first, then compare the
+same visible scene, views, quality and motion with the removed work. Preserve
+admitted geometry, source-image readiness and the current-frame finalization
+boundary. [Render/VFX R8](render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)
+owns the presentation integration; individual games do not add private
+portal optimizations. The
+[GNU image receipt](../../../dev/ambition_dev_measurements/summaries/portal-gnu-limb-render-20261111.md)
+and [portal review](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
+state the existing measurement limits; displayed-host/device costs remain open.
 
 ## Acceptance
 

@@ -38,3 +38,19 @@ an observer beside their capability. Geometry stays at the simulation tick
 pose. Presentation comparison is explicit. Disabled collection returns before
 it scans bodies or calls providers. A refused query has no active fallback box.
 Broad spatial semantics and runtime geometry editing remain separate work.
+
+## Planned portal provenance extension
+
+The [portal delivery plan](portal-parts-similarity-and-chirality.md) extends
+existing owner observations as P1–P6 land. Report the actual directed binding,
+topology revision/effective time, source material and accepted motion interval,
+contact chart/time, and typed refusal. For a view comparison also name the
+observer, presented sample/cursor and final projection, plus admitted capture
+and ready-image state. Keep these as projections of actual owner results.
+
+This makes a root remap, stale sample, unproved exclusion or unavailable picture
+distinguishable without manually tracing several crates. It does not authorize
+a second geometry calculator, an always-on query history, or a separate
+inspection registry. Retain disabled-collection early exits and explicit
+simulation-versus-presentation sample labels. The GOBS completion receipt above
+remains valid for the existing report; this extension is planned.

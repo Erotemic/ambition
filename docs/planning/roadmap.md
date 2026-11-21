@@ -188,6 +188,26 @@ edit loop. No numerical compile-time improvement follows from this review.
 The [prevalidated-artifact hold](engine/prevalidated-content-artifacts.md)
 remains in force.
 
+### Portal correctness and composition follow-through
+
+The deeper source review at `b91b29d35935` selects a bounded completion of
+existing spatial authority through
+[PORTAL-SIMILARITY](queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
+Canonical material and moving-frame algebra exist. Their callers still need
+one accepted operation with scope, topology/time selection and retained path.
+
+The [delivery plan](engine/portal-parts-similarity-and-chirality.md) links six
+packets: topology/lease edits; event-time motion; complete contact response;
+conservative query planning and specialization; observer chart transport;
+and capture demand/readiness/source reuse. These are native engine capability
+work under G2/G5, with provenance exposed through existing G4 inspection.
+They preserve ordinary actor, item, projectile, limb and drawable paths.
+
+Local continuous portals remain independent of cross-island transport. Closing
+a caster's old-room lease during ordinary travel is required now. New device
+and matched performance evidence is still owed; old static-map witnesses do
+not establish the newly selected moving, temporal and multiview cases.
+
 ## Engineering priority order
 
 The priorities below are scored on two axes. The first is authority

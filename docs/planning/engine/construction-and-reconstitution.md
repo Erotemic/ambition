@@ -405,3 +405,18 @@ Every supported lifecycle path uses one set of domain constructors, pinned accep
 inputs, explicit retention, coherent publication and correct replay ownership.
 Reload safety is demonstrated for the migrated path. General native-plugin undo,
 arbitrary schema migration and peer coordination are not implied by that result.
+
+## Portal leases at lifecycle boundaries
+
+[Portal P1](portal-parts-similarity-and-chirality.md) makes portal lease residence
+explicit. Moving a body and its custody closure does not transfer physical
+endpoints left in the old room. The portal owner must retire or explicitly
+rebind that lease at the admitted transition. Pending compulsory closure has
+portal/room ownership, so the caster's retirement does not erase the data
+needed to settle old material. Keep source residency until settlement, or
+refuse travel before the lifecycle commit; never publish a partial handoff.
+
+A scoped room replay retains its room through the native clear request.
+Mechanical generation replacement still uses the existing hidden-candidate
+publication. Local topology edits reuse their own accepted relation boundary;
+they do not create another session-construction protocol.

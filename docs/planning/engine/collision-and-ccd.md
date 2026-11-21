@@ -51,17 +51,42 @@ can produce one compound contact, so world contributors need stable identity.
 A2c preserves immediate interception while delivering later damage to exactly the
 selected identity, without repeating broad feature queries.
 
-The first implementation uses targets stationary at the declared simulation
-sample. Swept projectile versus sampled target solves endpoint tunneling for that
-model; it does not solve target-relative motion, rotation or arbitrary deforming
-silhouettes. Those require separate measured/behavioral cases in this program.
+A2's first implementation used targets stationary at the declared simulation
+sample. Native body consumers now have `swept_body_contact` over retained
+source material; that is not proof of arbitrary deforming silhouettes or of
+history surviving a root crossing. Keep each supported target-motion model
+explicit. The portal correction below supplies the lost chronology case.
 Broad-phase bounds cannot replace a supported exact combat shape in narrow phase.
 
 Retain the existing projectile processing order, returning-shot hit memory and
 explicit splash multiplicity. Reflection/absorption ends the current step even
-before deferred despawn is applied. Keep portal/teleport discontinuities out of
-the swept path. See the protocol's fixtures for equal-time ties, one-ways,
+before deferred despawn is applied. Keep chart transitions as explicit path
+boundaries; retain real travel on either side and never cast across the
+spatial jump. See the protocol's fixtures for equal-time ties, one-ways,
 compound solids, first-frame geometry, stale recipients and resimulation.
+
+## Accepted motion across portal charts
+
+The [portal review](portal-parts-similarity-and-chirality.md) selects P2–P4
+against source `b91b29d35935`. `MaterialCast` already represents source and
+aperture motion. Native body contact still reconstructs relative motion from
+a static mapped displacement, and root transit collapses a target's completed
+path before projectile queries read it. These are concrete authority crossings,
+not a request for a new collision framework.
+
+Retain accepted continuous legs with their original clock, material and
+topology selection. At a chart change, record the event and continue the
+remaining interval; never sweep a straight line across the teleport gap.
+Next-step initialization must not delete the completed target path. Reuse
+`ContactVelocityFrame` for the point/time/path-relative approach and response.
+AABB bounds select candidates; canonical material decides aperture-rim fit.
+
+Candidate acceleration must conservatively include curved support and repeated
+portal images. A link visited with one region/time/remaining allowance cannot
+exclude another state without a subsumption argument. The source-derived
+full-turn and repeated-link cases are correctness witnesses even before a new
+performance measurement. Other broad spatial optimization remains gated by its
+own customer and measured cost.
 
 ## Contact versus strict overlap is a caller policy
 

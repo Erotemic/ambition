@@ -6,6 +6,21 @@ are implemented. Git history has the architecture and migration record.
 Two older customer-gated items remain below. A new scripted-pose ownership
 issue is recorded after them; it has concrete October 11 customers.
 
+## Portal motion completion selected 2026-11-21
+
+The [portal delivery plan](portal-parts-similarity-and-chirality.md) selects
+P2/P3 for accepted root chronology, complete contact-frame velocity and exact
+aperture-rim constraints. Static endpoint remapping does not complete a moving
+exit's residual interval; the post-step snag AABB is not precise material.
+The [moving-frame contract](portals-are-moving-frames.md) keeps separate
+movement laws while making their accepted path and root changes coherent.
+
+Preserve the kernel gateway, controller parity and private axis/momentum/crawler
+state. A current-tick trajectory remains available to later contact readers;
+reconciliation initializes the next step without erasing that trajectory.
+Portal-free single-leg motion stays the cheap complete case. This is selected
+engine work, not a reason to reopen settled movement tuning.
+
 ## Remaining
 
 ### A crawler on a wall reports an unturned box (found 2026-11-11)

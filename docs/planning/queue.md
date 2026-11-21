@@ -2774,29 +2774,37 @@ stand-in may keep an incomplete kit.)
 
 ### PORTAL-SIMILARITY — canonical parts and scaled mirror portals
 
-**Failure / customer:** unequal apertures and reflected bodies need one
-physical material model for partial contact, combat and presentation. The
-playable 80/40 slice and chained-limb witnesses pass. Full PSIM acceptance
-remains open.
+**Failure / customer:** the material/Sim2 foundation and playable 80/40 slice
+are implemented, but several consumers reconstruct scope, trajectory or view
+meaning from a smaller projection. The 2026-11-21 source review at
+`b91b29d35935` selects corrections to topology/lifetime, accepted motion,
+conservative query preparation and complete observer views.
 
-**Owner:** [portal parts, similarity, chirality, and numerical failure plan](engine/portal-parts-similarity-and-chirality.md).
+**Owner:** [portal delivery plan](engine/portal-parts-similarity-and-chirality.md).
+Its [implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
+owns P1–P6 and links the detailed contracts. The source counterexamples have
+not been reproduced by a new Rust/game run in this review.
 
-**Next action:** continue implementation and testing on main. Native material
-repair and support are fixed in `5f07fbb17`; independent captures and room
-identity are fixed in `ae8f2b07a` and `b499e5090`. Adaptive capture storage
-and material-proxy overflow are fixed in `1d551594b`. Measure portal-free
-runtime cost and hardware/device capture cost. Complete the
-remaining motion, geometry, numeric-fault and device requirements in the owner's
-[implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
-and its [status](engine/portal-parts-similarity-and-chirality.md).
-This is local to one live simulation room; cross-island live portals are not
-an implicit dependency.
+**Next action:** start P1 with scoped reset and same-place replacement; start
+P2 with the existing max-hops-zero recovery fixture extended through generic
+transit, then a moving exit and retained target trajectory. P4 can independently
+prove/fix full-turn bounds and repeated-link candidate exclusion. P3 removes
+static contact-velocity reconstruction and the AABB snag authority after the
+accepted motion contract is in place. P5/P6 complete observer identity,
+chart transport and demand/ready-image capture without replacing working pools.
 
-**Acceptance:** all five PSIM slices have production-path and deterministic
-witnesses; authored mismatched apertures scale correctly in both directions;
-part geometry, collision, combat and masking agree; reflection persists as
-correct actor chirality after transit; bounded rejected numeric transforms
-show the typed IEEE 754 effect without poisoning simulation or replay.
+**Acceptance:** the accepted operation binds its actual scope, topology/time
+selection, restrictions, path and final state; later readers do not infer a
+different operation. Existing unequal-aperture, material/parity, multi-limb,
+refusal and replay behavior remains covered. Each selected packet removes
+its replaced interpretation. Capture/device and matched performance evidence
+remain separate gates; no new speedup is claimed.
+
+**Scope:** continuous physical portals stay within one live simulation room.
+Retiring a held lease on ordinary room travel is current lifecycle work; it
+does not require cross-island live portals. Preserve the authored lab and
+current boss/common-body work. The older static kernel continuation receipt
+is not evidence of moving-map residual time or completed multi-view support.
 
 ### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes (done)
 

@@ -223,18 +223,17 @@ links to.
 - [`engine/slopes-feet-ride-surfaces.md`](engine/slopes-feet-ride-surfaces.md)
   A proposal (2026-10-11): a body on the ground keeps a support that
   lasts; its shape says how it sits on it. Not built; one decision open.
-- [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md)
-  Nothing teleports: props and projectiles straddle and cross as bodies
-  do, and a seam lab (a gauge prop, a scenario matrix) measures it.
-- [`engine/portal-pair-identity-and-aperture.md`](engine/portal-pair-identity-and-aperture.md) — paired-portal identity and aperture design.
-- [`engine/portal-parts-similarity-and-chirality.md`](engine/portal-parts-similarity-and-chirality.md) — selected exact-part/Sim2 portal scaling, chirality and IEEE 754 numerical-failure plan.
-- [`engine/portals-a-body-in-two-places.md`](engine/portals-a-body-in-two-places.md)
-  A body straddling a portal is hit, hurts and collides on both sides, with
-  no hacks (Jon, 2026-10-16).
+- [`engine/portal-parts-similarity-and-chirality.md`](engine/portal-parts-similarity-and-chirality.md)
+  Portal delivery owner: exact material, admitted topology/motion, conservative
+  query preparation and per-observer presentation; bounded P1–P6 work.
+- [`engine/portal-pair-identity-and-aperture.md`](engine/portal-pair-identity-and-aperture.md)
+  Directed occurrence, per-connection map law, atomic edits and scoped leases.
 - [`engine/portals-are-moving-frames.md`](engine/portals-are-moving-frames.md)
-  A portal is a rigid frame that moves: its host's published motion,
-  transit in its own frame, captures that are drawn where they were taken.
-  Built 2026-10-15.
+  Accepted event-time motion, contact kinematics and retained trajectories.
+- [`engine/portals-a-body-in-two-places.md`](engine/portals-a-body-in-two-places.md)
+  Canonical material and distinct motion, reach, visibility and art domains.
+- [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md)
+  Complete observer charts, ordered handoff, demand and ready capture sources.
 - [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md)
 - [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md)
 - [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)

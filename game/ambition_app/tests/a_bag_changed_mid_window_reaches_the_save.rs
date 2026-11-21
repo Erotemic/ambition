@@ -859,10 +859,13 @@ fn base_gravity(sim: &Platformer2dSimHarness) -> bevy::prelude::Vec2 {
 }
 
 /// `AmbientGravityRequest` is written by the developer hotkey `cycle_dev_gravity`
-/// in `Update` (`game/ambition_app/src/menu/kaleidoscope_app.rs`) and read by
-/// `apply_ambient_gravity_requests` inside the sim schedule: a host-latched edge,
-/// spent on a speculative frame, that nothing re-produces after the rewind
-/// (Q136). The in-sim arm is the control: `BaseGravity::cycle` is a four-state
+/// and the developer menu's Gravity row, in `Update`
+/// (`game/ambition_app/src/menu/kaleidoscope_app.rs`), and read by
+/// `apply_ambient_gravity_requests` inside the sim schedule. Written straight
+/// into the channel it was a host-latched edge, spent on a speculative frame,
+/// that nothing re-produced after the rewind (Q136). Since 2026-11-21 both
+/// write it as a host intent (`HostIntentWriter`): the ledger stamps it with a
+/// tick and every simulation of that tick sees it. The in-sim arm is the control: `BaseGravity::cycle` is a four-state
 /// rotation, so a reader that never ran and one that ran four times both read
 /// as unchanged, and only the same fixture flipping it from inside separates
 /// "lost" from "this fixture cannot flip gravity".
@@ -872,11 +875,8 @@ fn base_gravity(sim: &Platformer2dSimHarness) -> bevy::prelude::Vec2 {
 /// replay inside the window; a reset moves gravity TO the default, never one
 /// cycle step away from it.
 ///
-/// It asserts the defect is still present and fires when it is fixed, so it is
-/// a tracking measurement rather than a contract.
 #[test]
-#[ignore = "playtest: tracks a known dev-hotkey ingress defect (Q136); it fires when the defect is fixed, so it is not a gate"]
-fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
+fn an_ambient_gravity_request_raised_outside_the_simulation_survives_the_rewind() {
     // CONTROL: the same message, written from inside the timeline.
     let mut inside = sim_cycling_gravity(true);
     let inside_before = base_gravity(&inside);
@@ -918,9 +918,11 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
         .expect("the fixture promises a healthy timeline before the write");
     let before = base_gravity(&outside);
     let cycled = one_cycle_from(before);
-    outside
-        .world_mut()
-        .write_message(ambition_platformer2d::world::AmbientGravityRequest::Cycle);
+    // The developer controls' road: the host-intent ledger, not the channel.
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
+        outside.world_mut(),
+        ambition_platformer2d::world::AmbientGravityRequest::Cycle,
+    );
 
     // Sampled every frame, because the loss is a REVOCATION and not an absence:
     // both end at `before` and only the transient tells them apart.
@@ -931,23 +933,14 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
             reached_the_cycle = true;
         }
     }
-    // A flat zero, not a revocation: there is no transient to floor, and the
-    // control above is what separates "lost" from "cannot flip gravity".
     assert!(
-        !reached_the_cycle,
-        "an ambient-gravity cycle requested from outside the simulation now \
-         reaches {cycled:?} — that is the FIX this arm is waiting for, not a \
-         regression. Invert it and record in [Q136] which ingress road reached \
-         this message"
+        reached_the_cycle,
+        "an ambient-gravity cycle requested through the host-intent ledger never \
+         reached {cycled:?} from {before:?}"
     );
-    assert_eq!(
-        base_gravity(&outside),
-        before,
-        "ambient gravity ended somewhere other than where it started without ever \
-         passing through one cycle step, so something in this window moves \
-         `BaseGravity` that is neither the request nor \
-         `reset_gravity_on_room_reset` — find it before trusting the line above"
-    );
+    outside
+        .rollback_health()
+        .expect("the timeline stays healthy through the rewind");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

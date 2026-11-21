@@ -661,11 +661,16 @@ pub(crate) struct SystemMenuParams<'w, 's> {
     portal_camera: Option<
         ResMut<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     >,
-    // The Gravity cycle's request channel. Option so the System nav stays
-    // B0002-safe and fixtures without the gravity plugin render the row as a
-    // no-op; the sim applies the request (`BaseGravity` is rollback state).
-    gravity_requests:
-        Option<ResMut<'w, Messages<ambition_platformer2d::world::AmbientGravityRequest>>>,
+    // The Gravity cycle's request, a host intent the sim applies on a stamped
+    // tick (`BaseGravity` is rollback state). Option so fixtures without the
+    // gravity plugin render the row as a no-op.
+    gravity_requests: Option<
+        ambition_platformer2d::platformer::host_intents::HostIntentWriter<
+            'w,
+            's,
+            ambition_platformer2d::world::AmbientGravityRequest,
+        >,
+    >,
     // Read-only, for the row's direction label: the ambient of the room the
     // cycle turns.
     base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
@@ -764,7 +769,10 @@ impl SystemMenuParams<'_, '_> {
                         portal_effect: self.portal_effect.as_deref_mut(),
                         #[cfg(feature = "portal_render")]
                         portal_camera: self.portal_camera.as_deref_mut(),
-                        gravity_requests: self.gravity_requests.as_deref_mut(),
+                        gravity_requests: self
+                            .gravity_requests
+                            .as_mut()
+                            .map(|writer| writer as &mut dyn AmbientGravitySink),
                     },
                     id,
                     0,
@@ -810,7 +818,10 @@ impl SystemMenuParams<'_, '_> {
                         portal_effect: self.portal_effect.as_deref_mut(),
                         #[cfg(feature = "portal_render")]
                         portal_camera: self.portal_camera.as_deref_mut(),
-                        gravity_requests: self.gravity_requests.as_deref_mut(),
+                        gravity_requests: self
+                            .gravity_requests
+                            .as_mut()
+                            .map(|writer| writer as &mut dyn AmbientGravitySink),
                     },
                     id,
                     dir,
@@ -1978,7 +1989,9 @@ pub(crate) use pointer::*;
 /// room reset restores the authored default.
 fn cycle_dev_gravity(
     keys: Res<ButtonInput<KeyCode>>,
-    mut requests: MessageWriter<ambition_platformer2d::world::AmbientGravityRequest>,
+    mut requests: ambition_platformer2d::platformer::host_intents::HostIntentWriter<
+        ambition_platformer2d::world::AmbientGravityRequest,
+    >,
 ) {
     if !keys.just_pressed(KeyCode::Backslash) {
         return;

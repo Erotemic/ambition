@@ -218,6 +218,11 @@ The census page lists the member names. The guard counts the optional
 
 Leave `SessionMechanics` where it is (see C05). Decide `BaseGravity` together
 with its ingress question (Q136 ruling: choose ingress by semantic ownership).
+The ingress is decided (2026-11-21): a developer's gravity cycle is a host
+intent (`HostIntentPlugin<AmbientGravityRequest>`, written through
+`HostIntentWriter`), so every simulation of its stamped tick sees it.
+Witness: `an_ambient_gravity_request_raised_outside_the_simulation_survives_the_rewind`.
+`BaseGravity`'s session scope is still open.
 
 ### The session-root aliases
 

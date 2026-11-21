@@ -45,12 +45,28 @@ pub(crate) struct DevToggleWrite<'a> {
     #[cfg(feature = "portal_render")]
     pub(crate) portal_camera:
         Option<&'a mut ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
-    // The Gravity row PUBLISHES a request; the sim applies it (`BaseGravity` is
-    // rollback state). `Messages` rather than a `MessageWriter` so a fixture
-    // without the gravity plugin renders the row as a no-op instead of
-    // failing the whole menu system's parameter validation.
-    pub(crate) gravity_requests:
-        Option<&'a mut bevy::prelude::Messages<ambition_platformer2d::world::AmbientGravityRequest>>,
+    // The Gravity row PUBLISHES a request as a host intent; the sim applies it
+    // (`BaseGravity` is rollback state). `None` in a fixture without the
+    // gravity plugin, where the row is a no-op.
+    pub(crate) gravity_requests: Option<&'a mut dyn AmbientGravitySink>,
+}
+
+/// Where the Gravity row sends its request: the host-intent ledger in the
+/// game, nothing in a fixture.
+pub(crate) trait AmbientGravitySink {
+    fn request(&mut self, request: ambition_platformer2d::world::AmbientGravityRequest);
+}
+
+impl AmbientGravitySink
+    for ambition_platformer2d::platformer::host_intents::HostIntentWriter<
+        '_,
+        '_,
+        ambition_platformer2d::world::AmbientGravityRequest,
+    >
+{
+    fn request(&mut self, request: ambition_platformer2d::world::AmbientGravityRequest) {
+        self.write(request);
+    }
 }
 
 /// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The
@@ -256,7 +272,7 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         D::Gravity => {
             let _ = dir;
             if let Some(requests) = ctx.gravity_requests {
-                requests.write(ambition_platformer2d::world::AmbientGravityRequest::Cycle);
+                requests.request(ambition_platformer2d::world::AmbientGravityRequest::Cycle);
             }
         }
     }

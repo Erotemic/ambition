@@ -115,14 +115,32 @@ impl Plugin for GravityPlugin {
         // Ambient-gravity changes arrive as REQUESTS from outside the sim and
         // are applied here, in the sim, before the resolver copies the ambient
         // into each body's frame — see `AmbientGravityRequest` for why a dev
-        // control must not write `BaseGravity` itself.
-        app.add_message::<ambition_platformer2d_shared_tangle::gravity::AmbientGravityRequest>();
+        // control must not write `BaseGravity` itself. The request is a host
+        // intent: a developer control writes it through `HostIntentWriter`, the
+        // ledger stamps it with a tick, and every simulation of that tick sees
+        // it. A message written straight into the channel was spent on a
+        // speculative frame and lost on the rewind (Q136).
+        if !app.is_plugin_added::<
+            ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin<
+                ambition_platformer2d_shared_tangle::gravity::AmbientGravityRequest,
+            >,
+        >() {
+            app.add_plugins(ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<
+                ambition_platformer2d_shared_tangle::gravity::AmbientGravityRequest,
+            >::default());
+        }
         app.add_systems(
             sim,
             (
-                super::apply_ambient_gravity_requests.run_if(
-                    ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::gravity::AmbientGravityRequest>,
-                ),
+                // After the ledger releases this tick's intents: both run
+                // before CoreSimulation, and unordered, one simulation of the
+                // stamped tick applied the cycle and its resimulation applied
+                // it a tick later (a sync-test checksum mismatch).
+                super::apply_ambient_gravity_requests
+                    .run_if(
+                        ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::gravity::AmbientGravityRequest>,
+                    )
+                    .after(ambition_platformer2d_shared_tangle::host_intents::release_every_host_intent),
                 super::resolve::resolve_body_motion_frames,
                 super::resolve_active_gravity,
             )

@@ -2083,6 +2083,14 @@ new meta-test machinery as a proxy for behavior.
 - Behind that red, four exhibits had nothing to say: the three band rows and the practice bag. Each has hall lines now.
 - Still red on this VM only: the two music checks (no music registry).
 
+**Dev gravity lost under rollback (Q136; fixed 2026-11-21):** the `\` hotkey
+and the developer menu's Gravity row wrote `AmbientGravityRequest` straight
+into its channel from `Update`. A speculative frame spent it, and the rewind
+never raised it again. Both now write it as a host intent, and the applier
+runs after the ledger's release. The tracking arm in
+`a_bag_changed_mid_window_reaches_the_save.rs` is now a gate; all 14 of the
+file's tests pass.
+
 **Velocity-authority policy red (found 2026-11-20, inherited; fixed 2026-11-20):** `engine.velocity-writes-are-authority-only` named four bare `vel = ZERO` writes: the crumple's collapse into its knockdown (`ambition_characters/src/actor/body_step.rs`) and the D72 burial, crumple and seize (`ambition_combat/src/extension/reaction.rs`). All four drop a hit's knockback because a reaction that holds the body in place replaced it, so they share one named kernel authority, `ambition_platformer2d_core::movement::pin_body_in_place`. Its doc names the limit: it is an `AxisSwept` body's velocity, and a surface-momentum body must be pinned through its model. `cargo test -p ambition_workspace_policy`: 35 passed. The reaction tests (`ambition_combat` 26, `ambition_characters` knockdown 1) pass.
 
 **Workspace policy reds (found 2026-11-19, inherited):**

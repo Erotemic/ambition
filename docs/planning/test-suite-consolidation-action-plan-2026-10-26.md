@@ -221,9 +221,23 @@ because `#[ignore]` appears above them.
 | `smash_cpus_damage_each_other::every_fighter_on_the_grid_can_fight_its_mirror` | measurement with a stated use (validating a scoring change) | Kept. |
 | `smash_cpus_damage_each_other::probe_where_the_goblin_pca_hit_events_come_from` | diagnostic | Kept as an opt-in probe. The sibling test asserts only the per-tick burst ceiling, not the hit rate this probe attributes. The rate question could not be rechecked here: on this VM the Smash start waits for music. |
 
-`enemy_body_scale::` passes (1 test). Next: the 14 probes in
-`a_bag_changed_mid_window_reaches_the_save.rs`, after checking Q135's
-current state.
+`enemy_body_scale::` passes (1 test).
+
+**`a_bag_changed_mid_window_reaches_the_save.rs` (2026-11-21).** It has 14
+tests, and 6 were ignored, each with its role stated. All 6 were run, and
+all pass.
+- Five are the `SetFlagsRequested` straddle investigation (premise,
+  controls, the desync mechanism, the gate/derivation split). They are
+  kept as opt-in probes, as their ignore reasons say.
+- The sixth tracked Q136: a developer's gravity cycle written into the
+  channel from outside the simulation was lost under rollback. It passed
+  because the defect was still present, so it was fixed:
+  - the request is a host intent now;
+  - the applier is ordered after the ledger's release (unordered, the two
+    simulations of the stamped tick disagreed: a sync-test mismatch);
+  - the arm was inverted into a gate,
+    `an_ambient_gravity_request_raised_outside_the_simulation_survives_the_rewind`.
+  The file runs 14 of 14.
 
 ## Step 4: consolidate repeated inputs, not the behaviors
 

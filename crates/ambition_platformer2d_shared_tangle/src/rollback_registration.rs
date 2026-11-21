@@ -404,6 +404,7 @@ where
     );
     // A gravity cycle is a request from outside the simulation (a dev hotkey,
     // the menu); an abandoned branch's request must not replay after a rewind.
+    // The host-intent ledger raises it again on each simulation of its tick.
     registrar.clear_message_on_rollback::<crate::gravity::AmbientGravityRequest>(
         OWNER,
         "message.ambient_gravity_request",

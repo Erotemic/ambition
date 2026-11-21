@@ -311,7 +311,7 @@ impl BossSummon {
 
 pub mod conduct;
 pub use conduct::{
-    BodyBox, BodySwing, REACH_CAP, BossConduct, BossConductPort, Predecessor, BossGuard, BossGuardPort, BossHealthFloor, BossIntangible, BossIntangiblePort, BossHealthFloorPort, BossScale, BossScalePort, BossStage, BossStagePort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort,
+    BodyBox, BodySwing, REACH_CAP, BossMovePhase, BossConduct, BossConductPort, Predecessor, BossGuard, BossGuardPort, BossHealthFloor, BossIntangible, BossIntangiblePort, BossHealthFloorPort, BossScale, BossScalePort, BossStage, BossStagePort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort,
     LimbBlow, LimbBlowPort, LimbBond, LimbBondPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, LimbStrike, LimbStrikePort, MountLaunch, MountLaunchPort, MountWalk, MountWalkPort, BossWalkPort, FoeLaunch, FoeLaunchPort, LiveMove, MountLimb, MountView, MountViewPort, Pose, RoomHall, Wear, WearPort, Wearer,
 };
 

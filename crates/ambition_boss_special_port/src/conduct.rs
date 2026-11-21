@@ -121,6 +121,33 @@ pub struct BossConduct {
     pub reach: Option<[f32; 4]>,
 }
 
+/// A decoded move and the part of it that is live.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BossMovePhase<M> {
+    pub mv: M,
+    pub striking: bool,
+    pub remaining: f32,
+}
+
+impl<M: PartialEq> BossMovePhase<M> {
+    /// A changed move, changed part, or reset timer starts a new part.
+    pub fn entered_from(&self, previous: Option<(M, bool)>, remaining: f32) -> bool {
+        previous.is_none_or(|(mv, striking)| self.mv != mv || self.striking != striking
+            || self.remaining > remaining + 1e-3)
+    }
+}
+
+impl BossConduct {
+    /// A known active move takes precedence over the telegraph.
+    pub fn move_phase<M>(&self, decode: impl Fn(&str) -> Option<M>) -> Option<BossMovePhase<M>> {
+        self.active.as_ref().and_then(|active| decode(&active.key).map(|mv| BossMovePhase {
+            mv, striking: true, remaining: active.remaining,
+        })).or_else(|| self.telegraph.as_ref().and_then(|tell| decode(&tell.key).map(|mv| BossMovePhase {
+            mv, striking: false, remaining: tell.remaining,
+        })))
+    }
+}
+
 /// The farthest [`BossConduct::reach`] looks.
 pub const REACH_CAP: f32 = 512.0;
 
@@ -1094,6 +1121,20 @@ mod tests {
         let back = P::decode(&mut r).unwrap();
         r.finish().unwrap();
         back
+    }
+
+    #[test]
+    fn move_phase_edges_distinguish_continuation_recovery_and_timer_reset() {
+        let tell = BossMovePhase { mv: "lash", striking: false, remaining: 1.0 };
+        let strike = BossMovePhase { striking: true, ..tell };
+        assert!(tell.entered_from(None, 0.0));
+        assert!(!tell.entered_from(Some(("lash", false)), 1.1));
+        assert!(strike.entered_from(Some(("lash", false)), 0.1));
+        assert!(!strike.entered_from(Some(("lash", true)), 1.1));
+        assert!(strike.entered_from(Some(("lash", true)), 0.2));
+        assert!(strike.entered_from(Some(("slam", true)), 1.0));
+        assert!(strike.entered_from(None, 0.0));
+        assert!(tell.entered_from(Some(("lash", true)), 0.0));
     }
 
     #[test]

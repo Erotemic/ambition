@@ -4,7 +4,7 @@
   const C = window.ART_CATALOG, I = C.inventory;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const enc = encodeURIComponent;
-  const filters = {family: "", lineage: "", attention: "", view: "", sort: ""};
+  const filters = {family: "", lineage: "", attention: "", view: "", sort: "", role: ""};
   const badge = (text, warn = false) => `<span class="chip ${warn ? 'c-warn' : 'c-info'}">${esc(text)}</span>`;
   const characterLink = (key, label) => `<a href="#character/${enc(key)}">${esc(label || I.identities[key]?.display || key)}</a>`;
   const unitLink = unit => `<a href="#inventory/unit/${enc(unit.id)}">${esc(unit.id)}</a>`;
@@ -15,7 +15,7 @@
   const lineagesFor = actor => actor.lineages || [];
   const familiesFor = actor => [...new Set(unitsFor(actor).map(unit => unit.facts.visual_family?.value || "unknown"))];
   const gapsFor = actor => [...new Set(actor.coverage.filter(row => !row.valid || !['direct', 'alias'].includes(row.resolution.state)).map(row => row.action))];
-  const needsArt = actor => !actor.units.length || unitsFor(actor).some(unit => unit.runtime_defects?.length ||
+  const needsArt = actor => actor.inspection_origin === 'boss' && !actor.catalog.manifest ? false : !actor.units.length || unitsFor(actor).some(unit => unit.runtime_defects?.length ||
     [unit.status, ...Object.values(unit.status.tiers || {})].some(status => ['missing', 'partial', 'stale'].includes(status.state)));
   const table = (heads, rows) => `<div class="tablebox"><table><thead><tr>${heads.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 
@@ -39,6 +39,7 @@
       <div class="img checker">${art ? `<img src="${esc(art.cover)}" loading="lazy" alt="${esc(actor.display)}">` : '<span class="empty">No published preview</span>'}</div>
       <div class="meta"><div class="nm">${esc(actor.display)}</div><code>${esc(actor.id)}</code>
         <div class="sub">${familiesFor(actor).map(name => badge(name)).join(' ')}${actor.relations.form_of ? badge('form') : actor.relations.part_of ? badge('part') : ''}
+          ${actor.inspection_origin === 'boss' ? badge(actor.boss_profile ? 'Boss profile' : 'Boss art') + (!actor.catalog.manifest ? badge('Art binding unknown', true) : '') : ''}
           ${needsArt(actor) ? badge('Needs generation', true) : ''}${gaps.length ? badge('Check ' + gaps.join(', '), true) : ''}
           ${window.ArtReviews.openCount(actor.key) ? badge(window.ArtReviews.openCount(actor.key) + ' open notes', true) : ''}</div>
         ${filters.sort ? `<div class="sub">${filters.sort.startsWith('added') ? 'Added to game: ' + dateLabel(actor.added_at) : 'Art generated: ' + generationLabel(actor)}</div>` : ''}
@@ -49,7 +50,7 @@
   function roster() {
     const actors = Object.values(I.identities).sort((a, b) => compare(a, b));
     const query = document.getElementById('q').value.trim().toLowerCase();
-    const shown = actors.filter(actor => (!filters.family || familiesFor(actor).includes(filters.family)) &&
+    const shown = actors.filter(actor => (!filters.role || (filters.role === 'boss' ? actor.inspection_origin === 'boss' : actor.inspection_origin !== 'boss')) && (!filters.family || familiesFor(actor).includes(filters.family)) &&
       (!filters.lineage || lineagesFor(actor).includes(filters.lineage)) &&
       (!filters.attention || (filters.attention === 'generation' ? needsArt(actor) : filters.attention === 'notes' ? window.ArtReviews.openCount(actor.key) : gapsFor(actor).length)) &&
       JSON.stringify([actor.display, actor.key, actor.catalog.tags, actor.relations, familiesFor(actor),
@@ -72,17 +73,19 @@
     function select(name, label, values) {
       return `<label>${label} <select data-character-filter="${name}"><option value="">${name === 'view' ? 'Characters with forms and parts' : name === 'sort' ? 'Name (A–Z)' : 'All'}</option>${values.map(([value, text]) => `<option value="${esc(value)}"${filters[name] === value ? ' selected' : ''}>${esc(text)}</option>`).join('')}</select></label>`;
     }
-    return `<h1>Characters</h1><p class="lede">The current ${esc(I.profile.provider || 'game')} character catalog. Forms and parts are under their character. Each catalog entry has a detail page. Shared ancestry does not merge distinct characters.</p>
+    return `<h1>Characters</h1><p class="lede">The current ${esc(I.profile.provider || 'game')} character and boss roster. Forms and parts are under their character. Each entry has a detail page. Shared ancestry does not merge distinct characters.</p>
+      ${actors.some(actor => actor.inspection_origin === 'boss') ? '<p class="sub">Includes boss profiles and boss art. Entries that use the same art are linked on their detail pages.</p>' : ''}
       <div class="controls character-controls">
         ${select('sort', 'Sort by', [['added-newest', 'Added to game (newest first)'], ['added-oldest', 'Added to game (oldest first)'], ['generated-newest', 'Art generated (newest first)'], ['generated-oldest', 'Art generated (oldest first)']])}
-        ${select('view', 'Show', [['entries', 'All catalog entries']])}
+        ${select('view', 'Show', [['entries', 'All entries']])}
+        ${select('role', 'Role', [['boss', 'Bosses'], ['catalog', 'Catalog characters']])}
         ${select('family', 'Art family', [...new Set(actors.flatMap(familiesFor))].sort().map(name => [name, name]))}
         ${select('lineage', 'Lineage', [...new Set(actors.flatMap(lineagesFor))].sort().map(id => [id, I.lineages[id]?.name || id]))}
         ${select('attention', 'Art status', [['generation', 'Needs generation'], ['coverage', 'Animation gaps'], ['notes', 'Open review notes']])}
         <button id="clear-character-filters" type="button">Clear filters</button>
-      </div><p id="character-count">${filters.view ? `${shown.length} of ${actors.length} catalog entries` : `${groups.length} of ${I.character_groups.length} characters · ${actors.length} catalog entries`}</p>
+      </div><p id="character-count">${filters.view ? `${shown.length} of ${actors.length} entries` : `${groups.length} of ${I.character_groups.length} characters · ${actors.length} entries`}</p>
       ${I.profile.state !== 'available' ? '<p class="empty">The prepared game catalog is unavailable. Rebuild the inspector with its content inspection binary.</p>' : ''}
-      ${filters.sort ? '<p class="sub">Added dates use the first catalog entry in available Git history. Generation dates use render receipts, or published image file dates when receipts are absent. Copying or restoring files can change file dates. Unknown dates sort last. Groups use their main character’s added date and the latest art date across their forms and parts.</p>' : ''}
+      ${filters.sort ? '<p class="sub">Added dates use the first catalog entry in available Git history. Boss added dates use available boss profile history. Generation dates use render receipts, or published image file dates when receipts are absent. Copying or restoring files can change file dates. Unknown dates sort last. Groups use their main character’s added date and the latest art date across their forms and parts.</p>' : ''}
       ${shown.length ? `<div class="grid characters-grid">${filters.view ? shown.map(card).join('') : groups.map(grouped).join('')}</div>` : '<p class="empty">No characters match these filters.</p>'}`;
   }
 
@@ -129,6 +132,7 @@
   function detail(actor, ui) {
     const units = unitsFor(actor), assets = assetsFor(actor), selected = assets[0];
     const descriptions = [...new Set([actor.catalog.gameplay_description, actor.catalog.authoring_description, selected?.description].filter(text => typeof text === 'string' && text.trim()))];
+    const sameArt = actor.catalog.manifest ? Object.values(I.identities).filter(other => other.key !== actor.key && other.catalog.manifest === actor.catalog.manifest) : [];
     const coverage = actor.coverage.map(row => [esc(row.action), esc(row.tier), badge(row.resolution.state, !row.valid || !['direct', 'alias'].includes(row.resolution.state)),
       esc(row.resolution.row || 'none'), row.source_available === null ? 'unknown' : String(row.source_available), row.profile_selected === null ? 'unknown' : String(row.profile_selected), row.valid ? 'valid' : 'missing or invalid']);
     return `<div class="detail character-detail"><p><a href="#characters">← Characters</a></p>
@@ -136,6 +140,8 @@
       ${descriptions.map(text => `<p class="lede">${esc(text)}</p>`).join('')}
       <div class="chips">${(actor.catalog.tags || []).map(tag => `<span>${esc(tag)}</span>`).join('')}</div>
       <p class="controls"><a href="#character-lineage" data-jump="character-lineage">Character lineage</a><a href="#character-notes" data-jump="character-notes">Review notes</a><a href="#character-coverage" data-jump="character-coverage">Animation coverage</a><a href="#character-products" data-jump="character-products">Art and generation</a></p>
+      ${actor.inspection_origin === 'boss' ? `<p class="sub">${actor.boss_profile ? 'Boss profile' : 'Boss art binding'}: <code>${esc(actor.boss_id)}</code>.</p>` : ''}
+      ${sameArt.length ? `<p>Entries using the same art: ${sameArt.map(other => characterLink(other.key)).join(' · ')}</p>` : ''}
       <dl class="kv"><dt>Added to game</dt><dd>${esc(dateLabel(actor.added_at))}</dd><dt>Art generated</dt><dd>${esc(generationLabel(actor))}</dd></dl>
       <section class="box"><h2>Forms, parts, and derivations</h2>${relations(actor)}</section>
       ${lineage(actor)}
@@ -145,8 +151,8 @@
         ${assets.length > 1 ? `<label>Published sheet <select id="character-art">${assets.map(asset => `<option value="${esc(asset.id)}">${esc(asset.art_label || asset.name)}</option>`).join('')}</select></label>` : ''}
         ${units.map(unit => `<p>${unitLink(unit)} ${badge(unit.status.state, needsArt(actor))} · ${esc(unit.game_use)}<br><code>${esc(unit.repair)}</code></p>`).join('') || '<p class="empty">No art bundle is registered for this character.</p>'}
       </section><div id="character-art-panels">${selected ? ui.assetPanels(selected) : '<p class="empty">No published art is available. This character remains in the roster.</p>'}</div>
-      <section class="box" id="character-coverage"><h2>Animation coverage</h2>${table(['Action', 'Tier', 'Resolution', 'Row', 'Source', 'Profile', 'Runtime product'], coverage)}</section>
-      <section class="box"><h2>Character data</h2><details><summary>Prepared catalog record</summary><pre class="evidence">${esc(JSON.stringify(actor.catalog, null, 2))}</pre></details></section></div>`;
+      <section class="box" id="character-coverage"><h2>Animation coverage</h2>${actor.inspection_origin === 'boss' ? '<p class="sub">Character action coverage is not available for this boss entry. Browse its published animation rows in the art panels.</p>' : table(['Action', 'Tier', 'Resolution', 'Row', 'Source', 'Profile', 'Runtime product'], coverage)}</section>
+      <section class="box"><h2>Character data</h2><details><summary>${actor.inspection_origin === 'boss' ? 'Inspection record' : 'Prepared catalog record'}</summary><pre class="evidence">${esc(JSON.stringify(actor.catalog, null, 2))}</pre></details></section></div>`;
   }
 
   window.renderArtCharacters = function (key, ui) {

@@ -41,9 +41,17 @@ pack, so another engine game is inspected the same way (`--profile`,
 - **Characters** and **Inventory** read the sprite publication and the game
   catalog, as described below. A character a pack declares as a Smash fighter
   (a `smash_fighter` source naming it) is tagged `smash-fighter`.
+  The Characters panel also has temporary boss entries from the content tool's
+  boss art bindings, references, and room placements. Select Role: Bosses to
+  see them. Entries that share art have links on their detail pages. A shared
+  image does not merge identities. Missing art remains visible; character action
+  coverage is not asserted for these entries. This bridge does not change
+  gameplay. Remove it after the
+  [character construction unification](../../docs/planning/engine/boss-character-unification.md).
   Sort characters by name, date added to the game, or art generation date.
   Both date sorts offer newest and oldest first. Added dates use the first
-  character key in available catalog Git history, across file renames.
+  character key in available catalog Git history, across file renames. Boss
+  profile dates use the same lookup in the boss profile sources.
   Generation dates use the latest render receipt for the character's art units.
   Without a receipt, the page uses the latest published image file date and
   labels it as a file date. A copy or restore can change that date.

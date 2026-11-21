@@ -6,6 +6,9 @@
 //! the ledges read it once a tick AFTER every writer and keep what they read
 //! in the [`BackLedge`] (rollback state): the ground of the next tick is a
 //! function of that, and a resimulated tick reads the same.
+//!
+//! Here, in the composition, because it joins two owners that do not know each
+//! other: the mount owns the ledge, the sprite sheet owns the pin.
 
 use ambition_mount::{BackLedge, Mountable};
 use ambition_sprite_sheet::character::PinnedRow;

@@ -896,7 +896,7 @@ impl Plugin for CombatSchedulePlugin {
         // next tick is placed from what it read.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::body::follow_drawn_ledges
+            crate::drawn_ledges::follow_drawn_ledges
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
         );
         // The dismounted-rider rebuild installs itself against the mount crate's

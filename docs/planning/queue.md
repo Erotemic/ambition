@@ -2427,9 +2427,13 @@ records why `perception` stays with the brain dispatch. `fade_rows` and
 - `character_policy` is folded into its one caller, `brain_command`.
 - The graph is still a DAG; `body` has 20,512 production lines.
 
+- `drawn_ledges` moved to the runtime composition, which installs it; it
+  joins the mount's ledge and the sprite sheet's pin. `body` has 20,455
+  production lines; still a DAG.
+
 `beat_cues` stays: it reads the body's decision frames. Next in the
 [inventory](engine/actor-monolith-decomposition.md#residual-body-inventory-measured-2026-11-20):
-`drawn_ledges`, then the brain-feed owner question.
+the brain-feed owner question.
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure/measure_kernel_module_graph.py --scc --cuts --edges 80`

@@ -25,6 +25,7 @@ mod contact_consumption;
 pub mod authored_verdict_timeline;
 pub mod checkpoint_horizon;
 mod combat_schedule;
+mod drawn_ledges;
 pub mod combat_rules;
 pub mod stocks_match;
 pub mod effect_bus;

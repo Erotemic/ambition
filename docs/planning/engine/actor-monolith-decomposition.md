@@ -797,7 +797,7 @@ those modules are leaves. Modules with neither a path nor the glob:
 | `perception` | 1,401 | characters, combat, projectiles, construction, game_shell, dev_tools, body_seed | no crate below the monolith has them all, and it feeds the brain dispatch (`brain_tick`), which lives here because only this crate sees every destination. Not cut |
 | `integration`, `reactions` | 178, 141 | core, characters, combat | body execution and the shared reaction clocks (K26): kernel |
 | `ledge_grab`, `swim` | 122, 16 | core | gone (2026-11-21): both held only tests of the core's own step, and nothing named either module. Their tests moved to the owner, `ambition_platformer2d_core` (`movement/tests/swimming.rs`, and `hang_then_climb` in `movement/tests/ledge_grab.rs`; 9 pass). `body`: 20,512 production lines, 36,439 in all; still a DAG |
-| `beat_cues`, `drawn_ledges` | 35, 46 | presentation, mount | small. `beat_cues` reads the body's `ActorDecisionFrames`, so it is kernel. `drawn_ledges` needs `sprite_sheet`, which `ambition_mount` does not depend on |
+| `beat_cues`, `drawn_ledges` | 35, 46 | presentation, mount | `beat_cues` stays: it reads the body's `ActorDecisionFrames`, so it is kernel. `drawn_ledges` moved (2026-11-21) to `ambition_platformer2d_runtime::drawn_ledges`, the composition that already installed it: it joins the mount's `BackLedge` and the sprite sheet's `PinnedRow`, two owners that do not depend on each other. `body`: 20,455 production lines; still a DAG |
 | `character_policy` | 32 | policy | folded into its one caller, `brain_command` (2026-11-21) |
 
 The brain feed (`aggression`, `brain_command`, `brain_effects`, `rally`,

@@ -196,7 +196,7 @@ because their semantic lifetime is one session or one activated generation.
 `SessionScopedResources` names **31** process resources whose source says one
 gameplay session owns them:
 
-`PossessionState, ControlledSubject, BossEncounterRegistry, QuestRegistry, SlotInteractionState, SaveRestored, AuthoredOccurrences, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, BossDefeatsSinceCheckpoint, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, BagSpendsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases, DayClock, ConversationBagSinceCheckpoint, GateNetworkState`.
+`PossessionState, ControlledSubject, BossEncounterRegistry, QuestRegistry, SlotInteractionState, SaveRestored, AuthoredOccurrences, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, BossDefeatsSinceCheckpoint, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, BagSpendsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases, DayClock, BagChangesSinceCheckpoint, GateNetworkState, PendingProjectileEmissions`.
 
 `SessionCheckpointState` (a root family, NOT an App resource since C03 landed it on 2026-10-07) holds **6** checkpoint-coordinator components of the session root:
 

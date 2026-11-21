@@ -14,7 +14,8 @@
 
 use bevy::prelude::*;
 
-use ambition_cutscene::{ActiveCutscene, CutsceneEvent, CutsceneLibrary, CutsceneRuntime};
+use ambition_cutscene::{ActiveCutscene, CutsceneEvent, CutsceneLibrary, CutsceneRuntime, PlayingCutscene};
+use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 
 use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -77,14 +78,13 @@ pub fn trigger_cutscenes_in_volumes(
     active: Res<ActiveCutscene>,
     mut queue: ResMut<CutsceneTriggerQueue>,
 ) {
-    let playing = active.runtime.as_ref().map(|runtime| runtime.script.id.as_str());
     for (instance, definition) in rooms.live_rooms() {
         for trigger in &rooms.rooms().spec(definition).cutscene_triggers {
             let unseen = library
                 .get(&trigger.cutscene)
                 .and_then(|script| script.seen_flag.as_deref())
                 .is_some_and(|seen| !save.data().flag(seen));
-            if !unseen || playing == Some(trigger.cutscene.as_str()) {
+            if !unseen || active.plays(&trigger.cutscene) {
                 continue;
             }
             // A scene that belongs after a fight waits for its clear.
@@ -107,8 +107,8 @@ pub fn trigger_cutscenes_in_volumes(
     }
 }
 
-/// Drain the trigger queue: start the next cutscene if one isn't
-/// already playing. Skips any that have already had their seen flag
+/// Drain the trigger queue: start each cutscene whose room has none playing
+/// (SIMULATION-ISLANDS N4). Skips any that have already had their seen flag
 /// set.
 pub fn drain_cutscene_triggers(
     mut queue: ResMut<CutsceneTriggerQueue>,
@@ -118,17 +118,14 @@ pub fn drain_cutscene_triggers(
     replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
     settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_cutscene::CutsceneSettings>,
 ) {
-    if active.is_playing() {
-        return;
-    }
-    // One trigger starts; the rest wait their turn. Two rooms entered on one
-    // tick queue two entry cutscenes, and each room is announced once
-    // (`LastCutsceneRoom`), so a trigger dropped here never comes back.
+    // One trigger starts per room; the rest wait their turn. Two rooms entered
+    // on one tick each start their entry cutscene, and each room is announced
+    // once (`LastCutsceneRoom`), so a trigger kept waiting is never dropped. A
+    // cutscene of the whole world waits for every room's to end, and the
+    // triggers behind it wait with it.
     let mut pending = std::mem::take(&mut queue.0).into_iter();
     while let Some(trigger) = pending.next() {
-        if replay.as_ref().is_some_and(|replay| !replay.allows(trigger.room.map(
-            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
-        ))) {
+        if replay.as_ref().is_some_and(|replay| !replay.allows(trigger.room.map(LiveRoomInstance::from_ordinal))) {
             queue.0.push(trigger);
             continue;
         }
@@ -140,17 +137,20 @@ pub fn drain_cutscene_triggers(
                 continue;
             }
         }
+        if !active.can_start(trigger.room) || active.plays(&trigger.id) {
+            let of_the_world = trigger.room.is_none();
+            queue.0.push(trigger);
+            if of_the_world {
+                break;
+            }
+            continue;
+        }
         let mut runtime = CutsceneRuntime::new(script.clone());
         runtime.settings = match trigger.room {
-            Some(room) => settings.in_live_room(Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(room))),
+            Some(room) => settings.in_live_room(Some(LiveRoomInstance::from_ordinal(room))),
             None => settings.of_subject(None),
         }.copied().unwrap_or_default();
-        // The first beat's picture, before any tick — so a cutscene that starts
-        // and is snapshotted in the same frame is not blank.
-        active.presentation = runtime.presentation();
-        active.runtime = Some(runtime);
-        active.room = trigger.room;
-        break;
+        active.start(PlayingCutscene::new(runtime, trigger.room));
     }
     queue.0.extend(pending);
 }
@@ -170,18 +170,12 @@ pub fn drain_cutscene_triggers(
 /// script with no `seen_flag` ends without recording anything, which is a
 /// different thing from ending without being marked.
 ///
-/// Returns the seen flag to set, which the caller writes with the cutscene's
-/// other flags ([`write_cutscene_flags`]).
+/// Ending takes the cutscene out of [`ActiveCutscene`]: its playback, picture,
+/// room and skip hold go with it. Returns the seen flag to set, which the
+/// caller writes with the cutscene's other flags ([`write_cutscene_flags`]).
 #[must_use]
-fn end_cutscene(active: &mut ActiveCutscene) -> Option<String> {
-    let seen = active
-        .runtime
-        .as_ref()
-        .and_then(|runtime| runtime.script.seen_flag.clone());
-    active.runtime = None;
-    active.presentation = Default::default();
-    active.room = None;
-    seen
+fn end_cutscene(cutscene: PlayingCutscene) -> Option<String> {
+    cutscene.runtime.script.seen_flag.clone()
 }
 
 /// Write the flags a cutscene set this tick, dated in the room it plays for
@@ -212,14 +206,10 @@ fn write_cutscene_flags(
     }
 }
 
-/// Run condition of [`tick_active_cutscene`]: a cutscene plays, or a skip
-/// hold from the last one waits to be cleared. Otherwise the tick would only
-/// write both resources back unchanged.
-pub fn a_cutscene_plays_or_its_hold_remains(
-    active: bevy::prelude::Res<ActiveCutscene>,
-    skip_hold: bevy::prelude::Res<ambition_cutscene::CutsceneSkipHold>,
-) -> bool {
-    active.runtime.is_some() || skip_hold.seconds != 0.0
+/// Run condition of [`tick_active_cutscene`]: a cutscene plays. Otherwise the
+/// tick would only write the resource back unchanged.
+pub fn a_cutscene_plays(active: bevy::prelude::Res<ActiveCutscene>) -> bool {
+    active.is_playing()
 }
 
 /// Run condition of [`project_cutscene_hold`]: a cutscene plays, or a body
@@ -232,8 +222,9 @@ pub fn a_cutscene_hold_is_owed(
         || held.iter().any(|holds| holds.holds(ambition_characters::control::ControlHold::Cutscene))
 }
 
-/// Hold every body in the playing cutscene's room (every body, for a
-/// cutscene of the whole world), and release it when the cutscene ends.
+/// Hold every body in a playing cutscene's room (every body, for a cutscene
+/// of the whole world), and release it when the cutscene ends. In a room's
+/// replay, only that room's bodies.
 ///
 /// The cutscene's input context only quiets the seats; the room's hostiles
 /// kept their brains and struck a player the dialogue was holding still. A
@@ -252,6 +243,7 @@ pub fn project_cutscene_hold(
     mut commands: Commands,
     active: Res<ActiveCutscene>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
     mut bodies: Query<
         (
             Entity,
@@ -265,6 +257,9 @@ pub fn project_cutscene_hold(
     use ambition_characters::actor::Invulnerability;
     use ambition_characters::control::ControlHold;
     for (body, holds, health, visit) in &mut bodies {
+        if replay.as_ref().is_some_and(|replay| !replay.allows(rooms.of(body))) {
+            continue;
+        }
         let going = visit.is_some_and(|visit| visit.outcome == ambition_platformer2d_actor_monolith::body::visit::VisitOutcome::Pending);
         let held = !going && active.holds(rooms.of(body).map(|room| room.ordinal()));
         match holds {
@@ -294,9 +289,9 @@ pub fn project_cutscene_hold(
     }
 }
 
-/// The seat that answers the playing cutscene ([`ActiveCutscene::answering_seat`]).
+/// The seat that answers a playing cutscene ([`PlayingCutscene::answering_seat`]).
 fn cutscene_seat(
-    active: &ActiveCutscene,
+    active: &PlayingCutscene,
     drivers: &Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
     rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) -> ambition_characters::control::PlayerSlot {
@@ -338,7 +333,6 @@ pub fn tick_active_cutscene(
     time: Res<ambition_time::WorldTime>,
     controls: Res<ambition_characters::control::SlotControls>,
     mut active: ResMut<ActiveCutscene>,
-    mut skip_hold: ResMut<ambition_cutscene::CutsceneSkipHold>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     // The seats and the rooms of the bodies they drive: a room's cutscene
     // is skipped and dismissed by a seat in its room. And the flag channel
@@ -359,191 +353,187 @@ pub fn tick_active_cutscene(
         )>,
     ),
     // A `Command` beat's line, prepared and asked through the authored
-    // command channel; a `WaitFor` beat's answer for this tick.
-    (catalog, mut asked, wait): (
+    // command channel; a `WaitFor` beat's answer for this tick. And the room
+    // replaying alone, whose cutscene alone plays.
+    (catalog, mut asked, wait, replay): (
         Option<Res<ambition_platformer2d_shared_tangle::authored_logic::CommandCatalog>>,
         Option<ResMut<Messages<ambition_platformer2d_shared_tangle::authored_logic::RunAuthoredCommand>>>,
         Res<CutsceneWaitAnswer>,
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
     ),
 ) {
-    let written = active.room.zip(tick.as_deref()).map(|(room, tick)| {
-        ambition_platformer2d_shared_tangle::lifecycle::RoomWrite {
-            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(room),
-            tick: tick.0,
+    // Each room's cutscene in turn (SIMULATION-ISLANDS N4), each on its own
+    // room's seat and pace.
+    let mut going = Vec::new();
+    for mut cutscene in active.take_all() {
+        if replay.as_ref().is_some_and(|replay| !replay.allows(cutscene.room.map(LiveRoomInstance::from_ordinal))) {
+            going.push(cutscene);
+            continue;
         }
-    });
-    let slot = cutscene_seat(&active, &drivers, &rooms);
-    let seat = controls.get(slot);
-    // A room's cutscene plays at its room's pace: a kill's hold or a slow-down
-    // in another room does not stretch it.
-    let dt = time.sim_dt()
-        * freeze.scale_in(active.room.map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal));
-
-    let room = active.room;
-    // A `Fall` beat: the character's bodies in the cutscene's room (in every
-    // room, for a cutscene of the whole world) fall, as if their health ran
-    // out; the death beat and every consequence of a death follow from it.
-    // The death is recorded as a hit's would be, under the body's own respawn
-    // policy, so a person who falls here lies here when the room is built
-    // again (an NPC placement's death stays).
-    let mut fall = |character: &str, flags: &mut Vec<(String, bool)>| {
-        for (body, worn, mut health, kept) in &mut cast {
-            let here = room.is_none() || rooms.of(body).map(|at| at.ordinal()) == room;
-            if here && worn.0.as_str() == character && health.health.current > 0 {
-                health.health.current = 0;
-                if let Some((identity, config)) = kept.filter(|(identity, _)| !identity.id.starts_with("encounter:")) {
-                    flags.extend(
-                        ambition_platformer2d_actor_monolith::body::enemy_death_flag(config.tuning.respawn, &identity.id)
-                            .map(|id| (id, true)),
-                    );
+        let room = cutscene.room;
+        let written = room.zip(tick.as_deref()).map(|(room, tick)| {
+            ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room: LiveRoomInstance::from_ordinal(room), tick: tick.0 }
+        });
+        let slot = cutscene_seat(&cutscene, &drivers, &rooms);
+        let seat = controls.get(slot);
+        // A room's cutscene plays at its room's pace: a kill's hold or a slow-down
+        // in another room does not stretch it.
+        let dt = time.sim_dt() * freeze.scale_in(room.map(LiveRoomInstance::from_ordinal));
+        // A `Fall` beat: the character's bodies in the cutscene's room (in every
+        // room, for a cutscene of the whole world) fall, as if their health ran
+        // out; the death beat and every consequence of a death follow from it.
+        // The death is recorded as a hit's would be, under the body's own respawn
+        // policy, so a person who falls here lies here when the room is built
+        // again (an NPC placement's death stays).
+        let mut fall = |character: &str, flags: &mut Vec<(String, bool)>| {
+            for (body, worn, mut health, kept) in &mut cast {
+                let here = room.is_none() || rooms.of(body).map(|at| at.ordinal()) == room;
+                if here && worn.0.as_str() == character && health.health.current > 0 {
+                    health.health.current = 0;
+                    if let Some((identity, config)) = kept.filter(|(identity, _)| !identity.id.starts_with("encounter:")) {
+                        flags.extend(
+                            ambition_platformer2d_actor_monolith::body::enemy_death_flag(config.tuning.respawn, &identity.id)
+                                .map(|id| (id, true)),
+                        );
+                    }
                 }
             }
-        }
-    };
-
-    // A `Command` beat: its prepared line, asked in the cutscene's room. A
-    // line the installed commands refuse was refused when the library
-    // loaded (`prepare_cutscene_lines`); here it is logged and skipped.
-    let script_id = active.script_id().unwrap_or_default().to_owned();
-    let mut command = |line: &str| {
-        use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, RunAuthoredCommand};
-        let Some(catalog) = catalog.as_deref() else {
-            return warn!("cutscene `{script_id}` asks `{line}`, and this composition publishes no commands");
         };
-        match catalog.prepare_line(line) {
-            Ok(call) => {
-                if let Some(asked) = asked.as_deref_mut() {
-                    asked.write(
-                        RunAuthoredCommand::prepared(&call, AuthoredAsk::new("cutscene", script_id.clone()))
-                            .in_room(room.map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal)),
-                    );
+
+        // A `Command` beat: its prepared line, asked in the cutscene's room. A
+        // line the installed commands refuse was refused when the library
+        // loaded (`prepare_cutscene_lines`); here it is logged and skipped.
+        let script_id = cutscene.script_id().to_owned();
+        let mut command = |line: &str| {
+            use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, RunAuthoredCommand};
+            let Some(catalog) = catalog.as_deref() else {
+                return warn!("cutscene `{script_id}` asks `{line}`, and this composition publishes no commands");
+            };
+            match catalog.prepare_line(line) {
+                Ok(call) => {
+                    if let Some(asked) = asked.as_deref_mut() {
+                        asked.write(
+                            RunAuthoredCommand::prepared(&call, AuthoredAsk::new("cutscene", script_id.clone()))
+                                .in_room(room.map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal)),
+                        );
+                    }
+                }
+                Err(e) => warn!("cutscene `{script_id}`: {e}"),
+            }
+        };
+
+        let runtime = &mut cutscene.runtime;
+        let skip = if seat.cancel_held {
+            cutscene.skip_hold += dt;
+            cutscene.skip_hold >= runtime.settings.skip_hold_seconds
+        } else {
+            cutscene.skip_hold = 0.0;
+            false
+        };
+        // An EDGE: a held confirm does not burn through several beats.
+        #[cfg(feature = "dialogue")]
+        let mut dismiss = seat.confirm_pressed;
+        #[cfg(not(feature = "dialogue"))]
+        let dismiss = seat.confirm_pressed;
+        #[cfg(feature = "dialogue")]
+        let mut beat_dt = dt;
+        #[cfg(feature = "dialogue")]
+        let mut reveal_to = None;
+        #[cfg(not(feature = "dialogue"))]
+        let beat_dt = dt;
+        #[cfg(feature = "dialogue")]
+        if let Some(ambition_cutscene::CutsceneBeat::Dialogue { text, .. }) = runtime.current_beat() {
+            let policy = dialogue_settings.in_live_room(room.map(
+                ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
+            )).copied().unwrap_or_default();
+            let duration = policy.text_reveal.duration(text);
+            let clock_end = match policy.line_advance {
+                ambition_dialog::LineAdvance::Manual => duration,
+                ambition_dialog::LineAdvance::Automatic { delay_seconds } => duration + delay_seconds,
+            }.max(f32::EPSILON);
+            beat_dt = dt.min((clock_end - runtime.elapsed).max(0.0));
+            if dismiss {
+                match policy.reveal_confirm_action(runtime.elapsed >= duration) {
+                    Some(ambition_dialog::DialogConfirmAction::Reveal) => {
+                        reveal_to = Some(duration.max(f32::EPSILON));
+                        dismiss = false;
+                    },
+                    Some(ambition_dialog::DialogConfirmAction::Wait) => dismiss = false,
+                    _ => {},
+                }
+            } else if let ambition_dialog::LineAdvance::Automatic { delay_seconds } = policy.line_advance {
+                dismiss = runtime.elapsed >= duration + delay_seconds;
+            }
+        }
+
+        if skip {
+            // The show is skipped, not the story: the rest of the script's
+            // flags and falls still happen.
+            let mut flags = Vec::new();
+            for event in runtime.skip() {
+                match event {
+                    CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
+                    CutsceneEvent::CharacterFell { character } => fall(&character, &mut flags),
+                    CutsceneEvent::CommandAsked { line } => command(&line),
+                    _ => {}
                 }
             }
-            Err(e) => warn!("cutscene `{script_id}`: {e}"),
+            flags.extend(end_cutscene(cutscene).map(|seen| (seen, true)));
+            write_cutscene_flags(flags, written, requests.as_deref_mut(), &mut save);
+            continue;
         }
-    };
 
-    let Some(runtime) = active.runtime.as_mut() else {
-        // A partial hold belongs to the cutscene that accumulated it.
-        skip_hold.seconds = 0.0;
-        return;
-    };
-
-    let skip = if seat.cancel_held {
-        skip_hold.seconds += dt;
-        skip_hold.seconds >= runtime.settings.skip_hold_seconds
-    } else {
-        skip_hold.seconds = 0.0;
-        false
-    };
-    // An EDGE: a held confirm does not burn through several beats.
-    #[cfg(feature = "dialogue")]
-    let mut dismiss = seat.confirm_pressed;
-    #[cfg(not(feature = "dialogue"))]
-    let dismiss = seat.confirm_pressed;
-    #[cfg(feature = "dialogue")]
-    let mut beat_dt = dt;
-    #[cfg(feature = "dialogue")]
-    let mut reveal_to = None;
-    #[cfg(not(feature = "dialogue"))]
-    let beat_dt = dt;
-    #[cfg(feature = "dialogue")]
-    if let Some(ambition_cutscene::CutsceneBeat::Dialogue { text, .. }) = runtime.current_beat() {
-        let policy = dialogue_settings.in_live_room(room.map(
-            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
-        )).copied().unwrap_or_default();
-        let duration = policy.text_reveal.duration(text);
-        let clock_end = match policy.line_advance {
-            ambition_dialog::LineAdvance::Manual => duration,
-            ambition_dialog::LineAdvance::Automatic { delay_seconds } => duration + delay_seconds,
-        }.max(f32::EPSILON);
-        beat_dt = dt.min((clock_end - runtime.elapsed).max(0.0));
-        if dismiss {
-            match policy.reveal_confirm_action(runtime.elapsed >= duration) {
-                Some(ambition_dialog::DialogConfirmAction::Reveal) => {
-                    reveal_to = Some(duration.max(f32::EPSILON));
-                    dismiss = false;
-                },
-                Some(ambition_dialog::DialogConfirmAction::Wait) => dismiss = false,
-                _ => {},
-            }
-        } else if let ambition_dialog::LineAdvance::Automatic { delay_seconds } = policy.line_advance {
-            dismiss = runtime.elapsed >= duration + delay_seconds;
-        }
-    }
-
-    if skip {
-        skip_hold.seconds = 0.0;
-        // The show is skipped, not the story: the rest of the script's
-        // flags and falls still happen.
+        let events = runtime.tick_asking(beat_dt, dismiss, |line| wait.holds(line));
+        #[cfg(feature = "dialogue")]
+        if let Some(elapsed) = reveal_to { runtime.elapsed = elapsed; }
+        let mut completed = false;
         let mut flags = Vec::new();
-        for event in runtime.skip() {
+        for event in events {
             match event {
+                // It fires only on the tick a beat begins (`elapsed == 0.0`), so a rollback landing
+                // MID-BEAT never saw it again and the banner, camera target and fade were gone for
+                // the rest of that beat — while the snapshot's doc claimed the next tick would
+                // republish them. It also mutated one field at a time, so a camera beat following a
+                // dialogue left the dialogue on screen.
+                CutsceneEvent::BeatEntered { .. } => {}
                 CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
                 CutsceneEvent::CharacterFell { character } => fall(&character, &mut flags),
                 CutsceneEvent::CommandAsked { line } => command(&line),
-                _ => {}
+                CutsceneEvent::Skipped | CutsceneEvent::Completed => {
+                    completed = true;
+                }
             }
         }
-        flags.extend(end_cutscene(&mut active).map(|seen| (seen, true)));
+
+        if completed {
+            flags.extend(end_cutscene(cutscene).map(|seen| (seen, true)));
+            write_cutscene_flags(flags, written, requests.as_deref_mut(), &mut save);
+            continue;
+        }
         write_cutscene_flags(flags, written, requests.as_deref_mut(), &mut save);
-        return;
-    }
 
-    let events = runtime.tick_asking(beat_dt, dismiss, |line| wait.holds(line));
-    #[cfg(feature = "dialogue")]
-    if let Some(elapsed) = reveal_to { runtime.elapsed = elapsed; }
-    let mut completed = false;
-    let mut flags = Vec::new();
-    for event in events {
-        match event {
-            // It fires only on the tick a beat begins (`elapsed == 0.0`), so a rollback landing
-            // MID-BEAT never saw it again and the banner, camera target and fade were gone for
-            // the rest of that beat — while the snapshot's doc claimed the next tick would
-            // republish them. It also mutated one field at a time, so a camera beat following a
-            // dialogue left the dialogue on screen.
-            CutsceneEvent::BeatEntered { .. } => {}
-            CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
-            CutsceneEvent::CharacterFell { character } => fall(&character, &mut flags),
-            CutsceneEvent::CommandAsked { line } => command(&line),
-            CutsceneEvent::Skipped | CutsceneEvent::Completed => {
-                completed = true;
-            }
-        }
+        // THE WHOLE PICTURE, REPLACED, from the state the snapshot carries.
+        // A pure function of `(script, beat_index, elapsed)` — so restoring mid-beat
+        // restores the picture with it, and no beat can leave another's fields
+        // standing because there are no individual fields to leave.
+        cutscene.presentation = cutscene.runtime.presentation();
+        going.push(cutscene);
     }
-
-    if completed {
-        flags.extend(end_cutscene(&mut active).map(|seen| (seen, true)));
-    }
-    write_cutscene_flags(flags, written, requests.as_deref_mut(), &mut save);
-    if completed {
-        return;
-    }
-
-    // THE WHOLE PICTURE, REPLACED, from the state the snapshot carries.
-    // A pure function of `(script, beat_index, elapsed)` — so restoring mid-beat
-    // restores the picture with it, and no beat can leave another's fields
-    // standing because there are no individual fields to leave.
-    active.presentation = active
-        .runtime
-        .as_ref()
-        .map(|runtime| runtime.presentation())
-        .unwrap_or_default();
+    active.put(going);
 }
 
-/// This tick's answer to the playing cutscene's `WaitFor` beat: derived each
-/// tick from the world, just before the cutscene ticks, so it is not
-/// rollback state.
+/// This tick's answers to the playing cutscenes' `WaitFor` beats: each
+/// condition line one waits on, and whether it holds. Derived each tick from
+/// the world, just before the cutscenes tick, so it is not rollback state.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
 pub struct CutsceneWaitAnswer {
-    pub line: Option<String>,
-    pub holds: bool,
+    pub lines: Vec<(String, bool)>,
 }
 
 impl CutsceneWaitAnswer {
     /// Whether the condition `line` holds this tick.
     pub fn holds(&self, line: &str) -> bool {
-        self.holds && self.line.as_deref() == Some(line)
+        self.lines.iter().any(|(asked, holds)| *holds && asked == line)
     }
 }
 
@@ -554,7 +544,10 @@ impl CutsceneWaitAnswer {
 /// reports it).
 pub fn trigger_cutscenes_on_conditions(world: &mut World) {
     use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, ConditionCatalog};
-    let playing = world.get_resource::<ActiveCutscene>().and_then(|active| active.script_id().map(str::to_owned));
+    let playing: Vec<String> = world
+        .get_resource::<ActiveCutscene>()
+        .map(|active| active.iter().map(|cutscene| cutscene.script_id().to_owned()).collect())
+        .unwrap_or_default();
     let Some(library) = world.get_resource::<CutsceneLibrary>() else {
         return;
     };
@@ -567,7 +560,7 @@ pub fn trigger_cutscenes_on_conditions(world: &mut World) {
         let (Some(line), Some(seen)) = (script.starts_when.as_deref(), script.seen_flag.as_deref()) else {
             continue;
         };
-        if save.is_some_and(|save| save.data().flag(seen)) || playing.as_deref() == Some(script.id.as_str()) {
+        if save.is_some_and(|save| save.data().flag(seen)) || playing.contains(&script.id) {
             continue;
         }
         let holds = catalog
@@ -593,34 +586,39 @@ pub fn a_cutscene_starts_on_a_condition(library: Res<CutsceneLibrary>) -> bool {
     library.scripts.values().any(|script| script.starts_when.is_some())
 }
 
-/// Answer the playing cutscene's `WaitFor` condition for this tick, through
+/// Answer each playing cutscene's `WaitFor` condition for this tick, through
 /// the condition catalog (the vocabulary a lock wall and a Yarn branch use).
 /// A line the catalog cannot prepare never holds: the beat waits out its
 /// longest hold.
 pub fn answer_cutscene_wait(world: &mut World) {
     use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, ConditionCatalog};
-    let waiting = world.get_resource::<ActiveCutscene>().and_then(|active| {
-        let runtime = active.runtime.as_ref()?;
-        match runtime.current_beat()? {
-            ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => {
-                Some((runtime.script.id.clone(), condition.clone()))
-            }
-            _ => None,
-        }
-    });
-    let answer = match waiting {
-        None => CutsceneWaitAnswer::default(),
-        Some((script, line)) => {
+    let waiting: Vec<(String, String)> = world
+        .get_resource::<ActiveCutscene>()
+        .map(|active| {
+            active
+                .iter()
+                .filter_map(|cutscene| match cutscene.runtime.current_beat()? {
+                    ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => {
+                        Some((cutscene.script_id().to_owned(), condition.clone()))
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let lines = waiting
+        .into_iter()
+        .map(|(script, line)| {
             let holds = world.get_resource::<ConditionCatalog>().is_some_and(|catalog| {
                 catalog
                     .prepare_line(&line)
                     .map(|prepared| catalog.ask(world, &prepared, &AuthoredAsk::new("cutscene", script)).is_satisfied())
                     .unwrap_or(false)
             });
-            CutsceneWaitAnswer { line: Some(line), holds }
-        }
-    };
-    world.insert_resource(answer);
+            (line, holds)
+        })
+        .collect();
+    world.insert_resource(CutsceneWaitAnswer { lines });
 }
 
 /// The cutscene lines the installed vocabulary refuses: a `Command` beat
@@ -678,15 +676,14 @@ pub fn check_cutscene_lines(
     refusals.0 = found;
 }
 
-/// Log this tick's change to the playing cutscene in the room it plays for.
+/// Log this tick's change to each room's cutscene in its room.
 pub fn log_cutscene_changes_in_rooms(
     active: Res<ActiveCutscene>,
-    skip_hold: Res<ambition_cutscene::CutsceneSkipHold>,
     mut log: ResMut<ambition_cutscene::CutscenesInRooms>,
     tick: Option<Res<ambition_time::SimTick>>,
 ) {
     log.observe(
-        ambition_cutscene::CutsceneState::of(&active, &skip_hold),
+        &active,
         tick.map_or(0, |tick| tick.0),
         ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS,
     );
@@ -704,11 +701,9 @@ fn retract_room_cutscenes(
     else {
         return;
     };
-    world.resource_scope(|world, mut active: Mut<ActiveCutscene>| {
-        if let Some(mut skip_hold) = world.get_resource_mut::<ambition_cutscene::CutsceneSkipHold>() {
-            put_back.restore(&mut active, &mut skip_hold);
-        }
-    });
+    if let Some(mut active) = world.get_resource_mut::<ActiveCutscene>() {
+        active.restore_room(room.ordinal(), put_back);
+    }
 }
 
 /// Module-local Bevy plugin: schedules the cutscene chain
@@ -739,9 +734,6 @@ impl Plugin for CutsceneSchedulePlugin {
         // The room this session last announced: a component of the session root.
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<ambition_cutscene::LastCutsceneRoom>(app);
         app.init_resource::<ActiveCutscene>();
-        // The skip hold, accumulated by `tick_active_cutscene` from the seat's
-        // `cancel_held`. See `CutsceneSkipHold`.
-        app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         // The cutscene's changes, dated in their room, so a room that rewinds
         // puts back the cutscene it had (ISL-1b). Logged at the tail of the
         // tick, after the playback and anything else that writes it.
@@ -778,8 +770,8 @@ impl Plugin for CutsceneSchedulePlugin {
                 drain_cutscene_triggers.run_if(
                     |queue: bevy::prelude::Res<ambition_cutscene::CutsceneTriggerQueue>| !queue.0.is_empty(),
                 ),
-                answer_cutscene_wait.run_if(a_cutscene_plays_or_its_hold_remains),
-                tick_active_cutscene.run_if(a_cutscene_plays_or_its_hold_remains),
+                answer_cutscene_wait.run_if(a_cutscene_plays),
+                tick_active_cutscene.run_if(a_cutscene_plays),
                 // After the tick, so the tick a cutscene ends releases its room.
                 project_cutscene_hold.run_if(a_cutscene_hold_is_owed),
             )
@@ -796,7 +788,7 @@ mod tests {
 
     #[test]
     fn each_games_cutscene_uses_its_own_skip_timing_and_meter() {
-        use ambition_cutscene::{CutsceneSettings, CutsceneSkipHold, CutsceneBeat, CutsceneScript};
+        use ambition_cutscene::{CutsceneSettings, CutsceneBeat, CutsceneScript};
         use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
         let mut app = App::new();
         let hall = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
@@ -804,7 +796,6 @@ mod tests {
         app.declare_rules(RulesScope::Mode("smash"), CutsceneSettings { skip_hold_seconds: 0.6 });
         app.insert_resource(ambition_time::WorldTime::new(0.1, 0.1));
         app.init_resource::<ambition_characters::control::SlotControls>();
-        app.init_resource::<CutsceneSkipHold>();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.init_resource::<CutsceneWaitAnswer>();
         app.init_resource::<CutsceneTriggerQueue>();
@@ -820,9 +811,9 @@ mod tests {
         for (room, duration) in [(hall, 0.2), (hall.next(), 0.6)] {
             app.world_mut().resource_mut::<CutsceneTriggerQueue>().request_in("long", room.ordinal());
             app.update();
-            let settings = app.world().resource::<ActiveCutscene>().runtime.as_ref().unwrap().settings;
-            assert_eq!(settings.skip_hold_seconds, duration);
-            let progress = app.world().resource::<CutsceneSkipHold>().progress(settings);
+            let playing = app.world().resource::<ActiveCutscene>().iter().next().unwrap().clone();
+            assert_eq!(playing.runtime.settings.skip_hold_seconds, duration);
+            let progress = playing.skip_progress();
             assert!((progress - 0.1 / duration).abs() < 0.0001);
             app.world_mut().resource_mut::<DeclaredRules<CutsceneSettings>>().amend(
                 RulesScope::Mode("smash"), |settings| settings.skip_hold_seconds = 0.01,
@@ -853,29 +844,22 @@ mod tests {
     /// have to be written twice either.
     #[test]
     fn ending_a_cutscene_records_that_it_was_seen() {
-        let mut active = ActiveCutscene {
-            room: None,
-            runtime: Some(ambition_cutscene::CutsceneRuntime::new(
-                ambition_cutscene::CutsceneScript {
-                    id: "probe".to_string(),
-                    beats: Vec::new(),
-                    seen_flag: Some("probe_seen".to_string()),
-                    starts_when: None,
-                },
-            )),
-            presentation: Default::default(),
-        };
-        let seen = end_cutscene(&mut active);
+        let cutscene = PlayingCutscene::new(
+            ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript {
+                id: "probe".to_string(),
+                beats: Vec::new(),
+                seen_flag: Some("probe_seen".to_string()),
+                starts_when: None,
+            }),
+            None,
+        );
+        let seen = end_cutscene(cutscene);
 
         assert_eq!(
             seen.as_deref(),
             Some("probe_seen"),
             "the cutscene ended without recording its seen flag, so its trigger \
              will play it again on the next visit"
-        );
-        assert!(
-            active.runtime.is_none(),
-            "the runtime outlived the ending, so the cutscene is still active"
         );
     }
 
@@ -886,20 +870,18 @@ mod tests {
         app.insert_resource(ambition_time::WorldTime::new(1.0, 1.0));
         app.insert_resource(ambition_time::SimTick(5));
         app.init_resource::<ambition_characters::control::SlotControls>();
-        app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.add_message::<ambition_combat::events::SetFlagsRequested>();
-        app.insert_resource(ActiveCutscene {
-            room,
-            runtime: Some(ambition_cutscene::CutsceneRuntime::new(
+        app.insert_resource(ActiveCutscene::playing(
+            ambition_cutscene::CutsceneRuntime::new(
                 ambition_cutscene::CutsceneScript::new(
                     "probe",
                     vec![ambition_cutscene::CutsceneBeat::SetFlag { id: "probe_flag".into(), on: true }],
                 )
                 .with_seen_flag("probe_seen"),
-            )),
-            presentation: Default::default(),
-        });
+            ),
+            room,
+        ));
         app.init_resource::<CutsceneWaitAnswer>();
         app.add_systems(bevy::prelude::Update, tick_active_cutscene);
         app.update();
@@ -923,15 +905,16 @@ mod tests {
         );
     }
 
-    /// Two rooms entered on one tick queue two entry cutscenes: the first
-    /// plays, and the second waits for it and then plays (review 2026-11-11,
-    /// P1: the drain took the whole queue and dropped all but the first).
+    /// Two rooms entered on one tick queue two entry cutscenes, and both play
+    /// at once, one per room (SIMULATION-ISLANDS N4). A second for a room that
+    /// has one waits its turn, and so does a cutscene of the whole world, with
+    /// the triggers behind it (review 2026-11-11, P1: none is dropped).
     #[test]
-    fn a_second_rooms_cutscene_waits_its_turn() {
+    fn each_rooms_cutscene_plays_at_once_and_a_second_waits_its_turn() {
         let mut app = bevy::prelude::App::new();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         let mut library = CutsceneLibrary::default();
-        for id in ["alices_room", "bobs_room"] {
+        for id in ["alices_room", "bobs_room", "alices_second", "the_world", "bobs_second"] {
             library.insert(ambition_cutscene::CutsceneScript { id: id.into(), beats: Vec::new(), seen_flag: None, starts_when: None });
         }
         app.insert_resource(library);
@@ -939,17 +922,64 @@ mod tests {
         let mut queue = CutsceneTriggerQueue::default();
         queue.request_in("alices_room", 1);
         queue.request_in("bobs_room", 2);
+        queue.request_in("alices_second", 1);
+        queue.request("the_world");
+        queue.request_in("bobs_second", 2);
         app.insert_resource(queue);
         app.add_systems(bevy::prelude::Update, drain_cutscene_triggers);
-        let playing = |app: &bevy::prelude::App| {
-            let active = app.world().resource::<ActiveCutscene>();
-            active.runtime.as_ref().map(|runtime| (runtime.script.id.clone(), active.room))
+        let playing = |app: &bevy::prelude::App| -> Vec<(String, Option<u32>)> {
+            app.world().resource::<ActiveCutscene>().iter().map(|cutscene| (cutscene.script_id().to_owned(), cutscene.room)).collect()
         };
+        let end = |app: &mut bevy::prelude::App, id: &str| app.world_mut().resource_mut::<ActiveCutscene>().retain(|cutscene| cutscene.script_id() != id);
         app.update();
-        assert_eq!(playing(&app), Some(("alices_room".to_string(), Some(1))));
-        let _ = end_cutscene(&mut app.world_mut().resource_mut::<ActiveCutscene>());
+        assert_eq!(playing(&app), [("alices_room".into(), Some(1)), ("bobs_room".into(), Some(2))], "the rooms' cutscenes did not play at once");
+        end(&mut app, "alices_room");
         app.update();
-        assert_eq!(playing(&app), Some(("bobs_room".to_string(), Some(2))), "the second room's cutscene was dropped");
+        assert_eq!(playing(&app), [("alices_second".into(), Some(1)), ("bobs_room".into(), Some(2))], "Alice's second scene was dropped");
+        end(&mut app, "alices_second");
+        app.update();
+        assert_eq!(playing(&app), [("bobs_room".into(), Some(2))], "the world's scene started over a room's, or the one behind it jumped the line");
+        end(&mut app, "bobs_room");
+        app.update();
+        assert_eq!(playing(&app), [("the_world".into(), None)]);
+        end(&mut app, "the_world");
+        app.update();
+        assert_eq!(playing(&app), [("bobs_second".into(), Some(2))], "the trigger behind the world's was dropped");
+    }
+
+    /// N4: two rooms' cutscenes tick at once, each skipped only by the seat in
+    /// its own room: Bob holds back over his room's scene and Alice's plays on.
+    #[test]
+    fn each_rooms_cutscene_answers_only_its_own_rooms_seat() {
+        use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, RoomInstanceRoot};
+        let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_time::WorldTime::new(0.1, 0.1));
+        app.init_resource::<SlotControls>();
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        app.init_resource::<CutsceneWaitAnswer>();
+        let scene = |id: &str| ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript::new(
+            id, vec![ambition_cutscene::CutsceneBeat::Wait { seconds: 30.0 }],
+        ));
+        let mut active = ActiveCutscene::playing(scene("alices"), Some(1));
+        active.start(PlayingCutscene::new(scene("bobs"), Some(2)));
+        app.insert_resource(active);
+        for (slot, room) in [(0u8, 1u32), (1, 2)] {
+            let at = LiveRoomInstance::from_ordinal(room);
+            app.world_mut().spawn((RoomInstanceRoot, at));
+            app.world_mut().spawn((DrivingParticipant(PlayerSlot(slot)), InRoomInstance(at)));
+        }
+        app.world_mut().resource_mut::<SlotControls>().set(
+            PlayerSlot(1),
+            ambition_platformer2d_core::ControlFrame { cancel_held: true, ..Default::default() },
+        );
+        app.add_systems(bevy::prelude::Update, tick_active_cutscene.run_if(a_cutscene_plays));
+        app.update();
+        let holds: Vec<(String, f32)> = app.world().resource::<ActiveCutscene>().iter().map(|cutscene| (cutscene.script_id().to_owned(), cutscene.skip_hold)).collect();
+        assert_eq!(holds, [("alices".into(), 0.0), ("bobs".into(), 0.1)], "a seat's hold reached the other room's scene");
+        for _ in 0..12 { app.update(); }
+        let left: Vec<String> = app.world().resource::<ActiveCutscene>().iter().map(|cutscene| cutscene.script_id().to_owned()).collect();
+        assert_eq!(left, ["alices"], "Bob's hold did not skip his scene, or skipped Alice's");
     }
 
     /// ⚠ AND A SCRIPT THAT ASKS FOR NO FLAG ENDS WITHOUT WRITING ONE. Ending
@@ -957,59 +987,51 @@ mod tests {
     /// invented an id would put a row in the save for every unnamed cutscene.
     #[test]
     fn a_cutscene_with_no_seen_flag_records_nothing() {
-        let mut active = ActiveCutscene {
-            room: None,
-            runtime: Some(ambition_cutscene::CutsceneRuntime::new(
-                ambition_cutscene::CutsceneScript {
-                    id: "unnamed".to_string(),
-                    beats: Vec::new(),
-                    seen_flag: None,
-                    starts_when: None,
-                },
-            )),
-            presentation: Default::default(),
-        };
-        let seen = end_cutscene(&mut active);
+        let cutscene = PlayingCutscene::new(
+            ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript {
+                id: "unnamed".to_string(),
+                beats: Vec::new(),
+                seen_flag: None,
+                starts_when: None,
+            }),
+            None,
+        );
+        let seen = end_cutscene(cutscene);
 
         assert_eq!(seen, None, "a script with no `seen_flag` wrote a durable row anyway");
-        assert!(active.runtime.is_none());
     }
 
-    /// The tick runs while a cutscene plays ([`a_cutscene_plays_or_its_hold_remains`]);
-    /// once it ends, neither the cutscene nor the skip hold is written again.
+    /// The tick runs while a cutscene plays ([`a_cutscene_plays`]); once it
+    /// ends, the cutscene is not written again.
     #[test]
     fn an_ended_cutscene_leaves_its_resources_unwritten() {
         use bevy::prelude::IntoScheduleConfigs as _;
         let mut app = bevy::prelude::App::new();
         app.insert_resource(ambition_time::WorldTime::new(1.0, 1.0));
         app.init_resource::<ambition_characters::control::SlotControls>();
-        app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
-        app.insert_resource(ActiveCutscene {
-            room: None,
-            runtime: Some(ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript {
+        app.insert_resource(ActiveCutscene::playing(
+            ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript {
                 id: "probe".to_string(),
                 beats: Vec::new(),
                 seen_flag: None,
                 starts_when: None,
-            })),
-            presentation: Default::default(),
-        });
+            }),
+            None,
+        ));
         app.init_resource::<CutsceneWaitAnswer>();
-        app.add_systems(bevy::prelude::Update, tick_active_cutscene.run_if(a_cutscene_plays_or_its_hold_remains));
+        app.add_systems(bevy::prelude::Update, tick_active_cutscene.run_if(a_cutscene_plays));
         for _ in 0..8 {
             app.update();
-            if app.world().resource::<ActiveCutscene>().runtime.is_none() {
+            if !app.world().resource::<ActiveCutscene>().is_playing() {
                 break;
             }
         }
-        assert!(app.world().resource::<ActiveCutscene>().runtime.is_none(), "a script with no beats never ended");
+        assert!(!app.world().resource::<ActiveCutscene>().is_playing(), "a script with no beats never ended");
         app.update();
         let ended = app.world().resource_ref::<ActiveCutscene>().last_changed();
-        let held = app.world().resource_ref::<ambition_cutscene::CutsceneSkipHold>().last_changed();
         app.update();
         assert_eq!(app.world().resource_ref::<ActiveCutscene>().last_changed(), ended);
-        assert_eq!(app.world().resource_ref::<ambition_cutscene::CutsceneSkipHold>().last_changed(), held);
     }
 
     #[test]
@@ -1102,7 +1124,7 @@ fn cutscene_room_is_running(
     active: Res<ActiveCutscene>,
     replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
 ) -> bool {
-    replay.is_none_or(|replay| !active.is_playing() || replay.allows(
-        active.room.map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal),
-    ))
+    replay.is_none_or(|replay| {
+        !active.is_playing() || active.iter().any(|cutscene| replay.allows(cutscene.room.map(LiveRoomInstance::from_ordinal)))
+    })
 }

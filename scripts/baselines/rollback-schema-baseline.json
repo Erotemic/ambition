@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v521",
+    "version": "ggrs-rollback-schema-v522",
     "rows": [
       "ability.ride_summons\tcomponent-canonical\tRideSummons",
       "actions.mailbox\tcomponent-canonical\tActionMailbox",
@@ -92,7 +92,6 @@
       "cutscene.changes_in_rooms\tresource-canonical\tCutscenesInRooms\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "cutscene.last_room\tcomponent-canonical\tLastCutsceneRoom",
       "cutscene.playback\tresource-canonical\tActiveCutscene\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
-      "cutscene.skip_hold\tresource-canonical\tCutsceneSkipHold\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "cutscene.trigger_queue\tresource-canonical\tCutsceneTriggerQueue\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "death.fees\tresource-clone-custom-checksum\tDeathFees\tbevy_ggrs clone snapshot + owed fees and lying parcels, Debug-text FNV",
       "death.fees_in_rooms\tresource-clone-custom-checksum\tDeathFeesInRooms\tbevy_ggrs clone snapshot + the fee and parcel changes rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
@@ -252,7 +251,6 @@
     "ambition_cutscene::ActiveCutscene",
     "ambition_cutscene::CutsceneBeat",
     "ambition_cutscene::CutsceneScript",
-    "ambition_cutscene::CutsceneSkipHold",
     "ambition_cutscene::CutsceneTriggerQueue",
     "ambition_cutscene::CutscenesInRooms",
     "ambition_cutscene::LastCutsceneRoom",

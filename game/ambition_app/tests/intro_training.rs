@@ -28,7 +28,7 @@ fn workshop(training: bool, rewind: usize) -> Platformer2dSimHarness {
 }
 
 fn scene(sim: &Platformer2dSimHarness) -> Option<&str> {
-    sim.world().resource::<ActiveCutscene>().script_id()
+    sim.world().resource::<ActiveCutscene>().iter().next().map(|playing| playing.script_id())
 }
 
 fn body(sim: &mut Platformer2dSimHarness, form: &str) -> (ae::BodyKinematics, BodyHealth) {
@@ -160,7 +160,7 @@ fn the_raiders_wait_in_view_until_the_last_line_is_dismissed() {
     let mut saw_raider = false;
     for tick in 0..1500 {
         let active = sim.world().resource::<ActiveCutscene>();
-        let raider_speaks = active.presentation.speaker_character_id == "npc_lab_raider";
+        let raider_speaks = active.iter().any(|playing| playing.presentation.speaker_character_id == "npc_lab_raider");
         if raider_speaks {
             let (creator, creator_health) = body(&mut sim, "npc_creator");
             assert!(
@@ -184,12 +184,12 @@ fn the_raiders_wait_in_view_until_the_last_line_is_dismissed() {
                 creator_health,
                 "reading does not expose the Creator to attacks"
             );
-            assert_eq!(
+            assert!(
                 sim.world()
                     .resource::<ActiveCutscene>()
-                    .presentation
-                    .speaker_character_id,
-                "npc_lab_raider"
+                    .iter()
+                    .any(|playing| playing.presentation.speaker_character_id == "npc_lab_raider"),
+                "the raider stopped speaking"
             );
             saw_raider = true;
             break;

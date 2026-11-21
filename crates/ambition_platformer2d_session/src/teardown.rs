@@ -181,12 +181,6 @@ pub struct SessionScopedResources<'w> {
     /// the interval is would cost a poison test and leave the interval there.
     #[cfg(feature = "dialogue")]
     active_conversation: Option<ResMut<'w, ambition_conversation::ActiveConversation>>,
-    /// The cutscene's partial skip hold. Simulation state since the skip
-    /// reads the seat's `ControlFrame::cancel_held` inside the timeline; reset
-    /// here so a half-held skip from the retired session cannot finish on the
-    /// next session's opening cutscene. (A completed dismiss or skip no longer
-    /// waits in a resource between frames: it is part of the tick's input.)
-    cutscene_skip_hold: Option<ResMut<'w, ambition_cutscene::CutsceneSkipHold>>,
     /// ⛔⛤ **THE MATCH-IDENTITY MIRRORS, AND THEY ARE HERE FOR A PEER
     /// CHECKSUM RATHER THAN FOR HYGIENE.** Each of the three below is stamped
     /// with a whole [`MatchInstance`] and decides whether it belongs to the live
@@ -417,7 +411,6 @@ fn reset(resources: SessionScopedResources) {
         mut cutscene_triggers,
         #[cfg(feature = "dialogue")]
         mut active_conversation,
-        mut cutscene_skip_hold,
         mut settled,
         mut sudden_death,
         mut live_match_ticks,
@@ -470,9 +463,6 @@ fn reset(resources: SessionScopedResources) {
     #[cfg(feature = "dialogue")]
     if let Some(active_conversation) = active_conversation.as_deref_mut() {
         *active_conversation = ambition_conversation::ActiveConversation::default();
-    }
-    if let Some(cutscene_skip_hold) = cutscene_skip_hold.as_deref_mut() {
-        *cutscene_skip_hold = ambition_cutscene::CutsceneSkipHold::default();
     }
     *settled = ambition_match::StocksMatchSettled::default();
     *sudden_death = ambition_match::SuddenDeathEntered::default();

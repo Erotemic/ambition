@@ -243,10 +243,11 @@ pub fn camera_follow(
             }
         }
 
-        if let Some(camera) = cutscene.as_deref().and_then(|cutscene| {
-            let here = cutscene.room.is_none_or(|room| room == frame.room.ordinal());
-            cutscene.presentation.camera.filter(|_| here && cutscene.is_playing())
-        }) {
+        if let Some(camera) = cutscene
+            .as_deref()
+            .and_then(|cutscene| cutscene.of_room(Some(frame.room.ordinal())))
+            .and_then(|playing| playing.presentation.camera)
+        {
             let follow = snapshot.center_world;
             let directed = camera.center([follow.x, follow.y]);
             // Inside the room, as the follow is: an authored point near a wall
@@ -430,8 +431,7 @@ mod two_views_one_simulation_tests {
             );
             let mut runtime = ambition_cutscene::CutsceneRuntime::new(script);
             runtime.tick(1.0, false);
-            let presentation = runtime.presentation();
-            world.insert_resource(ambition_cutscene::ActiveCutscene { runtime: Some(runtime), presentation, room: playing_in });
+            world.insert_resource(ambition_cutscene::ActiveCutscene::playing(runtime, playing_in));
             let view = spawn_view(&mut world, 0, ae::Vec2::new(100.0, 200.0), 1.0);
             let camera = world
                 .spawn((

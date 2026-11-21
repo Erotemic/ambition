@@ -163,10 +163,7 @@ fn queue_story<P: Port<Value = StoryTick>>(
             }
             commands.entity(root).insert(StoryBegun {begun: true});
         }
-        let busy = cutscene.is_playing()
-            && cutscene
-                .room
-                .is_none_or(|ordinal| ordinal == room.ordinal());
+        let busy = cutscene.holds(Some(room.ordinal()));
         #[cfg(feature = "dialogue")]
         let busy = busy || conversation
                 .as_ref()
@@ -307,9 +304,10 @@ fn answer_cutscene_asks(world: &mut World) {
     use ambition_extension_sdk::action::{ActionResult, ActionStage};
     use ambition_platformer2d_shared_tangle::action_results::ActionMailbox;
     let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
-    let playing = world.get_resource::<ambition_cutscene::ActiveCutscene>().and_then(|active| {
-        Some((active.runtime.as_ref()?.script.id.clone(), active.room?))
-    });
+    let playing: Vec<(String, u32)> = world
+        .get_resource::<ambition_cutscene::ActiveCutscene>()
+        .map(|active| active.iter().filter_map(|cutscene| Some((cutscene.script_id().to_owned(), cutscene.room?))).collect())
+        .unwrap_or_default();
     let queued = world.get_resource::<ambition_cutscene::CutsceneTriggerQueue>().map(|queue| queue.0.clone()).unwrap_or_default();
     let replay = world.get_resource::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>().cloned();
     let mut holders = world.query_filtered::<Entity, With<CutsceneAsks>>();
@@ -321,7 +319,7 @@ fn answer_cutscene_asks(world: &mut World) {
             if replay.as_ref().is_some_and(|replay| !replay.allows(Some(LiveRoomInstance::from_ordinal(ask.room)))) {
                 return true;
             }
-            let plays = playing.as_ref().is_some_and(|(id, room)| *id == ask.id && *room == ask.room);
+            let plays = playing.iter().any(|(id, room)| *id == ask.id && *room == ask.room);
             let waits = queued.iter().any(|trigger| trigger.id == ask.id && trigger.room == Some(ask.room));
             if plays {
                 if !ask.began {

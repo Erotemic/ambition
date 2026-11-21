@@ -146,41 +146,16 @@ pub fn rebuild_dialog_view(
     mut view: ResMut<DialogView>,
 ) {
     let conversation_shown = dialogue.as_deref().is_some_and(|dialogue| dialogue.active() && !dialogue.held());
+    // The first playing cutscene with a line; the others draw in boxes of
+    // their own (`rebuild_cutscene_line_views`).
     let line = cutscene
         .as_deref()
         .filter(|_| !conversation_shown)
-        .and_then(|cutscene| cutscene.line().map(|line| (cutscene, line)));
-    if let Some((cutscene, (speaker, text))) = line {
-        let policy = settings.in_live_room(cutscene.room.map(
-            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
-        )).copied().unwrap_or_default();
-        let elapsed = cutscene.runtime.as_ref().map_or(0.0, |runtime| runtime.elapsed);
-        let seat = cutscene.answering_seat(
-            drivers.iter().map(|(driver, body)| (driver.0, rooms.of(body).map(|at| at.ordinal()))),
-            ambition_characters::control::PlayerSlot::PRIMARY,
-        );
-        let owner = Some(ambition_input::InputOwner::Participant(
-            ambition_platformer2d_actor_monolith::participant_seat::participant_of(seat),
-        ));
+        .and_then(|cutscene| cutscene.iter().find(|playing| playing.line().is_some()));
+    if let Some(playing) = line {
         // Written only when it differs: the cutscene republishes its
         // presentation each tick, and a write here rebuilds the box.
-        view.set_if_neq(DialogView {
-            confirm_action: policy.reveal_confirm_action(elapsed >= policy.text_reveal.duration(text))
-                .unwrap_or(ambition_dialog::DialogConfirmAction::Advance),
-            can_close: false,
-            input_owner: owner,
-            instance: None,
-            active: true,
-            dialogue_id: cutscene.script_id().unwrap_or_default().to_owned(),
-            speaker_character_id: cutscene.presentation.speaker_character_id.clone(),
-            portrait_clip: String::new(),
-            speaker_label: speaker.to_owned(),
-            conversation_label: speaker.to_owned(),
-            body: policy.text_reveal.visible_text(text, elapsed).to_owned(),
-            option_labels: Vec::new(),
-            selected_option: 0,
-            controls: DialogControls::of(owner, bindings.as_deref(), devices.as_deref(), true),
-        });
+        view.set_if_neq(cutscene_line_view(playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref()));
         return;
     }
     // A cutscene line that ended leaves no conversation behind it.
@@ -201,6 +176,96 @@ pub fn rebuild_dialog_view(
     let controls = DialogControls::of(view.input_owner, bindings.as_deref(), devices.as_deref(), false);
     if view.controls != controls {
         view.controls = controls;
+    }
+}
+
+/// The box of a playing cutscene's line, answered by the seat that answers the
+/// cutscene: the lowest seat in its room (`PlayingCutscene::answering_seat`,
+/// which the cutscene tick reads too).
+fn cutscene_line_view(
+    playing: &ambition_cutscene::PlayingCutscene,
+    settings: &ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
+    drivers: &Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
+    rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    bindings: Option<&ambition_input::SeatBindings>,
+    devices: Option<&ambition_input::SeatActiveDevices>,
+) -> DialogView {
+    let (speaker, text) = playing.line().unwrap_or_default();
+    let policy = settings.in_live_room(playing.room.map(
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
+    )).copied().unwrap_or_default();
+    let elapsed = playing.runtime.elapsed;
+    let seat = playing.answering_seat(
+        drivers.iter().map(|(driver, body)| (driver.0, rooms.of(body).map(|at| at.ordinal()))),
+        ambition_characters::control::PlayerSlot::PRIMARY,
+    );
+    let owner = Some(ambition_input::InputOwner::Participant(
+        ambition_platformer2d_actor_monolith::participant_seat::participant_of(seat),
+    ));
+    DialogView {
+        confirm_action: policy.reveal_confirm_action(elapsed >= policy.text_reveal.duration(text))
+            .unwrap_or(ambition_dialog::DialogConfirmAction::Advance),
+        can_close: false,
+        input_owner: owner,
+        instance: None,
+        active: true,
+        dialogue_id: playing.script_id().to_owned(),
+        speaker_character_id: playing.presentation.speaker_character_id.clone(),
+        portrait_clip: String::new(),
+        speaker_label: speaker.to_owned(),
+        conversation_label: speaker.to_owned(),
+        body: policy.text_reveal.visible_text(text, elapsed).to_owned(),
+        option_labels: Vec::new(),
+        selected_option: 0,
+        controls: DialogControls::of(owner, bindings, devices, true),
+    }
+}
+
+/// The box of a room's cutscene line that the main [`DialogView`] does not
+/// show (SIMULATION-ISLANDS N4): one entity per such cutscene, by its room,
+/// with its [`SlotDialogView`]. A presenter draws it as it draws a slot's.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CutsceneLineView(pub Option<u32>);
+
+/// Keep one [`CutsceneLineView`] for each playing cutscene with a line that
+/// the main view does not show, and none for any other.
+pub fn rebuild_cutscene_line_views(
+    mut commands: Commands,
+    settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
+    dialogue: Option<Res<DialogState>>,
+    (cutscene, drivers, rooms): (
+        Option<Res<ambition_cutscene::ActiveCutscene>>,
+        Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    ),
+    (bindings, devices): (
+        Option<Res<ambition_input::SeatBindings>>,
+        Option<Res<ambition_input::SeatActiveDevices>>,
+    ),
+    mut views: Query<(Entity, &CutsceneLineView, &mut SlotDialogView)>,
+) {
+    let mut lines: Vec<&ambition_cutscene::PlayingCutscene> =
+        cutscene.as_deref().into_iter().flat_map(|cutscene| cutscene.iter()).filter(|playing| playing.line().is_some()).collect();
+    // The main view shows the first, unless a conversation holds it.
+    let conversation_shown = dialogue.as_deref().is_some_and(|dialogue| dialogue.active() && !dialogue.held());
+    if !conversation_shown && !lines.is_empty() {
+        lines.remove(0);
+    }
+    for (entity, line, mut view) in &mut views {
+        match lines.iter().position(|playing| playing.room == line.0) {
+            Some(at) => {
+                let playing = lines.remove(at);
+                view.set_if_neq(SlotDialogView(cutscene_line_view(playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref())));
+            }
+            None => commands.entity(entity).despawn(),
+        }
+    }
+    for playing in lines {
+        commands.spawn((
+            CutsceneLineView(playing.room),
+            SlotDialogView(cutscene_line_view(playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref())),
+            bevy::prelude::Name::new("Cutscene Line View"),
+        ));
     }
 }
 

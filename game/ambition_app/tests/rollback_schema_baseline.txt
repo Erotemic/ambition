@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v521
+ggrs-rollback-schema-v522
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -176,7 +176,6 @@ content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone sn
 cutscene.changes_in_rooms	resource-canonical	CutscenesInRooms	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.last_room	component-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
-cutscene.skip_hold	resource-canonical	CutsceneSkipHold	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.trigger_queue	resource-canonical	CutsceneTriggerQueue	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 death.fees	resource-clone-custom-checksum	DeathFees	bevy_ggrs clone snapshot + owed fees and lying parcels, Debug-text FNV
 death.fees_in_rooms	resource-clone-custom-checksum	DeathFeesInRooms	bevy_ggrs clone snapshot + the fee and parcel changes rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)

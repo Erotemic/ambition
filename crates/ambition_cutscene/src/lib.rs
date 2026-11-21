@@ -478,45 +478,46 @@ pub enum CutsceneEvent {
 #[derive(Component, Debug, Default, Clone, PartialEq, Eq)]
 pub struct LastCutsceneRoom(pub Vec<String>);
 
-/// Live cutscene playback state. `runtime` is authoritative while a cutscene is running;
-/// `presentation` is a cache derived from it.
-#[derive(Resource, Default)]
-pub struct ActiveCutscene {
-    pub runtime: Option<CutsceneRuntime>,
-    /// Current presentation, republished each tick from `runtime` for Bevy readers.
+/// One playing cutscene: its playback, the room it plays for, and the skip
+/// its answering seat is holding.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlayingCutscene {
+    /// Authoritative while the cutscene plays.
+    pub runtime: CutsceneRuntime,
+    /// The current picture, republished each tick from `runtime`.
     pub presentation: CutscenePresentation,
     /// The live room the cutscene plays for, by its ordinal
     /// (`LiveRoomInstance::ordinal`), when a room's entry started it; `None`
     /// for a cutscene of the whole world. A room's cutscene holds the players
     /// in that room and not the others (ISL-1b).
     pub room: Option<u32>,
+    /// How long the answering seat has held cancel over this cutscene, in
+    /// SIMULATION seconds. The skip fires when it reaches
+    /// [`CutsceneSettings::skip_hold_seconds`]; the overlay draws its progress.
+    ///
+    /// ⛔ ROLLBACK STATE. The hold is read from the seat's
+    /// `ControlFrame::cancel_held` inside the timeline, so a rewind puts it
+    /// back with the cutscene it belongs to; it ends with its cutscene.
+    pub skip_hold: f32,
 }
 
-impl ActiveCutscene {
-    /// Is a cutscene running?
-    ///
-    /// ⚠ THIS IS A STATE QUESTION, NOT A POLICY ONE. It used to have a second
-    /// name, `freezes_player_input`, whose whole body was `self.is_playing()` —
-    /// a POLICY spelled as a fact, with zero callers in the tree. Input during a
-    /// cutscene is decided where every other input claim is decided: the
-    /// participant declares `CUTSCENE_CONTEXT` at
-    /// `context_priority::CUTSCENE` on the shared `ParticipantContexts` seam
-    /// (`schedule/input_systems.rs:460`), the same way dialogue declares
-    /// `DIALOGUE_CONTEXT`. A cutscene answers whether it is playing; it does not
-    /// get an opinion about the pad.
-    pub fn is_playing(&self) -> bool {
-        self.runtime.is_some()
+impl PlayingCutscene {
+    /// `runtime` starting to play for `room`, its first beat's picture drawn
+    /// before any tick, so a cutscene snapshotted the frame it starts is not
+    /// blank.
+    pub fn new(runtime: CutsceneRuntime, room: Option<u32>) -> Self {
+        Self { presentation: runtime.presentation(), runtime, room, skip_hold: 0.0 }
     }
 
-    /// Does the playing cutscene hold a body in the live room `room` (by its
+    /// Does this cutscene hold a body in the live room `room` (by its
     /// ordinal)? A cutscene of the whole world holds every body; a room's
     /// holds the bodies in its room, and a body whose room cannot be told.
     pub fn holds(&self, room: Option<u32>) -> bool {
-        self.is_playing() && (self.room.is_none() || room.is_none() || self.room == room)
+        self.room.is_none() || room.is_none() || self.room == room
     }
 
-    /// The seat that answers the playing cutscene, out of `seats` (each seat
-    /// with the live room of the body it drives): for a room's cutscene, the
+    /// The seat that answers this cutscene, out of `seats` (each seat with
+    /// the live room of the body it drives): for a room's cutscene, the
     /// lowest seat in that room, so a seat in another room neither dismisses
     /// nor skips it (ISL-1b); otherwise, and when no seat is in the room,
     /// `primary`. The tick reads this seat's input and the dialogue box names
@@ -533,116 +534,195 @@ impl ActiveCutscene {
             .unwrap_or(primary)
     }
 
-    /// The line the playing cutscene shows and waits on, with its speaker.
+    /// The line this cutscene shows and waits on, with its speaker.
     pub fn line(&self) -> Option<(&str, &str)> {
-        if !self.is_playing() {
-            return None;
-        }
         self.presentation.dialogue.as_ref().map(|(speaker, text)| (speaker.as_str(), text.as_str()))
     }
 
-    /// The playing script's id.
-    pub fn script_id(&self) -> Option<&str> {
-        self.runtime.as_ref().map(|runtime| runtime.script.id.as_str())
+    /// The script's id.
+    pub fn script_id(&self) -> &str {
+        self.runtime.script.id.as_str()
     }
-}
 
-/// How long the participant has held cancel over the playing cutscene, in
-/// SIMULATION seconds. The skip fires when it reaches
-/// [`CutsceneSettings::skip_hold_seconds`]; the HUD draws its progress.
-///
-/// ⛔ SIMULATION STATE, AND ROLLBACK STATE WITH IT. The hold is read from the
-/// seat's `ControlFrame::cancel_held` inside the timeline, so a rewind must
-/// put it back with the cutscene it belongs to; it was a wall-clock accumulator
-/// outside the timeline, and the completed skip crossed in through a host
-/// resource that a rewind lost.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
-pub struct CutsceneSkipHold {
-    pub seconds: f32,
-}
-
-impl CutsceneSkipHold {
-    /// Fraction of the way through the skip-hold window. Useful for HUD progress
-    /// bars; clamped to `[0, 1]`.
-    pub fn progress(&self, settings: CutsceneSettings) -> f32 {
-        if settings.skip_hold_seconds <= 0.0 {
-            return if self.seconds > 0.0 { 1.0 } else { 0.0 };
+    /// Fraction of the way through the skip-hold window, for the overlay's
+    /// bar; clamped to `[0, 1]`.
+    pub fn skip_progress(&self) -> f32 {
+        let window = self.runtime.settings.skip_hold_seconds;
+        if window <= 0.0 {
+            return if self.skip_hold > 0.0 { 1.0 } else { 0.0 };
         }
-        (self.seconds / settings.skip_hold_seconds).clamp(0.0, 1.0)
+        (self.skip_hold / window).clamp(0.0, 1.0)
     }
 }
 
-/// What a room's rewind puts back of the playing cutscene: its playback, the
-/// room it plays for (ordinal) and the skip hold (ISL-1b).
-#[derive(Clone, Debug, Default, PartialEq)]
+/// The playing cutscenes (SIMULATION-ISLANDS N4): at most one per live room,
+/// or one of the whole world, which plays alone. Each holds only its own
+/// room's players, answers its own room's seat and ticks at its room's pace.
+/// In room order, a cutscene of the whole world first.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct ActiveCutscene {
+    playing: Vec<PlayingCutscene>,
+}
+
+impl ActiveCutscene {
+    /// One cutscene playing: `runtime`, for `room`.
+    pub fn playing(runtime: CutsceneRuntime, room: Option<u32>) -> Self {
+        Self { playing: vec![PlayingCutscene::new(runtime, room)] }
+    }
+
+    /// Is a cutscene running?
+    ///
+    /// ⚠ THIS IS A STATE QUESTION, NOT A POLICY ONE. Input during a cutscene
+    /// is decided where every other input claim is decided: the participant
+    /// declares `CUTSCENE_CONTEXT` at `context_priority::CUTSCENE` on the
+    /// shared `ParticipantContexts` seam, the same way dialogue declares
+    /// `DIALOGUE_CONTEXT`. A cutscene answers whether it is playing; it does
+    /// not get an opinion about the pad.
+    pub fn is_playing(&self) -> bool {
+        !self.playing.is_empty()
+    }
+
+    /// Does a playing cutscene hold a body in the live room `room` (by its
+    /// ordinal)? See [`PlayingCutscene::holds`].
+    pub fn holds(&self, room: Option<u32>) -> bool {
+        self.playing.iter().any(|cutscene| cutscene.holds(room))
+    }
+
+    /// The cutscene that holds a body in `room`: the world's, or that room's.
+    pub fn of_room(&self, room: Option<u32>) -> Option<&PlayingCutscene> {
+        self.playing.iter().find(|cutscene| cutscene.holds(room))
+    }
+
+    /// Each playing cutscene, in room order.
+    pub fn iter(&self) -> impl Iterator<Item = &PlayingCutscene> + '_ {
+        self.playing.iter()
+    }
+
+    /// Each playing cutscene, mutably.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut PlayingCutscene> + '_ {
+        self.playing.iter_mut()
+    }
+
+    /// Is the script `id` playing anywhere?
+    pub fn plays(&self, id: &str) -> bool {
+        self.playing.iter().any(|cutscene| cutscene.script_id() == id)
+    }
+
+    /// May a cutscene for `room` start now? A room's waits while its room or
+    /// the whole world has one; the world's waits while any plays.
+    pub fn can_start(&self, room: Option<u32>) -> bool {
+        match room {
+            None => self.playing.is_empty(),
+            Some(_) => !self.playing.iter().any(|cutscene| cutscene.room.is_none() || cutscene.room == room),
+        }
+    }
+
+    /// Start `cutscene`, in its place in room order.
+    pub fn start(&mut self, cutscene: PlayingCutscene) {
+        let at = self.playing.partition_point(|playing| playing.room <= cutscene.room);
+        self.playing.insert(at, cutscene);
+    }
+
+    /// Keep only the cutscenes `keep` returns true for.
+    pub fn retain(&mut self, keep: impl FnMut(&PlayingCutscene) -> bool) {
+        self.playing.retain(keep);
+    }
+
+    /// Take every playing cutscene out, to tick them; [`Self::put`] puts the
+    /// ones that go on back.
+    pub fn take_all(&mut self) -> Vec<PlayingCutscene> {
+        std::mem::take(&mut self.playing)
+    }
+
+    /// Put cutscenes back, in room order.
+    pub fn put(&mut self, cutscenes: impl IntoIterator<Item = PlayingCutscene>) {
+        for cutscene in cutscenes {
+            self.start(cutscene);
+        }
+    }
+
+    /// Put back the cutscene `room` (ordinal) had: `state`, or none.
+    pub fn restore_room(&mut self, room: u32, state: Option<CutsceneState>) {
+        self.playing.retain(|cutscene| cutscene.room != Some(room));
+        if let Some(state) = state {
+            self.start(state.playing());
+        }
+    }
+}
+
+/// What a room's rewind puts back of the room's playing cutscene: its
+/// playback and its skip hold (ISL-1b).
+#[derive(Clone, Debug, PartialEq)]
 pub struct CutsceneState {
-    pub runtime: Option<CutsceneRuntime>,
-    pub room: Option<u32>,
+    pub runtime: CutsceneRuntime,
+    pub room: u32,
     pub skip_hold: f32,
 }
 
 impl CutsceneState {
-    /// The state the live resources hold now.
-    pub fn of(active: &ActiveCutscene, skip_hold: &CutsceneSkipHold) -> Self {
-        Self { runtime: active.runtime.clone(), room: active.room, skip_hold: skip_hold.seconds }
+    /// The state of a room's playing cutscene; `None` for the world's.
+    pub fn of(cutscene: &PlayingCutscene) -> Option<Self> {
+        Some(Self { runtime: cutscene.runtime.clone(), room: cutscene.room?, skip_hold: cutscene.skip_hold })
     }
 
-    /// Put this state back into the live resources, its picture with it.
-    pub fn restore(self, active: &mut ActiveCutscene, skip_hold: &mut CutsceneSkipHold) {
-        active.presentation = self.runtime.as_ref().map(CutsceneRuntime::presentation).unwrap_or_default();
-        active.runtime = self.runtime;
-        active.room = self.room;
-        skip_hold.seconds = self.skip_hold;
+    /// The cutscene this state plays again, its picture with it.
+    pub fn playing(self) -> PlayingCutscene {
+        PlayingCutscene { skip_hold: self.skip_hold, ..PlayingCutscene::new(self.runtime, Some(self.room)) }
     }
 }
 
-/// The playing cutscene's changes a room made within the rewind horizon,
-/// oldest first: the room (ordinal) and tick of each, and the state it
-/// replaced (SIMULATION-ISLANDS ISL-1b). A room rewinds alone, and the
-/// cutscene is one world value: a room's rewind puts back the cutscene it had
-/// at the save, as it puts back its conversation. A cutscene of the whole
-/// world is seen and not logged.
+/// Each room's cutscene changes within the rewind horizon, oldest first: the
+/// room (ordinal) and tick of each, and the room's cutscene it replaced
+/// (SIMULATION-ISLANDS ISL-1b, N4). A room rewinds alone, so its rewind puts
+/// back the cutscene it had at the save and leaves every other room's. A
+/// cutscene of the whole world is not logged.
 ///
 /// Rollback state with a real value: a playing cutscene changes it each tick.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct CutscenesInRooms {
-    seen: CutsceneState,
-    changes: Vec<(u32, u64, CutsceneState)>,
+    /// Each room's cutscene as last seen, in room order.
+    seen: Vec<CutsceneState>,
+    changes: Vec<(u32, u64, Option<CutsceneState>)>,
 }
 
 impl CutscenesInRooms {
-    /// The cutscene is `now` on tick `tick`: log the change, if it is one, in
-    /// the room the cutscene plays (or played) for, and drop the changes older
-    /// than `horizon` ticks.
-    pub fn observe(&mut self, now: CutsceneState, tick: u64, horizon: u64) {
+    /// The cutscenes are `now` on tick `tick`: log each room's change, and
+    /// drop the changes older than `horizon` ticks.
+    pub fn observe(&mut self, now: &ActiveCutscene, tick: u64, horizon: u64) {
+        let now: Vec<CutsceneState> = now.iter().filter_map(CutsceneState::of).collect();
         if self.seen == now {
             return;
         }
-        let replaced = std::mem::replace(&mut self.seen, now);
-        if let Some(room) = self.seen.room.or(replaced.room) {
-            self.changes.push((room, tick, replaced));
+        let mut rooms: Vec<u32> = self.seen.iter().chain(&now).map(|state| state.room).collect();
+        rooms.sort_unstable();
+        rooms.dedup();
+        for room in rooms {
+            let before = self.seen.iter().find(|state| state.room == room);
+            if before != now.iter().find(|state| state.room == room) {
+                self.changes.push((room, tick, before.cloned()));
+            }
         }
+        self.seen = now;
         self.changes.retain(|(_, at, _)| at.saturating_add(horizon) >= tick);
     }
 
     /// The room `room` rewinds to `saved_at`: take out its changes after that
-    /// tick, newest first, and return the state to put back. `None` when
-    /// nothing goes back (no change of the room's, or a later change of
-    /// another room's stands).
-    pub fn retract_room(&mut self, room: u32, saved_at: u64) -> Option<CutsceneState> {
+    /// tick and return the cutscene to put back (`Some(None)`: none plays).
+    /// `None` when the room's cutscene did not change.
+    pub fn retract_room(&mut self, room: u32, saved_at: u64) -> Option<Option<CutsceneState>> {
         let mut put_back = None;
         for at in (0..self.changes.len()).rev() {
             let (by, tick, _) = &self.changes[at];
-            if *by != room || *tick <= saved_at {
-                continue;
-            }
-            let (_, _, replaced) = self.changes.remove(at);
-            if at == self.changes.len() {
-                put_back = Some(replaced);
+            if *by == room && *tick > saved_at {
+                put_back = Some(self.changes.remove(at).2);
             }
         }
         if let Some(state) = &put_back {
-            self.seen = state.clone();
+            self.seen.retain(|seen| seen.room != room);
+            if let Some(state) = state {
+                let at = self.seen.partition_point(|seen| seen.room < room);
+                self.seen.insert(at, state.clone());
+            }
         }
         put_back
     }
@@ -1210,18 +1290,6 @@ mod snapshot {
         }
     }
 
-    impl SnapshotState for CutsceneSkipHold {
-        fn encode(&self, out: &mut Vec<u8>) {
-            put_f32(out, self.seconds);
-        }
-
-        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
-            Some(Self {
-                seconds: reader.f32()?,
-            })
-        }
-    }
-
     impl SnapshotState for LastCutsceneRoom {
         fn encode(&self, out: &mut Vec<u8>) {
             put_u32(out, self.0.len() as u32);
@@ -1241,89 +1309,77 @@ mod snapshot {
         }
     }
 
+    fn put_runtime_state(runtime: &CutsceneRuntime, out: &mut Vec<u8>) {
+        put_u32(out, runtime.beat_index as u32);
+        put_f32(out, runtime.elapsed);
+        put_bool(out, runtime.finished);
+        put_f32(out, runtime.settings.skip_hold_seconds);
+    }
+
+    fn runtime_state(reader: &mut Reader<'_>, script: std::sync::Arc<CutsceneScript>) -> Option<CutsceneRuntime> {
+        Some(CutsceneRuntime {
+            script,
+            beat_index: reader.u32()? as usize,
+            elapsed: reader.f32()?,
+            finished: reader.bool()?,
+            settings: CutsceneSettings { skip_hold_seconds: reader.f32()? },
+        })
+    }
+
     impl SnapshotState for ActiveCutscene {
         fn encode(&self, out: &mut Vec<u8>) {
-            match &self.runtime {
-                None => put_bool(out, false),
-                Some(runtime) => {
-                    put_bool(out, true);
-                    runtime.script.encode(out);
-                    put_u32(out, runtime.beat_index as u32);
-                    put_f32(out, runtime.elapsed);
-                    put_bool(out, runtime.finished);
-                    put_f32(out, runtime.settings.skip_hold_seconds);
-                    match self.room {
-                        Some(room) => {
-                            put_bool(out, true);
-                            put_u32(out, room);
-                        }
-                        None => put_bool(out, false),
+            put_u32(out, self.playing.len() as u32);
+            for cutscene in &self.playing {
+                cutscene.runtime.script.encode(out);
+                put_runtime_state(&cutscene.runtime, out);
+                match cutscene.room {
+                    Some(room) => {
+                        put_bool(out, true);
+                        put_u32(out, room);
                     }
+                    None => put_bool(out, false),
                 }
+                put_f32(out, cutscene.skip_hold);
             }
         }
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
             // Presentation is derived from the restored runtime and is not encoded.
-            if !reader.bool()? {
-                return Some(Self::default());
+            let count = reader.u32()? as usize;
+            let mut playing = Vec::with_capacity(count.min(64));
+            for _ in 0..count {
+                let script = std::sync::Arc::new(CutsceneScript::decode(reader)?);
+                let runtime = runtime_state(reader, script)?;
+                let room = if reader.bool()? { Some(reader.u32()?) } else { None };
+                playing.push(PlayingCutscene { skip_hold: reader.f32()?, ..PlayingCutscene::new(runtime, room) });
             }
-            let script = CutsceneScript::decode(reader)?;
-            let runtime = CutsceneRuntime {
-                script: std::sync::Arc::new(script),
-                beat_index: reader.u32()? as usize,
-                elapsed: reader.f32()?,
-                finished: reader.bool()?,
-                settings: CutsceneSettings { skip_hold_seconds: reader.f32()? },
-            };
-            let room = if reader.bool()? { Some(reader.u32()?) } else { None };
-            Some(Self {
-                runtime: Some(runtime),
-                room,
-                ..Self::default()
-            })
+            Some(Self { playing })
         }
     }
 
     impl CutsceneState {
         /// The playback by its script's place in the log's table, its room
         /// and the skip hold.
-        fn encode(&self, script: Option<u32>, out: &mut Vec<u8>) {
-            match (&self.runtime, script) {
-                (Some(runtime), Some(script)) => {
+        fn encode(state: Option<&Self>, script: Option<u32>, out: &mut Vec<u8>) {
+            match (state, script) {
+                (Some(state), Some(script)) => {
                     put_bool(out, true);
                     put_u32(out, script);
-                    put_u32(out, runtime.beat_index as u32);
-                    put_f32(out, runtime.elapsed);
-                    put_bool(out, runtime.finished);
-                    put_f32(out, runtime.settings.skip_hold_seconds);
+                    put_runtime_state(&state.runtime, out);
+                    put_u32(out, state.room);
+                    put_f32(out, state.skip_hold);
                 }
                 _ => put_bool(out, false),
             }
-            match self.room {
-                Some(room) => {
-                    put_bool(out, true);
-                    put_u32(out, room);
-                }
-                None => put_bool(out, false),
-            }
-            put_f32(out, self.skip_hold);
         }
 
-        fn decode(reader: &mut Reader<'_>, scripts: &[std::sync::Arc<CutsceneScript>]) -> Option<Self> {
-            let runtime = if reader.bool()? {
-                Some(CutsceneRuntime {
-                    script: scripts.get(reader.u32()? as usize)?.clone(),
-                    beat_index: reader.u32()? as usize,
-                    elapsed: reader.f32()?,
-                    finished: reader.bool()?,
-                    settings: CutsceneSettings { skip_hold_seconds: reader.f32()? },
-                })
-            } else {
-                None
-            };
-            let room = if reader.bool()? { Some(reader.u32()?) } else { None };
-            Some(Self { runtime, room, skip_hold: reader.f32()? })
+        fn decode(reader: &mut Reader<'_>, scripts: &[std::sync::Arc<CutsceneScript>]) -> Option<Option<Self>> {
+            if !reader.bool()? {
+                return Some(None);
+            }
+            let script = scripts.get(reader.u32()? as usize)?.clone();
+            let runtime = runtime_state(reader, script)?;
+            Some(Some(Self { runtime, room: reader.u32()?, skip_hold: reader.f32()? }))
         }
     }
 
@@ -1332,8 +1388,8 @@ mod snapshot {
     /// this table.
     fn script_table(log: &CutscenesInRooms) -> Vec<&std::sync::Arc<CutsceneScript>> {
         let mut scripts: Vec<&std::sync::Arc<CutsceneScript>> = Vec::new();
-        let states = std::iter::once(&log.seen).chain(log.changes.iter().map(|(_, _, state)| state));
-        for runtime in states.filter_map(|state| state.runtime.as_ref()) {
+        let states = log.seen.iter().chain(log.changes.iter().filter_map(|(_, _, state)| state.as_ref()));
+        for runtime in states.map(|state| &state.runtime) {
             if !scripts.iter().any(|known| std::sync::Arc::ptr_eq(known, &runtime.script) || ***known == *runtime.script) {
                 scripts.push(&runtime.script);
             }
@@ -1344,11 +1400,11 @@ mod snapshot {
     impl SnapshotState for CutscenesInRooms {
         fn encode(&self, out: &mut Vec<u8>) {
             let scripts = script_table(self);
-            let index_of = |state: &CutsceneState| {
-                state.runtime.as_ref().and_then(|runtime| {
+            let index_of = |state: Option<&CutsceneState>| {
+                state.and_then(|state| {
                     scripts
                         .iter()
-                        .position(|known| std::sync::Arc::ptr_eq(known, &runtime.script) || ***known == *runtime.script)
+                        .position(|known| std::sync::Arc::ptr_eq(known, &state.runtime.script) || ***known == *state.runtime.script)
                         .map(|at| at as u32)
                 })
             };
@@ -1356,12 +1412,15 @@ mod snapshot {
             for script in &scripts {
                 script.encode(out);
             }
-            self.seen.encode(index_of(&self.seen), out);
+            put_u32(out, self.seen.len() as u32);
+            for state in &self.seen {
+                CutsceneState::encode(Some(state), index_of(Some(state)), out);
+            }
             put_u32(out, self.changes.len() as u32);
             for (room, tick, replaced) in &self.changes {
                 put_u32(out, *room);
                 ambition_platformer2d_core::snapshot::put_u64(out, *tick);
-                replaced.encode(index_of(replaced), out);
+                CutsceneState::encode(replaced.as_ref(), index_of(replaced.as_ref()), out);
             }
         }
 
@@ -1371,7 +1430,11 @@ mod snapshot {
             for _ in 0..count {
                 scripts.push(std::sync::Arc::new(CutsceneScript::decode(reader)?));
             }
-            let seen = CutsceneState::decode(reader, &scripts)?;
+            let count = reader.u32()? as usize;
+            let mut seen = Vec::with_capacity(count.min(64));
+            for _ in 0..count {
+                seen.push(CutsceneState::decode(reader, &scripts)??);
+            }
             let count = reader.u32()? as usize;
             let mut changes = Vec::with_capacity(count.min(1024));
             for _ in 0..count {
@@ -1424,53 +1487,71 @@ mod snapshot {
                 script.seen_flag.is_none(),
                 "the fixture must have NO seen flag or it tests the branch that worked"
             );
-            let before = ActiveCutscene {
-                runtime: Some(CutsceneRuntime::new(script)),
-                ..ActiveCutscene::default()
-            };
+            let before = ActiveCutscene::playing(CutsceneRuntime::new(script), None);
             let after = round_trip(&before);
             assert_eq!(
-                after.runtime, before.runtime,
+                after, before,
                 "a flagless script did not survive the wire, so every cutscene \
                  that does not write a save flag is dropped by any rollback"
             );
         }
 
         /// The room a cutscene plays for survives the wire: a rewind that lost
-        /// it would hold every room's players for one room's cutscene.
+        /// it would hold every room's players for one room's cutscene. And two
+        /// rooms' cutscenes, each with its own skip hold (N4).
         #[test]
         fn the_room_a_cutscene_plays_for_survives_the_wire() {
+            let scene = |id: &str| CutsceneRuntime::new(CutsceneScript::new(id, vec![CutsceneBeat::Wait { seconds: 1.0 }]));
             for room in [None, Some(3)] {
-                let before = ActiveCutscene {
-                    runtime: Some(CutsceneRuntime::new(CutsceneScript::new(
-                        "room_scene",
-                        vec![CutsceneBeat::Wait { seconds: 1.0 }],
-                    ))),
-                    room,
-                    ..ActiveCutscene::default()
-                };
-                assert_eq!(round_trip(&before).room, room, "the cutscene's room did not survive the wire");
+                let before = ActiveCutscene::playing(scene("room_scene"), room);
+                assert_eq!(round_trip(&before).iter().next().unwrap().room, room, "the cutscene's room did not survive the wire");
             }
+            let mut two = ActiveCutscene::playing(scene("alices"), Some(1));
+            two.start(PlayingCutscene { skip_hold: 0.25, ..PlayingCutscene::new(scene("bobs"), Some(2)) });
+            assert_eq!(round_trip(&two), two, "two rooms' cutscenes did not survive the wire");
+            assert_eq!(round_trip(&ActiveCutscene::default()), ActiveCutscene::default());
         }
 
         /// The log of a room's cutscene changes survives the wire.
         #[test]
         fn the_room_cutscene_log_survives_the_wire() {
-            let playing = CutsceneState {
-                runtime: Some(CutsceneRuntime::new(CutsceneScript::new(
-                    "logged",
-                    vec![CutsceneBeat::Wait { seconds: 2.0 }],
-                ))),
-                room: Some(4),
-                skip_hold: 0.5,
-            };
+            let scene = CutsceneRuntime::new(CutsceneScript::new("logged", vec![CutsceneBeat::Wait { seconds: 2.0 }]));
+            let mut active = ActiveCutscene::playing(scene, Some(4));
             let mut log = CutscenesInRooms::default();
-            log.observe(playing.clone(), 10, 600);
-            log.observe(CutsceneState { skip_hold: 0.75, ..playing }, 11, 600);
+            log.observe(&active, 10, 600);
+            active.iter_mut().next().unwrap().skip_hold = 0.75;
+            log.observe(&active, 11, 600);
+            active.retain(|_| false);
+            log.observe(&active, 12, 600);
             let mut bytes = Vec::new();
             log.encode(&mut bytes);
             let after = CutscenesInRooms::decode(&mut Reader::new(&bytes)).expect("the log decodes");
             assert_eq!(after, log, "the cutscene log did not survive the wire");
+        }
+
+        /// N4: two rooms' cutscenes play at once, and a rewind of one room puts
+        /// back only its own: Bob's room rewinds to before his scene started
+        /// and Alice's scene, which moved on meanwhile, keeps its place.
+        #[test]
+        fn a_rooms_rewind_puts_back_only_its_own_cutscene() {
+            let scene = |id: &str| CutsceneRuntime::new(CutsceneScript::new(id, vec![CutsceneBeat::Wait { seconds: 9.0 }]));
+            let mut active = ActiveCutscene::playing(scene("alices"), Some(1));
+            let mut log = CutscenesInRooms::default();
+            log.observe(&active, 10, 600);
+            assert!(!active.can_start(Some(1)) && active.can_start(Some(2)) && !active.can_start(None));
+            active.start(PlayingCutscene::new(scene("bobs"), Some(2)));
+            log.observe(&active, 11, 600);
+            for cutscene in active.iter_mut() {
+                cutscene.runtime.elapsed = 0.5;
+            }
+            log.observe(&active, 12, 600);
+            let put_back = log.retract_room(2, 10).expect("Bob's room changed after the save");
+            assert_eq!(put_back, None, "Bob's room had no cutscene at the save");
+            active.restore_room(2, put_back);
+            let left: Vec<_> = active.iter().map(|cutscene| (cutscene.script_id().to_owned(), cutscene.runtime.elapsed)).collect();
+            assert_eq!(left, vec![("alices".to_owned(), 0.5)], "Alice's scene went back with Bob's room");
+            assert_eq!(log.retract_room(2, 10), None, "the retracted changes are gone");
+            assert_eq!(log.retract_room(1, 11).flatten().map(|state| state.runtime.elapsed), Some(0.0));
         }
 
         /// Review 2026-11-11 (P2): a playing cutscene changes each tick and
@@ -1486,11 +1567,11 @@ mod snapshot {
             let mut log = CutscenesInRooms::default();
             for tick in 0..20u64 {
                 let runtime = CutsceneRuntime { elapsed: tick as f32 / 60.0, ..long.clone() };
-                log.observe(CutsceneState { runtime: Some(runtime), room: Some(1), skip_hold: 0.0 }, tick, 600);
+                log.observe(&ActiveCutscene::playing(runtime, Some(1)), tick, 600);
             }
-            log.observe(CutsceneState { runtime: Some(other), room: Some(2), skip_hold: 0.0 }, 20, 600);
+            log.observe(&ActiveCutscene::playing(other, Some(2)), 20, 600);
             assert!(
-                log.changes.iter().filter_map(|(_, _, state)| state.runtime.as_ref()).skip(1).all(|runtime| {
+                log.changes.iter().filter_map(|(_, _, state)| state.as_ref().map(|state| &state.runtime)).skip(1).all(|runtime| {
                     runtime.script.id != long.script.id || std::sync::Arc::ptr_eq(&runtime.script, &long.script)
                 }),
                 "a logged tick copied its script"
@@ -1532,21 +1613,19 @@ mod snapshot {
                 "the fixture must be mid-beat or it tests the case that already worked"
             );
 
-            let before = ActiveCutscene {
-                room: None,
-                presentation: runtime.presentation(),
-                runtime: Some(runtime),
-            };
+            let before = ActiveCutscene::playing(runtime, None);
+            let before = before.iter().next().unwrap();
             assert!(
                 before.presentation.banner.is_some(),
                 "the fixture is not showing anything, so restoring it proves nothing"
             );
 
-            let after = round_trip(&before);
+            let after = round_trip(&ActiveCutscene::playing(before.runtime.clone(), None));
             let restored = after
-                .runtime
-                .as_ref()
+                .iter()
+                .next()
                 .expect("the runtime round-trips")
+                .runtime
                 .presentation();
             assert_eq!(
                 restored, before.presentation,
@@ -1673,26 +1752,23 @@ mod snapshot {
             runtime.settings.skip_hold_seconds = 0.37;
             runtime.beat_index = 3;
             runtime.elapsed = 0.125;
-            let before = ActiveCutscene {
-                runtime: Some(runtime),
-                ..ActiveCutscene::default()
-            };
+            let before = ActiveCutscene::playing(runtime, None);
             let after = round_trip(&before);
-            assert_eq!(after.runtime, before.runtime);
+            assert_eq!(after, before);
         }
 
         /// The absent case, which is what most frames encode.
         #[test]
         fn no_cutscene_survives_the_wire() {
             let before = ActiveCutscene::default();
-            assert!(round_trip(&before).runtime.is_none());
+            assert!(!round_trip(&before).is_playing());
         }
 
         /// Unknown beat tags are refused rather than defaulted.
         #[test]
         fn an_unknown_beat_tag_is_refused_rather_than_defaulted() {
             let mut bytes = Vec::new();
-            put_bool(&mut bytes, true);
+            put_u32(&mut bytes, 1);
             put_str(&mut bytes, "intro");
             put_bool(&mut bytes, false);
             put_u32(&mut bytes, 1);

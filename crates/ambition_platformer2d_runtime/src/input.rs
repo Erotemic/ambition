@@ -2335,14 +2335,13 @@ mod room_cutscene_tests {
     fn held_seats(room: Option<u32>) -> Vec<u8> {
         let (alices, bobs) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
         let mut app = App::new();
-        app.insert_resource(ambition_cutscene::ActiveCutscene {
-            runtime: Some(ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript::new(
+        app.insert_resource(ambition_cutscene::ActiveCutscene::playing(
+            ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript::new(
                 "probe",
                 vec![ambition_cutscene::CutsceneBeat::Wait { seconds: 30.0 }],
-            ))),
+            )),
             room,
-            ..Default::default()
-        });
+        ));
         for (slot, at) in [(0u8, alices), (1, bobs)] {
             app.world_mut().spawn((RoomInstanceRoot, at));
             app.world_mut().spawn((InputParticipant { id: ParticipantId(slot) }, ParticipantContexts::default()));

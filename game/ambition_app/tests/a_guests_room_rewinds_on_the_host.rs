@@ -330,9 +330,7 @@ fn a_guest_room_replay_does_not_advance_or_close_another_rooms_narrative() {
             host.world_mut().resource_mut::<ambition_platformer2d::cutscene::CutsceneTriggerQueue>()
                 .request_in("review_room_b", room.ordinal());
         } else {
-            let mut active = host.world_mut().resource_mut::<ActiveCutscene>();
-            active.room = Some(room.ordinal());
-            active.runtime = Some(CutsceneRuntime::new(script));
+            host.world_mut().insert_resource(ActiveCutscene::playing(CutsceneRuntime::new(script), Some(room.ordinal())));
         }
         if late {
             let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 - 3;
@@ -344,7 +342,7 @@ fn a_guest_room_replay_does_not_advance_or_close_another_rooms_narrative() {
         host.app_mut().update();
         assert_eq!(*host.world().resource::<ActiveConversation>(), conversation,
             "the other room's conversation must keep its members and authority (late={late})");
-        let scene = host.world().resource::<ActiveCutscene>().runtime.as_ref().unwrap();
+        let scene = &host.world().resource::<ActiveCutscene>().iter().next().unwrap().runtime;
         let flag = host.world().resource::<ambition_platformer2d::session::AmbitionGameSave>().data().flag("review_room_b_advanced");
         ((scene.beat_index, scene.elapsed, flag), host.world().resource::<RoomRollbackStats>().rewinds)
     };

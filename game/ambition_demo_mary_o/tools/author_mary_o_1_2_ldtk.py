@@ -242,6 +242,8 @@ def goal(lv: Level) -> None:
     for index in range(4):
         lv.column(224 + index, 1, index + 1)
     lv.pole(232, 7)
+    # Close the upper road after its drop to the steps.
+    lv.bricks(229, ATTIC, WIDTH - WALL - 229, ATTIC_FLOOR - ATTIC)
 
 
 if __name__ == "__main__":

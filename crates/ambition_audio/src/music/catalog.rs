@@ -200,19 +200,21 @@ impl LoadedMusicCueAssets {
         }
     }
 
-    pub(super) fn cue_ready(
+    pub(super) fn section_ready(
         &self,
         provider_id: &str,
         cue: &MusicCueSpec,
+        section_id: &str,
         decoded: &Assets<KiraAudioSource>,
     ) -> bool {
-        cue.sections.iter().flat_map(|section| {
-            section.sources.iter().map(move |source| (section, source))
-        }).all(|(section, source)| {
-            self.get(provider_id, &cue.id, &section.id, &source.layer_id)
-                .is_some_and(|handle| decoded.contains(handle.id()))
+        cue.section(section_id).is_some_and(|section| {
+            section.sources.iter().all(|source| {
+                self.get(provider_id, &cue.id, &section.id, &source.layer_id)
+                    .is_some_and(|handle| decoded.contains(handle.id()))
+            })
         })
     }
+
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

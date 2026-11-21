@@ -206,39 +206,42 @@ pub fn observe_music_playback(
                     .and_then(|c| c.cue(cue_id))
                     .map(|cue| (provider, cue))
             }) {
-                if cue
-                    .state(state_id)
-                    .and_then(|s| cue.section(&s.section_id))
-                    .is_some()
+                let continuation = director
+                    .as_ref()
+                    .filter(|d| {
+                        d.active_cue_id.as_deref() == Some(cue_id.as_str())
+                            && d.requested_state_id.as_deref() == Some(state_id.as_str())
+                    })
+                    .and_then(|d| d.continuation_state_id.as_deref());
+                if let Some(section) = cue
+                    .state(continuation.unwrap_or(state_id))
+                    .and_then(|state| cue.section(&state.section_id))
                 {
-                    content_status = if loaded
-                        .as_ref()
-                        .is_some_and(|assets| assets.cue_ready(provider, cue, &decoded))
-                    {
+                    content_status = if loaded.as_ref().is_some_and(|assets| {
+                        assets.section_ready(provider, cue, &section.id, &decoded)
+                    }) {
                         MusicPlaybackStatus::BackendSilent
                     } else {
                         if let Some(assets) = loaded.as_ref() {
-                            report.detail = cue
-                                .sections
+                            report.detail = section
+                                .sources
                                 .iter()
-                                .find_map(|section| {
-                                    section.sources.iter().find_map(|source| {
-                                        let handle = assets.get(
-                                            provider,
-                                            cue_id,
-                                            &section.id,
-                                            &source.layer_id,
-                                        )?;
-                                        (!decoded.contains(handle.id())).then(|| {
-                                            format!(
-                                                "{} {:?}",
-                                                cue.source_path(source),
-                                                asset_server.get_load_state(handle.id())
-                                            )
-                                        })
+                                .find_map(|source| {
+                                    let handle = assets.get(
+                                        provider,
+                                        cue_id,
+                                        &section.id,
+                                        &source.layer_id,
+                                    )?;
+                                    (!decoded.contains(handle.id())).then(|| {
+                                        format!(
+                                            "{} {:?}",
+                                            cue.source_path(source),
+                                            asset_server.get_load_state(handle.id())
+                                        )
                                     })
                                 })
-                                .unwrap_or_else(|| "cue sources not requested".into());
+                                .unwrap_or_else(|| "section sources not requested".into());
                         }
                         MusicPlaybackStatus::Loading
                     };

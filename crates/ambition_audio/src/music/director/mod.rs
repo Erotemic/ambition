@@ -118,21 +118,18 @@ pub fn drive_music_director(
                 // provider-local, so the loaded-source key includes provider.
                 let provider_id = provider_id.expect("selected adaptive catalog has a provider");
                 assets.ensure_cue_loaded(provider_id, cue, &asset_server);
-                // Start all layers together, after decoding. A queued play is not
-                // a playing section and must not start its transition clock.
-                if assets.cue_ready(provider_id, cue, &decoded) {
-                    drive_adaptive_cue_state(
-                        &mut director,
-                        provider_id,
-                        cue,
-                        target_state,
-                        &assets,
-                        &layer_channels,
-                        &base_music_channel,
-                        &settings,
-                        dt,
-                    );
-                }
+                drive_adaptive_cue_state(
+                    &mut director,
+                    provider_id,
+                    cue,
+                    target_state,
+                    &assets,
+                    &decoded,
+                    &layer_channels,
+                    &base_music_channel,
+                    &settings,
+                    dt,
+                );
             } else {
                 warn!(
                     target: MUSIC_LOG_TARGET,

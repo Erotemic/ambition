@@ -22,6 +22,11 @@ music is requested, missing content, a lost gameplay context, and a silent backe
 are faults to inspect.
 The observer does not restart playback or change content to hide a fault.
 
+The director requests cue sources together. It starts each section after all
+layers of that section are decoded. Later sections do not block the opening.
+A playing loop continues while the requested next section loads. A one-shot
+can still end before its next section is ready; the observer reports that gap.
+
 `MusicPlaybackDiagnostics` holds the current report, the current and longest
 gap durations, and the number of gaps. It is presentation state, outside the
 rollback timeline. Logs provide the history across deaths and room changes.

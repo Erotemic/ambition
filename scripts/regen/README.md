@@ -1,8 +1,17 @@
 # `scripts/regen/` — content regeneration
 
 Every script here rebuilds generated content from its authoring source. They are
-all independently runnable, they all take `--help`, and they are all composed by
-one umbrella so a fresh machine gets the lot without knowing any of their names.
+all independently runnable and take `--help`. The asset umbrella prepares
+current runtime products. Lineage previews are a separate, explicit operation
+and use maintained current sources.
+
+## Maintained lineage variants
+
+Use `./scripts/regen/lineages.sh --all` to draw maintained character variants
+with the current authoring framework. Use `--plan --json` to inspect their
+sources. No Git archive is required. `--archive-reference` selects the separate
+archive research tool. Neither mode publishes runtime skins.
+See [maintained lineage variants](../../docs/tools/generated-visual-tools.md#maintained-character-lineage-variants).
 
 ## Why these outputs are gitignored
 

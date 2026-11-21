@@ -253,6 +253,7 @@ links to.
 - [`engine/dialogue-continuity.md`](engine/dialogue-continuity.md)
 - [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md)
 - [`engine/boss-system.md`](engine/boss-system.md) — actor-local boss behavior.
+- [`engine/boss-character-unification.md`](engine/boss-character-unification.md) — one character body path, optional boss attributes, and multi-character encounters; agent handoff.
 - [`engine/boss-design.md`](engine/boss-design.md) — boss fight quality.
 - [`engine/procedural-dialogue-mumblespeak.md`](engine/procedural-dialogue-mumblespeak.md)
   — speech-like dialogue sounds without recorded lines; deferred.

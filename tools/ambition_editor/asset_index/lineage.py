@@ -106,6 +106,13 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
 
     views: dict[str, dict] = {}
     still_dir = out / "lineage"
+    maintained_path = renderer / 'ambition_sprite2d_renderer/data/lineage_variants.yaml'
+    maintained = yaml.safe_load(maintained_path.read_text()).get('variants', {}) if maintained_path.is_file() else {}
+    prepared_path = renderer / 'generated/review/lineage_variants/manifest.json'
+    try:
+        prepared = {row['id']: row for row in json.loads(prepared_path.read_text()).get('variants', [])}
+    except (OSError, ValueError):
+        prepared = {}
     surveyed = variations_mod.load()
 
     copied: dict[Path, tuple[str, str | None]] = {}
@@ -148,9 +155,23 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
                 for v in row.get("variations") or []:
                     png = stills.cached_still(cache, v["commit"], row["ids"], lineages[name].get("pick"))
                     original, preview = copy_still(png) if png else (None, None)
-                    looks.append(dict(v, still=original, preview=preview))
+                    looks.append(dict(v, still=original, preview=preview,
+                        render=stills.cache_state(cache, v["commit"], row["ids"], lineages[name].get("pick")),
+                        attribution_note="Recorded survey label. Model and version were not verified in this build; unsigned and date-based labels are inferred."))
                 tracks.append({"track": track, "candidates": row.get("candidates"), "failed": row.get("failed"), "variations": looks})
             record["tracks"] = tracks
+            record['maintained'] = []
+            for key, spec in maintained.items():
+                if spec['lineage'] != name:
+                    continue
+                ready = prepared.get(key, {})
+                if ready.get('source') != spec['source']:
+                    ready = {}
+                image = Path(ready['image']) if ready.get('state') == 'ready' and ready.get('image') else None
+                original, preview = copy_still(image) if image and image.is_file() else (None, None)
+                record['maintained'].append(dict(spec, id=key, still=original, preview=preview,
+                    state='ready' if original else ready.get('state', 'missing'), failure=ready.get('failure')))
+
             views[name] = record
         return views[name]
 

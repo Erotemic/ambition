@@ -152,6 +152,7 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--rule); bor
 .character-card .chip { white-space: normal; overflow-wrap: anywhere; }
 .character-controls label { max-width: 100%; }
 .character-controls select { max-width: 100%; }
+.character-controls input[type="number"] { width: 6em; font: inherit; color: var(--fg); background: var(--panel2); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 9px; }
 .character-lineage-label { font-size: 12px; color: var(--muted); }
 .lineage-previews { grid-template-columns: repeat(auto-fill, minmax(145px, 210px)); margin: 12px 0; }
 .lineage-previews figure > div { grid-template: minmax(0, 1fr) / minmax(0, 1fr); padding: 8px; }

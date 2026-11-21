@@ -11,15 +11,21 @@ import subprocess
 _TOKEN = re.compile(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|[A-Za-z_][A-Za-z_0-9]*|[^\s]', re.S)
 
 
-def catalog_ids(text: str) -> set[str]:
-    """Read keys in the characters map. Ignore comments and nested maps."""
+def catalog_ids(text: str, field: str | None = "characters") -> set[str]:
+    """Read keys in the selected map. Ignore comments and nested maps."""
     tokens = [m.group() for m in _TOKEN.finditer(text) if not m.group().startswith(('//', '/*'))]
     found = set()
     for at in range(len(tokens) - 2):
-        if tokens[at:at + 3] != ['characters', ':', '{']:
-            continue
+        if field is None:
+            if at != 0 or tokens[at] != '{':
+                continue
+            start = at + 1
+        else:
+            if tokens[at:at + 3] != [field, ':', '{']:
+                continue
+            start = at + 3
         depth = 1
-        for index in range(at + 3, len(tokens)):
+        for index in range(start, len(tokens)):
             token = tokens[index]
             if depth == 1 and token.startswith('"') and tokens[index + 1:index + 2] == [':']:
                 found.add(json.loads(token))
@@ -32,7 +38,7 @@ def catalog_ids(text: str) -> set[str]:
     return found
 
 
-def first_added(path: Path) -> dict[str, str]:
+def first_added(path: Path, field: str | None = "characters") -> dict[str, str]:
     """Use the oldest catalog occurrence in available Git history, across renames."""
     try:
         log = subprocess.run(
@@ -65,7 +71,7 @@ def first_added(path: Path) -> dict[str, str]:
         size = int(header[2])
         text = blobs[offset:offset + size].decode('utf-8', errors='replace')
         offset += size + 1
-        for key in catalog_ids(text):
+        for key in catalog_ids(text, field):
             dates[key] = date
     return dates
 
@@ -81,16 +87,20 @@ def timestamp(value) -> float | None:
 def attach(report: dict, prepared: dict, repo: Path) -> None:
     """Attach dates for the browser. Status queries do not read Git history."""
     added = {}
+    bosses = {}
     pack = Path(prepared['pack_root'])
     for source in prepared.get('sources', []):
         if source.get('schema') == 'character_catalog':
             for key, date in first_added(pack / source['path']).items():
                 if key not in added or timestamp(date) < timestamp(added[key]):
                     added[key] = date
+    for source in prepared.get('sources', []):
+        if source.get('schema') == 'boss_profiles':
+            bosses.update(first_added(pack / source['path'], field=None))
     for actor in report['identities'].values():
         receipts = [(report['units'][uid].get('receipt') or {}) for uid in actor['units']]
         dates = [r['written_at'] for r in receipts if r.get('basis') == 'rendered' and timestamp(r.get('written_at')) is not None]
-        actor['added_at'] = added.get(actor['id'])
+        actor['added_at'] = bosses.get(actor['boss_id']) if actor.get('inspection_origin') == 'boss' else added.get(actor['id'])
         actor['generated_at'] = max(dates, key=timestamp) if dates else None
         actor['generated_at_evidence'] = 'render-receipt' if dates else 'unknown'
         if not dates:

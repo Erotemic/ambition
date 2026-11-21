@@ -66,7 +66,11 @@ pub fn upgrade_boss_sprites(
         let Some(boss_asset) = dedicated.or(assets.boss.as_ref()) else {
             continue;
         };
-        if !super::texture_is_ready(&asset_server, &images, &boss_asset.pages[0].texture) {
+        // Bind before requesting character parts. A part-drawn sheet has no
+        // baked texture to load; its page handle is a sentinel.
+        if !boss_asset.record.drawn_from_parts
+            && !super::texture_is_ready(&asset_server, &images, &boss_asset.pages[0].texture)
+        {
             continue;
         }
         let collision = BVec2::new(view.size.x, view.size.y);

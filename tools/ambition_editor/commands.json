@@ -35,6 +35,24 @@
       "build": "Build the content check binary once. Asset repair does not invoke Cargo.",
       "status": "active",
       "cwd": "repository root"
+    },
+    {
+      "id": "lineage-prepare",
+      "title": "Render maintained character lineage variants",
+      "owner": "tools/ambition_sprite2d_renderer",
+      "command": "./scripts/regen/lineages.sh --all",
+      "help": "./scripts/regen/lineages.sh --help",
+      "requires": [
+        "scripts/regen/lineages.sh",
+        "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/lineage_variants.py"
+      ],
+      "docs": "docs/tools/generated-visual-tools.md",
+      "inputs": "Maintained variant recipes selecting current authored targets or configs.",
+      "outputs": "Current-source canonical previews and a JSON report.",
+      "mutation": "A plan only reads. Rendering writes ignored review images; no archive fetch or runtime publication.",
+      "build": "No Cargo build. Uses the sprite-tool Python environment.",
+      "status": "active",
+      "cwd": "repository root"
     }
   ]
 }

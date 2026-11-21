@@ -26,6 +26,14 @@ editable review notes; `notes backlog --json` lists the outstanding notes.
 See [the editor tool README](../../tools/ambition_editor/README.md) for storage
 and current command details.
 
+Maintained lineage previews use current authored targets and configs. Draw them
+with `./scripts/regen/lineages.sh --all`, then build the inspector again. They
+appear separately from archive reference images. Normal lineage rendering does
+not read Git history. Use `--archive-reference` only for archive research.
+See [maintained lineage variants](generated-visual-tools.md#maintained-character-lineage-variants).
+Survey attribution labels are not verified by an ordinary inspector build.
+Unsigned-commit and date-selected model labels are inferences.
+
 Ordinary status queries rely on manifests and receipts without rerendering.
 `--deep` rechecks bytes, `--no-previews` avoids generating preview strips, and
 `--authorship` adds an optional Git history scan.

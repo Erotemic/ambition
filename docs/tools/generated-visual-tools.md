@@ -62,6 +62,51 @@ actor page to make a quality variant.
 For character authoring, see [adding a character](../recipes/adding-a-character.md).
 The Hall of Characters is the visual review surface for the roster.
 
+## Maintained character lineage variants
+
+Important old looks are authored values or assets rendered by the current
+framework. Normal rendering does not fetch Git history or require an archive.
+
+```bash
+./scripts/regen/lineages.sh --plan --json
+./scripts/regen/lineages.sh --all --jobs 2
+./scripts/regen/lineages.sh alice --jobs 2
+python3 scripts/asset_inspector.py build
+```
+
+The source catalog is
+`tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/lineage_variants.yaml`.
+A variant selects a current registered target or a current config. The config
+uses the ordinary authoring API; it does not carry a copy of a retired renderer.
+Reference revisions are optional provenance. They do not select executable code.
+
+The initial catalog covers retained current-source variants and a normalized
+early Alice config. It does not cover every old major design yet. The
+[character generations plan](../planning/game/character-generations.md) owns
+visual review and the remaining conversions. An archive image is a reference,
+not evidence that a maintained source or playable skin already exists.
+
+Outputs and the manifest are under the renderer's
+`generated/review/lineage_variants/`, or `--out PATH`. These are review images.
+The inspector shows them under **Maintained variants**, separate from archive
+references. Before a selected variant ships, register its source through normal
+target discovery and publish it through the normal sprite publisher. Skin
+selection must not change the character's simulation state.
+
+Archive replay remains an explicit research operation:
+
+```bash
+./scripts/regen/lineages.sh --archive-reference --plan --json
+./scripts/regen/lineages.sh --archive-reference --all --jobs 2
+```
+
+`AMBITION_HISTORY_STORE` can name the archive, including
+`/home/joncrall/code/ambition-history` where that path is available. The
+[archive viewer guide](../../tools/ambition_sprite2d_renderer/design_history/README.md)
+describes its source refs, caches, failures, retries, and pixel comparisons.
+Model labels describe session evidence, not pixel authorship. They do not
+select maintained sources or gate rendering.
+
 ## Background and parallax renderers
 
 - `tools/ambition_background_renderer/`: background profile generator.

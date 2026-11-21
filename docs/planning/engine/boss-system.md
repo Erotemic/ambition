@@ -8,6 +8,14 @@ share one generic encounter authority; a boss-capable actor keeps only
 actor-local capabilities and phase and pattern state.
 **Fight quality:** [boss design pipeline](boss-design.md).
 
+## Character construction unification
+
+The live body construction still has a separate boss seed. The
+[unification handoff](boss-character-unification.md) owns its replacement with
+the common prepared character path. Boss attributes belong on instances; a
+Boss Encounter can hold several characters. Do not add boss state to every
+character. The inspector bridge does not resolve this runtime split.
+
 ## Current shape
 
 Bosses are actors (see [one body, one path](../../concepts/one-body-one-path.md))

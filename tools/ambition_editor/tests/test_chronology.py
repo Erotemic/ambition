@@ -12,6 +12,7 @@ def test_catalog_keys_ignore_profiles_comments_and_nested_data():
         characters: {"old": (barks: {"nested": ["characters: {"]}),
                      /* "comment": () */ "new": ()},
     )''') == {'old', 'new'}
+    assert catalog_ids('{"boss": (id: "other", nested: {"inside": ()})}', field=None) == {'boss'}
 
 
 def test_added_dates_survive_catalog_move_edit_and_readdition(tmp_path):

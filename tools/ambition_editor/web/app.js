@@ -487,6 +487,28 @@
     const total = (shares || []).reduce((s, x) => s + x.lines, 0);
     return (shares || []).slice(0, 3).map((x) => `${esc(x.who)} ${pct(x.lines, total)}`).join(", ");
   }
+  function missingLineagePreview(item) {
+    const failed = item.render?.state === 'failed';
+    return `<span class="controls" title="${esc(item.render?.failure || 'Run ./scripts/regen/lineages.sh to prepare recorded looks, then rebuild the inspector.')}">${failed ? 'Historical render failed' : 'Historical preview not cached'}</span>`;
+  }
+  function lineageItems(lineage) {
+    const variations = (lineage.tracks || []).flatMap(track => (track.variations || []).map(item => ({...item, target: item.target || track.track})));
+    const milestones = (lineage.eras || []).map(item => ({...item,
+      target: item.target || (item.ids?.length === 1 ? item.ids[0] : ''),
+      subject: item.note, by: item.pin?.label, attribution_note: item.pin?.note, holistic: true}));
+    const looks = new Map();
+    for (const item of [...variations, ...milestones]) {
+      const key = (item.sha || item.commit || '').slice(0, 12) + ':' + (item.target || item.ids?.join('+') || '');
+      const previous = looks.get(key);
+      looks.set(key, {...previous, ...item, still: item.still || previous?.still, preview: item.preview || previous?.preview});
+    }
+    return [...looks.values()].sort((a, b) => (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0));
+  }
+  function maintainedLineageFig(item) {
+    const picture = item.still ? `<a href="${esc(item.still)}" target="_blank" rel="noopener">${img(item.preview || item.still, item.label)}</a>`
+      : `<span class="controls" title="${esc(item.failure || 'Run ./scripts/regen/lineages.sh --all, then rebuild the inspector.')}">${item.state === 'failed' ? 'Maintained render failed' : 'Maintained preview not drawn'}</span>`;
+    return `<figure><div class="checker">${picture}</div><figcaption><b>${esc(item.label)}</b><br><code>${esc(item.id)}</code>${item.review ? `<br>${esc(item.review)}` : ''}</figcaption></figure>`;
+  }
   function lineageBox(l, a) {
     // An era's target is measured (`target`) or declared (an era `id`). The
     // last era of a target is that target's asset today.
@@ -506,17 +528,15 @@
       } else if (!e.in_store) lines.push("not in the history store");
       if (e.drawn_by) lines.push(`drawn by: ${esc(e.drawn_by.join(", "))}`);
       if (now) lines.push(now === a?.id ? '<span class="chip c-info">this asset</span>' : `today: ${assetLink(now)}`);
-      const still = e.still ? `<a href="${esc(e.still)}" target="_blank" rel="noopener">${img(e.preview || e.still, e.label)}</a>` : '<span class="controls">Historical preview not cached</span>';
+      const still = e.still ? `<a href="${esc(e.still)}" target="_blank" rel="noopener">${img(e.preview || e.still, e.label)}</a>` : missingLineagePreview(e);
       return `<figure title="${esc(e.note || "")}"><div class="checker">${still}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
     }).join("");
-    const variations = (l.tracks || []).flatMap(track => (track.variations || []).map(v => ({...v, target: v.target || track.track})));
-    const dated = entries => entries.sort((x, y) => (Date.parse(x.date) || 0) - (Date.parse(y.date) || 0));
-    const unique = entries => [...new Map(entries.map(e => [(e.sha || e.commit).slice(0, 12) + ':' + (e.target || e.ids?.join('+') || ''), e])).values()];
-    const all = dated(unique([...variations, ...curatedEras.filter(e => e.still).map(e => ({...e, target: targetOf(e), subject: e.note, by: e.pin?.label, holistic: true}))]));
+    const all = lineageItems(l);
     const major = all.filter(e => e.holistic && e.still);
     const visible = major.length ? major : all.filter(e => e.still);
     const current = a ? `<figure class="history-current"><div class="checker">${a.cover ? `<a href="#asset/${enc(a.id)}">${img(a.cover, a.display)}</a>` : '<span class="controls">Current preview unavailable</span>'}</div><figcaption><b>${a.identities?.length ? 'Current published look' : 'Selected art'}</b><br>${esc(a.display)}${C.built_at ? `<br>Inspected ${esc(C.built_at.slice(0, 10))}` : ''}</figcaption></figure>` : '';
     return `<section class="box visual-lineage" data-lineage="${esc(l.lineage || '')}"><h2>Character lineage: ${esc(l.name)}</h2>
+      ${(l.maintained || []).length ? `<h3>Maintained variants (${l.maintained.length})</h3><p class="controls">Drawn with current authoring sources. Archive revisions are comparison references.</p><div class="thumbs lineage-previews">${l.maintained.map(maintainedLineageFig).join('')}</div><h3>Archive references</h3>` : ''}
       ${l.summary ? `<p>${esc(l.summary)}</p>` : ''}<p class="controls">Recorded looks, oldest first. Open an image to inspect the original.</p>
       <div class="thumbs lineage-previews history-summary">${visible.map(variationFig).join('')}${current}</div>
       ${!visible.length ? '<p class="empty">No earlier snapshots are cached for this lineage.</p>' : ''}
@@ -527,10 +547,10 @@
   // The survey's variations of one track (`design_history/variations.yaml`):
   // the holistic looks, and every variation behind a toggle.
   function variationFig(v) {
-    const lines = [v.label ? `<b>${esc(v.label)}</b>` : '', `${esc((v.date || '').slice(0, 10))} · <code>${esc(v.commit.slice(0, 9))}</code>`, esc(v.target), esc(v.by)].filter(Boolean);
-    return `<figure title="${esc(v.subject || v.note || '')}"><div class="checker">${v.still ? `<a href="${esc(v.still)}" target="_blank" rel="noopener">${img(v.preview || v.still, v.label || v.subject || 'Historical look')}</a>` : '<span class="controls">Historical preview not cached</span>'}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
+    const lines = [v.label ? `<b>${esc(v.label)}</b>` : '', `${esc((v.date || '').slice(0, 10))} · <code>${esc(v.commit.slice(0, 9))}</code>`, esc(v.target), v.by ? `<span title="${esc(v.attribution_note || 'Recorded session attribution; not proof of pixel authorship.')}">${esc(v.by)}${v.attribution_note?.startsWith('Recorded survey') ? ' · unverified' : ''}</span>` : ''].filter(Boolean);
+    return `<figure title="${esc(v.subject || v.note || '')}"><div class="checker">${v.still ? `<a href="${esc(v.still)}" target="_blank" rel="noopener">${img(v.preview || v.still, v.label || v.subject || 'Historical look')}</a>` : missingLineagePreview(v)}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
   }
-  window.ArtLineage = {render: lineageBox};
+  window.ArtLineage = {render: lineageBox, items: lineageItems};
   function authorshipBox(w) {
     const rows = [];
     for (const part of ["code", "art"]) {
@@ -539,7 +559,7 @@
     }
     const files = Object.entries(w.files);
     return `<section class="box"><h2>Authorship of the generator</h2>
-      <p>${confChip(w.confidence)} ${fmt(w.lines)} lines in ${files.length} file${files.length === 1 ? "" : "s"} at renderer <code>${esc(w.commit.slice(0, 10))}</code> (files from ${esc(w.files_from || w.found_by)}). Each line's commit names its author: a ledger session (measured), a <code>Co-Authored-By</code> trailer (declared), a model named in the message, or, when no model signed the commit, GPT (no trailer: Claude Code signs its commits, GPT does not).</p>
+      <p>${confChip(w.confidence)} ${fmt(w.lines)} lines in ${files.length} file${files.length === 1 ? "" : "s"} at renderer <code>${esc(w.commit.slice(0, 10))}</code> (files from ${esc(w.files_from || w.found_by)}). Each line's commit names its author: a ledger session (measured), a <code>Co-Authored-By</code> trailer (declared), a model named in the message, or, when no model signed the commit, GPT by the unsigned-commit heuristic. Unsigned labels and model versions selected from dates are inferred. Session attribution does not prove who drew each pixel.</p>
       ${rows.length ? `<div class="tablebox"><table><tr><th>part</th><th>author</th><th class="num">lines</th><th class="num">share</th><th>basis</th><th>commits</th></tr>${rows.join("")}</table></div>` : '<p class="empty">No generator file found.</p>'}
       ${files.length ? `<details><summary>${files.length} files</summary>${files.map(([f, n]) => `<div>${source("tools/ambition_sprite2d_renderer/" + f)} <span class="controls">${fmt(n)} lines</span></div>`).join("")}</details>` : ""}</section>`;
   }

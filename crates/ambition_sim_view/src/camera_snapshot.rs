@@ -197,6 +197,8 @@ pub struct CameraFocus2d {
     /// the camera went to the zone and back (Mary-O 1-2, 2026-10-12). A focus
     /// that is not drawn ahead of a tick gives its centre.
     pub tick_center_world: ae::Vec2,
+    /// Whether the subject has ground support on this tick.
+    pub grounded: bool,
     /// Current body/focus size in world units.
     pub size: ae::Vec2,
     pub base_size: ae::Vec2,
@@ -370,11 +372,35 @@ pub fn resolve_follow_camera_snapshot(
     input: CameraSnapshotResolveInput<'_>,
     mut ease_state: Option<&mut CameraEaseState>,
 ) -> CameraSnapshot2d {
+    let mut framing_focus = input.focus;
+    if let Some(state) = ease_state.as_deref_mut() {
+        if input.ease_tuning.hold_jump_height && !input.overview_camera && input.must_frame_world.is_none() {
+            let down = input.subject_down.unwrap_or(ae::Vec2::Y);
+            let resize = ae::Vec2::new(0.0, (input.focus.base_size.y - input.focus.size.y) * 0.5);
+            let at = input.focus.tick_center_world - resize;
+            let anchor = state.ground_focus.get_or_insert(at);
+            if input.snap_camera || !state.target_initialized || input.focus.grounded || at.dot(down) > anchor.dot(down) {
+                *anchor = at;
+            }
+            // Keep the subject in view when a rise is larger than half a frame.
+            let (view, _) = fit_camera_view(
+                input.base_view * input.focus.scale, input.viewport_px, input.aspect_policy,
+            );
+            let reach = ((view - input.focus.base_size).dot(down.abs()) * 0.5).max(0.0);
+            let hold = (anchor.dot(down) - at.dot(down)).clamp(0.0, reach);
+            if hold > 0.0 {
+                framing_focus.center_world += down * (hold - (input.focus.center_world - input.focus.tick_center_world).dot(down));
+                framing_focus.tick_center_world += down * hold;
+            }
+        } else {
+            state.ground_focus = None;
+        }
+    }
     // Which zones frame the subject, and how much each: a zone frames it alone
     // deep inside, and near its edge it shares the frame with what is past
     // the edge (`zone_weights`). The zone with the most of the frame is the
     // active one.
-    let weights = zone_weights(input.camera_zones, input.focus.tick_center_world, input.base_view * 0.5);
+    let weights = zone_weights(input.camera_zones, framing_focus.tick_center_world, input.base_view * 0.5);
     let active_camera_zones = weights.iter().filter(|(zone, _)| zone.is_some()).count();
     let active_zone = weights
         .iter()
@@ -438,7 +464,7 @@ pub fn resolve_follow_camera_snapshot(
     let desired_target_world = if input.overview_camera {
         input.focus.stable_center()
     } else {
-        let mut desired = input.focus.stable_center();
+        let mut desired = framing_focus.stable_center();
         let (bias_x, bias_y) =
             input
                 .framing
@@ -1454,7 +1480,7 @@ pub fn resolve_camera_observation(
     >,
     // The room each view framed on its last resolve, by view: two views can
     // frame two rooms.
-    mut last_camera_room: bevy::prelude::Local<Vec<(bevy::prelude::Entity, String)>>,
+    mut last_camera_room: bevy::prelude::Local<Vec<(bevy::prelude::Entity, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance)>>,
     // WHERE THE FOLLOWED SUBJECT WAS on the previous resolve, so a body that
     // was PUT somewhere can be told from one that travelled there.
     //
@@ -1526,10 +1552,11 @@ pub fn resolve_camera_observation(
         bevy::prelude::Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         // The followed body's held look (`BodyPoseView::gaze_secs`).
         bevy::prelude::Query<&crate::pose_view::BodyPoseView>,
+        bevy::prelude::Query<&ae::BodyGroundState>,
     ),
 ) {
     let cast_framing_tuning = cast_framing.as_deref().copied().unwrap_or_default();
-    let (body_kinematics, presented, subject_frames, poses) = followed_body;
+    let (body_kinematics, presented, subject_frames, poses, grounds) = followed_body;
     let (mut live_cast, mut live_members, mut cast_last_seen, mut settling) = cast_framing_state;
     // Dev tools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
@@ -1785,6 +1812,7 @@ pub fn resolve_camera_observation(
     let focus = CameraFocus2d {
         center_world: player_body.pos,
         tick_center_world: subject_sim_pos,
+        grounded: grounds.get(followed).is_ok_and(|g| g.on_ground),
         size: player_body.size(),
         // The standing shape is canonical; the size it is compared with is
         // physical. Unscaled, a shrunk body read as crouched.
@@ -1819,6 +1847,7 @@ pub fn resolve_camera_observation(
             CameraFocus2d {
                 center_world: center,
                 tick_center_world: kin.pos,
+                grounded: grounds.get(subject).is_ok_and(|g| g.on_ground),
                 size: kin.size(),
                 base_size: kin.size(),
                 facing: kin.facing,
@@ -1925,16 +1954,20 @@ pub fn resolve_camera_observation(
         };
         let active_spec = room_specs.rooms().spec(definition);
         let room_changed = match last_camera_room.iter_mut().find(|(seen, _)| *seen == view) {
-            Some((_, last)) if *last == active_spec.id => false,
+            Some((_, last)) if *last == room => false,
             Some((_, last)) => {
-                *last = active_spec.id.clone();
+                *last = room;
                 true
             }
             None => {
-                last_camera_room.push((view, active_spec.id.clone()));
+                last_camera_room.push((view, room));
                 true
             }
         };
+        if camera_state.ground_subject != Some(framed) {
+            camera_state.ground_focus = None;
+            camera_state.ground_subject = Some(framed);
+        }
         let snap_camera = blink_snap || room_changed || cast_eased;
         if room_changed {
             // Disjoint LDtk areas: reset target easing so it never interpolates
@@ -2264,6 +2297,7 @@ mod m2_forward_scroll_tests {
                 focus: CameraFocus2d {
                     center_world: ae::Vec2::new(x, 300.0),
                     tick_center_world: ae::Vec2::new(x, 300.0),
+                    grounded: false,
                     size: ae::Vec2::new(24.0, 40.0),
                     base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
@@ -2386,6 +2420,7 @@ mod zone_change_tests {
                 focus: CameraFocus2d {
                     center_world: tick + ae::Vec2::new(0.0, drawn_ahead),
                     tick_center_world: tick,
+                    grounded: false,
                     size: BODY,
                     base_size: BODY,
                     facing: 1.0,
@@ -2415,6 +2450,86 @@ mod zone_change_tests {
             },
             Some(ease),
         )
+    }
+
+    #[test]
+    fn grounded_framing_holds_a_roof_jump_and_follows_a_drop() {
+        let zones = [corridor()];
+        let mut ease = CameraEaseState::default();
+        let resolve = |y: f32, grounded: bool, snap: bool, state: &mut CameraEaseState| {
+            let at = ae::Vec2::new(2000.0, y);
+            resolve_follow_camera_snapshot(
+                CameraSnapshotResolveInput {
+                    world: &world(),
+                    camera_zones: &zones,
+                    focus: CameraFocus2d {
+                        center_world: at
+                            + ae::Vec2::new(
+                                0.0,
+                                if !grounded && y < ZONE_TOP - BODY.y * 0.5 {
+                                    -3.0
+                                } else {
+                                    0.0
+                                },
+                            ),
+                        tick_center_world: at,
+                        grounded,
+                        size: BODY,
+                        base_size: BODY,
+                        facing: 1.0,
+                        velocity_world: ae::Vec2::ZERO,
+                        look: 0.0,
+                        scale: 1.0,
+                    },
+                    base_view: ae::Vec2::new(568.0, 320.0),
+                    viewport_px: ae::Vec2::new(1200.0, 900.0),
+                    aspect_policy: CameraAspectPolicy::FitDesign,
+                    framing: CameraFramingPreset::default(),
+                    overview_scale: 1.0,
+                    encounter_scale: 1.0,
+                    overview_camera: false,
+                    snap_camera: snap,
+                    blink: None,
+                    dt: 1.0 / 120.0,
+                    mode: CameraSnapshotResolveMode::Eased,
+                    extra_clamp_center_world: None,
+                    chart_transit: None,
+                    must_frame_world: None,
+                    view_box: None,
+                    ease_tuning: CameraEaseTuning {
+                        hold_jump_height: true,
+                        ..Default::default()
+                    },
+                    screen_framing: None,
+                    reference_frame: Default::default(),
+                    subject_down: None,
+                },
+                Some(state),
+            )
+        };
+        let roof = ZONE_TOP - BODY.y * 0.5;
+        let standing = resolve(roof, true, true, &mut ease).center_world.y;
+        for y in (0..115)
+            .chain((0..115).rev())
+            .map(|rise| roof - rise as f32)
+        {
+            let jump = resolve(y, false, false, &mut ease);
+            assert!((jump.center_world.y - standing).abs() < 0.001);
+        }
+        assert!((resolve(roof, true, false, &mut ease).center_world.y - standing).abs() < 0.001);
+        for y in 0..240 {
+            resolve(roof + y as f32, false, false, &mut ease);
+        }
+        assert!(resolve(roof + 240.0, true, false, &mut ease).center_world.y > standing + 100.0);
+        let higher = resolve(roof - 64.0, true, true, &mut ease).center_world.y;
+        assert!(
+            (resolve(roof - 100.0, false, false, &mut ease)
+                .center_world
+                .y
+                - higher)
+                .abs()
+                < 0.001
+        );
     }
 
     /// She comes down on the top line of the zone. The drawn body is under the
@@ -2804,6 +2919,7 @@ mod soft_framing_tests {
                 focus: CameraFocus2d {
                     center_world: pos,
                     tick_center_world: pos,
+                    grounded: false,
                     size: BODY,
                     base_size: BODY,
                     facing: if vel.x < 0.0 { -1.0 } else { 1.0 },
@@ -3318,6 +3434,7 @@ mod observer_roll_continuity_tests {
                 focus: CameraFocus2d {
                     center_world: ae::Vec2::new(2000.0, 1000.0),
                     tick_center_world: ae::Vec2::new(2000.0, 1000.0),
+                    grounded: false,
                     size: ae::Vec2::new(24.0, 40.0),
                     base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
@@ -3489,6 +3606,7 @@ mod rolled_safe_area_tests {
         let focus = CameraFocus2d {
             center_world: ae::Vec2::ZERO,
             tick_center_world: ae::Vec2::ZERO,
+            grounded: false,
             size: ae::Vec2::new(20.0, 20.0),
             base_size: ae::Vec2::new(20.0, 20.0),
             facing: 1.0,
@@ -3557,6 +3675,7 @@ mod rolled_safe_area_tests {
         let focus = CameraFocus2d {
             center_world: ae::Vec2::new(100.0, 50.0),
             tick_center_world: ae::Vec2::new(100.0, 50.0),
+            grounded: false,
             size: ae::Vec2::new(24.0, 40.0),
             base_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
@@ -4031,7 +4150,7 @@ mod zone_blend_tests {
                 CameraSnapshotResolveInput {
                     world: &world,
                     camera_zones: &zones,
-                    focus: CameraFocus2d { center_world: at, tick_center_world: at, size: ae::Vec2::new(30.0, 48.0), base_size: ae::Vec2::new(30.0, 48.0), facing: 1.0, velocity_world: ae::Vec2::new(300.0, 0.0), look: 0.0, scale: 1.0 },
+                    focus: CameraFocus2d { center_world: at, tick_center_world: at, grounded: false, size: ae::Vec2::new(30.0, 48.0), base_size: ae::Vec2::new(30.0, 48.0), facing: 1.0, velocity_world: ae::Vec2::new(300.0, 0.0), look: 0.0, scale: 1.0 },
                     base_view: default_base_view(),
                     viewport_px: ae::Vec2::new(1280.0, 720.0),
                     aspect_policy: CameraAspectPolicy::FixedHeight,
@@ -4085,6 +4204,7 @@ mod held_look_tests {
                 focus: CameraFocus2d {
                     center_world: at,
                     tick_center_world: at,
+                    grounded: false,
                     size: ae::Vec2::new(24.0, 40.0),
                     base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,

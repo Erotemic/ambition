@@ -31,6 +31,18 @@ The implementation lives in
 On active-room changes, presentation resets the easing target instead of
 panning through the space separating LDtk room coordinates.
 
+## Grounded jump framing
+
+A route can set `camera_feel.ease.hold_jump_height` in its presentation
+profiles. Mary-o uses this policy on desktop and touch displays. Each view
+holds its last ground height during a jump, along the subject's down axis.
+Both the follow target and camera-zone blend use that height. A fall below
+that height resumes follow. Landing on a higher surface sets a new height.
+A rise larger than half the view resumes follow to keep the body visible.
+
+The anchor is presentation state. A room change, subject change, or camera
+snap clears or replaces it. Cast and overview framing bypass the policy.
+
 ## Room-level visual fields
 
 The LDtk level's fields lower through

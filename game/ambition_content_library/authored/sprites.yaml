@@ -17,6 +17,7 @@ collections:
       robot_engineer: "Review sheet (configs/review): every action drawn for the art review; the game draws this body from its runtime target."
       robot_medic: "Review sheet (configs/review): every action drawn for the art review; the game draws this body from its runtime target."
       robot_miner: "Review sheet (configs/review): every action drawn for the art review; the game draws this body from its runtime target."
+      marshal_gallus_v1: "Lineage keepsake (lineage_variants.yaml): Marshal Gallus's first draft, rendered for review; it ships only if chosen as a skin."
       robot_heavy: "A multi-variant rig (bastion, arsenal, ...); the bare name is not a character. Its variants ship as catalog entries once the publisher installs them (see `npc_robot_heavy` in character_catalog.ron)."
 
 # Sheets whose baked pages the game still reads, so a part-first publish

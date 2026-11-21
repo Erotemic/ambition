@@ -378,8 +378,26 @@ left alone (N4). Each pair shares one control by design.
 
 **Result:** 0 removals, 0 merges. The ignored controls are the suite's
 retraction controls, which this plan protects; they are not stale diagnostics.
-Next in step 5: the reload modules (`reload_publication_is_installed.rs` and
-its neighbours); the hosted-Smash half waits on the music environment.
+
+### Step 5 record: the reload modules (2026-11-21)
+
+27 tests in three files, all on the shipped composition: 15 in
+`an_edit_reaches_the_shipped_game.rs`, 7 in `reload_publication_is_installed.rs`,
+5 in `edit_to_play_through_the_shell.rs`.
+
+| Family | Tests | The defect each catches | Overlap examined | Disposition |
+|---|---|---|---|---|
+| A candidate lands whole | `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`, `a_reload_that_moves_a_tracks_file_plays_the_new_file` | one participating family (ladder, waves, SFX, adaptive cue, banner, quest title) missing from the activation frame; a moved track file still played from its old path | the track test is the one family whose asset path moves; the first does not move a file | keep both (the track test needs the music registry on this VM) |
+| One session root, admission only | `the_shipped_app_never_holds_two_session_roots_across_a_handoff` | a hidden candidate made live before admission | none | keep |
+| A candidate that cannot publish | `a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole`, `a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable`, `a_candidate_session_replaced_while_pending_is_discarded`, `a_candidate_session_whose_route_is_cancelled_is_discarded`, `a_candidate_its_preparation_refuses_leaves_every_live_family_at_n`, `the_activation_gate_cancels_a_generation_whose_world_moved_while_it_waited`, `a_newer_save_ends_the_generation_in_flight_and_the_old_one_is_never_seen` | each is a different exit: the boundary closes, the transaction refuses, a newer route replaces it, the route is cancelled, preparation refuses, the world moved before activation, a newer save supersedes it | each enters a different exit; no two share one | keep all |
+| A candidate rebuilds runtime-minted content | `a_candidate_reconstructs_a_mint_only_its_own_save_describes` | a minted occurrence rebuilt from the live session's description, not the candidate's | none | keep |
+| The dev world reload of live rooms | `a_world_reload_of_one_live_room_is_refused_whole_or_applied_whole`, `a_world_reload_rebuilds_every_live_room`, `a_world_reload_that_cannot_rebuild_one_live_room_rebuilds_none`, `a_world_reload_with_two_live_rooms_publishes_all_or_none` | one room's effects applied without the rest; a live room left at the old generation; a mixed world after a later room fails | the last two: an `EnemySpawn` preflight against the person (`NpcSpawn`) and identity faults, at request time and injected after it; the first test's doc names this split | keep all |
+| Installation and frame order | the 7 of `reload_publication_is_installed.rs` | the publication system missing from the shipped app; the commit outside activation-to-adoption; the rollback start before the commit; the retired sweep after the incoming construction; the breaker against the command phase; the mechanical edit after the timeline advances; a tick between commit and adoption | each pins a different edge or frame position | keep all |
+| Saved files reach the running game | the 5 of `edit_to_play_through_the_shell.rs` | the content watch not playing a saved file; boss tuning and boss art keys not reloading; a local timeline crossed instead of rebased; a script and its content publishing apart | boss tuning against boss art keys: two files of one catalog fragment, each with its own consumer | keep all |
+
+**Result:** 0 removals, 0 merges. Step 5's non-Smash half (the two-room,
+island-rewind and reload modules) is read. The hosted-Smash half waits on the
+music environment: a Smash match start waits for entry music on this VM.
 
 ## Protect these behaviors throughout the campaign
 

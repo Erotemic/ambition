@@ -165,6 +165,21 @@ ownership assertions, with less duplicate construction and polling code.
 cargo test -p ambition_app --test app_it -- versus_stage::
 ```
 
+**Done 2026-11-21.** `versus_stage.rs` is 2,906 lines (from 3,181), still 32
+tests. Each helper waits on one named fact:
+- `go_to_versus`: the launcher's command.
+- `enter_the_arena`: the arena is the live room.
+- `wait_for_seats(n)`: n bodies are seated.
+- `enter_a_live_round`: the arena, then `MatchPhase::Fighting`.
+- `seat(n)`: the body in seat n.
+
+Twelve tests waited on the room, twelve on a seat count; each keeps the fact
+it waited on. The tests that observe the roster, or the moment before the
+round, still poll for those facts themselves. The copied waits broke out of
+their loops without asserting, so a route that never activated would have
+failed later as a countdown that never ended. The helpers name the fact
+they never saw. `versus_stage::`: 32 passed before and after.
+
 ## Step 3: classify and retire obsolete diagnostics
 
 This is a separate change from Steps 1 and 2. The highest-confidence review

@@ -2061,9 +2061,11 @@ no duplicate Rust reader remains. Report edit-to-test time for the slice.
 **Owner:** [test consolidation action plan](test-suite-consolidation-action-plan-2026-10-26.md)
 and [test corpus evidence](test-corpus-static-audit-findings-2026-10-26.md).
 
-**Selected next action:** reduce duplicated Smash/Versus fixture setup while
-preserving distinct behavior witnesses, phase boundaries and negative controls.
-Remove obsolete diagnostics only after checking their actual callers. Use
+**Selected next action:** Step 3 of the action plan: classify and retire
+obsolete diagnostics, after checking their actual callers. Steps 1 and 2 are
+done: the Smash setup is shared (2026-11-14), and the Versus setup was
+consolidated on 2026-11-21. The Versus waits are named by the fact each one
+observes; 32 passed before and after. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 

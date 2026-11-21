@@ -83,6 +83,57 @@ fn settle_into_a_live_round(app: &mut App) {
     );
 }
 
+/// Choose versus from the launcher, the way the launcher's entry does.
+fn go_to_versus(app: &mut App) {
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+}
+
+/// Choose versus and step until its arena is the live room. Preparation is a
+/// transaction with a load barrier, so it takes frames. This is the stage
+/// existing, not the round being fought: see [`enter_a_live_round`].
+fn enter_the_arena(app: &mut App) {
+    go_to_versus(app);
+    for _ in 0..900 {
+        app.update();
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
+        {
+            return;
+        }
+    }
+    panic!("the versus route never activated its arena");
+}
+
+/// Choose versus and step until its first round is LIVE.
+fn enter_a_live_round(app: &mut App) {
+    enter_the_arena(app);
+    settle_into_a_live_round(app);
+}
+
+/// Step until the stage has seated `n` bodies.
+fn wait_for_seats(app: &mut App, n: usize) {
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::versus_match::MatchSeat>();
+        if q.iter(world).count() == n {
+            return;
+        }
+    }
+    panic!("the versus stage never seated {n} bodies");
+}
+
+/// The body in match seat `n`.
+fn seat(app: &mut App, n: usize) -> Entity {
+    let world = app.world_mut();
+    let mut q = world.query::<(Entity, &ambition_platformer2d::versus_match::MatchSeat)>();
+    q.iter(world)
+        .find(|(_, seat)| seat.0 == n)
+        .map(|(entity, _)| entity)
+        .unwrap_or_else(|| panic!("the stage seats no body in seat {n}"))
+}
+
 /// The route exists in the shipped host's route table.
 ///
 /// A launcher entry nobody registered is the failure this catches: the versus
@@ -108,8 +159,7 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
     let mut app = versus_app();
     settle_to_launcher(&mut app);
     // The same command the launcher issues when somebody picks the entry.
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    go_to_versus(&mut app);
 
     // Preparation is a transaction with a load barrier; it takes frames.
     let mut active_room = None;
@@ -161,8 +211,7 @@ fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    go_to_versus(&mut app);
     for _ in 0..300 {
         app.update();
         if app
@@ -218,17 +267,7 @@ fn two_controllers_make_versus_a_two_player_game() {
     let pad_one = app.world_mut().spawn(Gamepad::default()).id();
     let pad_two = app.world_mut().spawn(Gamepad::default()).id();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
     // Two HUMAN seats, one per controller.
     let world = app.world_mut();
@@ -316,17 +355,7 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
     // The CPU opponent, named by its SEAT.
     //
@@ -380,17 +409,7 @@ fn both_fighters_can_actually_hit_each_other() {
     let pad_one = app.world_mut().spawn(Gamepad::default()).id();
     let pad_two = app.world_mut().spawn(Gamepad::default()).id();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
     let world = app.world_mut();
     let mut drivers = world.query::<(Entity, &DrivingParticipant)>();
@@ -475,17 +494,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
     let seats = |app: &mut App| -> Vec<(usize, Entity)> {
         let world = app.world_mut();
@@ -608,31 +617,13 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
 #[test]
 fn the_cpu_opponent_is_not_a_statue() {
     use ambition_platformer2d::engine_core::BodyKinematics;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
     // No gamepads were connected, so seat 1 is the CPU.
-    let cpu = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("the versus stage seats an opponent")
-    };
+    let cpu = seat(&mut app, 1);
     assert!(
         app.world()
             .get::<ambition_platformer2d::characters::brain::Brain>(cpu)
@@ -685,30 +676,12 @@ fn the_cpu_opponent_is_not_a_statue() {
 fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
-    let seat_zero = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the stage seats a player")
-    };
+    let seat_zero = seat(&mut app, 0);
     let where_it_stood = app.world().get::<BodyKinematics>(seat_zero).unwrap().pos;
 
     // A REAL lethal hit, through the real damage path. Writing health to zero
@@ -787,8 +760,7 @@ fn returning_to_versus_starts_a_fresh_match() {
     let mut app = versus_app();
     settle_to_launcher(&mut app);
     let enter = |app: &mut App| {
-        app.world_mut()
-            .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+        go_to_versus(app);
         // Wait for the ROSTER, not for seated bodies: the previous match's
         // bodies can still be around while the route is switching, so a seat
         // count breaks the loop before re-entry has happened at all.
@@ -807,14 +779,7 @@ fn returning_to_versus_starts_a_fresh_match() {
     enter(&mut app);
 
     // Win a round, then walk out mid-match.
-    let seat_one = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("two seats")
-    };
+    let seat_one = seat(&mut app, 1);
     app.world_mut()
         .get_mut::<BodyHealth>(seat_one)
         .unwrap()
@@ -902,20 +867,11 @@ fn returning_to_versus_starts_a_fresh_match() {
 #[test]
 fn a_knockout_freezes_the_fight_until_the_next_round() {
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     settle_into_a_live_round(&mut app);
     let scale = |app: &App| {
         app.world()
@@ -927,14 +883,7 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
         "the fight was already frozen before anybody was knocked out"
     );
 
-    let seat_one = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("two seats")
-    };
+    let seat_one = seat(&mut app, 1);
     app.world_mut()
         .get_mut::<BodyHealth>(seat_one)
         .unwrap()
@@ -1015,29 +964,12 @@ fn a_decided_round_takes_the_controls_away() {
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::control::ActorControl;
     use ambition_platformer2d::characters::control::ControlHolds;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     settle_into_a_live_round(&mut app);
-    let seat = |app: &mut App, want: usize| -> Entity {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == want)
-            .map(|(entity, _)| entity)
-            .expect("both seats are filled")
-    };
     // Seat 1 is the CPU with no second pad connected; seat 0 is the human.
     let cpu = seat(&mut app, 1);
     let human = seat(&mut app, 0);
@@ -1131,7 +1063,6 @@ fn a_decided_round_takes_the_controls_away() {
 #[test]
 fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     /// Stands in for `BallDash::charge` — provider-owned, transient, and the
     /// kind of state a generic reset cannot name.
@@ -1148,25 +1079,10 @@ fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
         },
     );
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     settle_into_a_live_round(&mut app);
-    let seat_one = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("two seats")
-    };
+    let seat_one = seat(&mut app, 1);
 
     app.world_mut()
         .entity_mut(seat_one)
@@ -1222,21 +1138,12 @@ fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
 fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
     use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_platformer2d::versus_match::MatchSeat;
     let (seat_0_slot, seat_1_slot) = (HEALTH_HUD_SLOTS[0], HEALTH_HUD_SLOTS[1]);
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     settle_into_a_live_round(&mut app);
 
     let fill = |app: &App, slot: &str| -> Option<f32> {
@@ -1254,14 +1161,7 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
     assert_eq!(fill(&app, seat_1_slot), Some(1.0));
 
     // Hurt seat 1 and watch its bar, and only its bar, move.
-    let seat_one = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("two seats")
-    };
+    let seat_one = seat(&mut app, 1);
     {
         let mut health = app.world_mut().get_mut::<BodyHealth>(seat_one).unwrap();
         let max = health.health.max;
@@ -1302,16 +1202,8 @@ fn every_seated_fighter_has_something_on_screen() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     for _ in 0..60 {
         app.update();
     }
@@ -1366,16 +1258,8 @@ fn four_controllers_make_versus_a_two_versus_two() {
         app.world_mut().spawn(Gamepad::default());
     }
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 4 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 4);
     settle_into_a_live_round(&mut app);
 
     let world = app.world_mut();
@@ -1462,16 +1346,8 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
         .map(|_| app.world_mut().spawn(Gamepad::default()).id())
         .collect();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 4 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 4);
     settle_into_a_live_round(&mut app);
 
     let bodies = |app: &mut App| -> Vec<(usize, Entity)> {
@@ -1564,16 +1440,8 @@ fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
         app.world_mut().spawn(Gamepad::default());
     }
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 4 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 4);
     settle_into_a_live_round(&mut app);
 
     // FOUR gauges, four distinct fills. Reading the fills rather than the slot
@@ -1643,16 +1511,8 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     settle_into_a_live_round(&mut app);
 
     let (seat_zero, seat_one) = {
@@ -1793,16 +1653,8 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     settle_into_a_live_round(&mut app);
     // The match must actually be running, or this sweeps a stage that never
     // started and every resource is trivially unchanged.
@@ -1880,20 +1732,11 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
 #[test]
 fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     settle_into_a_live_round(&mut app);
     let target = |app: &App| {
         app.world()
@@ -1905,14 +1748,7 @@ fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
         "the fight was already being asked to stop before anybody was knocked out"
     );
 
-    let seat_one = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("two seats")
-    };
+    let seat_one = seat(&mut app, 1);
     app.world_mut()
         .get_mut::<BodyHealth>(seat_one)
         .unwrap()
@@ -1953,8 +1789,7 @@ fn the_round_counter_counts_rounds_and_not_wins() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    go_to_versus(&mut app);
     let round_one = ambition_app::app::versus_rules::versus_text().fill("announce.round", &[("number", &1)]);
     let mut opened_with_a_card = false;
     for _ in 0..900 {
@@ -2025,30 +1860,14 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
     use ambition_platformer2d::combat::hurtbox_resolution::{
         AuthoredHurtboxes, HurtboxSelection, ResolvedHurtboxes,
     };
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        let world = app.world_mut();
-        let mut q = world.query::<&MatchSeat>();
-        if q.iter(world).count() == 2 {
-            break;
-        }
-    }
+    go_to_versus(&mut app);
+    wait_for_seats(&mut app, 2);
     settle_into_a_live_round(&mut app);
 
-    let seat_zero = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("two seats")
-    };
+    let seat_zero = seat(&mut app, 0);
 
     // The document reached the body. Without this the next assertion could pass
     // on the sprite-derived fallback and prove nothing about authoring.
@@ -2137,16 +1956,7 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
     let mut app = versus_app();
     let pad = app.world_mut().spawn(Gamepad::default()).id();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
+    enter_the_arena(&mut app);
     // Deliberately NOT `settle_into_a_live_round` — the count is the subject.
     for _ in 0..30 {
         app.update();
@@ -2216,30 +2026,12 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
 fn a_fighter_knocked_off_the_stage_loses_the_round() {
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
-    let seat_one = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("the stage seats an opponent")
-    };
+    let seat_one = seat(&mut app, 1);
     assert!(
         app.world().get::<BodyHealth>(seat_one).unwrap().current() > 0,
         "seat 1 is already down before the round started; this measures nothing"
@@ -2295,30 +2087,12 @@ fn a_fighter_knocked_off_the_stage_loses_the_round() {
 fn a_fighter_thrown_off_the_side_loses_the_round() {
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
-    let seat_one = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("the stage seats an opponent")
-    };
+    let seat_one = seat(&mut app, 1);
     assert!(app.world().get::<BodyHealth>(seat_one).unwrap().current() > 0);
 
     // Parked 180px past the right edge of a 960px stage — beyond the 160px side
@@ -2379,30 +2153,12 @@ fn a_fighter_thrown_off_the_side_loses_the_round() {
 fn a_knockout_is_announced_in_the_losers_own_voice() {
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::engine_core::BodyKinematics;
-    use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
 
-    let seat_one = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 1)
-            .map(|(entity, _)| entity)
-            .expect("the stage seats an opponent")
-    };
+    let seat_one = seat(&mut app, 1);
 
     // Off the right of the stage, past the 160px side margin, high inside the
     // world so only the side zone can score it.
@@ -2455,25 +2211,8 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
     // a person hears about themselves.
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
-    let seat_zero = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat)>();
-        q.iter(world)
-            .find(|(_, seat)| seat.0 == 0)
-            .map(|(entity, _)| entity)
-            .expect("the stage seats a fighter in slot zero")
-    };
+    enter_a_live_round(&mut app);
+    let seat_zero = seat(&mut app, 0);
     let where_it_stood = app.world().get::<BodyKinematics>(seat_zero).unwrap().pos;
     let hp = app.world().get::<BodyHealth>(seat_zero).unwrap().current();
     let volume: ambition_platformer2d::engine_core::CombatVolume =
@@ -2558,8 +2297,7 @@ fn a_round_boundary_culls_round_scoped_entities_the_rules_never_name() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    go_to_versus(&mut app);
     settle_into_a_live_round(&mut app);
 
     let round = app
@@ -2623,8 +2361,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    go_to_versus(&mut app);
     for _ in 0..900 {
         app.update();
         let seated = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
@@ -2973,8 +2710,7 @@ fn the_roster_arm_writes_the_scoreboard_before_the_timeline_starts() {
     eprintln!("PROBE routes in the shipped host: {routes:?}");
     let cursor = report_roster_arm(&app, "launcher", 0);
 
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    go_to_versus(&mut app);
     for _ in 0..900 {
         app.update();
         if versus_roster_is_ours(&app) {
@@ -3000,8 +2736,7 @@ fn the_roster_arm_writes_the_scoreboard_before_the_timeline_starts() {
     }
     let cursor = report_roster_arm(&app, "quit to home", cursor);
 
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    go_to_versus(&mut app);
     for _ in 0..900 {
         app.update();
         if versus_roster_is_ours(&app) {
@@ -3092,17 +2827,7 @@ fn a_duelist_in_hitstun_is_hit_through_its_authored_hitstun_box() {
     let _pad_one = app.world_mut().spawn(Gamepad::default()).id();
     let pad_two = app.world_mut().spawn(Gamepad::default()).id();
     settle_to_launcher(&mut app);
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
-    for _ in 0..900 {
-        app.update();
-        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
-        {
-            break;
-        }
-    }
-    settle_into_a_live_round(&mut app);
+    enter_a_live_round(&mut app);
     let world = app.world_mut();
     let mut drivers = world.query::<(Entity, &DrivingParticipant)>();
     let mut seated: Vec<(u8, Entity)> = drivers

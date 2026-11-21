@@ -48,6 +48,7 @@ use rhai::{Dynamic, Map};
 
 /// The phases a declaration may name.
 const PHASES: &[Phase] = &[
+    ambition_extension_sdk::phases::CAMERA_POLICY,
     ambition_extension_sdk::phases::TECHNIQUE_EXECUTION,
     ambition_extension_sdk::phases::WIELDED_USE,
     ambition_extension_sdk::phases::MODULE_ENTITY_TICK,
@@ -146,7 +147,8 @@ fn schema_of(value: &Dynamic, provider: &str, at: &str) -> Result<StateSchema, S
     let attachment = match optional_text(&table, "attachment", at)?.as_deref() {
         None | Some("body") => Attachment::Body,
         Some("session") => Attachment::Session,
-        Some(other) => return Err(format!("{at}.attachment: expected \"body\" or \"session\", got \"{other}\"")),
+        Some("view") => Attachment::View,
+        Some(other) => return Err(format!("{at}.attachment: expected \"body\", \"session\", or \"view\", got \"{other}\"")),
     };
     let save = match optional_text(&table, "save", at)?.as_deref() {
         None | Some("transient") => SaveEligibility::Transient,

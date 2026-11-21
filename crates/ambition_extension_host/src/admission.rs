@@ -44,7 +44,7 @@ impl SaveRoad {
 }
 
 /// The code of a loaded module file: something that runs entry `entry` of
-/// module `module` from `ambition-ext-2` input bytes and returns output bytes.
+/// module `module` from `ambition-ext-3` input bytes and returns output bytes.
 /// An `Err` is a deterministic fault of that invocation (a trap, fuel run
 /// out), never a reason to skip it on one peer.
 pub trait ModuleBackend: Send + Sync + 'static {
@@ -215,6 +215,7 @@ pub enum Refusal {
     /// The entry's code is not where its module's code is (a loaded entry in
     /// a native module, or the reverse).
     NoCode { entry: String },
+    MixedExecutionDomains(ModuleKey),
 }
 
 impl std::fmt::Display for Refusal {
@@ -230,6 +231,7 @@ impl std::fmt::Display for Refusal {
 /// One admitted entry.
 #[derive(Clone, Debug)]
 pub struct AdmittedEntry {
+    pub module_identity: u64,
     pub module: ModuleKey,
     /// `provider::module/entry`.
     pub path: String,
@@ -354,6 +356,11 @@ pub fn admit_selected(
             continue;
         }
 
+        if module.entries.iter().any(|entry| entry.phase == ambition_extension_sdk::phases::CAMERA_POLICY)
+            && module.entries.iter().any(|entry| entry.phase != ambition_extension_sdk::phases::CAMERA_POLICY) {
+            refusals.push(Refusal::MixedExecutionDomains(module.key.clone()));
+            continue;
+        }
         for schema in &module.schemas {
             if let Some(refusal) = schema_refusal(module, schema, roads) {
                 refusals.push(refusal);
@@ -385,6 +392,12 @@ pub fn admit_selected(
             entry_keys.push(&entry.key);
             refusals.extend(entry_port_refusals(&path, entry, offers));
             for key in &entry.writes {
+                if let Some(schema) = module.schemas.iter().find(|s| s.key == *key) {
+                    let view = entry.phase == ambition_extension_sdk::phases::CAMERA_POLICY;
+                    if view != (schema.attachment == Attachment::View) {
+                        refusals.push(Refusal::UnsupportedPolicy { schema: key.clone(), policy: "state clock domain differs from entry clock domain".into() });
+                    }
+                }
                 if !module.schemas.iter().any(|s| s.key == *key) {
                     refusals.push(Refusal::UndeclaredState {
                         entry: path.clone(),
@@ -415,6 +428,7 @@ pub fn admit_selected(
                 }
             };
             entries.push(AdmittedEntry {
+                module_identity: module.identity_digest(),
                 module: module.key.clone(),
                 path,
                 descriptor: entry.clone(),
@@ -446,12 +460,12 @@ pub fn admit_selected(
 
     let mut d = Digest::new();
     d.u16(host_api.major).u16(host_api.minor);
-    d.u32(declared.len() as u32);
-    for module in &declared {
-        d.u64(module.descriptor.identity_digest());
-    }
-    d.u32(offers.len() as u32);
-    for offer in offers {
+    let simulation: Vec<_> = declared.iter().filter(|module| !module.descriptor.is_presentation()).collect();
+    d.u32(simulation.len() as u32);
+    for module in simulation { d.u64(module.descriptor.identity_digest()); }
+    let simulation: Vec<_> = offers.iter().filter(|offer| offer.phase != ambition_extension_sdk::phases::CAMERA_POLICY).collect();
+    d.u32(simulation.len() as u32);
+    for offer in simulation {
         d.str(&offer.key.name)
             .u16(offer.key.version)
             .u8(role_code(offer.role))

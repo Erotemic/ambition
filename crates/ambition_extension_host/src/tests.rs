@@ -732,7 +732,7 @@ fn a_hand_driven_app_is_admitted_on_its_first_tick_and_a_second_finish_is_harmle
     assert_eq!(app.world().resource::<Lowered>().0.len(), 2);
 }
 
-/// The guest half of `ambition-ext-2`, run in this process: the same bytes a
+/// The guest half of `ambition-ext-3`, run in this process: the same bytes a
 /// WebAssembly module would receive and return, without an interpreter.
 struct InProcess(Vec<ModuleDescriptor>);
 
@@ -1687,4 +1687,89 @@ fn private_behavior_records_share_a_subject_without_sharing_state_or_receipts() 
     queue(&mut app, second, 4, 5);
     run_phase(PHASE)(app.world_mut());
     assert!(app.world().resource::<ExtensionOutbox>().is_empty());
+}
+
+ambition_extension_sdk::record! {
+    struct ViewCounter = SchemaKey::new("test","view_counter",1), per view;
+    1 frames: u32,
+    2 elapsed: f32,
+}
+
+#[test]
+fn view_invocations_use_presentation_time_and_commit_only_valid_output() {
+    fn view(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+        assert_eq!(inv.tick(), None);
+        let frame = inv.frame().expect("presentation frame");
+        let mut state = ViewCounter::load(inv)?;
+        state.frames += 1;
+        state.elapsed += inv.dt() * *inv.observe::<Height>()?;
+        state.store(inv)?;
+        inv.submit::<Emit>((frame as u32, state.frames, state.elapsed))
+    }
+    let mut descriptor = entry("view", vec![]);
+    descriptor.phase = ambition_extension_sdk::phases::CAMERA_POLICY;
+    descriptor.reads = vec![Height::KEY];
+    descriptor.writes = vec![ViewCounter::KEY];
+    descriptor.run = EntryCode::Native(view);
+    let mut definition = module(vec![descriptor]);
+    definition.schemas = vec![ViewCounter::schema()];
+    let mut app = App::new();
+    app.add_plugins(ExtensionHostPlugin::new(Update));
+    app.install_view_policy_ports::<Poke, Emit>("test")
+        .install_view_policy_observation::<Height>("test", |world, view| {
+            world.get::<Tall>(view).map(|height| height.0)
+        })
+        .add_extension_module(definition);
+    app.finish();
+    app.update();
+    let view = app
+        .world_mut()
+        .spawn((ViewObservations::default(), Tall(2.0)))
+        .id();
+    collect_view_observations(app.world_mut());
+    let observations = &app.world().get::<ViewObservations>(view).unwrap().0;
+    let admitted = app.world().resource::<AdmittedExtensions>();
+    let codecs = app.world().resource::<InstalledPortCodecs>();
+    let mut records = ViewRecords::default();
+    let first = invoke_view_policy::<Poke, Emit>(
+        &admitted.0,
+        codecs,
+        "test::counter/view",
+        42,
+        0.25,
+        &0,
+        observations,
+        &mut records,
+        |_| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(first, (42, 1, 0.5));
+    let before = records.clone();
+    assert!(invoke_view_policy::<Poke, Emit>(
+        &admitted.0,
+        codecs,
+        "test::counter/view",
+        43,
+        0.25,
+        &0,
+        observations,
+        &mut records,
+        |_| Err(Fault::Module("refused".into()))
+    )
+    .is_err());
+    assert_eq!(records, before);
+    let next = invoke_view_policy::<Poke, Emit>(
+        &admitted.0,
+        codecs,
+        "test::counter/view",
+        44,
+        0.5,
+        &0,
+        observations,
+        &mut records,
+        |_| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(next, (44, 2, 1.5));
+    assert!(!app.world().contains_resource::<SimTick>());
 }

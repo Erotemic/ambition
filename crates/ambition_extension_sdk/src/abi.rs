@@ -1,4 +1,4 @@
-//! The loaded-module ABI, `ambition-ext-2`: the bytes a host and a guest
+//! The loaded-module ABI, `ambition-ext-3`: the bytes a host and a guest
 //! exchange, and the guest half that runs an entry from them.
 //!
 //! A guest exports three functions and its linear memory:
@@ -14,7 +14,8 @@
 //! state that lasts is in the records the host gives and takes back.
 //! [`export_modules!`](crate::export_modules) writes the exports.
 //!
-//! Input (host → guest): tick `u64`; dt `f32`; occurrence `opt u32`; trigger port and
+//! Input (host → guest): clock domain `u8`, tick or frame `u64`, dt `f32`;
+//! occurrence `opt u32`; trigger port and
 //! bytes; observations `[(port, bytes)]`; state `[(schema key, record)]`.
 //! Output (guest → host): `0` then state `[(schema key, record)]` and
 //! requests `[(port, bytes)]`; or `1` then a fault message.
@@ -27,7 +28,7 @@ use crate::wire::{self, WireReader, WireError};
 use crate::{Fault, Invocation};
 
 /// The ABI name a loaded module's code identity records.
-pub const ABI: &str = "ambition-ext-2";
+pub const ABI: &str = "ambition-ext-3";
 
 /// The module list a guest publishes.
 pub fn describe(modules: &[ModuleDescriptor]) -> Vec<u8> {
@@ -51,8 +52,7 @@ pub fn read_description(bytes: &[u8]) -> Result<Vec<ModuleDescriptor>, WireError
 
 /// One invocation's input, as the host holds it.
 pub struct InvocationInput<'a> {
-    pub tick: u64,
-    pub dt: f32,
+    pub clock: crate::InvocationClock,
     pub occurrence: Option<u32>,
     pub trigger_port: &'a PortKey,
     pub trigger: &'a [u8],
@@ -63,8 +63,7 @@ pub struct InvocationInput<'a> {
 impl InvocationInput<'_> {
     pub fn encode(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        wire::put_u64(&mut out, self.tick);
-        wire::put_f32(&mut out, self.dt);
+        self.clock.put(&mut out);
         wire::put_opt(&mut out, self.occurrence, wire::put_u32);
         self.trigger_port.put(&mut out);
         wire::put_bytes(&mut out, self.trigger);
@@ -190,8 +189,7 @@ fn invoke_run(
 
     let mut r = WireReader::new(input);
     let decoded = (|| -> Result<_, WireError> {
-        let tick = r.u64()?;
-        let dt = r.f32()?;
+        let clock = crate::InvocationClock::read(&mut r)?;
         let occurrence = r.opt(WireReader::u32)?;
         let trigger_port = PortKey::read(&mut r)?;
         let trigger = r.bytes()?;
@@ -217,16 +215,15 @@ fn invoke_run(
             state.push((key, wire::decode_all(bytes, |r| schema.read_record(r))?));
         }
         r.finish()?;
-        Ok((tick, dt, occurrence, trigger_port, trigger, observations, state))
+        Ok((clock, occurrence, trigger_port, trigger, observations, state))
     })()
     .map_err(|e| format!("the invocation input does not decode: {e}"))?;
-    let (tick, dt, occurrence, trigger_port, trigger, observations, mut state) = decoded;
+    let (clock, occurrence, trigger_port, trigger, observations, mut state) = decoded;
 
     let mut requests: Vec<StagedRequest> = Vec::new();
     let mut call = Invocation::from_host(HostParts {
         entry: descriptor,
-        tick,
-        dt,
+        clock,
         occurrence,
         trigger_port: &trigger_port,
         trigger: Payload::Wire(trigger),
@@ -255,7 +252,7 @@ fn invoke_run(
     Ok(out)
 }
 
-/// Write the `ambition-ext-2` exports for a function that lists this
+/// Write the `ambition-ext-3` exports for a function that lists this
 /// crate's modules. It expands to nothing except on `wasm32`.
 ///
 /// ```ignore

@@ -89,7 +89,7 @@ flag or choose another action. Handler delivery and native action application
 are separate facts.
 
 SDK API 0.4 includes static reply dependencies. The loaded descriptor format
-is `ambition-ext-2`; rebuild portable module files with this SDK. The history
+is `ambition-ext-3`; rebuild portable module files with this SDK. The history
 observation is version 4. Cancellation is version 3 because its ticket also
 carries the optional allocation room. There is no old descriptor decoder.
 

@@ -42,13 +42,13 @@ pub use admission::{
     ModuleBackend, ModuleCode, ModuleImplementation, ModuleSelections, PortOffer, Refusal, SaveRoad,
 };
 pub use exec::{
-    run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink,
+    collect_view_observations, ViewObservations, ViewSupplier, invoke_view_policy, run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink,
     InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick, InTechniqueExecution,
     InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn, PendingInvocation, ScopePace,
     Submitted, Supplier, ObservationContext, ExtensionProfile, EntryProfile,
     InvocationScope, InvocationReceipt, InvocationEvent, ActionRefusalHandler,
 };
-pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
+pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord, ViewRecords};
 
 /// The host-owned steps of one phase. The composition places them in
 /// its schedule; the host chains them.
@@ -138,7 +138,7 @@ impl ExtensionGeneration {
         let mut generation = Self::of(declared);
         let (active, _) = admission::resolve_replacements(declared, selections, &mut Vec::new());
         for key in selections.0.keys() {
-            if let Some(module) = active.iter().find(|module| module.descriptor.key == *key) {
+            if let Some(module) = active.iter().find(|module| module.descriptor.key == *key && !module.descriptor.is_presentation()) {
                 generation.0.push_str(&format!("selection\t{key}\t{:016x}\n", module.descriptor.identity_digest()));
             }
         }
@@ -150,6 +150,7 @@ impl ExtensionGeneration {
         let mut out = String::new();
         for module in declared {
             let d = &module.descriptor;
+            if d.is_presentation() { continue; }
             let code = match &d.code {
                 CodeIdentity::StaticNative {
                     crate_name,
@@ -187,6 +188,7 @@ struct ExtensionInstallation {
     save_roads: BTreeSet<SaveRoad>,
     suppliers:
         HashMap<ambition_extension_sdk::PortKey, (Supplier, ambition_extension_sdk::EncodeFn)>,
+    view_suppliers: HashMap<ambition_extension_sdk::PortKey, (ViewSupplier, ambition_extension_sdk::EncodeFn)>,
     request_codecs: HashMap<ambition_extension_sdk::PortKey, exec::RequestCodec>,
     refuse_action: Option<ActionRefusalHandler>,
     modules: Vec<DeclaredModule>,
@@ -303,6 +305,7 @@ pub fn admit_world(world: &mut World) {
     world.init_resource::<reload::StagedModuleReplacement>();
     world.insert_resource(InstalledPortCodecs {
         suppliers: Arc::new(installation.suppliers),
+        view_suppliers: Arc::new(installation.view_suppliers),
         request_codecs: Arc::new(installation.request_codecs),
         refuse_action: installation.refuse_action,
     });
@@ -319,6 +322,12 @@ pub trait ExtensionAppExt {
 
     /// Install the native owner of preparation and cost refusal outcomes.
     fn install_action_refusal_handler(&mut self, handler: ActionRefusalHandler) -> &mut Self;
+
+    /// Install the typed ports of an inline, per-view presentation adapter.
+    fn install_view_policy_ports<P: Port, R: Port>(&mut self, owner: &'static str) -> &mut Self;
+
+    /// Install a native read projection for a view. It cannot mutate gameplay.
+    fn install_view_policy_observation<P: Port>(&mut self, owner: &'static str, supplier: fn(&World, Entity)->Option<P::Value>) -> &mut Self;
 
     /// Install trigger port `P` in `phase`, with the adapter system that
     /// queues its invocations. The system runs in `ExtensionSet::Collect`.
@@ -601,6 +610,22 @@ impl ExtensionAppExt for App {
 
     fn has_extension_host(&self) -> bool {
         self.world().contains_resource::<ExtensionSchedule>()
+    }
+
+    fn install_view_policy_ports<P: Port, R: Port>(&mut self, owner: &'static str) -> &mut Self {
+        let (_, mut installation) = installation(self);
+        let phase = ambition_extension_sdk::phases::CAMERA_POLICY;
+        installation.offers.push(offer::<P>(PortRole::Trigger, phase.clone(), owner));
+        installation.offers.push(offer::<R>(PortRole::Request, phase, owner));
+        installation.request_codecs.insert(R::KEY, exec::RequestCodec::of::<R>());
+        self
+    }
+
+    fn install_view_policy_observation<P: Port>(&mut self, owner: &'static str, supplier: fn(&World, Entity)->Option<P::Value>) -> &mut Self {
+        let (_,mut installation)=installation(self);
+        installation.offers.push(offer::<P>(PortRole::Observation, ambition_extension_sdk::phases::CAMERA_POLICY, owner));
+        installation.view_suppliers.insert(P::KEY,(Arc::new(move |world,view|supplier(world,view).map(|value|Box::new(value) as Box<dyn std::any::Any+Send+Sync>)),ambition_extension_sdk::encode_erased::<P>));
+        self
     }
 
     fn install_extension_trigger<P: Port, M>(

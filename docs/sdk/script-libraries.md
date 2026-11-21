@@ -96,7 +96,7 @@ are 64 libraries, 1 MiB of total source, and 32 import levels. Runtime imports
 are bounded at 128 per invocation. `LibraryLimits` exposes these limits to
 host composition; the operation limit remains a separate preparation input.
 
-The loaded-code ABI is `rhai-f32-exact/4`. Code identity includes entry text
+The loaded-code ABI is `rhai-f32-exact/5`. Code identity includes entry text
 and every reachable library's ID and text, in stable order. Script-visible source names are `entry` and the bundle-relative library IDs.
 Host diagnostic paths are excluded from script input and code identity. A helper edit therefore changes each dependent module's code
 identity.

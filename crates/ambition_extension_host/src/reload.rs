@@ -104,6 +104,8 @@ pub fn stage_module_changes(
     let composition = world
         .get_resource::<ExtensionComposition>()
         .ok_or("the extension host has not admitted a composition yet")?;
+    let changed_views_only = artifacts.iter().all(|artifact| artifact.modules.iter().all(ModuleDescriptor::is_presentation))
+        && removed.iter().all(|artifact| composition.declared.iter().filter(|module| matches!(&module.code, ModuleCode::Loaded { artifact: was, .. } if was == artifact)).all(|module| module.descriptor.is_presentation()));
     let current = world
         .get_resource::<AdmittedExtensions>()
         .ok_or("the extension host has not admitted a composition yet")?
@@ -172,6 +174,7 @@ pub fn stage_module_changes(
     // Field tags keep compatible values at publication. A different kind on
     // the same tag would replace live values with defaults, so it is refused.
     for (key, schema) in &candidate.schemas {
+        if schema.schema.attachment == ambition_extension_sdk::Attachment::View { continue; }
         if let Some(live) = current.schemas.get(key) {
             if let Some(reason) = crate::save::schema_migration_refusal(&schema.schema, &live.schema) {
                 return Err(reason);
@@ -179,7 +182,9 @@ pub fn stage_module_changes(
         }
     }
     crate::save::validate_saved_rows(&candidate, saved)?;
+    let presentation_only = changed_views_only && candidate.digest == current.digest;
     world.resource_mut::<StagedModuleReplacement>().candidate = Some((Arc::new(candidate), declared));
+    if presentation_only { publish_staged_replacement(world); }
     Ok(())
 }
 

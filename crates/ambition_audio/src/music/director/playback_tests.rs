@@ -19,7 +19,7 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
     let cue = MusicCueSpec {
         id: "trail".into(), asset_root: "content://library/music".into(),
         bpm: 60.0, beats_per_bar: 4.0, relative_volume: 1.0,
-        sections: [("intro", false), ("song", true)].into_iter().map(|(id, looped)| {
+        sections: [("intro", false), ("song", true), ("later", true)].into_iter().map(|(id, looped)| {
             MusicSectionSpec {
                 id: id.into(), duration_beats: 4.0, looped,
                 sources: ["bed", "tune"].into_iter().map(|layer| MusicLayerSourceSpec {
@@ -30,7 +30,7 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
         layers: ["bed", "tune"].into_iter().enumerate().map(|(slot, id)| {
             MusicLayerSpec { id: id.into(), slot }
         }).collect(),
-        states: ["intro", "song"].into_iter().map(|id| MusicStateSpec {
+        states: ["intro", "song", "later"].into_iter().map(|id| MusicStateSpec {
             id: id.into(), section_id: id.into(), next_state: (id == "intro").then(|| "song".into()),
             gains: ["bed", "tune"].into_iter().map(|layer| MusicLayerGainSpec {
                 layer_id: layer.into(), gain: 1.0,
@@ -122,10 +122,10 @@ fn the_music_watchdog_separates_requests_decoding_backend_gaps_and_explicit_sile
 #[test]
 fn decoding_layers_does_not_consume_the_intro_or_split_their_start() {
     let (mut app, handles) = fixture();
-    for handle in &handles[..handles.len() - 1] { decode(&mut app, handle); }
+    for handle in &handles[1..] { decode(&mut app, handle); }
     for _ in 0..20 { step(&mut app, 0.25); }
     assert_eq!(app.world().resource::<MusicDirectorState>().mode, MusicDirectorMode::Idle);
-    decode(&mut app, handles.last().unwrap());
+    decode(&mut app, &handles[0]);
     step(&mut app, 0.25);
     let director = app.world().resource::<MusicDirectorState>();
     assert_eq!(director.mode, MusicDirectorMode::AdaptiveIntro);
@@ -169,4 +169,33 @@ fn a_held_intro_request_continues_on_real_time_while_the_world_is_paused() {
     });
     for _ in 0..20 { step(&mut app, 0.25); }
     assert_eq!(app.world().resource::<MusicDirectorState>().mode, MusicDirectorMode::AdaptiveIntro);
+}
+
+#[test]
+fn a_slow_later_section_does_not_delay_the_opening_or_start_partial_layers() {
+    let (mut app, handles) = fixture();
+    // Only the opening is decoded. The held intro request must still start.
+    for handle in &handles[..2] { decode(&mut app, handle); }
+    step(&mut app, 0.25);
+    assert_eq!(app.world().resource::<MusicDirectorState>().mode, MusicDirectorMode::AdaptiveIntro);
+    for _ in 0..20 { step(&mut app, 0.25); }
+    assert_eq!(app.world().resource::<MusicDirectorState>().current_section_id.as_deref(), Some("intro"));
+    decode(&mut app, &handles[2]);
+    step(&mut app, 0.25);
+    assert_eq!(app.world().resource::<MusicDirectorState>().current_section_id.as_deref(), Some("intro"));
+    decode(&mut app, &handles[3]);
+    step(&mut app, 0.25);
+    let director = app.world().resource::<MusicDirectorState>();
+    assert_eq!(director.mode, MusicDirectorMode::AdaptiveLoop);
+    assert_eq!(director.current_section_id.as_deref(), Some("song"));
+    assert_eq!(director.seconds_in_mode, 0.0);
+    app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
+        cue_id: "trail".into(), state_id: "later".into(),
+    });
+    decode(&mut app, &handles[4]);
+    for _ in 0..20 { step(&mut app, 0.25); }
+    assert_eq!(app.world().resource::<MusicDirectorState>().current_section_id.as_deref(), Some("song"));
+    decode(&mut app, &handles[5]);
+    for _ in 0..20 { step(&mut app, 0.25); }
+    assert_eq!(app.world().resource::<MusicDirectorState>().current_section_id.as_deref(), Some("later"));
 }

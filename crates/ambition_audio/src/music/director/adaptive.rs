@@ -71,6 +71,7 @@ pub(super) fn drive_adaptive_cue_state(
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
+    decoded: &Assets<KiraAudioSource>,
     channels: &MusicLayerChannels,
     base_music_channel: &AudioChannel<MusicChannel>,
     settings: &MusicMix,
@@ -97,6 +98,11 @@ pub(super) fn drive_adaptive_cue_state(
     } else {
         target_state
     };
+    // Start a section only when all its layers are decoded. Later sections
+    // load in parallel and must not delay the opening or stop the current bank.
+    if !assets.section_ready(provider_id, cue, &target_state.section_id, decoded) {
+        return;
+    }
     if should_restart_adaptive(
         director.active_cue_id.as_deref(),
         director.mode,

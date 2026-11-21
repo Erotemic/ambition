@@ -181,6 +181,41 @@ are in the generated [script port reference](../sdk/script-ports.md); a
 request written as `request("projectile", #{ .. })` is checked where it is
 made, so a misspelt field or a wrong kind names the script's line.
 
+## Camera policies
+
+The native default requires no script. To edit the policy on a built host, load
+the camera-only Rhai example:
+
+```bash
+AMBITION_EXTENSION_MODULES=crates/ambition_world_port/examples/ambition.camera.rhai ./run_game.sh --reuse
+```
+
+The example declares its own module and view record. It selects exclusive
+regions from physical body positions and uses the native composition solver.
+Edit `response_hz`, or add `target_y` to its `camera_intent` request, then save.
+The running view takes the change without replacing gameplay bodies. This
+example supplies an editable policy; it does not implement the native policy's
+spatial blends or swept thin gates.
+
+The same default native Rust policy can run as an independent Wasm artifact:
+
+```bash
+cargo build -p ambition_world_port --example camera_policy --release --target wasm32-unknown-unknown
+AMBITION_EXTENSION_MODULES=target/wasm32-unknown-unknown/release/examples/camera_policy.wasm ./run_game.sh --reuse
+```
+
+Both artifacts replace `ambition::camera/follow`. A level can instead select
+a different admitted entry with its `camera_policy` field. Keep camera modules
+separate from simulation modules to retain camera-only reload. Wasm artifacts
+are generated output and stay outside Git.
+
+Camera entries run once per view on the presentation clock. They read
+`this.frame` and `this.dt`; `this.tick` is absent. View records are transient
+presentation memory, not save flags. A code edit resets those records. A
+fault retains the last valid camera intent without committing record writes.
+See [camera compositions](../systems/camera-and-visual-profiles.md) for
+activation, bounds, transitions, visibility and gameplay-owned observations.
+
 ## Checking an edit
 
 Prefer the actual observed gameplay result and the relevant reload diagnostic.

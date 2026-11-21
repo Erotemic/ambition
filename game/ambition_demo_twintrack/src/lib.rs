@@ -421,6 +421,7 @@ pub fn twintrack_room() -> RoomSpec {
     let mut room = RoomSpec::new(TWINTRACK_ROOM_ID, world);
     room.metadata.mode = Some(TWINTRACK_EXPERIENCE.to_owned());
     room.camera_zones.push(CameraZoneSpec {
+        composition: Default::default(),
         id: "twintrack_open_follow".to_owned(),
         name: "TwinTrack open follow".to_owned(),
         aabb: ae::Aabb::new(LAB_POS, Vec2::splat(OPEN_CAMERA_HALF_SPAN)),

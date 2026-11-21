@@ -8,3 +8,7 @@ description = "Portable world observations and action contracts."
 
 [dependencies]
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+
+[[example]]
+name = "camera_policy"
+crate-type = ["cdylib"]

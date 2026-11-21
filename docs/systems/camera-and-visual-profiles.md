@@ -5,43 +5,121 @@ lowers these fields into typed `CameraZoneSpec` and
 `RoomMetadata::visual_profile` values; simulation geometry does not depend on
 them.
 
-## Camera zones
+## Camera compositions
 
-Place a `CameraZone` entity on the `Ambition` layer. Conversion adds it to
-`RoomSpec::camera_zones`. The supported fields are:
+A `CameraZone` has an activation box and a composition. Its activation box
+selects the view. It does not have to be the box that limits the visible world.
+Place these entities on an entity layer that permits `CameraZone`, such as
+`AmbitionCameras` in Mary-o. Conversion adds them to `RoomSpec::camera_zones`.
+
+The shared resolve has four steps:
+
+1. Select regions from physical body positions. A jump anchor does not change
+   this test. All bodies watched by a shared view can select a region.
+2. Compose the target, zoom, look and bounds from the selected regions or a
+   policy intent.
+3. Move the view toward that composed goal on the presentation clock.
+4. Apply visibility recovery and transition bounds. A room cutscene can then
+   direct this same snapshot. The renderer consumes that director result.
 
 | Field | Meaning |
 | --- | --- |
 | `id`, `name` | Stable ID (LDtk iid when absent) and descriptive name |
-| `priority` | Higher priority wins overlapping zones; ties choose the larger zone |
-| `zoom` or `camera_zoom` | Zoom multiplier; when omitted, the zone's default is `1.15` |
-| `target_offset_x`, `target_offset_y` | Offset from the normal camera target in world units |
-| `easing_hz` | Optional easing-rate override |
-| `cinematic_lock` or `lock_to_zone` | Target the zone center instead of the followed subject |
+| `priority` | Higher priority wins; equal priorities use the ID in lexical order |
+| `selection` | `exclusive` (default), `blend_x`, `blend_y`, or `blend_edge` |
+| `sample` | `center` (default), `feet`, or `full_body` for activation |
+| `enter_margin`, `exit_margin` | Entry inset and exit extension, in world units |
+| `latched` | Keep the selected region until another region wins or the view resets; a continuous crossing can activate a thin region |
+| `blend_width` | Positive spatial blend width, in world units; independent of zoom |
+| `zoom` or `camera_zoom` | View multiplier; default `1.15` |
+| `target_offset_x`, `target_offset_y` | Offset from the normal follow target |
+| `lock_x`, `target_x`; `lock_y`, `target_y` | Fix one target axis |
+| `cinematic_lock` or `lock_to_zone` | Use the activation box center as the target |
+| `tracking` | `follow` (default) or `grounded` |
+| `easing_hz` | Exponential response rate after composition |
+| `transition_seconds` | Optional timed transition on region entry, from the current view |
+| `cut` | Apply the new composition at once |
+| `allow_look` | Allow held look input; default true |
 | `clamp_mode` | `room_bounds` (default), `zone_bounds`, or `none` |
+| `view_bounds` and `view_bounds_min_x/min_y/max_x/max_y` | Enable and set a viewing box separate from activation |
+| `bounds_space` | `footprint` (default) limits the full view; `centers` limits only its center and permits a line or point |
+| `fit` | `center` (default) centers an oversized view; `fit_view` can reduce its size to fit footprint bounds |
+| `transition_bounds` and `transition_bounds_min_x/min_y/max_x/max_y` | Optional parent viewing box during movement between compositions |
+| `visibility` | `recover` (default) protects subject visibility; `preserve_bounds` keeps the authored restriction |
 | `scroll_policy` | `free` (default) or `forward_only_x` (`no_backtrack` alias) |
 
-`forward_only_x` keeps the camera's X target from moving backward while the
-zone remains active. Its high-water mark resets when the zone is left. It
-does not itself stop the player walking left; a game's level rules handle that.
-The implementation lives in
-`ambition_platformer2d_world::rooms::camera` and the LDtk entity converter.
+Portal continuity can apply its chart offset when no director owns the center.
+Shake and finishing zoom remain presentation effects.
 
-`CameraViewState` exposes the selected zone and overlap count for debugging.
-On active-room changes, presentation resets the easing target instead of
-panning through the space separating LDtk room coordinates.
+Timed transitions control the center. Zoom uses the presentation profile's
+zoom-in and zoom-out rates. A cut applies both position and zoom at once.
 
-## Grounded jump framing
+Exclusive selection changes the desired composition at entry. Temporal response
+moves the view to that goal. Spatial selection varies influence with position;
+it must be requested explicitly. Blend weights above one are normalized. Any
+remaining weight uses the room composition. Blend X and Y increase from the
+activation box's minimum edge. Blend edge increases inward from each edge.
 
-A route can set `camera_feel.ease.hold_jump_height` in its presentation
-profiles. Mary-o uses this policy on desktop and touch displays. Each view
-holds its last ground height during a jump, along the subject's down axis.
-Both the follow target and camera-zone blend use that height. A fall below
-that height resumes follow. Landing on a higher surface sets a new height.
-A rise larger than half the view resumes follow to keep the body visible.
+A footprint smaller than the view cannot contain it. `center` centers the view
+on that axis; `fit_view` changes the view size instead. Visibility recovery can
+relax a local composition to keep a subject visible. Use `preserve_bounds`
+when the restriction is part of a discovery gesture. The final parent box still
+limits the view. Author a parent box that contains the intended transition.
 
-The anchor is presentation state. A room change, subject change, or camera
-snap clears or replaces it. Cast and overview framing bypass the policy.
+`grounded` holds the last supported focus during an ordinary jump. It resumes
+follow during a fall or a large rise. This changes tracking only. Activation
+always uses the physical body, including when a platform carries it upward.
+Mary-o authors a low-priority grounded-follow region in each room. Local
+compositions replace it. For a roof with a fixed composition, use an upper activation region and a Y
+lock. Mary-o 1-2 uses this form: entry starts in the air, the transition runs
+for a short duration, and later roof jumps retain the same vertical goal.
+
+`forward_only_x` keeps the X target from moving backward during a visit. Leaving
+the region clears its high-water mark. It does not restrict body movement.
+
+## Native and scripted policy
+
+`ambition_world_port::camera` defines typed `CameraPolicyInput` and
+`CameraIntent` ports. The default policy is `ambition::camera/follow`. The
+LDtk level field `camera_policy` can name another admitted entry. A native
+entry, a Rhai entry, and a Rust-Wasm entry use the same contract and solver.
+
+Input includes stable body IDs, live room identity, physical and presented
+positions, body geometry, viewport and safe area, authored regions, continuity,
+the previous presented center, and the active cutscene director. Output can
+select region weights or supply target, axis locks, zoom, bounds, tracking,
+visibility, response and transition settings. `honor_director` defaults to
+true; an explicit policy can take control during a cutscene.
+
+The host calls a policy once per view per rendered frame. `this.frame` and
+`this.dt` use presentation time, including while gameplay is paused.
+`this.tick` is absent in this domain. Simulation entries have a tick and no
+presentation frame. A view record (`per view` in Rust, `attachment: "view"`
+in Rhai) retires with the view. It is neither saved nor rewound. Room or
+subject changes and placement reset it. Portal chart transit has a separate
+continuity value and does not reset it on each frame. Code replacement resets
+its records without replacing live gameplay.
+
+Gameplay owners can install typed observations with
+`ExtensionAppExt::install_view_policy_observation`. The supplier receives the
+view entity and reads native state. The host collects these facts before any
+view policy runs. A policy must declare each observation port it reads.
+Discovery flags remain with their gameplay owner; a camera record stores only
+presentation memory. Presentation entries can write only view records and can
+submit only ports admitted in the camera phase.
+
+A camera-only code reload does not change `ExtensionGeneration` or rebuild
+the session. Keep camera code in its own artifact. A binary that also changes
+simulation modules uses the normal mechanical reload path. Invalid code keeps
+the admitted code. Invalid output commits neither view records nor intent; the
+view retains its last valid intent and reports the fault.
+
+`CameraPolicyState` exposes the last input, intent, frame and fault per view.
+`CameraEaseState` exposes transition progress and the underlying follow center.
+`ResolvedCameraSnapshot` exposes the composed goal and the presented center.
+Use these values to distinguish selection from response in a headless trace.
+See [iterating without a rebuild](../recipes/iterating-without-a-rebuild.md#camera-policies)
+for runnable Rhai and Wasm examples.
 
 ## Room-level visual fields
 

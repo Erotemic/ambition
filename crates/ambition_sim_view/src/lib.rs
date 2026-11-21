@@ -9,6 +9,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub mod affordances;
 mod anim_index;
 mod attack_vfx_view;
+pub mod camera_policy;
 pub mod camera_snapshot;
 #[cfg(test)]
 mod camera_scenarios;

@@ -1203,7 +1203,95 @@ fn plank_turn(entity: &LdtkEntityInstance) -> Result<Option<ambition_platformer2
 
 pub(super) fn convert_camera_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
+    use ambition_platformer2d_world::rooms::{
+        CameraActivationSample, CameraBoundsSpace, CameraComposition, CameraFit,
+        CameraRegionSelection, CameraTracking, CameraVisibility,
+    };
+    let word = |key: &str| {
+        field_string(entity, key)
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+    };
+    let bounds = |prefix: &str| -> Result<Option<ae::Aabb>, String> {
+        if !field_bool(entity, prefix).unwrap_or(false) {
+            return Ok(None);
+        }
+        let number = |name: &str| {
+            field_f32(entity, &format!("{prefix}_{name}"))
+                .ok_or_else(|| format!("{prefix}_{name} is required"))
+        };
+        let min = ae::Vec2::new(number("min_x")?, number("min_y")?);
+        let max = ae::Vec2::new(number("max_x")?, number("max_y")?);
+        let centers = prefix == "view_bounds" && word("bounds_space") == "centers";
+        if min.x > max.x || min.y > max.y || (!centers && (min.x == max.x || min.y == max.y)) {
+            return Err(format!("{prefix} must have ordered bounds"));
+        }
+        Ok(Some(ae::Aabb {
+            min: min.into(),
+            max: max.into(),
+        }))
+    };
+    let composition = CameraComposition {
+        bounds_space: match word("bounds_space").as_str() {
+            "" | "footprint" => CameraBoundsSpace::Footprint,
+            "centers" => CameraBoundsSpace::Centers,
+            other => return Err(format!("unknown camera bounds space {other}")),
+        },
+        bounds: bounds("view_bounds")?,
+        transition_bounds: bounds("transition_bounds")?,
+        transition_seconds: field_f32(entity, "transition_seconds")
+            .filter(|seconds| *seconds > 0.0),
+        selection: match word("selection").as_str() {
+            "" | "exclusive" => CameraRegionSelection::Exclusive,
+            "blend_x" => CameraRegionSelection::BlendX,
+            "blend_y" => CameraRegionSelection::BlendY,
+            "blend_edge" => CameraRegionSelection::BlendEdge,
+            other => return Err(format!("unknown camera selection {other}")),
+        },
+        sample: match word("sample").as_str() {
+            "" | "center" => CameraActivationSample::Center,
+            "feet" => CameraActivationSample::Feet,
+            "full_body" => CameraActivationSample::FullBody,
+            other => return Err(format!("unknown camera sample {other}")),
+        },
+        tracking: match word("tracking").as_str() {
+            "" | "follow" => CameraTracking::Follow,
+            "grounded" => CameraTracking::Grounded,
+            other => return Err(format!("unknown camera tracking {other}")),
+        },
+        visibility: match word("visibility").as_str() {
+            "" | "recover" => CameraVisibility::Recover,
+            "preserve_bounds" => CameraVisibility::PreserveBounds,
+            other => return Err(format!("unknown camera visibility {other}")),
+        },
+        fit: match word("fit").as_str() {
+            "" | "center" => CameraFit::Center,
+            "fit_view" => CameraFit::FitView,
+            other => return Err(format!("unknown camera fit {other}")),
+        },
+        blend_width: field_f32(entity, "blend_width").unwrap_or(128.0),
+        enter_margin: field_f32(entity, "enter_margin").unwrap_or(0.0),
+        exit_margin: field_f32(entity, "exit_margin").unwrap_or(0.0),
+        latched: field_bool(entity, "latched").unwrap_or(false),
+        target_x: field_bool(entity, "lock_x")
+            .unwrap_or(false)
+            .then(|| field_f32(entity, "target_x"))
+            .flatten(),
+        target_y: field_bool(entity, "lock_y")
+            .unwrap_or(false)
+            .then(|| field_f32(entity, "target_y"))
+            .flatten(),
+        allow_look: field_bool(entity, "allow_look").unwrap_or(true),
+        cut: field_bool(entity, "cut").unwrap_or(false),
+    };
+    if composition.blend_width <= 0.0
+        || composition.enter_margin < 0.0
+        || composition.exit_margin < 0.0
+    {
+        return Err("camera blend width must be positive and margins must be nonnegative".into());
+    }
     Ok(RoomEmission::camera_zone(CameraZoneSpec {
+        composition,
         id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
         name,
         aabb: object_aabb(min, size),

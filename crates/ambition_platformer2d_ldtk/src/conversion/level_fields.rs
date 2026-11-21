@@ -33,6 +33,7 @@ impl LdtkLevel {
         // would put the out-of-bounds line inside the room.
         let take_px = |name: &str| self.field_i32(name).filter(|px| *px >= 0);
         ambition_platformer2d_world::rooms::RoomMetadata {
+            camera_policy: take("camera_policy"),
             biome: take("biome"),
             music_track: take("music_track"),
             fight_music_track: take("fight_music_track"),

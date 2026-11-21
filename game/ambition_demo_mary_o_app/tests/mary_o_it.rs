@@ -62,3 +62,5 @@ mod the_switch_ends_the_castle;
 mod the_laden_swallow_is_a_module;
 mod the_void_lizard_is_a_module;
 mod the_host_omits_only_what_the_game_does_not_use;
+
+mod camera_compositions;

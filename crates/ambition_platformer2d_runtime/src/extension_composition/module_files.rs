@@ -556,6 +556,11 @@ pub fn forget_module_pair_refusal(world: &mut World) {
 /// Ask the timeline's owner to admit the staged modules on their own.
 #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 pub fn propose_staged_modules(world: &mut World) {
+    if !world.resource::<ambition_extension_host::reload::StagedModuleReplacement>().is_staged() {
+        world.resource_mut::<WatchedModuleFiles>().before_staging = None;
+        return;
+    }
+
     world
         .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
         .propose(module_code_domain());

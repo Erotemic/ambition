@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ambition_extension_sdk::abi::{self, InvocationInput, InvocationOutput};
-use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload, StagedRequest};
+use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload};
 use ambition_extension_sdk::{
     encode_erased, DecodeFn, EncodeFn, Fault, Invocation, Name, Phase, Port, PortKey,
     Record, SchemaKey,

@@ -3142,6 +3142,8 @@ fn apply_capture_snapshot(
     } else {
         resolve_follow_camera_snapshot(
             CameraSnapshotResolveInput {
+                policy: None,
+                cutscene: None,
                 world: &world.0,
                 camera_zones: &active_spec.camera_zones,
                 focus: CameraFocus2d {

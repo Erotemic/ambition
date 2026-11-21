@@ -15,6 +15,7 @@ not always Rust items.
 | Admission, serial order, staged writes, fault discard | `ambition_extension_host` (`admission`, `exec`) |
 | Body-attached state | `BodyRecords` (`extension.body_records`), retired with the body |
 | Room story state | Body-attached records on the live room root. Each new room instance has a new root. Joining an existing room retains its root and records. Retirement removes its records and pending observer state. |
+| View-attached state | `ViewRecords` on each local view. Camera entries use presentation frame time. Records retire with the view, reset on code or view-scope changes, and do not enter rollback or saves. |
 | Session-attached state | `SessionRecords` (`extension.session_records`), a required component of `SessionRoot` |
 | Idle ticks | `IdlePolicy::{Invoke, ResetState, ResetStateExcept}` |
 | Schema evolution on reload | `StateSchema::migrate` by field tag; a changed field kind, attachment, or save policy is refused against live and saved schemas |
@@ -44,6 +45,13 @@ The digest is cached outside simulation. Descriptor and generation identity
 include it; semantic declaration comparison excludes it. Browser and Android
 hosts cannot use the process executable for this purpose and report the build
 identity as unavailable. Their artifact loaders still need to supply it.
+
+Camera entries run through the shared executor with `InvocationClock::Presentation`.
+Simulation entries use `InvocationClock::Simulation`. A module contains entries
+from one clock domain. Admission prevents a camera entry from writing body or
+session state. Camera-only replacement publishes without a mechanical session
+rebuild and does not change the gameplay generation identity. See
+[camera compositions](../../systems/camera-and-visual-profiles.md).
 
 ## Saved-row identity validation (new durable-session customer, 2026-10-11)
 

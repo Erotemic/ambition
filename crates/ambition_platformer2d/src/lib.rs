@@ -972,7 +972,7 @@ pub mod extension {
         AdmittedExtensions, BodyRecords, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
         ExtensionHostPlugin, ExtensionSet, ExtensionProfile, EntryProfile, ObservationContext,
         ModuleBackend, ModuleCode, ModuleImplementation, ModuleSelections,
-        SessionRecords,
+        SessionRecords, ViewRecords, ViewObservations,
     };
     pub use ambition_extension_host::{inspect, reload};
     pub use ambition_extension_sdk as sdk;

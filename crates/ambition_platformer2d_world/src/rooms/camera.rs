@@ -33,20 +33,109 @@ impl CameraClampMode {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CameraRegionSelection {
+    #[default]
+    Exclusive,
+    BlendX,
+    BlendY,
+    BlendEdge,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CameraActivationSample {
+    #[default]
+    Center,
+    Feet,
+    FullBody,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CameraTracking {
+    #[default]
+    Follow,
+    Grounded,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CameraVisibility {
+    #[default]
+    Recover,
+    PreserveBounds,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CameraFit {
+    #[default]
+    Center,
+    FitView,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CameraBoundsSpace {
+    #[default]
+    Footprint,
+    Centers,
+}
+
+/// Activation and viewing geometry have separate meanings, even when their boxes coincide.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct CameraComposition {
+    pub bounds: Option<ae::Aabb>,
+    pub bounds_space: CameraBoundsSpace,
+    pub selection: CameraRegionSelection,
+    pub sample: CameraActivationSample,
+    pub blend_width: f32,
+    pub enter_margin: f32,
+    pub exit_margin: f32,
+    pub latched: bool,
+    pub target_x: Option<f32>,
+    pub target_y: Option<f32>,
+    pub tracking: CameraTracking,
+    pub visibility: CameraVisibility,
+    pub fit: CameraFit,
+    pub allow_look: bool,
+    pub cut: bool,
+    pub transition_bounds: Option<ae::Aabb>,
+    pub transition_seconds: Option<f32>,
+}
+impl Default for CameraComposition {
+    fn default() -> Self {
+        Self {
+            bounds: None,
+            bounds_space: Default::default(),
+            selection: Default::default(),
+            sample: Default::default(),
+            blend_width: 128.0,
+            enter_margin: 0.0,
+            exit_margin: 0.0,
+            latched: false,
+            target_x: None,
+            target_y: None,
+            tracking: Default::default(),
+            visibility: Default::default(),
+            fit: Default::default(),
+            allow_look: true,
+            cut: false,
+            transition_bounds: None,
+            transition_seconds: None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CameraZoneSpec {
+    #[serde(default)]
+    pub composition: CameraComposition,
     pub id: String,
     pub name: String,
     pub aabb: ae::Aabb,
     pub priority: i32,
-    /// Requested zoom multiplier while the player overlaps the zone.
-    /// `None` preserves the legacy camera-zone breath-out default.
+    /// Requested zoom multiplier while a watched body activates the region.
+    /// `None` uses the authored default.
     pub zoom: Option<f32>,
     /// World-space target offset applied after normal look-ahead framing.
     pub target_offset: ae::Vec2,
     /// Optional target-easing override, in hertz.
     pub easing_hz: Option<f32>,
-    /// When true, target the zone center instead of the player.
+    /// When true, target the activation box center.
     pub cinematic_lock: bool,
     pub clamp_mode: CameraClampMode,
     #[serde(default)]
@@ -364,6 +453,7 @@ mod scroll_policy_tests {
     #[test]
     fn a_pre_m2_camera_zone_still_parses_and_scrolls_freely() {
         let spec = CameraZoneSpec {
+            composition: Default::default(),
             id: "z".into(),
             name: "z".into(),
             aabb: ae::Aabb::new(ae::Vec2::splat(50.0), ae::Vec2::splat(50.0)),

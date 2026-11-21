@@ -43,6 +43,15 @@ PLATFORM_VISUAL = "super_mary_o_lift"
 # Fields of the engine's `MovingPlatform` that a level here uses and an older
 # copy of the entity definition does not have.
 PLATFORM_FIELDS = ("visual:String:", "one_way:Bool:false")
+CAMERA_FIELDS = (
+    "selection:String:exclusive", "sample:String:center", "blend_width:Float:128", "enter_margin:Float:0", "exit_margin:Float:0",
+    "latched:Bool:false", "tracking:String:follow", "visibility:String:recover", "fit:String:center", "allow_look:Bool:true", "cut:Bool:false",
+    "lock_x:Bool:false", "lock_y:Bool:false", "target_x:Float:0", "target_y:Float:0",
+    "bounds_space:String:footprint",
+    "view_bounds:Bool:false", "view_bounds_min_x:Float:0", "view_bounds_min_y:Float:0", "view_bounds_max_x:Float:0", "view_bounds_max_y:Float:0",
+    "transition_seconds:Float:0",
+    "transition_bounds:Bool:false", "transition_bounds_min_x:Float:0", "transition_bounds_min_y:Float:0", "transition_bounds_max_x:Float:0", "transition_bounds_max_y:Float:0",
+)
 
 ENEMIES = {
     "slop": ("AI Slop", "mary_o_ai_slop", "ai_slop", (28, 28), "s"),
@@ -94,6 +103,11 @@ class Level:
         self.named: list[dict] = []
         self.marks: list[tuple[float, float, str]] = []
         self.counts: dict[str, int] = {}
+        self._entity(
+            "CameraZone", (0, 0), (width * T, height * T),
+            id=f"{area}_follow", name="Grounded Follow", priority=-100,
+            tracking="grounded", zoom=1.0, clamp_mode="room_bounds",
+        )
 
     def up(self, tiles: int) -> int:
         """The row whose top is `tiles` above the top of the floor."""
@@ -322,27 +336,18 @@ class Level:
         for row in range(1, self.height):
             self.marks.append((col + 1, row, "v" if down else "^"))
 
-    def camera_zone(self, ident: str, name: str, row: int, tall: int) -> None:
-        """The camera stays in these rows while the player is in them.
-
-        A body that stands on the top line of the zone is not in it (measured
-        on the roof of 1-2: her feet are on the line at each tick, and a box
-        that touches a zone is not in it)."""
+    def camera_zone(self, ident: str, name: str, row: int, tall: int, **composition) -> None:
+        """Select a composition from this activation box. Viewing bounds can differ."""
         self._entity(
-            "CameraZone",
-            (0, row * T),
-            (self.width * T, tall * T),
-            id=ident,
-            name=name,
-            clamp_mode="zone_bounds",
-            zoom=1.0,
+            "CameraZone", (0, row * T), (self.width * T, tall * T),
+            id=ident, name=name, clamp_mode="zone_bounds", zoom=1.0, **composition,
         )
 
     def arena(self, ident: str, name: str, col: int, wide: int, *, zoom: float = 1.0, down: float = 0.0) -> None:
         """A view that does not move: while the player is in these columns the
         camera looks at their middle, `down` tiles under the middle of the
         height of the level. `zoom` is how much MORE of the level the view
-        shows: 1.2 is a view a fifth wider (the engine does not go under 1)."""
+        shows: 1.2 is a view a fifth wider."""
         self._entity(
             "CameraZone",
             (col * T, 0),
@@ -465,9 +470,22 @@ def ensure_platform_fields() -> None:
         run_tool("def", "update-entity", "MovingPlatform", str(TARGET), *args, "--in-place", "--no-repair")
 
 
+def ensure_camera_fields() -> None:
+    project = json.loads(TARGET.read_text())
+    if not any(field["identifier"] == "camera_policy" for field in project["defs"].get("levelFields", [])):
+        run_tool("level", "add-field-def", "camera_policy", "--type", "String", str(TARGET), "--in-place", "--no-repair")
+    definition = next(d for d in project["defs"]["entities"] if d["identifier"] == "CameraZone")
+    have = {field["identifier"] for field in definition["fieldDefs"]}
+    missing = [spec for spec in CAMERA_FIELDS if spec.split(":")[0] not in have]
+    if missing:
+        args = [arg for spec in missing for arg in ("--add-field", spec)]
+        run_tool("def", "update-entity", "CameraZone", str(TARGET), *args, "--in-place", "--no-repair")
+
+
 def apply(lv: Level) -> None:
     """Replace the level in the LDtk file. The file is checked only at the end: it is whole only then."""
     ensure_platform_fields()
+    ensure_camera_fields()
     with tempfile.TemporaryDirectory() as tmp:
         area = Path(tmp) / f"{lv.area}_area.json"
         area.write_text(json.dumps(lv.area_spec(), indent=2))

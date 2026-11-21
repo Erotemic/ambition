@@ -854,10 +854,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
-    "CutsceneSkipHold": (
-        "crates/ambition_platformer2d_session/src/teardown.rs",
-        "crates/ambition_platformer2d_runtime/src/cutscene.rs",
-    ),
     "DefaultMusicStarted": (
         "crates/ambition_audio/src/library.rs",
         "crates/ambition_platformer2d_audio/src/plugin.rs",
@@ -2465,22 +2461,6 @@ ADJUDICATED: dict[str, str] = {
         "the guest gate has put `PlayerInput`, and the resolver in it, to sleep. "
         "The resolver names seat 0; a guest's subject is the body its `LocalSeat` "
         "drives."
-    ),
-    "CutsceneSkipHold": (
-        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
-        "\"writer\" is not an authority. `tick_active_cutscene` (`cutscene.rs`) is the "
-        "only production system that writes it inside a session; the other file is "
-        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
-        "its default at the session edge. It is rollback-registered "
-        "(`cutscene.skip_hold`) and accumulates from the seat's `cancel_held`, so a "
-        "rewind restores the hold with the tick that grew it. ⭐ 2026-11-11 (ISL-1b): "
-        "a second function in `cutscene.rs` writes it, `retract_room_cutscenes`, the "
-        "room-write retractor registered beside the log. It runs only at a room's "
-        "rewind and puts back the hold `CutscenesInRooms` logged at the saved tick "
-        "(`CutsceneState::restore`), with `ActiveCutscene`: a restore of the owner's "
-        "own earlier value, not a second authority. So the type has left "
-        "`SOLE_IN_SESSION_OWNER`, like `ActiveCutscene`. ⇒ Nothing here is two "
-        "owners of one fact."
     ),
     "ImpactHitstop": (
         "CORRECT — THREE ARMERS THAT SHARE ONE MAX-MERGE, PLUS THE SESSION "
@@ -4440,7 +4420,7 @@ MIN_SESSION_WORLD_TYPES = 4
 #: `ProjectileSeqCounter` three. The green line was corrected and this paragraph
 #: kept the wrong phrasing, twenty lines above the note explaining it. The
 #: thirteen are
-#: (`ActiveCutscene`, `ControlledSubject`, `CutsceneSkipHold`, `EncounterView`,
+#: (`ActiveCutscene`, `ControlledSubject`, `EncounterView`,
 #: `GameplayElapsed`, `LastCutsceneRoom`, `LastQuestRoom`, `LiveMatchTicks`,
 #: `ProjectileSeqCounter`, `SaveRestored`, `SessionMatchOrdinal`,
 #: `StocksMatchSettled`, `SuddenDeathEntered`) — `LastCutsceneRoom` and `LastQuestRoom`

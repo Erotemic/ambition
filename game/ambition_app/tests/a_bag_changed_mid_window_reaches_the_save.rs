@@ -579,8 +579,8 @@ fn trigger_a_cutscene_from_inside_the_sim(
 fn cutscene_beat(sim: &Platformer2dSimHarness) -> Option<(usize, bool)> {
     sim.world()
         .get_resource::<ambition_platformer2d::cutscene::ActiveCutscene>()
-        .and_then(|active| active.runtime.as_ref())
-        .map(|runtime| (runtime.beat_index, runtime.finished))
+        .and_then(|active| active.iter().next())
+        .map(|playing| (playing.runtime.beat_index, playing.runtime.finished))
 }
 
 fn sim_playing_a_cutscene() -> Platformer2dSimHarness {
@@ -679,8 +679,10 @@ fn a_cutscene_dismiss_and_skip_on_the_seats_input_survive_the_rewind_once() {
     hold(&mut sim, 30);
     let partial = sim
         .world()
-        .resource::<ambition_platformer2d::cutscene::CutsceneSkipHold>()
-        .seconds;
+        .resource::<ambition_platformer2d::cutscene::ActiveCutscene>()
+        .iter()
+        .next()
+        .map_or(0.0, |playing| playing.skip_hold);
     assert_eq!(
         (cutscene_beat(&sim), partial),
         (Some((3, false)), 0.0),

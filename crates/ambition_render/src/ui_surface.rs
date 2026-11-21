@@ -30,6 +30,11 @@ pub struct ParticipantSurface<'w, 's> {
 }
 
 impl ParticipantSurface<'_, '_> {
+    /// How many local views the screen shows: 2 or more is a split screen.
+    pub fn view_count(&self) -> usize {
+        self.views.iter().count()
+    }
+
     pub fn display_rect(&self) -> Rect {
         self.presentation.as_deref()
             .map(|p| Rect::from_corners(p.display_rect.min, p.display_rect.max))

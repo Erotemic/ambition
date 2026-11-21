@@ -77,8 +77,8 @@ pub(crate) fn shape_of(row: &ambition_demo_mary_o::rules::Burst) -> (u32, f32, [
 
 fn line_on_screen(app: &App) -> Option<String> {
     let active = app.world().resource::<ambition_platformer2d::cutscene::ActiveCutscene>();
-    let playing = active.runtime.as_ref().is_some_and(|runtime| runtime.script.id == RESCUE_CUTSCENE);
-    playing.then(|| active.presentation.banner.clone().map(|(text, _)| text)).flatten()
+    let playing = active.iter().find(|cutscene| cutscene.script_id() == RESCUE_CUTSCENE)?;
+    playing.presentation.banner.clone().map(|(text, _)| text)
 }
 
 #[test]

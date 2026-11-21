@@ -203,18 +203,16 @@ pub(super) fn update_hud(
     // bar. The debug HUD just notes that one is active so testers
     // can correlate skip-hold state with the floating overlay; the
     // detailed beat content stays out of the debug text line.
-    let cutscene_line = if let Some(rt) = cutscene.runtime.as_ref() {
-        let beat_label = match cutscene.presentation.dialogue.as_ref() {
+    let cutscene_line: String = cutscene.iter().map(|playing| {
+        let beat_label = match playing.presentation.dialogue.as_ref() {
             Some((speaker, _)) => format!("dialogue @ {speaker}"),
-            None => match cutscene.presentation.banner.as_ref() {
+            None => match playing.presentation.banner.as_ref() {
                 Some((_, remaining)) => format!("banner ({remaining:.1}s)"),
-                None => format!("beat {}", rt.beat_index),
+                None => format!("beat {}", playing.runtime.beat_index),
             },
         };
         format!("\nCUTSCENE: {beat_label}")
-    } else {
-        String::new()
-    };
+    }).collect();
     // Boss HUD: one line per HUD-bound encounter member, read from the
     // member-derived `EncounterProgress` (R2). No encounter → no line.
     let boss_line = {

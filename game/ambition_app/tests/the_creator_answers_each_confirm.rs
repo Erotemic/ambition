@@ -255,16 +255,11 @@ fn the_creator_offers_optional_practice_before_the_raid() {
             finish_conversation(&mut app);
             for _ in 0..600 {
                 app.update();
-                if app.world().resource::<ActiveCutscene>().script_id()
-                    == Some("intro_raid_at_the_door")
-                {
+                if app.world().resource::<ActiveCutscene>().plays("intro_raid_at_the_door") {
                     break;
                 }
             }
-            assert_eq!(
-                app.world().resource::<ActiveCutscene>().script_id(),
-                Some("intro_raid_at_the_door")
-            );
+            assert!(app.world().resource::<ActiveCutscene>().plays("intro_raid_at_the_door"));
         }
     }
 }

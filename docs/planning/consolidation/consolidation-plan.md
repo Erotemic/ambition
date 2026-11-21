@@ -213,7 +213,7 @@ The census page lists the member names. The guard counts the optional
 | checkpoint / restore state | ~~the six `SessionOwnedCheckpointState` members~~, ~~`CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline`, `OwnedItemsBaseline`~~ (LANDED, on the root), `SaveRestored` | 1 |
 | session request / admission queues | `CutsceneTriggerQueue`, ~~`SwitchActivationQueue`~~ (LANDED, on the root), `PendingLifecycleCommit` | 2 |
 | admitted mechanics / configuration | `SessionMechanics`, `BaseGravity` | 2 |
-| cutscene / session gameplay state | `ActiveCutscene`, `ActiveConversation`, `CutsceneSkipHold` | 3 |
+| cutscene / session gameplay state | `ActiveCutscene`, `ActiveConversation` (~~`CutsceneSkipHold`~~: each playing cutscene's own, in `ActiveCutscene`, 2026-11-20) | 2 |
 | transient progression | `QuestRegistry`, `StocksMatchSettled`, `SuddenDeathEntered` | 3 |
 
 Leave `SessionMechanics` where it is (see C05). Decide `BaseGravity` together

@@ -51,7 +51,6 @@ fn app_with_populated_mirrors() -> App {
         app.init_resource::<ambition_conversation::ActiveConversation>();
         app.init_resource::<ambition_conversation::PresentedConversation>();
     }
-    app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
     // The match-identity mirrors. See the `SessionScopedResources` field doc:
     // these are here so a stale stamp from the previous session cannot sit
     // beside the next session's first match and make two peers disagree
@@ -419,8 +418,18 @@ fn a_session_does_not_inherit_the_previous_ones_queued_cutscene_or_pending_skip(
     app.world_mut()
         .resource_mut::<ambition_cutscene::CutsceneTriggerQueue>()
         .request("intro");
-    app.world_mut()
-        .insert_resource(ambition_cutscene::CutsceneSkipHold { seconds: 1.0 });
+    // A half-held skip: each playing cutscene carries its own hold.
+    let mut held = ambition_cutscene::PlayingCutscene::new(
+        ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript::new(
+            "intro",
+            vec![ambition_cutscene::CutsceneBeat::Wait { seconds: 30.0 }],
+        )),
+        None,
+    );
+    held.skip_hold = 1.0;
+    let mut active = ambition_cutscene::ActiveCutscene::default();
+    active.start(held);
+    app.world_mut().insert_resource(active);
 
     app.update();
     assert_eq!(
@@ -444,11 +453,11 @@ fn a_session_does_not_inherit_the_previous_ones_queued_cutscene_or_pending_skip(
         "a cutscene trigger raised by the retired session survived it, so the \
          next session plays the previous run's scene"
     );
-    assert_eq!(
+    assert!(
         app.world()
-            .resource::<ambition_cutscene::CutsceneSkipHold>()
-            .seconds,
-        0.0,
+            .resource::<ambition_cutscene::ActiveCutscene>()
+            .iter()
+            .all(|cutscene| cutscene.skip_hold == 0.0),
         "a skip hold from the retired session survived it, so the next session's \
          opening cutscene skips after a fraction of the hold"
     );

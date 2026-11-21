@@ -38,7 +38,7 @@ fn dialogue_and_cutscene_settings_reload_without_changing_another_games_rules() 
     let cutscene = world.resource::<DeclaredRules<CutsceneSettings>>();
     assert_eq!(cutscene.governing(ActiveRoom::Untagged).unwrap().skip_hold_seconds, 0.4);
     assert_eq!(cutscene.governing(ActiveRoom::Mode("foreign")).unwrap().skip_hold_seconds, 2.0);
-    assert_eq!(world.resource::<ambition_cutscene::ActiveCutscene>().runtime.as_ref().unwrap().settings, CutsceneSettings::default());
+    assert_eq!(world.resource::<ambition_cutscene::ActiveCutscene>().iter().next().unwrap().runtime.settings, CutsceneSettings::default());
     let bad = crate::pack::compile_pack_with(|path, text| {
         if path == "data/cutscene_settings.ron" { "(skip_hold_seconds: -1.0)".into() } else { text }
     });
@@ -4187,10 +4187,7 @@ fn world_with_cutscenes_and_one_foreign_row() -> bevy::ecs::world::World {
     ));
     let playing = library.get("cutscene_lab_intro").expect("the lab's entry cutscene").clone();
     world.insert_resource(library);
-    world.insert_resource(ambition_cutscene::ActiveCutscene {
-        runtime: Some(ambition_cutscene::CutsceneRuntime::new(playing)),
-        ..Default::default()
-    });
+    world.insert_resource(ambition_cutscene::ActiveCutscene::playing(ambition_cutscene::CutsceneRuntime::new(playing), None));
     world
 }
 
@@ -4237,9 +4234,9 @@ fn a_cutscene_publication_replaces_only_the_rows_the_pack_owns() {
     // The running cutscene finishes as generation N wrote it.
     let running = world
         .resource::<ambition_cutscene::ActiveCutscene>()
-        .runtime
-        .as_ref()
-        .map(|runtime| (*runtime.script).clone());
+        .iter()
+        .next()
+        .map(|playing| (*playing.runtime.script).clone());
     assert_eq!(running, before, "⛔ A PLAYING CUTSCENE WAS CHANGED UNDER THE PLAYER");
 }
 

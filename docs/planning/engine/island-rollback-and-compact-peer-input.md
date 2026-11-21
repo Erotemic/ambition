@@ -1382,4 +1382,25 @@ Slices, each with a witness:
 - **N4, the cutscene.** The same for `ActiveCutscene`: one per room, each
   holding only its own room's players. It already ticks on its room's pace.
 
+  **N4 done 2026-11-20.** `ActiveCutscene` holds a list of `PlayingCutscene`s
+  in room order: at most one per live room, or one of the whole world, which
+  plays alone. Each carries its own skip hold (the `CutsceneSkipHold` resource
+  is gone; schema 522). The drain starts a trigger when its room has none
+  playing (`can_start`); a second for the same room waits, and a world
+  cutscene waits for every room's, holding back the triggers behind it. The
+  tick plays each on its own answering seat and room pace, and in a room's
+  replay only that room's. The hold projection holds a body when any playing
+  cutscene holds its room, and in a replay touches only the replaying room's
+  bodies. `CutscenesInRooms` logs each room's cutscene apart, so a room's
+  rewind puts back its own and no later change of another room's blocks it.
+  The camera frames a view by the cutscene of its room. The overlay draws one
+  per cutscene, over the view of its answering seat on a split screen, and
+  the line of each cutscene beyond the one the main box shows gets a
+  `CutsceneLineView` box of its own. Witnesses:
+  `a_rooms_rewind_puts_back_only_its_own_cutscene` (`ambition_cutscene`),
+  `each_rooms_cutscene_plays_at_once_and_a_second_waits_its_turn` and
+  `each_rooms_cutscene_answers_only_its_own_rooms_seat` (runtime), and
+  `two_rooms_play_their_cutscenes_at_once_and_a_rewind_puts_back_only_its_own`
+  (`app_it`).
+
 Smash keeps one match narrative; nothing here applies to a match.

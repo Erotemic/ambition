@@ -2392,9 +2392,9 @@ fn a_room_cutscene_plays_when_its_room_becomes_live_beside_another() {
         let playing = sim
             .world_mut()
             .resource::<ActiveCutscene>()
-            .runtime
-            .as_ref()
-            .map(|runtime| runtime.script.id.clone());
+            .iter()
+            .next()
+            .map(|playing| playing.script_id().to_owned());
         assert_eq!(playing.as_deref(), Some(CUTSCENE), "the hub's cutscene is not playing with {rooms} live room(s)");
     }
 }

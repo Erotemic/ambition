@@ -90,8 +90,8 @@ fn arena(rollback: bool) -> Platformer2dSimHarness {
 fn playing(sim: &mut Platformer2dSimHarness) -> Option<String> {
     sim.world()
         .get_resource::<ambition_platformer2d::cutscene::ActiveCutscene>()
-        .and_then(|active| active.runtime.as_ref())
-        .map(|runtime| runtime.script.id.clone())
+        .and_then(|active| active.iter().next())
+        .map(|playing| playing.script_id().to_owned())
 }
 
 /// What the trigger queue holds right now. Read to distinguish "never queued"

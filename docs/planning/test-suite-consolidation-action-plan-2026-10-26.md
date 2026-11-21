@@ -340,8 +340,46 @@ setup.
 
 **Result:** 0 removals proposed, 0 merges. Two candidate pairs were read and
 are distinct. The module's setup is already shared, so step 4 has nothing
-left here. Next in step 5: `a_room_rewinds_alone.rs` (32 tests), then the
-reload modules; the hosted-Smash half waits on the music environment.
+left here.
+
+### Step 5 record: `a_room_rewinds_alone.rs` (2026-11-21)
+
+32 tests: 18 suite members and 14 `#[ignore]`d controls. A hosted world (one
+App, no rollback session) with Alice in the hub and Bob in `switch_lab`; the
+hub saves through `RoomSnapshotRows` at frame N, both rooms run on, and the
+hub alone rewinds and replays Alice's inputs. Each witness names one kind of
+write the rewind must take back for its room alone; each control is the same
+run without that retraction, run by hand when the retraction changes ("not a
+suite member").
+
+| Kind of write taken back | Witness | Control |
+|---|---|---|
+| the room's bodies, with the other room unchanged | `a_room_rewinds_and_replays_while_the_other_room_keeps_its_state` | `without_hiding_the_other_room_the_replay_moves_it_too` |
+| shots spawned in the window | `a_rewound_room_fires_its_shots_again` | — |
+| harm dealt in the window | `a_rewound_room_hurts_its_enemy_again` | — |
+| a grant the replay writes again | `a_rewound_room_takes_back_the_grant_its_replay_writes_again` | `probe_a_coin_taken_in_a_rewound_window` |
+| terminal rows (a heart taken only in the window) | `…_untakes_the_heart_…` | `without_the_retraction_the_untaken_heart_stays_taken` |
+| the shared bag and occurrence ledger (a throw) | `…_puts_back_the_throw_…` | `…_the_throw_stays_spent` |
+| a boss defeat and its save row | `…_takes_back_the_boss_defeat_…` | `…_the_boss_stays_defeated` |
+| regrowth due times | `…_keeps_the_regrowth_time_of_its_replay` | `…_the_window_s_regrowth_time_stays` |
+| cells a body used | `…_puts_back_the_cell_…` | `…_the_cell_stays_spent` |
+| a conversation's grant | `…_takes_back_the_grant_its_conversation_gave` | `…_the_given_cell_stays` |
+| save flags and the quest steps they moved | `…_puts_back_the_flag_and_quest_step_…` | `…_the_flag_stays_set` |
+| switches a clear greened, and its quest step | `…_puts_back_the_wave_clear_…` | `…_the_wave_stays_cleared` |
+| a pickup event's quest step | `…_puts_back_the_quest_step_of_the_pickup_…` | `…_the_collected_step_stays` |
+| bookings of a held life | `…_books_its_replayed_hold_once` | `…_booked_twice` |
+| a conversation opened, or not left, in the window | `…_takes_back_the_conversation_…_not_open`, `…_puts_back_the_conversation_…_not_leave` | `…_keeps_the_window_s_change` (one control for both) |
+| a cutscene's progress, alone and with a second room's cutscene running | `a_rewound_room_puts_back_its_cutscene`, `two_rooms_play_their_cutscenes_at_once_and_a_rewind_puts_back_only_its_own` | `…_the_cutscene_keeps_the_window_s_progress` |
+
+**Overlaps read:** the two conversation witnesses rewind across opposite edges
+(an opening the replay does not make; an ending the replay does not make), and
+the two cutscene witnesses differ in whether a second room's cutscene must be
+left alone (N4). Each pair shares one control by design.
+
+**Result:** 0 removals, 0 merges. The ignored controls are the suite's
+retraction controls, which this plan protects; they are not stale diagnostics.
+Next in step 5: the reload modules (`reload_publication_is_installed.rs` and
+its neighbours); the hosted-Smash half waits on the music environment.
 
 ## Protect these behaviors throughout the campaign
 

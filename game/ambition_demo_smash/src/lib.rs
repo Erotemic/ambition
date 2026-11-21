@@ -44,6 +44,7 @@ pub mod rules;
 pub mod stages;
 pub mod tether;
 pub mod text;
+pub mod training;
 
 /// The engine capabilities Smash's stages use (see the declaration in
 /// `SmashRulesPlugin`). A host of several games leaves out what none of them

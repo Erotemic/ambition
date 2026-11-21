@@ -423,7 +423,7 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Live hitbox/hurtbox overlay | ✔ | M | E1 | The `Combat` debug preset; `dev_tools::force_combat_overlay` with `CombatOverlayLayers`. Owner: [`../moveset-inspector.md`](../moveset-inspector.md). |
 | Move/frame-data display | ▢ | S/M | — | Read `MovePlayback` and authored windows. |
 | Pause / single-frame advance | ▢ | M | E1 | Through the simulation clock authority. |
-| Reset fighters / set percent | ▢ | S | — | Narrow training API. |
+| Reset fighters / set percent | ✔ | S | — | 2026-11-21: `ambition_demo_smash::training::reset_fighters`, a one-shot system run between frames (`run_system_once_with(reset_fighters, TrainingReset::at_percent(80))`). Every seated fighter still in play goes back to its `seat_placement` about the room spawn, at rest, facing in, swing cancelled, reactions cleared. The meter is stated, not dealt: the asked percent against the match's pool, or (`TrainingReset::START`) the fighter's own handicap. A fighter in its KO beat is left to its beat, and an eliminated one stays out. Not a sim system, so no rewind replays it. No menu calls it yet. Guard `a_training_reset_puts_the_fighters_back_on_the_percent_asked`. |
 | Dummy behaviors and DI | ▢ | M | — | Controller profiles over `ActorControl`. |
 | Input record/replay | ▢ | C | E1 | Semantic control frames keyed to ticks. |
 | Combo counter / true-combo diagnostic | ▢ | M | E1 | From resolved hit and escape facts. |
@@ -584,9 +584,9 @@ post-gate order, each step one coherent customer at a time:
    ✔ 2026-11-20. Hit-grab and recoil on hit shipped; the ledge-trump
    commitment window had already shipped (`ledge_trump_lockout`). The
    grab-release fact waits for a presentation consumer (step 4).
-3. **Training and match-rule knobs** that need no new semantics: reset
-   fighters / set percent, frame-data display. Timer selector, random
-   stage and handicap / starting damage ✔ 2026-11-21.
+3. **Training and match-rule knobs** that need no new semantics:
+   frame-data display. Timer selector, random stage, handicap / starting
+   damage and reset fighters / set percent ✔ 2026-11-21.
 4. **Presentation and audio** rows (§12), which wait on art and sound more than
    on code; take them with the feel audit.
 

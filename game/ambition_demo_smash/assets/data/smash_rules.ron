@@ -110,6 +110,12 @@
     // list. 50% is a light hit from launching range; 100% is where most
     // finishers kill, so the strongest handicap still has to be hit.
     handicap_choices: [0, 50, 100],
+    // The fighter-brain levels a CPU card's level button walks: every rung of
+    // the ladder, each a published `duelist_l{level}` policy. A CPU card
+    // starts on `default_cpu_level`, the level the stage's own `duelist`
+    // policy plays at (a test holds the two together).
+    cpu_levels: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    default_cpu_level: 5,
     // How long Back is held on the select screen before it leaves (seconds).
     // A tap moves a token; a hold leaves.
     back_hold_to_leave_seconds: 0.55,

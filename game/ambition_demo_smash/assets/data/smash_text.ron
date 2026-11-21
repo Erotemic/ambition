@@ -36,6 +36,7 @@
     "select.stocks": "Stocks: {stocks}",
     "select.clock": "Time: {clock}",
     "select.handicap": "+{percent}%",
+    "select.cpu_level": "Lv {level}",
     // Who sits in a slot.
     "select.not_playing": "NOT PLAYING",
     "select.controller": "CONTROLLER {number}",

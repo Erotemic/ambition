@@ -49,6 +49,8 @@ pub enum SelectTarget {
     Clock,
     /// A card's handicap cycle, right of its fighter: a per-seat decision.
     CardHandicap(usize),
+    /// A CPU card's level cycle, left of its fighter.
+    CardCpuLevel(usize),
     /// Begin the match.
     Start,
     /// Leave the lobby — see [`LeaveRequested`].
@@ -79,6 +81,8 @@ pub enum Anchored {
     CardPortrait(usize),
     /// A card's handicap cycle, right of its fighter.
     CardHandicap(usize),
+    /// A CPU card's level cycle, left of its fighter.
+    CardCpuLevel(usize),
     Start,
     Back,
     /// A page arrow, where the layout puts its hit target (`next` or not).
@@ -150,6 +154,19 @@ pub struct HandicapButtonLabel(pub usize);
 /// What a card's handicap button reads.
 pub fn handicap_button_text(percent: u32) -> String {
     crate::text::smash_text().fill("select.handicap", &[("percent", &percent)])
+}
+
+/// A CPU card's level button (the node, for its visibility).
+#[derive(Component, Clone, Copy)]
+pub struct CpuLevelButton(pub usize);
+
+/// A CPU card's level button's label.
+#[derive(Component, Clone, Copy)]
+pub struct CpuLevelButtonLabel(pub usize);
+
+/// What a CPU card's level button reads.
+pub fn cpu_level_button_text(level: u8) -> String {
+    crate::text::smash_text().fill("select.cpu_level", &[("level", &level)])
 }
 
 /// The chosen fighter's portrait on a card.
@@ -979,6 +996,30 @@ pub fn spawn_select_screen(
                         TextColor(select_look().ink()),
                     ));
                 });
+
+                let mut level = anchored(Anchored::CardCpuLevel(slot));
+                level.1.justify_content = JustifyContent::Center;
+                level.1.align_items = AlignItems::Center;
+                level.1.border = UiRect::all(Val::Px(2.0));
+                level.1.border_radius = BorderRadius::all(Val::Px(6.0));
+                root.spawn((
+                    level,
+                    CpuLevelButton(slot),
+                    BackgroundColor(select_look().button()),
+                    BorderColor::all(select_look().panel_edge()),
+                    GlobalZIndex(610),
+                    // Shown while a CPU sits at the slot.
+                    Visibility::Hidden,
+                    Name::new(format!("slot {} CPU level button", slot + 1)),
+                ))
+                .with_children(|node| {
+                    node.spawn((
+                        CpuLevelButtonLabel(slot),
+                        Text::new(cpu_level_button_text(crate::rules::smash_rules().default_cpu_level)),
+                        text_font(14.0),
+                        TextColor(select_look().ink()),
+                    ));
+                });
             }
 
             // ── THE TOKENS AND THE CURSOR, over everything ───────────────
@@ -1555,6 +1596,10 @@ pub(crate) fn drive_the_cursor(
                 (None, None, Some(SelectTarget::CardHandicap(slot))) => {
                     select.cycle_handicap(slot, &crate::rules::smash_rules().handicap_choices);
                 }
+                // And a CPU card's level, as for its handicap.
+                (None, None, Some(SelectTarget::CardCpuLevel(slot))) => {
+                    select.cycle_cpu_level(slot, &crate::rules::smash_rules().cpu_levels);
+                }
                 // Any seat may cycle the stage, as for roles; the match is not
                 // player one's.
                 (None, None, Some(SelectTarget::Stage)) => {
@@ -1652,6 +1697,7 @@ pub fn place_the_screen(
             Anchored::Clock => Some(layout.clock_button()),
             Anchored::CardPortrait(slot) => Some(layout.card_portrait(slot)),
             Anchored::CardHandicap(slot) => Some(layout.card_handicap(slot)),
+            Anchored::CardCpuLevel(slot) => Some(layout.card_cpu_level(slot)),
             Anchored::Start => Some(layout.start_button()),
             Anchored::Back => Some(layout.back_button()),
             Anchored::Page { next } => (layout.pages > 1).then(|| layout.page_button(next)),
@@ -1895,27 +1941,43 @@ pub fn sync_select_chrome(
     }
 }
 
-/// Project each card's handicap onto its button: the percent, and whether the
-/// button is drawn at all (only while somebody sits at the slot).
-pub fn sync_handicap_buttons(
+/// Project each card's handicap and CPU level onto their buttons: the value,
+/// and whether the button is drawn at all. The handicap shows while somebody
+/// sits at the slot, the level while a CPU does.
+#[allow(clippy::type_complexity)]
+pub fn sync_card_buttons(
     select: Res<SmashSelect>,
-    mut buttons: Query<(&HandicapButton, &mut Visibility)>,
-    mut labels: Query<(&HandicapButtonLabel, &mut Text)>,
+    mut handicaps: Query<(&HandicapButton, &mut Visibility), Without<CpuLevelButton>>,
+    mut handicap_labels: Query<(&HandicapButtonLabel, &mut Text), Without<CpuLevelButtonLabel>>,
+    mut levels: Query<(&CpuLevelButton, &mut Visibility), Without<HandicapButton>>,
+    mut level_labels: Query<(&CpuLevelButtonLabel, &mut Text), Without<HandicapButtonLabel>>,
 ) {
-    for (button, mut visibility) in &mut buttons {
-        let next = if select.slot(button.0).occupant.participates() {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
+    // `Mut`, not `&mut`: reborrowing through `DerefMut` marks the component
+    // changed even when the value is left alone.
+    fn show(mut visibility: Mut<Visibility>, shown: bool) {
+        let next = if shown { Visibility::Inherited } else { Visibility::Hidden };
         if *visibility != next {
             *visibility = next;
         }
     }
-    for (label, mut text) in &mut labels {
-        let next = handicap_button_text(select.slot(label.0).handicap);
+    fn say(mut text: Mut<Text>, next: String) {
         if text.0 != next {
             text.0 = next;
+        }
+    }
+    for (button, visibility) in &mut handicaps {
+        show(visibility, select.slot(button.0).occupant.participates());
+    }
+    for (label, text) in &mut handicap_labels {
+        say(text, handicap_button_text(select.slot(label.0).handicap));
+    }
+    for (button, visibility) in &mut levels {
+        show(visibility, select.slot(button.0).occupant == SlotOccupant::Cpu);
+    }
+    for (label, text) in &mut level_labels {
+        let card = select.slot(label.0);
+        if card.occupant == SlotOccupant::Cpu {
+            say(text, cpu_level_button_text(card.cpu_level));
         }
     }
 }

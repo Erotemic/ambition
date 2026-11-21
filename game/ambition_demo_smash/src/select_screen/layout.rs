@@ -402,10 +402,22 @@ impl SelectLayout {
         }
     }
 
+    /// A CPU card's level button: the handicap button's mirror, left of the
+    /// fighter.
+    pub fn card_cpu_level(&self, slot: usize) -> HitRect {
+        let portrait = self.card_portrait(slot);
+        let handicap = self.card_handicap(slot);
+        let mirror = |x: f32| 2.0 * portrait.center().x - x;
+        HitRect {
+            min: Vec2::new(mirror(handicap.max.x), handicap.min.y),
+            max: Vec2::new(mirror(handicap.min.x), handicap.max.y),
+        }
+    }
+
     /// Everything the cursor can act on, in a stable order. The order is part
     /// of the contract.
     pub fn targets(&self) -> Vec<(SelectTarget, HitRect)> {
-        let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS * 3 + 7);
+        let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS * 4 + 7);
         for index in 0..self.characters {
             if let Some(rect) = self.portrait(index) {
                 targets.push((SelectTarget::Portrait(index), rect));
@@ -438,6 +450,10 @@ impl SelectLayout {
         // Appended after `Clock`, by the same contract.
         for slot in 0..MAX_SMASH_SEATS {
             targets.push((SelectTarget::CardHandicap(slot), self.card_handicap(slot)));
+        }
+        // Appended after the handicaps, by the same contract.
+        for slot in 0..MAX_SMASH_SEATS {
+            targets.push((SelectTarget::CardCpuLevel(slot), self.card_cpu_level(slot)));
         }
         targets
     }

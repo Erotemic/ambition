@@ -1083,6 +1083,27 @@ fn shipped_catalog() -> ambition_platformer2d::characters::actor::character_cata
     )
 }
 
+/// The CPU card's levels are published policies, and a card nobody touched
+/// plays at the level the stage's own `duelist` policy does.
+#[test]
+fn the_cpu_level_button_offers_published_levels_starting_on_the_duelist() {
+    let catalog = shipped_catalog();
+    let profiles = &catalog.data().autonomous_profiles;
+    let rules = crate::rules::smash_rules();
+    for level in &rules.cpu_levels {
+        let key = format!("{SMASH_DUELIST_BRAIN}_l{level}");
+        let profile = profiles
+            .get(&key)
+            .unwrap_or_else(|| panic!("the level button offers {level}, and no policy publishes `{key}`"));
+        assert_eq!(profile.fighter_level, *level, "`{key}` publishes another level");
+    }
+    let duelist = profiles.get(SMASH_DUELIST_BRAIN).expect("the stage publishes its CPU policy");
+    assert_eq!(
+        rules.default_cpu_level, duelist.fighter_level,
+        "a fresh CPU card plays at a level the stage's own CPU does not"
+    );
+}
+
 /// Every difficulty this demo can ask for is a published policy.
 ///
 /// `smash_roster_at_levels` builds `duelist_l{level}` keys that must resolve as

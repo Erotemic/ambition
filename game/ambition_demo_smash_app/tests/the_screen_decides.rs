@@ -951,6 +951,68 @@ fn each_card_s_handicap_button_sets_its_seat_s_starting_damage() {
     assert_eq!(starting, vec![50, 100], "the lobby said +50% and +100%");
 }
 
+/// A CPU card's level button sets the policy level its seat plays at; a
+/// person's card has no level.
+#[test]
+fn a_cpu_card_s_level_button_sets_the_level_its_seat_plays_at() {
+    use ambition_platformer2d::actor::ControllerBinding;
+
+    let mut app = build_demo_app();
+    install_press_port(&mut app);
+    plug_in(&mut app, 1);
+    app.update();
+    let layout = layout(&app);
+    let level = |app: &App, slot: usize| app.world().resource::<SmashSelect>().slot(slot).cpu_level;
+
+    // A person at card 0, CPUs at cards 1 and 2 (no second pad to seat).
+    click(&mut app, 0, layout.role_button(0));
+    click(&mut app, 0, layout.role_button(1));
+    click(&mut app, 0, layout.role_button(2));
+    let occupants: Vec<_> = (0..3)
+        .map(|slot| app.world().resource::<SmashSelect>().slot(slot).occupant)
+        .collect();
+    assert!(
+        matches!(occupants[..], [SlotOccupant::Controller { .. }, SlotOccupant::Cpu, SlotOccupant::Cpu]),
+        "{occupants:?}"
+    );
+    click(&mut app, 0, layout.card_cpu_level(0));
+    assert_eq!(level(&app, 0), 0, "a person's card took a CPU level");
+    assert_eq!((level(&app, 1), level(&app, 2)), (5, 5), "a CPU card starts on the stage's level");
+    for _ in 0..4 {
+        click(&mut app, 0, layout.card_cpu_level(2));
+    }
+    assert_eq!(level(&app, 2), 9);
+    assert_eq!(cpu_level_label_text(&mut app, 2), "Lv 9");
+
+    // Every seated card starts on Random, so the screen is ready.
+    click(&mut app, 0, layout.start_button());
+    let roster = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("clicking START publishes the roster the screen decided")
+        .clone();
+    let brains: Vec<Option<String>> = roster
+        .participants
+        .iter()
+        .map(|seat| match &seat.controller {
+            ControllerBinding::Cpu { brain_profile } => brain_profile.clone(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(brains, vec![None, Some("duelist_l5".into()), Some("duelist_l9".into())]);
+}
+
+/// What one CPU card's level button is currently showing.
+fn cpu_level_label_text(app: &mut App, slot: usize) -> String {
+    use ambition_demo_smash::select_screen::CpuLevelButtonLabel;
+    app.world_mut()
+        .query::<(&CpuLevelButtonLabel, &Text)>()
+        .iter(app.world())
+        .find(|(label, _)| label.0 == slot)
+        .map(|(_, text)| text.0.clone())
+        .unwrap_or_default()
+}
+
 /// What one card's handicap button is currently showing.
 fn handicap_label_text(app: &mut App, slot: usize) -> String {
     use ambition_demo_smash::select_screen::HandicapButtonLabel;

@@ -258,6 +258,11 @@ pub struct SlotCard {
     /// on: one of `handicap_choices` (`smash_rules.ron`). The player's, not the
     /// fighter's, so a new pick keeps it; an emptied slot drops it.
     pub handicap: u32,
+    /// The fighter-brain level a CPU at this slot plays at: one of
+    /// `cpu_levels` (`smash_rules.ron`). Set to `default_cpu_level` when the
+    /// slot first seats a CPU, kept while it stays one, and `0` while nobody
+    /// sits here.
+    pub cpu_level: u8,
 }
 
 /// The grid's cells: the fighters plus the random square.
@@ -420,6 +425,10 @@ impl SmashSelect {
             self.slots[slot].pick = None;
             self.slots[slot].skin = 0;
             self.slots[slot].handicap = 0;
+            self.slots[slot].cpu_level = 0;
+        }
+        if occupant == SlotOccupant::Cpu && self.slots[slot].cpu_level == 0 {
+            self.slots[slot].cpu_level = crate::rules::smash_rules().default_cpu_level;
         }
     }
 
@@ -465,6 +474,22 @@ impl SmashSelect {
         card.handicap = match choices.iter().position(|choice| *choice == card.handicap) {
             Some(at) => choices[(at + 1) % choices.len()],
             None => choices[0],
+        };
+    }
+
+    /// Move a CPU slot to the next of `levels`, round again after the last. A
+    /// level the list no longer offers steps to the first. A person's slot has
+    /// no level to set.
+    pub fn cycle_cpu_level(&mut self, slot: usize, levels: &[u8]) {
+        let Some(card) = self.slots.get_mut(slot) else {
+            return;
+        };
+        if card.occupant != SlotOccupant::Cpu || levels.is_empty() {
+            return;
+        }
+        card.cpu_level = match levels.iter().position(|level| *level == card.cpu_level) {
+            Some(at) => levels[(at + 1) % levels.len()],
+            None => levels[0],
         };
     }
 
@@ -620,8 +645,14 @@ impl SmashSelect {
                         SlotOccupant::Controller { device } => crate::ControllerBinding::Human {
                             source: local_source_under(device, policy),
                         },
+                        // The level the card says; a card that never set one
+                        // (only a fixture that writes the state directly)
+                        // plays the stage's own policy.
                         _ => crate::ControllerBinding::Cpu {
-                            brain_profile: Some(crate::SMASH_DUELIST_BRAIN.to_string()),
+                            brain_profile: Some(match card.cpu_level {
+                                0 => crate::SMASH_DUELIST_BRAIN.to_string(),
+                                level => format!("{}_l{level}", crate::SMASH_DUELIST_BRAIN),
+                            }),
                         },
                     })
                     // The kit this match gives seats with none, below.

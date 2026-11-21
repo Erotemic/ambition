@@ -1493,7 +1493,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::sync_select_grid,
                     select_screen::sync_select_cards,
                     select_screen::sync_select_chrome,
-                    select_screen::sync_handicap_buttons,
+                    select_screen::sync_card_buttons,
                     select_screen::sync_select_tokens_and_cursors,
                     start_the_battle_when_asked,
                     // After the driver that sets the flag, in the same chain,

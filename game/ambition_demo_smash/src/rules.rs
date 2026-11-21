@@ -43,6 +43,12 @@ pub struct SmashRules {
     /// The handicaps each card's handicap button offers, in percent, in the
     /// order it walks them. Zero (no handicap) is where every card starts.
     pub handicap_choices: Vec<u32>,
+    /// The fighter-brain levels each CPU card's level button offers, in the
+    /// order it walks them. Each must be a published `duelist_l{level}`
+    /// policy (`character_catalog.ron`).
+    pub cpu_levels: Vec<u8>,
+    /// The level a CPU card starts on.
+    pub default_cpu_level: u8,
     /// How long Back is held on the select screen before it leaves, in
     /// seconds. Holding Back is navigation; tapping Back is token
     /// manipulation.
@@ -131,6 +137,17 @@ impl SmashRules {
         for (index, percent) in self.handicap_choices.iter().enumerate() {
             if self.handicap_choices[..index].contains(percent) {
                 problems.push(format!("`handicap_choices[{index}]` repeats {percent}; the handicap button would offer it twice"));
+            }
+        }
+        if !self.cpu_levels.contains(&self.default_cpu_level) {
+            problems.push(format!(
+                "`default_cpu_level` is {}, which `cpu_levels` does not offer; a CPU card starts on a level its button can return to",
+                self.default_cpu_level
+            ));
+        }
+        for (index, level) in self.cpu_levels.iter().enumerate() {
+            if self.cpu_levels[..index].contains(level) {
+                problems.push(format!("`cpu_levels[{index}]` repeats {level}; the level button would offer it twice"));
             }
         }
         let melee = self.seating_melee;

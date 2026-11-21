@@ -2048,6 +2048,16 @@ now restates it at activation (`restate_starting_character`). Witness:
 (`player_robot_v3` → `player_robot_v2`). It failed with the old row before the
 change, and it runs in about 33 s with no Cargo build of the content.
 
+**World manifest stays a restart (decided 2026-11-21):** `data/worlds.ron`
+is still refused by a running reload (`RefusedUnsupportedChangedDomain`, which
+names `world_manifest`), and that is the intended answer. In a dev build the
+pack is compiled from the files at startup (`pack::compile_pack` reads them),
+so an edit to the world list needs a restart, not a Cargo build. That is the
+line Jon drew on 2026-10-17: restart is fine, recompile is not. The worlds
+themselves reload live through the LDtk world reload, which owns them. A live
+world-list edit would also have to rebuild the room set from a different file
+set, with no customer asking for it. Reopen only for such a customer.
+
 **Deferred:** game-specific movement VFX overrides have an agreed optional
 `room_rules` policy but no game currently authors a different look. Promote
 only for such a customer; do not copy the engine's defaults into every pack.
@@ -2061,11 +2071,18 @@ no duplicate Rust reader remains. Report edit-to-test time for the slice.
 **Owner:** [test consolidation action plan](test-suite-consolidation-action-plan-2026-10-26.md)
 and [test corpus evidence](test-corpus-static-audit-findings-2026-10-26.md).
 
-**Selected next action:** Step 3 of the action plan: classify and retire
-obsolete diagnostics, after checking their actual callers. Steps 1 and 2 are
-done: the Smash setup is shared (2026-11-14), and the Versus setup was
-consolidated on 2026-11-21. The Versus waits are named by the fact each one
-observes; 32 passed before and after. Use
+**Selected next action:** Step 5 of the action plan: a behavioural coverage
+matrix, starting with the hosted-Smash tests and the larger reload and
+two-room modules, before any active test is deleted. Steps 1 to 4 are done:
+- step 1, the Smash setup is shared (2026-11-14);
+- step 2, the Versus setup is consolidated, its waits named by the fact each
+  observes (2026-11-21);
+- step 3, the first diagnostic queue is classified (2026-11-21);
+- step 4, the repeated inputs of six modules are shared, with no test merged
+  (2026-11-21, [record](test-suite-consolidation-action-plan-2026-10-26.md#step-4-consolidate-repeated-inputs-not-the-behaviors)).
+
+On this VM the hosted-Smash half of step 5 waits on the music environment:
+a Smash match start waits for entry music. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 
@@ -2404,6 +2421,16 @@ the plan's [residual body inventory](engine/actor-monolith-decomposition.md#resi
 records why `perception` stays with the brain dispatch. `fade_rows` and
 `death_beat` followed to combat (K37, K38).
 
+**Built 2026-11-21:**
+- The `ledge_grab` and `swim` adapters are gone. Each held only tests of the
+  core's own step, and those tests moved to `ambition_platformer2d_core`.
+- `character_policy` is folded into its one caller, `brain_command`.
+- The graph is still a DAG; `body` has 20,512 production lines.
+
+`beat_cues` stays: it reads the body's decision frames. Next in the
+[inventory](engine/actor-monolith-decomposition.md#residual-body-inventory-measured-2026-11-20):
+`drawn_ledges`, then the brain-feed owner question.
+
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure/measure_kernel_module_graph.py --scc --cuts --edges 80`
 is run after it.
@@ -2461,8 +2488,15 @@ Conservation:
   - with no participant spared, neither the throw's spend nor the pocket is
     kept, and the bag is the checkpoint's;
   - with the room spared, both are kept, and they cancel.
-- No app test drives the death arm. Save/load needs nothing new: the bag is
-  saved, and a `Consumed` row is a saved row.
+- The death arm was probed in the running app (2026-11-21, probe deleted
+  after the run). The floor bomb is picked up and banked in hand at a shrine
+  checkpoint (bag 2, row `InCustody`), then pocketed (bag 3, `Consumed`).
+  After a death the bag is 2 again, the bomb is back in the hand that banked
+  it, and its row is `InCustody`: the pocket was not kept, and nothing was
+  minted twice. A floor bomb in a neighbouring live room cannot stand in for
+  this: its room unloads once the rest is over.
+- Save/load needs nothing new: the bag is saved, and a `Consumed` row is a
+  saved row.
 
 **Next implementation:** centralize only the occurrence decisions that share an
 actual invariant (identity, custody, provenance, rollback ownership). Do not add a
@@ -2700,8 +2734,28 @@ only.
    `sprites/npc_ninja_shadow_oni_leader_spritesheet.png`, which it reads from
    the content library. PART-FIRST no longer publishes baked pages, and
    `sprites.sh --reference` paints into `.agent/sprite_reference/<target>/`.
-   Next: let the example read the baked side from a reference paint, then
-   run the acceptance.
+   **Done 2026-11-21:** the acceptance's first half passes. With
+   `--reference .agent/sprite_reference`, the example draws the baked side
+   from a `sprites.sh --reference` paint. That paint is packed and trimmed by
+   its own record, so its atlas comes from that record
+   (`spec_from_manifest_text`). The scorer reads the paint's sheet and
+   flipbook too. A target is a sheet id: `ninja_shadow_oni_leader`. The
+   character's `npc_` id missed the flipbook, and the impostor margin then
+   quietly fell back to 16 px.
+
+   Unclipped, the oni leader's 864 gated frames, both facings, are inside the
+   bounds; the worst part blob is 4 px. 184 frames are art the baked frame
+   cuts off and the parts still draw.
+
+   The 18 blink frames read about 70% wrong. They are the engine's teleport
+   warp, drawn by design on a blink row that draws the body whole
+   (`body_warp`). Neither the baked road nor the published draws carry it, so
+   the scorer reports them and does not gate them.
+
+   The other half (`impostor_margin` poisoned to 16 px fails) was not run: no
+   poison runs without Jon asking. The scorer needs `scipy`, which the
+   renderer's venv lacks. Run it with `uv pip install --target DIR scipy` and
+   `PYTHONPATH=DIR`.
 2. A posed body that reaches past its cell loses its composed readers (its
    hit flash overlay, its portal pieces) while it does. If a ragdoll must keep
    them, give the presentation a cell chosen from the pose's reach, or let a

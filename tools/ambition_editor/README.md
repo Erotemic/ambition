@@ -48,6 +48,10 @@ pack, so another engine game is inspected the same way (`--profile`,
   coverage is not asserted for these entries. This bridge does not change
   gameplay. Remove it after the
   [character construction unification](../../docs/planning/engine/boss-character-unification.md).
+  Set **Lineage items >** to a whole number to show entries with more than that
+  many distinct historical looks. The count includes variations, milestones,
+  and earlier lineage branches. It excludes the current published preview and
+  counts each commit/target pair once. A blank field shows all entries.
   Sort characters by name, date added to the game, or art generation date.
   Both date sorts offer newest and oldest first. Added dates use the first
   character key in available catalog Git history, across file renames. Boss

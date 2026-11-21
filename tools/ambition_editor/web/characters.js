@@ -4,7 +4,7 @@
   const C = window.ART_CATALOG, I = C.inventory;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const enc = encodeURIComponent;
-  const filters = {family: "", lineage: "", attention: "", view: "", sort: "", role: ""};
+  const filters = {family: "", lineage: "", attention: "", view: "", sort: "", role: "", history: ""};
   const badge = (text, warn = false) => `<span class="chip ${warn ? 'c-warn' : 'c-info'}">${esc(text)}</span>`;
   const characterLink = (key, label) => `<a href="#character/${enc(key)}">${esc(label || I.identities[key]?.display || key)}</a>`;
   const unitLink = unit => `<a href="#inventory/unit/${enc(unit.id)}">${esc(unit.id)}</a>`;
@@ -13,6 +13,29 @@
     .filter(asset => asset?.identities?.includes(actor.key))
     .map(asset => ({...asset, cover: actor.preview?.asset === asset.id ? actor.preview.cover : asset.cover, preview_row: actor.catalog.rest_row}));
   const lineagesFor = actor => actor.lineages || [];
+  const lineageRecord = id => C.lineages?.[id] || I.lineages[id] || {name: id};
+  function lineageChain(id) {
+    const result = [], seen = new Set();
+    while (id && !seen.has(id)) { seen.add(id); result.unshift(id); id = lineageRecord(id).continues; }
+    return result;
+  }
+  function lineageSections(actor) {
+    const chains = lineagesFor(actor).map(lineageChain);
+    const origins = [...new Set(chains.flatMap(path => path.flatMap(id => lineageRecord(id).split_from || [])))];
+    return {chains, origins};
+  }
+  const historyCounts = new Map();
+  function lineageItemCount(actor) {
+    if (!historyCounts.has(actor.key)) {
+      const {chains, origins} = lineageSections(actor);
+      const records = [...new Set([...chains.flat(), ...origins])].map(lineageRecord);
+      historyCounts.set(actor.key, window.ArtLineage.items({
+        eras: records.flatMap(record => record.eras || []),
+        tracks: records.flatMap(record => record.tracks || []),
+      }).length);
+    }
+    return historyCounts.get(actor.key);
+  }
   const familiesFor = actor => [...new Set(unitsFor(actor).map(unit => unit.facts.visual_family?.value || "unknown"))];
   const gapsFor = actor => [...new Set(actor.coverage.filter(row => !row.valid || !['direct', 'alias'].includes(row.resolution.state)).map(row => row.action))];
   const needsArt = actor => actor.inspection_origin === 'boss' && !actor.catalog.manifest ? false : !actor.units.length || unitsFor(actor).some(unit => unit.runtime_defects?.length ||
@@ -33,13 +56,14 @@
   }
 
   function card(actor) {
-    const art = assetsFor(actor).find(asset => asset.cover), gaps = gapsFor(actor);
+    const art = assetsFor(actor).find(asset => asset.cover), gaps = gapsFor(actor), history = lineageItemCount(actor);
     const lineages = lineagesFor(actor).map(id => I.lineages[id]?.name || id);
     return `<a class="card character-card" data-character="${esc(actor.key)}" href="#character/${enc(actor.key)}">
       <div class="img checker">${art ? `<img src="${esc(art.cover)}" loading="lazy" alt="${esc(actor.display)}">` : '<span class="empty">No published preview</span>'}</div>
       <div class="meta"><div class="nm">${esc(actor.display)}</div><code>${esc(actor.id)}</code>
         <div class="sub">${familiesFor(actor).map(name => badge(name)).join(' ')}${actor.relations.form_of ? badge('form') : actor.relations.part_of ? badge('part') : ''}
           ${actor.inspection_origin === 'boss' ? badge(actor.boss_profile ? 'Boss profile' : 'Boss art') + (!actor.catalog.manifest ? badge('Art binding unknown', true) : '') : ''}
+          ${history ? badge(history + ' lineage items') : ''}
           ${needsArt(actor) ? badge('Needs generation', true) : ''}${gaps.length ? badge('Check ' + gaps.join(', '), true) : ''}
           ${window.ArtReviews.openCount(actor.key) ? badge(window.ArtReviews.openCount(actor.key) + ' open notes', true) : ''}</div>
         ${filters.sort ? `<div class="sub">${filters.sort.startsWith('added') ? 'Added to game: ' + dateLabel(actor.added_at) : 'Art generated: ' + generationLabel(actor)}</div>` : ''}
@@ -52,6 +76,7 @@
     const query = document.getElementById('q').value.trim().toLowerCase();
     const shown = actors.filter(actor => (!filters.role || (filters.role === 'boss' ? actor.inspection_origin === 'boss' : actor.inspection_origin !== 'boss')) && (!filters.family || familiesFor(actor).includes(filters.family)) &&
       (!filters.lineage || lineagesFor(actor).includes(filters.lineage)) &&
+      (filters.history === '' || lineageItemCount(actor) > Number(filters.history)) &&
       (!filters.attention || (filters.attention === 'generation' ? needsArt(actor) : filters.attention === 'notes' ? window.ArtReviews.openCount(actor.key) : gapsFor(actor).length)) &&
       JSON.stringify([actor.display, actor.key, actor.catalog.tags, actor.relations, familiesFor(actor),
         lineagesFor(actor).map(id => [id, I.lineages[id]?.name])]).toLowerCase().includes(query));
@@ -81,6 +106,7 @@
         ${select('role', 'Role', [['boss', 'Bosses'], ['catalog', 'Catalog characters']])}
         ${select('family', 'Art family', [...new Set(actors.flatMap(familiesFor))].sort().map(name => [name, name]))}
         ${select('lineage', 'Lineage', [...new Set(actors.flatMap(lineagesFor))].sort().map(id => [id, I.lineages[id]?.name || id]))}
+        <label title="Count distinct recorded looks, including earlier lineage branches. Excludes the current published preview.">Lineage items &gt; <input type="number" min="0" step="1" placeholder="Any" aria-label="Lineage item threshold" data-character-filter="history" value="${esc(filters.history)}"></label>
         ${select('attention', 'Art status', [['generation', 'Needs generation'], ['coverage', 'Animation gaps'], ['notes', 'Open review notes']])}
         <button id="clear-character-filters" type="button">Clear filters</button>
       </div><p id="character-count">${filters.view ? `${shown.length} of ${actors.length} entries` : `${groups.length} of ${I.character_groups.length} characters · ${actors.length} entries`}</p>
@@ -107,17 +133,11 @@
   function lineage(actor) {
     const ids = lineagesFor(actor), assets = assetsFor(actor);
     const current = assets[0] ? {...assets[0], display: actor.display} : {id: '', display: actor.display, identities: [actor.key]};
-    const record = id => C.lineages?.[id] || I.lineages[id] || {name: id};
-    function chain(id) {
-      const result = [], seen = new Set();
-      while (id && !seen.has(id)) { seen.add(id); result.unshift(id); id = record(id).continues; }
-      return result;
-    }
-    const chains = ids.map(chain);
-    const origins = [...new Set(chains.flatMap(path => path.flatMap(id => record(id).split_from || [])))];
+    const record = lineageRecord;
+    const {chains, origins} = lineageSections(actor);
     const relatives = Object.values(I.identities).filter(other => other.key !== actor.key &&
       !other.relations.part_of && !other.relations.form_of &&
-      lineagesFor(other).some(id => chain(id).some(branch => (record(branch).split_from || []).some(origin => origins.includes(origin)))));
+      lineagesFor(other).some(id => lineageChain(id).some(branch => (record(branch).split_from || []).some(origin => origins.includes(origin)))));
     const ancestry = origins.length ? `<section class="box shared-origin"><h2>Shared origin</h2>
       <p>This character split from an earlier design.${relatives.length ? ` Related characters: ${relatives.map(other => characterLink(other.key)).join(' · ')}.` : ''}</p>
       ${origins.map(id => window.ArtLineage.render({...record(id), lineage: id}, null)).join('')}</section>` : '';
@@ -166,6 +186,7 @@
     const actor = I.identities[key];
     app.innerHTML = key ? actor ? detail(actor, ui) : `<h1>Character unavailable</h1><p>${esc(key)} is absent from the current catalog.</p><a href="#characters">Characters</a>` : roster();
     app.querySelectorAll('[data-character-filter]').forEach(element => element.onchange = () => {
+      if (element.type === 'number' && !element.checkValidity()) return;
       filters[element.dataset.characterFilter] = element.value;
       window.renderArtCharacters('', ui);
     });

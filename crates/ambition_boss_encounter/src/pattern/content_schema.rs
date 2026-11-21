@@ -26,8 +26,8 @@ use crate::pattern::seeds::SeedLibrary;
 use crate::pattern::validator::ValidatorBands;
 use ambition_characters::boss_encounter::BossEncounterSpec;
 
-/// The character catalog's schema. A boss profile's `character` and an
-/// encounter's `voice` each name one of its rows.
+/// The character catalog's schema. A boss profile's `character` names one of
+/// its rows.
 const CHARACTER_SCHEMA: &str = "character";
 
 /// The capability that owns both schemas here.
@@ -134,18 +134,6 @@ impl ContentSchemaHandler for BossEncounterSchema {
                 "music track",
                 id.clone(),
                 field,
-            ));
-        }
-
-        // The voice names a character row. A misspelt voice would make the
-        // boss silent with no error.
-        if let Some(voice) = &spec.voice {
-            out.refer(PendingRef::new(
-                SchemaId::new(CHARACTER_SCHEMA),
-                voice.as_str(),
-                "character",
-                id.clone(),
-                "voice",
             ));
         }
 

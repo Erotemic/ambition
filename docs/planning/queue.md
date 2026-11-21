@@ -116,7 +116,12 @@ temporary inspector bridge is deleted. A boss's body, corpse and health come
 from its character and its encounter (`scale`, `max_hp`); the profile's
 `combat_size` and `corpse` are gone. The common seed builds the boss body
 (`role_blueprint`, `compose_boss_role`), and the body carries `CharacterForm`.
-Next is slice 3: consume the common identity everywhere and remove `voice`.
+Slice 3a is done: a boss speaks as its character (`voice` is deleted), GNU-ton's
+row draws the sheet his fight wears, and the boss rows' generated display names
+are fixed. The bill name stays the placement's, an occurrence fact
+([3a record](engine/boss-character-unification.md)). Next is 3b: the boss art
+key's sprite filename is now a copy of the character's manifest for every
+boss, so resolve the worn sheet through the character and delete the copy.
 **Defect:** boss construction bypasses the prepared character body path. Hall
 entries duplicate some boss characters; others, including Gallus, are absent.
 **Next:** follow [the owner plan](engine/boss-character-unification.md), starting

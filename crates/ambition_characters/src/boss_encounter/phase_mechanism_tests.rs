@@ -220,7 +220,6 @@ fn legacy_spec() -> BossEncounterSpec {
         music_enrage: String::new(),
         music_intro_from: 0.0,
         extra_phase_triggers: Vec::new(),
-        voice: None,
         wake_radius: None,
         slow_motion_finish: false,
         name_card: Default::default(),

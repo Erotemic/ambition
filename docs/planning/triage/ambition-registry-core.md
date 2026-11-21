@@ -64,8 +64,8 @@ kind from its name or return type.
   hot-reload replacement as distinct operations.
 - `FrontendAudioRegistry` states override semantics in source. Its precedence
   is product layering and needs its own ruling. (`CombatBanterRegistry` is <!-- cite-ok: a deleted name -->
-  deleted: a character's lines are its catalog row's `barks`, and a boss names
-  its row as `voice` in its encounter data.)
+  deleted: a character's lines are its catalog row's `barks`, and a boss speaks
+  as the character its profile names.)
 
 ## Evidence command
 

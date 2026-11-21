@@ -333,6 +333,40 @@ Lanes run: the lib tests of `ambition_platformer2d_actor_spawn`,
 failures were already red before 2c: `gnu_ton_in_a_match` and the two T-rex
 drawing tests.
 
+**3a record (2026-11-21).** A boss speaks as its character. The encounter's
+`voice` is deleted. `BossConfig::bark` reads the profile's `character`, which
+the pack already refuses when it names no row. This is the deliberate change
+the 2a step named: the Mockingbird, the Flying Spaghetti Monster, the T-Rex
+(on hit only), the Hunny Horror and Wolfenstein now speak their rows' `on_hit`
+and `idle` lines in their fights. The Warden, the Gram Reaper, Mode Collapse,
+the Overflow, Marshal Gallus, the Behemoth and GNU2 have no lines and stay
+silent.
+
+GNU-ton's row now draws what his fight wears: its manifest is
+`gnu_ton_scholar_boss`, the same sheet as the boss art key, and its
+`standing_height` is his fight body's 105.2. The fused picture of the scholar
+on the giant left the Hall. The giant has its own row and stand. Now every
+boss art key names the same sheet as its character's manifest.
+
+Four display names generated from sprite targets were wrong, and the Hall
+showed them: "Trex Enemy", "Mockingbird Boss", "Flying Spaghetti Monster
+Boss" and "Gnu Ton Boss". They are now "T-Rex", "Mockingbird", "Flying
+Spaghetti Monster" and "GNU-ton (Boss)".
+
+*Decision: the bill name stays the placement's.* The name card, health bar,
+banner and encounter progress read `BossConfig::name`, which is the
+placement's `name`. A test of billing by the character's display name failed
+on two counts:
+* Display names are unique in a composition (the catalog validator), and a
+  form that is the same person in the fight cannot share its base's name.
+  `npc_gnu_ton` is "GNU-ton", so his boss form cannot be.
+* A room may bill a boss by an occurrence name: the Warden is "System Boss" in
+  `first_system_boss`, which `behavior.rs` documents.
+
+So the bill is an occurrence fact, like `scale`. The subject's identity is its
+`CharacterForm`, and its health is its `BodyHealth`, so the bar keeps no second
+pool and no second identity.
+
 **Headless frame baseline** (tree `feb420d2a`). Measured with
 `scripts/measure/headless_room_frame.sh`: the `profiling` build without Tracy,
 2000 ticks, 3 reps, and the median of the census windows (ms per frame). The

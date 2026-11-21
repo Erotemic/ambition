@@ -44,17 +44,17 @@ pub struct BossConfig {
 }
 
 impl BossConfig {
-    /// The line this boss says in `situation`: from the character row its
-    /// encounter names as `voice`, rotated by `rotation`. `None` for a boss
-    /// with no voice, a config with no resolved encounter, and an empty pool.
+    /// The line this boss says in `situation`: its character's, rotated by
+    /// `rotation`. A boss speaks as the character it is an instance of
+    /// (`BossBehaviorProfile::character`). `None` for a character with no
+    /// line for `situation`.
     pub fn bark<'c>(
         &self,
         catalog: &'c ambition_characters::actor::character_catalog::CharacterCatalog,
         situation: ambition_characters::actor::character_catalog::BarkSituation,
         rotation: u32,
     ) -> Option<&'c str> {
-        let voice = self.seed.encounter.voice.as_deref()?;
-        catalog.bark_line(voice, situation, rotation)
+        catalog.bark_line(&self.behavior.character, situation, rotation)
     }
 }
 

@@ -58,11 +58,6 @@ pub struct BossEncounterSpec {
     /// are byte-unchanged; a rider boss authors one row here.
     #[serde(default)]
     pub extra_phase_triggers: Vec<PhaseTrigger>,
-    /// The character catalog row whose `barks` this boss speaks: its
-    /// `on_hit` lines when it is struck and its `idle` lines between strikes.
-    /// `None` is a silent boss.
-    #[serde(default)]
-    pub voice: Option<String>,
     /// The boss sleeps (`Dormant`) until a player in its room comes this
     /// near its middle, in world units; then its intro starts. `None` wakes
     /// it with its room.

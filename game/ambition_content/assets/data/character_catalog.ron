@@ -3880,7 +3880,7 @@
         hall_dialogue_id: Some("hall_npc_raid_enforcer"),
         ),
         "npc_flying_spaghetti_monster_boss": (
-            display_name: "Flying Spaghetti Monster Boss",
+            display_name: "Flying Spaghetti Monster",
             manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -4007,10 +4007,17 @@
         hall_dialogue_id: Some("hall_npc_girdle"),
         ),
         "npc_gnu_ton_boss": (
-            display_name: "Gnu Ton Boss",
-            manifest: "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.ron",
+            // Display names are unique, and `npc_gnu_ton` is "GNU-ton". The
+            // fight bills him by his placement's name.
+            display_name: "GNU-ton (Boss)",
+            // The drawing his fight wears: the scholar alone. The giant he
+            // rides is its own character (`npc_giant_gnu`), with its own stand.
+            manifest: "sprites/gnu_ton_scholar_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // His size in his fight, his primary context: the scholar's body
+            // drawn in the arenas' 54 x 96 BossSpawn.
+            standing_height: Some(105.2),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -4242,7 +4249,7 @@
         hall_dialogue_id: Some("hall_npc_mantis_lancer"),
         ),
         "npc_mockingbird_boss": (
-            display_name: "Mockingbird Boss",
+            display_name: "Mockingbird",
             manifest: "sprites/mockingbird_boss_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -4601,7 +4608,7 @@
         hall_dialogue_id: Some("hall_npc_trent"),
         ),
         "npc_trex_enemy": (
-            display_name: "Trex Enemy",
+            display_name: "T-Rex",
             manifest: "sprites/trex_enemy_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,

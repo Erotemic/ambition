@@ -1,4 +1,4 @@
-//! A boss's voice: the barks of the character row its encounter names.
+//! A boss's voice: the barks of the character it is an instance of.
 
 use super::*;
 use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCatalog, CharacterCatalogData};
@@ -24,20 +24,15 @@ fn gnu_ton(sprite_content: &ambition_sprite_sheet::SpriteContent) -> BossCluster
     )
 }
 
-/// GNU-ton speaks the lines of the character his encounter names, in the
-/// row's order, and the same boss with no voice says nothing.
+/// GNU-ton speaks the lines of his character, in the row's order, and a boss
+/// whose character has no row says nothing.
 #[test]
-fn a_boss_speaks_the_barks_of_the_character_its_encounter_names() {
+fn a_boss_speaks_the_barks_of_its_character() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let characters = shipped_characters();
     let boss = gnu_ton(&sprite_content);
-    let voice = boss
-        .config
-        .seed
-        .encounter
-        .voice
-        .clone()
-        .expect("gnu_ton_rider.ron names a voice");
+    let voice = boss.config.behavior.character.clone();
+    assert_eq!(voice, "npc_gnu_ton_boss");
     for situation in [BarkSituation::OnHit, BarkSituation::Idle] {
         let pool = characters.get(&voice).expect("the voice is a row").barks.pool(situation);
         assert!(!pool.is_empty(), "{voice} has {situation:?} lines");
@@ -52,6 +47,6 @@ fn a_boss_speaks_the_barks_of_the_character_its_encounter_names() {
     assert_eq!(boss.config.bark(&characters, BarkSituation::OnHit, 0), Some("Counterfeit."));
 
     let mut silent = gnu_ton(&sprite_content);
-    silent.config.seed.encounter.voice = None;
+    silent.config.behavior.character = "npc_nobody".to_string();
     assert_eq!(silent.config.bark(&characters, BarkSituation::OnHit, 0), None);
 }

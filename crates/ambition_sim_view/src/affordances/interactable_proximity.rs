@@ -161,20 +161,30 @@ pub fn update_nearest_interactable(
             let reach = InteractReach::of(kin, step, frame, rooms.live().of(body));
             let door = rooms.nearest_door_under(body, reach.collision_box(), reach.pos());
             let (licence, riding) = pilots.get(body).unwrap_or((None, false));
-            // `commandeer_mounts` reads every press of a rider as getting off.
-            if riding {
-                return InteractVariant::Dismount;
-            }
-            chosen_in_reach(&reach, door, rooms.live(), &objects, &actors, &chests, &switches)
-                .map(|(_, variant)| variant)
-                .or_else(|| {
-                    let licence = licence?;
-                    let candidates = mounts.iter().map(|(e, m, k, s, r, h, _)| (e, m, k, s, r, h));
-                    let mount = ambition_mount::nearest_commandeerable(body, licence, kin, candidates, &[])?;
-                    let name = mounts.get(mount).ok().and_then(|row| row.6).map_or("mount", |identity| identity.name());
-                    Some(InteractVariant::Ride(name.to_string().into()))
-                })
-                .unwrap_or(InteractVariant::None)
+            // The press goes to what it reaches first: a body, a switch, a
+            // chest. After them, a body that rides gives it to the door it
+            // stands in before getting off — the one press would otherwise both
+            // leave and bail, and the mount stay behind — and a body on foot
+            // boards a mount before the door, since a mount crosses with its
+            // rider (and the door a body has just come in by does not take
+            // the press back). `ambition_mount::InteractPressesClaimed` tells
+            // the mount which presses are not its own.
+            let target = chosen_in_reach(&reach, door, rooms.live(), &objects, &actors, &chests, &switches)
+                .map(|(_, variant)| variant);
+            let ride = || {
+                let licence = licence?;
+                let candidates = mounts.iter().map(|(e, m, k, s, r, h, _)| (e, m, k, s, r, h));
+                let mount = ambition_mount::nearest_commandeerable(body, licence, kin, candidates, &[])?;
+                let name = mounts.get(mount).ok().and_then(|row| row.6).map_or("mount", |identity| identity.name());
+                Some(InteractVariant::Ride(name.to_string().into()))
+            };
+            let door = || door.map(|_| InteractVariant::Use);
+            let chosen = if riding {
+                target.or_else(door).or(Some(InteractVariant::Dismount))
+            } else {
+                target.or_else(ride).or_else(door)
+            };
+            chosen.unwrap_or(InteractVariant::None)
         })
     };
     // ⭐⭐ EVERY DRIVEN BODY, not just the one holding the primary seat. The
@@ -251,6 +261,29 @@ pub(crate) fn chosen_in_reach(
         InteractKind::Open => InteractVariant::Open,
     };
     Some((first.id.1, variant))
+}
+
+/// Which driven bodies' Interact press a door, a body, a switch or a chest
+/// takes this tick, for the mount owner ([`ambition_mount::InteractPressesClaimed`]).
+pub fn claim_interact_presses(
+    nearest: Res<NearestInteractable>,
+    mut claimed: ResMut<ambition_mount::InteractPressesClaimed>,
+) {
+    let mut bodies: Vec<Entity> = nearest
+        .1
+        .iter()
+        .filter(|(_, variant)| {
+            !matches!(
+                variant,
+                InteractVariant::None | InteractVariant::ModeSwitch | InteractVariant::Ride(_) | InteractVariant::Dismount
+            )
+        })
+        .map(|(body, _)| *body)
+        .collect();
+    bodies.sort();
+    if claimed.0 != bodies {
+        claimed.0 = bodies;
+    }
 }
 
 #[cfg(test)]

@@ -127,8 +127,8 @@ fn prompt(arm: Arm) -> InteractVariant {
     app.world().resource::<NearestInteractable>().0.clone()
 }
 
-/// ⭐ A DOOR NEARER THAN THE PERSON TAKES THE PRESS, SO THE PROMPT DOES NOT
-/// SAY TALK. The body stands in a door 2 px away, and the person is 10 px
+/// ⭐ A DOOR NEARER THAN THE PERSON TAKES THE PRESS, SO THE PROMPT SAYS USE,
+/// NOT TALK. The body stands in a door 2 px away, and the person is 10 px
 /// away: the press is for the door. The controls: with no door the prompt
 /// says Talk, and with the person nearer than the door it says Talk.
 #[test]
@@ -140,7 +140,7 @@ fn a_door_nearer_than_the_person_takes_the_talk_prompt() {
             prompt(npc),
             prompt(Arm { door: Some(16.0), ..npc }),
         ),
-        (InteractVariant::None, InteractVariant::Talk, InteractVariant::Talk),
+        (InteractVariant::Use, InteractVariant::Talk, InteractVariant::Talk),
         "(door at 2 px, no door, door at 16 px), with the person at 10 px: the prompt"
     );
 }

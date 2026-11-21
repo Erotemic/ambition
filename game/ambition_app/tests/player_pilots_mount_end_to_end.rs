@@ -672,10 +672,17 @@ fn commandeering_and_getting_off_replay_under_the_sync_test() {
     sim.step_n(AgentAction::default(), 12);
     assert_eq!(sim.rollback_health(), Ok(()), "boarding resimulated to a different world");
     assert_eq!(sim.world_mut().get::<RidingOn>(home).map(|riding| riding.mount), Some(mount), "the press did not board");
+    // Up, away from the hub's doors: a rider standing in a door gives the
+    // press to the door, not to getting off.
     for _ in 0..20 {
-        sim.step(AgentAction { move_x: 1.0, right_pressed: true, ..AgentAction::default() });
+        sim.step(AgentAction { move_y: -1.0, up_pressed: true, ..AgentAction::default() });
     }
     assert_eq!(sim.rollback_health(), Ok(()), "the ride resimulated to a different world");
+    assert_eq!(
+        prompt_for(&mut sim, home),
+        ambition_platformer2d::sim_view::affordances::InteractVariant::Dismount,
+        "premise: nothing but getting off is in reach of the rider"
+    );
     press_interact(&mut sim);
     sim.step_n(AgentAction::default(), 12);
     assert_eq!(sim.rollback_health(), Ok(()), "getting off resimulated to a different world");

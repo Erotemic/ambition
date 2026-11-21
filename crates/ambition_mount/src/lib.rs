@@ -1167,6 +1167,20 @@ pub const COMMANDEER_REACH: f32 = 16.0;
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MountsCommandeered;
 
+/// The bodies whose Interact press something other than a mount takes this
+/// tick — a door they stand in, a body to talk to, a switch, a chest.
+/// [`commandeer_mounts`] neither boards nor bails for them.
+///
+/// ⛔ WRITTEN BY THE INTERACT READ-MODEL, NOT HERE: which target a press is for
+/// is the interaction owner's rule (`ambition_sim_view::update_nearest_interactable`,
+/// one rule for the press and the prompt), and this crate does not know doors.
+/// A rider possessed to use a door was bailed off its giant by the same press
+/// that took it through, and its mount was left in the room behind
+/// (`the_whole_attachment_closure_is_recorded_as_being_in_custody`). Empty in a
+/// composition without that owner: every press is the mount's there.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct InteractPressesClaimed(pub Vec<Entity>);
+
 /// One mount a pilot might commandeer, as [`nearest_commandeerable`] reads it.
 pub type CommandeerCandidate<'a> = (
     Entity,
@@ -1253,11 +1267,15 @@ pub fn commandeer_mounts(
         Option<&ambition_characters::actor::BodyHealth>,
     )>,
     mut dismounts: MessageWriter<DismountRequested>,
+    claimed: Option<bevy::prelude::Res<InteractPressesClaimed>>,
 ) {
     let alive = |health: Option<&ambition_characters::actor::BodyHealth>| health.is_none_or(|h| h.alive());
+    let taken_elsewhere = |pilot: Entity| claimed.as_deref().is_some_and(|claimed| claimed.0.contains(&pilot));
     let mut pressing: Vec<_> = pilots
         .iter()
-        .filter(|(_, _, control, _, _, health, _)| control.0.interact_pressed && alive(*health))
+        .filter(|(pilot, _, control, _, _, health, _)| {
+            control.0.interact_pressed && alive(*health) && !taken_elsewhere(*pilot)
+        })
         .collect();
     pressing.sort_by(|a, b| match (a.6, b.6) {
         (Some(x), Some(y)) => x.cmp(y).then(a.0.cmp(&b.0)),
@@ -1962,6 +1980,11 @@ where
     const OWNER: &str = env!("CARGO_PKG_NAME");
 
     registrar.rollback_component_clone::<CanPilot>(OWNER, "mount.can_pilot");
+    registrar.declare_rollback_derived_resource::<InteractPressesClaimed>(
+        OWNER,
+        "derived.interact_presses_claimed",
+        "rebuilt each tick from the interact read model before mounts are commandeered",
+    );
     registrar.rollback_component_clone_entity_set::<MountSlot>(OWNER, "mount.slot", |slot| {
         slot.rider.into_iter().collect()
     });

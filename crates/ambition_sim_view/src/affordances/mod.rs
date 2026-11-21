@@ -50,5 +50,11 @@ impl Plugin for AffordancesPlugin {
                 .after(ambition_characters::control::PrimarySlotInputCommit)
                 .in_set(AffordancesSystemSet::Compute),
         );
+        app.init_resource::<ambition_mount::InteractPressesClaimed>().add_systems(
+            sim,
+            interactable_proximity::claim_interact_presses
+                .after(AffordancesSystemSet::Compute)
+                .before(ambition_mount::MountsCommandeered),
+        );
     }
 }

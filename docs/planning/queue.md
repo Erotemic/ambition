@@ -2529,6 +2529,18 @@ generic request bus merely to reduce writer count.
 become an alternative minting authority; every remaining occurrence creator has
 an explicit ownership reason.
 
+**Acceptance read 2026-11-21:** both halves hold by read.
+- Every creator in the inventory has its reason. The match-item asymmetry is
+  now stated at `spawn_match_items` as session-only.
+- Reward policy spawns nothing: `collect_ecs_pickups` reads origins, and
+  chests grant what an outcome names.
+- "Cannot become" is policy, not type. `GroundItem::at_rest`/`released` are
+  public, and the census rules out a request bus that would close them.
+
+The owner page's open work is still open: the atomic durable horizon (one
+write for minted items and rows, across the session and items crates), the
+`durably_held` width, the menu's equip, and the agent surface.
+
 ### BRAIN — finish truthful fighter attack selection
 
 **Owner:** fighter combat options and [brain behavior](engine/fighter-tactical-intent.md)

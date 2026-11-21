@@ -17,6 +17,13 @@ const SALT_WHICH_ITEM: u64 = 0;
 const SALT_WHICH_POINT: u64 = 1;
 
 /// Drop one item on the ticks the match's rules say to.
+///
+/// A match item is session-only. It is spawned into the match's session
+/// (`spawn_room_in_session`) and goes when the session does, and no checkpoint
+/// saves a match. So it carries an identity (two peers must agree on it) and
+/// no `SpawnOrigin`: minted accounting describes items a save rebuilds, and
+/// nothing rebuilds this one. A match that wants its items saved makes them
+/// minted (`SpawnOrigin::Dynamic` with a parent both peers name).
 pub fn spawn_match_items(
     mut commands: SessionCommands,
     prepared: Option<Res<ambition_match::PreparedMatch>>,

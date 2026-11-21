@@ -130,10 +130,10 @@ origin to record its `GrantSource` (`Mint { parent }` or `Authored`), and a
 chest is an interactable whose opening grants what its encounter's outcome
 names. Neither spawns an item occurrence.
 
-One asymmetry, recorded rather than fixed: match items carry an identity and
-no `SpawnOrigin`, so a provenance-keyed reader cannot see them. No reader needs
-them today (matches have no checkpoint), and items are off in Smash by Jon's
-call.
+One asymmetry: match items carry an identity and no `SpawnOrigin`, so a
+provenance-keyed reader cannot see them. That is stated at the site as
+session-only (2026-11-21): they end with the match's session, and no
+checkpoint saves a match. Items are off in Smash by Jon's call.
 
 ## Invariants
 
@@ -207,7 +207,7 @@ Gaps the matrix shows:
 | `durably_held` width | It matches the `ItemCustody` component, so it holds items lying on the ground too. Narrowing it to `Held` is a durability decision | Decide it explicitly; dropping a save row is the dangerous direction |
 | Lifetime matrix | **Done 2026-10-22**, above | Each row names its owner and phase |
 | Orphaned holder | **Done 2026-11-17**: the item comes back where it was taken (`return_released_items`); a carrying body's death mints no weapon copy (`FeatureHitWriters::carries_an_object`). Witness: `an_item_whose_holder_is_gone_comes_back_where_it_was_taken` | An item outlives its holder in exactly one stated way |
-| Match items | `spawn_match_items` gives no `SpawnOrigin`, so match items are invisible to minted accounting | A match item is either minted (described) or stated session-only |
+| Match items | **Done 2026-11-21: stated session-only** at `spawn_match_items`. The item is spawned into the match's session and ends with it, and no checkpoint saves a match, so it has identity and no `SpawnOrigin` | A match item is either minted (described) or stated session-only |
 | Menu equip | The menu's Equip writes `HeldItem` in `Update`, outside custody | One equip road, or the menu's stated as session-only |
 | Item carve boundary | See below | The proofs below |
 | Agent surface | `item where`, `item list --room/--body`, `item audit`, `item explain` | Reports definition, stack identity, occurrence, custody owner, provenance and disposition |

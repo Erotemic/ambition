@@ -44,8 +44,10 @@ pub fn reconcile_presented_visuals<F: Send + Sync + 'static, T>(
             commands.entity(entity).despawn();
             continue;
         };
-        owner.body = body.visual;
-        commands.entity(entity).insert(PresentationOf(body.visual));
+        if owner.body != body.visual {
+            owner.body = body.visual;
+            commands.entity(entity).insert(PresentationOf(body.visual));
+        }
         if let Some(room) = body.geometry {
             place(room, &mut transform, &mut art, &facts);
         }

@@ -775,7 +775,7 @@ pub fn generate_options(
     };
     let kit_max_launch = kit
         .iter()
-        .map(|c| c.frames.launch.at(worn_conditions(c)))
+        .map(|c| c.frames.strongest_launch(worn_conditions(c)))
         .fold(0.0_f32, f32::max);
     // Use a kit-wide startup scale for frame advantage. Dividing by
     // each move's own startup erases the distinction between fast and
@@ -1032,7 +1032,7 @@ pub fn generate_options(
                 // product.
                 kill_potential: kill_readiness(foe.damage_frac())
                     * if kit_max_launch > 0.0 {
-                        c.frames.launch.at(worn_conditions(c)) / kit_max_launch
+                        c.frames.strongest_launch(worn_conditions(c)) / kit_max_launch
                     } else {
                         0.0
                     }

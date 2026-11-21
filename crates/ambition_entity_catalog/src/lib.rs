@@ -41,7 +41,7 @@ pub mod move_section;
 // Re-exported at the crate root because many call sites in other crates use
 // the crate-root names.
 pub(crate) use hazard::hazard_of;
-pub use hazard::{MoveHazard, ThreatTravel, RANGED_ACTION_REACH};
+pub use hazard::{MoveHazard, ShotLaunch, ThreatTravel, RANGED_ACTION_REACH};
 
 /// The platform-fighter authoring vocabulary: captures, repertoires, counters,
 /// tethers, portals and the other technique families, as pure value
@@ -3443,6 +3443,19 @@ impl MoveFrameData {
     pub fn strongest_hit(&self) -> i32 {
         self.max_damage
             .max(self.hazard.map_or(0, MoveHazard::damage))
+    }
+
+    /// The hardest launch this move deals under `conditions`: its volumes'
+    /// [`Self::launch`] or what its hazard throws for. The twin of
+    /// [`Self::strongest_hit`], for the same reason: a launcher's hit is in
+    /// what it spawns, so a volume-only reading priced every shot at no
+    /// launch. `launch` stays volume-only, as `max_damage` does.
+    pub fn strongest_launch(&self, conditions: launch::LaunchConditions) -> f32 {
+        let shot = self
+            .hazard
+            .and_then(MoveHazard::launch)
+            .map_or(0.0, |launch| launch.at(conditions));
+        self.launch.at(conditions).max(shot)
     }
 }
 

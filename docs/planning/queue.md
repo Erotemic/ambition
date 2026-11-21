@@ -2558,6 +2558,23 @@ fixed-range or stale-view brain workaround.
 1. Projectile launch value: a ranged move has `launch: 0` although its hit
    uses `HitKnockbackMagnitude::FeelScale`. Clarify the resolved launch and
    hazard-coverage features against real kit choices.
+   **Re-measured and half done 2026-11-21.**
+   - The launch half: a `Ranged` beat fires the wielder's weapon, and
+     `RangedActionSpec::launch` (`base` + `growth` per percent, the volume
+     law) already states the shot's launch. Only the PCA's `pca_life_cannon`
+     states one (30, 0.76); every other shot deals the fixed nudge. Now
+     `MoveHazard::Spawned` carries it as `ShotLaunch` beside its damage
+     (`resolve_owners_ranged_action` fills it), and
+     `MoveFrameData::strongest_launch` folds it in like `strongest_hit`. The
+     kill-potential share reads it (witness
+     `a_shot_that_states_its_launch_earns_kill_potential`). Authored bolts,
+     seekers and bombs state `launch: None` until their params carry one.
+   - The coverage half is open: a launcher has no volume, so `coverage` is
+     `None` and `reach_fit` is 0. Kill potential and payoff are gated by
+     `reach_fit.max(frame_advantage)`, so a shot earns them only against a
+     committed foe. A hazard-coverage fit from `ThreatTravel` is the next
+     step. The `payoff_power` comment's "`reach_fit` and admission still see
+     the hazard" is true of admission only.
 2. Placed traps: resolve the hazardous region relative to the attacker,
    rather than treating placement radius as attack reach.
 3. Teleports: expose the resolved destination (`behind_nearest_foe`,

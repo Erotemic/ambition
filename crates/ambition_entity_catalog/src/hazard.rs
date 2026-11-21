@@ -198,6 +198,11 @@ pub enum MoveHazard {
         /// damage and speed, and the brain weighs the press it is about to
         /// make.
         damage: i32,
+        /// How hard it throws the target, by the same strike law a volume's
+        /// `knockback` / `knockback_growth` states. `None` when the spawner
+        /// states no growing launch (the fixed nudge every shot has dealt), or
+        /// when nothing has priced this hazard's launch yet.
+        launch: Option<ShotLaunch>,
     },
     /// The move pulls the owner's own ranged trigger
     /// ([`MoveEventKind::Ranged`](crate::MoveEventKind::Ranged)), whose speed,
@@ -215,7 +220,32 @@ pub enum MoveHazard {
     OwnersRangedAction,
 }
 
+/// A spawned hazard's growing launch: `base` px/s plus `growth` px/s per
+/// point of the victim's percent, the law a volume's `knockback` /
+/// `knockback_growth` states.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShotLaunch {
+    pub base: f32,
+    pub growth: f32,
+}
+
+impl ShotLaunch {
+    /// The launch speed against an opponent under `conditions`, by the one
+    /// copy of the law (`launch::launch_speed`).
+    pub fn at(self, conditions: crate::launch::LaunchConditions) -> f32 {
+        crate::launch::launch_speed(self.base, Some(self.growth), conditions)
+    }
+}
+
 impl MoveHazard {
+    /// What this hazard throws its target for, when anything states it.
+    pub fn launch(self) -> Option<ShotLaunch> {
+        match self {
+            Self::Spawned { launch, .. } => launch,
+            Self::OwnersRangedAction => None,
+        }
+    }
+
     /// How far this hazard reaches, with [`RANGED_ACTION_REACH`] standing in
     /// for an unresolved ranged action.
     pub fn reach(self) -> f32 {
@@ -322,6 +352,7 @@ pub(crate) fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
                         free: p.offset.0.abs() + p.radius,
                     },
                     damage: p.damage,
+                    launch: None,
                 }
             })
             .ok(),
@@ -338,6 +369,7 @@ pub(crate) fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
                     free: p.offset.0.abs() + p.radius,
                 },
                 damage: p.damage,
+                launch: None,
             })
             .ok(),
         // A drop bomb is dropped, not thrown. It appears at `offset` and only
@@ -362,6 +394,7 @@ pub(crate) fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
                     // added, it is a law for `ThreatTravel::Placed`, not a
                     // second scalar.
                     damage: p.damage,
+                    launch: None,
                 }
             })
             .ok(),

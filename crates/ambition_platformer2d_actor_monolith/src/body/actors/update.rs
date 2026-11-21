@@ -2244,9 +2244,15 @@ fn resolve_owners_ranged_action(
     // ⚠ THE UNCHARGED SHOT, for the reason stated above the flight: a
     // `RangedCharge` multiplies damage as well as speed, and the press being
     // weighed is the one about to be made.
+    // And how hard it throws them, on the same spec: a fighter's shot that
+    // kills at percent states its growing launch there.
     frames.hazard = (travel.reach() > free).then_some(MoveHazard::Spawned {
         travel,
         damage: spec.damage,
+        launch: spec.launch.as_ref().map(|launch| ambition_entity_catalog::ShotLaunch {
+            base: launch.base,
+            growth: launch.growth,
+        }),
     });
 }
 

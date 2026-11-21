@@ -371,6 +371,48 @@ fn kill_potential_reads_the_victims_meter_and_the_moves_launch() {
     assert_eq!(ranked.best_attack().unwrap().features.kill_potential, 0.0);
 }
 
+/// A shot's launch is in what it spawns, as its damage is: a ranged move
+/// whose weapon states a growing launch earns kill potential, and the same
+/// shot stating none earns nothing.
+///
+/// Before `MoveFrameData::strongest_launch`, the scorer read the move's volume
+/// launch only, so every shot scored zero here however hard it threw.
+#[test]
+fn a_shot_that_states_its_launch_earns_kill_potential() {
+    let w = UtilityWeights::v1();
+    let mut v = view_with(300.0, 400.0);
+    v.actors[0].damage_taken = 90;
+    // In its recovery, so a fast shot lands before the answer. A launcher has
+    // no volume coverage, so its `reach_fit` is 0 and the frame advantage is
+    // the half of the gate it can pass.
+    v.actors[0].phase = crate::perception::BodyPhase::AttackRecovery;
+    v.actors[0].phase_remaining = 0.5;
+    let shot = |launch: Option<ambition_entity_catalog::ShotLaunch>| {
+        let mut c = candidate("shot", 0.1, 0.0);
+        c.frames.max_damage = 0;
+        c.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
+            travel: ambition_entity_catalog::ThreatTravel::Straight { speed: 900.0, span: 900.0, free: 4.0 },
+            damage: 8,
+            launch,
+        });
+        c
+    };
+    let kill_of = |kit: &[AttackCandidate]| {
+        generate_options(Perceived::cheating(&v), Situation::Neutral, kit, &w)
+            .attacks
+            .iter()
+            .find(|a| a.move_id == "shot")
+            .map(|a| a.features.kill_potential)
+            .expect("the shot is offered")
+    };
+    let launching = ambition_entity_catalog::ShotLaunch { base: 160.0, growth: 2.0 };
+    assert!(
+        kill_of(&[shot(Some(launching)), candidate_with_launch("smash", 0.1, 100.0, 160.0)]) > 0.0,
+        "a shot that throws as hard as the smash earns no kill potential"
+    );
+    assert_eq!(kill_of(&[shot(None), candidate_with_launch("smash", 0.1, 100.0, 160.0)]), 0.0);
+}
+
 /// ⛔⛤ **THE FINISHER CHANGES AS THE OPPONENT WEARS DOWN, AND A COLLAPSED
 /// SCALAR RANKED IT BACKWARDS.**
 ///
@@ -1792,6 +1834,7 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
         // bolt above the jab and change which move wins, which is a different
         // question than whether it is offered at all.
         damage: 0,
+        launch: None,
     });
     let kit = vec![jab, buff, bolt];
     let weights = UtilityWeights::default();
@@ -2737,6 +2780,7 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
             free: 0.0,
         },
         damage: 0,
+        launch: None,
     };
     // ⚠ **THE CONTROL IS A PLACEMENT THAT ARMS INSTANTLY, AND IT IS NOT THE
     // SHIPPED BOMB.** It used to be described as *"a laid bomb"*, which was a
@@ -2750,6 +2794,7 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
             detonates_by_s: 0.0,
         },
         damage: 0,
+        launch: None,
     };
 
     assert!(
@@ -2791,6 +2836,7 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
             detonates_by_s: 4.0,
         },
         damage: 0,
+        launch: None,
     };
     assert!(
         offered(on_a_fuse, 200.0),
@@ -2850,6 +2896,7 @@ fn the_stronger_of_two_launchers_is_the_one_offered() {
                 free: 700.0,
             },
             damage,
+            launch: None,
         });
         c
     };
@@ -2930,6 +2977,7 @@ fn a_laid_trap_is_not_priced_as_damage_that_lands_when_it_is_laid() {
         c.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
             travel,
             damage: 12,
+            launch: None,
         });
         c
     };
@@ -2991,6 +3039,7 @@ fn a_launchers_payoff_is_gated_on_when_its_shot_arrives_not_on_the_whole_move() 
         c.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
             travel,
             damage: 9,
+            launch: None,
         });
         c
     };

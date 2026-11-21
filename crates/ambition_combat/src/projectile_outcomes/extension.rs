@@ -1,12 +1,13 @@
 //! Bounded delivery of native projectile facts at the combat read cut.
 
 use super::ProjectileOutcome;
-use crate::{HitIdentity, extension::status::BodyStatuses, rules::ProjectileOutcomeRules};
+use crate::{extension::status::BodyStatuses, rules::ProjectileOutcomeRules, HitIdentity};
 use ambition_combat_port::projectile_outcome::{
     ProjectileOutcomes, ProjectileOutcomesPort, ProjectileParticipant,
 };
+use ambition_extension_host::observer_delivery::{ordered_observer_scopes, ObserverDeliveryPlan};
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations};
-use ambition_extension_sdk::{Port, phases::HIT_REACTION};
+use ambition_extension_sdk::phases::HIT_REACTION;
 use ambition_platformer2d_shared_tangle::{
     lifecycle::{LiveRooms, RoomInstanceRoot, SessionScopeId, SessionScopedEntity},
     sim_id::SimId,
@@ -81,14 +82,11 @@ impl PendingProjectileOutcomes {
 pub(super) fn enqueue(world: &mut World, shot: Entity, report: &ProjectileOutcome) {
     use ambition_platformer2d_shared_tangle::lifecycle::live_room_root_for;
     use bevy::ecs::system::SystemState;
-    let bound: std::collections::BTreeSet<_> = world
-        .get_resource::<AdmittedExtensions>()
-        .into_iter()
-        .flat_map(|admitted| &admitted.0.entries)
-        .filter(|entry| entry.descriptor.trigger.port == ProjectileOutcomesPort::KEY)
-        .map(|entry| entry.descriptor.trigger.selector.to_string())
-        .collect();
-    if bound.is_empty() {
+    let Some(admitted) = world.get_resource::<AdmittedExtensions>() else {
+        return;
+    };
+    let plan = ObserverDeliveryPlan::<ProjectileOutcomesPort>::new(admitted);
+    if plan.is_empty() {
         return;
     }
     let mut candidates: Vec<_> = [
@@ -130,15 +128,13 @@ pub(super) fn enqueue(world: &mut World, shot: Entity, report: &ProjectileOutcom
         if Some(session) != report.projectile.session {
             continue;
         }
-        let selectors = if Some(scope) == root {
-            &limits.room_observers
-        } else {
-            let Some(statuses) = world.get::<BodyStatuses>(scope) else {
-                continue;
-            };
-            &statuses.0
-        };
-        if !selectors.iter().any(|key| bound.contains(key)) {
+        if !plan.observes(
+            Some(scope) == root,
+            world
+                .get::<BodyStatuses>(scope)
+                .map(|statuses| statuses.0.as_slice()),
+            &limits.room_observers,
+        ) {
             continue;
         }
         let mut entity = world.entity_mut(scope);
@@ -173,26 +169,11 @@ fn queue_outcomes(
     rules: RulesOf<ProjectileOutcomeRules>,
     mut invocations: ResMut<ExtensionInvocations>,
 ) {
-    let bound: std::collections::BTreeSet<_> = admitted
-        .0
-        .entries
-        .iter()
-        .filter(|entry| entry.descriptor.trigger.port == ProjectileOutcomesPort::KEY)
-        .map(|entry| entry.descriptor.trigger.selector.to_string())
-        .collect();
-    let mut order: Vec<_> = scopes
-        .iter()
-        .map(|(entity, id, _, session, _, _)| {
-            (
-                session.map(|scope| scope.0),
-                rooms.of(entity),
-                id.clone(),
-                entity,
-            )
-        })
-        .collect();
-    order.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
-    for (_, _, _, scope) in order {
+    let plan = ObserverDeliveryPlan::<ProjectileOutcomesPort>::new(&admitted);
+    let order = ordered_observer_scopes(scopes.iter().map(|(entity, id, _, session, _, _)| {
+        ((session.map(|s| s.0), rooms.of(entity), id.clone()), entity)
+    }));
+    for scope in order {
         let Ok((_, _, statuses, _, root, mut pending)) = scopes.get_mut(scope) else {
             continue;
         };
@@ -210,34 +191,16 @@ fn queue_outcomes(
         if !limits.problems().is_empty() {
             continue;
         }
-        let selectors = if root {
-            &limits.room_observers
-        } else {
-            let Some(statuses) = statuses else {
-                continue;
-            };
-            &statuses.0
-        };
-        let mut keys: Vec<_> = selectors
-            .iter()
-            .filter(|key| bound.contains(*key))
-            .collect();
-        keys.sort();
-        keys.dedup();
+        let keys = plan.selectors(
+            root,
+            statuses.map(|statuses| statuses.0.as_slice()),
+            &limits.room_observers,
+        );
         if batch.events.len() > limits.max_events as usize {
             batch.events.truncate(limits.max_events as usize);
             batch.truncated = true;
         }
-        for key in keys {
-            invocations.trigger::<ProjectileOutcomesPort>(
-                &HIT_REACTION,
-                key.clone(),
-                scope,
-                None,
-                false,
-                batch.clone(),
-            );
-        }
+        plan.deliver(&mut invocations, &HIT_REACTION, scope, keys, batch);
     }
 }
 

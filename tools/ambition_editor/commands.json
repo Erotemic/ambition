@@ -38,18 +38,18 @@
     },
     {
       "id": "lineage-prepare",
-      "title": "Prepare recorded historical character looks",
-      "owner": "tools/ambition_sprite2d_renderer/design_history",
+      "title": "Render maintained character lineage variants",
+      "owner": "tools/ambition_sprite2d_renderer",
       "command": "./scripts/regen/lineages.sh --all",
       "help": "./scripts/regen/lineages.sh --help",
       "requires": [
         "scripts/regen/lineages.sh",
-        "tools/ambition_sprite2d_renderer/design_history/prepare.py"
+        "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/lineage_variants.py"
       ],
       "docs": "docs/tools/generated-visual-tools.md",
-      "inputs": "Recorded lineage milestones, variations, and historical Git source refs.",
-      "outputs": "Cached historical stills and a JSON report of source recipes, hashes, and failures.",
-      "mutation": "A plan only reads. Preparation fetches history and writes ignored caches; no runtime publication.",
+      "inputs": "Maintained variant recipes selecting current authored targets or configs.",
+      "outputs": "Current-source canonical previews and a JSON report.",
+      "mutation": "A plan only reads. Rendering writes ignored review images; no archive fetch or runtime publication.",
       "build": "No Cargo build. Uses the sprite-tool Python environment.",
       "status": "active",
       "cwd": "repository root"

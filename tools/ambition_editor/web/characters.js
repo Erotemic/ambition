@@ -145,7 +145,8 @@
     return `<div id="character-lineage">${ids.map((id, index) => {
       const path = chains[index].map(record), leaf = record(id);
       return window.ArtLineage.render({...leaf, lineage: id,
-        eras: path.flatMap(item => item.eras || []), tracks: path.flatMap(item => item.tracks || [])}, current);
+        eras: path.flatMap(item => item.eras || []), tracks: path.flatMap(item => item.tracks || []),
+        maintained: path.flatMap(item => item.maintained || [])}, current);
     }).join('')}${ancestry}</div>`;
   }
 

@@ -504,6 +504,11 @@
     }
     return [...looks.values()].sort((a, b) => (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0));
   }
+  function maintainedLineageFig(item) {
+    const picture = item.still ? `<a href="${esc(item.still)}" target="_blank" rel="noopener">${img(item.preview || item.still, item.label)}</a>`
+      : `<span class="controls" title="${esc(item.failure || 'Run ./scripts/regen/lineages.sh --all, then rebuild the inspector.')}">${item.state === 'failed' ? 'Maintained render failed' : 'Maintained preview not drawn'}</span>`;
+    return `<figure><div class="checker">${picture}</div><figcaption><b>${esc(item.label)}</b><br><code>${esc(item.id)}</code>${item.review ? `<br>${esc(item.review)}` : ''}</figcaption></figure>`;
+  }
   function lineageBox(l, a) {
     // An era's target is measured (`target`) or declared (an era `id`). The
     // last era of a target is that target's asset today.
@@ -531,6 +536,7 @@
     const visible = major.length ? major : all.filter(e => e.still);
     const current = a ? `<figure class="history-current"><div class="checker">${a.cover ? `<a href="#asset/${enc(a.id)}">${img(a.cover, a.display)}</a>` : '<span class="controls">Current preview unavailable</span>'}</div><figcaption><b>${a.identities?.length ? 'Current published look' : 'Selected art'}</b><br>${esc(a.display)}${C.built_at ? `<br>Inspected ${esc(C.built_at.slice(0, 10))}` : ''}</figcaption></figure>` : '';
     return `<section class="box visual-lineage" data-lineage="${esc(l.lineage || '')}"><h2>Character lineage: ${esc(l.name)}</h2>
+      ${(l.maintained || []).length ? `<h3>Maintained variants (${l.maintained.length})</h3><p class="controls">Drawn with current authoring sources. Archive revisions are comparison references.</p><div class="thumbs lineage-previews">${l.maintained.map(maintainedLineageFig).join('')}</div><h3>Archive references</h3>` : ''}
       ${l.summary ? `<p>${esc(l.summary)}</p>` : ''}<p class="controls">Recorded looks, oldest first. Open an image to inspect the original.</p>
       <div class="thumbs lineage-previews history-summary">${visible.map(variationFig).join('')}${current}</div>
       ${!visible.length ? '<p class="empty">No earlier snapshots are cached for this lineage.</p>' : ''}

@@ -106,15 +106,12 @@ quality tiers. Normalized code may regenerate a historical look; a preserved
 render/reference appearance is the check on the look, not a requirement to
 replay old generator code verbatim.
 
-Recommended shape: after the visual-era audit, a publish step
-`design_history publish <lineage> <era>` renders the curated look via a
-representative historical revision in a scratch worktree or a compatible
-normalized generator, and installs it under `<target>@<era-key>` (for example
-`alice@toon_2026_05`). Record the representative revision(s), visual
-reference and generator used; the representative commit is provenance, not a
-promise that every commit defines another look. The step goes through the
-ordinary sprite publish/staging boundary. Published files are the runtime
-art authority; reference art and provenance constrain regeneration.
+After visual review, author each selected look as a current config, rig, SVG,
+or target. The maintained recipe names this source and keeps the historical
+revision only as reference metadata. Register the selected source with ordinary
+target discovery and publish it through the normal sprite publisher. The same
+source must render on a machine with no archive. Do not use a scratch historical
+checkout as its production generator.
 
 A `_vN` pair needs no new publish: the old target is already published.
 
@@ -179,17 +176,25 @@ Rules (all presentation; none changes the simulation):
 The game ships only the curated set; tier selection and asset costs are still
 implementation details that require current package measurements.
 
-## Preparing review images on a new machine
+## Maintained source direction (Jon, 2026-11-20)
 
-`./scripts/regen/lineages.sh --all` prepares the recorded milestone and variation
-stills from historical source revisions. `--plan --json` reports cache coverage;
-`--retry-failed` retries recorded failures. Rebuild the inspector after a run.
-The report records source recipes, pixel hashes, failures, differences, and the
-Python environment. Attribution does not select or gate rendering.
+Important historical variants must have maintained current render sources.
+Archived history, including the `ambition-history` repository, supplies reference
+material and provenance. It must not be required for normal rendering or runtime
+publication. Keep authored appearance values, SVGs, and rig data in the current
+tree and render them through shared current code. Do not retain a complete old
+renderer per variant.
 
-This prepares evidence for the visual-era audit below. It does not validate
-index entries as distinct designs, select shipping skins, or implement runtime
-publication. See [the tool guide](../../tools/generated-visual-tools.md#historical-character-looks).
+`./scripts/regen/lineages.sh --all` now draws the maintained recipe catalog with
+current targets and configs. The first catalog covers retained versions and a
+normalized early Alice example. The inspector distinguishes maintained variants
+from archive references. `--archive-reference` retains optional archive replay
+for research. This is not complete coverage of important historical looks yet.
+
+Next, compare the archive's major looks, select the important gaps, and port
+their appearance data to this same source catalog. The source of a maintained
+look must be runnable with the archive absent. Credit evidence is not a render
+input. See [the workflow](../../tools/generated-visual-tools.md#maintained-character-lineage-variants).
 
 ## Remaining implementation work (not gated on Q170)
 
@@ -207,9 +212,9 @@ publication. See [the tool guide](../../tools/generated-visual-tools.md#historic
    publish every era or meet a per-character quota.
 3. Add `generation` metadata to curated catalog rows, validate that each
    refers to a corrected real era, and preserve the no-mechanics rule.
-4. Implement `design_history publish <lineage> <era>` using a reference
-   appearance and representative revision or normalized generator; publish
-   only curated entries with provenance, not every Git commit.
+4. Port selected looks into maintained current sources and publish them through
+   normal target discovery and the normal sprite publisher. Keep archive
+   revisions as provenance only. Publish curated looks, not every Git commit.
 5. Complete phase-mapped skin drawing and body-box scaling, with a headless
    test that a skin changes no simulation state. Inspect missing-row fallbacks.
 6. Show corrected visual eras and curated published generations distinctly in

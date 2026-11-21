@@ -2,15 +2,16 @@
 
 Every script here rebuilds generated content from its authoring source. They are
 all independently runnable and take `--help`. The asset umbrella prepares
-current runtime products. Historical lineage stills are a separate, explicit
-operation because they can require many old source revisions.
+current runtime products. Lineage previews are a separate, explicit operation
+and use maintained current sources.
 
-## Historical lineage stills
+## Maintained lineage variants
 
-Use `./scripts/regen/lineages.sh --all` to fetch historical sources and prepare
-recorded character looks on a new machine. Use `--plan --json` to inspect the
-work first. This command resumes its cache and does not publish runtime skins.
-See [historical character looks](../../docs/tools/generated-visual-tools.md#historical-character-looks).
+Use `./scripts/regen/lineages.sh --all` to draw maintained character variants
+with the current authoring framework. Use `--plan --json` to inspect their
+sources. No Git archive is required. `--archive-reference` selects the separate
+archive research tool. Neither mode publishes runtime skins.
+See [maintained lineage variants](../../docs/tools/generated-visual-tools.md#maintained-character-lineage-variants).
 
 ## Why these outputs are gitignored
 

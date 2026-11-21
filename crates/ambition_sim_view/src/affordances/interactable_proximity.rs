@@ -101,6 +101,25 @@ pub(crate) type Switches<'w, 's> = Query<
     (With<FeatureSimEntity>, With<SwitchFeature>),
 >;
 
+/// The mounts a prompt can name Ride for, with the name it says.
+pub(crate) type Mounts<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static ambition_mount::Mountable,
+        &'static ambition_platformer2d_core::BodyKinematics,
+        Option<&'static ambition_mount::MountSlot>,
+        Option<&'static ambition_mount::MountReservedFor>,
+        Option<&'static ambition_characters::actor::BodyHealth>,
+        Option<&'static ambition_combat::components::ActorIdentity>,
+    ),
+>;
+
+/// What a body may pilot, and what it rides now.
+pub(crate) type Pilots<'w, 's> =
+    Query<'w, 's, (Option<&'static ambition_mount::CanPilot>, bevy::prelude::Has<ambition_mount::RidingOn>)>;
+
 /// A body's kinematics, last step and frame: what its reach is built from.
 pub(crate) type Reaching = (
     &'static ambition_platformer2d_core::BodyKinematics,
@@ -128,6 +147,8 @@ pub fn update_nearest_interactable(
     actors: Talkers,
     chests: Chests,
     switches: Switches,
+    mounts: Mounts,
+    pilots: Pilots,
     driven: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
     // The live rooms, and the doors in them: the press's room and door rules.
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
@@ -139,8 +160,21 @@ pub fn update_nearest_interactable(
         bodies.get(body).ok().map(|(kin, step, frame)| {
             let reach = InteractReach::of(kin, step, frame, rooms.live().of(body));
             let door = rooms.nearest_door_under(body, reach.collision_box(), reach.pos());
+            let (licence, riding) = pilots.get(body).unwrap_or((None, false));
+            // `commandeer_mounts` reads every press of a rider as getting off.
+            if riding {
+                return InteractVariant::Dismount;
+            }
             chosen_in_reach(&reach, door, rooms.live(), &objects, &actors, &chests, &switches)
-                .map_or(InteractVariant::None, |(_, variant)| variant)
+                .map(|(_, variant)| variant)
+                .or_else(|| {
+                    let licence = licence?;
+                    let candidates = mounts.iter().map(|(e, m, k, s, r, h, _)| (e, m, k, s, r, h));
+                    let mount = ambition_mount::nearest_commandeerable(body, licence, kin, candidates, &[])?;
+                    let name = mounts.get(mount).ok().and_then(|row| row.6).map_or("mount", |identity| identity.name());
+                    Some(InteractVariant::Ride(name.to_string().into()))
+                })
+                .unwrap_or(InteractVariant::None)
         })
     };
     // ⭐⭐ EVERY DRIVEN BODY, not just the one holding the primary seat. The

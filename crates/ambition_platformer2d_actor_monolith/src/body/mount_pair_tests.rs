@@ -596,6 +596,10 @@ fn dismount_impact_leaves_rider_hp_intact() {
 /// rider), while attack/fire intent is NOT copied — the rider fires from the
 /// saddle. Runs `steer_mount_from_rider` directly on hand-built control
 /// frames so the assertion is about the routing, not the whole brain tick.
+///
+/// The mount's OWN presses are masked too: its brain keeps ticking under the
+/// rider (a cove shark's `ChargeCrash` bites whatever is in range), and a
+/// ridden mount does only what its rider asks.
 #[test]
 fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
     use ambition_characters::actor::control::ActorControlFrame;
@@ -609,11 +613,18 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
         .spawn((
             Mountable::at(ae::Vec2::new(0.0, -40.0)),
             MountSlot { rider: None },
-            ActorControl(ActorControlFrame::neutral()),
+            ActorControl(ActorControlFrame {
+                melee_pressed: true,
+                special_pressed: true,
+                burst_pressed: true,
+                fire: Some(ambition_characters::actor::control::ActorFireRequest::world_space(ae::Vec2::new(-1.0, 0.0))),
+                ..ActorControlFrame::neutral()
+            }),
         ))
         .id();
 
     let mut rider_frame = ActorControlFrame::neutral();
+    rider_frame.jump_pressed = true;
     rider_frame.velocity_target = ae::WorldVec2::new(120.0, -30.0);
     rider_frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
     rider_frame.facing = -1.0;
@@ -643,6 +654,11 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
         mount_frame.fire.is_none(),
         "but the mount does NOT inherit the rider's fire intent — the rider fires",
     );
+    assert!(
+        !mount_frame.melee_pressed && !mount_frame.special_pressed && !mount_frame.burst_pressed,
+        "the mount's own brain still pressed while ridden: {mount_frame:?}",
+    );
+    assert!(mount_frame.jump_pressed, "the rider's jump edge does not reach the mount it steers");
 }
 
 /// A mount does not carry its rider into solid: each axis of the pair's travel

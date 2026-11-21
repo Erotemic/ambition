@@ -2565,22 +2565,47 @@ while riding writes `DismountRequested { RiderBailed }`. Witnesses:
 `the_protagonist_commandeers_a_riderless_shark_and_gets_off` (app_it,
 sandbox).
 
-**Current state:** the mount's own brain is never swapped. While ridden,
-`steer_mount_from_rider` overwrites its locomotion and facing from the rider,
-so its brain resumes as it was when the ride ends. `MountedBrainCache` (the
-rider NPC's mounted brain) still has no production constructor, so
-`ControlClaimant::Mount` has no production writer. A mount death rebuilds a solo
-brain from config.
+**Done 2026-11-20 (slice 2), one witness each:**
+1. **The mount's own presses are masked.** While a mount is ridden with
+   `ControlGrant::Total`, `steer_mount_from_rider` rebuilds its frame from
+   neutral, carrying only the rider's travel: locomotion, velocity, facing and
+   the jump edge. Its brain still ticks, so it resumes as it was on dismount.
+   A cove shark's `ChargeCrash` bite no longer fires under a pirate (a
+   behaviour change for the cove crew: the rider fires from the saddle, and
+   the shark's contact damage still stands). The giant's limb strikes go
+   through `LimbIntents`, not the mount's frame, so they are untouched.
+   Witness: `total_grant_routes_rider_locomotion_to_mount_but_not_fire`.
+2. **Damage and death while ridden.** A blow that does not kill leaves the
+   rider aboard. A death dissolves the ride. The fix: a rider with no
+   `MountedBrainCache` now loses the whole link (`RidingOn` and the saddle).
+   Before, the record was kept "so a reset can re-arm the pair", but only a
+   cached rider is ever re-armed, so a commandeering pilot kept `RidingOn`.
+   `board` then refused its next mount, and its Interact asked to get off a
+   corpse. The protagonist's brain is untouched (match seats and non-actor
+   bodies are not rebuilt) and it walks under the stick afterwards. Witness:
+   `the_prompt_names_the_shark_and_its_death_puts_the_protagonist_down_still_playing`
+   (app_it).
+3. **Rewind.** Boarding, riding and getting off replay to the same world
+   under the sync test. Witness:
+   `commandeering_and_getting_off_replay_under_the_sync_test`.
+4. **Pose.** A commandeering rider is drawn sitting its saddle, never in
+   Jump or Fall (`pose_view::seated` on the player road). This is asserted in
+   the death witness above. A dedicated riding row does not exist for any
+   sheet; drawing one is art work, not this row's.
+5. **Prompt.** `NearestInteractable` answers `Ride(<mount name>)` beside a
+   mount the press would board, and `Dismount` while riding. The rule is the
+   press's own: `ambition_mount::nearest_commandeerable`. Witness: the same
+   app_it test. ⚠ No HUD draws `NearestInteractable` yet, for Talk either:
+   the Interact button still reads "Interact" (`control_prompt.rs`).
 
-**Next action, one witness each:**
-1. The mount's own presses (attack, special) are masked while it is ridden.
-   This is not done yet; check the Smash summoned shark and the cove sharks'
-   `ChargeCrash` against the mask.
-2. Damage and death while ridden, for a commandeered mount.
-3. The same ride after a rewind (board and dismount on a speculative frame).
-4. Animation: the rider's riding pose on a commandeered mount.
-5. A prompt: the Interact hint names the mount when it is the nearest
-   interactable.
+**Remaining:** `MountedBrainCache` still has no production constructor, so an
+NPC rider is never given a mounted brain. Not needed by this customer. The
+Smash ride tests cannot run on this VM (no music registry: the opening
+ceremony never releases the cast).
+
+**Next action:** Jon rides a shark by hand in the sandbox hub. Spawning a
+riderless one there is the only way to reach one today; no room authors a
+riderless shark.
 
 **Acceptance:** the customer mounts, the mount obeys the rider, and on
 dismount the mount runs the brain it had before; the same after a rewind.

@@ -559,3 +559,125 @@ mod constrained_motion {
         exercise(true);
     }
 }
+
+/// A riderless shark spawned beside the protagonist, parked on `stand_still` so
+/// nothing it decides moves it out of reach.
+fn shark_beside_the_protagonist(sim: &mut Platformer2dSimHarness) -> (Entity, Entity) {
+    let home = home_entity(sim.world_mut());
+    let p = pos_of(sim.world_mut(), home);
+    sim.spawn_enemy_character_at(
+        MOUNT_ID,
+        "Burning Flying Shark",
+        (p.x + 40.0, p.y),
+        (63.0, 26.0),
+        CharacterBrain::Custom("burning_flying_shark".to_string()),
+        "npc_burning_flying_shark",
+    );
+    let mount = entity_by_feature_id(sim.world_mut(), MOUNT_ID);
+    sim.world_mut().entity_mut(mount).insert(Brain::stand_still());
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+    }
+    (home, mount)
+}
+
+fn press_interact(sim: &mut Platformer2dSimHarness) {
+    sim.step(AgentAction { interact: true, ..AgentAction::default() });
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+}
+
+fn prompt_for(sim: &mut Platformer2dSimHarness, body: Entity) -> ambition_platformer2d::sim_view::affordances::InteractVariant {
+    sim.world_mut()
+        .resource::<ambition_platformer2d::sim_view::affordances::NearestInteractable>()
+        .for_body(body)
+}
+
+/// The Interact prompt names the shark the press would board and says
+/// Dismount while riding; the rider sits the saddle rather than falling in it; a blow to the ridden shark leaves the protagonist
+/// aboard, and the shark's death puts it down alive, still driven by the player
+/// (the dismount rebuild gives an NPC rider a brain, never a player's body).
+#[test]
+fn the_prompt_names_the_shark_and_its_death_puts_the_protagonist_down_still_playing() {
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::sim_view::affordances::InteractVariant;
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::sandbox_options().with_timestep(TimestepMode::fixed_60hz()))
+        .expect("sandbox sim builds");
+    let (home, mount) = shark_beside_the_protagonist(&mut sim);
+    assert_eq!(
+        prompt_for(&mut sim, home),
+        InteractVariant::Ride("Burning Flying Shark".into()),
+        "the prompt does not name the shark beside the protagonist",
+    );
+    let brain_before = format!("{:?}", sim.world_mut().get::<Brain>(home));
+
+    press_interact(&mut sim);
+    assert_eq!(sim.world_mut().get::<RidingOn>(home).map(|riding| riding.mount), Some(mount), "premise: boarded");
+    assert_eq!(prompt_for(&mut sim, home), InteractVariant::Dismount, "a rider's prompt does not say Dismount");
+    // The saddle holds the rider off the ground, which the kernel reads as
+    // airborne: a commandeering rider sits its mount, not falls in it.
+    for _ in 0..20 {
+        sim.step(AgentAction { move_x: 1.0, right_pressed: true, ..AgentAction::default() });
+        let anim = sim.world().get::<ambition_platformer2d::sim_view::BodyPoseView>(home).expect("the protagonist has a pose").anim;
+        assert!(
+            !matches!(
+                anim,
+                ambition_platformer2d::sprite_sheet::character::CharacterAnim::Jump
+                    | ambition_platformer2d::sprite_sheet::character::CharacterAnim::Fall
+                    | ambition_platformer2d::sprite_sheet::character::CharacterAnim::CrouchJump
+            ),
+            "the protagonist is drawn {anim:?} in the saddle"
+        );
+    }
+
+    sim.world_mut().get_mut::<BodyHealth>(mount).expect("the shark has health").damage(1);
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    assert!(sim.world_mut().get::<RidingOn>(home).is_some(), "a blow that did not kill the shark threw its rider off");
+
+    sim.world_mut().get_mut::<BodyHealth>(mount).expect("the shark has health").health.current = 0;
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    assert!(sim.world_mut().get::<RidingOn>(home).is_none(), "the dead shark kept its rider");
+    assert!(sim.world_mut().get::<Mounted>(home).is_none(), "the dead shark left its rider marked as mounted");
+    assert!(
+        sim.world_mut().get::<BodyHealth>(home).is_none_or(|health| health.alive()),
+        "the shark's death killed the protagonist"
+    );
+    assert_eq!(
+        format!("{:?}", sim.world_mut().get::<Brain>(home)),
+        brain_before,
+        "the shark's death rebuilt the protagonist's brain"
+    );
+    let x0 = pos_of(sim.world_mut(), home).x;
+    for _ in 0..30 {
+        sim.step(AgentAction { move_x: 1.0, right_pressed: true, ..AgentAction::default() });
+    }
+    let x1 = pos_of(sim.world_mut(), home).x;
+    assert!(x1 > x0 + 20.0, "the protagonist does not walk under the player's stick after the fall: {x0} -> {x1}");
+}
+
+/// Boarding and getting off replay to the same world under the sync test,
+/// which rewinds and resimulates every frame.
+#[test]
+fn commandeering_and_getting_off_replay_under_the_sync_test() {
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_options().with_sync_test_rollback())
+        .expect("the sandbox boots under the sync test");
+    let (home, mount) = shark_beside_the_protagonist(&mut sim);
+    assert_eq!(sim.rollback_health(), Ok(()), "premise: the spawn resimulated cleanly");
+    press_interact(&mut sim);
+    sim.step_n(AgentAction::default(), 12);
+    assert_eq!(sim.rollback_health(), Ok(()), "boarding resimulated to a different world");
+    assert_eq!(sim.world_mut().get::<RidingOn>(home).map(|riding| riding.mount), Some(mount), "the press did not board");
+    for _ in 0..20 {
+        sim.step(AgentAction { move_x: 1.0, right_pressed: true, ..AgentAction::default() });
+    }
+    assert_eq!(sim.rollback_health(), Ok(()), "the ride resimulated to a different world");
+    press_interact(&mut sim);
+    sim.step_n(AgentAction::default(), 12);
+    assert_eq!(sim.rollback_health(), Ok(()), "getting off resimulated to a different world");
+    assert!(sim.world_mut().get::<RidingOn>(home).is_none(), "the press did not get off");
+}

@@ -662,11 +662,26 @@ pub fn steer_mount_from_rider(
         //
         // `velocity_target` below needs none of this — it is world-space, which
         // is what every OTHER cross-body hand-off in this file already uses.
+        //
+        // ⛔ AND NOTHING OF THE MOUNT'S OWN. Its brain still ticks under the
+        // rider (so it resumes as it was on dismount), and it still asks for
+        // things: a cove shark's `ChargeCrash` bites whatever comes in range. A
+        // ridden mount obeys its rider, so the frame is rebuilt from neutral and
+        // carries only the rider's travel: locomotion, velocity, facing and the
+        // jump edge (with `locomotion` toward the feet, that edge is also the
+        // drop-through gesture, which is why it travels as the rider pressed it).
         let rider_frame = rider_control.0;
         let mount_frame = &mut mount_control.0;
-        mount_frame.locomotion = rider_frame.locomotion;
-        mount_frame.velocity_target = rider_frame.velocity_target;
-        mount_frame.facing = rider_frame.facing;
+        *mount_frame = ambition_characters::actor::control::ActorControlFrame {
+            locomotion: rider_frame.locomotion,
+            undamped_locomotion: rider_frame.undamped_locomotion,
+            velocity_target: rider_frame.velocity_target,
+            facing: rider_frame.facing,
+            jump_pressed: rider_frame.jump_pressed,
+            jump_held: rider_frame.jump_held,
+            jump_released: rider_frame.jump_released,
+            ..ambition_characters::actor::control::ActorControlFrame::neutral()
+        };
         // ⛔ A MOUNT DOES NOT CARRY ITS RIDER INTO SOLID. The mount collides as
         // its own box and the saddle sits a rider-height above it, so a pair
         // climbing to the ceiling stopped with the RIDER inside the tiles, and
@@ -733,8 +748,8 @@ pub fn steer_mount_from_rider(
             }
         }
         // drop-through is NOT hand-copied here, and does not need to be (.2): the rider's
-        // descend intent already rides across in `locomotion`, and the jump edge is the mount's
-        // own to decide.
+        // descend intent rides across in `locomotion` and its jump edge beside it, so the
+        // mount derives the gesture the way any body does.
     }
 }
 
@@ -1152,6 +1167,56 @@ pub const COMMANDEER_REACH: f32 = 16.0;
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MountsCommandeered;
 
+/// One mount a pilot might commandeer, as [`nearest_commandeerable`] reads it.
+pub type CommandeerCandidate<'a> = (
+    Entity,
+    &'a Mountable,
+    &'a ae::BodyKinematics,
+    Option<&'a MountSlot>,
+    Option<&'a MountReservedFor>,
+    Option<&'a ambition_characters::actor::BodyHealth>,
+);
+
+/// The mount `pilot`'s Interact would board: the nearest living, riderless,
+/// unreserved (or reserved for it) mount its licence covers, within
+/// [`COMMANDEER_REACH`] of its box, ties by entity order; never one in `taken`.
+///
+/// ⭐ ONE RULE FOR THE PRESS AND THE PROMPT. [`commandeer_mounts`] boards what
+/// this names and the Interact prompt names the same mount, so the label says
+/// "Ride" only where the press rides.
+pub fn nearest_commandeerable<'a>(
+    pilot: Entity,
+    licence: &CanPilot,
+    pilot_kin: &ae::BodyKinematics,
+    mounts: impl IntoIterator<Item = CommandeerCandidate<'a>>,
+    taken: &[Entity],
+) -> Option<Entity> {
+    let alive = |health: Option<&ambition_characters::actor::BodyHealth>| health.is_none_or(|h| h.alive());
+    let reach = pilot_kin.half_extent() + ae::Vec2::splat(COMMANDEER_REACH);
+    mounts
+        .into_iter()
+        .filter(|(mount, mountable, kin, slot, held, health)| {
+            *mount != pilot
+                && !taken.contains(mount)
+                && licence.can_pilot(&mountable.class)
+                && slot.is_none_or(|slot| slot.rider.is_none())
+                && held.is_none_or(|held| held.rider == pilot)
+                && alive(*health)
+                && {
+                    let gap = (kin.pos - pilot_kin.pos).abs();
+                    let within = reach + kin.half_extent();
+                    gap.x <= within.x && gap.y <= within.y
+                }
+        })
+        .min_by(|a, b| {
+            a.2.pos
+                .distance_squared(pilot_kin.pos)
+                .total_cmp(&b.2.pos.distance_squared(pilot_kin.pos))
+                .then(a.0.cmp(&b.0))
+        })
+        .map(|(mount, ..)| mount)
+}
+
 /// Commandeer a mount by hand: a body that presses Interact beside a living,
 /// riderless mount its [`CanPilot`] licence covers boards it, through
 /// [`board`] (so every legality rule is the same one); the nearest such mount
@@ -1206,29 +1271,7 @@ pub fn commandeer_mounts(
             dismounts.write(DismountRequested { rider: pilot, reason: DismountReason::RiderBailed });
             continue;
         }
-        let reach = pilot_kin.half_extent() + ae::Vec2::splat(COMMANDEER_REACH);
-        let nearest = mounts
-            .iter()
-            .filter(|(mount, mountable, kin, slot, held, health)| {
-                *mount != pilot
-                    && !taken.contains(mount)
-                    && licence.can_pilot(&mountable.class)
-                    && slot.is_none_or(|slot| slot.rider.is_none())
-                    && held.is_none_or(|held| held.rider == pilot)
-                    && alive(*health)
-                    && {
-                        let gap = (kin.pos - pilot_kin.pos).abs();
-                        let within = reach + kin.half_extent();
-                        gap.x <= within.x && gap.y <= within.y
-                    }
-            })
-            .min_by(|a, b| {
-                a.2.pos
-                    .distance_squared(pilot_kin.pos)
-                    .total_cmp(&b.2.pos.distance_squared(pilot_kin.pos))
-                    .then(a.0.cmp(&b.0))
-            })
-            .map(|(mount, ..)| mount);
+        let nearest = nearest_commandeerable(pilot, licence, pilot_kin, &mounts, &taken);
         let Some(mount) = nearest else {
             continue;
         };
@@ -1783,6 +1826,25 @@ pub fn enforce_mount_rider_link(
                     rider_entity,
                     ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
                 );
+                // ⛔ THE RECORD IS KEPT ONLY FOR A RIDE THAT CAN BE RE-ARMED.
+                // `RidingOn` + `MountSlot` outlive the death so the arm above
+                // can restore the pair when its mount comes back — and that arm
+                // re-arms only a rider with a `MountedBrainCache`. Without one
+                // the record re-arms nothing and still reads as a ride: a body
+                // that commandeered a shark and watched it die was refused the
+                // next mount (`board` turns away a body with `RidingOn`), its
+                // Interact asked to get off a corpse, and its prompt said so.
+                if cache.is_none() {
+                    let mount = riding.mount;
+                    commands.entity(rider_entity).remove::<(RidingOn, RideLease)>();
+                    commands.queue(move |world: &mut bevy::prelude::World| {
+                        if let Some(mut slot) = world.get_mut::<MountSlot>(mount) {
+                            if slot.rider == Some(rider_entity) {
+                                slot.rider = None;
+                            }
+                        }
+                    });
+                }
             }
             // Mount dead, rider already dissolved → steady state.
             (false, false) => {}

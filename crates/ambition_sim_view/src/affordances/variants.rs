@@ -56,6 +56,11 @@ pub enum InteractVariant {
     /// blue/orange mode). Takes precedence over `None` but yields to a
     /// genuine interactable.
     ModeSwitch,
+    /// A riderless mount this body may commandeer is in reach — boards it.
+    /// Carries the mount's name, so the prompt says what will be ridden.
+    Ride(Cow<'static, str>),
+    /// The body is riding — the press gets off.
+    Dismount,
     /// Authored prompt override: the interactable's own prompt
     /// string. Use sparingly — prefer the typed variants above so the
     /// HUD can swap icons / locales coherently.
@@ -73,6 +78,8 @@ impl VariantLabel for InteractVariant {
             InteractVariant::Use => "Use",
             InteractVariant::Activate => "Activate",
             InteractVariant::ModeSwitch => "Mode Switch",
+            InteractVariant::Ride(_) => "Ride",
+            InteractVariant::Dismount => "Dismount",
             // `&'static str` return forces typed-variant text. Custom
             // prompts are rendered via [`InteractVariant::display`] so
             // the HUD path can borrow either source uniformly.
@@ -88,6 +95,8 @@ impl VariantLabel for InteractVariant {
             InteractVariant::Use => "interact.use",
             InteractVariant::Activate => "interact.activate",
             InteractVariant::ModeSwitch => "interact.mode_switch",
+            InteractVariant::Ride(_) => "interact.ride",
+            InteractVariant::Dismount => "interact.dismount",
             InteractVariant::Custom(_) => "interact.custom",
         }
     }
@@ -101,6 +110,7 @@ impl InteractVariant {
     pub fn display(&self) -> Cow<'_, str> {
         match self {
             InteractVariant::Custom(prompt) => Cow::Borrowed(prompt.as_ref()),
+            InteractVariant::Ride(mount) => Cow::Owned(format!("Ride {mount}")),
             other => Cow::Borrowed(other.text()),
         }
     }

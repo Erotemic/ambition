@@ -398,7 +398,7 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Teams selector | ▢ | M | — | |
 | Friendly-fire toggle UI | ◐ | S | — | `CombatRules::friendly_fire` exists. |
 | Rules presets | ▢ | M | — | |
-| Handicap / starting damage | ▢ | S/M | E1 | In match preparation. |
+| Handicap / starting damage | ✔ | S/M | — | 2026-11-21: `MatchParticipant::starting_damage` is prepared onto the seed's meter (`BodyHealth::set_damage_taken`: a stated meter, not a hit; negative is a seat problem), and `FighterStocks::respawn_damage` brings a stock KO back on it, so the handicap lasts every life (rollback schema 523). Smash: a per-card button right of the fighter walks `handicap_choices` in `smash_rules.ron` (+0/+50/+100%), kept across picks and cleared with the slot; START scales it by the ruleset's `health_pool`. Guards `spawned_seats_start_on_their_own_handicaps`, `a_handicapped_fighter_comes_back_on_its_handicap`, `each_card_s_handicap_button_sets_its_seat_s_starting_damage`. |
 | CPU difficulty selector | ▢ | S/M | — | The brain and scoped ladder are built (Q88). The selector is separate UI work. |
 | Full results screen and stats | ◐ | M | E1 | Basic winner card; stats from causal combat/stock events. |
 | Victory poses, fanfare, stock cues | ▢ | S/M | — | |
@@ -585,8 +585,8 @@ post-gate order, each step one coherent customer at a time:
    commitment window had already shipped (`ledge_trump_lockout`). The
    grab-release fact waits for a presentation consumer (step 4).
 3. **Training and match-rule knobs** that need no new semantics: reset
-   fighters / set percent, frame-data display, timer selector and random
-   stage (✔ 2026-11-21), handicap / starting damage in match preparation.
+   fighters / set percent, frame-data display. Timer selector, random
+   stage and handicap / starting damage ✔ 2026-11-21.
 4. **Presentation and audio** rows (§12), which wait on art and sound more than
    on code; take them with the feel audit.
 

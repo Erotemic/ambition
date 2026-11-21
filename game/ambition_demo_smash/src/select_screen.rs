@@ -47,6 +47,8 @@ pub enum SelectTarget {
     Stocks,
     /// The match clock's cycle, left of the stocks.
     Clock,
+    /// A card's handicap cycle, right of its fighter: a per-seat decision.
+    CardHandicap(usize),
     /// Begin the match.
     Start,
     /// Leave the lobby — see [`LeaveRequested`].
@@ -75,6 +77,8 @@ pub enum Anchored {
     /// The match clock's cycle, left of the stocks.
     Clock,
     CardPortrait(usize),
+    /// A card's handicap cycle, right of its fighter.
+    CardHandicap(usize),
     Start,
     Back,
     /// A page arrow, where the layout puts its hit target (`next` or not).
@@ -133,6 +137,19 @@ pub struct ClockButtonLabel;
 /// What the clock button reads. Prefixed like the stage button's.
 pub fn clock_button_text(choice: crate::SmashClockChoice) -> String {
     crate::text::smash_text().fill("select.clock", &[("clock", &choice.label())])
+}
+
+/// A card's handicap button (the node, for its visibility).
+#[derive(Component, Clone, Copy)]
+pub struct HandicapButton(pub usize);
+
+/// A card's handicap button's label.
+#[derive(Component, Clone, Copy)]
+pub struct HandicapButtonLabel(pub usize);
+
+/// What a card's handicap button reads.
+pub fn handicap_button_text(percent: u32) -> String {
+    crate::text::smash_text().fill("select.handicap", &[("percent", &percent)])
 }
 
 /// The chosen fighter's portrait on a card.
@@ -938,6 +955,30 @@ pub fn spawn_select_screen(
                     Visibility::Hidden,
                     Name::new(format!("slot {} chosen portrait", slot + 1)),
                 ));
+
+                let mut handicap = anchored(Anchored::CardHandicap(slot));
+                handicap.1.justify_content = JustifyContent::Center;
+                handicap.1.align_items = AlignItems::Center;
+                handicap.1.border = UiRect::all(Val::Px(2.0));
+                handicap.1.border_radius = BorderRadius::all(Val::Px(6.0));
+                root.spawn((
+                    handicap,
+                    HandicapButton(slot),
+                    BackgroundColor(select_look().button()),
+                    BorderColor::all(select_look().panel_edge()),
+                    GlobalZIndex(610),
+                    // Shown while somebody sits at the slot.
+                    Visibility::Hidden,
+                    Name::new(format!("slot {} handicap button", slot + 1)),
+                ))
+                .with_children(|node| {
+                    node.spawn((
+                        HandicapButtonLabel(slot),
+                        Text::new(handicap_button_text(0)),
+                        text_font(14.0),
+                        TextColor(select_look().ink()),
+                    ));
+                });
             }
 
             // ── THE TOKENS AND THE CURSOR, over everything ───────────────
@@ -1509,6 +1550,11 @@ pub(crate) fn drive_the_cursor(
                     };
                     select.cycle_skin(slot, looks);
                 }
+                // Any seat may set a card's handicap, as for roles: a couch
+                // agrees on it out loud.
+                (None, None, Some(SelectTarget::CardHandicap(slot))) => {
+                    select.cycle_handicap(slot, &crate::rules::smash_rules().handicap_choices);
+                }
                 // Any seat may cycle the stage, as for roles; the match is not
                 // player one's.
                 (None, None, Some(SelectTarget::Stage)) => {
@@ -1605,6 +1651,7 @@ pub fn place_the_screen(
             Anchored::Stocks => Some(layout.stocks_button()),
             Anchored::Clock => Some(layout.clock_button()),
             Anchored::CardPortrait(slot) => Some(layout.card_portrait(slot)),
+            Anchored::CardHandicap(slot) => Some(layout.card_handicap(slot)),
             Anchored::Start => Some(layout.start_button()),
             Anchored::Back => Some(layout.back_button()),
             Anchored::Page { next } => (layout.pages > 1).then(|| layout.page_button(next)),
@@ -1842,6 +1889,31 @@ pub fn sync_select_chrome(
                 .map(crate::text::line)
                 .unwrap_or_else(|| crate::text::line("select.ready"))
         };
+        if text.0 != next {
+            text.0 = next;
+        }
+    }
+}
+
+/// Project each card's handicap onto its button: the percent, and whether the
+/// button is drawn at all (only while somebody sits at the slot).
+pub fn sync_handicap_buttons(
+    select: Res<SmashSelect>,
+    mut buttons: Query<(&HandicapButton, &mut Visibility)>,
+    mut labels: Query<(&HandicapButtonLabel, &mut Text)>,
+) {
+    for (button, mut visibility) in &mut buttons {
+        let next = if select.slot(button.0).occupant.participates() {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != next {
+            *visibility = next;
+        }
+    }
+    for (label, mut text) in &mut labels {
+        let next = handicap_button_text(select.slot(label.0).handicap);
         if text.0 != next {
             text.0 = next;
         }

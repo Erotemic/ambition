@@ -34,6 +34,10 @@ const STOCKS_W: f32 = 108.0;
 /// stocks'.
 const CLOCK_W: f32 = 108.0;
 const START_H: f32 = 34.0;
+/// A card's handicap button: wide enough for its longest label (`+100%`)
+/// where the card has the room.
+const HANDICAP_W: f32 = 64.0;
+const HANDICAP_H: f32 = 28.0;
 /// Back control width, paired with the start control.
 const BACK_W: f32 = 150.0;
 const BACK_H: f32 = 32.0;
@@ -380,11 +384,28 @@ impl SelectLayout {
         )
     }
 
-    /// Everything the cursor can act on, in a stable order.
+    /// A card's handicap button, right of its fighter and level with it.
+    ///
+    /// Clear of the portrait's touch box, not only its drawn one: on a phone
+    /// the portrait is narrower than [`MIN_TOUCH_PX`], so a finger reaches
+    /// past its edge.
+    ///
+    /// On a small window it narrows to the card's edge rather than leave it.
+    pub fn card_handicap(&self, slot: usize) -> HitRect {
+        let portrait = self.card_portrait(slot);
+        let reach = (portrait.size().x * 0.5).max(MIN_TOUCH_PX * 0.5);
+        let left = portrait.center().x + reach + CARD_GAP;
+        let right = (left + HANDICAP_W).min(self.card(slot).max.x - CARD_GAP * 0.5);
+        HitRect {
+            min: Vec2::new(left, portrait.center().y - HANDICAP_H * 0.5),
+            max: Vec2::new(right, portrait.center().y + HANDICAP_H * 0.5),
+        }
+    }
+
     /// Everything the cursor can act on, in a stable order. The order is part
     /// of the contract.
     pub fn targets(&self) -> Vec<(SelectTarget, HitRect)> {
-        let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS + 4);
+        let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS * 3 + 7);
         for index in 0..self.characters {
             if let Some(rect) = self.portrait(index) {
                 targets.push((SelectTarget::Portrait(index), rect));
@@ -414,6 +435,10 @@ impl SelectLayout {
         targets.push((SelectTarget::Stocks, self.stocks_button()));
         // Appended after `Stocks`, by the same contract.
         targets.push((SelectTarget::Clock, self.clock_button()));
+        // Appended after `Clock`, by the same contract.
+        for slot in 0..MAX_SMASH_SEATS {
+            targets.push((SelectTarget::CardHandicap(slot), self.card_handicap(slot)));
+        }
         targets
     }
 }

@@ -64,6 +64,10 @@ pub struct FighterStocks {
     /// The same seconds [`DeathRules::interlude`](crate::death_rules::DeathRules::interlude)
     /// counts, against `WorldTime`.
     pub respawn_after: f32,
+    /// The damage a respawned fighter comes back on: its seat's handicap,
+    /// stated by the match with the stock count for the same reason as
+    /// [`Self::respawn_after`]. `0` comes back fresh.
+    pub respawn_damage: i32,
 }
 
 impl FighterStocks {
@@ -72,6 +76,14 @@ impl FighterStocks {
             remaining: stocks,
             started_with: stocks,
             respawn_after: 0.0,
+            respawn_damage: 0,
+        }
+    }
+
+    pub fn returning_on(self, damage: i32) -> Self {
+        Self {
+            respawn_damage: damage,
+            ..self
         }
     }
 

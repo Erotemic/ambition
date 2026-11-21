@@ -1899,6 +1899,57 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     );
 }
 
+/// The tank character and a home body wearing it, for the handicap test.
+fn tank_app_with_home_body() -> (App, bevy::prelude::Entity) {
+    let mut app = seating_app();
+    let mut tank = CharacterDefinition::new("tank", "Tank", "demo");
+    tank.vitals = ambition_characters::actor::definition::Vitals {
+        poise: None,
+        max_health: Some(60),
+        mass: Some(1.0),
+        knockback_weight: None,
+    };
+    app.register_character(tank);
+    let player = app
+        .world_mut()
+        .spawn((
+            fixture_home_body(
+                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
+                    Vec2::new(0.0, 0.0),
+                    ambition_platformer2d_core::AbilitySet::default(),
+                ),
+                ambition_characters::actor::Health::new(999),
+            ),
+            ambition_characters::actor::CharacterForm::new("tank"),
+        ))
+        .id();
+    (app, player)
+}
+
+/// A seat's handicap is the meter its body starts on, and it is not a hit: the
+/// pool stays full. Two spawned seats, each on its own handicap.
+#[test]
+fn spawned_seats_start_on_their_own_handicaps() {
+    let (mut app, _) = tank_app_with_home_body();
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("tank").with_starting_damage(40), cpu("tank").with_starting_damage(15)],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+    let world = app.world_mut();
+    let mut seats: Vec<(usize, i32, i32, i32)> = world
+        .query::<(&MatchSeat, &ambition_characters::actor::BodyHealth)>()
+        .iter(world)
+        .map(|(seat, health)| (seat.0, health.damage_taken(), health.health.current, health.health.max))
+        .collect();
+    seats.sort_unstable();
+    assert_eq!(
+        seats,
+        vec![(0, 40, 60, 60), (1, 15, 60, 60)],
+        "(seat, meter, pool, max): each seat starts on its own handicap with a full pool"
+    );
+}
+
 /// A match that DECLARES a pool overrules what each character authored — and
 /// a match that declares none does not.
 ///

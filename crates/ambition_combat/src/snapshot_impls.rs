@@ -92,15 +92,18 @@ impl SnapshotState for crate::components::FighterStocks {
         put_u32(out, self.remaining);
         put_u32(out, self.started_with);
         put_f32(out, self.respawn_after);
+        put_i32(out, self.respawn_damage);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let remaining = r.u32()?;
         let started_with = r.u32()?;
         let respawn_after = r.f32()?;
+        let respawn_damage = r.i32()?;
         Some(crate::components::FighterStocks {
             remaining,
             started_with,
             respawn_after,
+            respawn_damage,
         })
     }
 }

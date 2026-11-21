@@ -903,6 +903,65 @@ fn the_clock_button_sets_the_clock_the_published_match_runs() {
     );
 }
 
+/// A card's handicap button sets the percent its fighter starts on, and the
+/// published roster carries it as starting damage on that slot's seat.
+///
+/// An empty card's button does nothing: there is nobody to handicap.
+#[test]
+fn each_card_s_handicap_button_sets_its_seat_s_starting_damage() {
+    let mut app = build_demo_app();
+    install_press_port(&mut app);
+    plug_in(&mut app, 2);
+    app.update();
+    let layout = layout(&app);
+    let handicap = |app: &App, slot: usize| app.world().resource::<SmashSelect>().slot(slot).handicap;
+
+    click(&mut app, 0, layout.card_handicap(0));
+    assert_eq!(handicap(&app, 0), 0, "an empty card took a handicap");
+
+    click(&mut app, 0, layout.role_button(0));
+    click(&mut app, 1, layout.role_button(1));
+    click(&mut app, 0, layout.card_handicap(0));
+    // Any seat may set any card's, as for roles; the walk wraps after 100.
+    for _ in 0..2 {
+        click(&mut app, 0, layout.card_handicap(1));
+    }
+    assert_eq!((handicap(&app, 0), handicap(&app, 1)), (50, 100));
+    assert_eq!(handicap_label_text(&mut app, 1), "+100%");
+
+    let token = placed_token(&app, 0);
+    click(&mut app, 0, token);
+    let cell = layout.portrait(nth(&app, 0)).expect("an authored portrait");
+    click(&mut app, 0, cell);
+    let token = placed_token(&app, 1);
+    click(&mut app, 1, token);
+    let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
+    click(&mut app, 1, cell);
+    // A new pick keeps the player's handicap.
+    assert_eq!((handicap(&app, 0), handicap(&app, 1)), (50, 100));
+    click(&mut app, 0, layout.start_button());
+
+    let roster = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("clicking START publishes the roster the screen decided")
+        .clone();
+    assert_eq!(roster.rules.health_pool, Some(100), "the percent pool this test's numbers assume");
+    let starting: Vec<i32> = roster.participants.iter().map(|seat| seat.starting_damage).collect();
+    assert_eq!(starting, vec![50, 100], "the lobby said +50% and +100%");
+}
+
+/// What one card's handicap button is currently showing.
+fn handicap_label_text(app: &mut App, slot: usize) -> String {
+    use ambition_demo_smash::select_screen::HandicapButtonLabel;
+    app.world_mut()
+        .query::<(&HandicapButtonLabel, &Text)>()
+        .iter(app.world())
+        .find(|(label, _)| label.0 == slot)
+        .map(|(_, text)| text.0.clone())
+        .unwrap_or_default()
+}
+
 /// What the clock button is currently showing.
 fn clock_label_text(app: &mut App) -> String {
     use ambition_demo_smash::select_screen::ClockButtonLabel;

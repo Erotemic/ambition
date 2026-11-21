@@ -161,6 +161,11 @@ pub struct PreparedSeat {
     /// [`crate::MatchParticipant::skin`]): a registered row that is a look of
     /// [`Self::character_id`]. Art only.
     pub skin: Option<ambition_entity_catalog::CharacterId>,
+    /// The damage this seat's body starts every life on (see
+    /// [`crate::MatchParticipant::starting_damage`]). The seed's meter holds it
+    /// for the first life; a stocks match hands it to `FighterStocks` for the
+    /// rest.
+    pub starting_damage: i32,
 }
 
 /// What every fighter in this match plays under.
@@ -759,6 +764,15 @@ pub fn prepare_match(sprite_content: &ambition_sprite_sheet::SpriteContent,
                 rules.pool_over(baseline.max_health_over(seed.health.health.max.max(1))),
             ))
             .with_policy(death_policy);
+        // The seat's handicap, on the meter: a stated starting damage, not a hit.
+        if participant.starting_damage < 0 {
+            seat_problem(format!(
+                "starting damage {} is negative; a body starts on none or more",
+                participant.starting_damage
+            ));
+            continue;
+        }
+        seed.health.set_damage_taken(participant.starting_damage);
         // The match's resources, set at their declared start before the body
         // exists, so its first frame holds them.
         match ambition_platformer2d_core::resources::ActorResources::declared(&rules.resources) {
@@ -819,6 +833,7 @@ pub fn prepare_match(sprite_content: &ambition_sprite_sheet::SpriteContent,
             effective_movement_tuning: rules.seat_movement(participant, definition, built_body),
             moveset: worn.moveset,
             skin: participant.skin.clone(),
+            starting_damage: participant.starting_damage,
         });
     }
 

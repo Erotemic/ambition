@@ -40,6 +40,9 @@ pub struct SmashRules {
     /// The match clocks the select screen's clock button offers, in seconds,
     /// in the order it walks them.
     pub clock_choices_seconds: Vec<u32>,
+    /// The handicaps each card's handicap button offers, in percent, in the
+    /// order it walks them. Zero (no handicap) is where every card starts.
+    pub handicap_choices: Vec<u32>,
     /// How long Back is held on the select screen before it leaves, in
     /// seconds. Holding Back is navigation; tapping Back is token
     /// manipulation.
@@ -120,6 +123,14 @@ impl SmashRules {
             }
             if self.clock_choices_seconds[..index].contains(seconds) {
                 problems.push(format!("`clock_choices_seconds[{index}]` repeats {seconds}; the clock button would offer it twice"));
+            }
+        }
+        if !self.handicap_choices.contains(&0) {
+            problems.push("`handicap_choices` has no 0; every card starts on no handicap, so the button must offer it".to_string());
+        }
+        for (index, percent) in self.handicap_choices.iter().enumerate() {
+            if self.handicap_choices[..index].contains(percent) {
+                problems.push(format!("`handicap_choices[{index}]` repeats {percent}; the handicap button would offer it twice"));
             }
         }
         let melee = self.seating_melee;

@@ -345,7 +345,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 519 -> 520: a subscriber keeps the retirements it has heard.
 // 521 -> 522: the playing cutscenes are a list, one per room, each with its own
 // skip hold (`cutscene.skip_hold` is gone); the room log keeps each room's.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 522;
+// 522 -> 523: FighterStocks encodes the damage a respawn comes back on.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 523;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

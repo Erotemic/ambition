@@ -35,6 +35,7 @@
     "select.stage": "Stage: {stage}",
     "select.stocks": "Stocks: {stocks}",
     "select.clock": "Time: {clock}",
+    "select.handicap": "+{percent}%",
     // Who sits in a slot.
     "select.not_playing": "NOT PLAYING",
     "select.controller": "CONTROLLER {number}",

@@ -105,6 +105,11 @@
     // (eight minutes), so that clock is one of these. Three and five minutes
     // are the short sets of a training evening.
     clock_choices_seconds: [180, 300, 480],
+    // The handicaps each card's button offers, in percent: the fighter starts
+    // every life on this much damage. Zero is the start and must stay in the
+    // list. 50% is a light hit from launching range; 100% is where most
+    // finishers kill, so the strongest handicap still has to be hit.
+    handicap_choices: [0, 50, 100],
     // How long Back is held on the select screen before it leaves (seconds).
     // A tap moves a token; a hold leaves.
     back_hold_to_leave_seconds: 0.55,

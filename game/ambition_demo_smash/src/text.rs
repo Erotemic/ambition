@@ -34,6 +34,7 @@ impl TextKeys for SmashText {
         TextKey::with("select.stage", &["stage"]),
         TextKey::with("select.stocks", &["stocks"]),
         TextKey::with("select.clock", &["clock"]),
+        TextKey::with("select.handicap", &["percent"]),
         TextKey::plain("select.not_playing"),
         TextKey::with("select.controller", &["number"]),
         TextKey::plain("select.cpu"),

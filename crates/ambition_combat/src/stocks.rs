@@ -394,6 +394,7 @@ pub fn spend_fighter_stocks(
         };
         let eliminated = stocks.spend();
         let remaining = stocks.remaining;
+        let respawn_damage = stocks.respawn_damage;
         // ⭐ THE SWING IS OVER, AND FOR AN ELIMINATED FIGHTER THIS IS THE ONLY
         // PLACE THAT CAN SAY SO. A body that enters `OutOfPlay` has its move
         // ended by `end_moves_for_bodies_out_of_play`, which is the generic
@@ -435,7 +436,9 @@ pub fn spend_fighter_stocks(
                 // it was knocked off the stage; carrying it into the next stock
                 // would make the second one shorter than the first and the third
                 // shorter again, which is a difficulty ramp nobody authored.
+                // A handicap is authored: the seat comes back on it.
                 health.reset();
+                health.set_damage_taken(respawn_damage);
             }
             // The body is OUT until its window closes. FOUR facts, and the
             // engine already owned three of them (ADR 0033):
@@ -1325,6 +1328,25 @@ mod tests {
             app.world().get::<BodyHealth>(body).unwrap().damage_taken(),
             0,
             "the fighter respawned still carrying the damage that killed it"
+        );
+    }
+
+    /// A handicapped seat comes back on its handicap, not fresh: the meter is
+    /// cleared of the damage that killed it and stated again from the stocks.
+    #[test]
+    fn a_handicapped_fighter_comes_back_on_its_handicap() {
+        let mut app = stocks_app();
+        let body = fighter(&mut app, 2);
+        let handicapped = app.world().get::<FighterStocks>(body).unwrap().returning_on(40);
+        app.world_mut().entity_mut(body).insert(handicapped);
+        app.world_mut().get_mut::<BodyHealth>(body).unwrap().damage(140);
+
+        knock_out(&mut app, body);
+        let health = app.world().get::<BodyHealth>(body).unwrap();
+        assert_eq!(
+            (health.damage_taken(), health.health.current, health.health.max),
+            (40, 50, 50),
+            "a respawn on a handicap is the stated meter on a full pool"
         );
     }
 

@@ -524,7 +524,8 @@ pub fn activate_the_prepared_match(sprite_content: bevy::prelude::Res<ambition_s
         if let Some(stocks) = rules.stocks {
             entity.try_insert(
                 ambition_combat::components::FighterStocks::new(stocks)
-                    .returning_after(rules.stock_respawn_seconds),
+                    .returning_after(rules.stock_respawn_seconds)
+                    .returning_on(seat.starting_damage),
             );
         }
         if let Some(contact) = rules.fighter_contact {

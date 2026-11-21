@@ -95,6 +95,12 @@ pub struct MatchParticipant {
     /// body, the kit and everything the sim reads stay the character's; a
     /// Smash skin. `None` draws the character's own sheet.
     pub skin: Option<ambition_entity_catalog::CharacterId>,
+    /// The damage this seat's body starts every life on (a handicap), in the
+    /// match's health units: with a pool of 100 it is a percent. Stated on the
+    /// meter (`BodyHealth::set_damage_taken`), so it is not a hit and drains
+    /// no pool. In a stocks match a respawn comes back on it too
+    /// (`FighterStocks::respawn_damage`). `0` is no handicap.
+    pub starting_damage: i32,
 }
 
 impl MatchParticipant {
@@ -111,7 +117,15 @@ impl MatchParticipant {
             action_set: None,
             body: None,
             skin: None,
+            starting_damage: 0,
         }
+    }
+
+    /// Start this seat's body on `damage`. See
+    /// [`MatchParticipant::starting_damage`].
+    pub fn with_starting_damage(mut self, damage: i32) -> Self {
+        self.starting_damage = damage;
+        self
     }
 
     /// Give this seat a kit for the duration of the match. See

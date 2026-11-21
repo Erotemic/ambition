@@ -254,6 +254,10 @@ pub struct SlotCard {
     /// Which look the chosen fighter is drawn in: 0 is its own sheet, `n` is
     /// the `n`th of its skins ([`SmashSkins`]). A new pick starts on 0.
     pub skin: u8,
+    /// The percent this slot's fighter starts every life of the match
+    /// on: one of `handicap_choices` (`smash_rules.ron`). The player's, not the
+    /// fighter's, so a new pick keeps it; an emptied slot drops it.
+    pub handicap: u32,
 }
 
 /// The grid's cells: the fighters plus the random square.
@@ -415,6 +419,7 @@ impl SmashSelect {
         } else {
             self.slots[slot].pick = None;
             self.slots[slot].skin = 0;
+            self.slots[slot].handicap = 0;
         }
     }
 
@@ -445,6 +450,22 @@ impl SmashSelect {
             return;
         }
         card.skin = ((card.skin as usize + 1) % (looks + 1)) as u8;
+    }
+
+    /// Move a slot to the next of `choices` (the handicaps, in the order the
+    /// button walks them), round again after the last. A handicap the list no
+    /// longer offers steps to the first. An empty slot has nobody to handicap.
+    pub fn cycle_handicap(&mut self, slot: usize, choices: &[u32]) {
+        let Some(card) = self.slots.get_mut(slot) else {
+            return;
+        };
+        if !card.occupant.participates() || choices.is_empty() {
+            return;
+        }
+        card.handicap = match choices.iter().position(|choice| *choice == card.handicap) {
+            Some(at) => choices[(at + 1) % choices.len()],
+            None => choices[0],
+        };
     }
 
     /// The character a slot starts on when nothing has been dropped on it yet.
@@ -566,6 +587,10 @@ impl SmashSelect {
         // is a legal outcome.
         let mut rng = RandomPick::seeded(seed);
         let mut roster = MatchParticipantRoster::of(Vec::<String>::new());
+        // The rules first: a handicap is a percent, and the ruleset says what
+        // 100% is.
+        crate::apply_smash_match_rules(&mut roster, stocks);
+        let pool = roster.rules.health_pool;
         roster.participants = self
             .slots
             .iter()
@@ -600,7 +625,8 @@ impl SmashSelect {
                         },
                     })
                     // The kit this match gives seats with none, below.
-                    .on_team(format!("seat {}", slot + 1));
+                    .on_team(format!("seat {}", slot + 1))
+                    .with_starting_damage(handicap_damage(card.handicap, pool));
                 Some(match (authors_its_own, seating_melee.clone()) {
                     // Its own repertoire outranks any floor.
                     (true, _) => seat,
@@ -616,11 +642,18 @@ impl SmashSelect {
                 })
             })
             .collect();
-        crate::apply_smash_match_rules(&mut roster, stocks);
         // Publish under this experience, so another stage's teardown of "the
         // roster" does not remove this one.
         Some(roster.published_by(crate::SMASH_EXPERIENCE))
     }
+}
+
+/// The damage a handicap of `percent` starts a fighter on, in match health
+/// units. The ruleset's pool is 100%; a ruleset with no pool measures percent
+/// against 100, the unit Smash's own pool uses. Rounded to the nearest unit.
+pub fn handicap_damage(percent: u32, pool: Option<i32>) -> i32 {
+    let pool = i64::from(pool.unwrap_or(100));
+    ((i64::from(percent) * pool + 50) / 100) as i32
 }
 
 /// Which input device a slot's person holds, as text (for debugging a couch

@@ -1486,12 +1486,13 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                         the_select_screen_owns_its_input,
                     ),
                     select_screen::place_the_screen,
-                    // Four small projections instead of one wide mutable query.
+                    // Small projections instead of one wide mutable query.
                     // Their order does not matter; the fence keeps
                     // drive-before-draw without a B0001 exclusion matrix.
                     select_screen::sync_select_grid,
                     select_screen::sync_select_cards,
                     select_screen::sync_select_chrome,
+                    select_screen::sync_handicap_buttons,
                     select_screen::sync_select_tokens_and_cursors,
                     start_the_battle_when_asked,
                     // After the driver that sets the flag, in the same chain,

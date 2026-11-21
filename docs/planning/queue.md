@@ -2081,6 +2081,9 @@ two-room modules, before any active test is deleted. Steps 1 to 4 are done:
 - step 4, the repeated inputs of six modules are shared, with no test merged
   (2026-11-21, [record](test-suite-consolidation-action-plan-2026-10-26.md#step-4-consolidate-repeated-inputs-not-the-behaviors)).
 
+Step 5 has started: `two_players_two_live_rooms.rs` (71 tests) is read, with
+0 removals proposed ([record](test-suite-consolidation-action-plan-2026-10-26.md#step-5-record-two_players_two_live_roomsrs-2026-11-21)).
+Next: `a_room_rewinds_alone.rs`, then the reload modules.
 On this VM the hosted-Smash half of step 5 waits on the music environment:
 a Smash match start waits for entry music. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or

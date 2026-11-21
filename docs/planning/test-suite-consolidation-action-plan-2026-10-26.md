@@ -317,6 +317,32 @@ Do not merge Mary-O and Sanic acceptance tests just because their code is
 identical. Each standalone app must prove that it wires the common behavior.
 Shared fixtures are fine; one app's passing test is not evidence for the other.
 
+### Step 5 record: `two_players_two_live_rooms.rs` (2026-11-21)
+
+71 tests, 4,367 lines, the largest two-room module. Read test by test against
+its assertions; no local break was run (Jon's rule since 2026-11-11: no
+poison runs unless he asks), so a disposition rests on what each test
+asserts and which production path it enters, not on a measured overlap.
+Every test boots the real `Platformer2dSimHarness` with Alice on seat 0 and
+Bob on slot 1, through the shared `alice_leaves_bob*` / `bob_beside_alice`
+setup.
+
+| Family | Tests | Production path | The defect each catches | Overlap examined | Disposition |
+|---|---:|---|---|---|---|
+| A. A producer acts in its own live room | 16 | each producer's own system, with a second room live | that one producer reading "the sole live room": gravity well, wave zoom, gravity switch, heavy-hit rule, GNU-ton and FSM hall measurement, apple rain, the gnu's back, overflow flood and swoop, blink walls, safe point, dev traces, portal shot, gallery barks, cut-rope music claim | none: each names a different system, and a fix to one leaves the others wrong | keep all |
+| B. The crossing transaction | 15 | the room-transition commit (accept, commit, retire, join) | the other room stays live; it keeps its time; Bob's own door; a return joins; the crossing keeps its accepted participant (open, join); only the crossing seat waits, with its cooldown control; only what is left is reset; only the departing claim is released; continuity refused before any retirement; prefetch reuse; live occurrences over the unused plan; clock scale kept; dead bodies refused | `a_door_crossed_by_one_player_leaves_the_other_players_room_live` against `a_door_one_player_takes_does_not_stop_the_other_players_room`: the first asserts two live rooms, the second that Bob's room keeps running. A room can be live and paused, so they are distinct | keep all |
+| C. An encounter in one of two rooms | 4 | the boss, wave and cut-rope encounter systems | the chest drops, mobs spawn, the fight runs and a replay rehangs, all in their own room | none | keep all |
+| D. A player's lifecycle beside another room | 11 | replay, checkpoint reset, level exit, hazard respawn, death, cutscene, map, conversation, module retirement | each served in the player's own room, keeping the world clock and the other room | the two clock tests (`a_replay_keeps_…`, `a_hazard_respawn_keeps_…`) enter different reset roads | keep all |
+| E. Views and presentation | 8 | the split-view and HUD systems and the effect producers | a second view opens and closes; the purse per view (split) and on a shared view (`SharedViewHudFacts`); framing; dust, hit, arrival and reset effects drawn in the right room | split purse against shared purse: different resources and systems | keep all |
+| F. Rollback | 2 | GGRS sync test | resimulation across a crossing's commit and rebase (control: load count) / the checksum covering the non-primary room (control: an outside nudge must mismatch) | the two sync tests: different subjects and different controls | keep both |
+| G. Custody | 1 | item custody across a crossing | an item carried out crosses whole and belongs to the room it is put down in | the one-room control lives in another module | keep |
+| H. Native roster and party travel | 14 | `RoomTransitionIntent` companions, `PartyTravel` | relative arrivals (resolved, reference position, missing or moved reference, walls, cycles), the three party modes under rollback, follower walls, the leader's room on return, preferences under rollback | already share `native_roster_arrival`, `prepared_relative_return`, `policy_crossing` | keep all |
+
+**Result:** 0 removals proposed, 0 merges. Two candidate pairs were read and
+are distinct. The module's setup is already shared, so step 4 has nothing
+left here. Next in step 5: `a_room_rewinds_alone.rs` (32 tests), then the
+reload modules; the hosted-Smash half waits on the music environment.
+
 ## Protect these behaviors throughout the campaign
 
 - Rollback registration coverage and poison controls in `rollback_coverage.rs`.

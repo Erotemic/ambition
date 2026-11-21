@@ -831,19 +831,6 @@ fn normalize_hit_flash(seconds: f32) -> f32 {
     }
 }
 
-/// Does not read `Assets<Image>`. The frame rect needs only the atlas size,
-/// which `TextureAtlasLayout::size` has. Bevy keeps decoded sheets in
-/// main-world RAM (`MAIN_WORLD | RENDER_WORLD`), and each main-world reader is
-/// a blocker for dropping `MAIN_WORLD`.
-///
-/// Two other copies of this computation exist:
-/// `ambition_content::presentation::deep_dream` and
-/// `ambition_portal2d_presentation::clip_material::sprite_frame_basis`. All
-/// three agree. Merging them needs a crate that both `ambition_render` and
-/// `ambition_portal2d_presentation` can reach; render depends on portal, so it
-/// cannot be either one.
-
-
 fn overlay_transform_from_source(
     source: &Transform,
     anchor: Option<&Anchor>,

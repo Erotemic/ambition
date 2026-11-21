@@ -1264,7 +1264,7 @@ pub fn install_mary_o_content(app: &mut App) {
             .rollback_component_clone_probed::<plant::SnakePlantOut>(
                 "ambition_demo_mary_o",
                 "content.mary_o_snake_plant_out",
-                |out| u64::from(out.0.to_bits()),
+                |out| (u64::from(out.cycle_tick.to_bits()) << 32) | u64::from(out.fraction.to_bits()),
             )
             // WHICH blocks are spent is authoritative: a rewind across the frame
             // a block was struck must leave that block ARMED again, or the same

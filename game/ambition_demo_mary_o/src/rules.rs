@@ -538,8 +538,8 @@ mod tests {
         // The plant rises over the file's travel ticks: half out halfway up,
         // all the way out at the end of the rise.
         let travel = file.snake_plant.travel_ticks;
-        assert_eq!(crate::plant::wanted_out(travel / 2), (travel / 2) as f32 / travel as f32);
-        assert_eq!(crate::plant::wanted_out(travel), 1.0);
+        assert_eq!(crate::plant::wanted_out((travel / 2) as f32), (travel / 2) as f32 / travel as f32);
+        assert_eq!(crate::plant::wanted_out(travel as f32), 1.0);
 
         // The flag pays by the file's ladder: its top band at the top of the
         // pole, its bottom band at the base.

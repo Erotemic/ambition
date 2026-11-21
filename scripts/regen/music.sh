@@ -10,11 +10,28 @@
 #     into game/ambition_content_library/generated/runtime/audio/music/generated/. No dedicated installer.
 #
 # Usage:
-# ./scripts/regen/music.sh --only-missing     # keep existing published products
-# ./scripts/regen/music.sh                    # render + install everything (default)
+# ./scripts/regen/music.sh                    # render what changed (see the states below)
+# ./scripts/regen/music.sh --list             # the library's cue ids
+# ./scripts/regen/music.sh --plan             # each cue's state; * marks what a run renders
+# ./scripts/regen/music.sh --check [--loose]  # exit 1 unless every cue is current
+#                                             # (--loose: shared-only staleness passes)
+# ./scripts/regen/music.sh --json             # with --list/--plan/--check: JSON out
+# ./scripts/regen/music.sh --cue id,id        # render these cues, whatever their state
+# ./scripts/regen/music.sh --include-shared   # also render cues stale only through shared inputs
+# ./scripts/regen/music.sh --only-missing     # render only cues never published
+# ./scripts/regen/music.sh --force            # re-render every selected cue, bypassing the cache
 # ./scripts/regen/music.sh --skip-render      # only republish from existing renders
-# ./scripts/regen/music.sh --cue id,id          # only these library cues
-# ./scripts/regen/music.sh --force            # force re-render where supported
+# ./scripts/regen/music.sh --jobs 6           # cue and stem worker budget
+#
+# A cue's state, against its published bundle:
+#   missing  never published
+#   stale    its own score, instruments or render code changed
+#   damaged  its published files fail their check
+#   shared   only shared inputs changed (another score, the tool): its own
+#            render would come out the same unless shared code changed it
+#   current  published from today's inputs
+# A plain run renders missing, stale and damaged cues and refreshes the
+# registry; --include-shared adds the shared ones.
 #
 # Useful environment overrides:
 #   AMBITION_MUSIC_BACKEND=pretty-midi|fluidsynth-cli|fallback|auto

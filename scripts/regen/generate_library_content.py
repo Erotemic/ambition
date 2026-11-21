@@ -105,7 +105,7 @@ def music_batch_dependencies(batch: tuple[str, list[str]]) -> dict:
     with dependency_scan():
         for cue in cues:
             dependencies[cue] = compute_score_render_dependencies(find_score(cue), backend).fingerprint
-            print(f"music dependencies: {cue}", flush=True)
+            print(f"music dependencies: {cue}", file=sys.stderr, flush=True)
     return dependencies
 
 
@@ -175,6 +175,86 @@ def selected_music_cues(arguments: list[str]) -> list[str]:
     if unknown:
         raise ValueError("Unknown library music cues: " + ", ".join(sorted(unknown)))
     return sorted(set(requested))
+
+
+MUSIC_STATES = ("missing", "stale", "damaged", "shared", "current")
+MUSIC_STATE_WORDS = {
+    "missing": "never published",
+    "stale": "its own score, instruments or render code changed",
+    "damaged": "its published files fail their check",
+    "shared": "only shared inputs changed (another score, the tool)",
+    "current": "published from today's inputs",
+}
+
+
+def music_cue_states(selected, store: Store, hashes: Digests, cues: list[str], selection) -> dict[str, str]:
+    """Each cue's state against its published bundle.
+
+    A cue's own key is its render fingerprint (its score, the instruments it
+    names, the render code), recorded in its bundle. The bundle's whole key
+    also covers every other score and the tool tree, so an edit to one score
+    leaves the others `shared`, not `stale`.
+    """
+    fingerprints = owner_dependencies("music", cues) if cues else {}
+    states = {}
+    for cue in cues:
+        key = selection["bundles"].get("producer:music:cue:" + cue)
+        if not key:
+            states[cue] = "missing"
+            continue
+        recipe = store.bundle(key).get("recipe") or {}
+        recorded = (recipe.get("generation") or {}).get("parameters", {}).get("owner_dependencies", {}).get(cue)
+        if json.loads(json.dumps(fingerprints.get(cue))) != recorded:
+            states[cue] = "stale"
+        elif store.integrity(key, hashes=hashes):
+            states[cue] = "damaged"
+        elif current(key, "music", selected, store, hashes, selection):
+            states[cue] = "current"
+        else:
+            states[cue] = "shared"
+    return states
+
+
+def music_query(arguments: list[str], selected, store: Store, hashes: Digests) -> int:
+    """`--list`, `--plan` and `--check`: what is there and what a run would render."""
+    cues = selected_music_cues(arguments)
+    as_json = "--json" in arguments
+    if "--list" in arguments:
+        print(json.dumps(cues, indent=1) if as_json else "\n".join(cues))
+        return 0
+    selection = store.selected()
+    states = music_cue_states(selected, store, hashes, cues, selection)
+    hashes.save()
+    render = music_render_selection(states, arguments)
+    if as_json:
+        print(json.dumps({"states": states, "would_render": render}, indent=1, sort_keys=True))
+    else:
+        width = max((len(cue) for cue in cues), default=0)
+        for cue in cues:
+            mark = "*" if cue in render else " "
+            print(f"{mark} {cue:<{width}}  {states[cue]}")
+        counts = ", ".join(f"{sum(state == name for state in states.values())} {name}" for name in MUSIC_STATES
+                           if name in states.values())
+        print(f"music: {len(cues)} cue(s): {counts}")
+        for name in MUSIC_STATES:
+            if name in states.values():
+                print(f"  {name}: {MUSIC_STATE_WORDS[name]}")
+        print(f"a run would render {len(render)} (*)" + ("" if render else ": nothing to do"))
+    if "--check" in arguments:
+        loose = "--loose" in arguments
+        return int(any(state != "current" and not (loose and state == "shared") for state in states.values()))
+    return 0
+
+
+def music_render_selection(states: dict[str, str], arguments: list[str]) -> list[str]:
+    """The cues a run renders: named ones as asked, else what changed."""
+    if any(arg in {"--force", "--force-render", "--clean"} for arg in arguments) or any(
+            arg == "--cue" or arg.startswith("--cue=") for arg in arguments):
+        return list(states)
+    if any(arg in {"--only-missing", "--missing-only"} for arg in arguments):
+        return [cue for cue, state in states.items() if state == "missing"]
+    wanted = {"missing", "stale", "damaged"} | ({"shared"} if "--include-shared" in arguments else set())
+    return [cue for cue, state in states.items() if state in wanted]
 
 
 def music_units(cues: list[str]) -> list[str]:
@@ -312,7 +392,32 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
     print(f"{family}: accepted {len(replacements)} bundle(s)")
 
 
+MUSIC_QUERIES = {"--list", "--plan", "--check"}
+MUSIC_RUN_FLAGS = {"--include-shared", "--loose", "--json"}
+
+
+def take_jobs(arguments: list[str]) -> list[str]:
+    """`--jobs N` sets the music worker budget (`AMBITION_MUSIC_JOBS`)."""
+    rest, index = [], 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == "--jobs":
+            if index + 1 == len(arguments):
+                raise ValueError("--jobs needs a number")
+            os.environ["AMBITION_MUSIC_JOBS"] = str(int(arguments[index + 1]))
+            index += 2
+            continue
+        if argument.startswith("--jobs="):
+            os.environ["AMBITION_MUSIC_JOBS"] = str(int(argument.split("=", 1)[1]))
+        else:
+            rest.append(argument)
+        index += 1
+    return rest
+
+
 def run(family: str, arguments: list[str]) -> int:
+    if family == "music":
+        arguments = take_jobs(arguments)
     only_missing = any(arg in {"--only-missing", "--missing-only"} for arg in arguments)
     if only_missing and any(arg in {"--force", "--force-render", "--clean"} for arg in arguments):
         raise ValueError("--only-missing cannot be combined with --force or --clean")
@@ -363,12 +468,26 @@ def run(family: str, arguments: list[str]) -> int:
         parents = {item["unit"]: item["bundle"] for item in source_rows.values()}
     unit = "producer:" + family
     selection = store.selected()
+    if family == "music" and MUSIC_QUERIES & set(arguments):
+        return music_query(arguments, selected, store, hashes)
     scope = {"cues": selected_music_cues(arguments)} if family == "music" else None
-    if only_missing and family == "music":
-        scope["cues"] = [cue for cue in scope["cues"] if "producer:music:cue:" + cue not in selection["bundles"]]
+    named = family == "music" and any(arg == "--cue" or arg.startswith("--cue=") for arg in arguments)
+    forced = any(arg in {"--force", "--force-render", "--clean"} for arg in arguments)
+    if family == "music" and (only_missing or not (named or forced)):
+        # Render what changed: a missing cue, or one whose own inputs changed
+        # (`--include-shared` adds those only shared inputs made stale), and
+        # refresh the registry. `--plan` lists them without rendering.
+        states = music_cue_states(selected, store, hashes, scope["cues"], selection)
+        scope["cues"] = music_render_selection(states, arguments)
+        shared = sorted(cue for cue, state in states.items() if state == "shared" and cue not in scope["cues"])
+        if shared:
+            print(f"music: {len(shared)} cue(s) stale only through shared inputs, kept "
+                  "(--include-shared renders them): " + ", ".join(shared))
         if not scope["cues"] and "producer:music:registry" in selection["bundles"]:
-            print("music: no missing products")
+            print("music: no missing products" if only_missing else "music: no cue needs rendering")
+            hashes.save()
             return 0
+        print("music: rendering " + (", ".join(scope["cues"]) if scope["cues"] else "the registry only"))
         scope["registry"] = True
         worker_arguments = []
         skip_value = False
@@ -378,7 +497,7 @@ def run(family: str, arguments: list[str]) -> int:
                 continue
             if arg == "--cue":
                 skip_value = True
-            elif not arg.startswith("--cue=") and arg not in {"--only-missing", "--missing-only"}:
+            elif not arg.startswith("--cue=") and arg not in {"--only-missing", "--missing-only"} | MUSIC_RUN_FLAGS:
                 worker_arguments.append(arg)
         worker_arguments += ["--cue", ",".join(scope["cues"])]
     elif only_missing and family in {"fonts", "backgrounds", "sfx"} and unit in selection["bundles"]:

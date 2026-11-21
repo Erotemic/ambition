@@ -2590,10 +2590,18 @@ fixed-range or stale-view brain workaround.
    `--rungs` run that named them was refused by the noise-seed guard. An
    earlier short default run on this VM (2 seeds, 60 s) had the higher rung
    outfight in 3v1, 5v3, 6v5 and 9v6.
-   **Next:** measure the planning step directly: one rung against itself
-   with `rollout_depth`/`rollout_k` on for one side. The rig has
-   `--no-rollout` but no flag to turn rollout on. Re-run the adjacent
-   pairs only with enough seeds to separate a 70% majority.
+   **The planning step, measured 2026-11-21:** a ladder copy whose rung 9
+   is rung 8 with `rollout_depth: 12, rollout_k: 4` (the values the
+   decision tests use), run as `--ladder <copy> --rungs 8,9 --paired
+   --seeds 10`, George mirror, 480 s. Result: rollout on outfought off 6:4
+   (60%, p 0.754, within spread; with 10 seeds the bar is 9 of 10).
+   Survived 86.5 : 88.9 s, dealt 206 : 210%, peak 110.5 : 143.0%. Turned
+   on as it stands, L3 buys nothing this rig can see. That matches the
+   ladder file's own note: rollout stays zero "until rollout fidelity is
+   good enough". The top of the ladder will not rise by flipping the
+   field. The road to a stronger top rung is rollout fidelity (FB6, §12.3's
+   stated omissions), not ladder rows. Road 4 is measured; re-running the
+   adjacent pairs with more seeds would only sharpen the step sizes.
 
 **Acceptance:** representative CPUs choose movement-compatible attacks
 across their authored kits without replacing attack admission with a second

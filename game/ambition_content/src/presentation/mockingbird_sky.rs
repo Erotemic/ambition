@@ -263,10 +263,6 @@ fn ease(from: f32, to: f32, step: f32) -> f32 {
     from + (to - from).clamp(-step, step)
 }
 
-/// The sprite's cell in its page, as `min.xy, max.xy` in 0 to 1. A sprite with
-/// no atlas is drawn whole.
-
-
 // ── Space, and the moon ──
 //
 // Space is authored art in parts (`backgrounds/sky_parts.py` in the art

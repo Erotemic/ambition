@@ -643,6 +643,18 @@ pub fn try_load_spec_for_character_id(content: &crate::SpriteContent, character_
     }
 }
 
+/// The spec of a loose sheet manifest: a `_spritesheet.ron` read from a file
+/// rather than the content library (a `sprites.sh --reference` paint), with the
+/// tuning a catalog id gets. `key` names it as the library would.
+pub fn spec_from_manifest_text(key: &str, text: &str) -> Result<CharacterSheetSpec, String> {
+    let index = crate::index_baked_table(&[(key, text)]);
+    if !index.failed.is_empty() {
+        return Err(format!("{:?}", index.failed));
+    }
+    let (_, record) = index.sheets.into_iter().next().ok_or_else(|| format!("`{key}` holds no sheet"))?;
+    Ok(spec_from_record(&record, &DEFAULT_TUNING))
+}
+
 /// Fallback tuning for catalog entries with no hardcoded `SheetTuning`.
 /// `collision_scale = 1.5` keeps the sprite neither tiny nor oversized, and
 /// `frame_sample_inset = 1` matches most tunings.

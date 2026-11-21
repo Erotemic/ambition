@@ -84,6 +84,10 @@ fn main() {
             // (`character_render_basis`). Without it the root is built as an
             // NPC is: anchored at its feet.
             "--centre-anchored" => centre_anchored = true,
+            // Read each target's baked page from a reference paint
+            // (`sprites.sh --reference` writes `<dir>/<target>/`), since
+            // part-first publishing no longer ships baked pages.
+            "--reference" => REFERENCE.set(PathBuf::from(it.next().expect("--reference DIR"))).expect("one --reference"),
             other => {
                 eprintln!("rigged_sprite_parity: unknown argument {other}");
                 std::process::exit(2);
@@ -168,9 +172,22 @@ fn capture_all(
         .add_systems(Update, (pin, bind_rigged_presentations, drive_rigged_presentations).chain());
     let asset = {
         let world = app.world_mut();
+        // Decoded here rather than through the asset server, which refuses a
+        // path outside its sources.
+        let reference = reference_page(target).map(|path| {
+            let pixels = image::open(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display())).into_rgba8();
+            let (width, height) = pixels.dimensions();
+            world.resource_mut::<Assets<Image>>().add(Image::new(
+                bevy::render::render_resource::Extent3d { width, height, depth_or_array_layers: 1 },
+                bevy::render::render_resource::TextureDimension::D2,
+                pixels.into_raw(),
+                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+                bevy::asset::RenderAssetUsages::default(),
+            ))
+        });
         let server = world.resource::<AssetServer>().clone();
         let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
-        sheet(content, target, rigged, &server, &mut layouts)
+        sheet(content, target, rigged, reference, &server, &mut layouts)
     };
     wait_for_pages(&mut app, &asset);
     let mut assets = GameAssets::default();
@@ -346,32 +363,57 @@ fn renderer(snapshot: &LibrarySnapshot, content: &SpriteContent, size: UVec2) ->
     (app, image)
 }
 
+static REFERENCE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// The reference paint of `target`'s baked page, if `--reference` names one.
+/// A target is a sheet id (`ninja_shadow_oni_leader`, not the character's
+/// `npc_ninja_shadow_oni_leader`): the flipbook and its margin are found by it.
+fn reference_page(target: &str) -> Option<PathBuf> {
+    let path = REFERENCE.get()?.join(target).join(format!("{target}_spritesheet.png"));
+    path.is_file().then_some(path)
+}
+
 /// The sheet of `target` with its pages (and part pages when `rigged`) loaded
 /// from the published assets.
 fn sheet(
     content: &SpriteContent,
     target: &str,
     rigged: bool,
+    reference: Option<Handle<Image>>,
     server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> CharacterSpriteAsset {
-    let spec = try_load_spec_for_character_id(content, target).expect("a baked sheet: run scripts/regen/sprites.sh");
+    // A reference paint is packed and trimmed by its own record, not laid out
+    // as the published record is, so its frames are found through that record.
+    let spec = match reference {
+        Some(_) => {
+            let path = REFERENCE.get().expect("a reference page comes from --reference").join(target).join(format!("{target}_spritesheet.ron"));
+            let text = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+            ambition_sprite_sheet::character::sheets::spec_from_manifest_text(target, &text)
+                .unwrap_or_else(|error| panic!("{}: {error}", path.display()))
+        }
+        None => try_load_spec_for_character_id(content, target).expect("a baked sheet: run scripts/regen/sprites.sh"),
+    };
     let flipbook = rigged.then(|| RiggedSpriteAsset::baked(content, target).expect("a published flipbook"));
     let pages: Vec<CharacterSpritePage> = (0..spec.page_count().max(1))
         .map(|page| {
+            let reference = (page == 0).then(|| reference.clone()).flatten();
             let file = if page == 0 {
                 format!("{target}_spritesheet.png")
             } else {
                 spec.page_images[page as usize].clone()
             };
             CharacterSpritePage {
-                texture: ambition_sprite_sheet::game_assets::load_sheet_image(Some(content), server, "character-sheet", if file.contains("://") { file } else { format!("sprites/{file}") }),
+                texture: match reference {
+                    Some(handle) => handle,
+                    None => ambition_sprite_sheet::game_assets::load_sheet_image(Some(content), server, "character-sheet", if file.contains("://") { file } else { format!("sprites/{file}") }),
+                },
                 layout: layouts.add(spec.build_atlas_for_page(page)),
             }
         })
         .collect();
     let part_pages = flipbook.as_ref().map_or(Vec::new(), |flipbook| {
-        flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_sheet_image(Some(content), server, "character-parts", format!("sprites/{page}"))).collect()
+        flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_sheet_image(Some(content), server, "character-parts", if page.contains("://") { page.clone() } else { format!("sprites/{page}") })).collect()
     });
     CharacterSpriteAsset {
         texture: pages[0].texture.clone(),
@@ -395,7 +437,13 @@ fn wait_for_pages(app: &mut App, asset: &CharacterSpriteAsset) {
     for _ in 0..600 {
         app.update();
         let server = app.world().resource::<AssetServer>();
-        if handles.iter().all(|handle| server.is_loaded_with_dependencies(handle.id())) {
+        let images = app.world().resource::<Assets<Image>>();
+        // A reference page was added, not loaded: the server never heard of it.
+        let ready = |handle: &Handle<Image>| match server.get_load_state(handle.id()) {
+            Some(_) => server.is_loaded_with_dependencies(handle.id()),
+            None => images.contains(handle.id()),
+        };
+        if handles.iter().all(ready) {
             return;
         }
     }

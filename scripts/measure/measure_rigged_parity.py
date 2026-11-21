@@ -10,6 +10,13 @@ measures (`part_flipbook.parity` and `largest_wrong_blob`, standard tolerance:
 
     scripts/measure/measure_rigged_parity.py                       # Mary-O's three forms
     scripts/measure/measure_rigged_parity.py --target pirate_admiral --scale 2
+    # part-first targets publish no baked pages: paint a reference first
+    scripts/regen/sprites.sh --reference --target ninja_shadow_oni_leader
+    scripts/measure/measure_rigged_parity.py --target ninja_shadow_oni_leader \
+        --both-facings --composed --reference .agent/sprite_reference
+
+A target is a sheet id (`ninja_shadow_oni_leader`), not a character id
+(`npc_ninja_shadow_oni_leader`).
 
 Exit 0 when every frame is inside the bounds, 1 when one is not, 2 when the
 harness measured nothing it could trust.
@@ -62,6 +69,17 @@ from ambition_sprite2d_renderer.authoring.part_flipbook import (  # noqa: E402
 )
 
 SPRITES = REPO / "game" / "ambition_content_library" / "generated" / "runtime" / "sprites"
+#: Part-first publishing ships no baked pages, so `--reference DIR` reads every
+#: input of a target from a `sprites.sh --reference` paint (`DIR/<id>/`). It is
+#: an environment variable so the scoring processes see it.
+REFERENCE_ENV = "AMBITION_PARITY_REFERENCE"
+
+
+def _inputs(target):
+    """The directory holding `target`'s sheet and flipbook (a target is a sheet
+    id: `ninja_shadow_oni_leader`, not `npc_ninja_shadow_oni_leader`)."""
+    reference = os.environ.get(REFERENCE_ENV)
+    return (Path(reference) / target) if reference else SPRITES
 
 PARITY_BOUND = 0.01
 #: D6's bound. It was 10 while the impostor blended in linear light (a turned
@@ -105,9 +123,15 @@ def main() -> int:
     )
     parser.add_argument("--out", type=Path, default=REPO / "target" / "rig_parity")
     parser.add_argument("--no-build", action="store_true", help="reuse the last captures in --out")
+    parser.add_argument(
+        "--reference", type=Path,
+        help="read the baked sheet and flipbook of each target from a `sprites.sh --reference` paint (DIR/<id>/)",
+    )
     parser.add_argument("--jobs", type=int, default=min(4, os.cpu_count() or 1), help="processes scoring the captures")
     args = parser.parse_args()
     targets = args.target or list(DEFAULT_TARGETS)
+    if args.reference:
+        os.environ[REFERENCE_ENV] = str(args.reference.resolve())
 
     if not args.no_build:
         command = [
@@ -123,6 +147,8 @@ def main() -> int:
             command.append("--centre-anchored")
         if args.phase:
             command += ["--phase", str(args.phase)]
+        if args.reference:
+            command += ["--reference", str(args.reference.resolve())]
         env = {**os.environ, "AMBITION_PART_PRESENTATION": "impostor" if args.composed else "direct"}
         run = subprocess.run(command, cwd=REPO, capture_output=True, text=True, env=env)
         if run.returncode != 0:
@@ -154,6 +180,17 @@ def main() -> int:
         print("inputs the scorer cannot read:\n  " + "\n  ".join(unreadable), file=sys.stderr)
         return 2
 
+    # ⚠ THE COMPOSED ROAD DRAWS A BLINK'S WARP. On a blink row that draws the
+    # body whole, the impostor takes the body apart (`BodyWarp`, chosen by
+    # `body_warp` in the renderer's `rigged.rs`), and neither the baked road nor
+    # the published draws do. Those frames are reported, not gated: the oni
+    # leader's 18 blink frames read 70% wrong while its baked draw of them
+    # matched (2026-11-21).
+    warped_rows = {
+        target: {name for name in _flipbook(target).clips if args.composed and _draws_a_warp(_flipbook(target), name)}
+        for target in sorted({row["target"] for row in rows})
+    }
+    warped = defaultdict(list)
     worst = defaultdict(lambda: [0.0, 0, 0.0, 0])
     failures = []
     distinct = defaultdict(set)
@@ -187,7 +224,9 @@ def main() -> int:
         # its baked frame as the same picture (0 wrong pixels), both softer
         # than the crisp oracle (a blob of 8, 2026-10-03).
         like_baked = result["vs_baked_wrong"] <= PARITY_BOUND and result["vs_baked_blob"] <= BLOB_BOUND
-        if not in_between and not inside:
+        if not in_between and not inside and name in warped_rows[target]:
+            warped[target].append(f"{name}#{frame}{'~flip' if flip else ''}")
+        elif not in_between and not inside:
             if like_baked:
                 soft[target].append(f"{name}#{frame}{'~flip' if flip else ''}")
             else:
@@ -213,6 +252,8 @@ def main() -> int:
             f"  {target}: {len(frames)} frame(s) outside the bounds against the published draws but inside "
             f"them against the game's own baked draw: {', '.join(frames)}"
         )
+    for target, frames in warped.items():
+        print(f"  {target}: {len(frames)} blink frame(s) drawn with the teleport warp (reported, not gated): {', '.join(frames)}")
     for target, frames in clipped.items():
         print(f"  {target}: the baked frame cuts off art the parts draw, on {len(frames)} frame(s): {', '.join(frames)}")
     if failures:
@@ -232,8 +273,26 @@ def _flipbook(target):
     """The published flipbook (the placement is the file's: snapped for a rig
     painted at frame resolution, continuous for a supersampled one)."""
     if target not in _FLIPBOOKS:
-        _FLIPBOOKS[target] = PartFlipbook.from_published(SPRITES / f"{target}_parts.ron")
+        _FLIPBOOKS[target] = PartFlipbook.from_published(_inputs(target) / f"{target}_parts.ron")
     return _FLIPBOOKS[target]
+
+
+#: The rows whose motion is a blink (`BodyWarp::of_row`; a `~mirrored` row is
+#: the same motion).
+WARP_ROWS = ("blink_out", "blink_in")
+
+
+def _draws_a_warp(flipbook, name):
+    """Whether the game draws the teleport warp over `name`: a blink row that
+    draws the body whole, with no frame or draw of it faded
+    (`RiggedSpriteAsset::row_draws_the_body_whole`)."""
+    if name.split("~", 1)[0] not in WARP_ROWS or name not in flipbook.clips:
+        return False
+    _, frames = flipbook.clips[name]
+    return all(
+        flipbook.opacity_of(name, index) >= 1.0 and all(draw.opacity >= 1.0 for draw in frame)
+        for index, frame in enumerate(frames)
+    )
 
 
 def _score(row, phase):
@@ -375,8 +434,9 @@ def _encode(linear):
 
 
 def _sheet(target):
-    sheet = yaml.safe_load((SPRITES / f"{target}_spritesheet.yaml").read_text())
-    pages = [Image.open(SPRITES / name).convert("RGBA") for name in (sheet.get("images") or [sheet.get("image", f"{target}_spritesheet.png")])]
+    directory = _inputs(target)
+    sheet = yaml.safe_load((directory / f"{target}_spritesheet.yaml").read_text())
+    pages = [Image.open(directory / name).convert("RGBA") for name in (sheet.get("images") or [sheet.get("image", f"{target}_spritesheet.png")])]
     # ⛔ Where the GAME puts the frame: by the sheet's feet ANCHOR, which is
     # not always its `feet_pixel` (director, officer and medic disagree by 8 to
     # 26 px, 2026-10-03). The harness root is built at the anchor, so the

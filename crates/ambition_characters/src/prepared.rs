@@ -1638,6 +1638,9 @@ fn runtime_verb_vocabulary() -> Vec<String> {
             .copied()
             .map(str::to_owned),
     );
+    // The grab press resolves through `move_for_flat_verb`, which prefers
+    // `{base}_air` in the air (the polygon fighters' tether lash).
+    vocabulary.push(format!("{}_air", ambition_entity_catalog::GRAB_VERB));
     vocabulary.sort();
     vocabulary.dedup();
     vocabulary

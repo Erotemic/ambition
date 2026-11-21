@@ -476,7 +476,11 @@ pub enum BarkSituation {
 /// Authored in the catalog row so a character's voice lives with its
 /// identity: every system that spawns the character — a room placement, the
 /// peaceful→hostile flip, the Hall gallery — draws from the same lines.
+///
+/// Unknown fields are refused: a row's `hall_dialogue_id` written inside its
+/// `barks` was dropped without a word in 97 rows.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct CharacterBarks {
     /// Lines when struck in combat. Rotates with strike count.
     #[serde(default)]

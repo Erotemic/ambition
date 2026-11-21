@@ -1817,6 +1817,7 @@
             autonomous_profile: Some((template: StandStill, patrol_effort: 0.6774, chase_effort: 1.0)),
             max_health: Some(6),
             tags: ["training"],
+            barks: (hall: ["Go on. I can take it.", "Hit me. I am a professional."]),
         ),
         "sandbag_infinite": (
             sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
@@ -1994,8 +1995,8 @@
             on_hit: ["Hrrk!", "Bruiser felt that. A little.", "Do it again. Bruiser dares."],
             provoked: ["Bruiser's turn!"],
             hall: ["Club is a rock on a stick. Bruiser improved the stick.", "Brute has hammer. Bruiser has hands. And rock."],
-            hall_dialogue_id: Some("hall_npc_goblin_bruiser"),
         ),
+        hall_dialogue_id: Some("hall_npc_goblin_bruiser"),
         ),
         "npc_goblin_cantina_chieftain": (
             sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
@@ -2035,8 +2036,8 @@
             on_hit: ["Off-key! You made me go off-key!", "That's not how you request a song."],
             provoked: ["Bar fight! I know a song for this."],
             hall: ["Fretjaw pays in stew. I play in the key of stew.", "Every verse is about the house. The house always wins the verse."],
-            hall_dialogue_id: Some("hall_npc_goblin_cantina_bard"),
         ),
+        hall_dialogue_id: Some("hall_npc_goblin_cantina_bard"),
         ),
         "npc_pulse_voyager_captain": (
             sprite_tuning: Some((collision_scale: 1.2, frame_sample_inset: 1)),
@@ -3075,6 +3076,7 @@
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             max_health: Some(4),
             tags: ["agent", "band"],
+            barks: (hall: ["Three chords and a contract.", "I tune by ear. The Boss tunes by decree."]),
             hall_dialogue_id: Some("hall_npc_geppetto"),
         ),
         "npc_clause_band": (
@@ -3093,6 +3095,7 @@
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             max_health: Some(4),
             tags: ["agent", "band"],
+            barks: (hall: ["Four on the floor, notwithstanding the foregoing.", "Every bar is a clause. Every fill is a sub-clause."]),
             hall_dialogue_id: Some("hall_npc_clause"),
         ),
         "npc_wren_band": (
@@ -3113,6 +3116,7 @@
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             max_health: Some(4),
             tags: ["agent", "band"],
+            barks: (hall: ["Smallest instrument. Biggest moment. Ting.", "The triangle has one job. I do it perfectly."]),
             hall_dialogue_id: Some("hall_npc_wren"),
         ),
 
@@ -4114,8 +4118,9 @@
         barks: (
             on_hit: ["Half the mite, twice the spite!", "Still dividing!"],
             provoked: ["We were one. Now we are a pair."],
-            hall_dialogue_id: Some("hall_npc_dividing_mite_half"),
+            hall: ["My other half went left. I went right. We were both wrong.", "Half a mite. All of the attitude."],
         ),
+        hall_dialogue_id: Some("hall_npc_dividing_mite_half"),
         ),
         "npc_hand_saint": (
             display_name: "Hand Saint",
@@ -6586,8 +6591,8 @@
             provoked: ["One bad apple spoils the bunch!"],
             idle: ["Grrrnch.", "Spoil. Spoil. Spoil."],
             hall: ["One bad apple spoils the bunch. I am the bunch.", "An apple a day keeps the doctor away. I keep everyone away."],
-            hall_dialogue_id: Some("hall_bad_apple"),
         ),
+        hall_dialogue_id: Some("hall_bad_apple"),
         ),
         // The haunted floors of Hylbert's Hotel (Jon, 2026-10-31). Generic
         // patterned enemies (George Boole is its special character).
@@ -6619,8 +6624,8 @@
             provoked: ["I only stretch, I never turn."],
             idle: ["Ooooo.", "Stretch... and hold."],
             hall: ["I am a very simple ghost. Push me any way you like and I only ever stretch along two lines.", "My eigenvalues are one and one at rest. That is the most at rest anyone has ever been."],
-            hall_dialogue_id: Some("hall_eigenghost"),
         ),
+        hall_dialogue_id: Some("hall_eigenghost"),
         ),
         // The Spectral Perturbation: a floating orchid-manta of near-degenerate
         // modes; a small disturbance and it lunges, committed, then hangs open.
@@ -6650,8 +6655,8 @@
             provoked: ["One small disturbance..."],
             idle: ["(a glassy hum)", "Nearly stable. Nearly."],
             hall: ["Two of my eigenvalues are very nearly equal. It makes me very easy to upset.", "First-order correction: me, everywhere, all at once."],
-            hall_dialogue_id: Some("hall_spectral_perturbation"),
         ),
+        hall_dialogue_id: Some("hall_spectral_perturbation"),
         ),
         // The Decomposing Specter: a half-zombie, half-ghost bellhop; it
         // shambles, telegraphs a wide spectral slash, and decomposes into its
@@ -6684,8 +6689,8 @@
             provoked: ["Your room is... ready."],
             idle: ["Front desk... front desk...", "Checkout was at eleven. Which eleven?"],
             hall: ["I carried bags here for an infinite number of guests. Then one more arrived.", "Every time they moved the guests along one room, a little more of me stayed behind."],
-            hall_dialogue_id: Some("hall_decomposing_specter"),
         ),
+        hall_dialogue_id: Some("hall_decomposing_specter"),
         ),
         // The Barrow King (level 1, `intro_barrow`): the king of the valley
         // under the moor, in the specter's shape and slash but a king's
@@ -6747,8 +6752,8 @@
             provoked: ["Room n, meet room n plus one."],
             idle: ["Housekeeping.", "Everyone shift down one, please."],
             hall: ["The hotel is full. It is always full. And there is always room for one more, if everyone moves along.", "I have never once made a bed twice. There is always a next room."],
-            hall_dialogue_id: Some("hall_shift_operator"),
         ),
+        hall_dialogue_id: Some("hall_shift_operator"),
         ),
         // The Quantum Die: a die of spectral glass in superposition; its attack
         // is spooky action at a distance (its twin forms ahead, and it
@@ -6778,8 +6783,8 @@
             provoked: ["Spooky action... at a distance."],
             idle: ["(rattles in every state at once)", "I am a one. And a six. Until you look."],
             hall: ["God does not play dice with the universe. I am the dice. I play with the universe.", "My twin is in the next room. Or this one. It depends who is asking."],
-            hall_dialogue_id: Some("hall_quantum_die"),
         ),
+        hall_dialogue_id: Some("hall_quantum_die"),
         ),
         // The Dealer's Hand: a spectral hand that tosses the Quantum Dice; it
         // keeps its distance and throws.
@@ -6809,8 +6814,8 @@
             provoked: ["Feeling lucky?"],
             idle: ["(drums its fingers)", "Place your bets."],
             hall: ["I deal, I do not play. The dice play themselves; I merely let them go.", "Every throw is every number until it lands. I find that very relaxing."],
-            hall_dialogue_id: Some("hall_dealers_hand"),
         ),
+        hall_dialogue_id: Some("hall_dealers_hand"),
         ),
         "gravity_apple": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
@@ -6839,8 +6844,8 @@
             provoked: ["What goes up..."],
             idle: ["Hmmmm.", "Nine point eight one."],
             hall: ["I fell on a man once. He has not stopped talking about it.", "I do not fall. Everything else rises."],
-            hall_dialogue_id: Some("hall_gravity_apple"),
         ),
+        hall_dialogue_id: Some("hall_gravity_apple"),
         ),
         "compsognathus": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
@@ -7013,8 +7018,8 @@
             provoked: ["Hee hee hee!"],
             idle: ["Scribble.", "Hee.", "I was drawn in a meeting. Nobody was listening."],
             hall: ["Somebody drew me in a margin and forgot to rub me out. Their mistake.", "I am a first draft. There are three of us. We are all first drafts."],
-            hall_dialogue_id: Some("hall_doodle_imp"),
         ),
+        hall_dialogue_id: Some("hall_doodle_imp"),
         ),
         // The ink wisp: a drop of the living ink of the Inkfall Caverns. It
         // floats, keeps its distance and spits (the `shoot` of a skirmisher):
@@ -7045,8 +7050,8 @@
             provoked: ["Sssssplash."],
             idle: ["Drip.", "Drip. Drip.", "*it glows, and then it glows less*"],
             hall: ["Everything in this dimension was ink before it was anything. Some of us did not want to be anything.", "Drip. That was a word. You missed it."],
-            hall_dialogue_id: Some("hall_ink_wisp"),
         ),
+        hall_dialogue_id: Some("hall_ink_wisp"),
         ),
         // The origami bird: a paper crane that flies. It does not attack: it
         // patrols and turns at walls (a Wanderer), and it has no contact
@@ -7068,8 +7073,8 @@
             on_hit: ["Crease!", "I will never lie flat again."],
             idle: ["*a rustle of paper*", "Fold. Fold. Fold."],
             hall: ["I am one square of paper and no glue. Nothing was cut. Ask the statue how it was made.", "Some of us carry things. Some of us show the way. I fly in a line and turn at walls. It is a calling."],
-            hall_dialogue_id: Some("hall_origami_bird"),
         ),
+        hall_dialogue_id: Some("hall_origami_bird"),
         ),
         // The brush knight: armour that holds a brush as long as a lance. Its
         // blow is slow and clear: the brush goes back over its head (its
@@ -7102,8 +7107,8 @@
             provoked: ["En garde. And en canvas."],
             idle: ["*the armour creaks*", "The stroke is the thing.", "Wet paint. Do not touch."],
             hall: ["I guard the garden from the gate, and the gate from the garden. Both are full of strangers.", "One stroke. You do not get to correct it. That is the whole art."],
-            hall_dialogue_id: Some("hall_brush_knight"),
         ),
+        hall_dialogue_id: Some("hall_brush_knight"),
         ),
         // The living statue: a marble bust as tall as three robots that
         // nobody finished. It rocks along on its base, rises (its windup row)
@@ -7137,8 +7142,8 @@
             provoked: ["*the eyes light*"],
             idle: ["...", "*grinding stone*", "Unfinished."],
             hall: ["My sculptor stopped at the back of my head. I have had a long time to think about why.", "They call us the living statues. We call ourselves the work in progress."],
-            hall_dialogue_id: Some("hall_living_statue"),
         ),
+        hall_dialogue_id: Some("hall_living_statue"),
         ),
         // ===== THE STORY STACKS: the creatures of the fiction quarter are
         // idioms made literal.
@@ -7171,8 +7176,8 @@
             provoked: ["Shh! This is a library!"],
             idle: ["*munch* *munch*", "Chapter twelve. Delicious.", "A little dry. It needs more footnotes."],
             hall: ["I have read every book in the Stacks. Well. Eaten. It is the same thing if you chew slowly.", "I wear spectacles to see the words before I eat them. It is only polite."],
-            hall_dialogue_id: Some("hall_bookworm"),
         ),
+        hall_dialogue_id: Some("hall_bookworm"),
         ),
         // The red herring: a bright red fish that swims through the air, too
         // obvious to trust. It floats, and it darts at you mouth first (its
@@ -7203,8 +7208,8 @@
             provoked: ["Look over there!"],
             idle: ["*it glints, suspiciously*", "Nothing to see here. Except me. Look at me.", "I am very important to the plot."],
             hall: ["Every mystery needs me. No mystery needs me twice.", "The butler did it. Trust me. I am a fish."],
-            hall_dialogue_id: Some("hall_red_herring"),
         ),
+        hall_dialogue_id: Some("hall_red_herring"),
         ),
         // The paper tiger: a big tiger of folded newspaper with ROAR printed on
         // its side. It looks fierce: it crouches (its windup row) and pounces a
@@ -7236,8 +7241,8 @@
             provoked: ["ROAR. It says so right here."],
             idle: ["*rustle*", "Rawr. Ahem. ROAR.", "*it reads its own side*"],
             hall: ["I am very fierce. It says so in the headline.", "Yesterday's news, they call me. I am today's tiger. Until somebody sits on me."],
-            hall_dialogue_id: Some("hall_paper_tiger"),
         ),
+        hall_dialogue_id: Some("hall_paper_tiger"),
         ),
         // ===== THE AMPHITHEATRE (the performance quarter of the Art
         // dimension): the people of the theatre, and the people who watch it.
@@ -7272,8 +7277,8 @@
             provoked: ["Stand by... and GO."],
             idle: ["Standing by.", "*into the headset* Copy that.", "Go on the cue. Not before."],
             hall: ["You never see us. That is the job. The scene changes, and nobody asks who changed it.", "Every sandbag up there holds something heavy over somebody's head. Mind your mark."],
-            hall_dialogue_id: Some("hall_stagehand"),
         ),
+        hall_dialogue_id: Some("hall_stagehand"),
         ),
         // The critic: a portly man in an opera cape who throws tomatoes. He
         // keeps his distance and throws (the `shoot` of a skirmisher): the
@@ -7306,8 +7311,8 @@
             provoked: ["I have seen better performances from the scenery."],
             idle: ["Derivative.", "*scribbles* 'Wooden.'", "One star. I am being generous."],
             hall: ["I do not make art. I make art nervous. It is a calling.", "Everyone is a critic. I am the only one who brought tomatoes."],
-            hall_dialogue_id: Some("hall_critic"),
         ),
+        hall_dialogue_id: Some("hall_critic"),
         ),
         // The mime: whiteface, stripes and braces. It leans on an invisible
         // wall (its windup row), pulls an invisible rope hand over hand (the
@@ -7339,8 +7344,8 @@
             provoked: ["[He rolls up his sleeves. Slowly. Meaningfully.]"],
             idle: ["[He feels along a wall that is not there.]", "[He leans on nothing. It holds.]", "[He tips an invisible hat.]"],
             hall: ["[He mimes a box. Then a bigger box round the first. Then he climbs out of both, and bows.]", "[He points at you, then at the stage, then pulls an invisible rope between the two.]"],
-            hall_dialogue_id: Some("hall_mime"),
         ),
+        hall_dialogue_id: Some("hall_mime"),
         ),
         // ===== THE RESONANT REACH: the music quarter of the Art dimension. Its
         // sheets are in the renderer (`targets/characters/_art_cast_kit.py`).
@@ -7371,8 +7376,8 @@
             provoked: ["We disagree! With YOU!"],
             idle: ["No. Me.", "*a sour buzz*", "You are a semitone off. No, YOU are."],
             hall: ["We are a minor second. We have been arguing since the first bar.", "Somebody wrote us side by side and never resolved us. Rude."],
-            hall_dialogue_id: Some("hall_discord_note"),
         ),
+        hall_dialogue_id: Some("hall_discord_note"),
         ),
         // The feedback wail: the ghost of a loudspeaker with a cable for a tail.
         // It floats, keeps its distance and shrieks (the `shoot` of a
@@ -7404,8 +7409,8 @@
             provoked: ["EEEEEEEEEEEEEEE!"],
             idle: ["*a low hum*", "Is this thing on?", "*crackle*"],
             hall: ["I was a speaker once. Somebody stood too close with a microphone, and I have been screaming ever since.", "Unplug me. I dare you. The plug is right there. I am not attached to anything."],
-            hall_dialogue_id: Some("hall_feedback_wail"),
         ),
+        hall_dialogue_id: Some("hall_feedback_wail"),
         ),
         // The war drum: a kettle drum on two stubby legs with mallets for arms.
         // It keeps time as it walks; it crouches with both mallets high (its
@@ -7440,8 +7445,8 @@
             provoked: ["*BA-DUM*"],
             idle: ["Boom. Boom. Boom.", "*it keeps time*", "Left. Left. Left, right, left."],
             hall: ["I keep the time of the Reach. If you are early, I am louder. If you are late, I am much louder.", "Every march needs a drum. I have looked for a march for a long time. You will do."],
-            hall_dialogue_id: Some("hall_war_drum"),
         ),
+        hall_dialogue_id: Some("hall_war_drum"),
         ),
         // The clay golem: a figure of wet clay, a pot thrown on a wheel for
         // its belly and coils for its arms. Slow, heavy, and it hits hard: both
@@ -7475,8 +7480,8 @@
             provoked: ["*the kiln lights in its eyes*"],
             idle: ["*drip*", "Still wet.", "Shape... me..."],
             hall: ["My maker threw my legs on a wheel and made the rest by hand before lunch. Lunch went long.", "I am not finished. Nobody fires a golem. Nobody asks the golem."],
-            hall_dialogue_id: Some("hall_clay_golem"),
         ),
+        hall_dialogue_id: Some("hall_clay_golem"),
         ),
         // The loom spider: a spool of thread on eight needle legs, with
         // scissors for jaws. It weaves a thread behind it as it walks; in a
@@ -7510,8 +7515,8 @@
             provoked: ["*snip snip*"],
             idle: ["*tikka tikka tikka*", "Over, under. Over, under.", "Warp. Weft. Warp."],
             hall: ["Every thread in the Deeps goes somewhere. Most of them go back to me.", "I have eight legs and one pair of scissors. Guess which I am proud of."],
-            hall_dialogue_id: Some("hall_loom_spider"),
         ),
+        hall_dialogue_id: Some("hall_loom_spider"),
         ),
         // The kiln sprite: a spirit of the kiln fire that lives in a glazed
         // pot. It floats, keeps its distance and spits a coal (the `shoot` of a
@@ -7542,8 +7547,8 @@
             provoked: ["*it breathes in*"],
             idle: ["*crackle*", "Warm, isn't it?", "Twelve hundred degrees and rising."],
             hall: ["Everything in the Deeps passes through a fire on its way to being finished. I am the fire. Say thank you.", "They put me in a pot so I would stay put. I am a pot of fire. I go where I like."],
-            hall_dialogue_id: Some("hall_kiln_sprite"),
         ),
+        hall_dialogue_id: Some("hall_kiln_sprite"),
         ),
         // ===== THE HISTORY DIMENSION (DESIGN.md of the History dimension): a
         // timeline, west to east. The creatures of each era are its troubles,
@@ -7578,8 +7583,8 @@
             provoked: ["Was that a field of barley? It was."],
             idle: ["*bzzzzzzzz*", "Crunch.", "Harvest tax. We collect all of it."],
             hall: ["Farming fed ten times as many people as hunting did. And us. Mostly us.", "The first farmers stored grain against the bad years. We are the bad years."],
-            hall_dialogue_id: Some("hall_locust_swarm"),
         ),
+        hall_dialogue_id: Some("hall_locust_swarm"),
         ),
         // The aurochs: the wild ox before anyone tamed it, a huge black bull
         // with long ivory horns. A charge (as the triceratops's): it lowers its
@@ -7614,8 +7619,8 @@
             provoked: ["You want to domesticate THIS?"],
             idle: ["*snort*", "*it chews, and stares at you*", "Graze. Stare. Graze."],
             hall: ["My little cousins pull ploughs now. They get hay and a name. I got painted on a cave wall.", "The last of us died in a Polish forest in 1627. I am taking it personally."],
-            hall_dialogue_id: Some("hall_aurochs"),
         ),
+        hall_dialogue_id: Some("hall_aurochs"),
         ),
         // The scorpion man: the guard of the mountain of the sun in the Epic
         // of Gilgamesh, a bearded man above and a scorpion below. He holds up
@@ -7649,8 +7654,8 @@
             provoked: ["Halt! None may pass the mountain of the sun."],
             idle: ["None may pass.", "*click* *click*", "The sun goes in here. You do not."],
             hall: ["Gilgamesh came this way to find eternal life. I let him pass. Ask him how that went.", "Twelve double hours of darkness behind me, and I am the cheerful part of the trip."],
-            hall_dialogue_id: Some("hall_scorpion_man"),
         ),
+        hall_dialogue_id: Some("hall_scorpion_man"),
         ),
         // ===== THE NILE: the Pyramid Tomb and its vigil.
         // The mummy: a body wrapped in old linen, with green eyes in the slit
@@ -7683,8 +7688,8 @@
             provoked: ["Mmmmmmmf!"],
             idle: ["Mmmmm.", "*a long, slow groan*", "*it comes a little unwound*"],
             hall: ["They took out my brain through my nose and kept my liver in a jar. I am still a little upset about the brain.", "Seventy days of embalming, and I still look like this. Ask for the luxury package."],
-            hall_dialogue_id: Some("hall_mummy"),
         ),
+        hall_dialogue_id: Some("hall_mummy"),
         ),
         // The scarab beetle: a big blue-green scarab that rolls a dung ball,
         // as the god Khepri rolls the sun. Fast and low: it backs off and digs
@@ -7718,8 +7723,8 @@
             provoked: ["This ball is the SUN. Back off."],
             idle: ["*push* *push*", "Roll. Roll. Roll.", "*it pats its ball, proudly*"],
             hall: ["The priests say I roll the sun across the sky. I do not correct them. It is good for business.", "Yes, it is dung. It is SACRED dung."],
-            hall_dialogue_id: Some("hall_scarab_beetle"),
         ),
+        hall_dialogue_id: Some("hall_scarab_beetle"),
         ),
         // The asp: a cobra with its hood out. It keeps its distance and spits
         // (the `shoot` of a skirmisher): it draws its head back first (its
@@ -7752,8 +7757,8 @@
             provoked: ["Sssssay that again."],
             idle: ["Hsssss.", "*flick* *flick*", "Ssssunny today."],
             hall: ["They say Cleopatra chose me. Historians argue about it. I do not argue with historians. I spit at them.", "I am on the pharaoh's crown, you know. The uraeus. I am practically royalty."],
-            hall_dialogue_id: Some("hall_asp"),
         ),
+        hall_dialogue_id: Some("hall_asp"),
         ),
         // The hoplite: a Greek citizen soldier behind a round bronze shield. He
         // lifts the shield to his eyes when he sees you (its notice row), holds
@@ -7787,8 +7792,8 @@
             provoked: ["Shields up! Phalanx!"],
             idle: ["Hold the line.", "*the crest bobs*", "Come back with your shield, or on it. That was my mother's advice."],
             hall: ["A phalanx is only as strong as the shield of the man on your left. I am the man on the left. There is nobody on mine.", "Three hundred of us at Thermopylae. And a few thousand allies. Nobody ever remembers the allies."],
-            hall_dialogue_id: Some("hall_hoplite"),
         ),
+        hall_dialogue_id: Some("hall_hoplite"),
         ),
         // The Immortal: a Persian royal guard in a robe of saffron and lapis,
         // with a wicker shield and a spear with a silver pomegranate at its
@@ -7822,8 +7827,8 @@
             provoked: ["For the Great King!"],
             idle: ["*he stands to attention*", "Ten thousand. Always ten thousand.", "We are called the Immortals. The name is doing a lot of work."],
             hall: ["When one of us falls, another steps up, and the count never changes. Herodotus wrote that down, so it must be true.", "The silver pomegranate on my spear is not for eating. I asked."],
-            hall_dialogue_id: Some("hall_immortal"),
         ),
+        hall_dialogue_id: Some("hall_immortal"),
         ),
         // The vandal: a barbarian of the Fall of Rome with a horned helmet, a
         // pot of black paint and a brush. Quick and cheeky: in, one swipe that
@@ -7856,8 +7861,8 @@
             provoked: ["That face needs a moustache!"],
             idle: ["*he dips his brush*", "Very nice statue. Needs a moustache.", "We sacked Rome in 455. Mostly we sacked it of its dignity."],
             hall: ["They named vandalism after us. We only borrowed things. For fourteen days. Without asking.", "Every emperor in this town has a moustache now. You are welcome."],
-            hall_dialogue_id: Some("hall_vandal"),
         ),
+        hall_dialogue_id: Some("hall_vandal"),
         ),
 
         // The terracotta warrior: a clay soldier of the first emperor's army,
@@ -7893,8 +7898,8 @@
             provoked: ["*the clay head turns, slowly*"],
             idle: ["...", "*a little dust falls*", "I was painted once. Red, green, violet. It flaked."],
             hall: ["Eight thousand of us, buried with the first emperor, so that he would have an army after he died. He never once inspected us.", "Every one of us has a different face. Mine has a very good moustache. It was modelled from life."],
-            hall_dialogue_id: Some("hall_terracotta_warrior"),
         ),
+        hall_dialogue_id: Some("hall_terracotta_warrior"),
         ),
         // The desert bandit: a quick raider on foot in an indigo face wrap,
         // with a curved sword. He coils low (its windup row), lunges with a
@@ -7927,8 +7932,8 @@
             provoked: ["Your silk or your life!"],
             idle: ["*he turns his sword over in his hand*", "Nice caravan. Shame if it got lighter.", "The Silk Road is four thousand miles long. I work the middle."],
             hall: ["Nobody walks the whole Silk Road. The goods go from hand to hand to hand. Sometimes the hand is mine.", "My camel went on without me. Camels have no loyalty. Neither do I. We understood each other."],
-            hall_dialogue_id: Some("hall_desert_bandit"),
         ),
+        hall_dialogue_id: Some("hall_desert_bandit"),
         ),
         // The silk moth: a big pale moth with feathered antennae. It floats,
         // lifts its nose and wings (its windup row), and dives at you nose
@@ -7958,8 +7963,8 @@
             provoked: ["*it spreads its wings very wide*"],
             idle: ["*flutter flutter*", "*its antennae twitch*", "*it bumps into a lantern, on purpose*"],
             hall: ["*five thousand years of silk farming bred the flying out of its kind. It is trying anyway.*", "*a whole road is named after what its caterpillar spins. It is quietly proud.*"],
-            hall_dialogue_id: Some("hall_silk_moth"),
         ),
+        hall_dialogue_id: Some("hall_silk_moth"),
         ),
 
         // The horse archer: a Mongol rider on a small sturdy horse. He keeps his
@@ -7993,8 +7998,8 @@
             provoked: ["Turn, draw, loose. Then turn again."],
             idle: ["*the horse snorts*", "Five spare horses, one bow, no hurry.", "We eat in the saddle. We sleep in the saddle. Ask me about the saddle."],
             hall: ["We ride away, you chase, and we turn round in the saddle and shoot. The Parthians did it first. We did it further.", "A messenger of the Yam crossed the empire in days: at each station he changed horses. Sometimes he changed riders. Never the bow."],
-            hall_dialogue_id: Some("hall_horse_archer"),
         ),
+        hall_dialogue_id: Some("hall_horse_archer"),
         ),
         // The golden eagle: a falconer's eagle with its hood pushed back. It
         // flies, and it dives at you talons first (its windup row lifts its wings
@@ -8024,8 +8029,8 @@
             provoked: ["Hood off. Eyes on you."],
             idle: ["*a long, high whistle*", "*it adjusts its hood, which is not on*"],
             hall: ["On the steppe the eagle hunters hunt foxes with us, and wolves if the hunter is brave. The hunter is never as brave as I am.", "The hood keeps me calm. It is off now. Draw your own conclusions."],
-            hall_dialogue_id: Some("hall_golden_eagle"),
         ),
+        hall_dialogue_id: Some("hall_golden_eagle"),
         ),
         // The steppe wolf: the blue-grey wolf of the founding story. Fast and
         // low: it crouches with its hackles up (its windup row), lunges with its
@@ -8058,8 +8063,8 @@
             provoked: ["*a low growl*"],
             idle: ["*it sniffs the wind*", "*its ears turn*", "Owoooo."],
             hall: ["The old story says the first Mongol was born of a blue-grey wolf and a fallow doe. I am the wolf. You may bow.", "A whole people with a wolf for an ancestor, and still they keep sheep. I take it personally."],
-            hall_dialogue_id: Some("hall_steppe_wolf"),
         ),
+        hall_dialogue_id: Some("hall_steppe_wolf"),
         ),
 
         // The inflated coin: a gold coin that blows itself up, and is worth less
@@ -8089,8 +8094,8 @@
             provoked: ["I am worth MORE than you! For now!"],
             idle: ["*it puffs up*", "*it checks its own value. It is lower.*", "Shiny."],
             hall: ["Mansa Musa came through Cairo in 1324 and gave gold to everybody. Then everybody had gold, and gold was worth less for twelve years. I was there. I was worth a camel. Then half a camel.", "Bigger is not the same as more valuable. I learned this by getting bigger."],
-            hall_dialogue_id: Some("hall_inflated_coin"),
         ),
+        hall_dialogue_id: Some("hall_inflated_coin"),
         ),
         // The coral crab: a crab with a small reef for a shell. It scuttles
         // sideways, fast; it lifts its big claw (its windup row) and snaps it
@@ -8123,8 +8128,8 @@
             provoked: ["*it lifts both claws*"],
             idle: ["*clack clack*", "*it walks sideways, then sideways again*"],
             hall: ["On this coast they build their houses of coral stone. I built mine of coral too. Mine walks.", "Everybody goes forward. I go to the side. We all get to the same beach."],
-            hall_dialogue_id: Some("hall_coral_crab"),
         ),
+        hall_dialogue_id: Some("hall_coral_crab"),
         ),
         // The monsoon squall: a small, cross storm cloud. It floats, keeps its
         // distance and spits rain (the `shoot` of a skirmisher): it swells dark
@@ -8156,8 +8161,8 @@
             provoked: ["You want weather? Here is weather."],
             idle: ["*rumble*", "Six months east. Six months west. Every year.", "*drip*"],
             hall: ["The dhow captains plan their whole year round me: east with the summer monsoon, home with the winter one. Nobody asks what I want.", "The word monsoon comes from the Arabic for season. I am not a season. I am a mood."],
-            hall_dialogue_id: Some("hall_monsoon_squall"),
         ),
+        hall_dialogue_id: Some("hall_monsoon_squall"),
         ),
 
         // ===== THE AGE OF SAIL: era 7 of the History dimension. Its sheets are
@@ -8189,8 +8194,8 @@
             provoked: ["Have ye... got... a LEMON?"],
             idle: ["*gums smack*", "Lemon... lemon...", "Ninety days out of port, and not one orange."],
             hall: ["In 1747 a ship's surgeon gave two of us lemons and they got better. The navy took nearly fifty years to listen. I did not have fifty years.", "I lost my teeth off the Cape of Good Hope. Bad Hope, if you ask me."],
-            hall_dialogue_id: Some("hall_scurvy_ghost"),
         ),
+        hall_dialogue_id: Some("hall_scurvy_ghost"),
         ),
         // The kraken arm: one huge tentacle of the monster of the old maps,
         // up out of a cargo hatch. Slow and heavy: it scoots its hatch along
@@ -8225,8 +8230,8 @@
             provoked: ["*the hatch creaks open*"],
             idle: ["*drip*", "*something big turns over in the hold*", "*the tip curls, and uncurls, and curls*"],
             hall: ["*on the hatch, in old ink: HERE BE DRAGONS. Somebody has crossed out DRAGONS.*", "*the old maps drew monsters where nobody had sailed yet. It was a way to say: we do not know. This arm says it louder.*"],
-            hall_dialogue_id: Some("hall_kraken_arm"),
         ),
+        hall_dialogue_id: Some("hall_kraken_arm"),
         ),
         // The privateer: a pirate with a licence, a tricorn and a cutlass. Fast:
         // he shows you his letter of marque when he sees you, lifts the cutlass
@@ -8259,8 +8264,8 @@
             provoked: ["Hold! By letter of marque of His Majesty, your cargo is now my cargo."],
             idle: ["*he polishes the seal on his licence*", "It is not piracy if the King gets a cut.", "Yo ho, yo ho, a legally licensed life for me."],
             hall: ["A pirate robs ships. A privateer robs the ships of the King's enemies, with a paper that says he may. The ships cannot tell the difference.", "Francis Drake was a privateer. The Queen made him a knight. The Spanish called him the Dragon. Same man, same boat, different paperwork."],
-            hall_dialogue_id: Some("hall_privateer"),
         ),
+        hall_dialogue_id: Some("hall_privateer"),
         ),
         // ===== THE INDUSTRIAL AGE: era 8 of the History dimension.
         // The steam automaton: a riveted boiler on piston legs, with porthole
@@ -8296,8 +8301,8 @@
             provoked: ["*WHEEEEEEEE!*"],
             idle: ["*chuff* *chuff* *chuff*", "*the needle twitches*", "COAL. MORE. COAL."],
             hall: ["James Watt did not invent the steam engine. He made it waste less coal. Everybody remembers an invention. Nobody remembers an efficiency.", "One of me does the work of many horses. Watt called it horsepower so the mill owners would understand. Nobody asked the horses."],
-            hall_dialogue_id: Some("hall_steam_automaton"),
         ),
+        hall_dialogue_id: Some("hall_steam_automaton"),
         ),
         // The soot sprite: a ball of soot from a mill chimney, with big white
         // eyes and an ember inside. It floats in, squashes and lights its
@@ -8326,8 +8331,8 @@
             provoked: ["*it puffs up, black and furious*"],
             idle: ["*it drifts*", "*smudge*", "*a small, sooty cough*"],
             hall: ["In the mill towns we turned the trees black, and the pale moths on them were easy to see and got eaten. The dark moths lived. Evolution, in one city, in fifty years. You are welcome.", "Every chimney in town makes a little of me. Together we make the fog."],
-            hall_dialogue_id: Some("hall_soot_sprite"),
         ),
+        hall_dialogue_id: Some("hall_soot_sprite"),
         ),
         // The robber baron: a tycoon in a top hat and a fur coat, with a cigar
         // and a sack of money. He keeps his distance and throws coins (the
@@ -8361,8 +8366,8 @@
             provoked: ["Here. Have a coin. Have MANY coins. Very fast."],
             idle: ["*he counts*", "I bought the railroad. Then I bought the other railroad.", "Competition is a sin. I read that somewhere. I own the paper."],
             hall: ["They call us robber barons. We call ourselves captains of industry. The men in my mills call me something I will not repeat in a gallery.", "I gave a library to every town and put my name over every door. Philanthropy is a long word for a very large sign."],
-            hall_dialogue_id: Some("hall_robber_baron"),
         ),
+        hall_dialogue_id: Some("hall_robber_baron"),
         ),
         // Their sheets are in the renderer (`targets/characters/hyena.py`,
         // `cave_lion.py`, `hippo.py`, `sea_raider.py`, on `_art_cast_kit.py` and
@@ -8399,8 +8404,8 @@
             provoked: ["Hee hee hee hee!"],
             idle: ["Hee hee.", "*it giggles at nothing*", "Ha! Ha. Ha... I forget why."],
             hall: ["Everyone thinks we only steal. We hunt most of what we eat. We just laugh about it, and that gives us a reputation.", "The first humans came down out of the trees right here. We were waiting. We have been laughing about it ever since."],
-            hall_dialogue_id: Some("hall_hyena"),
         ),
+        hall_dialogue_id: Some("hall_hyena"),
         ),
         // The Sulawesi warty pig: a small wild pig found only on Sulawesi and
         // its near islands, with warts on the face and a tuft on the crown.
@@ -8431,8 +8436,8 @@
             provoked: ["*it lowers its warty head and paws the ground*"],
             idle: ["*snuffle snuffle*", "*it roots for a fallen fruit*", "Oink. Locally."],
             hall: ["I am the oldest model in the world. A painter put me on a cave wall over 45,000 years ago, and I have not changed my look since.", "People call it a hunting scene. I call it a portrait."],
-            hall_dialogue_id: Some("hall_sulawesi_warty_pig"),
         ),
+        hall_dialogue_id: Some("hall_sulawesi_warty_pig"),
         ),
         // The saltwater crocodile: the largest living reptile, at home in the
         // rivers, swamps and seas from India to Australia. It swims between
@@ -8466,8 +8471,8 @@
             provoked: ["*two eyes and a nose come up out of the water*"],
             idle: ["*it lies still, like a log with plans*", "*a long, slow breath*"],
             hall: ["My family has looked like this for a very long time. We watched the islanders paddle by in their canoes. We swim between islands too; we just do not bring pots.", "I can go months without a meal. I am in no hurry. You will come down to the water eventually."],
-            hall_dialogue_id: Some("hall_saltwater_crocodile"),
         ),
+        hall_dialogue_id: Some("hall_saltwater_crocodile"),
         ),
         // The king cobra: the longest venomous snake in the world, of the
         // forests of South and Southeast Asia. It lifts a third of its body
@@ -8499,8 +8504,8 @@
             provoked: ["*it rises, and rises, until its eyes are level with yours*"],
             idle: ["*a long olive coil in the leaves*", "*its tongue tastes the air*"],
             hall: ["I am the longest venomous snake in the world. I can stand a third of my length off the ground and look you in the eye.", "I eat other snakes. You are not a snake. Leave quietly and we will both have a good day."],
-            hall_dialogue_id: Some("hall_king_cobra"),
         ),
+        hall_dialogue_id: Some("hall_king_cobra"),
         ),
         // The Asian water monitor: a big lizard of the rivers and coasts of
         // Southeast Asia, a strong swimmer that eats what the harbour drops.
@@ -8530,8 +8535,8 @@
             provoked: ["*it lifts its head and swings its tail, slowly*"],
             idle: ["*flick, flick goes the forked tongue*", "*it suns itself on the warm planks*"],
             hall: ["I swim, I climb, and I eat whatever the harbour drops. Palembang suits me fine.", "My cousins on Komodo get all the attention. I am just as long and much better company."],
-            hall_dialogue_id: Some("hall_water_monitor"),
         ),
+        hall_dialogue_id: Some("hall_water_monitor"),
         ),
         // The Asian black bear, the moon bear: a white V on its black chest.
         // It climbs for acorns and chestnuts in the forests of Japan.
@@ -8562,8 +8567,8 @@
             provoked: ["*it rears up and shows the white moon on its chest*"],
             idle: ["*it sniffs for chestnuts*", "*crunch*"],
             hall: ["The white V on my chest is a moon. That is why they call me the moon bear.", "I climb trees for acorns and chestnuts. The Jōmon and I liked the same groves."],
-            hall_dialogue_id: Some("hall_asian_black_bear"),
         ),
+        hall_dialogue_id: Some("hall_asian_black_bear"),
         ),
         // The Japanese macaque, the snow monkey: the most northern monkey in
         // the world, with a red face and thick grey-brown fur.
@@ -8594,8 +8599,8 @@
             provoked: ["*it eyes your lunch*"],
             idle: ["*it grooms a friend who is not there*", "*it washes a chestnut, carefully*"],
             hall: ["We are the most northern monkeys in the world. In winter we sit in the hot springs. You should try it.", "On the island of Kōjima in 1953 a young monkey called Imo began to wash her sweet potatoes in the sea. Now we all do it. That is culture."],
-            hall_dialogue_id: Some("hall_japanese_macaque"),
         ),
+        hall_dialogue_id: Some("hall_japanese_macaque"),
         ),
         // The Formosan clouded leopard: cloud-shaped blotches, a very long
         // tail, and for its size the longest canine teeth of any cat.
@@ -8626,8 +8631,8 @@
             provoked: ["*it flattens itself along the branch*"],
             idle: ["*it is not there. Then it is.*", "*a long tail twitches in the grass*"],
             hall: ["For my size, my canine teeth are the longest of any cat. I do not need to tell you why.", "In Taiwan nobody has seen one of us since the 1980s. In 2013 we were declared extinct. You are talking to a ghost."],
-            hall_dialogue_id: Some("hall_clouded_leopard"),
         ),
+        hall_dialogue_id: Some("hall_clouded_leopard"),
         ),
         // The tanuki, the Japanese raccoon dog: a round wild dog with a dark
         // mask, not a raccoon. In winter it can sleep through the cold.
@@ -8657,8 +8662,8 @@
             provoked: ["*it puffs up to twice its size*"],
             idle: ["*it waddles off to look for persimmons*", "*sniff sniff*"],
             hall: ["I am not a raccoon. I am a dog. A round dog.", "In the old stories I change shape: into a teakettle, once, and then I could not get my tail back in."],
-            hall_dialogue_id: Some("hall_tanuki"),
         ),
+        hall_dialogue_id: Some("hall_tanuki"),
         ),
         // The gharial: the fish-eating crocodile of the Ganges and the
         // Brahmaputra, with a long thin snout. Critically endangered.
@@ -8689,8 +8694,8 @@
             provoked: ["*the snout swings round, slowly*"],
             idle: ["*it lies very still, like a log with teeth*", "*a fish vanishes*"],
             hall: ["The bulb on a male gharial's snout is a ghara: a pot. That is where the name comes from.", "My snout is made for fish. I cannot eat you. I can still bite you. There are only a few hundred of us grown up in the wild: please mind the rivers."],
-            hall_dialogue_id: Some("hall_gharial"),
         ),
+        hall_dialogue_id: Some("hall_gharial"),
         ),
         // The rhesus macaque of the river towns: brown-grey, with a pink-red
         // face. It lives wherever people leave food about.
@@ -8721,8 +8726,8 @@
             provoked: ["*it eyes your bag*"],
             idle: ["*it opens a bag that is not its bag*", "*it eats a mango, noisily*"],
             hall: ["The Rh in your blood type is for rhesus: the factor was first found in experiments with us.", "In 1948 a rhesus monkey called Albert rode a rocket from New Mexico. We were in space before you."],
-            hall_dialogue_id: Some("hall_rhesus_macaque"),
         ),
+        hall_dialogue_id: Some("hall_rhesus_macaque"),
         ),
         // The black caiman: the largest predator of the Amazon, nearly black,
         // with pale bands on its jaw.
@@ -8753,8 +8758,8 @@
             provoked: ["*two eyes, just above the water*"],
             idle: ["*it is a log. It is not a log.*", "*a slow blink*"],
             hall: ["I am the largest predator in the Amazon. The jaguar disagrees. We do not discuss it.", "In the last century we were hunted for our skins until few of us were left. We are coming back. Mind the water."],
-            hall_dialogue_id: Some("hall_black_caiman"),
         ),
+        hall_dialogue_id: Some("hall_black_caiman"),
         ),
         // The capybara: the largest rodent in the world, calm, half aquatic,
         // with webbed toes.
@@ -8784,8 +8789,8 @@
             provoked: ["*it lowers its big square head*"],
             idle: ["*it chews, calmly*", "*a bird lands on its back. It allows this.*"],
             hall: ["I am the largest rodent in the world. I can stay under water for five minutes. Can you?", "Birds ride on my back and eat my ticks. Monkeys sit on me. I am very calm. Usually."],
-            hall_dialogue_id: Some("hall_capybara"),
         ),
+        hall_dialogue_id: Some("hall_capybara"),
         ),
         // The giant sable antelope (palanca negra), found only in Angola: black,
         // with a white blaze and horns more than a metre long.
@@ -8816,8 +8821,8 @@
             provoked: ["*it lowers its horns and paws the ground*"],
             idle: ["*it grazes, one eye on you*", "*the long horns sweep back over its shoulders*"],
             hall: ["I live in one corner of Angola and nowhere else. In the civil war people thought I was gone for good. In 2005 a camera in the forest found me again.", "Angola's football team is named after me: the Palancas Negras. I have never been asked to play."],
-            hall_dialogue_id: Some("hall_giant_sable"),
         ),
+        hall_dialogue_id: Some("hall_giant_sable"),
         ),
         // The African grey parrot of the Congo forest: grey, with a red tail,
         // and the best talker of all the birds.
@@ -8845,8 +8850,8 @@
             provoked: ["Who's a pretty one? Not you."],
             idle: ["*it whistles the start of a tune, and stops*", "*a click, a whistle, a creak like a door*"],
             hall: ["I can learn hundreds of words. I choose to use them on you.", "Traders have taken my kind out of the Congo forests for centuries. There are far fewer of us now. Leave me where I am."],
-            hall_dialogue_id: Some("hall_african_grey_parrot"),
         ),
+        hall_dialogue_id: Some("hall_african_grey_parrot"),
         ),
         // A soldier of Portugal's colony in Angola in the 1620s: a morion
         // helmet, a padded jack and an arquebus fired with a match.
@@ -8876,8 +8881,8 @@
             provoked: ["Halt! In the name of the governor!"],
             idle: ["*he blows on the match to keep it lit*", "The rain puts out the match. The rain puts out everything.", "*he looks at the trees, where nothing moves*"],
             hall: ["They sent us inland for slaves and silver. We found no silver. We found Nzinga.", "Load, prime, blow on the match, aim, and pray the powder is dry. She attacked while we were blowing on the match."],
-            hall_dialogue_id: Some("hall_portuguese_arquebusier"),
         ),
+        hall_dialogue_id: Some("hall_portuguese_arquebusier"),
         ),
         // The giant moa of Aotearoa: no wings at all, and with its neck up
         // about 3.6 m tall. All nine kinds were gone about 150 years after
@@ -8909,8 +8914,8 @@
             provoked: ["*it lifts its neck as high as a house*"],
             idle: ["*it strips the leaves off a twig*", "*it sways its long neck*"],
             hall: ["I had no wings, not even little ones. Before people came, only the great eagle hunted me. I did not know to run.", "Nine kinds of us, the tallest bird that ever lived. About 150 years after people came, we were all gone."],
-            hall_dialogue_id: Some("hall_moa"),
         ),
+        hall_dialogue_id: Some("hall_moa"),
         ),
         // Haast's eagle: the largest eagle that ever lived, with talons like a
         // tiger's claws. It hunted moa, and died out with them.
@@ -8938,8 +8943,8 @@
             provoked: ["*it flares wings three metres wide*"],
             idle: ["*it watches from above on slow, deep beats*", "*a long, high whistle*"],
             hall: ["I hunted birds fifteen times my weight. One foot on the hips, one on the neck. Then people came for the same birds.", "When the moa were gone, so was I, about 1400. Māori stories remember a great bird, Pouakai."],
-            hall_dialogue_id: Some("hall_haast_eagle"),
         ),
+        hall_dialogue_id: Some("hall_haast_eagle"),
         ),
         // The kooyang (short-finned eel) of Budj Bim, which the Gunditjmara
         // farmed in channels of stone for at least 6,600 years.
@@ -8967,8 +8972,8 @@
             provoked: ["*it rears its head out of the water*"],
             idle: ["*it sways in the channel*", "*a ripple, and it is gone*"],
             hall: ["I swim about 3,000 km to the Coral Sea to spawn. My children swim all the way back, up this very channel.", "The Gunditjmara built a whole system of stone for me. I would be flattered, if it did not end in a smoking tree."],
-            hall_dialogue_id: Some("hall_kooyang"),
         ),
+        hall_dialogue_id: Some("hall_kooyang"),
         ),
         // The black swan of Australia: black, with white flight feathers and a
         // red bill. Europe said there was no such thing until 1697.
@@ -8998,8 +9003,8 @@
             provoked: ["*a long hiss, wings half open*"],
             idle: ["*it preens a white flight feather*", "*a soft, bugling call*"],
             hall: ["For centuries Europe said 'a black swan' meant a thing that cannot exist. Then a Dutch ship reached Western Australia in 1697.", "Now a 'black swan' is the thing nobody saw coming. I was here the whole time."],
-            hall_dialogue_id: Some("hall_black_swan"),
         ),
+        hall_dialogue_id: Some("hall_black_swan"),
         ),
         // The fanihi, the Mariana fruit bat: a big fruit bat with a golden mantle.
         "fanihi": (
@@ -9026,8 +9031,8 @@
             provoked: ["*it unfolds wings as wide as your arms*"],
             idle: ["*it hangs and chews a fig*", "*leathery wingbeats*"],
             hall: ["I eat fruit and spread the seeds of the forest. Without me, fewer trees.", "Hunting and the brown tree snake nearly ended my kind on Guam. Leave me in my tree."],
-            hall_dialogue_id: Some("hall_fanihi"),
         ),
+        hall_dialogue_id: Some("hall_fanihi"),
         ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
@@ -9061,8 +9066,8 @@
             provoked: ["*the tail tip twitches*"],
             idle: ["*a deep purr*", "*it licks a paw*", "Grrrumph."],
             hall: ["Every painter in every cave drew me. Not one of them drew me a mane. I did not have one. I am fine about it.", "Bigger than a lion of today, and the painters still put me on the back wall. Behind a horse."],
-            hall_dialogue_id: Some("hall_cave_lion"),
         ),
+        hall_dialogue_id: Some("hall_cave_lion"),
         ),
         // The hippo: a hippopotamus of the lakes of the Green Sahara, very
         // angry, its mouth always a little open. It yawns its jaws wide (its
@@ -9097,8 +9102,8 @@
             provoked: ["*the jaws open. And open. And keep opening.*"],
             idle: ["*an angry snort*", "*glug*", "Hmph."],
             hall: ["When the Sahara was green there were lakes all the way across it, and hippos in all of them. Then it dried up. I blame you.", "People say I look sleepy. I am not sleepy. I am waiting for someone to come close enough."],
-            hall_dialogue_id: Some("hall_hippo"),
         ),
+        hall_dialogue_id: Some("hall_hippo"),
         ),
         // The sea raider: one of the Sea Peoples of the Bronze Age collapse, as
         // the reliefs of Medinet Habu show them: a headdress of feathers, a
@@ -9133,8 +9138,8 @@
             provoked: ["From the sea! Nobody expects the sea!"],
             idle: ["*the feathers nod*", "Which kingdom is next?", "We came by boat. We do not talk about why."],
             hall: ["In 1177 BCE every great kingdom of the Bronze Age fell at once, and the Egyptians carved us on a temple wall as the reason. Drought, famine and earthquakes helped. Nobody carved them.", "Historians still argue about who we were. We would tell them, but nobody wrote it down. Least of all us."],
-            hall_dialogue_id: Some("hall_sea_raider"),
         ),
+        hall_dialogue_id: Some("hall_sea_raider"),
         ),
         // ===== THE HISTORY DIMENSION'S EUROPE: the Ice Age and the Viking north.
         // Their sheets are in the renderer
@@ -9173,8 +9178,8 @@
             provoked: ["*a trumpet that shakes the snow off the pines*"],
             idle: ["*the crunch of frozen grass*", "*it swings its trunk*", "Cold today. Cold every day. For a hundred thousand years."],
             hall: ["The last of us lived on Wrangel Island until about four thousand years ago. The Great Pyramid was already built. We were the late guests of history.", "They built their houses out of our bones. Very cosy. I have opinions."],
-            hall_dialogue_id: Some("hall_woolly_mammoth"),
         ),
+        hall_dialogue_id: Some("hall_woolly_mammoth"),
         ),
         // The cave bear: the huge bear of the caves, dark brown with a grizzled
         // hump and a steep forehead. Heavy: it roars when it sees you, rears up
@@ -9208,8 +9213,8 @@
             provoked: ["*a roar that fills the cave*"],
             idle: ["*sniff* *sniff*", "*it scratches its back on the rock*", "Mmm. Roots."],
             hall: ["This was MY cave first. Then people came in with lamps and painted a hundred horses on my walls, and hardly any bears.", "Mostly I ate plants. Look at the size of me, and I ate plants. Nobody believes it."],
-            hall_dialogue_id: Some("hall_cave_bear"),
         ),
+        hall_dialogue_id: Some("hall_cave_bear"),
         ),
         // The Viking raider: a ginger beard in braids, a conical helmet with a
         // nose guard and NO horns, a red and white shield and a bearded axe. He
@@ -9244,8 +9249,8 @@
             provoked: ["To the boats! No, wait. You are here. To YOU!"],
             idle: ["*he checks his helmet for horns. None. Good.*", "Raid in the summer, farm in the winter.", "Row. Row. Row. Are we there yet?"],
             hall: ["Horns on a helmet? In a fight? Somebody would grab them. The horns came from an opera costume in 1876. Put that on the sign.", "We went to Baghdad, to Constantinople, to America. And we are remembered for hats we never wore."],
-            hall_dialogue_id: Some("hall_viking_raider"),
         ),
+        hall_dialogue_id: Some("hall_viking_raider"),
         ),
         // The tiger: a Bengal tiger, orange with black stripes. It stalks low,
         // crouches with its tail lashing (its windup row), pounces a long way
@@ -9278,8 +9283,8 @@
             provoked: ["*the tail stops moving*"],
             idle: ["*a low chuff*", "*it licks a paw, and watches you over it*", "*the stripes vanish into the reeds*"],
             hall: ["My stripes are on my skin too. Shave me and you would still see them. Please do not try.", "Every stripe is different. I counted mine once. I lost count at the tail."],
-            hall_dialogue_id: Some("hall_tiger"),
         ),
+        hall_dialogue_id: Some("hall_tiger"),
         ),
         // The Indus unicorn: the one-horned bull of the Indus seals, stepped off
         // a seal in pale carved steatite. It lowers its horn and paws the ground
@@ -9314,8 +9319,8 @@
             provoked: ["*it lowers its one horn at you*"],
             idle: ["*a stiff stone snort*", "*it tries out its legs. It is new to legs.*", "*the signs on its side shift, as if to say something*"],
             hall: ["*thousands of seals show it, and the signs over it. Nobody can read them yet. It would tell you, but it cannot read them either.*", "*it was one inch tall for four thousand years. It is enjoying the size.*"],
-            hall_dialogue_id: Some("hall_indus_unicorn"),
         ),
+        hall_dialogue_id: Some("hall_indus_unicorn"),
         ),
         // The taotie spirit: the mask of the Shang bronzes, a floating face of
         // green bronze. It keeps its distance and spits (the `shoot` of a
@@ -9348,8 +9353,8 @@
             provoked: ["*its eyes swivel round to you. Only its eyes.*"],
             idle: ["*it stares*", "*it stares harder*", "*a faint smell of hot metal*"],
             hall: ["*it was cast on the side of a cauldron, to stare at whoever ate from it. Three thousand years on, it is still staring. It is very good at it.*", "*scholars argue about what it means. It has heard every argument. It is not telling.*"],
-            hall_dialogue_id: Some("hall_taotie_spirit"),
         ),
+        hall_dialogue_id: Some("hall_taotie_spirit"),
         ),
         // ===== THE AMERICAS AND OCEANIA: two floors of the History dimension's
         // grid. Their sheets are in the renderer
@@ -9386,8 +9391,8 @@
             provoked: ["*it opens its jaw wider than a jaw should go*"],
             idle: ["*a deep purr*", "*it licks one sabre, carefully*", "Big teeth. Small brain. Great life."],
             hall: ["Thousands of us fell into the tar pits of La Brea, chasing things that had fallen in first. It was a whole bad afternoon, for about forty thousand years.", "Sabre-toothed TIGER? I am not a tiger. Nobody in my family is a tiger. Write it down."],
-            hall_dialogue_id: Some("hall_smilodon"),
         ),
+        hall_dialogue_id: Some("hall_smilodon"),
         ),
         // The jaguar: the great cat of the forests of the Americas, gold with
         // black rosettes. A pouncer, quicker and lighter than the smilodon: a
@@ -9422,8 +9427,8 @@
             provoked: ["*a low, sawing roar*"],
             idle: ["*it washes a paw*", "*its tail twitches in the maize*", "Mmrr."],
             hall: ["I swim, I climb, and I bite through a turtle's shell. The other big cats find me exhausting.", "Every spot on me is a rosette with a dot in the middle. Leopards have no dot. I like to mention it."],
-            hall_dialogue_id: Some("hall_jaguar"),
         ),
+        hall_dialogue_id: Some("hall_jaguar"),
         ),
         // The llama: the pack animal of the Andes, with yarn tassels on its
         // ears, and it is not impressed. It keeps its distance and spits (the
@@ -9457,8 +9462,8 @@
             provoked: ["*it looks at you down its whole long nose*"],
             idle: ["*chew* *chew* *chew*", "Hmmmm.", "*it stares at nothing, unimpressed*"],
             hall: ["The Inca road ran for forty thousand kilometres through the Andes, and we carried most of it. Nobody built us a road.", "I carry thirty kilos and not one gram more. Put a thirty-first on me and I lie down. That is not stubborn. That is a union."],
-            hall_dialogue_id: Some("hall_llama"),
         ),
+        hall_dialogue_id: Some("hall_llama"),
         ),
         // The diprotodon: the giant wombat of Sahul, as big as a hippo. Heavy
         // and slow: it rocks back with its head low (its windup row), shoves
@@ -9492,8 +9497,8 @@
             provoked: ["*it lowers its great head*"],
             idle: ["*snuffle* *snuffle*", "*munch*", "*it scratches its side on nothing*"],
             hall: ["I am the biggest marsupial that ever lived. I had a pouch. You do not want to know how big the pouch was.", "Wombats are my little cousins. They have cube-shaped droppings. We do not talk about it at reunions."],
-            hall_dialogue_id: Some("hall_diprotodon"),
         ),
+        hall_dialogue_id: Some("hall_diprotodon"),
         ),
         // The megalania: the giant monitor lizard of Sahul, long and low. It
         // lifts the front of its body and opens its jaws (its windup row),
@@ -9527,8 +9532,8 @@
             provoked: ["*flick* *flick* ...you taste like trouble."],
             idle: ["*flick*", "*it basks*", "*a long, slow blink*"],
             hall: ["I was the biggest lizard on land that ever lived. The Komodo dragon is my small, famous cousin. It does not return my calls.", "Seven metres, nose to tail. Most of that is tail. Most of the trouble is the other end."],
-            hall_dialogue_id: Some("hall_megalania"),
         ),
+        hall_dialogue_id: Some("hall_megalania"),
         ),
         // The cassowary of the History cast: the great bird of the New Guinea
         // highlands, with a blue neck and a casque. (The constraint solver
@@ -9563,8 +9568,8 @@
             provoked: ["*a boom so low you feel it in your ribs*"],
             idle: ["*it pecks at a fallen fruit*", "*bob* *bob*", "*a low rumble*"],
             hall: ["The people of the highlands raise my chicks, and they have a very healthy respect for my feet. So should you.", "I plant the forest. I eat the fruit, I walk a long way, and the seeds come out somewhere new. You are welcome."],
-            hall_dialogue_id: Some("hall_cassowary_history"),
         ),
+        hall_dialogue_id: Some("hall_cassowary_history"),
         ),
         // Their sheets are in the renderer (`targets/characters/howler_monkey.py`,
         // `green_iguana.py`, on `_art_cast_kit.py` and `_history_americas_kit.py`).
@@ -9601,8 +9606,8 @@
             provoked: ["*a roar that rolls on through the forest for kilometres*"],
             idle: ["*a long, low howl at dawn*", "*it chews a leaf. Slowly. It has all day.*", "Hooooo."],
             hall: ["You can hear a howler monkey five kilometres away. That is not shouting. That is telling the next troop where we are, so nobody has to walk over.", "I eat leaves and I sleep most of the day. Leaves are not very nourishing. The howl is the only energetic thing I do, so I do it properly."],
-            hall_dialogue_id: Some("hall_howler_monkey"),
         ),
+        hall_dialogue_id: Some("hall_howler_monkey"),
         ),
         // The green iguana: a big green lizard of the Maya forest, with a
         // crest of spines and a dewlap. It stands high, bobs its head, spreads
@@ -9637,8 +9642,8 @@
             provoked: ["*the dewlap opens like a flag*"],
             idle: ["*it basks*", "*bob* *bob* *bob*", "*a long, slow blink*"],
             hall: ["I have a third eye on the top of my head. It sees light and shadow, so I know when a hawk is over me. It cannot read. Neither can the other two.", "I can drop from a branch fifteen metres up, land on the forest floor and walk away. Mind the tail on the way down."],
-            hall_dialogue_id: Some("hall_green_iguana"),
         ),
+        hall_dialogue_id: Some("hall_green_iguana"),
         ),
         // Their sheets are in the renderer (`targets/characters/coconut_crab.py`,
         // `frigatebird.py`, `pacific_rat.py`, on `_art_cast_kit.py` and
@@ -9677,8 +9682,8 @@
             provoked: ["*it lifts the big claw: the one that opens coconuts*"],
             idle: ["*clack*", "*it drags a coconut across the sand, slowly*", "*it climbs a palm, just to look*"],
             hall: ["I was a hermit crab once, in a borrowed shell. Then I grew, and no shell fit. Now I am the biggest crab on land, and I borrow nothing.", "They call me the robber crab: I take shiny things from the camp. A spoon, a pot, once a whole kettle. The potters here keep a close eye on me."],
-            hall_dialogue_id: Some("hall_coconut_crab"),
         ),
+        hall_dialogue_id: Some("hall_coconut_crab"),
         ),
         // The frigatebird: the great frigatebird of the open ocean, black, with
         // long crooked wings, a forked tail and a red throat pouch puffed up.
@@ -9709,8 +9714,8 @@
             provoked: ["*the red pouch swells, and swells*"],
             idle: ["*it hangs on the wind and does not flap once*", "*clack-clack of the long bill*"],
             hall: ["I cannot land on the sea: my feathers are not waterproof. So at dusk I fly home to land, and every navigator on the ocean watches which way I go.", "Other birds catch fish. I catch the other birds, shake them until they drop the fish, and catch the fish before it hits the water. It is called efficiency."],
-            hall_dialogue_id: Some("hall_frigatebird"),
         ),
+        hall_dialogue_id: Some("hall_frigatebird"),
         ),
         // The Pacific rat: the kiore, the small brown rat that crossed the
         // Pacific on the voyaging canoes. Fast and low: it crouches with its
@@ -9743,8 +9748,8 @@
             provoked: ["*whiskers forward*"],
             idle: ["*sniff sniff*", "*it washes its face, very fast*", "Seeds? Any seeds?"],
             hall: ["I crossed the Pacific on the canoes with the people, island after island. Some say as food, some say as a stowaway. I say: first class.", "On Rapa Nui they say we ate the nuts of the great palms, so no new palms grew. ...We did eat a lot of nuts. They were very good nuts."],
-            hall_dialogue_id: Some("hall_pacific_rat"),
         ),
+        hall_dialogue_id: Some("hall_pacific_rat"),
         ),
         // The driver ants (siafu) of the West African forest: a marching
         // column that moves as one low body, big-jawed soldiers at its front.
@@ -9779,8 +9784,8 @@
             provoked: ["*the soldiers rear up, jaws wide*"],
             idle: ["*a rustle like rain on leaves*", "*the column goes on, and on*", "*march*"],
             hall: ["We are one column of millions, and we do not stop for a city, a wall or an Oba. People step aside. Then they come back, and the house has no cockroaches.", "Our soldiers' jaws hold so hard that healers close a wound with them: let one bite across the cut, then pinch off the body. We are stitches with legs."],
-            hall_dialogue_id: Some("hall_driver_ants"),
         ),
+        hall_dialogue_id: Some("hall_driver_ants"),
         ),
         // A soldier of Leclerc's expedition (1802), which Napoleon sent to
         // take Saint-Domingue back. A soldier, not a caricature: a bicorne, a
@@ -9814,8 +9819,8 @@
             provoked: ["En garde!"],
             idle: ["*he wipes his face; the heat never stops*", "These mountains go on for ever.", "*he looks up at the ridge, where something moved*"],
             hall: ["They told us it would be a short campaign. Of the tens of thousands they sent, most never went home: the war took many, and yellow fever took more.", "We came to take an island back. The island had other plans."],
-            hall_dialogue_id: Some("hall_napoleonic_grenadier"),
         ),
+        hall_dialogue_id: Some("hall_napoleonic_grenadier"),
         ),
         // The Andean condor: the largest flying land bird of the Americas,
         // black with a white ruff, soaring on flat wings with the tips spread
@@ -9844,8 +9849,8 @@
             provoked: ["*it tips one wing and turns, without a flap*"],
             idle: ["*it has not flapped in an hour*", "*a shadow three metres wide crosses the ground*"],
             hall: ["My wings are three metres across, and I can soar for hours without one flap. I let the mountains do the work. Smart birds do.", "I eat what is already dead. Look on the bright side: I am not hunting you. I am waiting."],
-            hall_dialogue_id: Some("hall_andean_condor"),
         ),
+        hall_dialogue_id: Some("hall_andean_condor"),
         ),
 
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
@@ -9915,8 +9920,8 @@
         barks: (
             on_hit: ["Tch. Watch the noise.", "Not me, ripple-foot. It."],
             hall: ["You did not sneak in. You arrived incorrectly.", "A spirit is a debt. I collect."],
-            hall_dialogue_id: Some("hall_npc_ninja_kagero"),
         ),
+        hall_dialogue_id: Some("hall_npc_ninja_kagero"),
         ),
         // The Iron Trooper: the regime's heavy, in riveted plate, with a chain
         // gun (a held item, not his drawing). He stands back and fires; close

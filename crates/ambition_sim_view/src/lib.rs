@@ -52,7 +52,7 @@ pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use camera_snapshot::{local_view_facts, CameraViewState, PresentedViewState};
 pub use defense_view::{defense_cue_causes, DefenseCueCauses};
 #[cfg(feature = "dialogue")]
-pub use dialog_view::{rebuild_dialog_view, DialogControls, DialogView};
+pub use dialog_view::{rebuild_dialog_view, rebuild_slot_dialog_views, DialogControls, DialogView, SlotDialogView};
 #[cfg(feature = "dialogue")]
 pub use ambition_dialog::DialogConfirmAction;
 
@@ -124,7 +124,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         {
             app.init_resource::<DialogView>();
             app.add_systems(bevy::prelude::Update,
-                rebuild_dialog_view.in_set(DialogViewSync)
+                (rebuild_dialog_view, rebuild_slot_dialog_views).in_set(DialogViewSync)
                     .after(ambition_dialog::DialogFrameSet::Narrative));
         }
         app.init_resource::<ControlPrompt>();

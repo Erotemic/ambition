@@ -100,11 +100,10 @@ impl DialogueDispatch<'_, '_> {
         listener_id: &str,
         input_owner: InputOwner,
     ) -> bool {
-        // Each live conversation has its own runner (SIMULATION-ISLANDS N2),
-        // but one box presents only the main one until N3 draws a box per
-        // seat. Until then a second seat's talk would hold its input with no
-        // box to answer, so it waits.
-        if self.conversation.conversations().any(|live| !live.includes(initiator)) {
+        // Each seat talks in its own conversation, on its own runner and in its
+        // own box (SIMULATION-ISLANDS N1-N3). A body already talking to
+        // another seat is not taken from it; the seat's own talk is replaced.
+        if self.conversation.held_by_another_seat(input_owner, &[initiator, talker]) {
             return false;
         }
         let context = ambition_dialog::DialogueContext::between(speaker_id, listener_id);

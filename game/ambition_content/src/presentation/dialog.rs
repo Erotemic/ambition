@@ -21,7 +21,8 @@ use ambition_content_schemas::rules::DialogLook;
 use ambition_content_schemas::text::lowered_ambition_text;
 use ambition_platformer2d::content::{hole, ShownText};
 use ambition_render::dialog_ui::{
-    claim_dialog_presentation, dialog_owner_label, DialogOverlayRoot, DialogPresentationSet,
+    claim_dialog_presentation, dialog_owner_label, DialogBoxSource, DialogOverlayRoot, DialogPresentationSet,
+    DialogViews,
 };
 use ambition_render::ui_surface::ParticipantSurface;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
@@ -107,8 +108,7 @@ impl Plugin for AmbitionDialogUiPlugin {
         }
         app.add_plugins(ambition_platformer2d::sprite_sheet::SpriteContentPlugin)
             .init_resource::<AmbitionDialogPortraitCatalog>()
-            .init_resource::<AmbitionDialogLayoutCache>()
-            .init_resource::<AmbitionDialogPortraitPlayback>()
+            .init_resource::<AmbitionDialogBoxes>()
             .add_systems(
                 Update,
                 (sync_ambition_dialog_ui, advance_ambition_dialog_portrait)
@@ -166,9 +166,25 @@ pub struct AmbitionDialogScrollTrack;
 #[derive(Component)]
 pub struct AmbitionDialogScrollThumb;
 
+/// What each box keeps across its rebuilds: the main one's and each slot's
+/// (SIMULATION-ISLANDS N3).
 #[derive(Resource, Default)]
-struct AmbitionDialogLayoutCache {
+struct AmbitionDialogBoxes(std::collections::HashMap<DialogBoxSource, AmbitionDialogBox>);
+
+#[derive(Default)]
+struct AmbitionDialogBox {
+    /// The rect it was laid out for.
     viewport: Option<Rect>,
+    /// Its portrait's animation cursor.
+    playback: AmbitionDialogPortraitPlayback,
+    /// Where its choice window is scrolled to.
+    ///
+    /// A PRESENTATION fact: it is a function of the selection AND of how many
+    /// rows fit on this screen, and only this pass knows the second half.
+    /// Nothing in the sim reads it, so it is not rollback state — a rewind that
+    /// moves the selection re-derives it on the next rebuild through the same
+    /// scroll rule.
+    choice_window_start: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -185,9 +201,9 @@ struct ResolvedPortraitVisual {
 }
 
 /// Persistent animation cursor for the currently presented portrait clip.
-/// The UI tree is rebuilt while typewriter text changes; keeping playback in a
-/// resource prevents those rebuilds from restarting the portrait every frame.
-#[derive(Resource, Default)]
+/// The UI tree is rebuilt while typewriter text changes; keeping playback
+/// across rebuilds prevents them from restarting the portrait every frame.
+#[derive(Default)]
 struct AmbitionDialogPortraitPlayback {
     key: Option<PortraitPlaybackKey>,
     frames: Vec<Rect>,
@@ -407,10 +423,10 @@ impl DialogChoiceWindow {
 fn sync_ambition_dialog_ui(
     sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
-    dialogue: Res<DialogView>,
-    overlays: Query<Entity, With<DialogOverlayRoot>>,
+    views: DialogViews,
+    overlays: Query<(Entity, Option<&DialogBoxSource>), With<DialogOverlayRoot>>,
     surface: ParticipantSurface,
-    mut layout_cache: ResMut<AmbitionDialogLayoutCache>,
+    mut boxes: ResMut<AmbitionDialogBoxes>,
     ui_fonts: Option<Res<UiFonts>>,
     character_catalog: Res<CharacterCatalog>,
     portrait_catalog: Res<AmbitionDialogPortraitCatalog>,
@@ -419,7 +435,6 @@ fn sync_ambition_dialog_ui(
     // that registers nothing has no registry to read, not because the authority
     // is optional.
     declared_characters: ambition_platformer2d::characters::prepared::SessionCast,
-    mut portrait_playback: ResMut<AmbitionDialogPortraitPlayback>,
     // The loader, and which button pictures are published here: a hint draws
     // a control's picture only when its file is there, and its name otherwise.
     (asset_server, asset_catalog): (
@@ -428,14 +443,6 @@ fn sync_ambition_dialog_ui(
     ),
     // Which portrait product to load (Q84): the tier the sprite budget loads.
     quality: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
-    // Where the choice window is scrolled to, remembered across rebuilds.
-    //
-    // A `Local` because it is a PRESENTATION fact: it is a function of the
-    // selection AND of how many rows fit on this screen, and only this pass
-    // knows the second half. Nothing in the sim reads it, so it is not rollback
-    // state — a rewind that moves the selection re-derives it on the next
-    // rebuild through the same scroll rule.
-    mut choice_window_start: Local<usize>,
     // The box's colours (`dialog_look` in `ambition_rules.ron`) and its words
     // (`ambition_text.ron`).
     tuning: Res<crate::tuning::AmbitionTuning>,
@@ -443,32 +450,41 @@ fn sync_ambition_dialog_ui(
 ) {
     let portrait_registry =
         ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(&sprite_content).portraits();
-    let rect = surface.rect(dialogue.input_owner);
-    let layout_changed = layout_cache.viewport != rect;
-    if layout_changed {
-        layout_cache.viewport = rect;
+    // A box whose view is gone goes with it.
+    for (entity, source) in &overlays {
+        if views.of(source.copied().unwrap_or_default()).is_none() {
+            commands.entity(entity).despawn();
+        }
     }
-
-    let presentation_inputs_changed = dialogue.is_changed()
-        || layout_changed
-        || ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed())
+    boxes.0.retain(|source, _| views.of(*source).is_some());
+    let shared_inputs_changed = ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed())
         || character_catalog.is_changed()
         || portrait_catalog.is_changed()
         || sprite_content.is_changed()
         || quality.as_ref().is_some_and(|quality| quality.is_changed())
         || tuning.is_changed()
         || pack.is_changed();
-    if !presentation_inputs_changed {
-        return;
+    for (source, dialogue, view_changed) in views.iter() {
+    let state = boxes.0.entry(source).or_default();
+    let rect = surface.rect(dialogue.input_owner);
+    let layout_changed = state.viewport != rect;
+    if layout_changed {
+        state.viewport = rect;
     }
-
-    for entity in overlays.iter() {
-        commands.entity(entity).despawn();
+    if !(view_changed || layout_changed || shared_inputs_changed) {
+        continue;
+    }
+    for (entity, root) in &overlays {
+        if root.copied().unwrap_or_default() == source {
+            commands.entity(entity).despawn();
+        }
     }
     if !dialogue.active || rect.is_none() {
-        portrait_playback.clear();
-        return;
+        state.playback.clear();
+        continue;
     }
+    let portrait_playback = &mut state.playback;
+    let choice_window_start = &mut state.choice_window_start;
 
     let rect = rect.unwrap();
     let profile = DialogLayoutProfile::for_viewport(rect.size());
@@ -593,6 +609,7 @@ fn sync_ambition_dialog_ui(
             ZIndex(45),
             DialogOverlayRoot,
             AmbitionDialogOverlayRoot,
+            source,
             Name::new("Ambition Dialogue Overlay Root"),
         ))
         .with_children(|root| {
@@ -759,6 +776,7 @@ fn sync_ambition_dialog_ui(
                     });
             });
         });
+    }
 }
 
 /// A piece of the box's input hint: words, or a control the seat presses.
@@ -834,23 +852,32 @@ fn input_hint_pieces(dialogue: &DialogView, text: &ShownText) -> Vec<HintPiece> 
 
 fn advance_ambition_dialog_portrait(
     time: Option<Res<Time>>,
-    dialogue: Res<DialogView>,
-    mut playback: ResMut<AmbitionDialogPortraitPlayback>,
-    mut images: Query<&mut ImageNode, With<AmbitionDialogPortraitImage>>,
+    views: DialogViews,
+    mut boxes: ResMut<AmbitionDialogBoxes>,
+    mut images: Query<(Entity, &mut ImageNode), With<AmbitionDialogPortraitImage>>,
+    parents: Query<&ChildOf>,
+    roots: Query<&DialogBoxSource, With<DialogOverlayRoot>>,
 ) {
-    if !dialogue.active {
-        playback.clear();
-        return;
-    }
     let Some(time) = time else {
         return;
     };
-    if !playback.tick(time.delta_secs()) {
+    let mut moved = Vec::new();
+    for (source, state) in &mut boxes.0 {
+        if !views.of(*source).is_some_and(|view| view.active) {
+            state.playback.clear();
+        } else if state.playback.tick(time.delta_secs()) {
+            moved.push((*source, state.playback.current_rect()));
+        }
+    }
+    if moved.is_empty() {
         return;
     }
-    let rect = playback.current_rect();
-    for mut image in &mut images {
-        image.rect = rect.clone();
+    // Each portrait follows its own box's clip.
+    for (image_entity, mut image) in &mut images {
+        let source = parents.iter_ancestors(image_entity).find_map(|ancestor| roots.get(ancestor).ok().copied());
+        if let Some((_, rect)) = moved.iter().find(|(moved, _)| Some(*moved) == source) {
+            image.rect = *rect;
+        }
     }
 }
 

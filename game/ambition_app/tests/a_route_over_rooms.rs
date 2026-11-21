@@ -160,6 +160,7 @@ fn autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail() {
     let mut went_to_trail = false;
     let mut reached_tyrant = false;
     let mut returned = false;
+    let mut came_home_by_gate = false;
     for _ in 0..12000 {
         // Autoplay owns the seat. Advance its fixed clock without a second
         // participant source that replaces its input with a neutral frame.
@@ -173,6 +174,13 @@ fn autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail() {
         reached_tyrant |= seen.active_room == "primeval_tyrant_hall";
         if reached_tyrant && seen.active_room == "central_hub_complex" {
             returned = true;
+            // How the traveller came home: the passage it arrives by.
+            let world = sim.world_mut();
+            let mut q = world.query::<&ambition_platformer2d::session::rooms::passage::ZonePassage>();
+            came_home_by_gate = q.iter(world).any(|passage| {
+                passage.kind == ambition_platformer2d::session::rooms::passage::PassageKind::Gate
+                    && passage.zone == "hub_public_gate_zone"
+            });
             break;
         }
         std::thread::yield_now();
@@ -181,11 +189,19 @@ fn autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail() {
     let world = sim.world();
     let catalog = world.resource::<GateNetworkCatalog>();
     let network = world.resource::<GateNetworkState>();
-    for destination in ["GENESIS", "LEGAL"] {
+    let dialed = |destination: &str| {
         let address = catalog.spell(destination).expect("the address spells");
-        assert!(network.reports.values().any(|report| report.address == address && report.outcome.is_ok()),
-            "autoplay never dialed {destination}: {network:?}; visits={visits:?}");
-    }
+        network.reports.values().any(|report| report.address == address && report.outcome.is_ok())
+    };
+    assert!(dialed("GENESIS"), "autoplay never dialed GENESIS: {network:?}; visits={visits:?}");
+    // Home is LEGAL, the hub's ring. A trip shorter than the idle timeout
+    // (30 s) finds the outbound wormhole still open and walks home through
+    // it without dialing, which is the same gate home; the arch chain made
+    // the trip that short (2026-11-18).
+    assert!(
+        came_home_by_gate && (dialed("LEGAL") || network.route_from("hub_public_gate_zone").is_some()),
+        "autoplay did not come home through the hub's gate: {network:?}; visits={visits:?}"
+    );
 }
 
 #[test]

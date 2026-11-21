@@ -81,6 +81,7 @@ const _: () = assert!(
 // that validates presentation ids through `ambition_vfx` — a crate the
 // character domain must not reach. See `prefab_registry`'s own doc.
 mod prefab_registry;
+pub mod frame_readout;
 
 pub use ambition_characters::moveset_prefabs::*;
 pub use prefab_registry::*;

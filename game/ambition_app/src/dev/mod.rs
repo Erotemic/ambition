@@ -10,6 +10,8 @@ pub mod fps_overlay;
 #[cfg(feature = "dev_tools")]
 pub mod frame_step;
 #[cfg(feature = "dev_tools")]
+pub mod frame_data;
+#[cfg(feature = "dev_tools")]
 pub mod presentation_probe;
 pub mod gamepad_probe;
 pub mod portal_inspector;
@@ -293,6 +295,7 @@ fn install_egui_inspectors(app: &mut App) {
         )
         .add_plugins(portal_inspector::PortalInspectorPlugin)
         .add_plugins(frame_step::FrameStepPanelPlugin)
+        .add_plugins(frame_data::FrameDataPanelPlugin)
         .add_plugins(presentation_probe::PresentationProbePlugin);
 
     app.add_plugins(WorldInspectorPlugin::new().run_if(world_inspector_visible));

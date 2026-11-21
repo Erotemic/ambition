@@ -421,8 +421,8 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Feature | Status | Effort | Engine | Notes |
 |---|---:|---:|---:|---|
 | Live hitbox/hurtbox overlay | ✔ | M | E1 | The `Combat` debug preset; `dev_tools::force_combat_overlay` with `CombatOverlayLayers`. Owner: [`../moveset-inspector.md`](../moveset-inspector.md). |
-| Move/frame-data display | ▢ | S/M | — | Read `MovePlayback` and authored windows. |
-| Pause / single-frame advance | ▢ | M | E1 | Through the simulation clock authority. |
+| Move/frame-data display | ✔ | S/M | — | 2026-11-21: `ambition_combat::moveset::frame_readout::MoveFrameReadout` turns a `MovePlayback` into frames at the sim tick. It reports the frame the move is on, its total, the frame it hits on, the active spans and the recovery, plus the windows open now and whether it landed. Every number comes from `MoveSpec::frame_data`, the same derivation the brain reads. The hosted app's F3 surface draws a "Frame data" egui window with one line per move in play (`game/ambition_app/src/dev/frame_data.rs`), beside the combat overlay's phase bar and the frame-step panel. Guard `a_move_reads_in_frames_from_its_authored_windows`; the window itself was not seen on this VM (no display). |
+| Pause / single-frame advance | ▢ | M | E1 | Through the simulation clock authority. The hosted app's F3 frame-step panel (`game/ambition_app/src/dev/frame_step.rs`) already freezes and steps the live composition as host developer state. It has not been measured inside a Smash match, and it is not the clock authority this row asks for. |
 | Reset fighters / set percent | ✔ | S | — | 2026-11-21: `ambition_demo_smash::training::reset_fighters`, a one-shot system run between frames (`run_system_once_with(reset_fighters, TrainingReset::at_percent(80))`). Every seated fighter still in play goes back to its `seat_placement` about the room spawn, at rest, facing in, swing cancelled, reactions cleared. The meter is stated, not dealt: the asked percent against the match's pool, or (`TrainingReset::START`) the fighter's own handicap. A fighter in its KO beat is left to its beat, and an eliminated one stays out. Not a sim system, so no rewind replays it. No menu calls it yet. Guard `a_training_reset_puts_the_fighters_back_on_the_percent_asked`. |
 | Dummy behaviors and DI | ▢ | M | — | Controller profiles over `ActorControl`. |
 | Input record/replay | ▢ | C | E1 | Semantic control frames keyed to ticks. |
@@ -584,9 +584,9 @@ post-gate order, each step one coherent customer at a time:
    ✔ 2026-11-20. Hit-grab and recoil on hit shipped; the ledge-trump
    commitment window had already shipped (`ledge_trump_lockout`). The
    grab-release fact waits for a presentation consumer (step 4).
-3. **Training and match-rule knobs** that need no new semantics:
-   frame-data display. Timer selector, random stage, handicap / starting
-   damage and reset fighters / set percent ✔ 2026-11-21.
+3. **Training and match-rule knobs** that need no new semantics: timer
+   selector, random stage, handicap / starting damage, reset fighters / set
+   percent and frame-data display, all ✔ 2026-11-21.
 4. **Presentation and audio** rows (§12), which wait on art and sound more than
    on code; take them with the feel audit.
 

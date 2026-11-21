@@ -177,7 +177,7 @@ world byte-identical.
 | Cloud sheep: death row, cloud look, script, shepherd's lines, Hall look | done |
 | Sheep on the meadow's terrace | done |
 | Adventurers: art, catalog rows, talk, placement | done: three chargen residents whose gear the generator had no slot for (`game.gear` in a resident's spec, drawn by `targets/characters/_townsfolk_gear.py`: the laser sword with its brass crossguard, the wizard's hat, the calculator, the head torch); Yarn nodes `valley_knight`, `valley_wizard`, `valley_ranger` and Hall nodes; a wing in the Hall of Characters |
-| The moor and the barrow | done (first pass): built, placed, captured; not yet walked by `walked_route_census`; the barrow's fight is not tuned |
+| The moor and the barrow | done (first pass): built, placed, captured. Walked by `walked_route_census` since 2026-11-21: fell to moor, moor to barrow and back, moor to fell, all routed with the room kit. That census found a soft lock: the peat cut (320 wide, 64 deep, its lower 40 water) could not be jumped and could not be left. In water a press is a swim stroke, and strokes stop when the feet clear the water, 24 short of the bank. It is crossed now on a causeway of laid stones with 16 px gaps, narrower than a body. The millstream's stepping-stone pits are 96 deep in water and can be left by mashing strokes (probe, 2026-11-21). The barrow's fight is not tuned |
 | Goblin scavengers (`npc_goblin_scavenger`) | done: the raider's look, a held gun-sword off the freight (it fires its bolt), eight health |
 | Vertical village | done (2026-11-21, below) |
 

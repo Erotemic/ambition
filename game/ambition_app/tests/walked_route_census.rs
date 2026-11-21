@@ -21,8 +21,8 @@ use ambition_platformer2d::world::navigation::NavGraph;
 use crate::common::{base, fixed_60hz_room_sim};
 
 /// Level 1's crossings, each arriving from the one before: out along the
-/// line from the hub to the siding below the gate and up the fell, and back
-/// to the lane.
+/// line from the hub to the siding below the gate, up the fell, over the moor
+/// into the barrow, and back to the lane.
 const CROSSINGS: &[(&str, &str)] = &[
     ("central_hub_complex", "intro_wake_room"),
     ("intro_wake_room", "intro_hobford_lane"),
@@ -33,6 +33,10 @@ const CROSSINGS: &[(&str, &str)] = &[
     ("intro_high_meadow", "intro_gate_clearing"),
     ("intro_gate_clearing", "intro_freight_yard"),
     ("intro_freight_yard", "intro_fell"),
+    ("intro_fell", "intro_moor"),
+    ("intro_moor", "intro_barrow"),
+    ("intro_barrow", "intro_moor"),
+    ("intro_moor", "intro_fell"),
     ("intro_fell", "intro_freight_yard"),
     ("intro_freight_yard", "intro_gate_clearing"),
     ("intro_gate_clearing", "intro_high_meadow"),

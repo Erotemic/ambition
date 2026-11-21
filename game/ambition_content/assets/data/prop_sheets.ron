@@ -923,6 +923,19 @@
     "hill_survey_station": (),
     "hill_meadow_oak": (),
     "hill_gate_office": (),
+    // The village built uphill: the terrace wall under the upper street (in
+    // four pieces, seams under its buttresses), the bank behind it, the upper
+    // street's cottage, the guild hall and the watch tower; and the guild's
+    // trophy room from inside.
+    "hill_village_terrace_bank": (),
+    "hill_village_terrace_wall_0": (),
+    "hill_village_terrace_wall_1": (),
+    "hill_village_terrace_wall_2": (),
+    "hill_village_terrace_wall_3": (),
+    "hill_village_upper_cottage": (),
+    "hill_village_guild_hall": (),
+    "hill_village_watch_tower": (),
+    "hill_guild_trophy_room": (),
     // The fell's dressing, placed many times along its road and terraces.
     "hill_fell_rocks": (),
     "hill_fell_rocks_slope": (),

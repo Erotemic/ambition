@@ -39,8 +39,9 @@ fn the_resolver_can_actually_report_a_missing_file() {
         "…and the same through the `game://` road, which is the one content          actually declares"
     );
     // …and it says yes to something real, so it is not simply always false.
+    // A prop's sheet: a character drawn from parts publishes no page.
     assert!(
-        resolves("sprites/alice_spritesheet.png", &roots),
+        resolves("sprites/hill_village_cottage_spritesheet.png", &roots),
         "the resolver cannot find a sheet that is definitely there — the roots          are wrong and these checks are measuring the wrong tree"
     );
 }

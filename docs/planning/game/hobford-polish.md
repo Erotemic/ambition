@@ -159,7 +159,8 @@ does not change; the room grows upward into the upper band.
 |---|---|---|
 | `intro_fell` | its sheep are cloud sheep; the east wall at the top is an edge to the moor (done) | the flock, and the way to the outskirts |
 | `intro_high_meadow` | two sheep on the shepherd's terrace | the cloud sheep seen near the village too |
-| `intro_hobford` | a hill room: lower street, upper street, the guild hall, the tower; the knight and the wizard | the vertical village; the adventurers |
+| `intro_hobford` | a hill room: lower street, upper street, the guild hall, the tower; the knight and the wizard (done) | the vertical village; the adventurers |
+| `intro_guild_trophy_room` (new) | THE TROPHY ROOM: the guild's top floor, through the door on its top gallery; the gravity plate fitted upside down (done) | "what screen up and down mean" |
 | `intro_woods` | the ranger at the east end, on the goblins' trail | an adventurer on the road out |
 | `intro_moor` (new) | THE MOOR: east of the fell's top, open heather at summit height, a barrow mound with its door | the outskirts: more dangerous than anything before it |
 | `intro_barrow` (new) | THE BARROW: an interior through the mound's door, dark, two chambers and a stair down | the first dungeon |
@@ -168,7 +169,7 @@ All of them are written by `generators/intro/make_specs.py` (one owner per
 room); the specs are not committed, and an unchanged re-apply leaves the
 world byte-identical.
 
-### State (2026-11-20)
+### State (2026-11-21)
 
 | Work | State |
 |---|---|
@@ -178,28 +179,70 @@ world byte-identical.
 | Adventurers: art, catalog rows, talk, placement | done: three chargen residents whose gear the generator had no slot for (`game.gear` in a resident's spec, drawn by `targets/characters/_townsfolk_gear.py`: the laser sword with its brass crossguard, the wizard's hat, the calculator, the head torch); Yarn nodes `valley_knight`, `valley_wizard`, `valley_ranger` and Hall nodes; a wing in the Hall of Characters |
 | The moor and the barrow | done (first pass): built, placed, captured; not yet walked by `walked_route_census`; the barrow's fight is not tuned |
 | Goblin scavengers (`npc_goblin_scavenger`) | done: the raider's look, a held gun-sword off the freight (it fires its bolt), eight health |
-| Vertical village | open (below) |
+| Vertical village | done (2026-11-21, below) |
 
-**The vertical village: what blocks the simple versions.** Measured on the
-generator, 2026-11-20:
+**The vertical village (done 2026-11-21).** What blocked the simple
+versions, measured on the generator on 2026-11-20:
 
-- The village cannot grow wider without moving every room east of it and
-  the salt run's east end: `SALT_RUN_W` and the run's floor table assume the
-  millstream, the village and the woods are each `COUNTRY_W`, and the run's
-  well foot is under the village's well at x 1248.
-- A hill made of filled slopes (`slope()`) fills the earth to the room's
-  floor, so a street cannot pass under a slope; a knoll in the middle of
-  the street would cut the street, and both edges must stay at the street's
-  height on flat ground.
-- So the vertical village is a taller room (both bands, as the lane) whose
-  street stays where it is, with the upper town built over it on solid
-  rock and timber, not on slopes: an arch where the street goes under the
-  upper square (solid blocks with the street's headroom under them), stone
-  steps and the houses' porches and roofs as the way up, the guild hall
-  stacked on the rock, and the tower over it. It needs new building art
-  (the guild hall, the arch, the tower) and a `--relayout` of the village
-  alone (its top left moves up a band; `--keep-position` keeps the old
-  one). The gravity room is a `GravityZone` in the guild's top floor.
+- The village could not grow wider without moving every room east of it and
+  the salt run's east end. `SALT_RUN_W` assumes each valley room is
+  `COUNTRY_W`, and the run's well foot is under the village's well at x 1248.
+- A filled slope fills the earth to the room's floor, so the street could
+  not pass under one.
+
+What was built:
+
+- `intro_hobford` is a hill room now: both bands, 1408 high. Its street
+  stays at the valley floor with both edges, so the line of rooms and every
+  walked route are unchanged. It was moved with `--relayout=intro_hobford`,
+  a new option that relays out the named rooms only.
+- Behind the lower street stands the terrace wall: dressed stone,
+  buttressed, ivy, a spout. Behind the upper street is the grass of the
+  bank the town is built into.
+- The upper street runs along the wall's coping, 304 over the street, as a
+  board. The lower street runs on under it, and a drop comes back down.
+- The way up is the smithy's porch, roof and loft, then a stone landing on a
+  corbel out of the wall's west end, then the coping: five steps of 64.
+- The upper street holds:
+  - a whitewashed cottage with a satellite dish off the freight strapped to
+    its thatch;
+  - the adventurers' guild, three storeys, with galleries and an outside
+    stair (steps of 48 to 64);
+  - the old watch tower, with landings on alternate sides up to the lookout
+    448 over the street. The lookout's camera zone draws back (`zoom` 1.4).
+  The imports: a rack of laser swords by the guild's door, one of them lit;
+  a drinks machine; a laser-sword weathervane; a floodlight clamped to the
+  tower's rail.
+- The upside-down room is an interior, so it sits behind a door:
+  `intro_guild_trophy_room`, through the door on the guild's top gallery. By
+  the door all is as it should be. Over the plate an up `GravityZone` turns
+  down into up:
+  - the guild furnished the ceiling: a rug, a table and chairs, a tankard;
+  - it hung its trophies on the floor: the chandelier stands up off the
+    boards, the banners rise, the shields are the wrong way up.
+  Walk onto the plate and fall to the ceiling, where the coins are; walk off
+  it and drop back by the door. No required route goes through it.
+- The art is in `hill_village_props.py`. The terrace wall is four pieces,
+  with their seams under buttresses: drawn as one piece it took 400 s, and
+  as four it takes about 60.
+
+Checked:
+
+- A headless probe took every step of the climb under level 1's kit with
+  real jumps:
+  - street to upper street;
+  - the guild's four boards;
+  - the tower's seven boards.
+- The same probe went through the door both ways, onto the ceiling over the
+  plate, and back down by the door.
+- `walked_route_census` routes the village's four crossings with the room
+  kit.
+- `a_walked_route_of_the_persistent_world`: 2 passed.
+- An unchanged re-apply leaves `intro.ldtk` byte-identical.
+- A whole-room `capture_scene` shows each piece on its boards.
+
+A board's top lands on the 16 px grid: guild landings authored at 56 and 168
+stood at 64 and 176, so both the art and the generator say 64 and 176.
 
 ## Plan and state
 

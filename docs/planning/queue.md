@@ -269,6 +269,34 @@ have no added boss state or runtime cost; delete the temporary inspector bridge.
 
 **Acceptance:** physically observed GNU2 portal emergence, simultaneous independently damageable GNU/GNU2 giants with readable counters, either defeat order supported, door gating on both plus rider yield, no duplicate spawn on retries, and both bosses safely cleaned on teardown. Keep intra-island portal semantics and existing phase 1/2 gameplay.
 
+### GNUTON-POLISH — the GNU-ton fight, presentable (Jon 2026-11-21)
+
+**Request (Jon, 2026-11-21):** GNU2 comes in upside down; the stage is not
+big enough for two giant gnus; GNU2 has a bar and the first gnu has none
+("we should probably make both of the gnu invulnerable"); boss bars must not
+overlap; arms on by default, also in the dead pose; the apple trees on real
+floating platforms; the apples' fall and regrowth used in the fight. The
+scaling-portal idea goes in a brainstorm.
+
+**Done 2026-11-21 ([owner](game/boss-cinematics-gnu2-and-motion.md#gnu2s-finale-gnuton-gnu2-finale)):**
+both arenas 1024 wider; GNU2's pair ends face each other, so the game's
+Rotation convention carries it upright; GNU2 escorts GNU-ton
+(`BossEncounterSpec::escort`: unhit, no bar, falls with him); bar panels a
+fixed height and stacked apart; the giants die and stomp with their arms on;
+a boss's body is its kin box and its frame is drawn from it (GNU2 stood 184
+under the floor), with the cells 320 deeper; three apple trees on one-way
+islands in `gnu_ton_shoulders`, each with three real apples that ripen,
+fall and grow again. Ideas past this: `docs/brainstorms/2026-11-21-gnu-ton-fight-ideas.md`.
+
+**Open:** with the giant placed at the hall's middle it walked at the player
+from the first frame, and `gnu_ton_fight::a_gnu_ton_fist_hits_once_after_three_cuts_and_replays_its_scaled_launch`
+and `both_gnu_ton_fists_damage_separate_bodies_through_their_paths_in_one_tick`
+(GGRS sync test) failed with a checksum mismatch at frame 13; placed where a
+player at the door is within `stride::FAR`, it stands and they pass.
+Unmeasured: whether a giant walking in the first frames desyncs a rollback
+(its walk, `MountWalk`) or only meets those witnesses' premise. Next: a
+sync-test witness with the player far from the giant at the build.
+
 ### GNU-MOTION-PARTS — diagnose and fix non-smooth giant motion
 
 **Measured and partly fixed 2026-11-10** ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): the walk row's clock now follows distance walked, so the hooves stand still as the body speeds up and slows down, and rest starts at its first frame after a blow. Measured 2026-11-11 ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): phases 2 and 3 walk at the same 135 per row second, the rider's rows start at 0 and step by one frame, and the stomp plays stretched like the windups. The two hitches read as portal transit's are settled (2026-11-12): the giant falling out of the well's exit collided with its own slope, now fixed (a body does not collide with the lines it carries), and the free fist's 280-unit jump was the probe swapping two fists' names, not a jump. Rendered part transforms are not measured yet.

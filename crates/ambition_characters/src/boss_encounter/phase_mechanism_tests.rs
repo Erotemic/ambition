@@ -226,6 +226,7 @@ fn legacy_spec() -> BossEncounterSpec {
         name_card: Default::default(),
         successors_wake: Default::default(),
         scale: 1.0,
+        escort: false,
     }
 }
 

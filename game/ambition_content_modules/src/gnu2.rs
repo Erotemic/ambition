@@ -4,15 +4,15 @@
 //! GNU2 is a boss placement of GNU-ton's arena, held in a sealed cell under
 //! its floor, out of the camera's zone. It sleeps until GNU-ton enrages (or is
 //! beaten: `successors_wake: Enraged`). Awake, it opens a pair of portals
-//! (`ambition.portal.held_pair`): one end in the cell's west wall, the other
-//! in the arena's west wall, each taller than it and both facing east. It
-//! walks west into the one and comes out of the other walking east
-//! (`ambition.boss.walk`), and the pair closes once it is wholly out. Two
-//! ends that face the same way keep up as up (a pair's map keeps the
-//! along-face part), so the hall's floor is under it as it comes through: an
-//! end in a wall facing the other way would put that floor on its back. A
-//! boss flies (no gravity), so it walks level, and each end is centred where
-//! its body passes.
+//! (`ambition.portal.held_pair`): one end in the cell's east wall facing
+//! west, the other in the arena's west wall facing east, each taller than
+//! it. It walks east into the one and comes out of the other still walking
+//! east (`ambition.boss.walk`), and the pair closes once it is wholly out.
+//! The game glues a pair by a rotation (`PortalTuning`'s `Rotation`), and two
+//! ends that face opposite ways are the identity under it: up stays up. Two
+//! ends facing the same way are a half turn, which brought GNU2 into the hall
+//! on its back. A boss flies (no gravity), so it walks level, and each end is
+//! centred where its body passes.
 //!
 //! In the arena it walks to the player between its moves, and performs the
 //! moves its pattern names: `stomp` sends a shock along the floor each way
@@ -298,9 +298,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // both ways: a body cut by the plane past an end snags on it (a
             // body passes an opening only whole). It comes out with its feet
             // `EXIT_LIFT` over the hall's floor. The near end is in the
-            // cell's west wall; the far one in the hall's west wall.
+            // cell's east wall, ahead of it; the far one in the hall's west wall.
             c.half_length = h * 0.5 + ENTRY_PAD;
-            c.near_at = [x - w * 0.5 - reach[0], y];
+            c.near_at = [x + w * 0.5 + reach[1], y];
             c.far_at = [hall.left, hall.floor - h * 0.5 - EXIT_LIFT];
             c.pair_open = true;
             play(inv, SFX_PORTAL_OPEN, c.far_at)?;
@@ -310,21 +310,20 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             inv.submit::<HeldPortalPairPort>(HeldPortalPair {
                 slot: ENTRY_PAIR_SLOT,
                 ends: [
-                    upright(c.near_at, c.half_length, 1.0),
+                    upright(c.near_at, c.half_length, -1.0),
                     upright(c.far_at, c.half_length, 1.0),
                 ],
                 looks: [24, 25],
                 closes_on_use: false,
             })?;
         }
-        // West into the cell's wall until its middle is through; the pair
-        // turns it round, and from then it walks east out of the hall's
-        // wall. Its middle past the near end is the tick before the pair
-        // takes it: what it is told now it does on the far side.
-        let through = in_hall || c.pair_open && x < c.near_at[0];
+        // East into the cell's wall, and on east out of the hall's: the pair
+        // maps east to east. Its middle past the near end is the tick before
+        // the pair takes it: what it is told now it does on the far side.
+        let through = in_hall || c.pair_open && x > c.near_at[0];
         let to = match c.arena() {
             Some(hall) if through => hall.left + w,
-            _ => c.near_at[0] - w,
+            _ => c.near_at[0] + w,
         };
         walk(inv, to, WALK_SPEED)?;
         c.walk_t += dt;
@@ -416,7 +415,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         row(inv, "armed_hit", HIT_ROW - c.hit_t, false)?;
     } else {
         match part {
-            Some((Move::Stomp, ..)) => row(inv, "stomp", c.part_t, false)?,
+            Some((Move::Stomp, ..)) => row(inv, "armed_stomp", c.part_t, false)?,
             Some((Move::Buck, ..)) => row(inv, "armed_buck", c.part_t, false)?,
             None if moving => row(inv, "armed_walk", c.walk_t, true)?,
             None => {

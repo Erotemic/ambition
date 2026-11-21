@@ -2057,7 +2057,8 @@ fn gnu_ton_bodies(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     q.iter(world).filter(|(_, config)| config.behavior.id == GNU_TON_ID).map(|(entity, _)| entity).collect()
 }
 
-/// ⭐ DEBT 13, IN THE REAL ARENA: his defeat and GNU2's open the way out, and
+/// ⭐ DEBT 13, IN THE REAL ARENA: his defeat (and GNU2's, which escorts him
+/// and falls with him) opens the way out, and
 /// the way stays open when his body goes. The gate read a dead body, so the body
 /// going closed the arena again.
 #[test]
@@ -2110,29 +2111,15 @@ fn defeating_him_opens_the_arena_and_his_body_going_does_not_close_it() {
         sim.step(AgentAction::default());
         ticks += 1;
     }
-    sim.step(AgentAction::default());
-    // GNU2 is a member of the fight: beaten alone, he leaves the way shut,
-    // and GNU2 (woken by his defeat) is still to beat.
-    assert_ne!(arena_exit(&mut sim).1, true, "beaten alone (recorded after {ticks} ticks): GNU2 holds the way");
-    {
-        let world = sim.world_mut();
-        let mut q = world.query::<(&BossConfig, &mut ambition_platformer2d::boss_encounter::BossEncounter, &mut BodyHealth)>();
-        for (config, mut status, mut health) in q.iter_mut(world) {
-            if config.behavior.id == "gnu2" {
-                health.health.current = 0;
-                if let Some(phase) = status.encounter.as_mut() {
-                    let _ = phase.kill();
-                }
-            }
-        }
-    }
+    // GNU2 escorts him: it falls with him, unhit, and the way opens when
+    // its fall settles too.
     let gnu2_recorded = |sim: &mut Platformer2dSimHarness| {
         sim.world().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().boss("hall.gnu2")
             == ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared
     };
     let mut gnu2_ticks = 0;
     while !gnu2_recorded(&mut sim) {
-        assert!(gnu2_ticks < 1800, "the premise: GNU2's death settles and the boss domain records it");
+        assert!(gnu2_ticks < 1800, "his escort falls with him and the boss domain records it");
         sim.step(AgentAction::default());
         gnu2_ticks += 1;
     }
@@ -2601,7 +2588,8 @@ fn gnu2(sim: &mut Platformer2dSimHarness) -> (ae::BodyKinematics, ambition_platf
 /// while he fights. In the beat before his enrage he calls it; at his
 /// enrage it wakes, opens a pair of portals (one in the cell's wall, one in
 /// the hall's west wall), and walks through it into the hall, on the hall's
-/// floor. The pair closes behind it, and it fights: its own hits hurt it.
+/// floor, upright. The pair closes behind it, and it fights beside him as
+/// his escort: unhit and with no bar of its own.
 #[test]
 fn at_his_enrage_gnu2_walks_into_the_hall_through_its_pair() {
     use ambition_platformer2d::boss_encounter::BossEncounterPhase;
@@ -2638,18 +2626,26 @@ fn at_his_enrage_gnu2_walks_into_the_hall_through_its_pair() {
     let (kin, phase, before) = gnu2(&mut sim);
     assert!(over_floor(&kin, floor), "it stands on the hall's floor: {:?}", kin.pos);
     assert_ne!(phase, BossEncounterPhase::Dormant);
-    // It is fought: a hit on it lands.
-    {
-        let world = sim.world_mut();
-        let mut q = world.query::<(&BossConfig, &mut BodyHealth)>();
-        for (config, mut health) in q.iter_mut(world) {
-            if config.behavior.id == "gnu2" {
-                health.health.current -= 1;
-            }
-        }
-    }
-    sim.step(AgentAction::default());
-    assert_eq!(gnu2(&mut sim).2, before - 1);
+    // Upright: the cell's end faces west and the hall's faces east, so the
+    // game's Rotation convention carries it through by the identity. Two
+    // ends facing the same way turned it on its back.
+    assert!(
+        !kin.material.reflected() && kin.material.render_angle().abs() < 1e-3,
+        "it comes into the hall upright: {:?}",
+        kin.material
+    );
+    // It escorts him (`escort`): no hit lands on it, and it is not the
+    // fight, so it takes no health bar.
+    let world = sim.world_mut();
+    let mut q = world.query::<(&BossConfig, &ambition_platformer2d::boss_encounter::BossEncounter, &FeatureId)>();
+    let (invulnerable, id) = q
+        .iter(world)
+        .find(|(config, ..)| config.behavior.id == "gnu2")
+        .map(|(_, status, id)| (status.encounter.as_ref().is_some_and(|state| state.boss_invulnerable()), id.as_str().to_string()))
+        .expect("GNU2");
+    assert!(invulnerable, "its health stands at {before}: no hit lands on an escort");
+    let fought = world.resource::<ambition_platformer2d::sim_view::BossRenderIndex>().get(&id).map(|view| view.fighting);
+    assert_eq!(fought, Some(false), "an escort is not the fight and shows no bar");
 }
 
 /// The scholar's drawn row and its clock, when one is pinned.

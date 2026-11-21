@@ -19,6 +19,7 @@ A storyline should not require prerendered assets or bespoke engine behavior unl
 ## Current drafts
 
 - [`primary_ai_agency.md`](primary_ai_agency.md): the current primary draft about an AI discovering embodiment, agency, mathematics, collaboration, and ethical compromise.
+- [`2026-11-21-gnu-ton-fight-ideas.md`](2026-11-21-gnu-ton-fight-ideas.md): the GNU-ton fight past its polish pass, including growing to the giants' size through a scaling portal pair.
 - [`good_llm_ideas/`](good_llm_ideas/README.md): preserved idea collection and standalone thematic notes. Includes [gates, morality, and the Nazi embassy](good_llm_ideas/gates_morality_and_the_nazi_embassy.md).
 
 ## Draft status

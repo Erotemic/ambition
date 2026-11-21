@@ -14,7 +14,7 @@ default = []
 content_pack = ["dep:ambition_content_pack"]
 # Enables the bevy_yarnspinner bridge + binding-installer machinery. Without
 # it the crate is just the view model + reveal/SFX logic (headless-safe).
-ui = ["dep:bevy_yarnspinner"]
+ui = ["dep:bevy_yarnspinner", "dep:yarnspinner"]
 # Forwarded from the host: real keyboard/gamepad + pointer input translators.
 # Without it the input systems compile as no-op stubs.
 input = ["ambition_input/input", "ambition_ui_nav/input"]
@@ -37,3 +37,6 @@ ambition_persistence = { path = "../ambition_persistence" }
 # UI data does not select a window backend. The host selects platform support.
 bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.9", optional = true }
+# `VariableStorageError`, for the per-conversation variable store a runner
+# shares with the others (`bridge/runner_identity.rs`).
+yarnspinner = { version = "0.9", optional = true, default-features = false }

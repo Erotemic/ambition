@@ -482,8 +482,8 @@ fn asking_node(
         // The runner asked, so it is the presented conversation's node.
         world
             .get_resource::<ambition_conversation::ActiveConversation>()
-            .zip(world.get_resource::<ambition_conversation::PresentedConversation>())
-            .and_then(|(active, presented)| presented.live(active))
+            .zip(ambition_conversation::speaking_conversation_instance(world))
+            .and_then(|(active, instance)| active.of_instance(&instance))
             .map_or("<no live conversation>", |live| live.instance.node()),
     )
 }

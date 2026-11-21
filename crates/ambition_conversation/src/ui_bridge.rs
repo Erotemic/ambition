@@ -22,12 +22,48 @@ pub struct ConversationEnded {
     pub instance: ConversationInstanceId,
 }
 
-/// The conversation the text runner is running: presentation state, set by
-/// [`project_the_dialog_ui_from_the_conversation`]. A narrative command or a
-/// narrative end the runner reports is that conversation's. One runner
-/// presents one conversation (SIMULATION-ISLANDS N2 gives each its own).
+/// The conversation the main text runner is running: presentation state, set
+/// by [`project_the_dialog_ui_from_the_conversation`]. A narrative command or a
+/// narrative end the main runner reports is that conversation's. A
+/// conversation beside it runs on a [`ambition_dialog::DialogSlot`] entity,
+/// which names its own in [`SlotConversation`] (SIMULATION-ISLANDS N2).
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct PresentedConversation(pub Option<ConversationInstanceId>);
+
+/// The conversation a [`ambition_dialog::DialogSlot`]'s runner is running: the
+/// slot's [`PresentedConversation`]. `None` while the slot is free.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+pub struct SlotConversation(pub Option<ConversationInstanceId>);
+
+/// The conversation of the runner whose command or function is running: a
+/// slot's, when a slot runner speaks ([`ambition_dialog::SpeakingRunner`]), and
+/// otherwise the main runner's.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct SpeakingConversation<'w, 's> {
+    presented: Option<Res<'w, PresentedConversation>>,
+    speaking: Option<Res<'w, ambition_dialog::SpeakingRunner>>,
+    slots: Query<'w, 's, &'static SlotConversation>,
+}
+
+impl SpeakingConversation<'_, '_> {
+    pub fn instance(&self) -> Option<&ConversationInstanceId> {
+        let slot = self.speaking.as_deref().and_then(|speaking| speaking.0).and_then(|runner| self.slots.get(runner).ok());
+        match slot {
+            Some(slot) => slot.0.as_ref(),
+            None => self.presented.as_deref()?.0.as_ref(),
+        }
+    }
+}
+
+/// [`SpeakingConversation::instance`] for code that holds the `World` (a Yarn
+/// function with world access).
+pub fn speaking_conversation_instance(world: &World) -> Option<ConversationInstanceId> {
+    let speaking = world.get_resource::<ambition_dialog::SpeakingRunner>().and_then(|speaking| speaking.0);
+    if let Some(slot) = speaking.and_then(|runner| world.get::<SlotConversation>(runner)) {
+        return slot.0.clone();
+    }
+    world.get_resource::<PresentedConversation>()?.0.clone()
+}
 
 impl PresentedConversation {
     /// The live conversation the runner presents: the one an authored command
@@ -37,18 +73,18 @@ impl PresentedConversation {
     }
 }
 
-/// The conversation the runner presents, for a Yarn command or function the
-/// runner fires: that conversation's talker, initiator and seat.
+/// The conversation of the runner that fires a Yarn command or function:
+/// that conversation's talker, initiator and seat.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct RunnerConversation<'w> {
+pub struct RunnerConversation<'w, 's> {
     conversation: Option<Res<'w, ActiveConversation>>,
-    presented: Option<Res<'w, PresentedConversation>>,
+    speaking: SpeakingConversation<'w, 's>,
 }
 
-impl RunnerConversation<'_> {
-    /// The live conversation the runner presents.
+impl RunnerConversation<'_, '_> {
+    /// The live conversation of the runner that fired the command.
     pub fn live(&self) -> Option<&super::authority::LiveConversation> {
-        self.presented.as_deref()?.live(self.conversation.as_deref()?)
+        self.conversation.as_deref()?.of_instance(self.speaking.instance()?)
     }
 
     /// The body being talked to.
@@ -78,9 +114,10 @@ impl RunnerConversation<'_> {
 pub fn a_conversation_is_live_or_shown(
     conversation: Res<ActiveConversation>,
     dialog: Res<ambition_dialog::DialogState>,
+    slots: Query<&ambition_dialog::DialogSlot>,
     mut was: Local<bool>,
 ) -> bool {
-    let now = conversation.is_live() || dialog.active();
+    let now = conversation.is_live() || dialog.active() || slots.iter().any(|slot| slot.0.active());
     let run = now || *was;
     *was = now;
     run
@@ -100,15 +137,19 @@ pub fn publish_the_narrative_end(
     conversation: Res<ActiveConversation>,
     presented: Res<PresentedConversation>,
     dialog: Res<ambition_dialog::DialogState>,
+    slots: Query<(&SlotConversation, &ambition_dialog::DialogSlot)>,
     mut narrative: NarrativeInputWriter<ConversationEnded>,
 ) {
-    let Some(instance) = presented.0.clone().filter(|instance| conversation.of_instance(instance).is_some()) else {
-        return;
-    };
-    if dialog.active() {
-        return;
+    let runners = std::iter::once((presented.0.as_ref(), &*dialog))
+        .chain(slots.iter().map(|(attached, slot)| (attached.0.as_ref(), &slot.0)));
+    for (attached, dialog) in runners {
+        let Some(instance) = attached.filter(|instance| conversation.of_instance(instance).is_some()) else {
+            continue;
+        };
+        if !dialog.active() {
+            narrative.write_once_for(instance.clone(), ConversationEnded { instance: instance.clone() });
+        }
     }
-    narrative.write_once(ConversationEnded { instance });
 }
 
 /// Close simulation authority from the stamped narrative-completion input.
@@ -124,34 +165,81 @@ pub fn close_conversation_on_narrative_end(
     }
 }
 
-/// Project the current simulation conversation into the presentation text runner.
+/// Project the live simulation conversations onto the text runners.
 ///
-/// No authority closes/detaches the box; a different instance starts the runner; the same instance
-/// leaves it untouched. `attached` is presentation-local state and is intentionally not rewound.
+/// A runner keeps its conversation until it ends: the main runner (the
+/// [`ambition_dialog::DialogState`] resource) takes the first that needs one,
+/// and each further live conversation takes a free [`ambition_dialog::DialogSlot`]
+/// or a new one. A runner whose conversation ended and that takes no other is
+/// closed. The same instance leaves its runner untouched; `attached` is
+/// presentation-local state and is intentionally not rewound.
 pub fn project_the_dialog_ui_from_the_conversation(
+    mut commands: Commands,
     conversation: Res<ActiveConversation>,
     mut dialog: ResMut<ambition_dialog::DialogState>,
     mut presented: ResMut<PresentedConversation>,
+    mut slots: Query<(Entity, &mut SlotConversation, &mut ambition_dialog::DialogSlot)>,
     settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
 ) {
-    let attached = &mut presented.0;
-    // The one runner presents the earliest conversation still live.
-    let Some(live) = conversation.conversations().next() else {
-        // No conversation authority means the shared dialog surface must be closed and detached.
-        *attached = None;
-        if dialog.active() {
-            dialog.close();
-        }
-        return;
+    let live = |instance: &Option<ConversationInstanceId>| {
+        instance.as_ref().and_then(|instance| conversation.of_instance(instance))
     };
-    if dialog.input_owner() != Some(live.input_owner) {
-        dialog.set_input_owner(live.input_owner);
+    // Keep each runner's conversation while it lives, following its seat.
+    if let Some(kept) = live(&presented.0) {
+        if dialog.input_owner() != Some(kept.input_owner) {
+            dialog.set_input_owner(kept.input_owner);
+        }
+    } else {
+        presented.0 = None;
     }
-    if attached.as_ref() == Some(&live.instance) {
-        return;
+    for (_, mut attached, mut slot) in &mut slots {
+        match live(&attached.0) {
+            Some(kept) => {
+                if slot.0.input_owner() != Some(kept.input_owner) {
+                    slot.0.set_input_owner(kept.input_owner);
+                }
+            }
+            None if attached.0.is_some() => attached.0 = None,
+            None => {}
+        }
     }
-    *attached = Some(live.instance.clone());
-    // Instance identity includes dialogue context, so corrected participants restart Yarn state.
-    dialog.start_with_settings(live.dialogue_id(), &live.speaker_name, live.context(), live.input_owner,
-        settings.of_subject(live.initiator.or(live.talker)).copied().unwrap_or_default());
+    // Give each conversation no runner holds the first free one, in the order
+    // the conversations opened.
+    let held: Vec<ConversationInstanceId> = presented.0.iter().cloned()
+        .chain(slots.iter().filter_map(|(_, attached, _)| attached.0.clone()))
+        .collect();
+    let mut free_slots: Vec<Entity> = slots.iter()
+        .filter(|(_, attached, _)| attached.0.is_none())
+        .map(|(entity, ..)| entity)
+        .collect();
+    free_slots.reverse();
+    for live in conversation.conversations().filter(|live| !held.contains(&live.instance)) {
+        // Instance identity includes dialogue context, so corrected participants restart Yarn state.
+        let start = |state: &mut ambition_dialog::DialogState| state.start_with_settings(
+            live.dialogue_id(), &live.speaker_name, live.context(), live.input_owner,
+            settings.of_subject(live.initiator.or(live.talker)).copied().unwrap_or_default());
+        if presented.0.is_none() {
+            presented.0 = Some(live.instance.clone());
+            start(&mut dialog);
+        } else if let Some(entity) = free_slots.pop() {
+            let (_, mut attached, mut slot) = slots.get_mut(entity).expect("a free slot listed this frame");
+            attached.0 = Some(live.instance.clone());
+            start(&mut slot.0);
+        } else {
+            let mut slot = ambition_dialog::DialogSlot::default();
+            start(&mut slot.0);
+            commands.spawn((slot, SlotConversation(Some(live.instance.clone()))));
+        }
+    }
+    // A runner left with nothing to present closes its box.
+    if presented.0.is_none() && dialog.active() {
+        dialog.close();
+    }
+    for entity in free_slots {
+        if let Ok((_, _, mut slot)) = slots.get_mut(entity) {
+            if slot.0.active() {
+                slot.0.close();
+            }
+        }
+    }
 }

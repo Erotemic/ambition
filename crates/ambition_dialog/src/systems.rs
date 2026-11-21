@@ -41,8 +41,20 @@ use bevy::window::PrimaryWindow;
 pub fn dialog_reveal_tick(
     time: Res<Time>,
     voice_catalog: Option<Res<DialogueVoiceCatalog>>,
-    mut dialogue: ResMut<DialogState>,
+    dialogue: ResMut<DialogState>,
     mut sfx: SfxWriter,
+) {
+    reveal(time.delta_secs(), voice_catalog.as_deref(), dialogue, &mut sfx);
+}
+
+/// One conversation's reveal: the main one's or a slot's
+/// ([`crate::slot_dialog_reveal_tick`]). Generic over the borrow, so an idle
+/// frame reads the state without marking it changed.
+pub(crate) fn reveal(
+    delta_secs: f32,
+    voice_catalog: Option<&DialogueVoiceCatalog>,
+    mut dialogue: impl std::ops::DerefMut<Target = DialogState>,
+    sfx: &mut SfxWriter,
 ) {
     // A held conversation is not on screen, so its typewriter waits. Without
     // this, a line would reveal and auto-advance out of sight.
@@ -51,7 +63,7 @@ pub fn dialog_reveal_tick(
     }
     if !dialogue.line_reveal_complete() {
         let previous_visible_chars = dialogue.visible_line_char_count();
-        dialogue.tick_reveal(time.delta_secs());
+        dialogue.tick_reveal(delta_secs);
         let visible_chars = dialogue.visible_line_char_count();
         if dialogue.settings().speech_blips && should_play_talk_blip(
             &dialogue.current_line,
@@ -60,7 +72,7 @@ pub fn dialog_reveal_tick(
         ) {
             sfx.write(SfxMessage::Play {
                 id: talk_blip_id_for_speaker(
-                    voice_catalog.as_deref(),
+                    voice_catalog,
                     dialogue.speaker_label_for_sfx(),
                     dialogue.dialogue_id(),
                     dialogue.speech_style(),
@@ -79,12 +91,12 @@ pub fn dialog_reveal_tick(
         } else if !dialogue.current_line.is_empty()
             && !dialogue.current_line_confirmed && !dialogue.pending_advance
             && matches!(dialogue.settings().line_advance, crate::LineAdvance::Automatic { .. }) {
-            dialogue.tick_automatic_advance(time.delta_secs());
+            dialogue.tick_automatic_advance(delta_secs);
         }
         return;
     }
     if !dialogue.options_reveal_complete() {
-        dialogue.tick_options_reveal(time.delta_secs());
+        dialogue.tick_options_reveal(delta_secs);
     }
 }
 
@@ -299,28 +311,10 @@ pub fn dialog_input(
     touches: Option<Res<Touches>>,
     mut dialogue: ResMut<DialogState>,
 ) {
-    // The claims that take the conversation's input also hold its reveal and
-    // its presentation (`DialogState::held`): a surface above the conversation
-    // owns the screen until it closes.
     let owner = dialogue.input_owner();
-    let held = dialogue_input_is_captured(participants.iter().filter_map(|(person, contexts)| {
-        owner.filter(|owner| owner.accepts(person.id)).map(|_| contexts)
-    }));
-    if dialogue.held != held {
-        dialogue.held = held;
-    }
-    if held {
+    let Some(mut frame) = seat_frame(&frames, &participants, &mut dialogue) else {
         return;
-    }
-    // The opening press belongs to the world action, not to the new text surface.
-    if dialogue.pending_start.is_some() {
-        return;
-    }
-    let mut frame = frames.seats().find_map(|(seat, frame)| {
-        (owner.is_some_and(|owner| owner.accepts(ParticipantId(seat)))
-            && (frame.any_navigation() || frame.select || frame.back || frame.start))
-            .then_some(frame)
-    }).unwrap_or_default();
+    };
     let pointer_seat = pointer_participant(channels.as_deref(), keyboard.as_deref(),
         touches.as_deref().is_some_and(|touches| touches.iter().next().is_some() || touches.iter_just_released().next().is_some()));
     let pointer = ambition_ui_nav::pointer_position(
@@ -333,6 +327,57 @@ pub fn dialog_input(
         frame.drag_scroll_y += menu.drag_scroll_y;
     }
     apply_dialog_menu_input(&frame, dialogue);
+}
+
+/// The input of each slot's conversation, from its own seat, as
+/// [`dialog_input`] gives the main one's. The pointer stays the main box's.
+#[cfg(feature = "input")]
+pub fn slot_dialog_input(
+    frames: Res<SeatMenuFrames>,
+    participants: Query<(&InputParticipant, &ParticipantContexts)>,
+    mut slots: Query<&mut crate::DialogSlot>,
+) {
+    for slot in &mut slots {
+        let mut dialogue = slot.map_unchanged(|slot| &mut slot.0);
+        if !dialogue.active() && !dialogue.held {
+            continue;
+        }
+        if let Some(frame) = seat_frame(&frames, &participants, &mut dialogue) {
+            apply_dialog_menu_input(&frame, dialogue);
+        }
+    }
+}
+
+#[cfg(not(feature = "input"))]
+pub fn slot_dialog_input() {}
+
+/// The menu frame of the seat that owns `dialogue`, or `None` while it takes no
+/// input: an overlay holds it, or it has not started yet.
+#[cfg(feature = "input")]
+fn seat_frame(
+    frames: &SeatMenuFrames,
+    participants: &Query<(&InputParticipant, &ParticipantContexts)>,
+    dialogue: &mut impl std::ops::DerefMut<Target = DialogState>,
+) -> Option<MenuControlFrame> {
+    // The claims that take the conversation's input also hold its reveal and
+    // its presentation (`DialogState::held`): a surface above the conversation
+    // owns the screen until it closes.
+    let owner = dialogue.input_owner();
+    let held = dialogue_input_is_captured(participants.iter().filter_map(|(person, contexts)| {
+        owner.filter(|owner| owner.accepts(person.id)).map(|_| contexts)
+    }));
+    if dialogue.held != held {
+        dialogue.held = held;
+    }
+    // The opening press belongs to the world action, not to the new text surface.
+    if held || dialogue.pending_start.is_some() {
+        return None;
+    }
+    Some(frames.seats().find_map(|(seat, frame)| {
+        (owner.is_some_and(|owner| owner.accepts(ParticipantId(seat)))
+            && (frame.any_navigation() || frame.select || frame.back || frame.start))
+            .then_some(frame)
+    }).unwrap_or_default())
 }
 
 #[cfg(feature = "input")]

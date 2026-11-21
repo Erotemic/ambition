@@ -62,6 +62,22 @@ impl Plugin for YarnBindingsPlugin {
                 ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
             ));
         app.add_systems(Update, dialog_systems);
+        // The same for each conversation beside the main one, from its own
+        // seat (SIMULATION-ISLANDS N2).
+        app.add_systems(
+            Update,
+            (ambition_dialog::slot_dialog_input, ambition_dialog::slot_dialog_reveal_tick)
+                .chain()
+                .after(ambition_dialog::dialog_reveal_tick)
+                .after(ambition_input::InputSet::ResolveContext)
+                .in_set(ambition_input::MenuFrameConsume)
+                .in_set(ambition_dialog::DialogFrameSet::Input)
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
+                .run_if(ambition_dialog::a_slot_conversation_is_open_or_held)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
+                )),
+        );
         // no GAME installer is pushed from here any more. A game's
         // vocabulary arrives through `YarnContentBindings` from the crate that
         // owns the content — see `ambition_content::yarn_vocabulary`.

@@ -743,6 +743,7 @@ dependencies = [
  "bevy",
  "bevy_yarnspinner",
  "serde",
+ "yarnspinner",
 ]
 
 [[package]]

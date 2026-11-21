@@ -72,8 +72,8 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
         // The runner asked, so it is the presented conversation's node.
         world
             .get_resource::<crate::ActiveConversation>()
-            .zip(world.get_resource::<crate::PresentedConversation>())
-            .and_then(|(active, presented)| presented.live(active))
+            .zip(crate::speaking_conversation_instance(world))
+            .and_then(|(active, instance)| active.of_instance(&instance))
             .map_or("<no live conversation>", |live| live.instance.node()),
     );
     let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {

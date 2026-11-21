@@ -1334,6 +1334,30 @@ Slices, each with a witness:
   flags. Commands and functions are registered on each runner
   (`ambition_dialog::bindings`). A command names its conversation's seat and
   room, as grants and sales already do.
+
+  **N2 done 2026-11-20.** The main runner presents through the `DialogState`
+  resource, as before; each further live conversation runs on a `DialogSlot`
+  entity (its own `DialogState` and its own `DialogueRunner`), named by
+  `SlotConversation`. The projection keeps each runner's conversation until it
+  ends, gives the main runner the first that needs one, and reuses a free slot
+  before it makes another. The runners share one Yarn variable store
+  (`ConversationStorage`), except the participants (`$speaker_id`,
+  `$listener_id`, `$speaker_is_self`), which are each runner's own; a runner
+  made later fills only the declared values the store lacks, so it does not
+  reset another conversation's `<<set>>`s. Every command and function a runner
+  holds is wrapped to name it as the `SpeakingRunner` while it runs, so
+  `RunnerConversation`, `NarrativeInputWriter` and the world-access functions
+  resolve the conversation of the runner that fired them, with no change to
+  content's vocabulary. A slot's line, options and end route to its own state;
+  its input comes from its own seat (`slot_dialog_input`), and its end is
+  stamped per instance (`write_once_for`). Opening a second seat's talk is still
+  refused in `DialogueDispatch::open_between` until N3 draws a slot's box.
+  Witnesses: `two_conversations_run_at_once_each_on_its_own_runner`
+  (`ambition_dialog`: two runners at once, the shared `$met`, each runner's own
+  listener, each command naming its runner) and
+  `a_second_conversation_runs_on_its_own_slot_and_its_commands_are_its_own`
+  (`ambition_conversation`: the slot, the command's conversation, a freed slot
+  reused).
 - **N3, the presentation.** `DialogState` is per seat. Each view draws the
   conversation of its own seat, so a split view draws two boxes and a hosted
   host draws its own seat's. A guest's box is the hosted-world experiment's

@@ -6,8 +6,10 @@
 //!
 //! Flow:
 //! - startup compiles `.yarn` into `YarnProject`;
-//! - [`spawn_dialogue_runner`] creates the singleton runner once the project exists
-//!   and registers commands/functions;
+//! - [`spawn_dialogue_runner`] creates the main runner once the project exists
+//!   and registers commands/functions; [`attach_slot_runners`] gives each
+//!   [`DialogSlot`] (a conversation beside the main one) a runner of its own,
+//!   on the main runner's variable store;
 //! - pending `DialogState` requests are drained into runner calls;
 //! - runner lifecycle observers write speaker, line, options, markup cues, and
 //!   completion state back into `DialogState`.
@@ -23,11 +25,43 @@ use crate::bindings::{YarnContentBindings, YarnPresentationCue, YarnStateMirror}
 use crate::content::DialogChoice;
 use crate::context::{DialogueContext, DialogueNodeIndex};
 use crate::runtime::{DialogSpeechStyle, DialogState};
+use crate::slots::{DialogSlot, SpeakingRunner};
 use ambition_sfx::{SfxMessage, SfxWriter};
 
-/// Bevy resource: entity id of the singleton `DialogueRunner`.
+mod runner_identity;
+use runner_identity::{attribute_vocabulary, ConversationStorage};
+
+/// Bevy resource: entity id of the main `DialogueRunner`, the one that presents
+/// through the [`DialogState`] resource. Each [`DialogSlot`] has its own.
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct DialogueRunnerEntity(pub Entity);
+
+/// The presentation state a runner's events write to: the main runner's is the
+/// resource, a slot runner's is its [`DialogSlot`].
+#[derive(bevy::ecs::system::SystemParam)]
+struct RunnerDialogs<'w, 's> {
+    main_runner: Option<Res<'w, DialogueRunnerEntity>>,
+    main: ResMut<'w, DialogState>,
+    slots: Query<'w, 's, &'static mut DialogSlot>,
+}
+
+impl RunnerDialogs<'_, '_> {
+    fn of(&mut self, runner: Entity) -> Option<Mut<'_, DialogState>> {
+        if self.main_runner.as_deref().is_some_and(|main| main.0 == runner) {
+            return Some(self.main.reborrow());
+        }
+        self.slots.get_mut(runner).ok().map(|slot| slot.map_unchanged(|slot| &mut slot.0))
+    }
+
+    /// The state of the runner whose command is running, or the main one's
+    /// when no runner names itself (a command run by hand).
+    fn speaking(&mut self, speaking: &SpeakingRunner) -> Option<Mut<'_, DialogState>> {
+        match speaking.0 {
+            Some(runner) => self.of(runner),
+            None => Some(self.main.reborrow()),
+        }
+    }
+}
 
 pub struct YarnBridgePlugin;
 
@@ -56,6 +90,16 @@ impl Plugin for YarnBridgePlugin {
                 state.is_some_and(|state| state.has_pending_request())
             }),
         );
+        app.add_systems(
+            Update,
+            (attach_slot_runners, dispatch_slot_requests)
+                .chain()
+                .after(spawn_dialogue_runner)
+                .in_set(crate::DialogFrameSet::Narrative)
+                .before(YarnSpinnerSystemSet)
+                .run_if(resource_exists::<DialogueRunnerEntity>)
+                .run_if(|slots: Query<&DialogSlot>| !slots.is_empty()),
+        );
         app.configure_sets(Update, YarnSpinnerSystemSet.in_set(crate::DialogFrameSet::Narrative));
         app.add_observer(on_present_line);
         app.add_observer(on_present_options);
@@ -77,18 +121,14 @@ fn spawn_dialogue_runner(
     content_bindings: Res<YarnContentBindings>,
     mut node_index: ResMut<DialogueNodeIndex>,
 ) {
-    let mut runner = project.create_dialogue_runner(&mut commands);
+    let entity = commands.spawn_empty().id();
+    let runner = build_runner(&mut commands, &project, &mirror, &content_bindings, entity,
+        ConversationStorage::main());
     // Publish the compiled node set. The interact dispatcher reads it to decide
     // whether a self-conversation has a branch to enter — before it opens a
     // dialogue box, not after.
     node_index.populate(runner.inner().node_names().map(str::to_owned));
-    // Register the presentation-neutral dialogue vocabulary owned by this
-    // reusable runtime before the host adds game-specific commands/functions.
-    register_presentation_commands(&mut commands, &mut runner);
-    for install in &content_bindings.installers {
-        install(&mut commands, &mut runner, &mirror);
-    }
-    let entity = commands.spawn(runner).id();
+    commands.entity(entity).insert(runner);
     commands.insert_resource(DialogueRunnerEntity(entity));
     info!(
         target: "crate::bridge",
@@ -96,16 +136,68 @@ fn spawn_dialogue_runner(
     );
 }
 
+/// A runner for `entity` with the whole vocabulary, each command and function
+/// naming `entity` as the [`SpeakingRunner`] while it runs.
+fn build_runner(
+    commands: &mut Commands,
+    project: &YarnProject,
+    mirror: &YarnStateMirror,
+    content_bindings: &YarnContentBindings,
+    entity: Entity,
+    storage: ConversationStorage,
+) -> DialogueRunner {
+    let mut runner = project
+        .build_dialogue_runner(commands)
+        .with_variable_storage(Box::new(storage))
+        .build();
+    // Register the presentation-neutral dialogue vocabulary owned by this
+    // reusable runtime before the host adds game-specific commands/functions.
+    register_presentation_commands(commands, &mut runner);
+    for install in &content_bindings.installers {
+        install(commands, &mut runner, mirror);
+    }
+    attribute_vocabulary(&mut runner, entity);
+    runner
+}
+
+/// Give each [`DialogSlot`] a runner of its own, on the main runner's variable
+/// store: a `<<set>>` in one conversation is read in every other.
+fn attach_slot_runners(
+    mut commands: Commands,
+    project: Option<Res<YarnProject>>,
+    mirror: Res<YarnStateMirror>,
+    content_bindings: Res<YarnContentBindings>,
+    main: Res<DialogueRunnerEntity>,
+    runners: Query<&DialogueRunner>,
+    slots: Query<Entity, (With<DialogSlot>, Without<DialogueRunner>)>,
+) {
+    let Some(project) = project else {
+        return;
+    };
+    let Some(shared) = runners.get(main.0).ok().and_then(|runner| ConversationStorage::shared_of(runner.variable_storage())) else {
+        return;
+    };
+    for entity in &slots {
+        let runner = build_runner(&mut commands, &project, &mirror, &content_bindings, entity,
+            ConversationStorage::beside(shared.clone_shallow()));
+        commands.entity(entity).insert(runner);
+    }
+}
+
 /// `<<present_speaker "character_id">>` — select the stable character id used
 /// for portrait presentation. An empty id returns to the conversation endpoint.
-fn cmd_present_speaker(In(character_id): In<String>, mut state: ResMut<DialogState>) {
-    state.set_presented_speaker_character_id(character_id);
+fn cmd_present_speaker(In(character_id): In<String>, speaking: Res<SpeakingRunner>, mut dialogs: RunnerDialogs) {
+    if let Some(mut state) = dialogs.speaking(&speaking) {
+        state.set_presented_speaker_character_id(character_id);
+    }
 }
 
 /// `<<portrait_clip "clip">>` — select a named clip from the current speaker's
 /// portrait manifest. `default` clears the override and uses the catalog default.
-fn cmd_portrait_clip(In(clip): In<String>, mut state: ResMut<DialogState>) {
-    state.set_portrait_clip(clip);
+fn cmd_portrait_clip(In(clip): In<String>, speaking: Res<SpeakingRunner>, mut dialogs: RunnerDialogs) {
+    if let Some(mut state) = dialogs.speaking(&speaking) {
+        state.set_portrait_clip(clip);
+    }
 }
 
 fn register_presentation_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
@@ -152,13 +244,26 @@ fn dispatch_pending_dialog_requests(
         );
         return;
     };
+    dispatch(&mut state, &mut runner);
+}
 
+/// Each slot's requests, to its own runner.
+fn dispatch_slot_requests(mut slots: Query<(&mut DialogSlot, &mut DialogueRunner)>) {
+    for (mut slot, mut runner) in &mut slots {
+        if slot.0.has_pending_request() {
+            dispatch(&mut slot.0, &mut runner);
+        }
+    }
+}
+
+/// Hand one conversation's pending requests to its runner.
+fn dispatch(state: &mut DialogState, runner: &mut DialogueRunner) {
     // start_node
     if let Some(pending) = state.pending_start.take() {
         let dialogue_id = pending.dialogue_id;
         // WHO is talking to WHOM, published before the node begins so content's
         // very first `<<if $speaker_is_self>>` reads a live value.
-        publish_dialogue_context(&mut runner, &pending.context);
+        publish_dialogue_context(runner, &pending.context);
         // Do not count the visit here. This system is outside rollback, so a rewind
         // would lose the increment. The visit is counted by
         // `ambition_platformer2d_session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens`,
@@ -277,10 +382,13 @@ fn publish_dialogue_context(runner: &mut DialogueRunner, context: &DialogueConte
 
 fn on_present_line(
     event: On<PresentLine>,
-    mut state: ResMut<DialogState>,
+    mut dialogs: RunnerDialogs,
     mut cue: ResMut<YarnPresentationCue>,
     mut sfx: SfxWriter,
 ) {
+    let Some(mut state) = dialogs.of(event.entity) else {
+        return;
+    };
     // PresentLine is now the hand-off point for the typewriter
     // reveal. Store the raw line text here; the UI reads the
     // visible substring from DialogState each frame.
@@ -324,7 +432,10 @@ fn on_present_line(
     state.set_speech_style(DialogSpeechStyle::from_markup(saw_shout, saw_whisper));
 }
 
-fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>) {
+fn on_present_options(event: On<PresentOptions>, mut dialogs: RunnerDialogs) {
+    let Some(mut state) = dialogs.of(event.entity) else {
+        return;
+    };
     // Stop auto-advancing — the runner is waiting for the player
     // to pick an option.
     state.pending_advance = false;
@@ -349,7 +460,10 @@ fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>)
     state.selected_option = 0;
 }
 
-fn on_dialogue_completed(_event: On<DialogueCompleted>, mut state: ResMut<DialogState>) {
+fn on_dialogue_completed(event: On<DialogueCompleted>, mut dialogs: RunnerDialogs) {
+    let Some(mut state) = dialogs.of(event.entity) else {
+        return;
+    };
     if std::mem::take(&mut state.completion_of_a_replaced_run) {
         return;
     }

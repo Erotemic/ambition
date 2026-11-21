@@ -12,6 +12,8 @@ mod runtime;
 mod speech_sfx;
 mod systems;
 mod settings;
+mod slots;
+pub use slots::{a_slot_conversation_is_open_or_held, slot_dialog_reveal_tick, DialogSlot, SpeakingRunner};
 pub use settings::{DialogSettings, TextReveal, RevealConfirm, LineAdvance, ChoiceReveal, DialogConfirmAction};
 #[cfg(feature = "content_pack")]
 pub use settings::{dialogue_settings_schema, lowered_dialogue_settings, DIALOGUE_SETTINGS_SCHEMA};
@@ -32,7 +34,7 @@ pub use content::DialogChoice;
 pub use context::{DialogueContext, DialogueNodeIndex, SELF_NODE_SUFFIX};
 pub use continuity::DialogueBreak;
 pub use runtime::DialogState;
-pub use systems::{a_conversation_is_open_or_held, dialog_input, dialog_pointer_input, dialog_reveal_tick};
+pub use systems::{a_conversation_is_open_or_held, dialog_input, dialog_pointer_input, dialog_reveal_tick, slot_dialog_input};
 
 /// Input acts on the previous display; narrative work then publishes the next view.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -53,6 +55,7 @@ impl bevy::prelude::Plugin for DialogSimStatePlugin {
         app.configure_sets(bevy::prelude::Update,
             (DialogFrameSet::Input, DialogFrameSet::Narrative).chain());
         app.init_resource::<runtime::DialogState>();
+        app.init_resource::<slots::SpeakingRunner>();
         // Which Yarn nodes content compiled (empty + unpopulated headless).
         // The interact dispatcher reads it to resolve a self-conversation's
         // branch; the Yarn bridge fills it when the runner spawns.

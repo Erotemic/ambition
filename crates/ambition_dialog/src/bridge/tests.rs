@@ -130,3 +130,66 @@ fn automatic_completion_keeps_an_unconfirmed_final_line() {
     state.confirm_or_advance();
     assert!(!state.active());
 }
+
+/// What `<<mark>>` heard: its argument and the runner that ran it.
+#[derive(Resource, Default)]
+struct Marks(Vec<(String, Option<Entity>)>);
+
+fn install_mark(commands: &mut Commands, runner: &mut DialogueRunner, _: &crate::YarnStateMirror) {
+    let mark = commands.register_system(
+        |In(tag): In<String>, speaking: Res<SpeakingRunner>, mut marks: ResMut<Marks>| marks.0.push((tag, speaking.0)),
+    );
+    runner.commands_mut().add_command("mark", mark);
+}
+
+/// SIMULATION-ISLANDS N2: two conversations run at once, each on its own
+/// runner. A command names the runner that ran it, each runner reads its own
+/// participants, and a variable one sets the other reads: the store is
+/// shared, and a runner made later does not reset it to the declared values.
+#[test]
+fn two_conversations_run_at_once_each_on_its_own_runner() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_plugins((crate::DialogSimStatePlugin, crate::YarnBindingsPlugin, crate::YarnBridgePlugin));
+    app.init_resource::<Marks>();
+    app.world_mut().resource_mut::<crate::YarnContentBindings>().installers.push(install_mark);
+    app.add_plugins(YarnSpinnerPlugin::with_yarn_source(YarnFileSource::InMemory(YarnFile::new(
+        "two_runners.yarn",
+        "title: shop\n---\n<<declare $listener_id = \"\">>\n<<declare $met = false>>\n\
+         <<set $met to true>>\n<<mark shop>>\nMerchant: Hello {$listener_id}.\n===\n\
+         title: forge\n---\n<<mark forge>>\nSmith: Met {$met}, {$listener_id}.\n===\n",
+    ))));
+    for _ in 0..1000 {
+        app.update();
+        if app.world().contains_resource::<DialogueRunnerEntity>() {
+            break;
+        }
+        std::thread::yield_now();
+    }
+    let main = app.world().resource::<DialogueRunnerEntity>().0;
+    let owner = |seat| ambition_input::InputOwner::Participant(ambition_input::ParticipantId(seat));
+    app.world_mut().resource_mut::<DialogState>().start("shop", "Merchant", crate::DialogueContext::between("robot", "alice"), owner(0));
+    for _ in 0..5 {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<DialogState>().current_line, "Hello alice.", "the main runner reads its own listener");
+
+    let mut forge = DialogSlot::default();
+    forge.0.start("forge", "Smith", crate::DialogueContext::between("robot", "bob"), owner(1));
+    let slot = app.world_mut().spawn(forge).id();
+    for _ in 0..5 {
+        app.update();
+    }
+    assert!(app.world().get::<DialogueRunner>(slot).is_some(), "the slot has a runner of its own");
+    let slot_state = &app.world().get::<DialogSlot>(slot).unwrap().0;
+    assert_eq!(slot_state.current_line, "Met true, bob.", "the slot reads the shop's $met and its own listener");
+    assert_eq!(app.world().resource::<DialogState>().current_line, "Hello alice.", "the main conversation is untouched");
+    assert_eq!(
+        app.world().resource::<Marks>().0,
+        vec![("shop".to_owned(), Some(main)), ("forge".to_owned(), Some(slot))],
+        "each command named the runner that ran it",
+    );
+    assert_eq!(app.world().resource::<SpeakingRunner>().0, None, "no runner speaks outside a call");
+}

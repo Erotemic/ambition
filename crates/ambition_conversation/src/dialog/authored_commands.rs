@@ -49,16 +49,11 @@ pub fn install_command_binding(
 fn request_authored_command(
     In((raw_id, a0, a1, a2)): In<(String, Option<String>, Option<String>, Option<String>)>,
     catalog: Option<Res<CommandCatalog>>,
-    active: Option<Res<crate::ActiveConversation>>,
-    presented: Option<Res<crate::PresentedConversation>>,
+    conversation: crate::RunnerConversation,
     mut narrative: NarrativeInputWriter<RunAuthoredCommand>,
 ) {
-    // The runner fired it, so it is the presented conversation's.
-    let node = active
-        .as_deref()
-        .zip(presented.as_deref())
-        .and_then(|(active, presented)| presented.live(active))
-        .map(|live| live.instance.node().to_string());
+    // The runner fired it, so it is its conversation's.
+    let node = conversation.live().map(|live| live.instance.node().to_string());
     let Some(id) = CommandId::parse(&raw_id) else {
         warn!(
             target: "crate::dialog::authored_commands",

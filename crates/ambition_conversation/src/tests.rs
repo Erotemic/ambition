@@ -935,3 +935,49 @@ fn a_rooms_rewind_puts_back_only_its_own_seats_conversation() {
     assert!(conversation.of_body(bob).is_none(), "the forge's talk opened after the save is taken back");
     assert!(conversation.of_body(alice).is_none(), "the hub's end of Alice's talk stands: the forge's rewind is not the hub's");
 }
+
+/// SIMULATION-ISLANDS N2: a second live conversation runs on a slot of its
+/// own, a command its runner fires acts on it, and a slot freed by its end
+/// takes the next conversation.
+#[test]
+fn a_second_conversation_runs_on_its_own_slot_and_its_commands_are_its_own() {
+    use ambition_input::ParticipantId;
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.init_resource::<ambition_dialog::DialogState>();
+    app.init_resource::<ambition_dialog::SpeakingRunner>();
+    app.init_resource::<crate::PresentedConversation>();
+    app.add_systems(Update, super::project_the_dialog_ui_from_the_conversation);
+    let [alice, merchant, bob, smith, carol, miller] = [(); 6].map(|_| app.world_mut().spawn_empty().id());
+    let seat = |n| InputOwner::Participant(ParticipantId(n));
+    let mut conversation = app.world_mut().resource_mut::<ActiveConversation>();
+    conversation.open(crate::LiveConversation::for_test(Some(alice), Some(merchant), "shop", seat(0)));
+    conversation.open(crate::LiveConversation::for_test(Some(bob), Some(smith), "forge", seat(1)));
+    app.update();
+    app.update();
+    let mut slots = app.world_mut().query::<(Entity, &crate::SlotConversation, &ambition_dialog::DialogSlot)>();
+    let (slot, _, forge) = slots.single(app.world()).expect("one slot for the second conversation");
+    assert_eq!(app.world().resource::<ambition_dialog::DialogState>().dialogue_id(), "shop", "the main runner keeps the first");
+    assert_eq!((forge.0.dialogue_id(), forge.0.input_owner()), ("forge", Some(seat(1))), "the slot runs the second, for its own seat");
+
+    // A command the slot's runner fires is the forge's; outside a slot's call, the shop's.
+    let mut talker_of = bevy::ecs::system::SystemState::<crate::RunnerConversation>::new(app.world_mut());
+    assert_eq!(talker_of.get(app.world()).unwrap().talker(), Some(merchant));
+    app.world_mut().resource_mut::<ambition_dialog::SpeakingRunner>().0 = Some(slot);
+    assert_eq!(talker_of.get(app.world()).unwrap().talker(), Some(smith));
+    app.world_mut().resource_mut::<ambition_dialog::SpeakingRunner>().0 = None;
+
+    // The forge ends: its slot closes and is free; the shop goes on.
+    app.world_mut().resource_mut::<ActiveConversation>().close_of(bob);
+    app.update();
+    let (_, attached, forge) = slots.get(app.world(), slot).unwrap();
+    assert!(attached.0.is_none() && !forge.0.active(), "the ended conversation's slot is closed and free");
+    assert!(app.world().resource::<ambition_dialog::DialogState>().active(), "the shop goes on");
+
+    // The next conversation takes the free slot rather than a new one.
+    app.world_mut().resource_mut::<ActiveConversation>().open(crate::LiveConversation::for_test(Some(carol), Some(miller), "mill", seat(2)));
+    app.update();
+    app.update();
+    assert_eq!(slots.iter(app.world()).count(), 1, "no second slot");
+    assert_eq!(slots.get(app.world(), slot).unwrap().2 .0.dialogue_id(), "mill");
+}

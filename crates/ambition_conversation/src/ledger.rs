@@ -120,10 +120,10 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
 /// tick it is, and where the record goes — so a Yarn command says
 /// `narrative.write(..)` and nothing about stamping.
 #[derive(SystemParam)]
-pub struct NarrativeInputWriter<'w, M: Message + Clone> {
+pub struct NarrativeInputWriter<'w, 's, M: Message + Clone> {
     conversation: Res<'w, ActiveConversation>,
-    /// The conversation the runner is running: a command it fires is that one's.
-    presented: Option<Res<'w, super::ui_bridge::PresentedConversation>>,
+    /// The conversation of the runner that fires the command.
+    speaking: super::ui_bridge::SpeakingConversation<'w, 's>,
     /// `Option` for the reason `prepare_the_match`'s own tick is: a composition
     /// with no timeline has no replay to disagree with, and a plain `Res` would
     /// panic in every one of them.
@@ -131,7 +131,7 @@ pub struct NarrativeInputWriter<'w, M: Message + Clone> {
     ledger: ResMut<'w, NarrativeInputLedger<M>>,
 }
 
-impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
+impl<M: Message + Clone> NarrativeInputWriter<'_, '_, M> {
     /// Record `payload` against the live conversation, effective next tick.
     ///
     /// A command that fires with no conversation live is authored content
@@ -153,9 +153,14 @@ impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
     /// Record `payload` only if this conversation has no record here yet — for a
     /// fact observed as a condition. See [`NarrativeInputLedger::holds_for`].
     pub fn write_once(&mut self, payload: M) {
-        let Some(instance) = self.presented_instance() else {
-            return;
-        };
+        if let Some(instance) = self.presented_instance() {
+            self.write_once_for(instance, payload);
+        }
+    }
+
+    /// [`Self::write_once`] for a named conversation: a fact observed of a
+    /// runner from outside its call (its end).
+    pub fn write_once_for(&mut self, instance: ConversationInstanceId, payload: M) {
         if self.ledger.holds_for(&instance) {
             return;
         }
@@ -163,10 +168,10 @@ impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
         self.ledger.record(instance, from_tick, payload);
     }
 
-    /// The live conversation the runner is running, if it still is live.
+    /// The live conversation of the runner that fired the command, if it
+    /// still is live.
     fn presented_instance(&self) -> Option<ConversationInstanceId> {
-        let presented = self.presented.as_ref()?.0.as_ref()?;
-        self.conversation.of_instance(presented).map(|live| live.instance.clone())
+        self.conversation.of_instance(self.speaking.instance()?).map(|live| live.instance.clone())
     }
 
     /// The first tick the simulation may act on something observed now.

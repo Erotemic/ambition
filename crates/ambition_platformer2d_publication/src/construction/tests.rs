@@ -399,6 +399,7 @@ fn boss_spawn_attaches_brain_components() {
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 root,
             ),
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &ambition_boss_encounter::test_boss_catalog(),
             super::fixtures::fixture_cast(),
             &Default::default(),

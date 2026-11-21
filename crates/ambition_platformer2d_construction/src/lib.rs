@@ -973,6 +973,7 @@ fn construct_authored_boss(
     let fate = ctx.facts.boss_fate(&authored.id);
     ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into(&sprite_content,
         &mut ctx.root_scope(),
+        &services.context.characters,
         &services.boss_catalog,
         &services.context.prepared,
         &services.context.sheets,

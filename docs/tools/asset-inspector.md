@@ -26,6 +26,13 @@ editable review notes; `notes backlog --json` lists the outstanding notes.
 See [the editor tool README](../../tools/ambition_editor/README.md) for storage
 and current command details.
 
+Historical lineage previews read a separate cache. Prepare them with
+`./scripts/regen/lineages.sh --all`, then build the inspector again. Use
+`--plan --json` to inspect coverage and `--retry-failed` to retry recorded
+failures. See [historical character looks](generated-visual-tools.md#historical-character-looks).
+Survey attribution labels are not verified by an ordinary inspector build.
+Unsigned-commit and date-selected model labels are inferences.
+
 Ordinary status queries rely on manifests and receipts without rerendering.
 `--deep` rechecks bytes, `--no-previews` avoids generating preview strips, and
 `--authorship` adds an optional Git history scan.

@@ -62,6 +62,28 @@ actor page to make a quality variant.
 For character authoring, see [adding a character](../recipes/adding-a-character.md).
 The Hall of Characters is the visual review surface for the roster.
 
+## Historical character looks
+
+Prepare the recorded lineage stills with the selected sprite-tool Python:
+
+```bash
+./scripts/regen/lineages.sh --plan --json
+./scripts/regen/lineages.sh --all --jobs 2
+python3 scripts/asset_inspector.py build
+```
+
+The preparation fetches historical source refs, resumes per-recipe caches, and
+reports failures and pixel differences. It does not re-survey the Git history
+or publish runtime art. Use `--retry-failed` after fixing an old render failure.
+Source and cache paths, report states, and scoped commands are described in the
+[design history guide](../../tools/ambition_sprite2d_renderer/design_history/README.md#prepare-recorded-looks-on-a-new-machine).
+
+Model labels can be measured, declared, or inferred from messages and dates.
+They describe session evidence, not pixel authorship, and are not render inputs.
+The [character generations plan](../planning/game/character-generations.md)
+keeps visual-era selection and normal runtime skin publication separate from
+this cache preparation.
+
 ## Background and parallax renderers
 
 - `tools/ambition_background_renderer/`: background profile generator.

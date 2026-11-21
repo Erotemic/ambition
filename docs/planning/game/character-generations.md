@@ -179,6 +179,18 @@ Rules (all presentation; none changes the simulation):
 The game ships only the curated set; tier selection and asset costs are still
 implementation details that require current package measurements.
 
+## Preparing review images on a new machine
+
+`./scripts/regen/lineages.sh --all` prepares the recorded milestone and variation
+stills from historical source revisions. `--plan --json` reports cache coverage;
+`--retry-failed` retries recorded failures. Rebuild the inspector after a run.
+The report records source recipes, pixel hashes, failures, differences, and the
+Python environment. Attribution does not select or gate rendering.
+
+This prepares evidence for the visual-era audit below. It does not validate
+index entries as distinct designs, select shipping skins, or implement runtime
+publication. See [the tool guide](../../tools/generated-visual-tools.md#historical-character-looks).
+
 ## Remaining implementation work (not gated on Q170)
 
 1. **Audit the visual-era index first.** Generate a per-lineage contact sheet

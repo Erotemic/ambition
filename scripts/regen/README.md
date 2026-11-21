@@ -1,8 +1,16 @@
 # `scripts/regen/` — content regeneration
 
 Every script here rebuilds generated content from its authoring source. They are
-all independently runnable, they all take `--help`, and they are all composed by
-one umbrella so a fresh machine gets the lot without knowing any of their names.
+all independently runnable and take `--help`. The asset umbrella prepares
+current runtime products. Historical lineage stills are a separate, explicit
+operation because they can require many old source revisions.
+
+## Historical lineage stills
+
+Use `./scripts/regen/lineages.sh --all` to fetch historical sources and prepare
+recorded character looks on a new machine. Use `--plan --json` to inspect the
+work first. This command resumes its cache and does not publish runtime skins.
+See [historical character looks](../../docs/tools/generated-visual-tools.md#historical-character-looks).
 
 ## Why these outputs are gitignored
 

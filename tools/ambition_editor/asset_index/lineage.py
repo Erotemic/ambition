@@ -148,7 +148,9 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
                 for v in row.get("variations") or []:
                     png = stills.cached_still(cache, v["commit"], row["ids"], lineages[name].get("pick"))
                     original, preview = copy_still(png) if png else (None, None)
-                    looks.append(dict(v, still=original, preview=preview))
+                    looks.append(dict(v, still=original, preview=preview,
+                        render=stills.cache_state(cache, v["commit"], row["ids"], lineages[name].get("pick")),
+                        attribution_note="Recorded survey label. Model and version were not verified in this build; unsigned and date-based labels are inferred."))
                 tracks.append({"track": track, "candidates": row.get("candidates"), "failed": row.get("failed"), "variations": looks})
             record["tracks"] = tracks
             views[name] = record

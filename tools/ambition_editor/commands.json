@@ -35,6 +35,24 @@
       "build": "Build the content check binary once. Asset repair does not invoke Cargo.",
       "status": "active",
       "cwd": "repository root"
+    },
+    {
+      "id": "lineage-prepare",
+      "title": "Prepare recorded historical character looks",
+      "owner": "tools/ambition_sprite2d_renderer/design_history",
+      "command": "./scripts/regen/lineages.sh --all",
+      "help": "./scripts/regen/lineages.sh --help",
+      "requires": [
+        "scripts/regen/lineages.sh",
+        "tools/ambition_sprite2d_renderer/design_history/prepare.py"
+      ],
+      "docs": "docs/tools/generated-visual-tools.md",
+      "inputs": "Recorded lineage milestones, variations, and historical Git source refs.",
+      "outputs": "Cached historical stills and a JSON report of source recipes, hashes, and failures.",
+      "mutation": "A plan only reads. Preparation fetches history and writes ignored caches; no runtime publication.",
+      "build": "No Cargo build. Uses the sprite-tool Python environment.",
+      "status": "active",
+      "cwd": "repository root"
     }
   ]
 }

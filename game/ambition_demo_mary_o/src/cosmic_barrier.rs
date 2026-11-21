@@ -39,9 +39,11 @@ use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual};
 /// star of her crown are not (`_mary_o_v2_cosmic_art.BODY_TRACKS` of the
 /// sprite renderer).
 pub const BODY_TRACKS: [&str; 1] = ["overlay:body"];
-/// Sheet pixels to one pixel of her art: her frame is 216 px for a stage of
-/// 72 px (`mary_o_v2_cosmic.STAGE`). The barrier is drawn in pixels of her art.
-const ART_PIXEL: f32 = 3.0;
+/// Sheet pixels to one pixel of her art: her frame is 432 px for a stage of
+/// 72 px (`mary_o_v2_cosmic.STAGE`): drawn at 3 to the unit and published at
+/// two times that, as each of her sheets is. The barrier is drawn in pixels of
+/// her art.
+const ART_PIXEL: f32 = 6.0;
 /// How far from her body the barrier goes, in pixels of her art: its line,
 /// its band, and the soft band about that.
 const REACH_PIXELS: f32 = 3.0;

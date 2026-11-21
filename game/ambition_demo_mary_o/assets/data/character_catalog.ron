@@ -257,9 +257,9 @@
         // Eternal Cosmic Mary-O: her ultimate form (`cosmic.rs`). The row
         // states what the form is. She is not hurt and she harms what she
         // touches, each press of jump in the air is a jump, and she is
-        // faster. Her sheet is published at half the pixels to the unit of
-        // her other sheets, so the row states her height: the height of her
-        // grown forms.
+        // faster. Her sheet's stage is wider and taller than her body (room
+        // for her wings and the transformation), so the row states her
+        // height: the height of her grown forms.
         "mary_o_cosmic": (
             display_name: "Eternal Cosmic Mary-O",
             manifest: "sprites/mary_o_v2_cosmic_spritesheet.ron",

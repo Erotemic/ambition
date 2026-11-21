@@ -157,6 +157,43 @@ pub fn past_first_phase(world: &World, args: &[AuthoredArg]) -> ConditionOutcome
     })
 }
 
+/// `boss.at_rest(boss)` — is this boss not fighting: asleep, or beaten?
+pub fn at_rest_descriptor() -> ConditionDescriptor {
+    ConditionDescriptor {
+        id: ConditionId::new(DOMAIN, "at_rest"),
+        summary: "true while the named boss sleeps or once it has been defeated: false from its intro to its fall",
+        params: &[BOSS],
+    }
+}
+
+/// `boss.at_rest` — see [`at_rest_descriptor`]. A wall that seals an arena
+/// waits on it: open while the boss sleeps (the player walks in), shut from
+/// its intro until it falls (a knockback cannot carry the player out by the
+/// way in), and open again once it is beaten. A room built again builds the
+/// boss asleep, so a run that died mid-fight finds the way open.
+///
+/// It is a fact about the live body and the save, not the negation of
+/// [`engaged`]: with no live body of that boss (its room not built) it is at
+/// rest.
+pub fn at_rest(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let Some(boss) = args[0].as_name() else {
+        return ConditionOutcome::unanswerable("`boss` must be a name");
+    };
+    let beaten = world
+        .get_resource::<ambition_persistence::save::AmbitionGameSave>()
+        .is_some_and(|save| save.data().boss(boss) == PersistedEncounterState::Cleared);
+    let fighting = world.try_query::<(&crate::BossConfig, &crate::BossEncounter)>().is_some_and(|mut bosses| {
+        bosses.iter(world).any(|(config, status)| {
+            config.id == boss
+                && !matches!(
+                    status.encounter_phase(),
+                    crate::BossEncounterPhase::Dormant | crate::BossEncounterPhase::Death
+                )
+        })
+    });
+    ConditionOutcome::from_bool(beaten || !fighting, || WhyNot::new("boss.at_rest", boss, "it is fighting"))
+}
+
 /// Publishes the boss domain's conditions.
 ///
 /// One plugin for one registration line, matching the world-fact, inventory,
@@ -170,6 +207,7 @@ impl bevy::prelude::Plugin for BossConditionsPlugin {
         app.publish_condition(cleared_descriptor(), cleared);
         app.publish_condition(engaged_descriptor(), engaged);
         app.publish_condition(past_first_phase_descriptor(), past_first_phase);
+        app.publish_condition(at_rest_descriptor(), at_rest);
     }
 }
 

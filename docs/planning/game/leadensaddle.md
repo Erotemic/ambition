@@ -240,7 +240,11 @@ card).
    `game/ambition_map_assets/ambition_content/generators/frontier/make_specs.py`),
    the gate, the world.
 4. The fight: catalog rows, profile, encounter, sheet rows, the Rhai script,
-   the hall copy; played headless.
+   the hall copy; played headless. Done 2026-11-20: the corral seals its way in while he
+   fights (`corral_west_gate`, gated by `boss.at_rest`), and
+   `marshal_gallus::the_marshal_falls_through_his_three_phases_and_opens_the_lookout`
+   plays the fight through Phase1, Phase2, Enrage and Death to the saved
+   defeat, which opens the grille to the lookout and the way back.
 5. The music.
 6. The people, their talk, signs, captures of the main rooms.
 

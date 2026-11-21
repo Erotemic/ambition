@@ -33,6 +33,7 @@ mod window_cameras_share_one_main_texture;
 mod the_cart_of_the_wake_room;
 mod the_art_dimension;
 mod the_history_dimension;
+mod marshal_gallus;
 mod leaving_a_ladder;
 mod the_noodly_temple;
 mod the_primeval_trail;

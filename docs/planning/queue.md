@@ -1341,9 +1341,17 @@ registry), the residents and their wing of the Hall of Characters.
 policy brought him to 7 of 60 and died, so his defeat and the opening of
 the lookout's gate were not reached headless.
 
-**Next action:** see the defeat headless (a policy or a probe that wins),
-and play the corral by hand: a knockback can carry the player out by the
-west edge mid-fight, as nothing seals a boss arena. **Done when:** a dial of `LEADENSADDLE`
+**Done 2026-11-20:** the defeat headless and a sealed corral. The way in
+shuts behind the player while the Marshal fights (`corral_west_gate`, a lock
+wall on the new condition `boss.at_rest`: open while a boss sleeps and once
+it is beaten, shut from its intro to its fall). A walk-in from the refinery
+lands past the gate (x 92 against the gate's 16-32) before it shuts. The
+witness `marshal_gallus::the_marshal_falls_through_his_three_phases_and_opens_the_lookout`
+strikes him with real blows between his moves: he passes Phase1, Phase2,
+Enrage and Death, his fall is saved, the west gate stands on every frame he
+fights, and both gates open after.
+
+**Next action:** play the corral by hand (Jon) and judge the fight. **Done when:** a dial of `LEADENSADDLE`
 arrives on Pad Three, the town and the refinery lead to the corral, the
 Marshal's fight plays through its three phases headless to his defeat and
 opens the lookout, the hall has his practice copy, and each room plays its

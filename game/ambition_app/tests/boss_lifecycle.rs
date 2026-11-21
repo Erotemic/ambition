@@ -167,7 +167,7 @@ pub(crate) fn kill_boss_with_a_real_hit(
 }
 
 /// Drop the guard of boss `placement_id` (`BossEncounter::guarded`).
-fn lower_guard(world: &mut bevy::prelude::World, placement_id: &str) {
+pub(crate) fn lower_guard(world: &mut bevy::prelude::World, placement_id: &str) {
     let mut q = world.query::<(
         &ambition_platformer2d::boss_encounter::BossConfig,
         &mut ambition_platformer2d::boss_encounter::BossEncounter,
@@ -329,7 +329,7 @@ pub(crate) fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> 
         .map(|(_, health)| health.alive())
 }
 
-fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhase> {
+pub(crate) fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhase> {
     let mut q = world.query::<(&BossConfig, &BossEncounter)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
@@ -601,7 +601,7 @@ fn boss_behavior(world: &mut World, placement_id: &str) -> Option<String> {
     q.iter(world).find(|config| config.id == placement_id).map(|config| config.behavior.id.clone())
 }
 
-fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2> {
+pub(crate) fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2> {
     let mut q = world.query::<(&BossConfig, &BodyKinematics)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)

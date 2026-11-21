@@ -806,9 +806,24 @@ modules (`interact`, `npcs`, `pet`, `talk_spacing`, `wallet_shield`, `wear`,
 `summon`, `transform_beat`) read through the glob or each other. Their owner
 question is the brain dispatch's, not a module move.
 
-A per-module read (2026-11-21) found five that name nothing else in the crate:
-`fighter_ladder`, `wallet_shield`, `transform_beat`, `talk_spacing`, `visit`.
-Each is a move candidate on its own reads.
+**The owner question, answered from the reads (2026-11-21).** Each module's
+`crate::`/`super::` paths outside comments, and where its `use super::*` sits
+(only `npcs` and `summon` glob in production; every other glob is a test
+module's):
+
+| Group | Modules | What ties them |
+|---|---|---|
+| navigation | `navigation`, `errand`, `visit`, `life`, `direction` | `navigation` and `errand` read each other; `visit`, `life` and `direction` read into them; `direction` also reads `brain_command`, `rest_row` and `actors` |
+| command | `aggression`, `rally`, `brain_command`, `interact`, `npcs`, `summon` | `BrainCommand`, `actors`, `npcs`, `control::possession`, `participant_seat`; `npcs` and `summon` read the glob |
+| small chains | `talk_spacing` → `pet` → `avatar`; `wear` → `transform_beat`; `brain_effects` → `muzzle_world_pos` | one sibling or kernel type each |
+
+Two that named nothing else moved: `fighter_ladder` (K39) and `wallet_shield`
+(K40). Of the rest, none moves alone: each reads a sibling or a kernel type,
+so a move takes its group, and the groups feed the brain dispatch
+(`brain_tick`), which stays for the reason `perception` does. `transform_beat`
+is the one module with no sibling read; its blocker is the rollback owner
+string and the lack of an obvious owner, below. The owner question is closed
+for this pass.
 
 ### K39 — The fighter ladder projection at combat — DONE 2026-11-21
 

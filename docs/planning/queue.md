@@ -2438,6 +2438,9 @@ records why `perception` stays with the brain dispatch. `fade_rows` and
 - K39: the fighter ladder projection is `ambition_combat::brain::fighter::ladder`
   with its own plugin.
 - K40: the wallet shield projection is `ambition_damage::wallet_shield`.
+- The brain-feed owner question is answered from a per-module read: the
+  remaining feed and conduct modules form groups tied by sibling and kernel
+  reads, so none moves alone; they stay with the dispatch.
 
 `beat_cues` stays: it reads the body's decision frames. Next in the
 [inventory](engine/actor-monolith-decomposition.md#residual-body-inventory-measured-2026-11-20):

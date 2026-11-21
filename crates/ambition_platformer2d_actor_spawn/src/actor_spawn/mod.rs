@@ -976,7 +976,8 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     // The placement it sleeps until is cleared (`RoomSpec::boss_successions`).
     wakes_after: Option<String>,
 ) {
-    let mut boss = BossClusterScratch::new(&sprite_content,
+    // Not yet sized: its character sizes it below, once.
+    let mut boss = BossClusterScratch::before_sizing(
         boss_catalog,
         authored.id.clone(),
         authored.name.clone(),

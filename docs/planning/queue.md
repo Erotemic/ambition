@@ -167,8 +167,10 @@ row draws the sheet his fight wears, and the boss rows' generated display names
 are fixed. The bill name stays the placement's, an occurrence fact
 ([3a record](engine/boss-character-unification.md)). Slice 3b: a boss sheet
 draws its character's image, and the art keys name only the sheets no boss
-character draws. Next is 3c: delete the scratch's compatibility sheet sizing
-(`resolve_sheet_body`) and the obsolete adapters, then slice 4.
+character draws. Slice 3c: construction sizes
+a boss once, through its character (`before_sizing`, then
+`size_from_character`). Next is slice 4: re-run the headless frame baseline
+against `target/notrace/ambition_game_bin.baseline-feb420d2a`.
 **Defect:** boss construction bypasses the prepared character body path. Hall
 entries duplicate some boss characters; others, including Gallus, are absent.
 **Next:** follow [the owner plan](engine/boss-character-unification.md), starting

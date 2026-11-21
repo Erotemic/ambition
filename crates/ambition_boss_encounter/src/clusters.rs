@@ -395,9 +395,26 @@ pub struct BossClusterScratch {
 }
 
 impl BossClusterScratch {
-    /// Build the boss clusters directly from spawn inputs (tests / non-ECS
-    /// callers; see the struct docs).
+    /// Build the boss clusters directly from spawn inputs, with the body its
+    /// sheet draws (tests and non-ECS callers that hold no prepared cast; see
+    /// the struct docs). Construction builds with [`Self::before_sizing`] and
+    /// sizes through the character instead.
     pub fn new(sprite_content: &ambition_sprite_sheet::SpriteContent,
+        boss_catalog: &super::BossCatalog,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        brain: ambition_entity_catalog::placements::BossBrain,
+    ) -> Self {
+        let mut boss = Self::before_sizing(boss_catalog, id, name, aabb, brain);
+        boss.resolve_sheet_body(sprite_content, boss_catalog);
+        boss
+    }
+
+    /// The boss clusters at the placement box, not yet sized: the encounter,
+    /// its health and its config. [`Self::size_from_character`] then sizes
+    /// the body once, so construction builds no provisional body to repair.
+    pub fn before_sizing(
         boss_catalog: &super::BossCatalog,
         id: impl Into<String>,
         name: impl Into<String>,
@@ -420,7 +437,7 @@ impl BossClusterScratch {
         // The occurrence's health from the start: the encounter's. A placement
         // override replaces it before the body is spawned.
         let health = ambition_characters::actor::Health::new(seed.encounter.max_hp.max(1));
-        let mut boss = Self {
+        Self {
             kin: BodyKinematics { material: Default::default(),
                 pos: center,
                 // Bosses float: the brain emits a new `desired_vel` each tick,
@@ -449,9 +466,7 @@ impl BossClusterScratch {
                 stage: Default::default(),
             },
             health: ambition_characters::actor::BodyHealth::new(health),
-        };
-        boss.resolve_sheet_body(&sprite_content, boss_catalog);
-        boss
+        }
     }
 
     /// Size the body from its character, at its encounter's scale: the body is
@@ -488,8 +503,9 @@ impl BossClusterScratch {
                 self.kin.canonical_size = geometry.collision * scale;
             }
             // A character whose sheet states no body answers with the placement
-            // box; the sheet body `new` resolved is the better fact then.
+            // box; the boss sheet's own body is the better fact then.
             None => {
+                self.resolve_sheet_body(sprite_content, boss_catalog);
                 self.status.render_size *= scale;
                 self.kin.canonical_size *= scale;
             }
@@ -509,10 +525,11 @@ impl BossClusterScratch {
     /// `combat_size`. The sheet table is baked, so every build answers the
     /// same. Call it again after a change to `config.behavior`.
     ///
-    /// TODO(compat-remove): construction sizes a boss from its character
-    /// ([`Self::size_from_character`]). This remains for callers that hold no
-    /// prepared cast (unit fixtures, the geometry-debug hurtboxes); delete it
-    /// when 2c builds the boss body on the common seed.
+    /// Construction sizes a boss from its character
+    /// ([`Self::size_from_character`]), which reads this only when the
+    /// character's sheet states no body. Callers that hold no prepared cast
+    /// (unit fixtures, the geometry-debug hurtboxes) size by it through
+    /// [`Self::new`].
     pub fn resolve_sheet_body(&mut self, sprite_content: &ambition_sprite_sheet::SpriteContent, boss_catalog: &super::BossCatalog) {
         let Some((metrics, body)) = crate::ecs::boss_sprite_metrics_from_registry(
             boss_catalog,

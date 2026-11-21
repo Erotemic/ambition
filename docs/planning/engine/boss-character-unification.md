@@ -380,6 +380,15 @@ preflight still finds every boss's art. The sheet's frame grid and its rows
 (`boss_sheets.ron`) stay boss data. A boss's row vocabulary is not a
 character's, and the plan does not merge animation enums.
 
+**3c record (2026-11-21).** Construction builds no provisional body.
+`BossClusterScratch::before_sizing` builds the encounter, health and config at
+the placement box, and `size_from_character` sizes the body once. The boss
+sheet's own body (`resolve_sheet_body`) is read there only when the
+character's sheet states no body. `BossClusterScratch::new` stays the
+constructor for callers that hold no prepared cast: unit fixtures, the
+geometry-debug tool and content validation. Construction no longer sizes from
+the sheet and then overwrites the result.
+
 **Headless frame baseline** (tree `feb420d2a`). Measured with
 `scripts/measure/headless_room_frame.sh`: the `profiling` build without Tracy,
 2000 ticks, 3 reps, and the median of the census windows (ms per frame). The

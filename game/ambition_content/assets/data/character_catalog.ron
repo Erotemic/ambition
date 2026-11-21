@@ -11722,8 +11722,10 @@
             manifest: "sprites/math_show_goat_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
-            // The prop was 80 high, horns and all.
-            standing_height: Some(80.0),
+            // 44 high, hooves to horn tips: a big nanny goat (about 1.1 m)
+            // beside a person's 68. The closet prop's 80 stood her taller
+            // than the townsfolk.
+            standing_height: Some(44.0),
             composition: None,
             default_brain: "grazing_roam",
             default_action_set: "peaceful",
@@ -11744,8 +11746,9 @@
             manifest: "sprites/math_show_car_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
-            // The prop was 90 high to the top of the bow.
-            standing_height: Some(90.0),
+            // 60 high, tyres to the top of the bow, and about 220 long: a
+            // fifties convertible (about 1.4 m by 5.5 m) beside a person's 68.
+            standing_height: Some(60.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",

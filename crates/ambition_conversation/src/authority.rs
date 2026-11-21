@@ -136,10 +136,16 @@ impl LiveConversation {
     /// Whether two conversations would claim one seat's input: an owner
     /// that accepts every seat overlaps every other.
     fn shares_a_seat_with(&self, other: &LiveConversation) -> bool {
-        match (self.input_owner, other.input_owner) {
-            (InputOwner::Participant(a), InputOwner::Participant(b)) => a == b,
-            _ => true,
-        }
+        same_seat(self.input_owner, other.input_owner)
+    }
+}
+
+/// Whether two owners name one seat: two participants are one only when they
+/// are the same one, and the primary or every participant is any seat.
+fn same_seat(a: InputOwner, b: InputOwner) -> bool {
+    match (a, b) {
+        (InputOwner::Participant(a), InputOwner::Participant(b)) => a == b,
+        _ => true,
     }
 }
 
@@ -161,6 +167,12 @@ impl ActiveConversation {
     /// struct literal makes a new fact break every call site. A conversation
     /// that shares a body or a seat with this one is replaced by it, as the
     /// one conversation used to be.
+    /// Whether another seat's conversation holds one of `bodies`: a body talking
+    /// to one player is not taken from them by another.
+    pub fn held_by_another_seat(&self, owner: InputOwner, bodies: &[Entity]) -> bool {
+        self.live.iter().any(|live| !same_seat(live.input_owner, owner) && bodies.iter().any(|body| live.includes(*body)))
+    }
+
     pub fn open(&mut self, live: LiveConversation) {
         self.live.retain(|other| !other.shares_a_seat_with(&live) && !live.bodies().any(|body| other.includes(body)));
         self.live.push(live);

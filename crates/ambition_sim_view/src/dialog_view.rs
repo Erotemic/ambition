@@ -10,7 +10,7 @@
 //! with the same controls.
 
 use ambition_dialog::DialogState;
-use bevy::prelude::{DetectChanges, DetectChangesMut, Entity, Query, Res, ResMut, Resource};
+use bevy::prelude::{Commands, Component, DetectChanges, DetectChangesMut, Entity, Query, Ref, Res, ResMut, Resource};
 
 /// The controls a dialogue box names, for the seat that answers it, in the
 /// vocabulary of that seat's current device ("F" on a keyboard preset, "A" on
@@ -187,33 +187,83 @@ pub fn rebuild_dialog_view(
     if view.controls.hold_to_skip {
         *view = DialogView::default();
     }
-    mirror_conversation(dialogue, conversation, &mut view);
+    match dialogue {
+        Some(dialogue) => {
+            let changed = dialogue.is_changed();
+            mirror_conversation(&dialogue, changed, conversation.as_deref(), conversation.as_ref().is_some_and(|c| c.is_changed()), &mut view);
+        }
+        None => {
+            if view.active || view.input_owner.is_some() || view.instance.is_some() {
+                *view = DialogView::default();
+            }
+        }
+    }
     let controls = DialogControls::of(view.input_owner, bindings.as_deref(), devices.as_deref(), false);
     if view.controls != controls {
         view.controls = controls;
     }
 }
 
+/// The view of a conversation beside the main one: its
+/// [`ambition_dialog::DialogSlot`] mirrored the way [`DialogView`] mirrors the
+/// main [`DialogState`] (SIMULATION-ISLANDS N3). A presenter draws one box per
+/// view, each over its own seat's view.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct SlotDialogView(pub DialogView);
+
+/// Rebuild each slot's [`SlotDialogView`], change-gated as [`rebuild_dialog_view`].
+pub fn rebuild_slot_dialog_views(
+    mut commands: Commands,
+    slots: Query<(Entity, Ref<ambition_dialog::DialogSlot>, Option<&mut SlotDialogView>)>,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    (bindings, devices): (
+        Option<Res<ambition_input::SeatBindings>>,
+        Option<Res<ambition_input::SeatActiveDevices>>,
+    ),
+) {
+    let conversation_changed = conversation.as_ref().is_some_and(|c| c.is_changed());
+    for (entity, slot, view) in slots {
+        let Some(view) = view else {
+            let mut fresh = DialogView::default();
+            mirror_into(&slot.0, conversation.as_deref(), &mut fresh);
+            fresh.controls = DialogControls::of(fresh.input_owner, bindings.as_deref(), devices.as_deref(), false);
+            commands.entity(entity).insert(SlotDialogView(fresh));
+            continue;
+        };
+        let mut view = view.map_unchanged(|view| &mut view.0);
+        mirror_conversation(&slot.0, slot.is_changed(), conversation.as_deref(), conversation_changed, &mut view);
+        let controls = DialogControls::of(view.input_owner, bindings.as_deref(), devices.as_deref(), false);
+        if view.controls != controls {
+            view.controls = controls;
+        }
+    }
+}
+
 /// Mirror the live conversation into the view, change-gated.
 fn mirror_conversation(
-    dialogue: Option<Res<DialogState>>,
-    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
-    view: &mut ResMut<DialogView>,
+    dialogue: &DialogState,
+    dialogue_changed: bool,
+    conversation: Option<&ambition_conversation::ActiveConversation>,
+    conversation_changed: bool,
+    view: &mut impl std::ops::DerefMut<Target = DialogView>,
 ) {
-    let Some(dialogue) = dialogue else {
-        if view.active || view.input_owner.is_some() || view.instance.is_some() {
-            **view = DialogView::default();
-        }
-        return;
-    };
     // Nothing to mirror while the state is unchanged and the view already
     // agrees it is open or closed. An open dialogue that waits for the player
     // writes nothing, so its box is not rebuilt each tick.
     let shown = dialogue.active() && !dialogue.held();
-    if !dialogue.is_changed() && view.active == shown
-        && conversation.as_ref().is_none_or(|conversation| !conversation.is_changed()) {
+    if !dialogue_changed && view.active == shown && !conversation_changed {
         return;
     }
+    mirror_into(dialogue, conversation, &mut **view);
+}
+
+/// Write `dialogue` into `view`.
+fn mirror_into(
+    dialogue: &DialogState,
+    conversation: Option<&ambition_conversation::ActiveConversation>,
+    view: &mut DialogView,
+) {
+    let shown = dialogue.active() && !dialogue.held();
     // ⭐⭐ ONE DESTRUCTURE, NO `..`, COVERING BOTH BRANCHES. Every field of the
     // view was written by hand TWICE here — once to blank it when the dialogue
     // ends, once to refill it while one runs — so a TENTH field would have been
@@ -245,7 +295,7 @@ fn mirror_conversation(
         selected_option,
         // Written by the caller, from the seat this writes.
         controls: _,
-    } = &mut **view;
+    } = view;
 
     *active = shown;
     *confirm_action = dialogue.confirm_action();
@@ -253,7 +303,6 @@ fn mirror_conversation(
     *input_owner = dialogue.input_owner();
     // The box's conversation: the one its input owner drives.
     let next_instance = conversation
-        .as_deref()
         .zip(dialogue.input_owner())
         .and_then(|(conversation, owner)| conversation.of_owner(owner))
         .map(|live| &live.instance);

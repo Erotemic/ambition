@@ -15,7 +15,7 @@ use bevy::log::info;
 use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_sim_view::DialogView;
+use ambition_sim_view::{DialogView, SlotDialogView};
 #[cfg(test)]
 use ambition_sim_view::{LocalView, LocalViewId, ViewParticipant, ViewPlacement};
 use crate::ui_surface::ParticipantSurface;
@@ -54,6 +54,39 @@ pub struct DialogPresentationSet;
 #[derive(Component)]
 pub struct DialogOverlayRoot;
 
+/// Which view an overlay root draws: `None` the main [`DialogView`],
+/// `Some(slot)` that slot's [`SlotDialogView`] (SIMULATION-ISLANDS N3). Each
+/// box sits over its own seat's view.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct DialogBoxSource(pub Option<Entity>);
+
+/// Every dialogue view a presenter draws: the main one and each slot's.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct DialogViews<'w, 's> {
+    main: Res<'w, DialogView>,
+    slots: Query<'w, 's, (Entity, Ref<'static, SlotDialogView>)>,
+}
+
+impl DialogViews<'_, '_> {
+    /// Each view, with whether it changed since the presenter last ran.
+    pub fn iter(&self) -> impl Iterator<Item = (DialogBoxSource, &DialogView, bool)> {
+        std::iter::once((DialogBoxSource(None), &*self.main, self.main.is_changed())).chain(
+            self.slots.iter().map(|(slot, view)| {
+                let changed = view.is_changed();
+                (DialogBoxSource(Some(slot)), &view.into_inner().0, changed)
+            }),
+        )
+    }
+
+    /// The view `source` names, while it exists.
+    pub fn of(&self, source: DialogBoxSource) -> Option<&DialogView> {
+        match source.0 {
+            None => Some(&*self.main),
+            Some(slot) => self.slots.get(slot).ok().map(|(_, view)| &view.into_inner().0),
+        }
+    }
+}
+
 pub fn dialog_owner_label(owner: Option<ambition_input::InputOwner>) -> String {
     match owner {
         Some(ambition_input::InputOwner::Participant(id)) => format!("P{}", u16::from(id.slot()) + 1),
@@ -66,18 +99,20 @@ pub fn dialog_owner_label(owner: Option<ambition_input::InputOwner>) -> String {
 
 fn fit_dialog_surface(
     surface: ParticipantSurface,
-    dialogue: Res<DialogView>,
+    views: DialogViews,
     mut pointer_region: ResMut<ambition_ui_nav::DialogPointerRegion>,
-    mut roots: Query<(&mut Node, &mut Visibility), With<DialogOverlayRoot>>,
+    mut roots: Query<(&mut Node, &mut Visibility, Option<&DialogBoxSource>), With<DialogOverlayRoot>>,
 ) {
-    let rect = dialogue
-        .active
-        .then(|| surface.rect(dialogue.input_owner))
-        .flatten();
-    if pointer_region.0 != rect {
-        pointer_region.0 = rect;
+    let rect_of = |source: DialogBoxSource| views.of(source)
+        .filter(|view| view.active)
+        .and_then(|view| surface.rect(view.input_owner));
+    // The pointer answers the main box.
+    let main = rect_of(DialogBoxSource(None));
+    if pointer_region.0 != main {
+        pointer_region.0 = main;
     }
-    for (mut node, mut visibility) in &mut roots {
+    for (mut node, mut visibility, source) in &mut roots {
+        let rect = rect_of(source.copied().unwrap_or_default());
         let next_visibility = if rect.is_some() {
             Visibility::Inherited
         } else {
@@ -131,8 +166,9 @@ pub fn claim_dialog_presentation(app: &mut App, owner: &'static str) {
 
 /// Run condition of [`DialogPresentationSet`]: a dialogue is shown, or its
 /// view changed since the last frame.
-pub fn a_dialogue_is_shown_or_changed(view: Option<Res<DialogView>>) -> bool {
+pub fn a_dialogue_is_shown_or_changed(view: Option<Res<DialogView>>, slots: Query<Ref<SlotDialogView>>) -> bool {
     view.is_some_and(|view| view.active || view.is_changed())
+        || slots.iter().any(|slot| slot.0.active || slot.is_changed())
 }
 
 /// Plain reusable-engine fallback. Games with product-specific framing should
@@ -157,27 +193,47 @@ pub struct DefaultDialogFooter;
 
 pub fn sync_default_dialog_ui(
     mut commands: Commands,
-    dialogue: Res<DialogView>,
-    overlays: Query<Entity, With<DialogOverlayRoot>>,
+    views: DialogViews,
+    overlays: Query<(Entity, Option<&DialogBoxSource>), With<DialogOverlayRoot>>,
     ui_fonts: Option<Res<UiFonts>>,
     surface: ParticipantSurface,
-    mut previous_rect: Local<Option<Rect>>,
+    mut previous_rect: Local<std::collections::HashMap<DialogBoxSource, Option<Rect>>>,
     mut logged_font_state: Local<bool>,
 ) {
+    // A box whose view is gone goes with it.
+    for (entity, source) in &overlays {
+        if views.of(source.copied().unwrap_or_default()).is_none() {
+            commands.entity(entity).despawn();
+        }
+    }
     let fonts_changed = ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed());
-    let rect = surface.rect(dialogue.input_owner);
-    let layout_changed = *previous_rect != rect;
-    *previous_rect = rect;
-    if !dialogue.is_changed() && !fonts_changed && !layout_changed {
-        return;
+    for (source, dialogue, changed) in views.iter() {
+        let rect = surface.rect(dialogue.input_owner);
+        let layout_changed = previous_rect.insert(source, rect) != Some(rect);
+        if !changed && !fonts_changed && !layout_changed {
+            continue;
+        }
+        for (entity, root) in &overlays {
+            if root.copied().unwrap_or_default() == source {
+                commands.entity(entity).despawn();
+            }
+        }
+        if !dialogue.active || rect.is_none() {
+            continue;
+        }
+        spawn_default_dialog_box(&mut commands, source, dialogue, rect.unwrap(), ui_fonts.as_deref(), &surface, &mut logged_font_state);
     }
+}
 
-    for entity in overlays.iter() {
-        commands.entity(entity).despawn();
-    }
-    if !dialogue.active || rect.is_none() {
-        return;
-    }
+fn spawn_default_dialog_box(
+    commands: &mut Commands,
+    source: DialogBoxSource,
+    dialogue: &DialogView,
+    rect: Rect,
+    ui_fonts: Option<&UiFonts>,
+    surface: &ParticipantSurface,
+    logged_font_state: &mut bool,
+) {
 
     let title = format!(
         "{} · {}",
@@ -188,7 +244,6 @@ pub fn sync_default_dialog_ui(
     let selected = dialogue.selected_option;
 
     let selected_marker = ui_fonts
-        .as_deref()
         .map(UiFonts::selected_marker)
         .unwrap_or(">");
 
@@ -200,7 +255,6 @@ pub fn sync_default_dialog_ui(
             .join(" ");
 
         let font_state = ui_fonts
-            .as_deref()
             .map(|fonts| {
                 format!(
                     "regular={}, semibold={}",
@@ -219,7 +273,6 @@ pub fn sync_default_dialog_ui(
 
     let dialog_font = |font_size: f32, weight: UiFontWeight| {
         ui_fonts
-            .as_deref()
             .map(|fonts| fonts.text_font(font_size, weight))
             .unwrap_or(TextFont {
                 font_size: FontSize::Px(font_size),
@@ -244,12 +297,13 @@ pub fn sync_default_dialog_ui(
                     align_items: AlignItems::Center,
                     ..default()
                 };
-                surface.place(&mut node, rect.unwrap());
+                surface.place(&mut node, rect);
                 node
             },
             ZIndex(45),
             Name::new("Default Dialogue Overlay Root"),
             DialogOverlayRoot,
+            source,
         ))
         .with_children(|root| {
             root.spawn((
@@ -296,7 +350,7 @@ pub fn sync_default_dialog_ui(
                     );
                 }
 
-                let hint = default_hint(&dialogue);
+                let hint = default_hint(dialogue);
                 parent
                     .spawn((
                         Node {
@@ -421,6 +475,38 @@ mod tests {
             .world_mut()
             .query_filtered::<Entity, With<DialogOverlayRoot>>();
         assert_eq!(roots.iter(app.world()).count(), 1);
+    }
+
+    /// SIMULATION-ISLANDS N3: two seats in two conversations, each box over its
+    /// own seat's view; the pointer answers the main box; a slot's box goes
+    /// when its conversation ends and the other stays.
+    #[test]
+    fn each_seats_conversation_draws_its_own_box_over_its_own_view() {
+        use ambition_characters::control::PlayerSlot;
+        use ambition_input::{InputOwner, ParticipantId};
+        let mut app = App::new();
+        let seat = |n| Some(InputOwner::Participant(ParticipantId(n)));
+        app.insert_resource(DialogView { active: true, input_owner: seat(0), body: "The shop".to_owned(), ..default() });
+        app.add_plugins(DefaultDialogUiPlugin);
+        let slot = app.world_mut().spawn(SlotDialogView(DialogView {
+            active: true, input_owner: seat(1), body: "The forge".to_owned(), ..default()
+        })).id();
+        app.world_mut().spawn((LocalView, LocalViewId(0), ViewParticipant(PlayerSlot(0)), ViewPlacement::column(0, 2)));
+        app.world_mut().spawn((LocalView, LocalViewId(1), ViewParticipant(PlayerSlot(1)), ViewPlacement::column(1, 2)));
+        app.update();
+        let mut roots = app.world_mut().query_filtered::<(&Node, &DialogBoxSource), With<DialogOverlayRoot>>();
+        let mut placed: Vec<_> = roots.iter(app.world()).map(|(node, source)| (source.0, node.left)).collect();
+        placed.sort_by_key(|(source, _)| source.is_some());
+        assert_eq!(placed, vec![(None, Val::Px(0.0)), (Some(slot), Val::Px(640.0))], "a box per seat, over its own half");
+        assert_eq!(
+            app.world().resource::<ambition_ui_nav::DialogPointerRegion>().0,
+            Some(Rect::from_corners(Vec2::ZERO, Vec2::new(640.0, 720.0))),
+            "the pointer answers the main box",
+        );
+        app.world_mut().get_mut::<SlotDialogView>(slot).unwrap().0.active = false;
+        app.update();
+        let sources: Vec<_> = roots.iter(app.world()).map(|(_, source)| source.0).collect();
+        assert_eq!(sources, vec![None], "the forge's box went with its conversation; the shop's stays");
     }
 
     #[test]

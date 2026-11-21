@@ -268,6 +268,49 @@ fn player_two_can_talk_while_player_one_plays_in_the_same_room() {
     );
 }
 
+/// SIMULATION-ISLANDS N3: two players talk at once in one room, each in its
+/// own conversation, runner and box, each answered only by its own pad.
+#[test]
+fn two_players_talk_at_once_each_in_its_own_box() {
+    use ambition_platformer2d::dialog::{DialogSlot, DialogState};
+    use ambition_platformer2d::input::{InputOwner, ParticipantId};
+    use crate::alices_reading_reaches_bob::{npc, put_body_at};
+    let (app, pads) = session(2, true);
+    let (mut app, pads) = player_two_dialogue_at_choices(app, pads, true);
+    let alices_choice = app.world().resource::<DialogState>().selected_option();
+    // Player one walks up to a hen and talks to it while player two is at Alice's choices.
+    let one = the_primary(&mut app);
+    let hen = npc(&mut app, "chicken_hen");
+    let at = app.world().get::<BodyKinematics>(hen).unwrap().pos;
+    put_body_at(&mut app, one, at);
+    for _ in 0..10 { app.update(); }
+    tap(&mut app, pads[0], GamepadButton::RightTrigger);
+    for _ in 0..10 { app.update(); }
+    let world = app.world_mut();
+    let live = world.resource::<ambition_platformer2d::conversation::ActiveConversation>().conversations().count();
+    assert_eq!(live, 2, "player one's talk opened beside player two's");
+    let mut slots = world.query::<&DialogSlot>();
+    let hens = slots.iter(world).find(|slot| slot.0.active()).expect("player one's talk runs on a slot of its own");
+    assert_eq!(hens.0.input_owner(), Some(InputOwner::Participant(ParticipantId(0))));
+    let mut roots = world.query_filtered::<&ambition_platformer2d::render::dialog_ui::DialogBoxSource,
+        With<ambition_platformer2d::render::dialog_ui::DialogOverlayRoot>>();
+    assert_eq!(roots.iter(world).count(), 2, "a box for each conversation");
+    // Player one's presses move only the hen's talk: Alice's box keeps its choice.
+    for _ in 0..40 {
+        tap(&mut app, pads[0], GamepadButton::South);
+        let world = app.world_mut();
+        if !world.query::<&DialogSlot>().iter(world).any(|slot| slot.0.active()) { break; }
+    }
+    let world = app.world_mut();
+    assert!(!world.query::<&DialogSlot>().iter(world).any(|slot| slot.0.active()), "player one could not finish the hen's talk");
+    let alice = world.resource::<DialogState>();
+    assert!(alice.active(), "player two's talk goes on");
+    assert_eq!(alice.selected_option(), alices_choice, "player one's presses did not reach player two's box");
+    let mut roots = world.query_filtered::<&ambition_platformer2d::render::dialog_ui::DialogBoxSource,
+        With<ambition_platformer2d::render::dialog_ui::DialogOverlayRoot>>();
+    assert_eq!(roots.iter(world).map(|source| source.0).collect::<Vec<_>>(), vec![None], "the hen's box went with its talk");
+}
+
 fn player_two_dialogue_at_choices(mut app: App, pads: Vec<Entity>, together: bool) -> (App, Vec<Entity>) {
     use ambition_platformer2d::dialog::DialogState;
     use ambition_platformer2d::input::InputOwner;

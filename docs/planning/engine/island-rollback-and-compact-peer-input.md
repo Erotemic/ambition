@@ -1362,6 +1362,23 @@ Slices, each with a witness:
   conversation of its own seat, so a split view draws two boxes and a hosted
   host draws its own seat's. A guest's box is the hosted-world experiment's
   question (replicated narrative), not this slice's.
+
+  **N3 done 2026-11-20.** Each slot has a `SlotDialogView` beside the main
+  `DialogView` (`rebuild_slot_dialog_views`). Each overlay root carries a
+  `DialogBoxSource` naming the view it draws, and `DialogViews` gives a
+  presenter every view; the default box and Ambition's box keep their layout
+  and portrait playback per box, and each box sits over the view of the seat
+  that holds it. The pointer region answers the main box. The refusal in
+  `DialogueDispatch::open_between` is now
+  `ActiveConversation::held_by_another_seat`: a talk is refused only while one
+  of its bodies is in another seat's conversation. The `Dialogue` game mode is
+  entered only with one driving seat and one live room, so a shared session
+  never pauses for a talk. Witnesses:
+  `each_seats_conversation_draws_its_own_box_over_its_own_view`
+  (`ambition_render`) and `two_players_talk_at_once_each_in_its_own_box`
+  (`app_it`: player one talks to a hen while player two is at Alice's
+  choices; two boxes, each answering only its own pad, and the hen's box goes
+  with its talk).
 - **N4, the cutscene.** The same for `ActiveCutscene`: one per room, each
   holding only its own room's players. It already ticks on its room's pace.
 

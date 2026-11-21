@@ -991,6 +991,13 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.42, active_s: 0.24, recover_s: 0.45, damage: 2, reach_px: 58.0)),
         ),
+        // The Barrow King's slash: the specter's swing, on its frames and its
+        // telegraph, with a king's weight behind it: armored once committed, so a
+        // flurry of blows does not stop it.
+        "barrow_king_slash": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.42, active_s: 0.24, recover_s: 0.45, damage: 6, reach_px: 58.0, armored: true)),
+        ),
         // The Shift Operator's shove: she raises and turns her key (0-3, 70
         // ms), shoves a wave of chevrons one room along (4-6), and leans out,
         // open, after (7-9).
@@ -6678,6 +6685,39 @@
             idle: ["Front desk... front desk...", "Checkout was at eleven. Which eleven?"],
             hall: ["I carried bags here for an infinite number of guests. Then one more arrived.", "Every time they moved the guests along one room, a little more of me stayed behind."],
             hall_dialogue_id: Some("hall_decomposing_specter"),
+        ),
+        ),
+        // The Barrow King (level 1, `intro_barrow`): the king of the valley
+        // under the moor, in the specter's shape and slash but a king's
+        // strength. The scavengers stack their freight in his grave, and he
+        // wants all of it, chargers included. The hardest fight in level 1.
+        "barrow_king": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "The Barrow King",
+            manifest: "sprites/decomposing_specter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(70.0),
+            composition: None,
+            default_action_set: "barrow_king_slash",
+            locomotion: Some((run_speed: 95.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 58.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.9,
+                retreat_after_swing_s: 0.35,
+                attack_cooldown_s: 0.7,
+                tactics: (notice_s: 0.4),
+            )),
+            max_health: Some(16),
+            tags: ["enemy", "undead", "hobford", "barrow"],
+            cues: (notice: Some("enemy.decomposing_specter.notice"), tell: Some("enemy.decomposing_specter.tell"), swing: Some("enemy.decomposing_specter.swing"), hit: Some("enemy.decomposing_specter.hit")),
+        barks: (
+            on_hit: ["My crown!", "Kneel, grave robber!"],
+            provoked: ["Who wakes the king of the valley?"],
+            idle: ["Sixty chargers... and not one fits.", "Mine. The toasters are mine."],
         ),
         ),
         // The Shift Operator: the hotel's ghostly housekeeper, who moves every

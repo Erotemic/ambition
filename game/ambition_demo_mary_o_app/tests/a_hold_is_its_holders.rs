@@ -232,3 +232,48 @@ fn a_pipe_ride_leaves_a_recoil_and_another_holders_hold() {
         "the ride let go of her control"
     );
 }
+
+#[test]
+fn a_paused_snake_plant_keeps_its_phase_and_resumes_from_it() {
+    use ambition_demo_mary_o::plant::SnakePlantOut;
+    use ambition_platformer2d::platformer::schedule::GameMode;
+    use ambition_platformer2d::time::{SimTick, WorldTime};
+
+    let (mut app, plant) = the_plants_room();
+    for _ in 0..120 {
+        app.update();
+    }
+    let before = *app.world().get::<SnakePlantOut>(plant).unwrap();
+    app.world_mut()
+        .resource_mut::<NextState<GameMode>>()
+        .set(GameMode::Paused);
+    app.update();
+    assert_eq!(app.world().resource::<WorldTime>().sim_dt(), 0.0);
+    let paused = *app.world().get::<SnakePlantOut>(plant).unwrap();
+    let at = app.world().get::<ae::BodyKinematics>(plant).unwrap().pos;
+    let tick = app.world().resource::<SimTick>().get();
+    for _ in 0..180 {
+        app.update();
+        assert_eq!(*app.world().get::<SnakePlantOut>(plant).unwrap(), paused);
+        assert_eq!(
+            app.world().get::<ae::BodyKinematics>(plant).unwrap().pos,
+            at
+        );
+    }
+    assert!(app.world().resource::<SimTick>().get() > tick);
+    assert_eq!(before, paused);
+    app.world_mut()
+        .resource_mut::<NextState<GameMode>>()
+        .set(GameMode::Playing);
+    app.update();
+    let resumed = *app.world().get::<SnakePlantOut>(plant).unwrap();
+    let expected = (paused.cycle_tick + app.world().resource::<WorldTime>().sim_dt() * 60.0)
+        % ambition_demo_mary_o::rules::mary_o_rules()
+            .snake_plant
+            .cycle_ticks as f32;
+    assert!((resumed.cycle_tick - expected).abs() < 0.0001);
+    for _ in 0..120 {
+        app.update();
+    }
+    assert_ne!(*app.world().get::<SnakePlantOut>(plant).unwrap(), paused);
+}

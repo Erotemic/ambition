@@ -361,6 +361,7 @@ fn resolve_headless_snapshot(
             focus: CameraFocus2d {
                 center_world: focus_world,
                 tick_center_world: focus_world,
+                grounded: false,
                 size: body,
                 base_size: body,
                 facing: 1.0,

@@ -245,6 +245,7 @@ mod tests {
                 zoom_out_rate: 9.0,
                 zoom_in_rate: 8.0,
                 snap_epsilon: 0.5,
+                ..Default::default()
             },
             shake: CameraShakeTuning {
                 max_amplitude_px: 40.0,

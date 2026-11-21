@@ -3147,6 +3147,7 @@ fn apply_capture_snapshot(
                 focus: CameraFocus2d {
                     center_world: config.focus,
                     tick_center_world: config.focus,
+                    grounded: false,
                     size: ae::Vec2::new(30.0, 48.0),
                     base_size: ae::Vec2::new(30.0, 48.0),
                     facing: 1.0,

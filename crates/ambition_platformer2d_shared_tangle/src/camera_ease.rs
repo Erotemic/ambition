@@ -26,7 +26,7 @@ pub const DEFAULT_CAMERA_ZOOM_IN_RATE: f32 = 0.9;
 /// territory at the tail of the ease.
 pub const DEFAULT_CAMERA_ZOOM_SNAP_EPSILON: f32 = 0.0025;
 
-/// Tunable knobs for the camera-ease behavior. Replaces the
+/// Follow and zoom settings for a route. Replaces the
 /// hardcoded `CAMERA_ZOOM_{IN,OUT}_RATE` constants so the sandbox or
 /// tests can override the rates without recompiling. The defaults
 /// match the previous constants (`1.6` zoom-out, `0.9` zoom-in).
@@ -36,6 +36,8 @@ pub const DEFAULT_CAMERA_ZOOM_SNAP_EPSILON: f32 = 0.0025;
 /// distance at which the ease finalizes onto the target value.
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct CameraEaseTuning {
+    /// Hold the last ground height during a rise. Follow falls below that height.
+    pub hold_jump_height: bool,
     /// Scale-units per second when easing into a wider view
     /// (encounter starts; lock-wall slam moment).
     pub zoom_out_rate: f32,
@@ -49,6 +51,7 @@ pub struct CameraEaseTuning {
 impl Default for CameraEaseTuning {
     fn default() -> Self {
         Self {
+            hold_jump_height: false,
             zoom_out_rate: DEFAULT_CAMERA_ZOOM_OUT_RATE,
             zoom_in_rate: DEFAULT_CAMERA_ZOOM_IN_RATE,
             snap_epsilon: DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,

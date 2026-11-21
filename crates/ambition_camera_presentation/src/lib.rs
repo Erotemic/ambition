@@ -29,6 +29,9 @@ pub struct CameraEaseState {
     /// jumps when look-ahead flips with facing or when framing presets change.
     pub live_target_world: ae::Vec2,
     pub target_initialized: bool,
+    /// Last ground focus for the jump-height hold policy.
+    pub ground_focus: Option<ae::Vec2>,
+    pub ground_subject: Option<bevy::prelude::Entity>,
     /// `None` outside such a zone — which is what makes re-entering one a fresh scroll rather
     /// than a camera pinned to where it stopped an hour ago.
     pub scroll_watermark_x: Option<f32>,
@@ -88,6 +91,8 @@ impl Default for CameraEaseState {
             live_scale: 1.0,
             live_target_world: ae::Vec2::ZERO,
             target_initialized: false,
+            ground_focus: None,
+            ground_subject: None,
             scroll_watermark_x: None,
             live_observer_roll: None,
         }

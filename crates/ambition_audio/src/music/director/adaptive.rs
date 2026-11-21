@@ -490,9 +490,7 @@ pub(super) fn drive_outro_tail(
             director.seconds_in_mode,
         );
         director.mode = MusicDirectorMode::AdaptiveFinished;
-        director.active_cue_id = None;
-        director.current_state_id = None;
-        director.current_section_id = None;
+        director.clear_active_cue();
         channels.stop_all(900);
         zero_all_targets(director);
     }
@@ -517,9 +515,7 @@ pub(super) fn shutdown_adaptive_cue(
         director.current_section_id,
     );
     channels.stop_all(650);
-    director.active_cue_id = None;
-    director.current_state_id = None;
-    director.current_section_id = None;
+    director.clear_active_cue();
     director.mode = MusicDirectorMode::Idle;
     director.pending_state = None;
     zero_all_current_and_targets(director);

@@ -46,9 +46,10 @@ fn binding(encounter_id: &str, cue_id: &str) -> EncounterMusicBinding {
     }
 }
 
-fn director_with_active_cue(cue_id: Option<&str>) -> MusicDirectorState {
+fn director_with_active_cue(active: Option<(&str, ambition_audio::music::MusicClaim)>) -> MusicDirectorState {
     let mut s = MusicDirectorState::default();
-    s.active_cue_id = cue_id.map(|c| c.to_string());
+    s.active_cue_id = active.as_ref().map(|(cue, _)| cue.to_string());
+    s.active_claim = active.map(|(_, claim)| claim);
     // AdaptiveLoop: a non-Idle / non-Finished mode so the
     // Inactive-with-active-cue branch can fire.
     s.mode = MusicDirectorMode::AdaptiveLoop;
@@ -68,7 +69,7 @@ fn unknown_encounter_with_active_cue_returns_stop_now() {
     let states: HashMap<&str, (EncounterPhase, &EncounterWaves)> = HashMap::new();
     // The cue is currently playing for an encounter that no longer
     // exists — the resolver should stop it.
-    let director = director_with_active_cue(Some("first_goblin_tune_v2"));
+    let director = director_with_active_cue(Some(("first_goblin_tune_v2", encounter_claim("nonexistent"))));
     let bind = binding("nonexistent", "first_goblin_tune_v2");
     assert_eq!(
         resolve_directive_for_binding(&bind, &states, &director),
@@ -91,6 +92,7 @@ fn starting_phase_returns_starting_state_play() {
         Some(AdaptiveCueDirective::Play {
             cue_id: "first_goblin_tune_v2".into(),
             state_id: "intro".into(),
+            claim: encounter_claim("goblin_encounter"),
         })
     );
 }
@@ -109,6 +111,7 @@ fn active_phase_uses_wave_state_by_index() {
         Some(AdaptiveCueDirective::Play {
             cue_id: "first_goblin_tune_v2".into(),
             state_id: "wave3".into(),
+            claim: encounter_claim("goblin_encounter"),
         })
     );
 }
@@ -118,13 +121,14 @@ fn cleared_phase_returns_cleared_state_play() {
     let waves = waves_fixture(EncounterRun::default());
     let states = lookup("goblin_encounter", EncounterPhase::Completed, &waves);
     // The clearing frame: the fight's own cue is the one playing.
-    let director = director_with_active_cue(Some("first_goblin_tune_v2"));
+    let director = director_with_active_cue(Some(("first_goblin_tune_v2", encounter_claim("goblin_encounter"))));
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
         resolve_directive_for_binding(&bind, &states, &director),
         Some(AdaptiveCueDirective::Play {
             cue_id: "first_goblin_tune_v2".into(),
             state_id: "outro".into(),
+            claim: encounter_claim("goblin_encounter"),
         })
     );
 }
@@ -159,6 +163,7 @@ fn active_phase_wave2_promotes_to_reinforced_after_brute_delay() {
         Some(AdaptiveCueDirective::Play {
             cue_id: "first_goblin_tune_v2".into(),
             state_id: "wave2_brute".into(),
+            claim: encounter_claim("goblin_encounter"),
         })
     );
 }
@@ -189,7 +194,7 @@ fn resolver_iterates_multiple_bindings() {
     });
     let waves = waves_fixture(EncounterRun::default());
     let states = lookup("imaginary_arena", EncounterPhase::Completed, &waves);
-    let director = director_with_active_cue(Some("imaginary_cue"));
+    let director = director_with_active_cue(Some(("imaginary_cue", encounter_claim("imaginary_arena"))));
     // goblin_encounter binding has no encounter; imaginary_arena binding
     // is Cleared. The resolver iterates and returns the second
     // binding's Play directive.
@@ -394,6 +399,7 @@ fn a_cleared_encounter_stops_asking_once_its_outro_has_run_out() {
     let mut director = MusicDirectorState::default();
     director.mode = MusicDirectorMode::AdaptiveOutro;
     director.active_cue_id = Some("first_goblin_tune_v2".into());
+    director.active_claim = Some(encounter_claim("goblin_encounter"));
     assert!(
         matches!(
             resolve_adaptive_directive(&catalog, &states, &director),
@@ -405,6 +411,7 @@ fn a_cleared_encounter_stops_asking_once_its_outro_has_run_out() {
     // Exactly what `finish_adaptive_outro` leaves behind.
     director.mode = MusicDirectorMode::AdaptiveFinished;
     director.active_cue_id = None;
+    director.active_claim = None;
     assert_eq!(
         resolve_adaptive_directive(&catalog, &states, &director),
         None,
@@ -690,7 +697,7 @@ fn trail_catalog() -> MusicCueCatalog {
 
 fn asked_state(directive: Option<AdaptiveCueDirective>) -> Option<String> {
     match directive {
-        Some(AdaptiveCueDirective::Play { cue_id, state_id }) => {
+        Some(AdaptiveCueDirective::Play { cue_id, state_id, .. }) => {
             assert_eq!(cue_id, "trail");
             Some(state_id)
         }
@@ -711,7 +718,7 @@ fn a_room_asks_for_its_entry_state_only_while_its_cue_is_not_playing() {
         asked_state(resolve_room_directive(&catalog, "trailhead", false, &idle)),
         Some("intro".into())
     );
-    let mut playing = director_with_active_cue(Some("trail"));
+    let mut playing = director_with_active_cue(Some(("trail", room_claim("trailhead"))));
     playing.mode = MusicDirectorMode::AdaptiveIntro;
     assert_eq!(
         asked_state(resolve_room_directive(&catalog, "trailhead", false, &playing)),
@@ -736,7 +743,7 @@ fn a_room_asks_for_its_entry_state_only_while_its_cue_is_not_playing() {
 #[test]
 fn a_fight_takes_the_rooms_fight_state_or_the_room() {
     let catalog = trail_catalog();
-    let playing = director_with_active_cue(Some("trail"));
+    let playing = director_with_active_cue(Some(("trail", room_claim("hall"))));
     assert_eq!(
         asked_state(resolve_room_directive(&catalog, "hall", true, &playing)),
         Some("fight".into())
@@ -761,7 +768,7 @@ fn wolf_catalog() -> MusicCueCatalog {
 fn a_bosss_phase_chooses_the_state_of_its_cue() {
     let catalog = wolf_catalog();
     let idle = MusicDirectorState::default();
-    let play = |state: &str| Some(AdaptiveCueDirective::Play { cue_id: "march".into(), state_id: state.into() });
+    let play = |state: &str| Some(AdaptiveCueDirective::Play { cue_id: "march".into(), state_id: state.into(), claim: boss_claim("wolf") });
     assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Phase1")], &idle), play("march"));
     assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Transition")], &idle), play("unleash"));
     assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Enrage")], &idle), play("storm"));
@@ -774,7 +781,7 @@ fn a_bosss_phase_chooses_the_state_of_its_cue() {
 #[test]
 fn a_bound_cue_stops_when_its_boss_has_no_state_left() {
     let catalog = wolf_catalog();
-    let playing = director_with_active_cue(Some("march"));
+    let playing = director_with_active_cue(Some(("march", boss_claim("wolf"))));
     assert_eq!(resolve_boss_directive(&catalog, &[("wolf", "Death")], &playing), Some(AdaptiveCueDirective::StopNow));
     assert_eq!(resolve_boss_directive(&catalog, &[], &playing), Some(AdaptiveCueDirective::StopNow));
 }
@@ -805,8 +812,8 @@ fn a_fallen_bosss_outro_plays_one_time() {
         cue_id: "fight".into(),
         phase_states: vec![row("Phase1", "loop"), row("Death", "outro")],
     }]);
-    let outro = Some(AdaptiveCueDirective::Play { cue_id: "fight".into(), state_id: "outro".into() });
-    let playing = director_with_active_cue(Some("fight"));
+    let outro = Some(AdaptiveCueDirective::Play { cue_id: "fight".into(), state_id: "outro".into(), claim: boss_claim("gnu") });
+    let playing = director_with_active_cue(Some(("fight", boss_claim("gnu"))));
     assert_eq!(resolve_boss_directive(&catalog, &[("gnu", "Death")], &playing), outro);
     let after_the_outro = MusicDirectorState::default();
     assert_eq!(resolve_boss_directive(&catalog, &[("gnu", "Death")], &after_the_outro), None);

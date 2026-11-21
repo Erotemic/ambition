@@ -26,7 +26,7 @@ use ambition_encounter::{
 };
 
 use ambition_audio::music::{
-    AdaptiveCueDirective, MusicDirectorState, MusicIntent,
+    AdaptiveCueDirective, MusicClaim, MusicDirectorState, MusicIntent,
 };
 use ambition_audio::music::{
     AdaptiveMusicCatalogRegistry, EncounterMusicBinding, MusicCueCatalog, MusicDirectorMode,
@@ -318,6 +318,23 @@ pub(super) fn simple_track_candidates(
     candidates
 }
 
+/// The claim of a room's binding. Rooms that bind one cue share its playback,
+/// so a room's claim is never asked to stop anything.
+pub(super) fn room_claim(room_id: &str) -> MusicClaim {
+    MusicClaim(format!("room:{room_id}"))
+}
+
+/// The claim of an encounter's binding: only this encounter's cue is its own to
+/// stop or to end with the outro.
+pub(super) fn encounter_claim(encounter_id: &str) -> MusicClaim {
+    MusicClaim(format!("encounter:{encounter_id}"))
+}
+
+/// The claim of a boss's binding, as [`encounter_claim`].
+pub(super) fn boss_claim(boss_id: &str) -> MusicClaim {
+    MusicClaim(format!("boss:{boss_id}"))
+}
+
 /// Iterate the catalog's encounter bindings and return the first live
 /// adaptive directive. (Iterating bindings rather than hardcoding an
 /// encounter id lets future boss / mini-boss cues drop in by adding a
@@ -372,6 +389,7 @@ pub(super) fn resolve_room_directive(
     Some(AdaptiveCueDirective::Play {
         cue_id: binding.cue_id.clone(),
         state_id: state_id.clone(),
+        claim: room_claim(room_id),
     })
 }
 
@@ -413,7 +431,8 @@ pub(super) fn resolve_boss_directive(
 ) -> Option<AdaptiveCueDirective> {
     let mut stop = false;
     for binding in catalog.boss_bindings() {
-        let cue_active = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str());
+        let claim = boss_claim(&binding.boss_id);
+        let cue_active = director.plays_for(&claim);
         let state = bosses
             .iter()
             .filter(|(id, _)| *id == binding.boss_id)
@@ -421,7 +440,7 @@ pub(super) fn resolve_boss_directive(
         match state {
             Some(state_id) if !cue_active && catalog.is_outro_state(&binding.cue_id, state_id) => {}
             Some(state_id) => {
-                return Some(AdaptiveCueDirective::Play { cue_id: binding.cue_id.clone(), state_id: state_id.to_string() })
+                return Some(AdaptiveCueDirective::Play { cue_id: binding.cue_id.clone(), state_id: state_id.to_string(), claim })
             }
             None => stop |= cue_active,
         }
@@ -431,8 +450,8 @@ pub(super) fn resolve_boss_directive(
 
 /// Resolve a single encounter binding's adaptive cue directive.
 /// Returns:
-/// - `Some(StopNow)` when the encounter no longer exists but the
-///   binding's cue is still active.
+/// - `Some(StopNow)` when the encounter is not in the heard room but the
+///   cue is still playing for it.
 /// - `Some(Play { cue_id, state_id })` when the encounter is in a
 ///   phase mapped to a cue state.
 /// - `None` when the encounter is unknown / inactive AND its cue is
@@ -440,11 +459,12 @@ pub(super) fn resolve_boss_directive(
 /// The outro request for a cleared encounter — the ONE rule both `Completed` and
 /// `Inactive` ask, because they mean the same thing to the music.
 ///
-/// ⭐ AN OUTRO ONLY ENDS A CUE THAT IS PLAYING. The director sets
-/// `active_cue_id` when the cue starts, keeps it through the outro, and clears it
-/// when the outro runs out or the cue is shut down. So "is this binding's cue the
-/// active one" holds from the clearing frame to the outro's last beat, and never
-/// again after that.
+/// ⭐ AN OUTRO ONLY ENDS A CUE THAT IS PLAYING FOR THIS ENCOUNTER. The director
+/// records the cue and its claim when the cue starts, keeps them through the
+/// outro, and clears them when the outro runs out or the cue is shut down. So
+/// "is the cue playing for this binding" holds from the clearing frame to the
+/// outro's last beat, and never again after that. The same cue playing for a
+/// room (`MusicClaim`) is not this encounter's to end.
 ///
 /// ⛔⛔ THE DIRECTOR'S MODE WAS THE OLD ANSWER, and a mode is not a memory. The
 /// `Completed` arm asked only "is the mode `AdaptiveFinished`", which is true only
@@ -462,11 +482,11 @@ fn outro_directive(
     binding: &EncounterMusicBinding,
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
-    (director.active_cue_id.as_deref() == Some(binding.cue_id.as_str())).then(|| {
-        AdaptiveCueDirective::Play {
-            cue_id: binding.cue_id.clone(),
-            state_id: binding.cleared_state.clone(),
-        }
+    let claim = encounter_claim(&binding.encounter_id);
+    director.plays_for(&claim).then(|| AdaptiveCueDirective::Play {
+        cue_id: binding.cue_id.clone(),
+        state_id: binding.cleared_state.clone(),
+        claim,
     })
 }
 
@@ -475,9 +495,9 @@ pub(super) fn resolve_directive_for_binding(
     states: &HashMap<&str, (EncounterPhase, &EncounterWaves)>,
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
-    let cue_active = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str());
+    let claim = encounter_claim(&binding.encounter_id);
     let Some((phase, waves)) = states.get(binding.encounter_id.as_str()) else {
-        if cue_active {
+        if director.plays_for(&claim) {
             return Some(AdaptiveCueDirective::StopNow);
         }
         return None;
@@ -487,6 +507,7 @@ pub(super) fn resolve_directive_for_binding(
         EncounterPhase::Starting { .. } => Some(AdaptiveCueDirective::Play {
             cue_id: binding.cue_id.clone(),
             state_id: binding.starting_state.clone(),
+            claim,
         }),
         EncounterPhase::Active => {
             let wave_index = waves.run.wave_index.unwrap_or(0);
@@ -504,6 +525,7 @@ pub(super) fn resolve_directive_for_binding(
             Some(AdaptiveCueDirective::Play {
                 cue_id: binding.cue_id.clone(),
                 state_id,
+                claim,
             })
         }
         // ⛔⛔ AN OUTRO IS A ONE-SHOT, AND ASKING FOR IT IS NOT THE SAME AS

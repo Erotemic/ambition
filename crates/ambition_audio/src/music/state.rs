@@ -14,6 +14,9 @@ pub enum MusicDirectorMode {
 pub struct MusicDirectorState {
     pub mode: MusicDirectorMode,
     pub active_cue_id: Option<String>,
+    /// Who asked for the active cue. Only that claim may stop it or end it
+    /// with an outro: see [`MusicClaim`].
+    pub active_claim: Option<MusicClaim>,
     pub current_state_id: Option<String>,
     pub current_section_id: Option<String>,
     pub seconds_in_mode: f32,
@@ -38,6 +41,7 @@ impl Default for MusicDirectorState {
         Self {
             mode: MusicDirectorMode::Idle,
             active_cue_id: None,
+            active_claim: None,
             current_state_id: None,
             current_section_id: None,
             seconds_in_mode: 0.0,
@@ -59,11 +63,39 @@ impl Default for MusicDirectorState {
     }
 }
 
+impl MusicDirectorState {
+    /// Is the active cue playing for `claim`? A cue id cannot answer this: two
+    /// claims may name the same cue.
+    pub fn plays_for(&self, claim: &MusicClaim) -> bool {
+        self.active_cue_id.is_some() && self.active_claim.as_ref() == Some(claim)
+    }
+
+    /// The cue stopped or ran out: forget it, its claimant and its place.
+    pub(super) fn clear_active_cue(&mut self) {
+        self.active_cue_id = None;
+        self.active_claim = None;
+        self.current_state_id = None;
+        self.current_section_id = None;
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct PendingMusicStateTransition {
     pub(super) state_id: String,
     pub(super) delay_seconds: f32,
 }
+
+/// Who asks for an adaptive cue: an opaque key the content layer chooses (the
+/// director compares keys and reads nothing in them).
+///
+/// ⛔ THE CUE ID IS NOT THE OWNER. A room and the fight beside it may bind the
+/// same cue (Hobford's valley rooms and the workshop raid share one tune). A
+/// binding that asked "is my cue playing" by cue id took the room's playback
+/// for its own and stopped it, and the room started it again the next frame:
+/// a stop and a start every two frames, with no music heard. Whose a cue is
+/// can only be asked of the claim.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MusicClaim(pub String);
 
 /// A content-agnostic adaptive-cue intent handed to the director.
 ///
@@ -74,8 +106,8 @@ pub(super) struct PendingMusicStateTransition {
 /// catalog, so it carries no game-specific vocabulary.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AdaptiveCueDirective {
-    /// Play `cue_id` in adaptive `state_id` this frame.
-    Play { cue_id: String, state_id: String },
+    /// Play `cue_id` in adaptive `state_id` this frame, for `claim`.
+    Play { cue_id: String, state_id: String, claim: MusicClaim },
     /// Stop the active adaptive cue immediately (e.g. encounter failed).
     StopNow,
 }

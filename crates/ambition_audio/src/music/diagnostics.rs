@@ -196,7 +196,7 @@ pub fn observe_music_playback(
     report.section = director.as_ref().and_then(|d| d.current_section_id.clone());
 
     let mut content_status = MusicPlaybackStatus::MissingRequest;
-    if let Some(AdaptiveCueDirective::Play { cue_id, state_id }) = &intent.adaptive {
+    if let Some(AdaptiveCueDirective::Play { cue_id, state_id, .. }) = &intent.adaptive {
         report.expected = format!("cue:{cue_id} state:{state_id}");
         content_status = MusicPlaybackStatus::MissingContent;
         if intent.authority.allows_cue(cue_id) {

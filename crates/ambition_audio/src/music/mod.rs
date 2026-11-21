@@ -10,8 +10,8 @@ use bevy::ecs::system::SystemParam;
 use bevy::log::{debug, info, warn};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
-    AudioChannel, AudioControl, AudioEasing, AudioSource as KiraAudioSource, AudioTween,
-    DynamicAudioChannel, DynamicAudioChannels,
+    AudioChannel, AudioControl, AudioEasing, AudioInstance, AudioSource as KiraAudioSource,
+    AudioTween, DynamicAudioChannel, DynamicAudioChannels, PlaybackState,
 };
 
 use crate::library::{
@@ -20,6 +20,20 @@ use crate::library::{
 use crate::mix::MusicMix;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
+
+/// Did the backend refuse the play behind `handle`? Kira refuses a sound when
+/// every sound slot is taken, and `bevy_kira_audio` drops that play after a
+/// warning: its handle is then neither waiting in its channel (`state`) nor an
+/// instance. A play that ran and ended keeps its instance, so an ended sting
+/// is not a refusal.
+fn refused_by_backend(
+    instances: &Assets<AudioInstance>,
+    handle: &Handle<AudioInstance>,
+    state: PlaybackState,
+) -> bool {
+    instances.get(handle).is_none() && state != PlaybackState::Queued
+}
+
 const MAX_LAYERS: usize = crate::cue_spec::MAX_MUSIC_LAYERS;
 
 /// Runtime gain smoothing for adaptive layer targets.
@@ -61,7 +75,7 @@ pub use catalog::{
 pub use channels::{add_music_layer_channels, MusicLayerChannels};
 pub use director::{drive_music_director, load_music_cues};
 use state::PendingMusicStateTransition;
-pub use state::{AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent};
+pub use state::{AdaptiveCueDirective, MusicClaim, MusicDirectorMode, MusicDirectorState, MusicIntent};
 
 use channels::{LayerGains, MusicBank};
 

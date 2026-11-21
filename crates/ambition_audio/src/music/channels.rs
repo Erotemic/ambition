@@ -107,6 +107,17 @@ impl<'w> MusicLayerChannels<'w> {
         set_linear_volume(self.channel(bank, slot), linear);
     }
 
+    /// Did the backend refuse the play behind `handle` on this layer?
+    pub(super) fn layer_refused(
+        &self,
+        bank: MusicBank,
+        slot: usize,
+        handle: &Handle<bevy_kira_audio::AudioInstance>,
+        instances: &Assets<bevy_kira_audio::AudioInstance>,
+    ) -> bool {
+        refused_by_backend(instances, handle, self.channel(bank, slot).state(handle))
+    }
+
     pub(super) fn play_layer(
         &self,
         bank: MusicBank,

@@ -59,7 +59,7 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
     app.insert_resource(catalogs).insert_resource(loaded).insert_resource(library)
         .insert_resource(playback).insert_resource(MusicIntent {
             provider_id: Some("game".into()),
-            adaptive: Some(AdaptiveCueDirective::Play { cue_id: "trail".into(), state_id: "intro".into() }),
+            adaptive: Some(AdaptiveCueDirective::Play { cue_id: "trail".into(), state_id: "intro".into(), claim: MusicClaim("room".into()) }),
             authority, ..default()
         }).add_systems(Update, drive_music_director);
     (app, handles)
@@ -99,7 +99,7 @@ fn the_music_watchdog_separates_requests_decoding_backend_gaps_and_explicit_sile
     assert_eq!(report.section.as_deref(), Some("intro"));
     assert_eq!(report.gap_seconds, 1.0);
     app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
-        cue_id: "not_authored".into(), state_id: "intro".into(),
+        cue_id: "not_authored".into(), state_id: "intro".into(), claim: MusicClaim("room".into()),
     });
     step(&mut app, 0.25);
     assert_eq!(app.world().resource::<MusicPlaybackDiagnostics>().status, Some(MusicPlaybackStatus::MissingContent));
@@ -132,7 +132,7 @@ fn decoding_layers_does_not_consume_the_intro_or_split_their_start() {
     assert_eq!(director.seconds_in_mode, 0.0);
     assert_eq!(&director.target_gains[director.active_bank.index()][..2], &[1.0, 1.0]);
     app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
-        cue_id: "trail".into(), state_id: "song".into(),
+        cue_id: "trail".into(), state_id: "song".into(), claim: MusicClaim("room".into()),
     });
     for _ in 0..15 { step(&mut app, 0.25); }
     assert_eq!(app.world().resource::<MusicDirectorState>().mode, MusicDirectorMode::AdaptiveIntro);
@@ -159,13 +159,13 @@ fn a_held_intro_request_continues_on_real_time_while_the_world_is_paused() {
     assert_eq!(app.world().resource::<Time<Virtual>>().elapsed_secs(), 0.0);
     // The encounter catches up after resume; the playing loop keeps its clock.
     app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
-        cue_id: "trail".into(), state_id: "song".into(),
+        cue_id: "trail".into(), state_id: "song".into(), claim: MusicClaim("room".into()),
     });
     step(&mut app, 0.25);
     assert_eq!(app.world().resource::<MusicDirectorState>().seconds_in_loop, 10.25);
     // A later entry into the one-shot is a new request and must play it again.
     app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
-        cue_id: "trail".into(), state_id: "intro".into(),
+        cue_id: "trail".into(), state_id: "intro".into(), claim: MusicClaim("room".into()),
     });
     for _ in 0..20 { step(&mut app, 0.25); }
     assert_eq!(app.world().resource::<MusicDirectorState>().mode, MusicDirectorMode::AdaptiveIntro);
@@ -190,7 +190,7 @@ fn a_slow_later_section_does_not_delay_the_opening_or_start_partial_layers() {
     assert_eq!(director.current_section_id.as_deref(), Some("song"));
     assert_eq!(director.seconds_in_mode, 0.0);
     app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
-        cue_id: "trail".into(), state_id: "later".into(),
+        cue_id: "trail".into(), state_id: "later".into(), claim: MusicClaim("room".into()),
     });
     decode(&mut app, &handles[4]);
     for _ in 0..20 { step(&mut app, 0.25); }

@@ -63,6 +63,9 @@ pub fn drive_music_director(
     decoded: Res<Assets<KiraAudioSource>>,
     mut music_state: ResMut<MusicPlaybackState>,
     settings: Res<MusicMix>,
+    // Absent in a composition without the backend's instance store (a
+    // recording host); there no play is issued, so none can be refused.
+    instances: Option<Res<Assets<bevy_kira_audio::AudioInstance>>>,
 ) {
     let output = layer_channels.output_mode();
     let provider_id = intent.provider_id.as_deref();
@@ -79,6 +82,28 @@ pub fn drive_music_director(
     if director.mode == MusicDirectorMode::AdaptiveLoop {
         director.seconds_in_loop += dt;
     }
+
+    // ⛔ A PLAY THE BACKEND REFUSED IS NOT PLAYING. The playback record names
+    // the track either way, and a record that is never corrected never asks
+    // again. Forget a refused base track: this frame asks for it again. A
+    // refused play holds no sound slot, so asking again cannot add to the
+    // shortage that refused it.
+    let refused_layers = instances
+        .as_deref()
+        .is_some_and(|instances| {
+            if music_state
+                .instance()
+                .is_some_and(|handle| refused_by_backend(instances, handle, base_music_channel.state(handle)))
+            {
+                warn!(
+                    target: MUSIC_LOG_TARGET,
+                    "music backend refused track={}; asking again",
+                    music_state.active_track(),
+                );
+                music_state.silence();
+            }
+            whole_bank_refused(&director, &layer_channels, instances)
+        });
 
     // Provider-relative authority. A governed but empty authority is a
     // deliberate stop: the active provider authored no music, so nothing may
@@ -107,7 +132,7 @@ pub fn drive_music_director(
     // if it is in the process-wide catalog and a stale directive requests it.
     let adaptive = authorized_adaptive(&intent.authority, intent.adaptive.clone());
     match adaptive {
-        Some(AdaptiveCueDirective::Play { cue_id, state_id }) => {
+        Some(AdaptiveCueDirective::Play { cue_id, state_id, claim }) => {
             if let (Some(cue), Some(target_state)) = (
                 catalog.and_then(|catalog| catalog.cue(&cue_id)),
                 catalog
@@ -118,6 +143,19 @@ pub fn drive_music_director(
                 // provider-local, so the loaded-source key includes provider.
                 let provider_id = provider_id.expect("selected adaptive catalog has a provider");
                 assets.ensure_cue_loaded(provider_id, cue, &asset_server);
+                // Every layer of the sounding section was refused: nothing of
+                // the cue plays, so start the section again (the mode a
+                // restart answers to). A bank with any live layer is left as it
+                // is: a layer started alone would play out of step.
+                if refused_layers && director.active_cue_id.as_deref() == Some(cue_id.as_str()) {
+                    warn!(
+                        target: MUSIC_LOG_TARGET,
+                        "music backend refused every layer of cue={} section={:?}; starting it again",
+                        cue_id,
+                        director.current_section_id,
+                    );
+                    director.mode = MusicDirectorMode::Idle;
+                }
                 drive_adaptive_cue_state(
                     &mut director,
                     provider_id,
@@ -130,6 +168,11 @@ pub fn drive_music_director(
                     &settings,
                     dt,
                 );
+                // The cue sounding now is this claim's, also when another
+                // claim started it (a fight taking up the room's tune).
+                if director.active_cue_id.as_deref() == Some(cue_id.as_str()) {
+                    director.active_claim = Some(claim);
+                }
             } else {
                 warn!(
                     target: MUSIC_LOG_TARGET,
@@ -204,6 +247,23 @@ pub fn drive_music_director(
     }
 }
 
+/// Did the backend refuse every layer the active bank started? `false` when
+/// the bank started none (a recording host) or any of them plays.
+fn whole_bank_refused(
+    director: &MusicDirectorState,
+    channels: &MusicLayerChannels,
+    instances: &Assets<bevy_kira_audio::AudioInstance>,
+) -> bool {
+    let bank = director.active_bank;
+    let mut started = director.instances[bank.index()]
+        .iter()
+        .enumerate()
+        .filter_map(|(slot, handle)| Some((slot, handle.as_ref()?)))
+        .peekable();
+    started.peek().is_some()
+        && started.all(|(slot, handle)| channels.layer_refused(bank, slot, handle, instances))
+}
+
 #[cfg(test)]
 mod adaptive_authority_tests {
     use super::authorized_adaptive;
@@ -214,6 +274,7 @@ mod adaptive_authority_tests {
         Some(AdaptiveCueDirective::Play {
             cue_id: cue.to_string(),
             state_id: "intro".to_string(),
+            claim: crate::music::MusicClaim("room".into()),
         })
     }
 

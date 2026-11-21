@@ -1007,80 +1007,73 @@ pub fn adopt_checkpoint_baselines_from_save(
     }
 }
 
-/// Mirror the descriptions of every runtime mint that exists into the durable
-/// save: the live ones, and the dormant ones (OW3).
+/// The descriptions of every runtime mint that exists, as the durable save's
+/// minted rows: the live ones, and the dormant ones (OW3).
 ///
-/// Occurrence/custody rows are persisted by the lifecycle-facing durable
-/// adapter; the item domain owns this field because only it knows what a minted
-/// item description means.
+/// The item domain owns what a minted description means; the session's
+/// durable-horizon writer asks this for the rows and writes them in the same
+/// call as the occurrence rows they are keyed by, so the save cannot hold a
+/// minted row for an occurrence it does not hold.
 ///
 /// The save's field is the one record of a DORMANT mint's description. A mint
 /// left lying in a room that is not live has no entity to describe it, and no
 /// room authors a record to rebuild it from. Its row stays while the occurrence
 /// ledger places it in a room (see [`with_dormant_mints`]). The room build
 /// reads this field when that room becomes live again, and a load adopts it.
-pub fn persist_minted_item_horizon_to_save(
-    restored: Res<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>,
-    minted: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
-    ledger: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-    mut save: ResMut<AmbitionGameSave>,
-    // The inputs the rows were last mirrored with: a cache of live inputs,
-    // not state.
-    mut mirrored_with: bevy::prelude::Local<Option<MintedMirrorKey>>,
-) {
-    if !restored.0 {
-        return;
-    }
-    // ⭐ THE SAVE'S MINTED ROWS ARE MIRRORED ONLY WHEN SOMETHING THEY DEPEND ON
-    // CHANGED (FI9): the live mints, the ledger, or the save's minted rows.
-    // Otherwise the walk over every dormant mint the save describes is
-    // skipped. Measured before the gate: 24 ms a tick with 10,000 dormant
-    // mints.
-    //
-    // ⛔ THE SAME VALUES, NOT "WRITTEN" (M2 cut C). A rollback load writes the
-    // ledger and the save on every resimulated frame, so an `is_changed()`
-    // gate opened on every frame. The ledger and the save's rows are shared
-    // allocations, so a load of unchanged rows matches the key by allocation.
-    let key_now = MintedMirrorKey {
-        live: live_minted_descriptions(&minted),
-        ledger: ledger.as_deref().cloned(),
-        save_rows: save.data().minted_items_shared().clone(),
-    };
-    if mirrored_with.as_ref() == Some(&key_now) {
-        return;
-    }
-    let live = key_now.live.clone();
-    let described = with_dormant_mints(
-        live,
-        minted_baseline_from_save(save.data()).minted,
-        ledger.as_deref(),
-    );
-    let minted_items: Vec<PersistedMintedItem> = described
-        .into_iter()
-        .filter_map(|(occurrence, description)| {
-            let SpawnOrigin::Dynamic { parent, sequence } = &description.origin else {
-                return None;
-            };
-            Some(PersistedMintedItem {
-                occurrence: occurrence.as_str().to_string(),
-                parent: parent.as_str().to_string(),
-                sequence: *sequence,
-                held_item: description.held_item.clone(),
-            })
-        })
-        .collect();
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct MintedItemRows<'w, 's> {
+    minted: Query<'w, 's, (&'static SimId, &'static SpawnOrigin, &'static GroundItem, &'static ItemCustody), With<RoomScopedEntity>>,
+    // The inputs the rows were last built from, and the rows: a cache of live
+    // inputs, not state.
+    built: bevy::prelude::Local<'s, Option<(MintedMirrorKey, std::sync::Arc<Vec<PersistedMintedItem>>)>>,
+}
 
-    if save.data().minted_items() != minted_items {
-        // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
-        // `ResMut`, which marks the resource changed whether or not the value
-        // differs -- that is what the guard protects.
-        save.data_mut().set_minted_items(minted_items);
+impl MintedItemRows<'_, '_> {
+    /// The minted rows for the save as it stands and the ledger.
+    ///
+    /// ⭐ BUILT ONLY WHEN SOMETHING THEY DEPEND ON CHANGED (FI9): the live mints,
+    /// the ledger, or the save's minted rows. Otherwise the walk over every
+    /// dormant mint the save describes is skipped. Measured before the gate:
+    /// 24 ms a tick with 10,000 dormant mints.
+    ///
+    /// ⛔ THE SAME VALUES, NOT "WRITTEN" (M2 cut C). A rollback load writes the
+    /// ledger and the save on every resimulated frame, so an `is_changed()`
+    /// gate opened on every frame. The ledger and the save's rows are shared
+    /// allocations, so a load of unchanged rows matches the key by allocation.
+    pub fn rows(
+        &mut self,
+        ledger: Option<&ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+        save: &AmbitionGameSaveData,
+    ) -> std::sync::Arc<Vec<PersistedMintedItem>> {
+        let key_now = MintedMirrorKey {
+            live: live_minted_descriptions(&self.minted),
+            ledger: ledger.cloned(),
+            save_rows: save.minted_items_shared().clone(),
+        };
+        if let Some((key, rows)) = self.built.as_ref() {
+            if *key == key_now {
+                return rows.clone();
+            }
+        }
+        let described = with_dormant_mints(key_now.live.clone(), minted_baseline_from_save(save).minted, ledger);
+        let rows: Vec<PersistedMintedItem> = described
+            .into_iter()
+            .filter_map(|(occurrence, description)| {
+                let SpawnOrigin::Dynamic { parent, sequence } = &description.origin else {
+                    return None;
+                };
+                Some(PersistedMintedItem {
+                    occurrence: occurrence.as_str().to_string(),
+                    parent: parent.as_str().to_string(),
+                    sequence: *sequence,
+                    held_item: description.held_item.clone(),
+                })
+            })
+            .collect();
+        let rows = std::sync::Arc::new(rows);
+        *self.built = Some((key_now, rows.clone()));
+        rows
     }
-    // The key holds the save's rows as they are now, after the write.
-    *mirrored_with = Some(MintedMirrorKey {
-        save_rows: save.data().minted_items_shared().clone(),
-        ..key_now
-    });
 }
 
 /// The inputs the save's minted rows were last mirrored with: the live mint

@@ -170,6 +170,7 @@ fn a_load_builds_opened_a_chest_the_file_remembers_spent() {
     spent.set_durable_horizon(
         vec![PersistedOccurrence::new(chest, PersistedWhereabouts::Spent)],
         Vec::new(),
+        Vec::new(),
     );
     assert_eq!(
         (chest_after_a_load(&AmbitionGameSaveData::new()), chest_after_a_load(&spent)),

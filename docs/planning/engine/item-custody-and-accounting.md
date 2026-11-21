@@ -8,7 +8,7 @@ identity and transfer contract before consolidating item crates or making Avian 
 reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **State:** OPEN / NARROW. Physical custody, the instance/count boundary and
 persistent occurrence behavior across residency and restore are built and
-guarded. One repair is open (atomic durable-horizon write). This page owns A7
+guarded. The atomic durable-horizon write is done (2026-11-21). This page owns A7
 (separate item custody and accounting from lifecycle orchestration) in the
 [frontier](actor-monolith-work-frontier.md).
 
@@ -170,7 +170,7 @@ Each item lifetime, its owner and its phase. Paths: `AM` is
 | Authored room baseline | `construct_authored_ground_item` (`AM/construction/mod.rs`), planned by the room feature plan (`AM/features/ecs/spawn/mod.rs`) | Plan in `Update` (room-transition load); built at the commit, `RoomTransitionSet::Apply` | `GroundItem`, `SettledItem`, `ItemCustody::InWorld`; no occurrence row until first carried | H, once moved |
 | Runtime mints | Producers: `throw_held_item_system` (`HI`), `drop_held_weapon` (`AM/features/ecs/damage_drops.rs`); admission `record_placed_ground_items` (`HI`); baseline `capture_minted_item_baseline` | `HeldItemStep::Throw`; `ResidencyStep::Record`; `CheckpointCapture` | `AuthoredOccurrences` (mint flag), `MintedItemBaseline`, `BagSpendsSinceCheckpoint` | M, and H's mint flag |
 | Inventory | `OwnedItems` (`ambition_items`); capture, checkpoint restore and mirror in `minted_horizon.rs` and `persist.rs` | `CheckpointCapture`, `CheckpointDomainApply`, `DomainMirror`, `DurableRestoreSet::Domains` | `OwnedItems`, `OwnedItemsBaseline`, the primary `BodyWallet` | I |
-| Equipment | Sim: `pickup_held_item_system` / `equip_held_spec`, `return_released_items` (`HI`). Menu: `apply_menu_action` (`game/ambition_app/src/menu/effects.rs`) | Pickup and Release steps; the menu in `Update` | `HeldItem`, `ItemCustody::Held`, `InCustodyOf{Restored}` | H custody rows, for a hand backed by a ground item |
+| Equipment | Sim: `pickup_held_item_system` / `equip_held_spec`, `return_released_items` (`HI`). Menu and script: a stamped `ItemEquipRequested` / `ItemStowRequested` (`apply_menu_action`, `game/ambition_app/src/menu/effects.rs`), applied in the sim by `apply_hand_requests` → `change_hand` (`HI`) | Pickup and Release steps; the hand's requests on the tick they are stamped for | `HeldItem`, `ItemCustody::Held`, `InCustodyOf{Restored}` | H custody rows, for a hand backed by a ground item |
 | Stock loss | `spend_fighter_stocks` (`crates/ambition_combat/src/stocks.rs`); elimination despawn in Smash | `FighterStocksSpent` | Stocks, health, markers; no item or bag state | none |
 | Same-room replay | `apply_committed_checkpoint_restore` (`AM/session/checkpoint.rs`): `restore_owned_items_to_checkpoint`, then `restore_custody_to_checkpoint`; `retract_mints_of_retracted_boss_defeats`; `retire_the_previous_attempt` | `CheckpointRestore`, `CheckpointDomainApply`, `ContentRoomReplayResetSet` / `ReplayContent`, `RoomReset` | `OwnedItems`, wallet, `ItemCustody`, `HeldItem`, `AuthoredOccurrences`, grants and spends | H, M, I at the next mirror |
 | Room exit | The commit's resident sweep (`RT/room_transition/commit.rs`); ledger producers in `HI` and `ST/lifecycle/continuity.rs`; `record_bodies_away_from_home` | `RoomTransitionSet::Apply`; residency steps | Residents despawned; carried items cross with their holder; Placed/InCustody rows | reads M at a door crossing |
@@ -178,9 +178,10 @@ Each item lifetime, its owner and its phase. Paths: `AM` is
 
 Gaps the matrix shows:
 
-- **The save write is three setters in two sets.** M and I are written in
-  `DomainMirror`, H later in `SessionMirror`; nothing reconciles M with the
-  occurrences H keeps (the atomic durable horizon row below).
+- **The save write is two setters in two sets (was three, 2026-11-21).** I is
+  written in `DomainMirror`; H and M together in `SessionMirror`, by one call
+  that keeps a minted row only beside its occurrence row (the atomic durable
+  horizon row below).
 - **Match items have no road back.** `spawn_match_items`
   (`AM/items/match_spawn.rs`) gives an item a `SimId` but no `SpawnOrigin`,
   so the minted baseline and mint admission do not see it.
@@ -189,9 +190,11 @@ Gaps the matrix shows:
   its body was stored when it was taken, under gravity. A death that mints
   its body's weapon (`drops_held_item`) mints nothing for a body that carries
   an object, so the object is never doubled.
-- **Equipment has two writers on two clocks.** The sim pickup runs in
-  `HeldItemStep::Pickup`; the menu's Equip runs in `Update` and writes
-  `HeldItem` with no occurrence, so a menu-equipped hand is not persisted.
+- **Equipment has one road (re-read 2026-11-21).** The menu's Equip and a
+  script's `equip` are stamped requests the sim applies through
+  `change_hand`, so a rewind replays them. A hand holding a bag item has no
+  occurrence and is session-only by statement: the bag is saved and the hand
+  is equipped again from the grid (`ambition_platformer2d_items::persist`).
 - **A door crossing reads M from the save**, not from `MintedItemBaseline`,
   so re-entering a room that holds an unattended mint depends on the save
   mirror (inferred from code, untested).
@@ -203,12 +206,12 @@ Gaps the matrix shows:
 
 | Item | Work | Acceptance |
 | --- | --- | --- |
-| Atomic durable horizon | `PersistedMintedItem` has its own setter (`set_minted_items`) and writer (`minted_horizon.rs`), separate from `set_durable_horizon`, which takes occurrences and custody together. Fold minted items into `set_durable_horizon` | One write; the guard `no_durable_row_names_an_occurrence_the_save_does_not_hold` becomes a property of the writer, not only a fixture test |
-| `durably_held` width | It matches the `ItemCustody` component, so it holds items lying on the ground too. Narrowing it to `Held` is a durability decision | Decide it explicitly; dropping a save row is the dangerous direction |
+| Atomic durable horizon | **Done 2026-11-21.** `set_minted_items` is gone. `set_durable_horizon(occurrences, custody, minted)` writes all three and keeps a minted row only when its occurrence is among the rows. The item domain still owns what a minted row means (`MintedItemRows`, a system parameter in `minted_horizon.rs`); the session's `persist_occurrence_horizon_to_save` asks it for the rows and writes them in the same call, behind the same change key. Witness: `no_minted_row_names_an_occurrence_the_save_does_not_hold` (persistence) | One write; the guard becomes a property of the writer, not only a fixture test |
+| `durably_held` width | **Decided 2026-11-21: it stays the component.** It matches `ItemCustody`, so it holds items lying on the ground too. An `InCustody` row for such an item only reaches the file while the ledger says `InCustody`, and the item domain can rebuild both variants, so the width costs nothing a load cannot answer. Narrowing it to `Held` drops rows, the direction that loses an item | Decided explicitly; dropping a save row is the dangerous direction |
 | Lifetime matrix | **Done 2026-10-22**, above | Each row names its owner and phase |
 | Orphaned holder | **Done 2026-11-17**: the item comes back where it was taken (`return_released_items`); a carrying body's death mints no weapon copy (`FeatureHitWriters::carries_an_object`). Witness: `an_item_whose_holder_is_gone_comes_back_where_it_was_taken` | An item outlives its holder in exactly one stated way |
 | Match items | **Done 2026-11-21: stated session-only** at `spawn_match_items`. The item is spawned into the match's session and ends with it, and no checkpoint saves a match, so it has identity and no `SpawnOrigin` | A match item is either minted (described) or stated session-only |
-| Menu equip | The menu's Equip writes `HeldItem` in `Update`, outside custody | One equip road, or the menu's stated as session-only |
+| Menu equip | **Done (re-read 2026-11-21).** The menu writes a stamped `ItemEquipRequested`; `apply_hand_requests` applies it in the sim through `change_hand`, the road a script's `equip` takes. A bag-backed hand is stated session-only in `ambition_platformer2d_items::persist` | One equip road, or the menu's stated as session-only |
 | Item carve boundary | See below | The proofs below |
 | Agent surface | `item where`, `item list --room/--body`, `item audit`, `item explain` | Reports definition, stack identity, occurrence, custody owner, provenance and disposition |
 

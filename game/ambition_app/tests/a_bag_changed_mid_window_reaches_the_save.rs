@@ -1330,6 +1330,7 @@ fn a_startup_load_is_applied_on_the_timeline_and_resimulates_identically() {
             "probe:seeded_occurrence",
             "probe:seeded_custodian",
         )],
+        Vec::new(),
     );
     let mut sim = Platformer2dSimHarness::build(
         crate::common::sandbox_options()

@@ -283,22 +283,32 @@ fn captured_restore_checksums_exclude_host_local_scope_values() {
 
 #[test]
 fn delayed_preparation_keeps_the_mint_descriptions_selected_at_admission() {
-    use ambition_persistence::{save::AmbitionGameSave, save_data::PersistedMintedItem};
+    use ambition_persistence::{
+        save::AmbitionGameSave,
+        save_data::{PersistedMintedItem, PersistedOccurrence, PersistedWhereabouts},
+    };
     let mut world = fixture();
     let mut save = AmbitionGameSave::default();
     let occurrence = SimId::placement("mint-description-fixture");
-    save.data_mut().set_minted_items(vec![PersistedMintedItem {
-        occurrence: occurrence.as_str().into(),
-        parent: "fixture-maker".into(),
-        sequence: 4,
-        held_item: "original".into(),
-    }]);
+    save.data_mut().set_durable_horizon(
+        vec![PersistedOccurrence::new(
+            occurrence.as_str(),
+            PersistedWhereabouts::Placed { room: "elsewhere".into(), x: 0, y: 0 },
+        )],
+        Vec::new(),
+        vec![PersistedMintedItem {
+            occurrence: occurrence.as_str().into(),
+            parent: "fixture-maker".into(),
+            sequence: 4,
+            held_item: "original".into(),
+        }],
+    );
     world.insert_resource(save);
     let first = capture(&mut world);
     world
         .resource_mut::<AmbitionGameSave>()
         .data_mut()
-        .set_minted_items(Vec::new());
+        .set_durable_horizon(Vec::new(), Vec::new(), Vec::new());
     let delayed = capture(&mut world);
     assert_eq!(delayed, first);
     assert_eq!(

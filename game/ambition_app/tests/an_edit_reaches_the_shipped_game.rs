@@ -738,15 +738,26 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
     const MINTED: &str = "minted:a10_candidate_horizon_mint";
     let minted = SimId::from_snapshot(MINTED.to_string());
     session_world_component_mut::<MintedItemBaseline>(app.world_mut()).unwrap().adopt(Default::default());
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-        .0
-        .set_minted_items(vec![ambition_platformer2d::persistence::save_data::PersistedMintedItem {
-            occurrence: MINTED.to_string(),
-            parent: "placement:ground_gun_sword".to_string(),
-            sequence: 1,
-            held_item: "ground_gun_sword".to_string(),
-        }]);
+    {
+        use ambition_platformer2d::persistence::save_data::{PersistedMintedItem, PersistedOccurrence, PersistedWhereabouts};
+        let mut save = app.world_mut().resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
+        let mut rows = save.0.occurrences().to_vec();
+        rows.push(PersistedOccurrence::new(
+            MINTED,
+            PersistedWhereabouts::Placed { room: "central_hub_complex".to_string(), x: 96, y: 96 },
+        ));
+        let custody = save.0.custody().to_vec();
+        save.0.set_durable_horizon(
+            rows,
+            custody,
+            vec![PersistedMintedItem {
+                occurrence: MINTED.to_string(),
+                parent: "placement:ground_gun_sword".to_string(),
+                sequence: 1,
+                held_item: "ground_gun_sword".to_string(),
+            }],
+        );
+    }
     app.update();
     assert!(
         app.world().resource::<FactionRelations>().is_hostile(ActorFaction::Enemy, ActorFaction::Boss),
@@ -2748,17 +2759,17 @@ fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
                 },
             )],
             Vec::new(),
+            vec![PersistedMintedItem {
+                occurrence: minted_id.to_string(),
+                // ⛔ A REAL PLACEMENT IN THIS ROOM. Construction refuses a mint whose
+                // declared parent is "neither planned nor live" — measured, with an
+                // invented id — and `placement:ground_gun_sword` is one
+                // `central_hub_complex` authors.
+                parent: "placement:ground_gun_sword".to_string(),
+                sequence: 1,
+                held_item: "javelin".to_string(),
+            }],
         );
-        save.0.set_minted_items(vec![PersistedMintedItem {
-            occurrence: minted_id.to_string(),
-            // ⛔ A REAL PLACEMENT IN THIS ROOM. Construction refuses a mint whose
-            // declared parent is "neither planned nor live" — measured, with an
-            // invented id — and `placement:ground_gun_sword` is one
-            // `central_hub_complex` authors.
-            parent: "placement:ground_gun_sword".to_string(),
-            sequence: 1,
-            held_item: "javelin".to_string(),
-        }]);
     }
     // ⭐ THE PREMISE ON THE OTHER SIDE: nothing live can describe M, so a
     // reconstruction can only have come from the candidate's own horizon. At a

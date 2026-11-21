@@ -597,6 +597,7 @@ fn a_load_does_not_build_a_one_time_heart_the_file_remembers_taken() {
         vec![PersistedOccurrence::new(heart, PersistedWhereabouts::Consumed,
         )],
         Vec::new(),
+        Vec::new(),
     );
     assert_eq!(
         (

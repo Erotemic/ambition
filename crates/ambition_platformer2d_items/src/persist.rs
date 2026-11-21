@@ -38,12 +38,9 @@ pub fn install_item_durable_horizon(app: &mut App) {
     let sim = app.sim_schedule();
     app.add_systems(
         sim,
-        (
-            persist_inventory_to_save,
-            crate::pickup::minted_horizon::persist_minted_item_horizon_to_save,
-        )
-            .chain()
-            .in_set(DurableHorizonSet::DomainMirror),
+        // The minted rows are written with the occurrence rows they are keyed by,
+        // by the session's durable-horizon writer (`MintedItemRows`).
+        persist_inventory_to_save.in_set(DurableHorizonSet::DomainMirror),
     );
     app.add_systems(
         sim,

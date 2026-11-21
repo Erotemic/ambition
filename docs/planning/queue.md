@@ -2537,9 +2537,22 @@ an explicit ownership reason.
 - "Cannot become" is policy, not type. `GroundItem::at_rest`/`released` are
   public, and the census rules out a request bus that would close them.
 
-The owner page's open work is still open: the atomic durable horizon (one
-write for minted items and rows, across the session and items crates), the
-`durably_held` width, the menu's equip, and the agent surface.
+**Atomic durable horizon done (2026-11-21):** minted items, occurrence rows
+and custody are one write (`set_durable_horizon`), made by the session's
+horizon writer with rows the item domain builds (`MintedItemRows`). A minted
+row is kept only beside its occurrence row. See the
+[owner page](engine/item-custody-and-accounting.md#open-work).
+
+**`durably_held` width decided (2026-11-21):** it stays the `ItemCustody`
+component; narrowing to `Held` would drop save rows.
+
+**Menu equip re-read (2026-11-21):** already one road. The menu's Equip is
+a stamped request applied in the sim by `change_hand`, as a script's `equip`
+is, and a bag-backed hand is stated session-only. The owner page said
+otherwise and is corrected.
+
+Still open on the owner page: the agent surface (`item where`, `item list`,
+`item audit`, `item explain`).
 
 ### BRAIN — finish truthful fighter attack selection
 

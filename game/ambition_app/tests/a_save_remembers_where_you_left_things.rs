@@ -429,7 +429,7 @@ fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
     ended.set_durable_horizon(vec![PersistedOccurrence::new(
         reward.as_str(),
         PersistedWhereabouts::Consumed,
-    )], Vec::new());
+    )], Vec::new(), Vec::new());
     let mut consumed = boot_with(TWO_ITEM_ROOM, &ended);
     assert!(
         occurrences(&mut consumed, &reward).is_empty(),

@@ -308,7 +308,7 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
     app.world_mut()
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
         .0
-        .set_durable_horizon(Vec::new(), Vec::new());
+        .set_durable_horizon(Vec::new(), Vec::new(), Vec::new());
 
     app.world_mut()
         .write_message(ShellLauncherCommand::LaunchSelected);

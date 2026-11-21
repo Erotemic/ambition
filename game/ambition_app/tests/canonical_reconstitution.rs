@@ -999,7 +999,7 @@ fn a_relocated_occurrence_is_never_authored_by_a_load_or_a_re_entry() {
             x: 200,
             y: 200,
         },
-    )], Vec::new(),
+    )], Vec::new(), Vec::new(),
     );
 
     // The BOOT road.
@@ -1144,7 +1144,7 @@ fn a_save_with_a_checkpoint_and_an_occurrence_lands_both() {
             x: 200,
             y: 200,
         },
-    )], Vec::new(),
+    )], Vec::new(), Vec::new(),
     );
 
     let mut sim = Platformer2dSimHarness::new_with_options(

@@ -1309,8 +1309,6 @@ mod save_checksum_tests {
                 })
                 .collect(),
             Vec::new(),
-        );
-        save.data_mut().set_minted_items(
             (0..n)
                 .map(|i| PersistedMintedItem {
                     occurrence: format!("dormant/{i}"),
@@ -1346,7 +1344,11 @@ mod save_checksum_tests {
         let snapshot = live.clone();
         let before = live.checksum();
         let moved = dormant_save(50, 7);
-        live.data_mut().set_durable_horizon(moved.data().occurrences().to_vec(), Vec::new());
+        live.data_mut().set_durable_horizon(
+            moved.data().occurrences().to_vec(),
+            Vec::new(),
+            moved.data().minted_items().to_vec(),
+        );
         let after = live.checksum();
         assert_ne!(after, before, "moved rows kept the checksum of the rows they replaced");
         let live = snapshot.clone();

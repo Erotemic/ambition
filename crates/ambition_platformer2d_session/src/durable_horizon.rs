@@ -15,7 +15,7 @@ use bevy::prelude::*;
 
 pub use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::{
-    PersistedCustody, PersistedOccurrence, PersistedWhereabouts,
+    PersistedCustody, PersistedMintedItem, PersistedOccurrence, PersistedWhereabouts,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
     live_custody_rows, AuthoredOccurrences, CustodyBaseline, CustodyDurability, InCustodyOf,
@@ -572,6 +572,9 @@ pub fn persist_occurrence_horizon_to_save(
     // `Held` would change what the save omits, which is a durability decision and not a
     // tidy-up. See `docs/planning/engine/item-custody-and-accounting.md`.
     durably_held: Query<&SimId, With<ambition_held_items::ItemCustody>>,
+    // How to remake each runtime mint, which the item domain describes. Written
+    // in the same call as the occurrence rows it is keyed by.
+    mut minted: ambition_platformer2d_items::pickup::minted_horizon::MintedItemRows,
     mut save: ResMut<AmbitionGameSave>,
     // The inputs the rows were last mirrored with: a cache of live inputs,
     // not state. A rewind that changes one is seen as a difference.
@@ -588,6 +591,10 @@ pub fn persist_occurrence_horizon_to_save(
         ledger: occurrences.clone(),
         save_rows: save.data().occurrences_shared().clone(),
         restorable: restorable_now,
+        // Built only when the live mints, the ledger or the save's minted rows
+        // changed, so the same allocation comes back on a quiet tick.
+        minted_rows: minted.rows(Some(&occurrences), save.data()),
+        save_minted: save.data().minted_items_shared().clone(),
     };
     let rows_may_differ = mirrored_with.as_ref() != Some(&key_now);
     let rows: Option<Vec<PersistedOccurrence>> = rows_may_differ.then(|| {
@@ -652,18 +659,33 @@ pub fn persist_occurrence_horizon_to_save(
         })
         .collect();
     let data = save.data();
+    // A minted row is kept only beside its occurrence row (the setter's rule),
+    // so it is compared as the setter would keep it. Like the rows, only when
+    // an input changed.
+    let minted_rows: Option<Vec<PersistedMintedItem>> = rows.as_ref().map(|rows| {
+        let known: std::collections::BTreeSet<&str> = rows.iter().map(|row| row.id.as_str()).collect();
+        key_now
+            .minted_rows
+            .iter()
+            .filter(|row| known.contains(row.occurrence.as_str()))
+            .cloned()
+            .collect()
+    });
     let rows_differ = rows.as_ref().is_some_and(|rows| data.occurrences() != rows.as_slice());
-    if rows_differ || data.custody() != custody {
+    let minted_differ = minted_rows.as_ref().is_some_and(|minted| data.minted_items() != minted.as_slice());
+    if rows_differ || minted_differ || data.custody() != custody {
         let rows = rows.unwrap_or_else(|| data.occurrences().to_vec());
+        let minted_rows = minted_rows.unwrap_or_else(|| data.minted_items().to_vec());
         // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
         // `ResMut`, which marks the resource changed whether or not the value
         // differs -- that is what the guard protects.
-        save.data_mut().set_durable_horizon(rows, custody);
+        save.data_mut().set_durable_horizon(rows, custody, minted_rows);
     }
     // The key holds the save's rows as they are now, after the write, so the
     // write does not open the gate on the next tick.
     *mirrored_with = Some(OccurrenceMirrorKey {
         save_rows: save.data().occurrences_shared().clone(),
+        save_minted: save.data().minted_items_shared().clone(),
         ..key_now
     });
 }
@@ -676,11 +698,15 @@ pub struct OccurrenceMirrorKey {
     ledger: AuthoredOccurrences,
     save_rows: std::sync::Arc<Vec<PersistedOccurrence>>,
     restorable: std::collections::BTreeSet<SimId>,
+    minted_rows: std::sync::Arc<Vec<PersistedMintedItem>>,
+    save_minted: std::sync::Arc<Vec<PersistedMintedItem>>,
 }
 
 impl PartialEq for OccurrenceMirrorKey {
     fn eq(&self, other: &Self) -> bool {
         std::sync::Arc::ptr_eq(&self.save_rows, &other.save_rows)
+            && std::sync::Arc::ptr_eq(&self.minted_rows, &other.minted_rows)
+            && std::sync::Arc::ptr_eq(&self.save_minted, &other.save_minted)
             && self.ledger == other.ledger
             && self.restorable == other.restorable
     }

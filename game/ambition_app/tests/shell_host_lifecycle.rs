@@ -3433,6 +3433,7 @@ mod candidate_save {
                 PersistedWhereabouts::Consumed,
             )],
             Vec::new(),
+            Vec::new(),
         );
         taken.set_flag(
             ambition_platformer2d::persistence::save_data::npc_hostile_flag(provoked),

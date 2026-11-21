@@ -175,18 +175,21 @@ fn a_load_seeds_every_domain_baseline_and_requests_the_resume() {
     {
         let mut data = app.world().resource::<AmbitionGameSave>().data().clone();
         data.set_durable_horizon(
-            vec![PersistedOccurrence::new(
-                "placement:carried",
-                PersistedWhereabouts::InCustody,
-            )],
+            vec![
+                PersistedOccurrence::new("placement:carried", PersistedWhereabouts::InCustody),
+                PersistedOccurrence::new(
+                    "slot:0/0",
+                    PersistedWhereabouts::Placed { room: "elsewhere".into(), x: 0, y: 0 },
+                ),
+            ],
             vec![PersistedCustody::new("placement:carried", "slot:0")],
+            vec![PersistedMintedItem {
+                occurrence: "slot:0/0".into(),
+                parent: "slot:0".into(),
+                sequence: 0,
+                held_item: "javelin".into(),
+            }],
         );
-        data.set_minted_items(vec![PersistedMintedItem {
-            occurrence: "slot:0/0".into(),
-            parent: "slot:0".into(),
-            sequence: 0,
-            held_item: "javelin".into(),
-        }]);
         app.world_mut().resource_mut::<AmbitionGameSave>().0 = data;
     }
     install_horizon(&mut app);
@@ -330,6 +333,7 @@ fn a_population_the_restore_cannot_complete_on_is_written_to_by_nobody() {
                 PersistedWhereabouts::InCustody,
             )],
             vec![PersistedCustody::new("placement:carried", "slot:0")],
+            Vec::new(),
         );
         app.world_mut().resource_mut::<AmbitionGameSave>().0 = data;
     }
@@ -394,7 +398,18 @@ fn dormant_world(n: usize) -> App {
             held_item: Default::default(),
         })
         .collect();
-    app.world_mut().resource_mut::<AmbitionGameSave>().data_mut().set_minted_items(minted);
+    let placed = (0..n)
+        .map(|i| {
+            PersistedOccurrence::new(
+                dormant(i).as_str(),
+                PersistedWhereabouts::Placed { room: "elsewhere".into(), x: i as i32, y: 0 },
+            )
+        })
+        .collect();
+    app.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut()
+        .set_durable_horizon(placed, Vec::new(), minted);
     for _ in 0..3 {
         app.update();
     }
@@ -509,8 +524,7 @@ fn a_changed_dormant_row_still_reaches_the_save() {
 fn a_replaced_save_is_mirrored_again() {
     let mut app = dormant_world(1_000);
     let mut replaced = app.world().resource::<AmbitionGameSave>().clone();
-    replaced.data_mut().set_durable_horizon(Vec::new(), Vec::new());
-    replaced.data_mut().set_minted_items(Vec::new());
+    replaced.data_mut().set_durable_horizon(Vec::new(), Vec::new(), Vec::new());
     app.world_mut().insert_resource(replaced);
     app.update();
     let data = app.world().resource::<AmbitionGameSave>().data();
@@ -567,18 +581,21 @@ fn a_load_writes_its_checkpoint_onto_the_session_it_builds() {
 
     let mut data = AmbitionGameSave::default().data().clone();
     data.set_durable_horizon(
-        vec![PersistedOccurrence::new(
-            "placement:carried",
-            PersistedWhereabouts::InCustody,
-        )],
+        vec![
+            PersistedOccurrence::new("placement:carried", PersistedWhereabouts::InCustody),
+            PersistedOccurrence::new(
+                "slot:0/0",
+                PersistedWhereabouts::Placed { room: "elsewhere".into(), x: 0, y: 0 },
+            ),
+        ],
         vec![PersistedCustody::new("placement:carried", "slot:0")],
+        vec![PersistedMintedItem {
+            occurrence: "slot:0/0".into(),
+            parent: "slot:0".into(),
+            sequence: 0,
+            held_item: "javelin".into(),
+        }],
     );
-    data.set_minted_items(vec![PersistedMintedItem {
-        occurrence: "slot:0/0".into(),
-        parent: "slot:0".into(),
-        sequence: 0,
-        held_item: "javelin".into(),
-    }]);
     let horizon = CandidateDurableHorizon::from_save(&data);
 
     // The adoption's order: install, promote, then the root's own half.

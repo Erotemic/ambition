@@ -740,15 +740,22 @@ impl AmbitionGameSaveData {
         &self.custody
     }
 
-    /// Replace the whereabouts ledger. Both fields are set together because a
-    /// custody row without its occurrence row names nothing.
+    /// Replace the durable horizon: the whereabouts rows, who holds what, and
+    /// how to remake the runtime mints. One write, because a custody row and a
+    /// minted row are keyed by an occurrence. A minted row naming an occurrence
+    /// `occurrences` does not hold describes nothing a load could place, and is
+    /// not kept.
     pub fn set_durable_horizon(
         &mut self,
         occurrences: Vec<PersistedOccurrence>,
         custody: Vec<PersistedCustody>,
+        mut minted_items: Vec<PersistedMintedItem>,
     ) {
+        let known: std::collections::BTreeSet<&str> = occurrences.iter().map(|row| row.id.as_str()).collect();
+        minted_items.retain(|row| known.contains(row.occurrence.as_str()));
         self.occurrences = Arc::new(occurrences);
         self.custody = custody;
+        self.minted_items = Arc::new(minted_items);
     }
 
     /// How to remake the runtime-minted instances that were in a hand.
@@ -760,11 +767,6 @@ impl AmbitionGameSaveData {
     /// [`Self::occurrences_shared`].
     pub fn minted_items_shared(&self) -> &Arc<Vec<PersistedMintedItem>> {
         &self.minted_items
-    }
-
-    /// Replace the minted-item recipes.
-    pub fn set_minted_items(&mut self, minted_items: Vec<PersistedMintedItem>) {
-        self.minted_items = Arc::new(minted_items);
     }
 
     /// The extension module records the durable save keeps.
@@ -1172,26 +1174,24 @@ mod tests {
                     planned_in: Some((1, 9)),
                 }])
             }),
-            (vec!["minted_items"], |d| {
-                d.set_minted_items(vec![PersistedMintedItem {
-                    occurrence: "o".into(),
-                    parent: "p".into(),
-                    sequence: 0,
-                    held_item: "h".into(),
-                }])
-            }),
             // These setters write fields that are one fact, so the
             // expectation names every family they touch.
             (vec!["items", "wallet", "inventory_saved"], |d| {
                 d.set_inventory(vec![PersistedItem::new("i", 1)], 7)
             }),
-            (vec!["occurrences", "custody"], |d| {
+            (vec!["occurrences", "custody", "minted_items"], |d| {
                 d.set_durable_horizon(
                     vec![PersistedOccurrence::new(
                         "occ",
                         PersistedWhereabouts::InCustody,
                     )],
                     vec![PersistedCustody::new("occ", "slot:0")],
+                    vec![PersistedMintedItem {
+                        occurrence: "occ".into(),
+                        parent: "p".into(),
+                        sequence: 0,
+                        held_item: "h".into(),
+                    }],
                 )
             }),
         ];
@@ -1526,21 +1526,18 @@ mod tests {
         assert_eq!(s.version, CURRENT_SAVE_VERSION);
     }
 
-    /// No custody or minted-item row names an occurrence the save does not hold.
-    ///
-    ///
-    /// `set_durable_horizon` takes occurrences and custody together because a
-    /// custody row without its occurrence row names nothing. The same applies to
-    /// `PersistedMintedItem`, whose `occurrence` field is the same key.
-    ///
-    /// Minted items have their own setter (`set_minted_items`) and writer
-    /// (`items/pickup/minted_horizon.rs`), separate from
-    /// `session/durable_horizon.rs`. Nothing compares the two, so this test is
-    /// the guard. The real repair, if it fails, is to fold minted items into
-    /// `set_durable_horizon`.
+    /// No minted-item row names an occurrence the save does not hold, by
+    /// construction: the one setter keeps only minted rows whose occurrence it is
+    /// handed.
     #[test]
-    fn no_durable_row_names_an_occurrence_the_save_does_not_hold() {
+    fn no_minted_row_names_an_occurrence_the_save_does_not_hold() {
         let mut save = AmbitionGameSaveData::new();
+        let minted = |occurrence: &str| PersistedMintedItem {
+            occurrence: occurrence.to_owned(),
+            parent: "placement:parent".to_owned(),
+            sequence: 1,
+            held_item: "torch".to_owned(),
+        };
         save.set_durable_horizon(
             vec![PersistedOccurrence::new(
                 "placement:carried",
@@ -1548,37 +1545,10 @@ mod tests {
                 PersistedWhereabouts::InCustody,
             )],
             vec![PersistedCustody::new("placement:carried", "player:0")],
+            vec![minted("placement:carried"), minted("placement:gone")],
         );
-        save.set_minted_items(vec![PersistedMintedItem {
-            occurrence: "placement:carried".to_owned(),
-            parent: "placement:parent".to_owned(),
-            sequence: 1,
-            held_item: "torch".to_owned(),
-        }]);
-
-        let known: Vec<&str> = save.occurrences().iter().map(|o| o.id.as_str()).collect();
-        // Anti-vacuity: an empty horizon has no orphans trivially.
-        assert!(
-            !known.is_empty() && !save.custody().is_empty() && !save.minted_items().is_empty(),
-            "this fixture must hold all three families, or the assertions below are \
-             vacuous"
-        );
-        for row in save.custody() {
-            assert!(
-                known.contains(&row.occurrence.as_str()),
-                "custody row names occurrence {:?}, which the save does not hold",
-                row.occurrence
-            );
-        }
-        for row in save.minted_items() {
-            assert!(
-                known.contains(&row.occurrence.as_str()),
-                "minted-item row names occurrence {:?}, which the save does not hold — \
-                 `set_minted_items` is a separate authority from `set_durable_horizon` \
-                 and nothing reconciles them",
-                row.occurrence
-            );
-        }
+        let kept: Vec<&str> = save.minted_items().iter().map(|row| row.occurrence.as_str()).collect();
+        assert_eq!(kept, vec!["placement:carried"], "a minted row outlived its occurrence");
     }
 
     /// Every durable family states whether an admitted ROOM REPLAY retracts it.

@@ -542,7 +542,7 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
         .spawn((
             SimId::placement(sim),
             // The live mind matches the live policy: this body IS fighting.
-            crate::body::character_policy::brain_from_profile(
+            super::brain_from_profile(
                 &character_first_config(),
                 &villager(),
                 provoked_policy(),

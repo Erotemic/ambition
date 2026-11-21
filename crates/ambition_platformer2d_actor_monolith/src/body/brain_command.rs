@@ -162,7 +162,7 @@ fn apply_brain_selection(
     // the lowering cannot happen without one.
     profile_body: Option<(&ActorConfig, &ambition_combat::components::ActorIdentity)>,
     // The character's own policy, resolved by IDENTITY — see
-    // [`character_policy`](crate::body::character_policy). `None` only
+    // `character_autonomous_profile`. `None` only
     // where no cast can answer, and then the body's current policy stands in.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
     abilities: ambition_platformer2d_core::AbilitySet,
@@ -206,7 +206,7 @@ fn apply_brain_selection(
             return false;
         };
         *brain =
-            crate::body::character_policy::brain_from_profile(config, identity, profile, abilities);
+            brain_from_profile(config, identity, profile, abilities);
         binding.restore_default();
         return true;
     }
@@ -307,7 +307,7 @@ pub fn apply_brain_commands(
         // once per body. `None` where no cast can answer; the lowering then
         // falls back to the body's current policy, which is the fixture road.
         let character_profile = prepared.get().zip(worn).and_then(|(registry, worn)| {
-            crate::body::character_policy::character_autonomous_profile(registry, worn)
+            character_autonomous_profile(registry, worn)
         });
         let provider = prepared
             .get()
@@ -545,6 +545,30 @@ impl Plugin for BrainCommandPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects),
         );
     }
+}
+
+/// The character-authored autonomous policy, if the prepared cast provides one.
+///
+/// Character defaults come from the prepared character a body wears.
+/// `ActorPolicy` is mutable live policy, so it must not restore a character
+/// default after a temporary override such as provocation. A missing
+/// character and one with no autonomous profile both leave policy to the
+/// caller's fallback.
+fn character_autonomous_profile(
+    registry: &ambition_characters::prepared::PreparedCharacterRegistry,
+    worn: &ambition_characters::actor::CharacterForm,
+) -> Option<ambition_characters::brain::BrainProfile> {
+    registry.get(worn.id())?.autonomous_profile
+}
+
+/// Lower a brain profile against this body's movement and ability configuration.
+pub(crate) fn brain_from_profile(
+    config: &ActorConfig,
+    identity: &ambition_combat::components::ActorIdentity,
+    profile: ambition_characters::brain::BrainProfile,
+    abilities: ambition_platformer2d_core::AbilitySet,
+) -> Brain {
+    ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain(config, &profile, identity, abilities)
 }
 
 #[cfg(test)]

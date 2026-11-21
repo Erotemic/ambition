@@ -17,9 +17,7 @@ mod integration;
 pub use ae::{BodyFrameOutput, BodyReset};
 pub(crate) mod npcs;
 
-pub mod ledge_grab;
 pub mod movement_fx;
-pub mod swim;
 pub mod transform_beat;
 pub mod wallet_shield;
 pub use movement_fx::{
@@ -56,7 +54,6 @@ mod boss_scripted_pattern_tests;
 /// The dismount reaction: mount announces, this rebuilds. See its own note.
 pub(crate) mod autonomous_reconcile;
 mod brain_effects;
-pub(crate) mod character_policy;
 mod damage;
 pub use damage::enemy_death_flag;
 mod death_effects;

@@ -1,4 +1,9 @@
-use ambition_platformer2d_core as ae;
+//! Water through the motion step: a body without the swim ability is reset by
+//! water, a swimmer's jump press becomes an upward stroke, buoyancy caps its
+//! fall, and dry land reports no water contact. The world asks
+//! `World::water_at` once a tick, whichever authoring source made the region.
+
+use crate as ae;
 
 fn step_axis_player(
     world: &ae::World,
@@ -19,7 +24,7 @@ fn step_axis_player(
             frame,
             facing_intent: input.axes.x,
             dt,
-            contact: ambition_platformer2d_core::BodyContactField::NONE,
+            contact: ae::BodyContactField::NONE,
             pose_owned_externally: false,
             recovery_commitment_outstanding: false,
         },
@@ -96,9 +101,9 @@ fn swim_ability_jump_press_becomes_upward_impulse() {
     scratch.kinematics.pos = ae::Vec2::new(500.0, 500.0);
     scratch.kinematics.vel = ae::Vec2::new(0.0, 600.0);
     let input = ae::InputState {
-        movement: ambition_platformer2d_core::ActionEdges::EMPTY.with(
-            ambition_platformer2d_core::MovementAction::Jump,
-            ambition_platformer2d_core::Edge {
+        movement: ae::ActionEdges::EMPTY.with(
+            ae::MovementAction::Jump,
+            ae::Edge {
                 pressed: true,
                 held: true,
                 released: false,

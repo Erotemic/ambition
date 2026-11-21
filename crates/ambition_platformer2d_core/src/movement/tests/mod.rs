@@ -70,6 +70,7 @@ mod slopes;
 mod step_box_world_reads;
 mod stopping;
 mod submerged;
+mod swimming;
 mod sweep_sample;
 mod transit_record;
 mod wall_collision;

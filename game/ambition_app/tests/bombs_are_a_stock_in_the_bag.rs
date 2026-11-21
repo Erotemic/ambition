@@ -187,3 +187,77 @@ fn a_hard_throw_goes_off_on_contact_and_a_soft_one_on_its_fuse() {
         "a tilt throw lands, bounces and goes off on its fuse ({fuse_ticks} ticks at most): {soft} ticks"
     );
 }
+
+/// The bombs some body carries.
+fn carried_bombs(sim: &mut Platformer2dSimHarness) -> usize {
+    let world = sim.world_mut();
+    let mut query = world.query::<(&GroundItem, &ItemCustody)>();
+    query.iter(world).filter(|(ground, custody)| ground.spec.id == "bomb" && !custody.in_world()).count()
+}
+
+/// The menu's stow, as the host intent it writes.
+fn stow(sim: &mut Platformer2dSimHarness) {
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
+        sim.world_mut(),
+        ambition_platformer2d::items::ItemStowRequested { participant: ambition_platformer2d::characters::control::PlayerSlot(0) },
+    );
+    sim.step_n(base(), 3);
+}
+
+/// The room's authored floor bomb (the sandbox places one), moved to the
+/// body's feet and picked up with one Attack press (an empty hand picks up
+/// what it overlaps), so the hand carries an object, not a quantity of the
+/// bag.
+fn carry_the_floor_bomb(sim: &mut Platformer2dSimHarness, body: Entity) -> Entity {
+    let bombs = loose_bombs(sim);
+    assert_eq!((hand(sim, body), bombs.len()), (None, 1), "premise: one bomb on the floor and the hand empty");
+    let at = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(body).expect("the body has kinematics").pos;
+    sim.world_mut().get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(bombs[0]).expect("a bomb has kinematics").pos = at;
+    sim.step_n(base(), 2);
+    sim.step(AgentAction { attack: true, ..base() });
+    sim.step_n(base(), 3);
+    assert_eq!(carried_bombs(sim), 1, "premise: the press picked the floor bomb up");
+    bombs[0]
+}
+
+fn row(sim: &Platformer2dSimHarness, id: &ambition_platformer2d::platformer::sim_id::SimId) -> Option<String> {
+    sim.world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+        .whereabouts(id)
+        .map(|row| format!("{row:?}"))
+}
+
+/// ⭐ A7: A BOMB PICKED UP OFF THE FLOOR CAN BE POCKETED. A stow puts the
+/// carried object into the bag (+1), the object ends, and its row is
+/// `Consumed`, so its room does not build it again. The control: with the
+/// bag at its stack there is no room, and the stow puts the bomb down.
+#[test]
+fn a_carried_floor_bomb_is_pocketed_by_a_stow() {
+    let mut sim = fixed_60hz_sim();
+    sim.step_n(base(), 120);
+    let body = primary(&mut sim);
+    let catalog = ambition_platformer2d::items::item_catalog(sim.world()).clone();
+    let full = catalog.stack(Item::Bomb).expect("the bomb is a catalog item");
+
+    // Control: no room in the bag.
+    stock(&mut sim, full);
+    carry_the_floor_bomb(&mut sim, body);
+    stow(&mut sim);
+    assert_eq!(
+        (bag(&sim), carried_bombs(&mut sim), loose_bombs(&mut sim).len()),
+        (full, 0, 1),
+        "(bag, carried, loose) after a stow with a full bag: the bomb is put down"
+    );
+
+    stock(&mut sim, 2);
+    let bomb = carry_the_floor_bomb(&mut sim, body);
+    let id = sim.world().get::<ambition_platformer2d::platformer::sim_id::SimId>(bomb).expect("the authored bomb has an id").clone();
+    assert_eq!(bag(&sim), 2, "premise: a pickup off the floor is not the bag's");
+    stow(&mut sim);
+    assert_eq!(
+        (bag(&sim), carried_bombs(&mut sim), loose_bombs(&mut sim).len(), hand(&sim, body)),
+        (3, 0, 0, None),
+        "(bag, carried, loose, hand) after a stow of the carried bomb: it is in the bag, and nowhere else"
+    );
+    assert_eq!(row(&sim, &id).as_deref(), Some("Consumed"), "the pocketed bomb's row ends, so its room does not build it again");
+}

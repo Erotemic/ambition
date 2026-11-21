@@ -1216,10 +1216,26 @@ pub fn change_hand(
     if unchanged {
         return Ok(HandChange::Unchanged);
     }
+    // A STOW POCKETS A STOCK. An object of an item the bag stacks (a bomb
+    // picked up off the floor), with room for one more, goes into the bag
+    // instead of onto the floor: the object is marked, and the bag's owner
+    // ends it and grants the quantity this tick
+    // (`ambition_platformer2d_items::pickups::pocket_objects`).
+    let pocketable = |ground: &GroundItem| {
+        spec.is_none()
+            && catalog
+                .item_by_held_item_id(ground.spec.id.as_str())
+                .is_some_and(|item| catalog.stack(item).is_some_and(|stack| stack > 1) && owned.has_room_for(catalog, item))
+    };
+    let mut pockets = Vec::new();
     let prepared = (|| {
         let mut releases = Vec::new();
-        for (item, _, stored, custody, basis) in &carried {
+        for (item, ground, stored, custody, basis) in &carried {
             if !custody.held_by(body) { continue; }
+            if pocketable(ground) {
+                pockets.push(item);
+                continue;
+            }
             let holder = kinematics.get(body).map_err(|_| ae::frame::thread::Refusal {
                 path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::MissingMaterial,
             })?;
@@ -1242,6 +1258,9 @@ pub fn change_hand(
         if let Ok((_, _, _, mut custody, _)) = carried.get_mut(item) {
             released.put_down(&mut commands, item, &mut custody);
         }
+    }
+    for object in pockets {
+        commands.entity(object).insert(Pocketed { by: body });
     }
     // The hand holds one thing: empty it, then take the new one.
     empty_hand(&mut commands, body, &mut repertoire);
@@ -1449,12 +1468,33 @@ pub enum Release {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReleasedAs(pub Release);
 
-/// One quantity of the shared bag that a throw made into an object.
+/// A carried object a stow is pocketing into the bag: the hand let go of it
+/// and the bag's owner ends it this tick (`pocket_objects`). It lives no
+/// longer than the tick it is written on.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Pocketed {
+    /// The body whose stow pocketed it.
+    pub by: Entity,
+}
+
+/// Which way a [`BagSpend`] moved one quantity between the bag and an object.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BagExchange {
+    /// A throw made one of the bag into an object: the bag lost it.
+    Spent,
+    /// An object was pocketed into the bag: the bag gained it, and the object
+    /// ended.
+    Pocketed,
+}
+
+/// One quantity of the shared bag that a throw made into an object, or that
+/// an object pocketed became.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BagSpend {
     pub item: ambition_items::Item,
-    /// The object the quantity became. The spend stands while what the
-    /// object became stands: a restore that keeps the object, or keeps its
+    pub exchange: BagExchange,
+    /// The object the quantity became, or the object pocketed. The spend
+    /// stands while what the object became stands (for a pocket, its end): a restore that keeps the object, or keeps its
     /// end (an exploded bomb's `Consumed` row), keeps the spend, and a
     /// restore that takes the object back puts the quantity back.
     pub object: ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -1464,8 +1504,9 @@ pub struct BagSpend {
     pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
 }
 
-/// The quantities of the shared bag that throws made into objects since the
-/// last committed checkpoint (review 2026-10-05, P3).
+/// The quantities of the shared bag that throws made into objects, and that
+/// pocketed objects became, since the last committed checkpoint (review
+/// 2026-10-05, P3).
 ///
 /// A checkpoint restore puts back the checkpoint's bag. The object of a throw
 /// can stay after that restore, in a live room that another participant
@@ -1528,6 +1569,7 @@ impl BagSpendsSinceCheckpoint {
         put_u64(&mut bytes, self.spends.len() as u64);
         for spend in &self.spends {
             put_u64(&mut bytes, spend.item.index() as u64);
+            put_u64(&mut bytes, u64::from(spend.exchange == BagExchange::Pocketed));
             put_str(&mut bytes, spend.object.as_str());
         }
         checksum_bytes(&bytes)
@@ -1761,6 +1803,7 @@ pub fn throw_held_item_system(
             {
                 spends.record(BagSpend {
                     item,
+                    exchange: BagExchange::Spent,
                     object: object.clone(),
                     written: room.zip(tick.as_deref()).map(|(room, tick)| {
                         ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room: room.0, tick: tick.0 }

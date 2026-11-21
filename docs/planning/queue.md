@@ -2449,6 +2449,21 @@ Record the received quantity and the object's retirement at the existing
 custody/accounting owner. Prove conservation through throw, pickup, pocket,
 death and save/load; do not add an unrelated grants mirror beside spends.
 
+**Bomb pocketing built (2026-11-21):** a stow of a carried stock pockets it.
+It is recorded as a `BagSpend` of exchange `Pocketed`, so the checkpoint keeps
+a pocket exactly when it keeps the object's end. The custody row ends as
+`Consumed` (`AuthoredOccurrences::end_carried`). See
+[ability loadout](game/ability-loadout.md#open-for-bombs).
+
+Conservation:
+- Witnessed for the pickup and the pocket.
+- For a death and restore, it follows from the shared keep test:
+  - with no participant spared, neither the throw's spend nor the pocket is
+    kept, and the bag is the checkpoint's;
+  - with the room spared, both are kept, and they cancel.
+- No app test drives the death arm. Save/load needs nothing new: the bag is
+  saved, and a `Consumed` row is a saved row.
+
 **Next implementation:** centralize only the occurrence decisions that share an
 actual invariant (identity, custody, provenance, rollback ownership). Do not add a
 generic request bus merely to reduce writer count.

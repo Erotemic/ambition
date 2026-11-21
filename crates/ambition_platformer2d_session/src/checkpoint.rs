@@ -913,12 +913,21 @@ pub fn resume_at_checkpoint_on_reset(
                     })
                 };
                 kept_spends = spends.keeping(|spend| kept(&spend.object));
+                // A kept pocket gives its quantity: the object's end stands,
+                // so the quantity it became stands too. It is the same test
+                // as a throw's, read the other way.
                 let mut bag = owned.remembered().clone();
-                let mut taken = 0;
+                let mut changed = false;
                 for spend in kept_spends.spends() {
-                    taken += bag.take(spend.item, 1);
+                    match spend.exchange {
+                        ambition_held_items::BagExchange::Spent => changed |= bag.take(spend.item, 1) > 0,
+                        ambition_held_items::BagExchange::Pocketed => {
+                            bag.put_back(spend.item, 1);
+                            changed = true;
+                        }
+                    }
                 }
-                if taken > 0 {
+                if changed {
                     owned.adopt(bag);
                 }
             }

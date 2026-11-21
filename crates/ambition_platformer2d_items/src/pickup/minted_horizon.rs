@@ -864,7 +864,12 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 let taken = world.resource_mut::<ambition_held_items::BagSpendsSinceCheckpoint>().retract_room(room, saved_at);
                 if let Some(mut bag) = world.get_resource_mut::<ambition_items::OwnedItems>() {
                     for spend in taken {
-                        bag.put_back(spend.item, 1);
+                        match spend.exchange {
+                            ambition_held_items::BagExchange::Spent => bag.put_back(spend.item, 1),
+                            ambition_held_items::BagExchange::Pocketed => {
+                                bag.take(spend.item, 1);
+                            }
+                        }
                     }
                 }
             },

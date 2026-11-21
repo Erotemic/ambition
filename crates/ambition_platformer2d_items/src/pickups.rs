@@ -575,6 +575,87 @@ pub fn record_ended_occurrences(
     occurrences.end(ended.into_iter().map(|(sim_id, ..)| sim_id));
 }
 
+/// POCKET A STOCK (A7): each object a stow marked [`ambition_held_items::Pocketed`]
+/// ends, and the bag gains one of its item.
+///
+/// It is the reverse of a throw's mint, and it is recorded the same way: a
+/// [`ambition_held_items::BagSpend`] of exchange `Pocketed`, keyed on the
+/// object. A checkpoint restore keeps the pocket while it keeps the object's
+/// end, which is the test it applies to a throw's spend. A rewind of the
+/// room takes the quantity back out. The object's custody row ends as
+/// `Consumed` ([`ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::end_carried`]),
+/// so an authored floor bomb is not built again in its room. The participants
+/// in the room own that end ([`ConsumedSinceCheckpoint`]), as they own a
+/// consumed pickup.
+///
+/// The object is despawned through commands and released to the world at
+/// once, so the custody producer, wherever it runs this tick, does not
+/// republish the row this ends.
+///
+/// ⚠ Two seats pocketing into a bag one short of full on one tick: the
+/// grant stops at the stack, and the second quantity is lost. Each stow
+/// asks for room, but both ask before either is granted.
+#[allow(clippy::type_complexity)]
+pub fn pocket_objects(
+    mut commands: Commands,
+    mut pocketed: Query<(
+        Entity,
+        &ambition_held_items::GroundItem,
+        &mut ambition_held_items::ItemCustody,
+        &ambition_held_items::Pocketed,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    )>,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    items: ambition_items::ItemCatalogRead,
+    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
+    mut spends: Option<ResMut<ambition_held_items::BagSpendsSinceCheckpoint>>,
+    mut occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    mut since: Option<ResMut<ConsumedSinceCheckpoint>>,
+    tick: Option<Res<ambition_time::SimTick>>,
+) {
+    let catalog = items.get();
+    for (object, ground, mut custody, pocket, sim_id) in &mut pocketed {
+        *custody = ambition_held_items::ItemCustody::InWorld;
+        commands.entity(object).despawn();
+        let Some(item) = catalog.item_by_held_item_id(ground.spec.id.as_str()) else {
+            continue;
+        };
+        if let Some(owned) = owned.as_deref_mut() {
+            owned.grant(catalog, item, 1);
+        }
+        let room = rooms.as_ref().and_then(|rooms| rooms.live().of(pocket.by));
+        let Some(sim_id) = sim_id else {
+            continue;
+        };
+        if let Some(spends) = spends.as_deref_mut() {
+            spends.record(ambition_held_items::BagSpend {
+                item,
+                exchange: ambition_held_items::BagExchange::Pocketed,
+                object: sim_id.clone(),
+                written: room.zip(tick.as_deref()).map(|(room, tick)| {
+                    ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
+                }),
+            });
+        }
+        let Some(replaced) = occurrences.as_deref_mut().and_then(|ledger| ledger.end_carried(sim_id)) else {
+            continue;
+        };
+        let (Some(rooms), Some(since)) = (rooms.as_ref(), since.as_deref_mut()) else {
+            continue;
+        };
+        let Some(definition) = rooms.definition_of(pocket.by) else {
+            continue;
+        };
+        since.record(
+            sim_id.clone(),
+            rooms.rooms().spec(definition).id.clone(),
+            ambition_world_returns::owners_beside(pocket.by, rooms.live(), &participants),
+            ConsumedWrite::from_room(room, tick.as_deref(), Some(replaced)),
+        );
+    }
+}
+
 /// The occurrences that ended since the last committed checkpoint (a one-time
 /// pickup consumed, a thrown bomb exploded) or were spent there (a chest
 /// opened): the room each was in, and the participants whose bodies were

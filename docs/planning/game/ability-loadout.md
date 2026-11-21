@@ -131,11 +131,24 @@ tests (bounce, one-way landing, strike rules).
 
 ## Open for bombs
 
-- **Pocket a bomb.** A bomb picked up off the floor cannot go into the
-  bag. To pocket it (+1 to the bag, the object ends) is the reverse of the
-  throw's mint: it needs a record of bag grants since the checkpoint, as
-  `BagSpendsSinceCheckpoint` records spends, or a checkpoint restore loses
-  the bomb. Not built.
+- **Pocket a bomb (done 2026-11-21).** A stow (the menu's, or a script's)
+  of a carried object pockets it. It must be an item the bag stacks, and the
+  bag must have room: +1 to the bag, and the object ends. With the bag full,
+  the stow puts the object down, as before.
+  - The hand marks the object `Pocketed`. The bag's owner,
+    `ambition_platformer2d_items::pickups::pocket_objects`, then grants it,
+    despawns it and records it, on the same tick.
+  - It is recorded as the throw's spend read backwards: a `BagSpend` of
+    exchange `Pocketed`, keyed on the object.
+  - A checkpoint restore keeps a pocket exactly when it keeps the object's
+    end, the same test it applies to a spend. A room rewind takes the
+    quantity back out.
+  - The object's custody row ends as `Consumed`
+    (`AuthoredOccurrences::end_carried`), so an authored floor bomb is not
+    built again in its room. The participants in the room own that end
+    (`ConsumedSinceCheckpoint`).
+  - Witness: `bombs_are_a_stock_in_the_bag::a_carried_floor_bomb_is_pocketed_by_a_stow`
+    (the sandbox's floor bomb; the control is a full bag).
 - **Held equips and stows are on the sim road (done 2026-11-10).** A menu
   writes `ItemEquipRequested` or `ItemStowRequested`; the hand's owner,
   `ambition_held_items::apply_hand_requests`, applies them on the stamped

@@ -726,6 +726,21 @@ impl AuthoredOccurrences {
         ended
     }
 
+    /// Remember that this carried occurrence ended in the hand that carried
+    /// it: a bomb pocketed into the bag. An `InCustody` row becomes
+    /// `Consumed`, so the room that authored it does not build it again.
+    /// Returns the row it replaced, or `None` when there was no custody row:
+    /// an occurrence with no row has no record that could build it again,
+    /// and a row of another kind did not end in a hand.
+    pub fn end_carried(&mut self, sim_id: &SimId) -> Option<OccurrenceWhereabouts> {
+        if !matches!(self.rows.get(sim_id), Some(OccurrenceWhereabouts::InCustody)) {
+            return None;
+        }
+        let old = Arc::make_mut(&mut self.rows).insert(sim_id.clone(), OccurrenceWhereabouts::Consumed);
+        Arc::make_mut(&mut self.custody).remove(sim_id);
+        old
+    }
+
     /// Take back the rows of occurrences that never happened: the mints of a
     /// boss defeat that a replay retracted (BOSS-REPLAY-RETRACTION, Q51). Not a
     /// `Consumed` row: a consumed occurrence happened and ended, and a

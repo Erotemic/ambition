@@ -87,10 +87,17 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                         ambition_platformer2d_items::narrative::level_worn_abilities,
                     )
                         .chain(),
-                    ambition_held_items::apply_hand_requests.run_if(
-                        ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>
-                            .or_else(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemStowRequested>),
-                    ),
+                    (
+                        ambition_held_items::apply_hand_requests.run_if(
+                            ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>
+                                .or_else(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemStowRequested>),
+                        ),
+                        // A stow that pocketed an object: the bag takes it on
+                        // the same tick.
+                        ambition_platformer2d_items::pickups::pocket_objects
+                            .run_if(bevy::prelude::any_with_component::<ambition_held_items::Pocketed>),
+                    )
+                        .chain(),
                 ),
                 // AFTER EVERY WRITER OF A HEAL: projectiles (Combat), pickups
                 // (FeatureCollection), chests (FeatureInteraction) and item

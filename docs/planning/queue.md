@@ -2442,9 +2442,10 @@ records why `perception` stays with the brain dispatch. `fade_rows` and
   remaining feed and conduct modules form groups tied by sibling and kernel
   reads, so none moves alone; they stay with the dispatch.
 
-`beat_cues` stays: it reads the body's decision frames. Next in the
-[inventory](engine/actor-monolith-decomposition.md#residual-body-inventory-measured-2026-11-20):
-the brain-feed owner question.
+`beat_cues` stays: it reads the body's decision frames. The
+[inventory](engine/actor-monolith-decomposition.md#residual-body-inventory-measured-2026-11-20)
+pass is complete; `transform_beat` is the one module left with no sibling read,
+and it waits on an owner for its rollback rows.
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure/measure_kernel_module_graph.py --scc --cuts --edges 80`

@@ -1155,7 +1155,11 @@ fn integrate_actor_body(
     if was_dead && em.health.alive() {
         combat.hit_flash = 0.24;
     }
-    let shark_crashed = shark_charge_crashed(em, is_being_ridden, shark_charge_vec, previous_pos);
+    // "Stopped dead by a wall" reads a body that wanted to charge and did not
+    // move. On a tick with no time in it (an impact hitstop, a frozen clock)
+    // nothing moves, and a riderless shark mid-charge blew itself up whenever
+    // anyone else landed a heavy blow.
+    let shark_crashed = dt > 0.0 && shark_charge_crashed(em, is_being_ridden, shark_charge_vec, previous_pos);
     let mut frame = frame;
     if shark_crashed {
         // ⛔⛔ THIS KILLS OUTRIGHT, WHATEVER THE POOL IS. The damage below is the

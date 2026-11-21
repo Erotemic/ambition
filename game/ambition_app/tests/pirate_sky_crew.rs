@@ -307,3 +307,62 @@ fn a_rider_on_a_flying_mount_steers_in_flight_from_the_first_tick() {
         assert_eq!(*ticks, 0, "{who} hung still in the saddle of a flying shark: {still:?}");
     }
 }
+
+/// Knock a raider out of the saddle and its shark is the protagonist's to take:
+/// the prompt offers the ride and the press boards it. The cove's crew is the
+/// shipped road to a riderless shark (MOUNT-RIDER-CUSTOMER).
+#[test]
+fn a_raider_s_shark_is_the_protagonist_s_once_the_raider_is_down() {
+    use ambition_app::AgentAction;
+    use ambition_platformer2d::sim_view::affordances::{InteractVariant, NearestInteractable};
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let world = sim.world_mut();
+    let mut riders = world.query::<(Entity, &RidingOn, &BodyHealth)>();
+    let (rider, shark) = riders
+        .iter(world)
+        .find(|(_, _, health)| health.alive())
+        .map(|(rider, riding, _)| (rider, riding.mount))
+        .expect("the crew rides");
+    let rider_pos = world.get::<ae::BodyKinematics>(rider).expect("a body").pos;
+    defeat(&mut sim, &[(rider, rider_pos)]);
+    // Long enough for the blow's hitstop to pass with the shark still flying.
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    assert!(!sim.world().get::<BodyHealth>(rider).expect("rider").alive(), "premise: the raider is down");
+    assert!(sim.world().get::<BodyHealth>(shark).expect("shark").alive(), "premise: its shark lives");
+
+    let home = {
+        let world = sim.world_mut();
+        world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).expect("a protagonist")
+    };
+    let beside_the_shark = |sim: &mut ambition_app::Platformer2dSimHarness| {
+        let at = sim.world().get::<ae::BodyKinematics>(shark).expect("shark").pos;
+        let mut kin = sim.world_mut().get_mut::<ae::BodyKinematics>(home).expect("protagonist");
+        kin.pos = at + ae::Vec2::new(-40.0, 0.0);
+        kin.vel = ae::Vec2::ZERO;
+    };
+    beside_the_shark(&mut sim);
+    sim.step(AgentAction::default());
+    assert!(
+        matches!(
+            sim.world().resource::<NearestInteractable>().for_body(home),
+            InteractVariant::Ride(_)
+        ),
+        "beside a riderless shark the prompt offers {:?}",
+        sim.world().resource::<NearestInteractable>().for_body(home)
+    );
+    beside_the_shark(&mut sim);
+    sim.step(AgentAction { interact: true, ..AgentAction::default() });
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(
+        sim.world().get::<RidingOn>(home).map(|riding| riding.mount),
+        Some(shark),
+        "the press did not board the raider's shark"
+    );
+}

@@ -1538,9 +1538,14 @@ pub struct DismountRequestsApplied;
 ///   mount is dead. Keeping the link record lets the same-room
 ///   reset path re-mount the rider once the mount is alive again
 ///   without having to look it up by id.
-/// - Rider dies: the mount keeps running with its own (already
-///   standalone) brain. The mount's [`MountSlot`] keeps its
-///   `rider` back-reference so the reset path can re-arm the link.
+/// - Rider dies: the ride ends for the mount. The corpse loses `Mounted`, the
+///   ride's hold and its claim, so it steers nothing and falls; the mount's
+///   [`MountSlot`] is freed, so its own brain drives it again and a licensed
+///   body may commandeer it. The corpse keeps its [`RidingOn`] record (a
+///   conductor still finds its mount by it), and a revival re-arms the ride
+///   and takes the saddle back, unless somebody else is riding by then. A
+///   body a participant drives loses the record too: its death is answered by
+///   a respawn, not by a revival in the saddle.
 ///
 /// The dissolution is idempotent, and the `Mounted` MARKER is what makes it so:
 /// the dissolve arm requires `(mount dead, rider still marked)`, and it removes
@@ -1567,6 +1572,8 @@ pub fn enforce_mount_rider_link(
             &mut ae::BodyKinematics,
             &mut ambition_characters::actor::BodyHealth,
             Option<&SpawnBaseline>,
+            // A participant's body: its death ends the ride outright.
+            bevy::prelude::Has<ambition_characters::control::DrivingParticipant>,
         ),
         Without<MountSlot>,
     >,
@@ -1575,8 +1582,8 @@ pub fn enforce_mount_rider_link(
             Entity,
             Option<&ambition_characters::actor::BodyHealth>,
             Option<&Mountable>,
+            &MountSlot,
         ),
-        With<MountSlot>,
     >,
     // Stable ids, to record the mount by `SimId` in the rider's temporary-control
     // state (so a snapshot restores the mount link across a rewind).
@@ -1595,7 +1602,9 @@ pub fn enforce_mount_rider_link(
     // `false` and opposite bugs.
     let mut mount_pool: HashMap<Entity, (i32, i32, i32)> = HashMap::new();
     let mut mount_death_impact: HashMap<Entity, MountDeathImpact> = HashMap::new();
-    for (mount_entity, mount_health, mountable) in &mounts {
+    let mut saddle: HashMap<Entity, Option<Entity>> = HashMap::new();
+    for (mount_entity, mount_health, mountable, slot) in &mounts {
+        saddle.insert(mount_entity, slot.rider);
         // ⛔ A MOUNT WITHOUT A HEALTH POOL IS A BROKEN MOUNT, not an immortal
         // one. This briefly read `map_or(true, ..)` on the theory that a missing
         // pool was why a ridden shark kept dying — MEASURED FALSE: the summoned
@@ -1638,9 +1647,37 @@ pub fn enforce_mount_rider_link(
         mut rider_kin,
         mut rider_health,
         rider_spawn,
+        driven,
     ) in &mut riders
     {
         if !rider_health.alive() {
+            // A corpse steers nothing and holds no saddle: while it kept
+            // `Mounted`, `steer_mount_from_rider` drove the mount from a dead
+            // body's frame, and the taken saddle refused every other rider.
+            if was_mounted.is_some() {
+                commands.entity(rider_entity).remove::<Mounted>();
+                ambition_platformer2d_core::release_pose_hold(
+                    &mut commands,
+                    rider_entity,
+                    ambition_platformer2d_core::PoseHold::Ride,
+                );
+                ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
+                    &mut commands,
+                    rider_entity,
+                    ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+                );
+                if driven {
+                    commands.entity(rider_entity).remove::<(RidingOn, RideLease)>();
+                }
+                let mount = riding.mount;
+                commands.queue(move |world: &mut bevy::prelude::World| {
+                    if let Some(mut slot) = world.get_mut::<MountSlot>(mount) {
+                        if slot.rider == Some(rider_entity) {
+                            slot.rider = None;
+                        }
+                    }
+                });
+            }
             continue;
         }
         // ⛔⛔ `unwrap_or(false)` TURNS "I NEVER SAW THIS ENTITY" INTO "IT DIED",
@@ -1738,6 +1775,34 @@ pub fn enforce_mount_rider_link(
             // life. Restore the cached MOUNTED brain + action set
             // and the ride's constraints. Re-arm idempotently.
             (true, false) => {
+                // The saddle may have been freed by this rider's death and taken
+                // since: somebody else's ride is not undone by a revival, and
+                // the record re-arms nothing any more.
+                let seat = saddle.get(&riding.mount).copied().flatten();
+                if seat.is_some_and(|holder| holder != rider_entity) {
+                    commands.entity(rider_entity).remove::<(RidingOn, RideLease)>();
+                    continue;
+                }
+                if seat.is_none() {
+                    let mount = riding.mount;
+                    commands.queue(move |world: &mut bevy::prelude::World| {
+                        if let Some(mut slot) = world.get_mut::<MountSlot>(mount) {
+                            if slot.rider.is_none() {
+                                slot.rider = Some(rider_entity);
+                            }
+                        }
+                    });
+                }
+                if cache.is_none() {
+                    // A revived rider with no mounted brain to swap in: the ride
+                    // holds it again and nothing masks its own brain.
+                    commands.entity(rider_entity).insert(Mounted);
+                    ambition_platformer2d_core::claim_pose_hold(
+                        &mut commands,
+                        rider_entity,
+                        ambition_platformer2d_core::PoseHold::Ride,
+                    );
+                }
                 if let Some(cache) = cache {
                     commands.entity(rider_entity).insert((
                         cache.brain.clone(),

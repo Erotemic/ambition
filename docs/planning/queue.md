@@ -2798,9 +2798,27 @@ NPC rider is never given a mounted brain. Not needed by this customer. The
 Smash ride tests cannot run on this VM (no music registry: the opening
 ceremony never releases the cast).
 
-**Next action:** Jon rides a shark by hand in the sandbox hub. Spawning a
-riderless one there is the only way to reach one today; no room authors a
-riderless shark.
+**Done 2026-11-21 (slice 3), a riderless shark in shipped content:** knock
+a raider off in the cove's sky lookout (`pirate_sky_lookout`) and its shark
+is the protagonist's to take. Two defects stood in the way:
+1. A dead rider kept `Mounted` and the saddle, so its shark kept steering from
+   a corpse's frame and refused every other rider. Now a rider's death ends the
+   ride for the mount: the corpse loses `Mounted`, the ride's hold and its
+   claim, and the saddle is freed. The corpse keeps `RidingOn` (GNU-ton's
+   conductor finds the giant by it through his beaten finale), and a revival
+   re-arms the ride and takes the saddle back unless somebody else is riding;
+   a body a participant drives loses the record with its life. No shipped
+   rider has a `MountedBrainCache`, so the revival no longer needs one
+   (`a_dead_rider_frees_the_saddle_and_its_revival_takes_it_back`).
+2. A riderless shark detonated on any tick with no time in it: the killing
+   blow's impact hitstop froze the clock, the shark "did not move" while it
+   wanted to charge, and the charge-crash test read a wall. The test now
+   skips a zero-length tick.
+
+Witness: `a_raider_s_shark_is_the_protagonist_s_once_the_raider_is_down`
+(app_it).
+
+**Next action:** Jon rides a raider's shark by hand in the sky lookout.
 
 **Acceptance:** the customer mounts, the mount obeys the rider, and on
 dismount the mount runs the brain it had before; the same after a rewind.

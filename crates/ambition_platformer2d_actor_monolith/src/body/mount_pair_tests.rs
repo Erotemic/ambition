@@ -878,32 +878,45 @@ fn reviving_mount_re_arms_rider_to_mounted_brain() {
     );
 }
 
-/// Dead rider leaves the link records in place — the mount keeps
-/// its MountSlot back-reference (no re-arming needed since the
-/// rider's just dead, not transitioning). Mount stays alive.
+/// A dead rider leaves the saddle: it steers nothing, the mount is free for
+/// another rider, and its record stays so a revival takes the saddle back,
+/// unless somebody else is riding by then. No shipped rider has a mounted
+/// brain cache, so this one has none either.
 #[test]
-fn dead_rider_does_not_disturb_mount_records() {
+fn a_dead_rider_frees_the_saddle_and_its_revival_takes_it_back() {
     let mut app = build_app();
     app.add_systems(Update, enforce_mount_rider_link);
-    let (mount, _rider) = spawn_pair(
-        &mut app, /*mount_alive*/ true, /*rider_alive*/ false,
-    );
+    let (mount, rider) = spawn_pair(&mut app, /*mount_alive*/ true, /*rider_alive*/ false);
+    app.world_mut().entity_mut(rider).remove::<MountedBrainCache>();
+    fn health(app: &mut App, body: Entity) -> bevy::prelude::Mut<'_, ambition_characters::actor::BodyHealth> {
+        app.world_mut().get_mut::<ambition_characters::actor::BodyHealth>(body).unwrap()
+    }
+    let seat = |app: &App| app.world().get::<MountSlot>(mount).unwrap().rider;
 
     app.update();
+    assert_eq!(seat(&app), None, "a corpse still holds the saddle");
+    assert!(app.world().get::<Mounted>(rider).is_none(), "a corpse still steers its mount");
+    assert!(app.world().get::<ae::PoseOwnedExternally>(rider).is_none(), "a corpse is still held in the saddle");
+    assert_eq!(app.world().get::<RidingOn>(rider).map(|r| r.mount), Some(mount), "the record a revival re-arms from");
+    assert!(health(&mut app, mount).alive(), "the mount lives on");
 
-    let slot = app.world().entity(mount).get::<MountSlot>().unwrap();
-    assert!(
-        slot.rider.is_some(),
-        "MountSlot.rider stays populated even with dead rider",
-    );
-    assert!(
-        app.world()
-            .entity(mount)
-            .get::<ambition_characters::actor::BodyHealth>()
-            .unwrap()
-            .alive(),
-        "mount stays alive when rider dies"
-    );
+    health(&mut app, rider).reset();
+    app.update();
+    assert_eq!(seat(&app), Some(rider), "the revived rider did not take its saddle back");
+    assert!(app.world().get::<Mounted>(rider).is_some());
+    assert!(app.world().get::<ae::PoseOwnedExternally>(rider).is_some(), "the revived rider is not held in the saddle");
+
+    // Dead again, and somebody else boards before it comes back.
+    let current = health(&mut app, rider).current();
+    health(&mut app, rider).damage(current);
+    app.update();
+    let other = app.world_mut().spawn_empty().id();
+    app.world_mut().get_mut::<MountSlot>(mount).unwrap().rider = Some(other);
+    health(&mut app, rider).reset();
+    app.update();
+    assert_eq!(seat(&app), Some(other), "a revival took a saddle somebody else is riding");
+    assert!(app.world().get::<Mounted>(rider).is_none());
+    assert!(app.world().get::<RidingOn>(rider).is_none(), "a record that re-arms nothing still reads as a ride");
 }
 
 /// A boss rider whose `hand_slam` strike routes to a giant's two hands: the

@@ -301,6 +301,15 @@ impl PreparedCharacterDefinition {
         ))
     }
 
+    /// The blueprint of a ROLE that states its own locomotion over the
+    /// character's other facts: a boss, which floats and steers by commanding
+    /// an exact velocity whatever its character walks at elsewhere. The role
+    /// is an override stated before construction, so no body is built and
+    /// then repaired.
+    pub fn role_blueprint(&self, locomotion: crate::actor::CharacterLocomotion) -> CharacterBodyBlueprint<'_> {
+        self.blueprint_with_locomotion(locomotion)
+    }
+
     fn blueprint_with_locomotion(
         &self,
         locomotion: crate::actor::CharacterLocomotion,

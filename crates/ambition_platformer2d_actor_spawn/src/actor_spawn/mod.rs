@@ -366,6 +366,7 @@ pub fn spawn_staged_actor_into(sprite_content: &ambition_sprite_sheet::SpriteCon
             // A runtime-staged boss stands in no authored room: never practice.
             spawn_boss_with_overrides_into(&sprite_content,
                 &mut scope.reborrow(),
+                character_catalog,
                 boss_catalog,
                 prepared,
                 authored_sheets,
@@ -901,136 +902,65 @@ impl NpcActorSpawnPlan {
 /// Deliberately generous — bosses author velocities in the low hundreds of px/s.
 const BOSS_FLIGHT_SPEED: f32 = 1200.0;
 
-/// Build the actor movement cluster a boss carries so its body can integrate
-/// through the SHARED body pipeline like every other actor (archetype swap AS2 —
-/// "a boss IS just an aerial actor"). These are exactly the components an aerial
-/// enemy carries MINUS the [`BodyKinematics`] + [`ambition_characters::actor::BodyHealth`]
-/// the boss already owns (§A1), so the boss's authoritative kin/HP stay the single
-/// source of truth and the encounter wrapper (`BossConfig` / `BossEncounter` /
-/// `BossAttackState`) layers on top unchanged.
+/// The boss ROLE over a body its character's seed built: what a boss is that
+/// the character is not. Stated before the body is spawned, so no provisional
+/// body is built and repaired (the plan's override order).
 ///
-/// The boss is AERIAL (a gravity-free free-mover): it spawns flight-enabled so it
-/// steers through the shared flight limb (archetype swap AS4). `is_hostile` /
-/// `body_contact_damage` are false — boss offense flows through `BossAttackState`
-/// + `boss_attack_damage`, never the actor melee/contact path; the boss is a
-/// victim-side body here (the vulnerability trio rides in via the bundle below).
-fn boss_actor_cluster(
+/// The boss floats (`role_blueprint` gave it free flight at
+/// [`BOSS_FLIGHT_SPEED`]); its body and health are its encounter's occurrence
+/// (`scale`, `max_hp`, a placement's authored size), placed at its box's
+/// centre; and its offence is its authored moveset, never the actor contact
+/// path, so it is not `is_hostile`.
+fn compose_boss_role(
+    seed: &mut ambition_body_seed::ActorClusterSeed,
     config: &BossConfig,
     kin: &BodyKinematics,
-    corpse: Option<ambition_characters::actor::Corpse>,
-) -> (
-    ambition_characters::actor::ai::ActorStatus,
-    ambition_combat::actor_tuning::ActorConfig,
-    ambition_platformer2d_shared_tangle::body::SpawnBaseline,
-    ambition_body_seed::ActorMotionPath,
-    ambition_platformer2d_core::body_clusters::ActorSurfaceState,
-    ambition_combat::components::BodyMelee,
-    ambition_combat::components::RangedRefire,
-    ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle,
-    ambition_platformer2d_core::movement::MotionModel,
-    ambition_combat::CombatCapabilities,
-    ambition_combat::CombatTuning,
+    health: &ambition_characters::actor::BodyHealth,
 ) {
-    // A boss floats: its movement kit grants flight, unioned into the body's
-    // `AbilitySet` below. Its death traits are default, except what its corpse
-    // does, which its character states.
-    let caps = ambition_combat::CombatCapabilities {
-        corpse,
-        ..Default::default()
+    // The occurrence's body: the scratch sized it through the same resolver at
+    // the encounter's scale, and a boss stands where its box's centre is.
+    seed.kin = kin.clone();
+    seed.health = health.clone();
+    seed.spawn = ambition_platformer2d_shared_tangle::body::SpawnBaseline {
+        pos: kin.pos,
+        size: kin.size(),
     };
+    // ⛔ PERMANENT FLIGHT, AND `fly_toggle` MUST STAY FALSE. Nothing ever
+    // toggles a boss: it spawns flying and must stay flying, because its
+    // `BossPattern` brain steers ONLY by commanding an exact velocity and only
+    // the flight limb reads that. A toggle here costs the boss its legs.
     let movement_kit = ae::AbilitySet {
         fly: true,
-        // ⛔ PERMANENT FLIGHT, AND `fly_toggle` MUST STAY FALSE. Nothing ever
-        // toggles a boss: it spawns flying (`ActorTuning::is_aerial` →
-        // `flight.fly_enabled`) and must stay flying, because its `BossPattern`
-        // brain steers ONLY by commanding an exact velocity and only the flight
-        // limb reads that. A toggle here costs the boss its legs.
         fly_toggle: false,
         ..ae::AbilitySet::NONE
     };
-    // STRIKE offense is the boss's AUTHORED MOVESET — every boss strike, geometry
-    // and content-technique special alike, runs through the shared moveset
-    // runtime (`ambition_boss_encounter::attack_moveset::boss_attack_moveset`,
-    // built below at the second spawn site) — so `is_hostile`, which drives
-    // CONTACT damage rather than authored strikes, stays off.
-    //
-    // ⛔ THIS SENTENCE USED TO CITE `sync_boss_strike_hitboxes`, WHICH NO LONGER
-    // EXISTS. It was retired when the moveset runtime took over, and six other
-    // comments in the tree name it correctly — in the PAST tense, as the thing
-    // that was replaced. This one named it in the present as the live mechanism,
-    // and it is the stated REASON a setting stays off: a reader checking whether
-    // `is_hostile: false` is still right found nothing to check against.
-    //
-    // ⚠ THE CONCLUSION WAS NEVER WRONG, only its justification — which is the
-    // more dangerous shape, because the setting keeps working and nothing ever
-    // forces the sentence to be re-read.
+    seed.body = ambition_body_seed::ActorBody::from_abilities(movement_kit, true, kin.size());
+    let tuning = &mut seed.config.tuning;
+    // The BossPattern brain commands an exact per-tick velocity, so the flight
+    // limb takes it verbatim (AS4c).
+    tuning.flight_direct_velocity = true;
+    // STRIKE offence is the boss's authored moveset
+    // (`ambition_boss_encounter::attack_moveset::boss_attack_moveset`), so
+    // `is_hostile`, which drives contact damage rather than authored strikes,
+    // stays off; a profile's `body_damage` is its contact.
+    tuning.is_hostile = false;
     let body_damage = config.behavior.body_damage;
-    let tuning = ambition_combat::actor_tuning::ActorTuning {
-        max_run_speed: BOSS_FLIGHT_SPEED,
-        is_aerial: true,
-        // The BossPattern brain commands an exact per-tick velocity, so the flight
-        // limb takes it verbatim (AS4c) — byte-identical to the old SNAP float.
-        flight_direct_velocity: true,
-        is_hostile: false,
-        body_contact_damage: body_damage > 0,
-        damage_amount: body_damage,
-        contact_strength: 2.6,
-        ..Default::default()
-    };
-    let weight = tuning.weight;
-    let actor_config = ambition_combat::actor_tuning::ActorConfig {
-        tuning,
-        // The boss's REAL brain is its `BossPattern` `Brain` component. This
-        // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
-        // a free-flying boss never uses, so it takes the inert `Passive` row.
-        brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        // A boss drives a `BossPattern`, never the fighter brain the trait picks
-        // a stream for, and there is only ever one of it.
-        preserves_mirror_symmetry: false,
-    };
-    (
-        ambition_characters::actor::ai::ActorStatus {
-            respawn_timer: 0.0,
-        },
-        actor_config,
-        ambition_platformer2d_shared_tangle::body::SpawnBaseline {
-            pos: kin.pos,
-            size: kin.size(),
-        },
-        ambition_body_seed::ActorMotionPath::default(),
-        ambition_platformer2d_core::body_clusters::ActorSurfaceState {
-            surface_normal: ae::Vec2::new(0.0, -1.0),
-            gravity_scale: 0.0,
-        },
-        ambition_combat::components::BodyMelee::default(),
-        ambition_combat::components::RangedRefire::default(),
-        ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
-            ambition_body_seed::ActorBody::from_abilities(
-                movement_kit,
-                true,
-                kin.size(),
-            )
-            .0,
-        ),
-        // Every integrated body carries an explicit policy from spawn — the
-        // boss is axis-swept (its direct-velocity flight rides the per-tick
-        // axis-parameter refresh in `integrate_body`).
-        ambition_platformer2d_core::movement::MotionModel::default(),
-        caps,
-        // Project the boss's weight onto the combat-owned carrier at spawn
-        // (E2 verdict b); default `1.0` here since bosses don't author weight.
-        ambition_combat::CombatTuning {
-            weight,
-            // CM8: a struck boss reacts with the plain hurt profile (its death is
-            // handled by the boss-death feedback, not this).
-            hurt_feedback: ambition_vfx::HurtFeedback::ENEMY,
-        },
-    )
+    tuning.body_contact_damage = body_damage > 0;
+    tuning.damage_amount = body_damage;
+    tuning.contact_strength = 2.6;
+    tuning.respawn = ambition_combat::actor_tuning::ActorTuning::default().respawn;
+    // Its real brain is its `BossPattern` `Brain`; this integrator-facing one
+    // only feeds patrol-stall intent, which a free-flying boss never uses.
+    seed.config.brain = ambition_entity_catalog::placements::CharacterBrain::Passive;
+    // There is only ever one of it, and no fighter brain to give a stream to.
+    seed.config.preserves_mirror_symmetry = false;
+    seed.motion = ambition_body_seed::ActorMotionPath::default();
 }
 
 /// Populate a boss onto a root the construction executor allocated.
 pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
+    character_catalog: &CharacterCatalog,
     boss_catalog: &BossCatalog,
     // The cast the boss's character is prepared in, and the sheets a
     // consumer authored: a boss is an instance of its character.
@@ -1180,10 +1110,33 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     // `ActorTuning::max_health` that the boss's own `BodyHealth` already held. The boss owns
     // its health directly (§A1); handing it a copy of its own number was the duplicate this
     // slice removes.
-    let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin, corpse);
+    // THE BODY IS ITS CHARACTER'S, BUILT BY THE COMMON SEED, with the boss
+    // role stated over it before it is spawned (`role_blueprint`,
+    // `compose_boss_role`). It was built by the boss road's own cluster, which
+    // never read the character.
+    let role_locomotion = ambition_characters::actor::CharacterLocomotion {
+        run_speed: BOSS_FLIGHT_SPEED,
+        baseline_free_flight: Some(true),
+        ..character.locomotion.clone().unwrap_or_default()
+    };
+    let mut seed = ambition_body_seed::ActorClusterSeed::new_character_in(
+        sprite_content,
+        authored_sheets,
+        character_catalog,
+        authored.id.clone(),
+        character.role_blueprint(role_locomotion),
+        authored.aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Passive,
+        &[],
+    );
+    compose_boss_role(&mut seed, &boss.config, &boss.kin, &boss.health);
+    debug_assert_eq!(
+        seed.caps.corpse, corpse,
+        "the seed reads the corpse from the same death traits"
+    );
     let built_body = boss.kin.clone();
     let boss_render_envelope = ambition_combat::BodyEnvelope(boss.as_ref().render_size());
-    let boss_components = boss.into_components();
+    let (_, boss_config, boss_status, _) = boss.into_components();
     scope.insert_session_scoped((
             Name::new(format!("Feature boss: {}", authored.name)),
             FeatureSimEntity,
@@ -1200,9 +1153,13 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
                 DamageableVolumes::default(),
                 PogoPolicy::FromDamageable,
                 PogoTargetVolumes::default(),
-                boss_components,
+                (boss_config, boss_status),
             ),
     ));
+    // The body and its health, from the seed. Inserted before the boss's own
+    // read models below, so its identity and death beat are the encounter's.
+    scope.insert(seed.into_components());
+    scope.insert(ambition_platformer2d_core::movement::MotionModel::default());
     scope.insert((
         // Shared actor combat read models. Boss-specific encounter
         // phase / music / rewards stay on BossFeature + boss
@@ -1258,7 +1215,16 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
             .unwrap_or_default(),
     ));
     scope.insert(boss_attack_moves.unwrap_or_default());
-    scope.insert(boss_actor_cluster);
+    // It wears its character: `CharacterForm`, its pose read model, its
+    // silhouette and movement feel, by the grant every character body takes.
+    // Its kit is its encounter's (the moveset above), so the grant writes none.
+    initialize_prepared_character_with(
+        sprite_content,
+        &mut scope.reborrow(),
+        character,
+        prepared.generation(),
+        crate::character_body::KitOwnership::CallerResolved,
+    );
     // The shared body phase publishes this coarse envelope as `CenteredAabb`.
     // The collision box stays in `BodyKinematics`.
     scope.insert(boss_render_envelope);
@@ -1550,6 +1516,18 @@ fn initialize_prepared_character(sprite_content: &ambition_sprite_sheet::SpriteC
     definition: &ambition_characters::prepared::PreparedCharacterDefinition,
     generation: ambition_characters::prepared::CharacterCatalogGeneration,
 ) {
+    initialize_prepared_character_with(sprite_content, scope, definition, generation, crate::character_body::KitOwnership::Grant);
+}
+
+/// [`initialize_prepared_character`], for a road that owns the body's kit: a
+/// boss, whose repertoire is its encounter's authored moveset
+/// (`KitOwnership::CallerResolved`).
+fn initialize_prepared_character_with(sprite_content: &ambition_sprite_sheet::SpriteContent,
+    scope: &mut RootScope,
+    definition: &ambition_characters::prepared::PreparedCharacterDefinition,
+    generation: ambition_characters::prepared::CharacterCatalogGeneration,
+    kit: crate::character_body::KitOwnership,
+) {
     scope.insert(ambition_characters::actor::CharacterForm::new(
         definition.id.as_str(),
     ));
@@ -1568,7 +1546,7 @@ fn initialize_prepared_character(sprite_content: &ambition_sprite_sheet::SpriteC
         &mut scope.entity_scope(),
         definition,
         generation,
-        crate::character_body::KitOwnership::Grant,
+        kit,
         definition.movement_tuning,
         held.as_ref().map_or(ambition_characters::repertoire::Hand::Empty, |held| {
             ambition_characters::repertoire::Hand::Holding(&held.spec)

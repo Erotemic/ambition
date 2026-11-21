@@ -293,6 +293,46 @@ The failures that remain are environmental: the music registry, v3's art, and
 character-keyed system, and before 2c the boss body is still built by the boss
 road.
 
+**2c record (2026-11-21).** The boss body is built by the common seed.
+`spawn_boss_with_overrides_into` calls `ActorClusterSeed::new_character_in`
+with `PreparedCharacterDefinition::role_blueprint`, which is the character's
+body plan with the boss's locomotion (free flight at `BOSS_FLIGHT_SPEED`).
+`compose_boss_role` then states the boss role over the seed before anything is
+spawned. That role is:
+* the occurrence's body and health, sized by the scratch;
+* a fly-only kit with `fly_toggle` false;
+* direct-velocity flight;
+* contact damage from the profile's `body_damage` and no `is_hostile`;
+* the inert `Passive` brain.
+
+The body then takes the prepared grant with `KitOwnership::CallerResolved`,
+because its repertoire is the encounter's moveset, so it carries
+`CharacterForm`. `boss_actor_cluster` is deleted. `BossClusterScratch` keeps its
+encounter components (config, status) and its sizing. Its kinematics and health
+are handed to the seed, so the body has one builder.
+
+*Decision: the anchor stays the box centre.* The seed's rule puts the feet on
+the placement box's bottom. `compose_boss_role` overrides it with the
+occurrence's kinematics, which are centred on the box, so no boss moves in 2c.
+Every boss room is authored for the centre, and the boss body convention
+(`BossRef::aabb` is the kinematic box, `frame_center` places the drawing) reads
+it. A move to feet-on-the-floor would be a separate change, made with a
+capture of each room.
+
+*What `CharacterForm` brings.* Character-keyed systems now see bosses, so
+direction, rally, aggression, attack VFX resolution and the actor render index
+give a boss its character id. Drawing is unchanged: the actor sprite path
+yields to the boss path by identity (`actor_sprite_path_owns`), and the worn
+presentation binder is gated on `PlayerVisual`.
+
+Lanes run: the lib tests of `ambition_platformer2d_actor_spawn`,
+`ambition_platformer2d_construction`, `ambition_characters`,
+`ambition_platformer2d_publication`, `ambition_body_seed` and
+`ambition_boss_encounter`, plus an app_it lane over every boss fight,
+`hall_of`, `rollback_coverage` and `two_peers`: 261 passed, 3 failed. The 3
+failures were already red before 2c: `gnu_ton_in_a_match` and the two T-rex
+drawing tests.
+
 **Headless frame baseline** (tree `feb420d2a`). Measured with
 `scripts/measure/headless_room_frame.sh`: the `profiling` build without Tracy,
 2000 ticks, 3 reps, and the median of the census windows (ms per frame). The

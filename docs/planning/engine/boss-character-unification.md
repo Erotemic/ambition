@@ -208,6 +208,32 @@ geometry, this becomes an explicit occurrence scale.
    `boss_actor_cluster` and the scratch's body seed, and the body carries
    `CharacterForm`.
 
+**2b input: the character path against the fight body** (probe on
+2026-11-21, width × height). The character path is
+`sprite_body_collision_for_character_id_from_data`: a standing height and the
+sheet's idle body. The fight body is the bounding box of the boss sheet's body
+parts, drawn at the placement box.
+
+| Character | Character path | Fight body | Reading |
+| --- | --- | --- | --- |
+| Warden, Hunny Horror, Mode Collapse, Overflow, Behemoth, T-Rex, Wolfenstein | equal within 0.1 | | One answer already |
+| Marshal Gallus | 120.2 × 168.6 | 115.5 × 168.6 | Width: the idle body against the bounding box of all parts |
+| Gram Reaper | 213.4 × 206.7 | 210.6 × 206.7 | Same |
+| Mockingbird | 320.1 × 151.0 | 318.4 × 150.2 | Same, plus a rounded copy of the height |
+| Flying Spaghetti Monster | 176.6 × 79.1 | 167.4 × 77.3 | The Hall's height was copied from an older fight body |
+| Inugami | no standing height | 178.3 × 212.8 | The row needs its height |
+| bossofthegame | 12.4 × 48 (his own small standing body) | 29.0 × 112.2 | The row says "the fight's body is the boss encounter's": two sizes of one character on purpose. The fight is an occurrence scale. |
+| GNU2 | a posed body (`WorldPerPixel(1.3)`), which this probe does not resolve | 630.5 × 464.1 | Resolve it through `BuiltGeometry` |
+| GNU-ton (`npc_gnu_ton_boss`) | its manifest does not resolve | 59.7 × 105.2 | The row's sheet must become `gnu_ton_scholar_boss`, the drawing the fight wears |
+
+So 2b uses the common resolution, `BuiltGeometry` (body source, sheet and
+sizing). It does not repair the boss road's own resolution. Expect small width
+changes for Gallus, the Gram Reaper and the Mockingbird. An occurrence that
+differs on purpose (bossofthegame's fight, the Warden in `first_system_boss`)
+states a scale on the placement. The profile's `combat_size` is a dead fallback
+for every shipped boss, because each sheet publishes a body, so it is deleted
+rather than moved.
+
 `CharacterForm` is added only in 2c. It brings the body into every
 character-keyed system, and before 2c the boss body is still built by the boss
 road.

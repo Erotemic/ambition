@@ -1,114 +1,194 @@
 # Reusable authored world composition — Engine 1.0 design program
 
-**State:** INCUBATING — do not implement a universal prefab system yet.
-
-**Hold evidence.** Both conditions for the hold are true:
-
-- No abstraction has emerged. No `*Assembly`, `*Prefab`, `*Composition` or
-  `*Motif` type exists for authored world structure. `ShellComposition`
-  (`crates/ambition_platformer2d_provider/src/composition.rs`) is shell
-  composition, not world composition.
-- The authored unit is one placement. `PlacementKind`
-  (`crates/ambition_entity_catalog/src/placements.rs`) has six flat variants
-  (`Hazard`, `Interactable`, `Pickup`, `Chest`, `Breakable`, `Portal`), with no
-  composite, no cross-placement reference and no grouping.
-
-Each predicted pressure (portal mechanisms, moving machinery, shrines,
-encounter assemblies, environmental hazards) has its own implementation. To
-see the pressure, count files with `grep -rl <TERM> --include=*.rs crates game`
-for `Portal`, `KinematicPath\|MovingPlatform`, `Shrine`,
-`EncounterSpec\|EncounterId\|EncounterDefinition` and
-`HazardSpec\|HazardRespawn`. A file count shows pressure, not a design.
+**State:** PLANNED, 2026-11-21. Start from the existing local-reference
+construction operation. A general authored format still requires two
+materially different uses. [The queue](../queue.md) selects work.
+**Source review:** `6895e5168638`; no new implementation or runtime result is
+claimed here.
 
 ## Goal
 
-Discover the reusable composition abstraction, if any, for authored structures
-larger than one placement and different from a character definition.
+An author can place or create a reusable mechanism whose parts refer to each
+other. The mechanism has local names, explicit parameters and explicit external
+bindings. Each occurrence owns its state. It uses ordinary domain construction,
+behavior and publication.
 
-Likely Ambition pressures include encounter assemblies, moving machinery,
-shrines, portal mechanisms, environmental hazards and repeated room motifs.
+The useful shared operation is to bind a definition's local references to one
+instance. An authored hierarchy, a spatial parent tree and a lifecycle owner
+are separate relations. None requires the others to have the same shape.
 
-## Direction
+## Current authority and evidence
 
-Learn from `CharacterDefinition`: authored composition should be reusable data,
-validated/prepared before runtime, and separable from placement/session policy.
+The former hold relied partly on the absence of a type named `Assembly`,
+`Prefab`, `Composition` or `Motif`. That is no longer a useful design test.
+The authored `PlacementKind` is still flat, but current construction can bind
+references among several objects before they become visible:
 
-But do **not** assume the correct answer is a Unity-style prefab clone, a Godot
-scene clone, or one recursive `UniversalDefinition` enum.
+| Existing operation | Owner |
+| --- | --- |
+| Distinguish an existing occurrence from a name local to a creation batch | [`ObjectTarget::Live` and `ObjectTarget::Local`](../../../crates/ambition_world_port/src/object_target.rs) |
+| Prepare root state and state owned by each object | [`ComposedInitialization`, `OwnedObjectState`, `ObjectInitialization`](../../../crates/ambition_platformer2d_construction/src/runtime.rs) |
+| Allocate the batch's occurrence references, resolve local names, prepare state, then commit hidden roots | `RuntimeConstruction::commit` in the same owner |
+| Bind behavior references and initialize subscriptions from the complete local map | [`BehaviorInitialization::prepare`](../../../crates/ambition_platformer2d_runtime/src/object_behaviors.rs) |
+| Lower actor creation, behavior bindings and native actor relations through that construction | [`actor_creation::lower`](../../../crates/ambition_platformer2d_runtime/src/actor_creation.rs) |
 
-A real abstraction must emerge from at least two materially different Ambition
-uses.
+These are implementation evidence for local binding, not evidence that a
+reusable world format is complete. Actor batches do not yet prove that a lift,
+switches and door can share one authored composition.
 
-## An emerging direction (recorded, not adopted)
+The [Bridge Warden script](../../../examples/projects/bridge_warden/modules/bridge_warden.rhai)
+is the first customer. It creates a warden and two posts, reads their identities
+from the result vector, then attaches a behavior with references and
+subscriptions. This works. It also makes the author write construction and
+binding order. Creation-time behavior bindings with local targets already
+exist, so the first improvement can remove that order from this script without
+adding a new engine execution model.
 
-Once prepared authored rules exist
-([`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)),
-a reusable composition plausibly contains:
+## Decision: local names and explicit bindings
 
-- prepared component/entity data;
-- internal semantic references;
-- exposed parameters;
-- optional references to prepared deterministic rule/orchestration programs.
+A reusable definition describes its parts using names local to the definition.
+Its placement or creation supplies parameters and any external references. The
+owning domains prepare the parts. Construction binds their local names to new
+occurrence references and publishes the complete instance through the current
+transaction.
 
-For example, a reusable elevator composition might eventually be:
+Keep these identities separate:
 
-```text
-lift
-switch A
-switch B
-door
-reference bindings
-prepared power/control rules
-```
+| Identity | Meaning |
+| --- | --- |
+| Definition | Shared authored content, with its admitted generation |
+| Local child key | A part within that definition |
+| Authored placement | One persistent use of the definition in authored world content |
+| Live occurrence | The live object's identity under the owner's session and lifetime rules; distinct from a current Entity handle |
+| External binding | A reference supplied by the caller or placement under a stated access rule |
 
-That would give scene-like compositional **power** without adopting a universal
-Node tree and without embedding arbitrary Rust plugins inside authored
-compositions — which is the shape this program has been looking for.
+A child key resolves only in its instance. It cannot fall back to a room-wide
+name lookup when a local target is absent. A reference outside the instance
+must use an explicit external slot. The slot declares the domain or capability
+the target must provide; successful name lookup alone is not admission.
 
-This does not raise the priority of composition or lower its evidence
-threshold. Do not move composition ahead of its evidence. The
-two-materially-different-uses rule stands.
+For persistent authored instances, derive child identity from the authored
+placement and stable child key, within the existing room/session scope.
+Reordering declarations must not change those identities. Ordinary dynamic
+creation retains its occurrence and provenance rules. Do not give two dynamic
+invocations the same live identity because they use the same definition.
+`RuntimeConstruction` currently uses a creation sequence and row index; adapt
+the authored-instance input deliberately instead of treating that index as a
+persistent child key.
 
-## Questions an eventual model must answer
+A persistent child-key rename changes authored identity unless an explicit
+mapping says otherwise. Store the durable placement/child key in persistent
+data, not a session-local ObjectRef or Entity. Restore and reconstitution
+re-establish live references through the existing occurrence policy; a
+rollback can restore the same occurrence, while a retired reference must not
+become valid merely because a later child has the same authored name.
 
-- how child authored identities are defined;
-- how a placement parameterizes a reusable composition;
-- how references between children remain stable;
-- how preparation/lowering works across authoring backends;
-- how persistent instance state relates to the authored template;
-- how nested composition and overrides work, if they exist at all;
-- how an agent semantically inspects and edits the composition.
+Parameters are typed inputs to owner preparation. Each domain states which
+values can be supplied. Reject unknown parameters, duplicate local keys and
+conflicting assignments. Start with a flat definition. Do not add inheritance,
+arbitrary field-path patches or implicit override precedence to obtain reuse.
 
-## Candidate crate / Bevy shape
+## Two binding stages, two lifetimes
 
-Do not create a crate until the model is proven. If a generic prepared-composition
-core emerges, it should be independent of LDtk and Ambition content and install
-runtime behavior through domain plugins rather than a universal spawn dispatcher.
+The [capability linking plan](capability-linking-and-prepared-facets.md) owns
+composition of shared definitions. At that stage, resolve the character,
+movement, behavior and other definition references the assembly uses. Preserve
+the source and local key in diagnostics. The result is immutable content.
 
-## Open design questions — deliberately unresolved
+Occurrence construction then resolves local child names and explicit external
+bindings to live references. It prepares all required private state and
+subscriptions before publication. A required child or binding that fails
+preparation refuses the instance; it does not leave the other children live.
+Both stages use typed domain contributions, but their reference types and
+validity periods are different.
 
-Almost all details are intentionally unresolved. Specifically:
+Keep domain semantics with their owners. A lift still uses kinematic motion;
+a door still uses its normal gate or portal behavior; a post still receives
+native damage and defeat. An assembly does not interpret those mechanics or
+add a universal spawn dispatcher. LDtk and scripts can be frontends to the same
+prepared construction operation.
 
-- tree/hierarchy versus flat component bundle;
-- inheritance versus explicit composition;
-- nested instances and override semantics;
-- whether runtime ECS hierarchy should mirror authored hierarchy;
-- whether compositions can contain behavior plugins or only data;
-- how much of this is already solved adequately by LDtk entity/level structure
-  plus prepared provider data.
+## Implementation slices
 
-Do not harden any of these until real content hurts.
+### W1 — express one complete creation using the existing local map
 
-## Preparation bridge and repeated-instance proof
+Change the Bridge Warden example to supply the warden's behavior and post
+references in its creation request. Use local keys for the posts. Remove the
+result-vector indexing and the follow-up attachment action that exist only to
+complete this binding. Keep result handling for actual creation refusal.
 
-A3 in the [frontier](actor-monolith-work-frontier.md) keeps provider-neutral world
-input separate from actor/catalog-specific construction lowering. A reusable room
-composition should not import prepared character sheets merely to expose spatial
-placements. Typed domain lowering remains explicit at the integration boundary.
+If the authored declaration remains repetitive, add the smallest typed
+authoring helper that expresses that batch. Do not add another port, runtime
+state machine, file format or crate for this slice. Preserve the current
+native defeat, retirement, durable world-count and gate behavior.
 
-Two live instances of one authored room are built and isolated
-([open-world residency](open-world-runtime-and-residency.md)): content identity is
-shared while live entities, mutable overlays and occurrence histories are scoped
-by live room. A composition must keep that property. Different authored room IDs
-do not prove repeated-instance safety. Do not require all identity types to share
-one new namespace.
+### W2 — bind a mechanism with different domain parts
+
+Use a lift, two switches and a door as the second customer. The switches bind
+explicitly to the lift or its controller; the door uses its existing domain
+operation. The caller supplies placement and any external destination. Domain
+owners still prepare and execute motion, interaction and gate semantics.
+
+This is a new acceptance customer, not a claim that the current actor-only
+request already handles it. Extend existing typed construction contributions
+where needed. Do not force a lift or door into a character solely to reuse the
+first request type.
+
+The shared part must be local naming, parameter binding, construction and
+occurrence isolation. If W1 and W2 share only the spelling of a container,
+keep their helpers separate. If they share that operation, define the minimal
+authored assembly format and its domain lowering at this point.
+
+### W3 — expose placement and reuse through existing authoring tools
+
+Let an LDtk placement select the prepared definition and supply its parameters
+and external slots. Let scripted creation select the same definition under its
+normal creation authority. Use one definition expansion and one binding path.
+Remove duplicated per-instance reference wiring from the two customers.
+
+Expose the expanded parts, local references, external slots and their source
+provenance through the existing semantic inspection tools. This is a projection
+of prepared content, not an editor database. Runtime inspection adds occurrence
+identity and state from existing domain read models.
+
+Nested definitions, exported interfaces and additional authoring backends can
+follow a real need. They are not prerequisites for the first two customers.
+Do not create a crate until the shared API and a useful dependency boundary are
+established.
+
+## Acceptance
+
+- The Warden mechanism still observes native defeat and retirement, writes
+  durable world state and opens the existing gate. Removing the post-result
+  binding code does not change that behavior.
+- The lift mechanism uses the normal movement, interaction and gate owners.
+  It does not add copies of those implementations to the assembly layer.
+- Two copies in one room bind internally to their own children. A third copy
+  in a second live instance of the same authored room stays separate. One
+  explicit external binding is the only permitted connection in the scenario.
+- A missing local target or invalid child parameter refuses the complete
+  instance before publication. The refusal identifies the definition, local
+  key, field and source.
+- Reordering authored child declarations keeps persistent child identities.
+  A save/restore or rollback through one child's retirement does not affect
+  another instance's state or subscriptions.
+
+Use the existing construction and gameplay witnesses at the narrowest useful
+scope. Do not add source-name, file-count or planning-text guards.
+
+## Boundaries to preserve
+
+The provider-neutral world input in A3 of the
+[frontier](actor-monolith-work-frontier.md) stays separate from actor/catalog
+lowering. An authored spatial assembly must not import prepared character
+sheets merely to expose placements.
+
+The [open-world residency](open-world-runtime-and-residency.md) contract already
+allows two live instances of one authored room. An assembly must preserve the
+same distinction: shared content, separate occurrences and mutable overlays.
+
+Do not mirror authored composition in Bevy parenting by default. Spatial
+transform inheritance, ownership of private state, lifetime ownership and
+semantic references have different rules. Do not add a universal entity tree,
+recursive component bag, game-specific dispatch or runtime inheritance chain.
+Ordinary direct domain construction remains a valid authoring path.

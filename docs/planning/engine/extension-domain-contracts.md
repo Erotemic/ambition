@@ -157,6 +157,19 @@ A valid request may lose to another request, an expired target or a gameplay rul
 Its result names the original occurrence. A module does not decrement success-based
 counters merely because it submitted an action.
 
+For work held across a confirmation boundary, **admitted** is a nonterminal
+stage. Retain the request's stable reply identity until the owner performs
+or refuses the operation. A queue entry is not terminal applied success.
+The current world-value adapter reports applied for a held write and can
+later log a compare-and-set refusal without returning it to the caller.
+[CW1](causal-world-commit.md#cw1--prove-the-dependent-reader-case-and-complete-held-outcomes)
+revises that path through the existing ActionReply/ActionStage contract.
+
+Native and portable callers use the same causal domain operation. An
+independently replayed room consumes the committed world revision or
+admission recorded for that tick; it must not reread today's world and
+silently change an old read cut. See [causal world commit](causal-world-commit.md).
+
 Entry failure discards its staged records and requests. That is a local
 write-set transaction. It does not roll back domains already executed earlier
 in the tick. Today a fault is counted in `ExtensionFaults` and the session

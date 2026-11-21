@@ -1,5 +1,12 @@
 # Public SDK 1.0
 
+**2026-11-21 planned direction:** The supported API should select native
+services, link their typed prepared values, and report which authored
+operations the selected composition can execute. [Capability linking and
+prepared facets](capability-linking-and-prepared-facets.md) owns this change.
+It preserves the semantic facade and ordinary Bevy extension tier. No new
+compile-closure or SDK completion is claimed here.
+
 **2026-10-26 compatibility direction:** Keep the semantic `ambition_platformer2d` facade as the
 primary supported game API while permitting explicitly reviewed, independently useful focused
 headless/simulation and portable extension SDK surfaces. A facade import test does not prove
@@ -34,6 +41,38 @@ separate contracts. Current source and the explicitly limited manifest traversal
 are recorded in [extension evidence](extension-iteration-evidence.md). Use A9's
 feature-resolved external fixtures for composition claims; do not copy an older
 mandatory-render path or package count as current evidence.
+
+The deeper gap is not only namespace shape. `ModuleDraft` declares opaque
+capability installers, action declarations and rollback requirements through
+separate calls. Profiles select omissions while the schema, port and
+construction paths compose their own owners. A new namespace around those
+calls would retain the author's obligation to know their hidden relation.
+
+## A selected composition is the public unit
+
+Expose a useful native service selection with its prerequisites, prepared
+inputs and admitted operations. The full/default preset and a smaller game
+must use the same owner contributions. Keep room permission separate from
+App installation: several experiences can use the same installed service
+under different rules.
+
+Let authors see why a requirement cannot run: its vocabulary may be unknown,
+its implementation may be absent from the build or App, or the current scope
+may prohibit it. A successful schema check proves none of those execution
+conditions on its own. Advanced native plugins keep ordinary Bevy access;
+they do not gain an automatic composability claim from registration.
+
+Prepared facets remain typed values owned by their domains. A combat author
+can consume a linked repertoire without learning how characters store mount,
+audio or boss data. A body constructor receives the facets its selected
+composition requires under one admitted generation. Do not expose a global
+`Any` lookup API or a generic mutable property map as the public answer.
+
+For the first slice, make inspection and native execution consume the same
+owner-prepared repertoire. The existing body, equip/drop, form-change and
+rollback paths are the customers. Do not wait for a replacement facade or an
+all-domain facet extraction. See L1 and L2 in the
+[linking plan](capability-linking-and-prepared-facets.md).
 
 ## Public surface families
 

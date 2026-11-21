@@ -1,15 +1,18 @@
 # Asset library, editor and content delivery
 
-**State:** selected slices, 2026-10-31. The live queue owns execution:
+**State:** selected slices; architecture revision 2026-11-21. The live queue owns execution:
 [ASSET-SELECTION](../queue.md#asset-selection--one-selected-file-contract-for-runtime-and-tools---done-2026-11-17),
 [ASSET-PUBLISH](../queue.md#asset-publish--selection-does-not-audit-old-bundle-payloads---done-2026-11-17),
 and [ASSET-PREVIEW](../queue.md#asset-preview--local-composition-and-release-audit-are-separate-operations).
 The other slices retain their promotion triggers.
-**Source review:** superproject `5ec96e4e3152` (2026-10-31).
+**Source review:** superproject `6895e5168638` for the dependency and storage
+boundaries below. The earlier implementation review retains its dated cost
+evidence; this revision adds no timing result.
 **Implementation evidence:** [Asset library implementation review](asset-library-implementation-review.md).
 
-The implementation review supersedes any inferred performance claim in this
-plan. Treat the code-level findings as the input to the work slices below.
+Use current code and the queue's completion receipts for implementation state.
+The implementation review supplies earlier measurements, not evidence that
+completed L1/L2 work remains open. Do not infer a new speedup from this plan.
 **Related work:** [asset authoring, caches and delivery](../../related-work/asset-authoring-caches-and-delivery.md).
 
 ## Scope and owners
@@ -72,9 +75,9 @@ The implementation already separates several concerns:
 | Asset roles and metadata | `authored/catalog.json` and `AssetManifest` | This is not a complete editor database. |
 | Library imports and host selection | Game `pack.ron`; `ContentLibraries` | Providers import identities; the host selects one source per library. |
 | Selected runtime files | `ContentLibrary::files()` and `LibrarySnapshot` | The selected publication owns managed generated roots. |
-| Immutable products | Python `publication_store.Store` | Acceptance, selection and deep audit currently overlap. |
+| Immutable products | Python `publication_store.Store` | New bytes are accepted once; selection and deep audit are separate operations. |
 | Runtime bytes | Bevy `AssetSource` and `AssetServer` | Do not copy this loader into the inspector. |
-| Editor read model | `tools/ambition_editor/asset_index/` | Some media paths do not yet use publication selection. |
+| Editor read model | `tools/ambition_editor/asset_index/` | Selected membership and wider workspace inventory are different views. |
 | Audio products | `music` and `sfx` producers in `library.json` | Music uses cue-level output; SFX exposes a bank. |
 | Packaging | `scripts/package/package_asset_guard.py` | The complete game release is a separate concern. |
 | Freshness reports | `scripts/content_status.py` | Its normal mode is advisory; strict mode is opt-in. |
@@ -86,14 +89,13 @@ catalog. The sprite-sheet preparation step also runs at startup. This can cost
 time even though registration needs no compilation. Measure each stage before
 adding a new cache or an incremental editor database.
 
-In `publication_store.Store.publish()`, selection calls `integrity()` on
-every selected bundle. A populated digest cache avoids rereading unchanged
-payload bytes, but the selection still visits every member and checks file
-metadata. A cold or uncached publish may hash old payload bytes. `Store.accept()`
-also hashes each newly accepted file twice. Keep ownership checks and the
-atomic selection update, but remove repeated payload verification from trusted
-reuse. The [implementation review](asset-library-implementation-review.md)
-includes the observed cached and uncached cases.
+The metadata-only publication work is complete. In
+[`publication_store.Store`](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/publication_store.py),
+`accept` copies and hashes new bytes in one pass. `publish` reads accepted
+manifests and checks newly selected members for presence; it does not deep-hash
+already selected payloads. `audit` owns the explicit deep check. Preserve that
+separation. The earlier implementation review describes the cost before this
+change.
 
 The development web packager also hashes all selected source files when it
 builds its contract and again when it audits the composed tree. Its symlink
@@ -131,9 +133,10 @@ the declaration without loading the unused catalog, copying the active table,
 or preparing its sheet metadata again. Native and served delivery use this
 same operation; an enabled provider feature does not replace the host's source.
 
-The next design seam is a small, read-only selected-file contract. It can be
-implemented in Rust and Python and checked with shared test fixtures. It is
-not an editor database, new runtime service or mandatory startup process.
+The selected-file contract is implemented in Rust and Python. Use it for
+selected membership; keep the inspector's wider inventory separate. Future
+dependency inspection extends owner evidence, not this contract into an editor
+database or mandatory runtime service.
 
 ## Four independent operations
 
@@ -219,6 +222,114 @@ A future editor-facing record should be able to report `logical_id`, `family`,
 `owner`, `source`, `selected_product`, `selection`, `quality`, `uses`, `status`
 and `provenance` as applicable. Unknown values are allowed. Its view must not
 be a second authority that games need at startup.
+
+## Dependency evidence has three meanings
+
+**Planned contract:** share addresses and inspectable evidence across tools,
+while retaining the meaning of each dependency. A single untyped edge cannot
+answer all three questions below.
+
+| Relation | Question it answers | Current authority |
+| --- | --- | --- |
+| Definition use | Which named definition does this authored value refer to? | Domain reference enumeration; `PreparedContentPack.resolved_references` |
+| Preparation observation | Which input values affected this computation? | The compiler or producer that performed the work |
+| Product derivation and selection | Which source/recipe made these bytes, and which version will this host load? | Producer receipt, immutable bundle manifest and selected-file contract |
+
+A rename query follows definition uses. Reuse of a prepared result depends on
+its observed inputs. Selection chooses accepted output versions. One query can
+join these relations, but none substitutes for another. A source rename can
+change provenance without changing the rendered or simulated result. A new
+file in a discovered collection can change a result without changing an old
+named reference.
+
+The submodules already provide the required distinctions:
+
+- Sprite [`recipe_state`](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/publication.py)
+  compares file inputs, directory membership, target policy and toolchain
+  facts. `read_record` records file reads and directory enumeration. The
+  `direct_input` reader-count and name heuristic describes possible staleness;
+  it cannot prove that mechanical data is safe to reuse.
+- Music [`compiled_score_fingerprint`](../../../tools/ambition_music_renderer/ambition_music_renderer/musicir/model.py)
+  covers audio semantics and excludes source-only event identity. Its source
+  graph retains derivation for inspection and DAW reconciliation.
+  [`render.dependencies`](../../../tools/ambition_music_renderer/ambition_music_renderer/render/dependencies.py)
+  adds the renderer, resolved instruments, samples, processors and environment
+  inputs used by the selected realization. Keep those owners separate.
+- [`generate_library_content.py`](../../../scripts/regen/generate_library_content.py)
+  already asks music and SFX for `owner_dependencies`. Its broader `evidence`
+  also includes the tool tree and other sources. `music_cue_states` therefore
+  distinguishes a change to the cue's render dependencies from a `shared`
+  source change. Normal rendering keeps the latter unless explicitly asked
+  to include it. Preserve that behavior; do not report this as a current
+  whole-library rerender defect.
+
+The next step is to make product validity, orchestration provenance and
+selection evidence explicit outputs of their owners. Remove broad duplicate
+currentness interpretation where the owning producer supplies a complete
+answer. Keep source history for inspection without making an unrelated edit
+invalidate the product. Where evidence is incomplete, report that fact and
+use the existing conservative preparation policy.
+
+Preparation observations include relevant failed lookups and defaults. If a
+producer chooses a fallback because a file or instrument is absent, the later
+presence of that input can change the result. Record the lookup and selection
+policy or recompute conservatively. Likewise, record collection membership
+when discovery uses a directory, and the selected environment resource when
+it affects output. Do not hash an entire machine or every installed package
+as a substitute for these dependencies. A producer may declare a broader
+input set until it can make a narrower sound claim.
+
+### Migration and concrete removal
+
+1. Use music as the first evidence adapter. Separate its own render identity
+   from the wrapper's orchestration/source provenance. Keep the current cue
+   selection and `shared` behavior during migration. Remove repeated
+   whole-tool currentness calculation only after every output-affecting
+   wrapper input has an explicit owner.
+2. Use the sprite recipe as the second adapter. Preserve directory membership
+   and target-policy observations. Explain one unchanged target, one changed
+   target and one unresolved dependency through the same result vocabulary.
+   This vocabulary carries evidence; it does not evaluate sprite or music
+   semantics.
+3. Let content preparation consume the exact selected metadata/product
+   identities that affect mechanics. Let the inspector and package planner
+   consume the same owner evidence. Remove their duplicate path or freshness
+   inference when the corresponding adapter supplies it. Do not add another
+   database or scanner that interprets the source languages again.
+4. If this work crosses the current storage seam, move only the non-semantic
+   bundle/selection utility out of the sprite authoring package.
+   `generate_library_content.py` and `scripts/lib/art_publication.py` currently
+   import that package for common storage. Producers supply root and tier
+   policy. Rendering, MusicIR/SFXIR, sprite quality and invalidation rules stay
+   with their owners. Do not merge repositories or introduce a shared authoring
+   framework to perform this move.
+
+Acceptance distinguishes an edit to a cue from an edit to a music review tool;
+only the former changes the cue's render validity when the dependency owner
+establishes that distinction. Add a source member to a directory a sprite
+target enumerates; that observation must change. Make a previously missing
+selected resource available; recompute the result or report why the explicit
+selection still pins the prior resource. These are behavioral checks on the
+two adapters, not a new permanent graph-compliance suite.
+
+### Preparation reuse does not permit partial gameplay publication
+
+An asset-library selection can retain old usable media and can contain products
+from separate producer runs. A producer may accept successful outputs while
+reporting failures in other targets. That selection is not itself an admitted
+gameplay generation.
+
+The [content-generation owner](content-generation-and-reload.md#link-one-selected-generation)
+links the mechanical definitions, required modules and selected metadata into
+one complete candidate. Incremental work can reuse unaffected results, but the
+candidate has one admission and one activation boundary. A failed move edit
+must not publish new sheet-derived collision facts merely because the image
+producer succeeded. Purely visual media retain the existing reload policy.
+
+This work does not open the hold on
+[prevalidated content artifacts](prevalidated-content-artifacts.md). It needs
+no serialized prepared-content cache, validation certificate, universal
+intermediate format, new editor or cross-tool dependency service.
 
 ## The editor surface
 
@@ -318,8 +429,8 @@ Only [the live queue](../queue.md) selects implementation work.
 | Slice | Promote when | Completion evidence |
 | --- | --- | --- |
 | L0. Cost inventory | Startup or publish time obstructs a real iteration. | Trace native parse, sheet preparation, watch scans, publication hash/stat work, web preview composition, and first visible use separately. |
-| L1. Metadata-only publication | Small publish work scales with already accepted bundles. | Accept the new bytes once; selection uses stored manifests, not deep checks of old members. Keep the previous selection usable. |
-| L2. Common selected-file contract | Inspector and runtime disagree about published-only assets. | Rust and Python agree on selected membership for images, audio and fonts; workspace-only files remain visible separately. |
+| L1. Metadata-only publication — complete | Preserve the queue receipt; reopen only for a new measured defect. | New bytes are accepted once; selection uses stored manifests, not deep checks of old members. |
+| L2. Common selected-file contract — complete | Preserve the queue receipt; extend for a new file family through the same contract. | Rust and Python use selected membership; workspace-only files remain visible separately. |
 | L3. Fast preview composition | A web preview rehashes all selected files. | Preview can compose a linked tree without a release audit. Explicit release auditing remains available. |
 | L4. Selection receipts and GC | Historical bundles consume useful storage or rollback needs pins. | Report reachable and historical bundles; explicit offline cleanup retains live and pinned versions. |
 | L5. Rsync content updates | A second installation needs content-only updates. | Transfer missing bundles in a full game closure, install selection last, restart offline, and roll back. |

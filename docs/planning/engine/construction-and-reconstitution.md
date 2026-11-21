@@ -74,6 +74,37 @@ all share one deletion rule. The existing custody/occurrence authorities decide
 what persists. A no-record state can mean 'as authored' under the owning domain;
 it is not a general instruction to remint every dynamic spawn on re-entry.
 
+## Linked domain inputs, one construction transaction
+
+**Planned 2026-11-21:** [capability linking and prepared facets](capability-linking-and-prepared-facets.md)
+changes what the existing constructor consumes. Selected domain owners bind
+their immutable facets against one definition identity and generation. The
+construction coordinator receives those proved inputs; it does not add a
+new catalog field and fallback path for each capability.
+
+The current candidate bracket remains the authority for entity allocation,
+relationship closure, verification and publication. A domain facet may
+contribute typed construction work, but it cannot publish its part early or
+look up a newer catalog during the transaction. Omitted domains contribute
+no work. An authored reference to omitted support refuses before mutation.
+The absence of a boss service must not require a dummy BossCatalog solely
+to run a common body constructor.
+
+One body still uses one coordinated construction path. Splitting prepared
+facts by owner does not authorize separate player, enemy, boss or form
+builders, independent plugin spawn callbacks, or a general TypeId lookup
+service. Use the existing BOSS-CHARACTER common seed as a customer.
+
+For a repeated authored structure, bind local child keys and explicit external
+slots through the existing construction reference pass; see
+[reusable world composition](reusable-authored-world-composition.md).
+Definition identity, local binding names, live occurrence identity and Bevy
+Entity handles remain distinct.
+
+Candidate publication and [cross-history gameplay commit](causal-world-commit.md)
+share the need for pinned inputs, but they are different protocols. Do not
+turn them into one generic transaction engine.
+
 ## Construction phases and visibility
 
 Domain plans resolve typed parameters and references. Authoring adapters such as

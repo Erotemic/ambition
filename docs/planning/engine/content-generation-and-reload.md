@@ -7,6 +7,12 @@ generation, and the development reload that uses it.
 [Packets](fast-iteration-implementation.md) (I2, I3) select the implementation
 steps; [the queue](../queue.md) selects work.
 
+**Architecture revision, 2026-11-21:** the planned contribution and linking
+contract is in [capability linking and prepared facets](capability-linking-and-prepared-facets.md).
+This page owns how its results form one content generation. The changes below
+are planned work, based on source at `6895e5168638`; they are not an
+implementation or timing receipt.
+
 ## The contract
 
 An ordinary content edit changes the running result without a rebuild of the
@@ -175,21 +181,124 @@ change, so this is the usual result.
 | Authored source | Existing Rust, data or media authoring tool; editable values and diagnostic spans | Installed runtime support or live ECS handles |
 | Portable section | Pure domain schema; canonical values, references, codec version | Domain callbacks, `Any`, Bevy entities, source-loader policy |
 | Artifact manifest | Content pack; immutable section digests, module inputs and requirements | A duplicate character catalog or a service locator |
-| Prepared domain value | Owning validator or hydrator; resolved immutable definition | Current actor health, inventory or mutable playback |
+| Checked domain fragment | Owning parser and validator; typed local data, declarations and unresolved imports | A claim that other selected domains or host support exist |
+| Linked domain value | Owning binder; immutable definition with resolved imports and explicit selected inputs | Current actor health, inventory or mutable playback |
 | Candidate generation | Lifecycle and content coordinator; complete selected domain view and executable profile | A partially published set of domain revisions |
 | Active selection | Session owner; admitted generation and local activation epoch | Process-global mutable selection |
 | Live state | Existing body, combat, item, world and extension owners | A second copy inside a content cache |
 
-`PreparedContentPack::lowered` can stay an in-process hydration container. Do
-not make it the wire format. Extract the pure validator that both frontends use
-when necessary; do not write its rules again in the loader. A compiler cannot
-certify installed support. The host checks actual offers.
+`PreparedContentPack::lowered` can remain an in-process storage boundary during
+migration. Its erased value is not a portable format or proof of complete
+linkage. Reuse the owning validator; do not write its rules again in a loader.
+A compiler cannot certify installed support. The host checks actual offers.
+
+## Link one selected generation
+
+**Observed:** [`ContentSchemaHandler`](../../../crates/ambition_content_pack/src/schema.rs)
+emits declarations, references and a lowered value from `check`. Its aggregate
+step sees fragments of one schema. [`compile`](../../../crates/ambition_content_pack/src/lib.rs)
+then resolves references after aggregation. The list of resolved references is
+separate from the lowered values; the handler has no later binding step that
+uses those resolutions. This reuses parsed source, but does not make every
+lowered value a fully linked definition.
+
+The character path shows the remaining composition. The schema lowers
+`CharacterCatalogData`; the provider builds definitions from the catalog,
+facets and selected sheet metadata. `fold_character_facets` names the current
+folds. `finalize_character` then resolves catalog and policy values against
+`CastAuthorities`. These are different stages of one preparation operation.
+Their order and selected inputs should be explicit, rather than reconstructed
+by each boot or reload caller. See
+[`character_catalog.rs`](../../../game/ambition_content/src/character_catalog.rs),
+[`pack_facets.rs`](../../../crates/ambition_characters/src/pack_facets.rs), and
+[`prepared.rs`](../../../crates/ambition_characters/src/prepared.rs).
+
+**Planned contract:** declare local symbols and checked fragments, aggregate
+under each domain's rule, resolve typed imports in the selected composition,
+then let the owning binder produce immutable domain values. Host admission and
+live-state compatibility checks follow. The linking plan owns the contribution
+API; this page does not add a second registry or a universal intermediate
+format.
+
+Each binding pass receives an explicit immutable view of the definitions,
+metadata and profile facts it uses. It must not read whichever generation is
+currently selected in the `World` halfway through preparation. Its result
+retains the identities of those inputs. References that affect simulation are
+resolved in that result; source strings remain for diagnostics. The owner
+derives the semantic identity and the inspectable reference projection from
+the same linked value where possible.
+
+Capture the selected-file snapshot once. Bind mechanically relevant metadata
+from that snapshot and retain its actual immutable product versions for the
+candidate and active generation. A recorded digest with a path that later
+resolves through a changed `published.json` is insufficient. A moving library
+head can request new preparation; it cannot retarget an in-flight or active
+mechanical binding. The store's existing immutable bundles and generation
+lifetimes supply this retention. Pure presentation refresh keeps its own
+declared policy.
+
+Content linkage is distinct from body specialization. Equipment, form and
+ruleset transitions can specialize already admitted definitions through the
+same pure owner functions. They do not create a content generation or
+reconstruct a session. Custody, hand occupancy, resource amounts and transient
+eligibility remain live state; see the
+[binding-time distinction](capability-linking-and-prepared-facets.md#inputs-and-identity).
+
+Symbol references can be cyclic without requiring cyclic computation. Declare
+the complete symbol set before binding. If preparation needs another value to
+be computed first, record that dependency. Reject an unsupported computation
+cycle with its owner and source path; do not add a global fixed-point solver.
+
+A source-only compiler may report missing generated inputs or unavailable host
+support. It must distinguish an incomplete diagnostic result from a runnable
+generation. A successful parse, a resolved symbol name, and an installed
+executor remain separate facts. Local presentation fallback remains valid
+where the owner permits it; missing mechanical input cannot become a default
+chosen by a different preparation road.
+
+### First migration and deletion targets
+
+1. Apply the linking pilot to a character, one selected facet, and the sheet
+   metadata used for its body. Keep the authored source format. Use the current
+   validators and owner preparation functions.
+2. Produce owner-created checked fragments and linked definitions. Resolve
+   provider-relative preset names before construction. Remove the matching
+   spawn-time string resolution when all callers consume the prepared ID.
+   Do not remove checks while public callers can still supply unchecked data.
+3. Make the selected facet contribute its own binding step. Remove its central
+   entry in `fold_character_facets` after boot and reload use that step. Keep
+   domain behavior out of the coordinator.
+4. Pass the selected sheet metadata to the same binder at boot and reload.
+   Replace duplicated provider fold orchestration with this operation. Keep
+   actual live-state and host-support checks at admission.
+5. Seal the complete set of linked values and executable requirements into
+   the existing candidate generation. Publish through the current lifecycle
+   and hidden-candidate construction road.
+
+Acceptance uses one edit that changes sheet metadata used for body geometry,
+a move table, and the manifest that selects them. An invalid cancel target in
+the move table must keep the active mechanical definition, identity and
+metadata binding unchanged. The newly generated media may remain accepted in
+the product store. After the move is corrected, one publication selects the
+complete new generation. A host without the required technique must refuse
+admission even when source linkage succeeds. This is planned acceptance, not
+a reproduced failure of the current reload code.
+
+Keep the implemented sheet-generation and cast-restatement paths. In
+[`reload.rs`](../../../game/ambition_content/src/reload.rs),
+`stage_cast_from_pack` and `restate_the_cast_from_the_sheets` already share
+substantial preparation. Replace their repeated composition as the linked
+result becomes available; do not build another sheet watcher or publisher.
 
 ## Dependency graph, not one rebuild switch
 
 A generation is a set of independently identified immutable sections. Each
-domain adapter declares its inputs and references. The pack supplies one graph
-of these requirements, not another evaluator for the domain's own rules.
+domain adapter declares the inputs used by its preparation. Keep three edge
+meanings distinct: a named definition uses another definition; a computation
+observes an input; and a producer derives a product from source. The
+[asset-library plan](asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings)
+owns the producer side. Shared inspection can join these relations, but a list
+of resolved content names is not a complete invalidation graph.
 
 A cache key includes the source or section digest, the codec and validator
 versions, the dependencies that preparation used and the selected profile facts
@@ -211,10 +320,21 @@ precise invalidation description prepares its own section and its reported
 dependents again; it does not claim an incremental hit. Record why each section
 was rebuilt or reused.
 
-The graph includes deletions and reverse references. If you remove a move that
-a character uses, that character fails or changes in the same candidate. A
-missing required section cannot fall back to a compiled table. A field with
-uncertain mechanical influence is mechanical until its owner shows otherwise.
+The graph includes deletions, reverse references, collection membership and
+failed optional lookups that affected preparation. A newly available default
+can change a result even when none of its earlier positive references changed.
+Record the selected default and relevant environment or profile facts, or
+prepare that domain again conservatively. If you remove a move that a character
+uses, that character fails or changes in the same candidate. A missing required
+section cannot fall back to a compiled table. A field with uncertain mechanical
+influence is mechanical until its owner shows otherwise.
+
+Reuse applies to preparation, not publication. Reusing ten domain values and
+rebuilding one still yields one complete candidate with one admission decision
+and one visibility boundary. It does not authorize eleven independently active
+domain generations. The disk-cache and certificate proposal remains under the
+explicit hold in [prevalidated content artifacts](prevalidated-content-artifacts.md);
+this plan does not open that hold.
 
 **Example:** a change to diagnostic source spans changes diagnostic
 provenance, not mechanical identity. A change to attack duration changes the
@@ -349,7 +469,7 @@ Requested -> ReadComplete -> Prepared -> Admitted -> Sealed
 | Transition | Required input and invariant |
 | --- | --- |
 | ReadComplete | Immutable complete manifest and verified dependencies |
-| Prepared | Domain validators make values; active registries and live state do not change |
+| Prepared | Domain validators, aggregation and typed binding make the linked values from one selected input view; active registries and live state do not change |
 | Admitted | Installed ports, capabilities, schemas and resource limits satisfy the requirements |
 | Sealed | Complete replacement view plus base epoch, profile and reconstruction policy |
 | BoundaryGranted | The local lifecycle owner authorizes the operation; a stale candidate or a timeline that another owner holds refuses |

@@ -235,7 +235,7 @@ fn add_renderer(app: &mut App, views: usize, tiny: bool) {
                 ..default()
             })
             // No window and no display: `update` is called by hand.
-            .disable::<bevy::winit::WinitPlugin>(),
+            // No `WinitPlugin` to disable: this crate builds bevy without winit.
     );
     add_rigged_impostor_material_plugin(app);
     // This crate's Bevy features include no pipelined rendering, so the render

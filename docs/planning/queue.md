@@ -2692,6 +2692,16 @@ only.
    clip should remove nothing. Remove it and run the harness on a GPU
    (`rigged_sprite_parity`); acceptance: the oni leader passes unclipped, and
    with `impostor_margin` poisoned back to 16 px it fails.
+   **2026-11-21:** the clip is removed, and both `ambition_render` examples
+   compile again: they disabled a `WinitPlugin` that this crate's bevy, built
+   without winit, does not have. The harness runs on this VM (llvmpipe, with
+   `AMBITION_CONTENT_LIBRARY=game/ambition_content_library/library.json`), but
+   it stops at the oni leader's baked sheet,
+   `sprites/npc_ninja_shadow_oni_leader_spritesheet.png`, which it reads from
+   the content library. PART-FIRST no longer publishes baked pages, and
+   `sprites.sh --reference` paints into `.agent/sprite_reference/<target>/`.
+   Next: let the example read the baked side from a reference paint, then
+   run the acceptance.
 2. A posed body that reaches past its cell loses its composed readers (its
    hit flash overlay, its portal pieces) while it does. If a ragdoll must keep
    them, give the presentation a cell chosen from the pose's reach, or let a

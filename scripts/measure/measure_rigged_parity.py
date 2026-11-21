@@ -265,15 +265,11 @@ def _score(row, phase):
         oracle = _runtime_oracle(flipbook, draws, parts.size, at, flip, root_x, flipbook.opacity_of(name, frame))
     else:
         flipbook.draw_frame(oracle, name, frame, at, flip, draws=draws, mirror_x=root_x)
-    # ⛔ Clipped to the body's impostor cell (mirrored with it): the part road
-    # cannot draw past it, and the published frame never reached there either.
-    # Unclipped, a banner past the cell of a body facing left read as 1153
-    # wrong pixels of a correct draw (oni leader, 2026-10-03).
-    if "cell_x0" in row:
-        cell = [round(float(row[key])) for key in ("cell_x0", "cell_y0", "cell_x1", "cell_y1")]
-        inside = Image.new("L", oracle.size, 0)
-        inside.paste(255, (max(0, cell[0]), max(0, cell[1]), min(oracle.width, cell[2]), min(oracle.height, cell[3])))
-        oracle = Image.composite(oracle, Image.new("RGBA", oracle.size, (0, 0, 0, 0)), inside)
+    # NOT clipped to the body's impostor cell. The cell is the frame plus
+    # `impostor_margin`, which covers the flipbook's `art_overhang`, so a part
+    # past the cell is a defect this must see: a cut part reads as wrong
+    # pixels. (A clip here once hid the oni leader's banner, cut at a cell of
+    # the frame plus 16 px, 2026-10-03.)
     published = _published_frame(_SHEETS[target], feet_frame, flipbook, name, frame, parts.size, feet, flip, root_x)
     # ⚠ AN IN-BETWEEN IS REPORTED, NOT GATED. PIL rounds a tweened part to
     # whole pixels; the GPU draws it between pixels and does not. The raster

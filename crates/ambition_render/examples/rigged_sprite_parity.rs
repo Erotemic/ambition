@@ -205,8 +205,9 @@ fn capture_all(
     // part reaching past the cell is cut there. The image is the frame with a
     // margin on every side, so facing right the cell covers it from the top
     // left, but mirrored about feet that are off the frame's centre it does not:
-    // the oni leader's banner, past the cell, read as 1153 wrong pixels of a
-    // correct draw (2026-10-03). The reader clips its oracle to this.
+    // the oni leader's banner, past a cell of the frame plus 16 px, was cut
+    // (2026-10-03). The margin now covers the flipbook's `art_overhang`, and
+    // the reader does not clip its oracle: a cut part is a parity failure.
     // A frame no cell fits is not drawn from parts at all: nothing to clip.
     // The target's flipbook's margin, in both captures: the baked one's sheet
     // carries no flipbook, and a margin of 0 clipped the oracle to the frame.
@@ -306,8 +307,8 @@ fn renderer(snapshot: &LibrarySnapshot, content: &SpriteContent, size: UVec2) ->
                 primary_window: None,
                 exit_condition: bevy::window::ExitCondition::DontExit,
                 ..default()
-            })
-            .disable::<bevy::winit::WinitPlugin>(),
+            }),
+            // No `WinitPlugin` to disable: this crate builds bevy without winit.
     );
     add_rigged_impostor_material_plugin(&mut app);
     app.finish();

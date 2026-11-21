@@ -2551,8 +2551,14 @@ a stamped request applied in the sim by `change_hand`, as a script's `equip`
 is, and a bag-backed hand is stated session-only. The owner page said
 otherwise and is corrected.
 
-Still open on the owner page: the agent surface (`item where`, `item list`,
-`item audit`, `item explain`).
+**Agent surface built (2026-11-21), over a save file:** `item_report`
+(`ambition_app_tools`) answers `where`, `list --room/--body`, `audit` and
+`explain` from what a load would rebuild. Checked on a crafted save: `audit`
+named a custody row held over a spent chest and a mint with no minted row,
+and exited 1. A live-world view is not built.
+
+The owner page's open-work rows are all done or decided; A7's acceptance
+held by read above.
 
 ### BRAIN — finish truthful fighter attack selection
 

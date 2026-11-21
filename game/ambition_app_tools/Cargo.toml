@@ -103,6 +103,12 @@ name = "wire_probe"
 path = "src/bin/wire_probe.rs"
 test = false
 
+# A7's agent surface: what a save file says about its items.
+[[bin]]
+name = "item_report"
+path = "src/bin/item_report.rs"
+test = false
+
 [[bin]]
 name = "capture_scene"
 path = "src/bin/capture_scene.rs"

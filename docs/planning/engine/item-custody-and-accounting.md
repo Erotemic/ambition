@@ -213,7 +213,7 @@ Gaps the matrix shows:
 | Match items | **Done 2026-11-21: stated session-only** at `spawn_match_items`. The item is spawned into the match's session and ends with it, and no checkpoint saves a match, so it has identity and no `SpawnOrigin` | A match item is either minted (described) or stated session-only |
 | Menu equip | **Done (re-read 2026-11-21).** The menu writes a stamped `ItemEquipRequested`; `apply_hand_requests` applies it in the sim through `change_hand`, the road a script's `equip` takes. A bag-backed hand is stated session-only in `ambition_platformer2d_items::persist` | One equip road, or the menu's stated as session-only |
 | Item carve boundary | See below | The proofs below |
-| Agent surface | `item where`, `item list --room/--body`, `item audit`, `item explain` | Reports definition, stack identity, occurrence, custody owner, provenance and disposition |
+| Agent surface | **Built 2026-11-21, over a save file:** `cargo run -p ambition_app_tools --bin item_report -- [--save PATH] where ID \| list [--room R] [--body B] \| audit \| explain ID`. It reports an occurrence's disposition, the body holding it, a mint's provenance and definition, and the bag's counts; `audit` names the rows a load cannot honour (custody without its row or held while placed, a mint with no minted row, a duplicate row) and exits 1. An authored item's definition is its room's record, which the report names rather than reads. A live-world view is not built | Reports definition, stack identity, occurrence, custody owner, provenance and disposition |
 
 ### Item carve boundary
 

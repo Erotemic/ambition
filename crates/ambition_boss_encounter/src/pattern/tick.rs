@@ -23,6 +23,14 @@ pub fn tick_boss_pattern(
         return;
     }
 
+    // A dying boss is still: its death row plays where the blow found it,
+    // facing the way it was. The movement profile would walk the corpse on
+    // along its sway and after the player.
+    if matches!(ctx.encounter_phase, BossEncounterPhase::Death) {
+        out.facing = ctx.actor_facing;
+        return;
+    }
+
     out.facing = ambition_characters::brain::face_toward(
         ctx.actor_facing,
         ctx.target_pos.x - ctx.actor_pos.x,

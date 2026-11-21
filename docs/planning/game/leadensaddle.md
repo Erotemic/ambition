@@ -24,7 +24,7 @@ character. The music is original western writing.
 | The dimension | **the Frontier** (`frontier`, world file `frontier.ldtk`) | A frontier world at the edge of the network. |
 | The region | **the Leaden Saddle** | A saddle is a low pass between two hills. This one is between two mesas, and the first survey found lead in its rock. The gate address is its name. |
 | The town | **Dry Dock** | A spaceport in a desert: the ships dock on dry land, and the yard repairs them, as a dry dock does. |
-| The saloon | **The Wet Whistle** | Where the town wets its whistle. The Marshal's voice is a steam whistle (below). |
+| The saloon | **The Wet Whistle** | Where the town wets its whistle. The Marshal crows the shift in (below). |
 | The boss's yard | **the Ore Corral** | The fenced ore yard of the refinery, where the ore carts stand. |
 | The boss | **Marshal Gallus** | *Gallus gallus* is the chicken's Latin name, and it sounds like "gallows". |
 | His card's title | *Cock of the Walk* | The old name for the strongest rooster of a yard. |
@@ -80,31 +80,28 @@ awning. Motes are blown dust.
 he was a rooster of the old yard who was rebuilt with refinery parts after an
 accident at the cracking tower; nobody in town knows if that is true. He made
 himself marshal, and he writes the town's law as he likes it: his ordinances
-are nailed to the board on Main Street and he quotes them by number. His voice
-box is a steam whistle. He crows it at dawn, and the shift at the refinery
-starts when he crows, so dawn is when the Marshal says it is. He is loud,
+are nailed to the board on Main Street and he quotes them by number. He crows
+at dawn, and the shift at the refinery starts when he crows, so dawn is when
+the Marshal says it is. He is loud,
 vain about his hat, slow to admit a mistake, and generous with other people's
 money.
 
-**The middle ground.** He is not a big chicken and not a man with a chicken's
-head. He has a rooster's body plan: a deep keel of a chest, a short body tipped
-up, a rooster's legs with backward knees and spurs, a fan of tail feathers. He
-stands upright like a man, wide-legged, chest out. His wings are arms: the
-left is a wing of real feathers whose long primaries close like fingers round
-the grip of a revolver; the right is a machine arm (pistons, a three-fingered
-claw of a hand). The right half of his face and his chest are plated.
+**His look (Jon's character sheet, 2026-11-21:
+`assets/concept_art/misc/Marshal Gallus “Rocq” Character Sheet-2.png`).** A
+stout man with a rooster's head and a rooster's feet, dressed as a
+gunfighter. The sprite (`targets/characters/marshal_gallus.py`) follows it.
 
 | Part | What it is |
 | --- | --- |
-| Hat | A wide, flat-brimmed cowboy hat, sand-coloured, with a band of brass studs. The comb comes up through a slit in its crown. |
-| Head | A red comb, half of it a serrated steel plate; red wattles; a yellow beak; a natural left eye; the right eye a round brass lens with a red light. |
-| Neck | A red bandana. |
-| Chest | A riveted chest plate in rust-red enamel, like the end of a boiler, with a brass marshal's star on it; a bandolier of brass cartridges across it. |
-| Waist | A gun belt with a holster on the left hip. |
-| Arms | Left: a feathered wing with a long-barrelled revolver. Right: a machine arm, with a six-chamber cylinder in the forearm (a hand cannon that turns). |
-| Tail | Sickle feathers in dark green-black; among them, three curved exhaust pipes that puff smoke when he exerts himself. |
-| Legs | Yellow scaled rooster legs; the right shin is a piston. Cowboy spurs (a rowel on a strap) on his heels, over his own spurs. |
-| Palette | cream and wheat feathers, a rust-red chest, red comb, yellow legs, brass, gunmetal grey, a sand hat. |
+| Hat | A wide brown hat, worn forward, a leather band with brass studs and a star on it. The big red comb bursts up out of the back of the hat, behind the crown. |
+| Head | A white face; the near half a riveted steel plate with a round brass lens for an eye; big red wattles; a yellow beak; a cigar. |
+| Shoulders | A red poncho with a woven band of a stepped zigzag along its hem and a fringe; its back flies out behind him like a cape. |
+| Coat | A long brown duster, riveted, brass along its seams, open on a dark vest; the marshal's star still on its breast. |
+| Waist | A belt with a big brass buckle; a gun belt of brass rounds below it, a holster on each hip. |
+| Arms | The near arm a plated machine arm with a steel hand; the far arm, in the coat's sleeve and a glove, is the gun arm. A revolver in each hand at high noon. |
+| Tail | Dark feathers with a blue sheen, out of the duster's back vent. |
+| Legs | Dark trousers down over the hocks; yellow scaled rooster feet, the near shin a piston. Cowboy spurs on his heels. |
+| Palette | cream, gold, red, leather brown, slate and navy. |
 
 **Size.** About two and a half times the robot's height: a body box of about
 96 x 128 world units, drawn larger.
@@ -172,7 +169,7 @@ move on the `boss_special` port), and one generic body strike:
 | Lasso | `gallus_lasso` | the `lasso` row; a ping where you stand. | The loop (a module entity, 88 x 80) drops on that spot; a body in it is thrown toward him, into the spur kick that follows. | Leave the spot. |
 | Dynamite | `gallus_dynamite` | the `dynamite` row; a ping on the floor under you. | Three sticks lobbed to land round you (96 apart), each a burst (`splash_half_extent` 52). | Stand between the bursts, or on a catwalk. |
 | Tumbleweeds | `gallus_tumbleweeds` | the `call` or `whistle` row; dust at both docks. | A pair of tumbleweeds bounds in from the docks' inner faces each second of the strike. | Jump each one, or stand on a dock. |
-| Shift whistle | `gallus_whistle` | the `whistle` row; steam at his chest. | A ring of sound runs the floor both ways from his feet. | Jump it. |
+| Shift whistle | `gallus_whistle` | the `whistle` row; he puffs up and crows, rings of sound from his beak. | A ring of sound runs the floor both ways from his feet. | Jump it. |
 | High noon | `gallus_high_noon` | the `high_noon` row; he marks where you stand and the mark pings until he fires. | Six shots down the line to the mark, 0.05 s apart. | Be off the line when the warning ends. |
 
 Each move is classified in `boss_seeds.ron` (the quick draw a spread
@@ -189,12 +186,15 @@ Phases:
    the spur kick, then the dynamite, the draw or the kick by where you stand.
 3. **High Noon (30% to 0).** High noon, then the long rest (1.4 s, his
    reload) that is the punish window, then everything faster. His art for
-   the change is the `enrage` row: the hat pushed back and the boiler glowing
-   (the art does not knock the hat off).
+   the change is the `enrage` row: the hat pushed back and the machine arm
+   running hot (the art does not knock the hat off).
 
-**Defeat.** The sundown section of his theme plays, he falls (the `death`
-row), and the corral's gate to the mesa top opens (`boss.cleared
-frontier.marshal_gallus`); the chest he drops holds 300.
+**Defeat.** The sundown section of his theme plays and the killing blow
+hangs time (`slow_motion_finish`). He falls where the blow found him (a dying
+boss does not move): the `death` row throws him back and knocks his hat off,
+the machine shoulder sparks, he staggers, goes down on one knee and over on
+his face, the tail up; that last frame is held. Then the corral's gate to the
+mesa top opens (`boss.cleared frontier.marshal_gallus`); the chest he drops holds 300.
 
 **The arena.** `frontier_ore_corral`, 1600 x 640: a level yard (floor 576), a
 loading dock at each side one jump up (64), a catwalk over each a double jump

@@ -17,4 +17,7 @@
     music_phase1: "marshal_gallus_showdown",
     music_phase2: "marshal_gallus_showdown",
     music_enrage: "marshal_gallus_showdown",
+    // The killing blow hangs time while he goes down (`ambition_boss_encounter::finish`):
+    // the boss of a dimension falls as a boss should.
+    slow_motion_finish: true,
 )

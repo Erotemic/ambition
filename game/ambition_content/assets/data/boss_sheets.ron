@@ -1131,10 +1131,11 @@
                 frame_count: 3,
                 duration_secs: 0.09,
             )),
-            // death
+            // death: the blow, the sputter, the knee, the fall; the last
+            // frame (on his face) is held.
             (Death, (
-                frame_count: 14,
-                duration_secs: 0.105,
+                frame_count: 20,
+                duration_secs: 0.09,
             )),
             // seated
             (Rest, (

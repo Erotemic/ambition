@@ -594,6 +594,14 @@ fn prompt_for(sim: &mut Platformer2dSimHarness, body: Entity) -> ambition_platfo
         .for_body(body)
 }
 
+/// What the Interact button says.
+fn interact_button(sim: &mut Platformer2dSimHarness) -> Option<String> {
+    sim.world_mut()
+        .resource::<ambition_platformer2d::sim_view::ControlPrompt>()
+        .label_for(ambition_platformer2d::sim_view::ControlSlot::Interact)
+        .map(str::to_owned)
+}
+
 /// The Interact prompt names the shark the press would board and says
 /// Dismount while riding; the rider sits the saddle rather than falling in it; a blow to the ridden shark leaves the protagonist
 /// aboard, and the shark's death puts it down alive, still driven by the player
@@ -610,11 +618,13 @@ fn the_prompt_names_the_shark_and_its_death_puts_the_protagonist_down_still_play
         InteractVariant::Ride("Burning Flying Shark".into()),
         "the prompt does not name the shark beside the protagonist",
     );
+    assert_eq!(interact_button(&mut sim).as_deref(), Some("Ride Burning Flying Shark"), "the Interact button");
     let brain_before = format!("{:?}", sim.world_mut().get::<Brain>(home));
 
     press_interact(&mut sim);
     assert_eq!(sim.world_mut().get::<RidingOn>(home).map(|riding| riding.mount), Some(mount), "premise: boarded");
     assert_eq!(prompt_for(&mut sim, home), InteractVariant::Dismount, "a rider's prompt does not say Dismount");
+    assert_eq!(interact_button(&mut sim).as_deref(), Some("Dismount"), "the Interact button");
     // The saddle holds the rider off the ground, which the kernel reads as
     // airborne: a commandeering rider sits its mount, not falls in it.
     for _ in 0..20 {

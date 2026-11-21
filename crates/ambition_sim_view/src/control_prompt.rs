@@ -639,14 +639,75 @@ pub fn project_prompt_readiness(
     let recharging = subject
         .and_then(|body| bodies.get(body).ok())
         .is_some_and(|view| !view.0.ready());
-    for entry in &mut prompt.entries {
+    // `ResMut`'s DerefMut marks the resource changed whether or not anything is
+    // written; borrow past it and mark only a real change.
+    let mut changed = false;
+    for entry in &mut prompt.bypass_change_detection().entries {
         // ⛔ ONLY the slot the cooldown governs. The refire floor is documented
         // as orthogonal to melee (invariant I3), so dimming anything else here
         // would report a restriction the body does not impose.
         let ready = entry.slot != ControlSlot::Projectile || !recharging;
         if entry.ready != ready {
             entry.ready = ready;
+            changed = true;
         }
+    }
+    if changed {
+        prompt.set_changed();
+    }
+}
+
+/// Name the Interact control after what a press would do: "Talk", "Open",
+/// "Ride Shark", "Dismount".
+///
+/// The answer is [`crate::affordances::NearestInteractable`]'s, the same rule
+/// the press itself follows (it is what claims the press from the mount owner),
+/// so the button cannot promise a ride the press would not give. Nothing in
+/// reach leaves the scheme's own word.
+///
+/// Outside the cached derive for the same reason as readiness: the nearest
+/// interactable changes as the body walks, not when its authorities do.
+///
+/// A game that names buttons rather than moves ([`PromptNaming::ByButton`])
+/// keeps "Interact".
+pub fn project_interact_verb(
+    controlled: Option<Res<ControlledSubject>>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    nearest: Option<Res<crate::affordances::NearestInteractable>>,
+    naming: ambition_platformer2d_world::governing_rules::RulesOf<PromptNaming>,
+    mut prompt: ResMut<ControlPrompt>,
+) {
+    use crate::affordances::InteractVariant;
+    use ambition_entity_catalog::action_scheme::{ids, title_case_id};
+    if prompt.context != ControlContextKind::Gameplay {
+        return;
+    }
+    let subject = controlled
+        .as_deref()
+        .and_then(|controlled| controlled.0)
+        .or_else(|| primary.single().ok());
+    if naming.of_subject(subject).copied().unwrap_or_default() == PromptNaming::ByButton {
+        return;
+    }
+    let variant = match (subject, nearest.as_deref()) {
+        (Some(body), Some(nearest)) => nearest.for_body(body),
+        _ => InteractVariant::None,
+    };
+    let label = match variant {
+        InteractVariant::None => title_case_id(ids::INTERACT),
+        other => other.display().into_owned(),
+    };
+    let Some(entry) = prompt
+        .bypass_change_detection()
+        .entries
+        .iter_mut()
+        .find(|entry| entry.action.as_str() == ids::INTERACT)
+    else {
+        return;
+    };
+    if entry.label != label {
+        entry.label = label;
+        prompt.set_changed();
     }
 }
 
@@ -973,6 +1034,63 @@ mod tests {
                 .ready_for(ControlSlot::Projectile),
             "the shot recharged and the prompt is still dim"
         );
+    }
+
+    /// The Interact button says what the press would do, and a quiet frame
+    /// leaves the prompt unchanged.
+    #[test]
+    fn the_interact_control_is_named_after_what_the_press_would_do() {
+        use crate::affordances::{InteractVariant, NearestInteractable};
+
+        #[derive(Resource, Default)]
+        struct PromptChanges(u32);
+        fn count(prompt: Res<ControlPrompt>, mut changes: ResMut<PromptChanges>) {
+            if prompt.is_changed() {
+                changes.0 += 1;
+            }
+        }
+
+        let mut app = app();
+        app.init_resource::<NearestInteractable>()
+            .init_resource::<PromptChanges>()
+            .add_systems(
+                Update,
+                (project_prompt_readiness, project_interact_verb, count)
+                    .chain()
+                    .after(rebuild_control_prompt),
+            );
+        let mut abilities = AbilitySet::default();
+        abilities.jump = true;
+        abilities.interact = true;
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, BodyAbilities::new(abilities)))
+            .id();
+        app.world_mut().resource_mut::<ControlPrompt>().set_changed();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+        let interact = |app: &mut App, near: InteractVariant| {
+            let mut nearest = app.world_mut().resource_mut::<NearestInteractable>();
+            nearest.1.insert(body, near);
+            app.update();
+            app.world()
+                .resource::<ControlPrompt>()
+                .label_for(ControlSlot::Interact)
+                .map(str::to_owned)
+        };
+
+        assert_eq!(interact(&mut app, InteractVariant::None).as_deref(), Some("Interact"));
+        assert_eq!(interact(&mut app, InteractVariant::Ride("Shark".into())).as_deref(), Some("Ride Shark"));
+        assert_eq!(interact(&mut app, InteractVariant::Dismount).as_deref(), Some("Dismount"));
+        assert_eq!(interact(&mut app, InteractVariant::Talk).as_deref(), Some("Talk"));
+
+        let before = app.world().resource::<PromptChanges>().0;
+        assert_eq!(interact(&mut app, InteractVariant::Talk).as_deref(), Some("Talk"));
+        assert_eq!(
+            app.world().resource::<PromptChanges>().0,
+            before,
+            "nothing moved, and the prompt still reported a change"
+        );
+        assert_eq!(interact(&mut app, InteractVariant::None).as_deref(), Some("Interact"));
     }
 
     #[test]

@@ -2785,8 +2785,13 @@ sandbox).
 5. **Prompt.** `NearestInteractable` answers `Ride(<mount name>)` beside a
    mount the press would board, and `Dismount` while riding. The rule is the
    press's own: `ambition_mount::nearest_commandeerable`. Witness: the same
-   app_it test. ⚠ No HUD draws `NearestInteractable` yet, for Talk either:
-   the Interact button still reads "Interact" (`control_prompt.rs`).
+   app_it test. **Done 2026-11-21:** the Interact button says it too:
+   `project_interact_verb` names the prompt's Interact entry from
+   `NearestInteractable` ("Talk", "Open", "Ride Burning Flying Shark",
+   "Dismount"; "Interact" with nothing in reach; `ByButton` games keep
+   "Interact"). The touch overlay reads that label. Witnesses:
+   `the_interact_control_is_named_after_what_the_press_would_do` (sim_view)
+   and the app_it test above.
 
 **Remaining:** `MountedBrainCache` still has no production constructor, so an
 NPC rider is never given a mounted brain. Not needed by this customer. The

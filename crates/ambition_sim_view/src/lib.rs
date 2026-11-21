@@ -40,7 +40,7 @@ pub use combat_geometry_view::{
     CombatStrikeGeometryView, HurtboxSource,
 };
 pub use control_prompt::{
-    derive_weapon_readiness, project_prompt_readiness, publish_frontend_context_prompt,
+    derive_weapon_readiness, project_interact_verb, project_prompt_readiness, publish_frontend_context_prompt,
     rebuild_control_prompt,
     ControlContextKind, ControlPrompt, ControlPromptRebuilt, LegendPiece, PromptEntry, PromptNaming,
     LEGEND_ACTION_OPEN,
@@ -198,6 +198,11 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // through every recharge.
                 derive_weapon_readiness.before(project_prompt_readiness),
                 project_prompt_readiness.after(ControlPromptRebuilt),
+                // The Interact verb follows the nearest interactable, which
+                // moves as the body walks: also outside the cache.
+                project_interact_verb
+                    .after(ControlPromptRebuilt)
+                    .after(affordances::AffordancesSystemSet::Compute),
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );

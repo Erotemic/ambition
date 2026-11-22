@@ -13,10 +13,14 @@
 //! The fold is [`fold`], which equipment uses too: `(base + Σ additions) ·
 //! Π multipliers`. It does not depend on the order effects were applied in.
 //!
-//! Stacking: one instance per (source, attribute). A source's second
-//! application replaces its first (Speed Shoes restart their clock); two
-//! sources on one attribute both count, and either can end without the other.
-//! A source that needs repeated independent instances takes distinct keys.
+//! ONE APPLICATION PER SOURCE, WITH ONE INTERVAL (effects 6c). A source's
+//! application carries any number of terms, on any attributes, two on one
+//! attribute included, and they all end together: Speed Shoes are one pair of
+//! shoes on two numbers, not two timers that happen to start together. A
+//! source's second application restarts its interval (a second pair of shoes
+//! restarts the clock); two sources on one attribute both count, and either
+//! can end without the other. A source that needs repeated independent
+//! instances takes distinct keys.
 
 use crate::snapshot::{put_f32, put_u32, put_u64, put_u8, Reader, SnapshotState};
 
@@ -97,108 +101,147 @@ impl EffectSource {
     pub const MANEUVER_GRAVITY: Self = Self::named("movement.maneuver_gravity");
 }
 
-/// One live effect.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct NumericEffect {
+/// One source's live application: its terms and their one interval.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EffectApplication {
     pub source: EffectSource,
-    pub attribute: NumericAttribute,
-    pub op: NumericOp,
-    /// Seconds left on the body's movement clock.
+    /// What it does: each term an operation on one attribute. Two terms may
+    /// name one attribute.
+    pub terms: Vec<(NumericAttribute, NumericOp)>,
+    /// Seconds left on the body's movement clock, for every term at once.
     pub remaining_s: f32,
 }
 
-/// Every live numeric effect on a body: the authority for "Speed Shoes from
-/// this source until then", not a cached result.
+/// Every live numeric application on a body: the authority for "Speed Shoes
+/// from this source until then", not a cached result.
 ///
 /// Required by [`crate::BodyKinematics`], so every body carries it, empty by
 /// default. The movement step spends it ([`Self::spend`]) once a step, on
 /// the clock every other maneuver timer runs on.
 #[derive(bevy_ecs::component::Component, Clone, Debug, Default, PartialEq)]
 pub struct BodyEffects {
-    /// Sorted by (source, attribute), one entry each.
-    effects: Vec<NumericEffect>,
+    /// Sorted by source, one application each, none without terms.
+    applications: Vec<EffectApplication>,
 }
 
 impl BodyEffects {
-    /// Put `op` on `attribute` from `source` for `seconds`, replacing that
-    /// source's live instance on the attribute. A non-positive duration ends
-    /// it instead.
-    pub fn apply(&mut self, source: EffectSource, attribute: NumericAttribute, op: NumericOp, seconds: f32) {
-        let at = self.effects.binary_search_by(|effect| (effect.source, effect.attribute).cmp(&(source, attribute)));
-        if !(seconds > 0.0) {
-            if let Ok(index) = at { self.effects.remove(index); }
+    fn at(&self, source: EffectSource) -> Result<usize, usize> {
+        self.applications.binary_search_by(|application| application.source.cmp(&source))
+    }
+
+    /// `source`'s application is now `terms` for `seconds`: one interval for
+    /// all of them, replacing whatever the source had. No terms, or a
+    /// non-positive duration, ends it instead.
+    pub fn grant(&mut self, source: EffectSource, terms: &[(NumericAttribute, NumericOp)], seconds: f32) {
+        let at = self.at(source);
+        if !(seconds > 0.0) || terms.is_empty() {
+            if let Ok(index) = at { self.applications.remove(index); }
             return;
         }
-        let effect = NumericEffect { source, attribute, op, remaining_s: seconds };
+        let application = EffectApplication { source, terms: terms.to_vec(), remaining_s: seconds };
         match at {
-            Ok(index) => self.effects[index] = effect,
-            Err(index) => self.effects.insert(index, effect),
+            Ok(index) => self.applications[index] = application,
+            Err(index) => self.applications.insert(index, application),
         }
     }
 
-    /// End every instance `source` owns. Others are untouched.
+    /// Put `op` on `attribute` in `source`'s application, replacing its term
+    /// on that attribute, and restart the application's one interval at
+    /// `seconds`. A non-positive duration ends that term instead.
+    pub fn apply(&mut self, source: EffectSource, attribute: NumericAttribute, op: NumericOp, seconds: f32) {
+        if !(seconds > 0.0) {
+            self.end_on(source, attribute);
+            return;
+        }
+        let mut terms = match self.at(source) {
+            Ok(index) => std::mem::take(&mut self.applications[index].terms),
+            Err(_) => Vec::new(),
+        };
+        terms.retain(|(on, _)| *on != attribute);
+        terms.push((attribute, op));
+        self.grant(source, &terms, seconds);
+    }
+
+    /// End `source`'s application. Others are untouched.
     pub fn end(&mut self, source: EffectSource) {
-        self.effects.retain(|effect| effect.source != source);
+        if let Ok(index) = self.at(source) { self.applications.remove(index); }
     }
 
-    /// End `source`'s instance on `attribute`.
+    /// End `source`'s terms on `attribute`; the rest of its application keeps
+    /// its interval.
     pub fn end_on(&mut self, source: EffectSource, attribute: NumericAttribute) {
-        self.effects.retain(|effect| (effect.source, effect.attribute) != (source, attribute));
+        let Ok(index) = self.at(source) else { return };
+        self.applications[index].terms.retain(|(on, _)| *on != attribute);
+        if self.applications[index].terms.is_empty() {
+            self.applications.remove(index);
+        }
     }
 
-    /// `base` under every live effect on `attribute`.
+    /// `base` under every live term on `attribute`.
     pub fn resolve(&self, attribute: NumericAttribute, base: f32) -> f32 {
-        fold(base, self.effects.iter().filter(|effect| effect.attribute == attribute).map(|effect| effect.op))
+        fold(base, self.applications.iter().flat_map(|application| application.terms.iter())
+            .filter(|(on, _)| *on == attribute).map(|(_, op)| *op))
     }
 
-    /// Is any effect from `source` live?
+    /// Is `source`'s application live?
     pub fn holds(&self, source: EffectSource) -> bool {
-        self.effects.iter().any(|effect| effect.source == source)
+        self.at(source).is_ok()
     }
 
-    pub fn is_empty(&self) -> bool { self.effects.is_empty() }
+    pub fn is_empty(&self) -> bool { self.applications.is_empty() }
 
-    pub fn iter(&self) -> impl Iterator<Item = &NumericEffect> { self.effects.iter() }
+    pub fn iter(&self) -> impl Iterator<Item = &EffectApplication> { self.applications.iter() }
 
-    /// Spend `dt` of every effect; each ends when its own time runs out.
+    /// Spend `dt` of every application; each ends, all its terms together,
+    /// when its own time runs out.
     pub fn spend(&mut self, dt: f32) {
         if dt <= 0.0 { return; }
-        for effect in &mut self.effects { effect.remaining_s -= dt; }
-        self.effects.retain(|effect| effect.remaining_s > 0.0);
+        for application in &mut self.applications { application.remaining_s -= dt; }
+        self.applications.retain(|application| application.remaining_s > 0.0);
     }
 }
 
 impl SnapshotState for BodyEffects {
     fn encode(&self, out: &mut Vec<u8>) {
-        put_u32(out, self.effects.len() as u32);
-        for effect in &self.effects {
-            put_u64(out, effect.source.0);
-            put_u8(out, effect.attribute.code());
-            let (kind, value) = match effect.op {
-                NumericOp::Add(value) => (0, value),
-                NumericOp::Mul(value) => (1, value),
-            };
-            put_u8(out, kind);
-            put_f32(out, value);
-            put_f32(out, effect.remaining_s);
+        put_u32(out, self.applications.len() as u32);
+        for application in &self.applications {
+            put_u64(out, application.source.0);
+            put_f32(out, application.remaining_s);
+            put_u32(out, application.terms.len() as u32);
+            for (attribute, op) in &application.terms {
+                put_u8(out, attribute.code());
+                let (kind, value) = match op {
+                    NumericOp::Add(value) => (0, *value),
+                    NumericOp::Mul(value) => (1, *value),
+                };
+                put_u8(out, kind);
+                put_f32(out, value);
+            }
         }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let len = r.u32()? as usize;
-        let mut effects = Vec::with_capacity(len.min(64));
+        let mut applications = Vec::with_capacity(len.min(64));
         for _ in 0..len {
             let source = EffectSource(r.u64()?);
-            let attribute = NumericAttribute::from_code(r.u8()?)?;
-            let op = match r.u8()? {
-                0 => NumericOp::Add(r.f32()?),
-                1 => NumericOp::Mul(r.f32()?),
-                _ => return None,
-            };
-            effects.push(NumericEffect { source, attribute, op, remaining_s: r.f32()? });
+            let remaining_s = r.f32()?;
+            let count = r.u32()? as usize;
+            let mut terms = Vec::with_capacity(count.min(16));
+            for _ in 0..count {
+                let attribute = NumericAttribute::from_code(r.u8()?)?;
+                let op = match r.u8()? {
+                    0 => NumericOp::Add(r.f32()?),
+                    1 => NumericOp::Mul(r.f32()?),
+                    _ => return None,
+                };
+                terms.push((attribute, op));
+            }
+            if terms.is_empty() { return None; }
+            applications.push(EffectApplication { source, terms, remaining_s });
         }
-        effects.windows(2).all(|pair| (pair[0].source, pair[0].attribute) < (pair[1].source, pair[1].attribute))
-            .then_some(Self { effects })
+        applications.windows(2).all(|pair| pair[0].source < pair[1].source)
+            .then_some(Self { applications })
     }
 }
 
@@ -240,5 +283,33 @@ mod tests {
         assert_eq!(back, effects);
         effects.apply(A, NumericAttribute::Gravity, NumericOp::Mul(0.5), 0.0);
         assert_eq!(effects.resolve(NumericAttribute::Gravity, 1.0), 1.0);
+    }
+
+    /// ⭐ ONE APPLICATION, ONE INTERVAL, ANY TERMS (effects 6c). Two terms on
+    /// one attribute and one on another all start and end together; a second
+    /// grant restarts the one interval; ending one attribute keeps the rest
+    /// and its clock; the snapshot keeps the terms and the interval.
+    #[test]
+    fn an_application_owns_one_interval_for_all_its_terms() {
+        let mut effects = BodyEffects::default();
+        let terms = [
+            (NumericAttribute::TopSpeed, NumericOp::Add(10.0)),
+            (NumericAttribute::TopSpeed, NumericOp::Mul(2.0)),
+            (NumericAttribute::GroundAccel, NumericOp::Mul(1.5)),
+        ];
+        effects.grant(A, &terms, 1.0);
+        assert!((effects.resolve(NumericAttribute::TopSpeed, 100.0) - 220.0).abs() < 1e-4, "two channels on one attribute");
+        assert!((effects.resolve(NumericAttribute::GroundAccel, 10.0) - 15.0).abs() < 1e-4);
+        effects.spend(0.6);
+        effects.grant(A, &terms, 1.0);
+        effects.spend(0.6);
+        assert!(effects.holds(A), "the second grant restarted the one interval");
+        let bytes = crate::snapshot::encode_state(&effects);
+        assert_eq!(BodyEffects::decode(&mut Reader::new(&bytes)).unwrap(), effects);
+        effects.end_on(A, NumericAttribute::TopSpeed);
+        assert_eq!(effects.resolve(NumericAttribute::TopSpeed, 100.0), 100.0);
+        assert!((effects.resolve(NumericAttribute::GroundAccel, 10.0) - 15.0).abs() < 1e-4, "the rest keeps its clock");
+        effects.spend(0.5);
+        assert!(effects.is_empty(), "every term ended with the one interval");
     }
 }

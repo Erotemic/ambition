@@ -494,6 +494,25 @@ Extract only the shared identity, owned-term storage and lifecycle operations
 that these customers need. Do not add a status language or periodic behavior
 scheduler. A later poison effect sends damage requests to combat.
 
+**6c numeric slice landed (2026-11-22).** `BodyEffects` holds one
+`EffectApplication { source, terms, remaining_s }` per source:
+- **One interval for all terms.** It may carry two terms on one attribute.
+  `grant(source, terms, seconds)` sets or replaces the whole application.
+  `apply` is the one-term form: it replaces that attribute's term and
+  restarts the one interval. `end_on` drops one attribute's terms and keeps
+  the rest on their clock. The fold is unchanged.
+- **Speed Shoes migrated.** They are one `grant` of two terms (top speed,
+  ground acceleration) under one interval. Before, each attribute was a
+  timed entry with its own clock.
+- **Rollback.** Schema 529, codec shape re-recorded.
+- **Witness.** `an_application_owns_one_interval_for_all_its_terms`.
+
+Open from 6c:
+- A lend plus a ceiling from one application: ability contributions still
+  key a single contribution per source.
+- Folding the script hold/pose claims and the native interval onto this
+  storage. The four ownership protocols are not yet one.
+
 ## Evidence required for completion
 
 Use a focused real-path scenario plus narrow reduction checks where needed.

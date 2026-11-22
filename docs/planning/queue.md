@@ -157,7 +157,9 @@ world-post admission.
    native and numeric/capability contributions. (6b landed 2026-11-22: Mary-O's pocket
    quasar is one application, `PocketQuasar`, whose one interval feeds
    defense/contact through a held grant and music/shader by observation;
-   retirement withdraws only its own grant.)
+   retirement withdraws only its own grant. 6c's numeric slice too: an
+   effect source is one application with one interval over any terms, and
+   Speed Shoes are one grant.)
 3. [Linking L1/L2](engine/capability-linking-and-prepared-facets.md#bounded-implementation-slices)
    removes the repeated equipped-repertoire interpretation, then binds a
    mixed mechanical candidate. L3's pure cutscene consumer is an independent

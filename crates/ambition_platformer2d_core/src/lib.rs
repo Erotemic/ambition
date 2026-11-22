@@ -69,7 +69,7 @@ pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities, MatchBody};
 pub use ability_projection::{project_body_abilities, AbilityContribution, AbilityContributions};
 pub use bevy_math::Vec2;
 pub use carried_component::CarriedComponent;
-pub use effects::{BodyEffects, EffectSource, NumericAttribute, NumericEffect, NumericOp};
+pub use effects::{BodyEffects, EffectApplication, EffectSource, NumericAttribute, NumericOp};
 pub use body_clusters::{
     announce_body_restarts, refresh_movement_resources_clusters, reset_body_clusters, AbilityBase,
     ActorSurfaceState, AuthoredMovementTuning, BodyAbilities, BodyActionBuffer, BodyBaseSize,

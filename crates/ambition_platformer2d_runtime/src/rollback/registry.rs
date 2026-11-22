@@ -356,7 +356,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // does (`derived.mount_presses`), replacing the claimed-press list (I2).
 // 527 -> 528: Mary-O's pocket quasar is its own application on the body
 // (`content.mary_o_pocket_quasar`), owning the star's one interval (6b).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 528;
+// 528 -> 529: `BodyEffects` encodes one application per source, its terms
+// under one interval, instead of a timed instance per (source, attribute) (6c).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 529;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

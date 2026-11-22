@@ -200,6 +200,80 @@ pub fn interact_order<Id: Ord>(candidates: impl IntoIterator<Item = InteractCand
     order
 }
 
+/// The operation one body's Interact press is selected for. Talking,
+/// activating and opening are the three [`InteractKind`]s of what the press
+/// reaches; boarding a mount, using the door the body stands in and getting
+/// off what it rides are the contextual operations that take the press when
+/// nothing in reach does. The precedence between them is stated where the
+/// selection is made, not read from this order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InteractOperation {
+    Talk,
+    Activate,
+    Open,
+    /// Board the target mount.
+    Ride,
+    /// Use the door the body stands in. No target body.
+    Use,
+    /// Get off what the body rides. No target body.
+    Dismount,
+}
+
+impl From<InteractKind> for InteractOperation {
+    fn from(kind: InteractKind) -> Self {
+        match kind {
+            InteractKind::Talk => Self::Talk,
+            InteractKind::Activate => Self::Activate,
+            InteractKind::Open => Self::Open,
+        }
+    }
+}
+
+/// What one body's press is selected for at the selection cut: the
+/// operation and, when it has one, the target body or object.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InteractSelected {
+    pub operation: InteractOperation,
+    pub target: Option<Entity>,
+}
+
+/// Each driven body's selected interaction, rebuilt every tick by the
+/// gameplay composition from the domains' own availability facts (a talker
+/// with no conversation to have is not offered). The prompt draws its label
+/// from it, and a contextual consumer that yields to an ordinary interaction
+/// (a portal's colour toggle, a mount's boarding) asks it. A body with no
+/// entry has nothing its press is for.
+///
+/// It is a read model, not a reservation: the operation's owner revalidates
+/// its target when it acts.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct InteractSelection(pub std::collections::HashMap<Entity, InteractSelected>);
+
+impl InteractSelection {
+    /// What `body`'s press is selected for, if anything.
+    pub fn of(&self, body: Entity) -> Option<InteractSelected> {
+        self.0.get(&body).copied()
+    }
+
+    /// Is `body`'s press selected for an ordinary interaction (talk, a
+    /// switch, a chest, a door)? The mount owner yields to these: boarding
+    /// and getting off are its own operations. A consumer that owns none of
+    /// the operations (the portal's colour toggle) yields to any selection
+    /// ([`Self::of`]).
+    pub fn claims_the_press(&self, body: Entity) -> bool {
+        self.of(body).is_some_and(|selected| {
+            matches!(
+                selected.operation,
+                InteractOperation::Talk | InteractOperation::Activate | InteractOperation::Open | InteractOperation::Use
+            )
+        })
+    }
+}
+
+/// The set that rebuilds [`InteractSelection`]. Its readers run after it.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InteractSelectionSet;
+
 /// Play the interact gesture on the body that ACTED.
 pub fn pose_interact(
     anims: &mut Query<&mut ambition_characters::actor::BodyAnimFacts>,

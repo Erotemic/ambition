@@ -212,6 +212,11 @@ where
         },
     );
 
+    registrar.declare_rollback_derived_resource::<ambition_platformer2d_interaction::InteractSelection>(
+        OWNER,
+        "derived.interact_selection",
+        "rebuilt each tick from the domains' availability after input commits, before any Interact consumer",
+    );
     registrar.declare_rollback_derived_resource::<crate::body::ActorDecisionFacts>(
         OWNER,
         "derived.actor_decision_facts",

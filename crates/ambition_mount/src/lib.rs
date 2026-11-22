@@ -1171,9 +1171,11 @@ pub struct MountsCommandeered;
 /// tick — a door they stand in, a body to talk to, a switch, a chest.
 /// [`commandeer_mounts`] neither boards nor bails for them.
 ///
-/// ⛔ WRITTEN BY THE INTERACT READ-MODEL, NOT HERE: which target a press is for
-/// is the interaction owner's rule (`ambition_sim_view::update_nearest_interactable`,
-/// one rule for the press and the prompt), and this crate does not know doors.
+/// ⛔ WRITTEN BY THE INTERACTION SELECTION, NOT HERE: which target a press is
+/// for is the interaction owner's rule (`InteractSelection`, written by the
+/// monolith's `select_interactions` and read into this by its
+/// `claim_interact_presses`; the prompt only names it), and this crate does
+/// not know doors.
 /// A rider possessed to use a door was bailed off its giant by the same press
 /// that took it through, and its mount was left in the room behind
 /// (`the_whole_attachment_closure_is_recorded_as_being_in_custody`). Empty in a

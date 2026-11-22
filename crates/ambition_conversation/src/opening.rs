@@ -100,18 +100,10 @@ impl DialogueDispatch<'_, '_> {
         listener_id: &str,
         input_owner: InputOwner,
     ) -> bool {
-        // Each seat talks in its own conversation, on its own runner and in its
-        // own box (SIMULATION-ISLANDS N1-N3). A body already talking to
-        // another seat is not taken from it; the seat's own talk is replaced.
-        if self.conversation.held_by_another_seat(input_owner, &[initiator, talker]) {
-            return false;
-        }
         let context = ambition_dialog::DialogueContext::between(speaker_id, listener_id);
-        // SELF-TALK. The speaker IS the listener — the player possessed this
-        // body, or wears the character it is. By default a body has nothing to
-        // say to itself; content opts in by authoring a `<dialogue_id>__self`
-        // node, which becomes the node entered.
-        let Some(entry_node) = self.nodes.entry_node(dialogue_id, context.speaker_is_self) else {
+        let Ok(entry_node) =
+            conversation_entry(&self.conversation, &self.nodes, initiator, talker, dialogue_id, &context, input_owner)
+        else {
             return false;
         };
         self.conversation.open(LiveConversation {
@@ -161,6 +153,84 @@ impl DialogueDispatch<'_, '_> {
     /// a module whose whole carve accounting is two edges to the BARK.
     pub fn driving_slot(&self, body: Entity) -> Option<ambition_characters::control::PlayerSlot> {
         self.driver.get(body).ok().map(|driver| driver.0)
+    }
+}
+
+/// Why a pair has no conversation to open now.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConversationRefusal {
+    /// One of the two bodies is talking to another seat, and is not taken
+    /// from it.
+    HeldByAnotherSeat,
+    /// The speaker is the listener and content authored nothing for a body
+    /// to say to itself.
+    NothingToSayToItself,
+}
+
+/// THE CONVERSATION DECISION: does this pair have a conversation the seat
+/// `input_owner` can open, and which node does it enter? Effect-free, so the
+/// interaction's selection (and the prompt it feeds), a door deciding
+/// whether a press is its own, and the opening itself ask the one rule.
+///
+/// - Each seat talks in its own conversation, on its own runner and in its
+///   own box (SIMULATION-ISLANDS N1-N3). A body already talking to another
+///   seat is not taken from it; the seat's own talk is replaced.
+/// - SELF-TALK. The speaker IS the listener: the player possessed this
+///   body, or wears the character it is. By default a body has nothing to
+///   say to itself; content opts in by authoring a `<dialogue_id>__self`
+///   node, which becomes the node entered.
+pub fn conversation_entry(
+    conversation: &ActiveConversation,
+    nodes: &ambition_dialog::DialogueNodeIndex,
+    initiator: Entity,
+    talker: Entity,
+    dialogue_id: &str,
+    context: &ambition_dialog::DialogueContext,
+    input_owner: InputOwner,
+) -> Result<String, ConversationRefusal> {
+    if conversation.held_by_another_seat(input_owner, &[initiator, talker]) {
+        return Err(ConversationRefusal::HeldByAnotherSeat);
+    }
+    nodes.entry_node(dialogue_id, context.speaker_is_self).ok_or(ConversationRefusal::NothingToSayToItself)
+}
+
+/// The conversation decision read without opening anything: what the
+/// interaction's selection and a door ask ([`conversation_entry`]), beside
+/// [`DialogueDispatch`], which opens. Read-only, so a system that only
+/// decides can hold it alongside other readers.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ConversationAvailability<'w, 's> {
+    conversation: Res<'w, ActiveConversation>,
+    nodes: Res<'w, ambition_dialog::DialogueNodeIndex>,
+    worn: Query<'w, 's, &'static ambition_characters::actor::CharacterForm>,
+    driver: Query<'w, 's, &'static ambition_characters::control::DrivingParticipant>,
+}
+
+impl ConversationAvailability<'_, '_> {
+    /// The id `body` speaks as ([`DialogueDispatch::speaker_id`]'s rule).
+    pub fn speaker_id(&self, body: Entity, interaction: Option<&ActorInteraction>, identity: Option<&ActorIdentity>) -> Option<String> {
+        dialogue_identity(interaction, identity).or_else(|| self.worn.get(body).ok().map(|worn| worn.id().to_string()))
+    }
+
+    /// Which seat drives `body` ([`DialogueDispatch::driving_slot`]).
+    pub fn driving_slot(&self, body: Entity) -> Option<ambition_characters::control::PlayerSlot> {
+        self.driver.get(body).ok().map(|driver| driver.0)
+    }
+
+    /// Does `initiator`, speaking as `speaker_id`, have a conversation with
+    /// `talker` (as `listener_id`, entering `dialogue_id`) that the seat
+    /// `input_owner` can open now?
+    pub fn available(
+        &self,
+        initiator: Entity,
+        talker: Entity,
+        dialogue_id: &str,
+        speaker_id: &str,
+        listener_id: &str,
+        input_owner: InputOwner,
+    ) -> Result<String, ConversationRefusal> {
+        let context = ambition_dialog::DialogueContext::between(speaker_id, listener_id);
+        conversation_entry(&self.conversation, &self.nodes, initiator, talker, dialogue_id, &context, input_owner)
     }
 }
 

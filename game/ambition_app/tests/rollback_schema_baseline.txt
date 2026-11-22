@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v525
+ggrs-rollback-schema-v526
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -219,6 +219,7 @@ derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZon
 derived.guard_volumes	derived	GuardVolumes	placed from the worn character's guards, its art and its clocks every tick, before any strike is resolved
 derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N
 derived.interact_presses_claimed	derived	InteractPressesClaimed	rebuilt each tick from the interact read model before mounts are commandeered
+derived.interact_selection	derived	InteractSelection	rebuilt each tick from the domains' availability after input commits, before any Interact consumer
 derived.item_body	derived	ItemBody	item capability properties installed before the item's physics step
 derived.item_body_presence	derived	BodyInStorage	world presence derived from item custody before spatial queries
 derived.limb_bond_start	derived	LimbBondStart	written again each tick from its game's rollback state before any reader

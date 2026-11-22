@@ -180,6 +180,9 @@ world-post admission.
    moves availability/selection below the prompt and shares one attempt
    across competing contextual consumers. Preserve gesture provenance,
    eligible windows, domain acceptance and explicit read/consume cuts.
+   (I1 landed 2026-11-22: one conversation decision for the prompt, the
+   door and the opening; selection is gameplay's `InteractSelection`, which
+   the prompt projects and the mount and portal consumers read. I2 is next.)
 
 **Acceptance:** a selected domain fact has one binder; independent holds and
 poses retire separately; another room cannot act on a world cause that can

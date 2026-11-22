@@ -133,6 +133,8 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             portal_input_adapter_system
                 .in_set(GameplayGated)
                 .in_set(PortalSet::InputAdapter)
+                // It yields to this tick's selection of each body's press.
+                .after(ambition_platformer2d_interaction::InteractSelectionSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation),
         );
 

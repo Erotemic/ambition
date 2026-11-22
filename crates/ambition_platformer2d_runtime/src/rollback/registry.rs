@@ -350,7 +350,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // the room log's state) the bodies its roles were bound to (SS7).
 // 524 -> 525: a cutscene's playback encodes whether its presentation was
 // skipped (SS8).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 525;
+// 525 -> 526: the interaction selection is a derived resource of gameplay
+// (`derived.interact_selection`, I1).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 526;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

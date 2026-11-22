@@ -76,9 +76,38 @@ mod no_dialogue {
 }
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
+pub mod selection;
+
+/// What a talk to this body enters and who it is to: the dialogue node its
+/// authored payload names (the generic conversation for none) and the
+/// listener's character id (its placement id when it names no character).
+fn talk_of<'a>(interaction: &'a ActorInteraction, identity: &'a ActorIdentity) -> (&'a str, &'a str) {
+    let interactable = &interaction.interactable;
+    let dialogue_id = npc_talk_dialogue_id(match &interactable.kind {
+        ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+        _ => None,
+    });
+    (dialogue_id, interactable.character_id().unwrap_or(&identity.id))
+}
+
+/// The seat a conversation opened by a body driven from `slot` belongs to.
+/// The `ParticipantId` <-> `PlayerSlot` correspondence lives in one place
+/// (`crate::participant_seat`), and that place is this crate.
+fn input_owner_of(slot: Option<ambition_characters::control::PlayerSlot>) -> ambition_input::InputOwner {
+    slot.map_or(ambition_input::InputOwner::Primary, |slot| {
+        ambition_input::InputOwner::Participant(crate::participant_seat::participant_of(slot))
+    })
+}
+
 /// The bodies Interact can talk to: peaceful feature actors with a
-/// conversation payload. The same filter [`interact_ecs_actors_and_switches`]
-/// talks through, read by a door that must know whether the press is its own.
+/// conversation payload, in reach, with a conversation the acting seat can
+/// open now. The selection ([`selection::select_interactions`], which the
+/// prompt draws) and a door deciding whether a press is its own both ask
+/// it; the conversation part is the dialogue domain's own decision
+/// (`ambition_conversation::conversation_entry`), the one the opening asks.
+///
+/// So a self-conversation with no authored branch, or a body talking to
+/// another seat, is not offered, and does not keep a door's press.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TalkableBodies<'w, 's> {
     bodies: Query<
@@ -95,30 +124,90 @@ pub struct TalkableBodies<'w, 's> {
                 Has<ambition_combat::components::RequiresFacing>,
                 Option<&'static ambition_combat::components::ActorAggression>,
             ),
+            (&'static ActorIdentity, &'static ActorInteraction),
         ),
-        (
-            With<ActorInteraction>,
-            With<ActorIdentity>,
-            With<FeatureSimEntity>,
-        ),
+        With<FeatureSimEntity>,
     >,
+    /// The acting body's own payload and identity, which say who it speaks as.
+    speakers: Query<'w, 's, (Option<&'static ActorInteraction>, Option<&'static ActorIdentity>)>,
+    // `Option`: a composition without the dialogue domain has no
+    // conversation to offer, so no body is talkable, as the press finds.
+    #[cfg(feature = "dialogue")]
+    conversation: Option<ambition_conversation::ConversationAvailability<'w, 's>>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
 }
 
 impl TalkableBodies<'_, '_> {
-    /// The distance from `subject`'s position to the nearest body its press
-    /// can talk to ([`InteractReach::can_talk_to`]), if there is one.
-    pub fn nearest_in_reach(&self, subject: Entity, reach: &InteractReach) -> Option<f32> {
+    /// The bodies `subject`'s press can talk to now, with their centres. `door`
+    /// is the distance to the door it stands in, which keeps the press from a
+    /// body no nearer ([`InteractReach::a_door_keeps_the_press`]).
+    pub fn talkers(&self, subject: Entity, reach: &InteractReach, door: Option<f32>) -> Vec<(Entity, Vec2)> {
+        let Some((speaker_id, owner)) = self.speaker(subject) else {
+            return Vec::new();
+        };
         self.bodies
             .iter()
-            .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing, aggression))| {
+            .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing, aggression), _)| {
                 *entity != subject
-                    && ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane)
-                        .is_none()
+                    && ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane).is_none()
                     && reach.can_talk_to(self.rooms.of(*entity), aabb, *requires_facing)
+                    && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos()))
             })
-            .map(|(_, aabb, ..)| aabb.center.distance(reach.pos()))
+            .filter(|(entity, .., (identity, interaction))| {
+                let (dialogue_id, listener_id) = talk_of(interaction, identity);
+                self.has_conversation(subject, *entity, dialogue_id, &speaker_id, listener_id, owner)
+            })
+            .map(|(entity, aabb, ..)| (entity, aabb.center))
+            .collect()
+    }
+
+    /// The distance from `subject`'s position to the nearest body its press
+    /// can talk to now ([`Self::talkers`]), if there is one.
+    pub fn nearest_in_reach(&self, subject: Entity, reach: &InteractReach) -> Option<f32> {
+        self.talkers(subject, reach, None)
+            .into_iter()
+            .map(|(_, center)| center.distance(reach.pos()))
             .min_by(f32::total_cmp)
+    }
+
+    /// The live rooms, for the selection's other targets.
+    pub(crate) fn rooms(&self) -> &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'_, '_> {
+        &self.rooms
+    }
+
+    /// Who `subject` speaks as, and the seat its conversation would belong to.
+    #[cfg(feature = "dialogue")]
+    fn speaker(&self, subject: Entity) -> Option<(String, ambition_input::InputOwner)> {
+        let conversation = self.conversation.as_ref()?;
+        let (interaction, identity) = self.speakers.get(subject).unwrap_or((None, None));
+        let speaker = conversation.speaker_id(subject, interaction, identity)?;
+        Some((speaker, input_owner_of(conversation.driving_slot(subject))))
+    }
+
+    #[cfg(not(feature = "dialogue"))]
+    fn speaker(&self, _subject: Entity) -> Option<(String, ambition_input::InputOwner)> {
+        let _ = &self.speakers;
+        None
+    }
+
+    #[cfg(feature = "dialogue")]
+    fn has_conversation(
+        &self,
+        subject: Entity,
+        talker: Entity,
+        dialogue_id: &str,
+        speaker_id: &str,
+        listener_id: &str,
+        owner: ambition_input::InputOwner,
+    ) -> bool {
+        self.conversation
+            .as_ref()
+            .is_some_and(|conversation| conversation.available(subject, talker, dialogue_id, speaker_id, listener_id, owner).is_ok())
+    }
+
+    #[cfg(not(feature = "dialogue"))]
+    fn has_conversation(&self, _: Entity, _: Entity, _: &str, _: &str, _: &str, _: ambition_input::InputOwner) -> bool {
+        false
     }
 }
 
@@ -318,12 +407,7 @@ pub fn interact_ecs_actors_and_switches(
             {
                 continue;
             }
-            let dialogue_id = npc_talk_dialogue_id(match &interactable.kind {
-                ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
-                _ => None,
-            });
-            let listener_id =
-                interactable.character_id().unwrap_or(&identity.id);
+            let (dialogue_id, listener_id) = talk_of(interaction_payload, identity);
 
             // THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S. Whether this pair
             // has anything to say — a self-conversation needs an authored `__self`
@@ -336,14 +420,7 @@ pub fn interact_ecs_actors_and_switches(
             // no trace — no banner, no flags, no quest pump, no mode flip. WHOSE conversation
             // this is, decided here because the `ParticipantId` ↔ `PlayerSlot` correspondence
             // lives in exactly one place (`crate::participant_seat`) and that place is this crate.
-            let input_owner = dialogue.driving_slot(subject).map_or(
-                ambition_input::InputOwner::Primary,
-                |slot| {
-                    ambition_input::InputOwner::Participant(
-                        crate::participant_seat::participant_of(slot),
-                    )
-                },
-            );
+            let input_owner = input_owner_of(dialogue.driving_slot(subject));
             if !dialogue.open_between(
                 subject,
                 actor_entity,

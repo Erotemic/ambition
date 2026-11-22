@@ -2,8 +2,8 @@
 //! `docs/planning/engine/geometry-observability-and-f1.md`).
 //!
 //! `interaction.reach` asks the rule the press and the prompt ask
-//! ([`InteractReach`], and the prompt's own choice,
-//! [`chosen_in_reach`]) for one body:
+//! ([`InteractReach`], and gameplay's choice of target,
+//! `ambition_platformer2d_actor_monolith::body::InteractTargets`) for one body:
 //! - its touch box (`interact_touch`: what a chest or a switch must touch),
 //!   its talk box (`interact_talk`) and the point it reaches with
 //!   (`interact_front`: the press is for the nearest thing to it);
@@ -21,7 +21,7 @@ use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_interaction::InteractReach;
 use bevy::prelude::*;
 
-use crate::affordances::interactable_proximity::{chosen_in_reach, Chests, Reaching, Switches, Talkers};
+use crate::affordances::interactable_proximity::{Chests, Reaching, Switches, Talkers};
 
 pub fn install(app: &mut App) {
     app.add_geometry_observer(
@@ -60,7 +60,7 @@ fn reach_of_subject(
     actors: Talkers,
     chests: Chests,
     switches: Switches,
-    objects: ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
+    targets: ambition_platformer2d_actor_monolith::body::InteractTargets,
 ) -> Vec<GeometryObservation> {
     let Some(subject) = query.subject else {
         return Vec::new();
@@ -71,7 +71,7 @@ fn reach_of_subject(
     let room = rooms.live().of(subject);
     let reach = InteractReach::of(kin, step, frame, room);
     let door = rooms.nearest_door_under(subject, reach.collision_box(), reach.pos());
-    let chosen = chosen_in_reach(&reach, door, rooms.live(), &objects, &actors, &chests, &switches).map(|(entity, _)| entity);
+    let chosen = targets.chosen(subject, &reach, door).map(|(entity, _)| entity);
     let name = |entity: Entity| names.get(entity).map_or_else(|_| format!("{entity}"), |id| id.as_str().to_owned());
     let me = name(subject);
     let (touch, talk) = (reach.collision_box(), reach.talk_box());

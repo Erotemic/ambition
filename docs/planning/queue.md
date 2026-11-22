@@ -496,6 +496,15 @@ slices 1 to 4 and the decisions.
 
 **Acceptance:** runnable headless comparison, byte and CPU measurements, stable guest input/reconciliation, region-scoped replication, persistent host-owned NPC facts, no service dependency, and an explicit per-game synchronization decision. Do not remove GGRS or rewrite working multiplayer merely from prose.
 
+**Prediction follow-up, source `34b4ab0b7f4f`:**
+[HP1–HP5](engine/hosted-prediction-contract.md) defines the production guest's
+native continuation and supported partial simulation. Start with explicit
+guest world-commit permission and one body profile corrected at a coherent
+cut; then admit moving-surface dependencies, dated control assignment and
+native population support. Preserve the motion receipts above and the
+sleeping guest. This refines the existing hosted lane, does not replace the
+transport, and does not promote networking or Smash polish in product order.
+
 ### SIMULATION-ISLANDS — room-level rollback inside a hybrid world
 
 **Customer:** the Ambition metroidvania's multiplayer: players in different rooms must not pay for, wait on or rewind each other's rooms. Maintainer direction 2026-11-10: move away from strict App-wide rollback toward a hybrid model; keep rollback within a room boundary while it is easy to maintain, and evaluate what keeping it at room level costs.

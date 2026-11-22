@@ -603,6 +603,16 @@ Not exercised:
 
 ### CW3 — Route world consequences through their actual owners
 
+The hosted guest needs an explicit authority choice as well as a replay cut.
+[HP1](hosted-prediction-contract.md#hp1--separate-speculative-execution-from-world-authority)
+finds that forward `PredictsOwnBody` execution has no live confirmation
+boundary, so the world-value path can settle on the guest under the valid
+offline-host default. Select world-domain commit permission in composition;
+a received `HostTick` is neither finality nor domain acceptance. Keep an
+unanswered guest request distinct from a host refusal, and import accepted
+outcomes at the retained destination cut described here. Do not send a
+second derived command when the host already executes the producing input.
+
 Start with world-value queries and the gate readers that consume them.
 Record the committed revision or admitted delta at each affected room's
 input cut. Rewind a room across that cut while another room advances the

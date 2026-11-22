@@ -5,6 +5,21 @@
 **Research and candidates:** [network topology and authority](network-topology-and-authority-research.md) (models A–D, R0–R5, the comparison scenarios). This page owns the experiment's results, not the candidate list.
 **Related:** [netcode](netcode.md), [compact peer input](island-rollback-and-compact-peer-input.md), [multiplayer and multiview](multiplayer-and-multiview.md), [ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
 
+## Production prediction follow-up
+
+**Planned, source `34b4ab0b7f4f`, 2026-11-22:**
+[HP1–HP5](hosted-prediction-contract.md) defines the supported native guest
+continuation, correction cut, external dependencies and authority boundary.
+The own-body receipt below proves its measured motion cases; it does not
+establish complete combat state, revised same-tick publications, moving
+environment phase, control handoff or native population reconstitution.
+
+Begin with guest world-commit permission and one bounded native correction
+profile. Keep the existing transport choice, sleeping guest and dated
+measurements. The follow-up belongs to this execution lane; it is separate
+from host room-transfer membership under ISL-3 and does not move networking
+ahead of Ambition's selected product work.
+
 ## Shared-world acceptance added by the architecture review
 
 The 2026-11-21 [causal world plan](causal-world-commit.md) adds a semantic

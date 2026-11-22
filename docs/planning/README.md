@@ -120,7 +120,7 @@ links to.
 ### Engine: architecture
 
 - [`engine/architectural-audit-frontier.md`](engine/architectural-audit-frontier.md)
-  — source-backed audit coverage, the 2026-11-22 input/life/history findings,
+  — source-backed audit coverage, the input/life/history and hosted-prediction findings,
   and ranked questions for the next deep audit; not an execution queue.
 - [`engine/architecture-reassessment-and-composable-multiplayer.md`](engine/architecture-reassessment-and-composable-multiplayer.md) — cross-document review of optional rollback, peer multiplayer, simulation islands, physical objects and crate-boundary tradeoffs (proposed; not queued).
 - [`engine/architecture.md`](engine/architecture.md) — the owner page: converged
@@ -194,6 +194,9 @@ links to.
   — planned correction to shared-world undo: confirmed domain operations,
   retained decisions and replay-stable destination inputs.
 - [`engine/hosted-world-networking-experiment.md`](engine/hosted-world-networking-experiment.md) — selected authoritative-host versus GGRS experiment and per-game synchronization decision.
+- [`engine/hosted-prediction-contract.md`](engine/hosted-prediction-contract.md)
+  — planned native guest continuation, correction revisions, supported
+  environment/assignment scope and world-commit permission (HP1–HP5).
 - [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)
 - [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
   — shared vocabulary.

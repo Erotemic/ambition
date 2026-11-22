@@ -2,8 +2,9 @@
 
 **State:** audit map and research priorities, 2026-11-22. Runtime source:
 `34b4ab0b7f4f5a950a52e6031423e76b5e75f6ac`. Planning baseline:
-`07c27e7732a8d009fcc8831a39af1f059efe076c`, including the preceding shared
-action/Smash reviews. No newer runtime source was supplied for this pass.
+`4c5853c4c697b6a036e26aed618cef72ce100f15`, including the preceding shared
+action/Smash and input/life/history reviews. The hosted-prediction audit
+extends this map on the same runtime source; no newer runtime was supplied.
 
 This page answers where another deep audit is likely to add useful guidance.
 It is not an execution queue, a claim that a subsystem has no defects, or a
@@ -29,10 +30,12 @@ ever read that code.
 | Content preparation, linking and authoring | [Linking](capability-linking-and-prepared-facets.md), [prepared media](asset-authoring-and-prepared-media.md), [asset delivery](asset-library-editor-and-delivery.md) | A demonstrated generation/publication gap or a repeated interpretation still outside its owner |
 | Compiler, dependency and product boundaries | [Compiler/build products](compiler-boundaries-and-build-products.md), [runtime composition](capability-and-runtime-composition.md) | Fresh compile/link/size measurements after the planned cuts |
 | Narrative roles, interaction and native completion | [Story](story-sequences.md), [interaction](interaction-opportunities-and-activation.md), [native actions](native-action-completion.md) | An actual lost invocation/result/role boundary, not a general task framework |
+| Hosted observation, prediction and correction | [Hosted prediction](hosted-prediction-contract.md), [experiment](hosted-world-networking-experiment.md) | Native witness results and the next admitted capability; do not infer general simulation support from motion equality |
 
 Input history and dormant plan completion had less explicit treatment than
-these boundaries. Hosted room transfer was already selected as ISL-3;
-this pass sharpens its history cut rather than declaring it unexplored.
+these boundaries before the preceding pass. Hosted room transfer was already
+selected as ISL-3; that pass sharpened its history cut. The next pass traced
+hosted guest prediction, formerly the first candidate below.
 
 ## Findings added by this pass
 
@@ -101,6 +104,38 @@ occupants cannot establish the finality of old input. Whole-world checkpoints
 retain aggregate finality. A transfer that never holds its affected histories
 requires a further retained destination import, not merely retained snapshots.
 
+### A guest needs a native continuation, not just an observation
+
+**Owner:** [HP1–HP5](hosted-prediction-contract.md), routed through the existing
+hosted experiment. The dated run/jump/strike measurements remain valid.
+
+Five motion floats cannot distinguish a stationary no-launch hit that
+changes hitstop and the next legal dodge. Restoring the guest's post-tick
+save and replaying later local input cannot recreate the missing accepted
+hit. Received correction values also need a lifetime outside the native
+entities that restore may replace.
+
+The same boundary exposes distinct meanings for executed simulation time,
+publication revision, finality, body assignment and construction provenance.
+The current guest can skip native steps by changing a tick label, discard a
+revised host publication at the same tick, or keep a history for a seat/room
+after possession changes its body. Forward prediction also wakes a world
+write path whose absent-boundary default permits local guest settlement.
+
+Use native owner-defined continuation at one admitted cut. Declare which
+external trajectories or feedback state the supported unit consumes; keep
+autonomous observation out of unrelated AI execution. Admit a platform
+driver's revision even if the body at its anchor compares equal. A small
+status outside the body's lifetime preserves prediction invalidation until
+a new baseline, including unsupported changes that reverse between sends.
+
+Begin with explicit world-commit permission and one complete body profile.
+Then add an autonomous platform, a feedback lift, native assignment and
+population support. This does not require a universal dependency graph,
+second physics implementation, new transport, or generalized event journal.
+Source counterexamples are established; the new native witnesses and cost
+measurements are planned, not executed in this audit.
+
 ## Area audited without another architecture packet
 
 Reload and asset realization were inspected against the existing plans.
@@ -131,37 +166,7 @@ These are research questions, not established defects or selected work.
 Each starts from an existing owner and a concrete consumer. An audit is
 successful if it rules out a proposed abstraction as well as if it finds one.
 
-### 1. Hosted replication and prediction as an explicit partial simulation
-
-**Why next:** the engine now has both a sleeping guest and a guest that
-predicts its own body. Their earlier witnesses establish useful cases, but
-do not define the full causal state that the predictor may rely on. This is
-a boundary where a convenient replicated view can be mistaken for a
-sufficient simulation input.
-
-Start with [hosted networking](hosted-world-networking-experiment.md),
-[`prediction.rs`](../../../crates/ambition_hosted_world/src/prediction.rs)
-and [room replay](island-rollback-and-compact-peer-input.md). Trace one
-predicted body touching an authoritative moving surface or an admitted
-mount, with a remote strike as a control.
-
-Determine:
-
-- Which rows are visual observations, authoritative correction state, or
-  inputs to local prediction?
-- What causal state must accompany an authoritative body row at its tick
-  for the supported interaction to replay?
-- Which foreign capabilities are held, extrapolated or deliberately excluded
-  from prediction, and who states that choice?
-- Does correcting the local body reconstruct its dependencies, or only its
-  visible result? Does ownership change invalidate the old prediction scope?
-
-**Useful artifact:** a capability/state matrix and one bounded correction
-contract with an existing host/guest witness. Keep transport choice and
-general rollback replacement out of scope. Do not promise that the entire
-world must be simulated on the guest.
-
-### 2. Effective geometry as a query contract across consumers
+### 1. Effective geometry as a query contract across consumers
 
 **Why high value:** movement, attacks, interaction, navigation and diagnostics
 need related geometry with different acceptance rules. Earlier portal and
@@ -186,7 +191,7 @@ Do not build a universal collider, require full reference geometry per
 gameplay tick, or create a data-structure package before finding a repeated
 algorithm with a measurable cost.
 
-### 3. Relationship endpoints through transfer, replacement and retirement
+### 2. Relationship endpoints through transfer, replacement and retirement
 
 **Why high value:** mount, capture, held item, tether and spawned-action
 relations can share coordinate bindings while retaining different lifetime
@@ -207,7 +212,7 @@ which native owner must detach, cancel, transfer or preserve the relation.
 binding/admission rule, with one migrated relation. Do not infer a generic
 entity graph from a shared pair of IDs, or make attachment imply ownership.
 
-### 4. Observation, attention and durable social knowledge
+### 3. Observation, attention and durable social knowledge
 
 **Why high value:** tactical belief, social knowledge and planner conditions
 answer different questions about truth, access and time. The dormant
@@ -231,7 +236,7 @@ evidence/time/identity and an authoring example. Avoid a universal fact
 database, an all-event journal, or extending decaying tactical memory into
 permanent social truth.
 
-### 5. Shared observers, provider actions and control ownership changes
+### 4. Shared observers, provider actions and control ownership changes
 
 **Why high value:** a body frame, a seat's observer frame and a render camera
 are distinct authorities. The present input correction leaves shared-camera

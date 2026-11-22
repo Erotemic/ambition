@@ -64,6 +64,21 @@ which driver a seat binds (`LocalInput` versus `Brain`), decided at match
 preparation. The custody arbiter is `ControlClaims`. Do not wire control custody
 into seat binding.
 
+## Hosted assignment is separate from construction provenance
+
+**Planned, source `34b4ab0b7f4f`:**
+[HP5](hosted-prediction-contract.md#hp5--separate-native-provenance-from-control-assignment)
+finds that `SpawnRow.seat` captures the current driver once and selects the
+home-body constructor. A possession changes native assignment without
+changing the actor's recipe, and has no equivalent hosted update today.
+
+Admit the assignment through this native owner at a dated cut; keep its
+derived driver/view projections consistent. Prediction history names that
+body/assignment segment, independently of connection input sequence.
+The first handoff may suspend and re-anchor prediction. A transport marker
+must not become another writer of possession/claim policy, and updating a
+driver field must not reconstruct a possessed actor as a home avatar.
+
 ## Where the writers are
 
 | authority | crate / module | production writers |

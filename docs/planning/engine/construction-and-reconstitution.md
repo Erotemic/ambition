@@ -74,6 +74,23 @@ all share one deletion rule. The existing custody/occurrence authorities decide
 what persists. A no-record state can mean 'as authored' under the owning domain;
 it is not a general instruction to remint every dynamic spawn on re-entry.
 
+## Hosted continuation and native population
+
+**Planned, source `34b4ab0b7f4f`:**
+[HP2/HP5](hosted-prediction-contract.md) applies this same construction
+contract to guest correction. Retain an admitted correction outside the
+population that native restore may replace. Resolve its stable occurrence
+after restore, then rebind affected transport attachments from `RoomRestore`
+or the construction receipt; preserve the in-place path.
+
+Native recipe/provenance, current form and current control assignment are
+different inputs. A received transport entity or matching signature is not
+a native construction receipt. Prove an unpredicted host projectile through
+the existing native constructor, then predicted adoption when that profile
+supports spawning. Exact transport rebinding after recreation remains a
+native-link proof. The first fixed-body prediction slice can reject that
+population change without introducing a second construction transaction.
+
 ## Open item recipe and capture completion
 
 The source review at `f41218979625` finds an incomplete input, not a missing

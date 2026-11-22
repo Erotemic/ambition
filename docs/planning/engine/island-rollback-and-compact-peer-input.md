@@ -30,6 +30,21 @@ remains required: queue pressure still selects eager bag writes or refunds.
 Preserve the dated receipts below without treating them as proof of admission
 pressure, allocation conservation or source retirement.
 
+## Guest prediction has a distinct continuation contract
+
+The source review at `34b4ab0b7f4f` adds
+[HP1–HP5](hosted-prediction-contract.md) under the hosted experiment.
+Reusing `replay_room` does not make the guest's speculative save an
+authoritative continuation. The guest needs admitted native state and
+external inputs at a real cut, publication revisions distinct from ticks,
+and permission to speculate distinct from permission to commit world work.
+
+That packet owns guest correction and supported prediction scope. ISL-3
+continues to own host history membership and room transfers. Its scoped
+barrier and CW4 finality optimization are not prerequisites for the first
+same-room native guest correction proof. Preserve the existing room-replay
+receipts below without extending their claims to arbitrary guest mechanics.
+
 ## ISL-1b completion — one room step for module-owned work
 
 **Open, source review at `f41218979625`, 2026-11-21.** The earlier `ScopePace`

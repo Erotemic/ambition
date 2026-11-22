@@ -154,6 +154,17 @@ a dependency cut is not a claim about saved APK bytes.
 
 ## CB2 — Convert typed installation inputs before schedule registration
 
+**Done (2026-11-22).** `install_request::<P, M>` now only builds the checked
+`PortOffer`, the typed `RequestCodec` and `adapter.into_configs()`. The
+non-generic `install_request_values` owns the offer and codec insertion,
+the `last_request` chain, the `Lower`/`Retire` parent, the first retirement
+adapter's `holds_phase` gate and the `LowerPort` ordering. Triggers (with
+or without their own collector, after E3's shared fact collector) go through
+`install_trigger_values`. Observations keep typed boxing and `encode_erased::<P>`
+at the entrypoint and pass both to `install_observation_values`. The host
+witnesses (installation-order lowering and phase isolation among them) pass,
+51 of 51. No emitted-symbol count is claimed yet.
+
 **Execution owner:** `ambition_extension_host`, inside its existing
 `ExtensionAppExt` implementation. No new public registration protocol.
 

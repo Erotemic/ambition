@@ -306,6 +306,26 @@ fully held interval. An already-live held action must not replay entry work.
 Room/mode suspension remains a separate permission; a zero delta is not
 enough to infer either an accepted entry or an ended action.
 
+### Input-dependent continuation is distinct from an action hold
+
+The `00bf92c22142` [IN5 follow-up](participant-action-system.md#in5--withdraw-input-dependent-continuations-at-an-admitted-cut)
+finds a pending `PlayerProjectileState` charge that can miss release during
+capture or after possession moves its driver. It remains pending under
+neutral input. IN5 proposes cancellation without firing when that charge
+loses eligible supply or its accepted driving assignment. That policy is
+bounded to this input-dependent continuation; committed `MovePlayback`
+still follows its body's native interrupt/completion rules.
+
+Keep input ownership/continuity and the action interval separate. A body
+action hold can preserve the controller and selected aim/release
+observation while allowing no charge progression. Input withdrawal can end
+the pending charge even if simulation time remains positive. A gated zero
+`ActorControl`, zero `dt`, or absent ephemeral tick message cannot decide
+which case occurred. Consume IN5's admitted interruption and the native
+assignment transition at the appropriate owner cut. Do not freeze all
+input observation to repair time, or cancel every accepted move to repair
+a lost release. IN5 owns source/latch/wire meaning; ACT2 owns time.
+
 ### Sustain lifetime and cadence need separate facts
 
 The Officer counter and capture reach use sustain as a level signal:

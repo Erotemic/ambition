@@ -46,16 +46,68 @@ A provider can now declare an action, bind it to a key, and receive a semantic
 per-seat press without adding a variant to the engine's closed built-in action
 enum.
 
-The remaining responsibilities are deliberately outside `ambition_input`:
+**2026-11-22 source refinement at `00bf92c22142`:** the publisher is live
+in host `Update/InputSet::Route`, but no production gameplay reader of
+`SemanticActionPressed` was found. The capability demo explicitly leaves
+the final hop to composition. This remains customer-gated work, not a
+demonstrated shipped provider-action failure.
 
-- composition maps a participant press to the body/domain request that should
-  consume it;
-- controller/touch presentation chooses which finite physical/on-screen slot a
-  provider action occupies;
-- authoring schemas for bindings are added only when a tooling customer needs
-  them.
+A direct host-event-to-effect bridge would not complete the contract.
+[`SemanticActionPressed`](../../../crates/ambition_input/src/semantic.rs)
+contains action and participant IDs; the
+[recorder](../../../crates/ambition_platformer2d_runtime/src/input_stream.rs)
+records `ControlFrame`, and
+[`PeerInput`](../../../crates/ambition_platformer2d_rollback_ggrs/src/peer_input.rs)
+carries that frame plus a publication verdict. A host reader that directly
+writes `PulseRequested` could change body velocity while recorded/peer
+input remains identical. Registering the resulting body/cooldown state
+cannot reconstruct the missing external cause. This is a counterexample
+to that implementation shortcut, not an existing bridge.
 
-Do not make `ambition_input` learn actor/body concepts to close the final hop.
+For the first concrete consumer, decide these at composition:
+
+| Boundary | Required choice |
+| --- | --- |
+| UI or gameplay | UI-only commands stay host events. Host-origin gameplay requests enter [IN1's admitted input cut](#in1--record-and-replay-at-the-same-admitted-input-cut) before native execution. Simulation-owned AI/domain requests keep their native owners. |
+| Existing slot or distinct request | Use an ordinary semantic slot when it expresses the action. Add bounded input vocabulary only when the customer needs a distinct meaning. |
+| Subject | Ordinary driving input resolves the unique body assigned to the participant at the stated simulation cut. An explicitly selected object uses the existing scoped occurrence reference and domain checks. |
+| Gesture | State the needed press/hold/release/value semantics and bounded coalescing rule. A press-only event cannot express a charge-and-release operation. |
+| Definition | Gameplay meaning belongs to the session's selected prepared content/extension binding. Physical key rebinding stays host-local. |
+| Acceptance | Repertoire, control holds and native body/domain permission still decide the attempt. Writing an `ActorActionMessage` is not proof that it passed those cuts. |
+
+Open provider behavior is already implemented. Pulse Forge authors a
+technique on the Projectile slot and receives pressed/held/released values
+through `TechniqueUsePort`
+([content](../../../examples/projects/pulse_forge/content/characters.ron),
+[module](../../../examples/projects/pulse_forge/portable/src/lib.rs)).
+`ActionRequest::Special` and the installed extension executor already
+route keyed behavior. Reuse those owners; keep `ActionRegistry` as
+metadata, without a second callback registry or per-provider input plugin.
+The present one `ProviderAction` specialization also avoids repeating the
+input machinery for every provider.
+
+If a new input value is required, preserve the wire owner's fixed-width
+contract and apply the wire and recorded-stream owners' compatibility
+rules. A changed capture stage or existing meaning requires a new recorded
+meaning; an additive field whose old value correctly means neutral follows
+the stream owner's existing compatibility rule. Do not
+put arbitrary strings, descriptors or an unbounded action vector into each
+frame. A compact binding is meaningful only under the same selected
+definition on both peers. `ActionTicket.generation` names a caller
+lifetime, not a content generation; phase-local extension invocation queues
+are not a replay input channel.
+
+Prove the first selected final hop through a real host: capture it, change
+driver before admission, exercise the chosen target policy, and replay the
+same native outcome. Preserve context refusal and body holds, with an
+allowed control. Use the existing Sanic provider-technique replay as a
+control for the execution road; it does not prove an arbitrary provider
+binding. No new transport work is selected merely because the publisher
+exists.
+
+Controller/touch presentation still chooses a finite physical/on-screen
+slot. Add binding-authoring schemas only for a real tooling customer.
+Do not make `ambition_input` learn actor/body concepts to close the hop.
 
 ## P3 — decide prompt multiplicity with the multiview customer
 
@@ -306,6 +358,228 @@ Verify two distinct qualified presses within one tick and the existing
 neutral/recentered case. Coordinate any changed encoded fields with the
 wire identity and stream-version owners. IN1's semantic stage change is not
 covered merely by a field-layout check.
+
+## Input continuity across routing and control changes
+
+**Source follow-up:** `00bf92c22142`, 2026-11-22. IN4/IN5 distinguish
+physical observation, eligibility to deliver input, and continuation of
+work already accepted by a body. The findings below are source-derived;
+no new gameplay, rollback or timing witness was run.
+
+A routing change may stop delivery. It cannot by itself establish that a
+finger released or pressed a control. A real neutral sample, a sample
+masked by a UI owner, an invalid sample during map replacement and the
+end of a driving assignment have different meanings. Preserve the
+existing participant, context, latch and body-control owners.
+
+### IN4 — observe source transitions before routing
+
+#### Native failures and their controls
+
+[`populate_seat_control_frames`](../../../crates/ambition_platformer2d_runtime/src/input.rs)
+resets `GameplayEdgeState` to Released whenever gameplay is unavailable.
+That state tracks burst trigger, C-stick attack and tap-jump, despite its
+runtime carrier being named `SeatBurstTriggerState`. When the same
+continuously held analog value is read after capture, hysteresis reports
+a new press. Ordinary buttons use Leafwing's `just_pressed` and do not
+need a new press simply to resume a held level.
+
+There is a second path through
+[`rebuild_maps_from_recipes`](../../../crates/ambition_input/src/bindings.rs).
+It resets `ActionState` and marks `Rebound`. The next PreUpdate repairs
+button edges, but the analog tracker can read the intervening zero sample
+as a release, then the still-held control as a new press. The runtime
+sampler cannot currently consume the priming transition: `Rebound` is
+removed before its next Update, and the rebind owner cannot query the
+runtime-owned carrier.
+
+#### Small ownership correction
+
+Observe valid physical samples and advance source-edge history before
+filtering gameplay delivery. Discard masked action edges at the routing
+boundary; keep menu-edge latching and gameplay latch suppression.
+Merely freezing the tracker while captured is insufficient: a release and
+press entirely inside the captured interval must not leak into gameplay
+on return.
+
+Rebinding is different from a valid neutral observation. Treat the reset
+sample as invalid and seed the trackers from the first valid sample under
+the new map without manufacturing edges. Preserve the existing documented
+policy for a real press coinciding with that resynchronization. If a
+platform supplies no valid physical observations while unfocused, use
+explicit resynchronization on return rather than claiming a release was
+observed.
+
+Keep the pure `GameplayEdgeState` in `ambition_input`. Move its
+participant carrier there, or provide the narrow priming operation and
+transition lifetime the native sampler needs. Do not make the input owner
+depend on the runtime. The source-validity transition must reach the
+sampler before it expires. This is a fixed-size per-participant fold; it
+needs no new device registry or wire field.
+
+**First proof:** extend the existing focus/context fixture through reopening
+while an analog control remains held. Compare held-without-press, an actual
+release/repress, and an unaffected seat. Extend
+`a_key_held_across_a_rebind_is_not_a_new_press` with an analog input while
+an unrelated binding changes. Keep its ordinary-button control. These
+native crossings are more informative than another pure hysteresis test.
+
+**Remove:** context-induced Released resets and invalid reset samples as
+source history. Keep per-pad filters, the current thresholds and intended
+held-level resumption.
+
+#### Local producer retirement is an ownership cut
+
+The same source audit found that local roster retirement despawns an
+`InputParticipant`, while `populate_seat_control_frames` only rewrites
+remaining rows and `commit_seat_raw_frames` republishes every persistent
+`SeatRawFrames` row. A retired local producer's last edge can therefore
+be reintroduced after a latch drain. No accidental join or attack was
+reproduced by this audit.
+
+When touching that retirement cut, retire or neutralize that producer's
+own raw row and reset its pending latch through `SlotControlLatches::reset`.
+The latch reset alone does not clear `SeatRawFrames`. Input-participant
+absence alone is not authority to clear a remote, harness or authored
+producer's row. Prove retirement with a pending edge and more than one
+render-commit/tick-drain cycle; retain a fresh source's real Start admission.
+This does not require a second source-routing table.
+
+### IN5 — withdraw input-dependent continuations at an admitted cut
+
+IN4 corrects local source recognition. Native consumers also need to
+distinguish input interruption from an ordinary neutral sample. The current
+`ControlFrame` has no availability/interruption fact; `menu_only` erases
+the distinction. A latch's `device_seen` is sticky producer-ever-seen
+state, and the peer publication verdict has a different purpose.
+
+#### Two native consumers establish the need
+
+**Possession gesture.**
+[`possession_trigger_system`](../../../crates/ambition_platformer2d_actor_monolith/src/control/possession.rs)
+derives a Down+Interact rising combination from filtered held values and
+`prev_down_interact`. With opt-in focus filtering, a neutral tick while
+`GameMode::Playing` clears that history. Restoring focus with the same
+continuous hold then releases the possession. A whole-world pause skips
+this system; do not claim it takes the same path.
+
+Keep a genuine new combination distinguishable from resumed held levels.
+Preserve the 0.35 direction threshold, body-frame interpretation, and the
+ability to press either part of the combination last. Existing direction
+and Interact edges are candidates, but their thresholds/semantics must be
+checked. Do not
+incidentally change the gesture to Interact-only or reconstruct a fresh
+press from masked neutral.
+
+**Pending fireball charge.**
+[`charge_projectile_input`](../../../crates/ambition_projectile_combat/src/systems.rs)
+sets `PlayerProjectileState.charging` on press, advances it on held,
+and takes it on release. Neutral/no-message input leaves it present.
+The [emitter](../../../crates/ambition_combat/src/action_emission.rs) uses
+already-translated/gated `ActorControl`; a release while input is captured
+can no longer reach the charge.
+
+A second native sequence uses the shipped charging home body: start
+charging, possess another body while holding fire, release fire on that
+body, then return home with neutral input. Handoff changes driving
+assignment and control frames but retains the home's projectile state.
+The original charge can remain pending without a future release.
+
+#### Proposed bounded policy and admission value
+
+For this pending fireball charge, loss of eligible input supply or its
+driving assignment **cancels without firing**. The charge stays on its
+original body until that owner withdraws it; it is not transferred to the
+newly driven body. A later valid press starts a new charge. This is the
+proposed first policy, not a claim that a cancellation receipt already exists.
+
+Keep these cases separate:
+
+| Transition | Continuation rule |
+| --- | --- |
+| UI/focus capture or end/change of the driving supply | Withdraw the affected input-dependent charge without producing a shot; requalify native gesture history. |
+| Body action hold while input ownership remains | Keep the active state and selected input observation; spend only ACT2's action interval. |
+| Accepted `MovePlayback` after possession changes | Keep the committed move on its original body under its existing interrupt/completion rules. |
+| Real fire release under eligible control | Apply normal fire admission once. |
+
+Do not infer supply loss from an already-gated zero `ActorControl` or
+from zero `dt`. A combat/action hold can neutralize execution while the
+input owner remains. Likewise, missing an ephemeral message is not proof
+of a physical release. If a later product chooses pause-suspension for this
+charge, it must keep observing/reconciling release and continuity; neutral
+masking alone cannot implement that policy.
+
+Carry the smallest bounded supply/interruption fact through the existing
+admitted per-seat input representation. It needs to preserve both the
+selected current eligibility and an interruption since the previous
+consume cut when that interruption ends before the next tick. A latest
+Boolean alone would lose capture-and-resume between two simulation steps.
+Use the existing latch's suppression/merge/consume operations; do not
+create a host-only cancellation queue outside recorded input.
+
+The fold keeps latest eligibility, OR-retains interruption through
+suppression and merging, and clears the consumed interruption while keeping
+levels. Ordinary direct semantic/harness frames, including existing
+`..Default::default()` constructions, remain eligible; an explicitly absent
+or withdrawn producer is different from a neutral frame. Define that
+default in the representation and every adapter. Old recordings cannot
+retroactively reveal interruptions they omitted. Apply the existing stream
+compatibility rule alongside IN1's changed capture-stage meaning, and bump
+the peer wire identity when its field layout changes.
+
+At admission, withdraw the old input-dependent continuation before
+accepting a genuinely new eligible edge that survived the capture
+boundary. Suppression must discard earlier pending gameplay edges while
+retaining the interruption obligation. Prediction/hold-last-input keeps
+levels but must not repeatedly invent the interruption edge. Coordinate
+codec, stream and fixed-width peer changes with IN1; old streams must not
+be described as carrying provenance they never recorded.
+
+The accepted driving relation supplies body/participant ownership, but a
+query after replacement only identifies the new driver.
+`PlayerProjectileState.charging` currently retains no initiating driver.
+Withdraw the old pending charge at the existing relation removal/replacement
+cut, or retain the bounded prior ownership needed by its native owner.
+Preserve that necessary continuation through rollback; do not equate
+"currently undriven" with "just lost its driver" or cancel autonomous fire
+because it has no participant. Do not query the host's current focus or
+menu state from replayed possession or charge execution. Reuse the existing
+relation; no global device epoch, new action bus or universal cancellation
+registry is required.
+
+#### First proof and deletion
+
+Through native input and possession, keep Down+Interact held across focus
+capture and resume; possession remains until a real new combination.
+An unrelated seat's capture has no effect. Exercise capture/resume between
+two tick consumes so a latch implementation cannot erase the interruption.
+Also capture, resume and receive a genuine new eligible fire press before
+the same consume: cancel the old charge, then accept the new one. The next
+held/predicted input must not repeat the interruption and cancel it again.
+Deliver a late corrected input and require the same native outcome. A
+sync-test replay alone does not prove the hold-last prediction rule.
+
+Extend `a_charged_tap_fires_once` with release during capture and the
+charging-home possession sequence. Assert cancellation on departure before
+returning home, no shot or stuck charge/aim state, and a fresh press that
+works afterward. Keep autonomous fire as an allowed control. Keep
+`releasing_a_seat_keeps_the_active_move_on_its_original_body` in
+[the possession fixture](../../../game/ambition_app/tests/possession_end_to_end.rs)
+as the control against blanket action cancellation. Reuse its replay road
+for the admitted interruption; a pure charge helper cannot prove routing.
+
+Delete filtered-neutral history as the authority for a fresh possession
+gesture and the pending charge's dependence on a release that its former
+controller can no longer deliver. Keep body-relative held-direction rules,
+mount steering's deliberate verb subset, and the same-tick Start that
+claims a controller and joins. Do not globally flush those controls.
+
+Human gesture observation clocks remain distinct from action progression.
+The current motion buffer ages during live neutral input; global pause
+holds its simulation clock. Up/down tap windows are described in real
+seconds but their producer is GameplayGated. State each changed gesture's
+clock/interruption policy; this audit does not select a universal
+cross-pause gesture reset or another time service.
 
 ## Menu activation policy
 

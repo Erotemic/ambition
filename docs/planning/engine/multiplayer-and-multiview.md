@@ -32,8 +32,12 @@ A participant is not a body, room, or camera. A local view is not a participant.
   variant.
 - `LocalView` / `LocalViewId` identify local presentation views. The one-view
   path is `LocalViewId::FIRST`, not a separate singleton architecture.
-- Camera reference frame, ease and resolved snapshot are per view.
-  `PresentedViewState` exposes view-scoped presentation facts.
+- Camera reference-frame components, ease and resolved snapshots are per
+  view. `PresentedViewState` exposes view-scoped presentation facts.
+  The `00bf92c22142` source still resolves default target framing and
+  placement history before selecting each view's target; MV1 below closes
+  that ownership gap. Per-view components alone do not establish independent
+  resolution.
 - Host tests compose two views through the one view-spawn seam
   (`spawn_local_view`).
 - `CameraReferenceFrame` is a view component. The world-fixed /
@@ -126,6 +130,129 @@ Real network transport remains customer-gated under
 
 ## Current work
 
+### MV1 — resolve the selected view before its framing and continuity
+
+**Selected shared correctness work, 2026-11-22.** Source baseline
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`; planning follows the observation
+overlay at `3ac54ecc1ada`. This packet needs neither a new renderer nor the
+rest of adaptive M3. The following are source-derived counterexamples;
+no new rendered, gameplay or timing witness was run.
+
+#### One ownership gap, several native consequences
+
+[`resolve_camera_observation`](../../../crates/ambition_sim_view/src/camera_snapshot.rs)
+first resolves the session's home/controlled body or `FramedCast`, derives
+framing and continuity from it, and only then considers per-view subjects.
+The explicit override changes focus, orientation and some bounds, but does
+not replace every dependency inherited from that first resolve.
+
+| Native composition | Source consequence | Positive control |
+| --- | --- | --- |
+| `NoInitialBody`, no driven/default body or global cast; an ordinary undriven actor and a view created with `spawn_local_view`, `local_view_facts()` and `ViewSubject(actor)` | The global default resolve clears every view and returns before considering that valid explicit target. | Publishing an unrelated resolvable global cast lets the same spectator resolve. Removing only that cast must not disable it after the repair. |
+| An explicit `ViewSubject` whose body disappears, while the default cast remains valid | `declared_subject` retains the named entity; when `view_focus` cannot read its body, the override falls through to the default. The pane can watch the wrong population instead of withdrawing. | Remove only the named body. Its view becomes unavailable; the valid default view continues. |
+| A global two-body cast plus an explicit pane watching another body, in a large room without camera zones or overview scaling | Cast easing overwrites `base_view`. The explicit pane drops cast bounds but still receives the cast-derived base size, so moving only the unrelated cast changes its zoom. | Keep the explicit subject, body scale and view configuration fixed; change only the other cast's separation. A view intentionally framing that cast must still expand. |
+| A continuous explicit pane while the default subject blinks or is placed elsewhere | `blink_snap` and `subject_placed` are computed once from the default and reused by the pane's snap, policy reset and continuity classification. | The explicit target's own placement must affect its view. The default's unrelated placement must not; ordinary movement and portal-presented translation keep their existing rules. |
+
+These are not the closed October black-pane/sprite-sync defects. They
+arise after the ordinary view-spawn and per-view snapshot seams have been
+used correctly. A spectator-only early-return exception leaves zoom and
+continuity wrong.
+
+#### Bounded correction
+
+1. **Resolve the requested population first.** Use the existing
+   `ViewSubject` and `ViewParticipant` declarations and their resolved
+   subject. A body-follow stays with that body; a participant-follow tracks
+   the accepted driving relation. A selected cast is a framing population,
+   not an implicit fallback for every view. The session default remains a
+   composition choice for views that request it. An unavailable explicit
+   target must not silently become the primary body: retain the difference
+   between an omitted declaration and a failed explicit resolution.
+2. **Derive framing from that selection.** Build focus, bounds, baseline
+   extent and reference anchor for the selected policy before resolving the
+   snapshot. The ordinary authored base size may be shared; an eased cast
+   extent is derived state of the view framing that cast. Preserve the
+   existing default-follow policy that deliberately uses home-avatar zoom
+   and blink state while following the possessed body's position. Such a
+   dependency belongs to that selected policy, not to an unrelated pane.
+   Framing samples the presented pose; placed/travelled detection samples
+   the tick pose. A cast aggregate already contains its members' presented
+   offsets and must not receive the anchor's offset a second time.
+3. **Keep temporal state with its view.** Placement history, cast population
+   and settling state must describe the population that view presented.
+   Keep room changes, subject changes, blink and portal chart translation
+   distinct. Reuse the existing travelled/placed predicate and portal
+   presentation facts; do not add another motion-frame or teleport solver.
+   Retire it with its view and reset the portions invalidated by the actual
+   transition. A changed followed body is not automatically a teleport:
+   preserve the current possession handoff's ground/policy reset without
+   unconditionally snapping or re-adopting camera ease. Preserve native
+   cast member-loss and respawn settling too.
+4. **Preserve absence and readiness meanings.** An absent selected subject
+   clears that view's snapshot/ease according to the existing lifetime
+   contract. Losing the session default clears views that use it, not every
+   view. Room preparation or portal readiness retains its stated hold policy;
+   do not convert temporary unavailability into a different target.
+
+This can be a local restructuring of the existing resolver and view facts.
+Use an explicit small selection/result only where it removes ambiguous
+fallbacks. A cast's aggregate focus is a presentation value, not another
+simulated body. No global observer registry, reference-frame graph,
+renderer-specific authoring type or second simulation is needed.
+
+#### Bind preferences without overwriting view-authored policy
+
+The same source has a second ownership collision:
+`apply_camera_reference_frame_setting` writes the global setting into
+**every** differing `CameraReferenceFrame` each Update. A composition's
+explicit WorldFixed pane therefore does not survive a host Update when
+the preference is SubjectFrame. The direct-write test
+`a_views_reference_frame_is_a_component_a_game_can_write` has no settings
+or Update; it proves component availability, not the production composition.
+
+Make inheritance from user preference an explicit binding/default policy.
+Views bound to it keep receiving real preference changes; explicitly
+authored views retain their own policy. Do not infer ownership from whether
+the current values happen to compare equal. Resolve one effective policy
+per view and let the existing snapshot/renderer road consume it.
+
+#### Native proof, deletion and cost
+
+Extend `resolved_snapshot_lifetime_tests` through the public view-spawn seam
+with an explicit no-driver spectator and an unnamed default view together.
+Remove and restore only the default cast: the default view withdraws and
+adopts its next frame, while the spectator continues. Then remove only the
+explicit subject: only that view withdraws, with no default fallback. Add
+the independent cast-spread and placement cases above; test both directions
+of the placement dependency, not only the primary teleport.
+
+Run the preference-binding case through a normal Update with settings:
+one view inherits, one explicitly selects the other policy. Change the
+global preference and preserve both intended results. Keep the existing
+single-view preference test, cast lifetime/adoption, human/CPU cast framing,
+and possession-follow behavior as controls. Include an actual possession
+handoff in the two-view fixture: driven position/velocity/down changes,
+the declared home baseline/zoom/blink dependency remains, and the unrelated
+pane stays continuous. Control/body-motion tests alone do not prove this
+camera policy. Keep `cast_camera_jerk_on_a_fast_display` as the
+presented/tick-sample control. Use the real two-view host for changed
+rendered camera behavior; headless snapshot assertions alone do
+not certify pixels or controller orientation.
+
+Delete the pre-view default gate and singleton target-derived placement/
+cast-easing ownership. Keep shared static configuration and native framing
+helpers. Do not move the whole old prelude inside the loop and repeat work
+for every unrelated cast. Resolve only requested populations; shared
+immutable observations may be reused, while temporal easing remains scoped
+to the view and its policy.
+
+The current companion loop scans all `BodyKinematics` for each view to
+find `FrameAlongside`. If that loop is touched, prefer querying the actual
+companion relation before considering a new index. This is a source-visible
+cost opportunity, not a measured speedup. Retain bounded per-view state and
+the direct single-subject path; no new all-body pass or cache-invalidation
+program is selected.
+
 ### M3 — adaptive shared/split presentation
 
 Promote when Ambition needs dynamic shared/split behavior rather than merely a
@@ -138,6 +265,39 @@ Acceptance should cover:
   orientation;
 - correct per-view camera continuity and layout during regrouping;
 - no participant/control reassignment caused by layout changes.
+
+**Shared orientation also constrains input meaning.** MV1 makes the view's
+selected anchor explicit; it does not decide which participant-relative
+control style a product wants. The current cast helper chooses the first
+resolvable body, and match publication sorts by seat. A stable first seat
+is not an authored shared-orientation policy.
+
+[`InputFrameMode::under_camera`](../../../crates/ambition_geometry/src/reference_frame.rs)
+collapses every preference to BodyRelativeStrict under SubjectFrame. Its
+equivalence assumes the observing view follows the same basis as that
+controlled body. For a shared observer upright with A (`down = (0, 1)`),
+while B's down is inverted (`down = (0, -1)`), a fresh right input
+interpreted body-relative goes world-right for A and world-left for B.
+Body-relative control remains a legitimate
+choice; it is not equivalent to the shared screen direction for both.
+
+At the selected M3 customer, state the shared orientation rule and each
+participant's logical input-reference policy. Preserve explicitly
+body-relative behavior and held-world-direction continuity through gravity
+changes. If screen/observer-relative controls are selected, identify the
+logical observer/reference at [IN1's admitted input cut](participant-action-system.md#in1--record-and-replay-at-the-same-admitted-input-cut),
+with sufficient replayed meaning for deterministic body interpretation.
+Do not read eased render-camera rotation in simulation or resolve input
+against a body at host capture before its authoritative cut. Extend the
+bounded admitted representation only if the chosen policy cannot be
+expressed by the existing fields. Layout changes must not silently change
+input ownership or the intended reference.
+
+Prove fresh direction and held direction separately with two differently
+oriented bodies in one shared view, then split and regroup. Keep the
+same-body SubjectFrame equivalence and current per-seat possession/frame
+tests as controls. This is a refinement of M3's existing product choice,
+not an unconditional replacement of the shipped control modes.
 
 Ambition's integration of it — the input → body → picture and view → camera
 chains, the defects found on 2026-10-24 and the acceptance matrix — is

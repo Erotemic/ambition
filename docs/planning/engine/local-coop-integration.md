@@ -67,6 +67,15 @@ accounting (`LOCAL-PLAY-MODES`); owner-scoped UI and peer consistency
 headless camera-count and D-pad tests as insufficient evidence of actual
 rendered pixels or physical analog-device routing.
 
+**2026-11-22 source refinement:** [MV1](multiplayer-and-multiview.md#mv1--resolve-the-selected-view-before-its-framing-and-continuity)
+finds a different boundary: the camera resolves a global default before
+each view's target. Explicit panes can inherit its cast zoom and placement
+reset; an explicit no-driver spectator can be cleared with the absent
+default. Preference application also overwrites explicitly selected view
+reference policy. Preserve the closed October receipts; use MV1's native
+absence, cast-spread, placement and normal-Update preference cases when
+that resolver changes. They do not require broader adaptive-layout work.
+
 ## Model and ownership boundaries
 
 A normal local-control path should be understandable as:
@@ -195,6 +204,22 @@ Disconnects should stop or reassign the **input** through explicit policy,
 without accidental body death or duplicate ownership. Reconnect should
 restore the claimed device's channel, with negative tests proving another
 controller cannot steal it through an unrelated action.
+
+[IN4/IN5](participant-action-system.md#input-continuity-across-routing-and-control-changes)
+add the transition acceptance this mapping alone does not prove: keep
+source history across UI/focus capture, resynchronize invalid rebind
+samples without fresh analog presses, and withdraw an input-dependent
+pending charge at its admitted interruption or driver-loss cut. Include
+capture/resume plus a new press between two consumes and held-input
+prediction afterward. Preserve committed body moves, an unaffected seat,
+ordinary button edges and the real Start that claims and joins.
+
+Shared-view orientation is also an explicit control-policy customer of
+[M3](multiplayer-and-multiview.md#m3--adaptive-sharedsplit-presentation).
+A camera aligned to one body is not simultaneously aligned to an inverted
+partner. Test fresh versus held direction through shared/split/regroup
+under the selected body- or observer-relative policy; do not use rendered
+camera easing as authoritative input.
 
 ## Game-state rules (already decided; do not reopen silently)
 

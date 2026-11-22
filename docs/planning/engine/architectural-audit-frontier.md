@@ -1,10 +1,10 @@
 # Architectural audit frontier
 
 **State:** audit map and research priorities, 2026-11-22. Latest source:
-`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits observer
-evidence, attention, tactical memory, module knowledge and social retention.
-It follows the relationship audit at documentation commit `86821d315d0a`;
-the runtime source is unchanged. This head includes the preceding
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits shared
+observers, source-input continuity, control handoffs and the provider-action
+final hop. It follows the observation audit at documentation commit
+`3ac54ecc1ada`; the runtime source is unchanged. This head includes the preceding
 planning overlays and the agents' IR1 item-recipe and AC1 construction-receipt
 work. Earlier input/life/history and hosted-prediction findings below came
 from `34b4ab0b7f4f`; they remain separate owner work.
@@ -32,6 +32,7 @@ ever read that code.
 | Construction, residency and reconstitution | [Construction](construction-and-reconstitution.md), [residency](open-world-runtime-and-residency.md) | Transfers across independent histories and supported dormant execution |
 | Relationship admission and endpoint lifetime | [REL1–REL4](relationship-endpoints-and-transitions.md), with capture, mount, control and item owners | Native witnesses for actual transfer cohorts/configurations, late refusal, reset state and orphan continuation; do not repeat the general anchor or ID audit |
 | Observer evidence, tactical knowledge and social retention | [OBS1](bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary), [OBS2 and horizons](world-facts-observations-and-memory.md), [module demand OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers) | Native over-cap, dead/lost-sight, report and module-provider witnesses; durable incident/recognition work only with a concrete later dialogue customer |
+| Source input, control handoffs and independent observers | [IN1–IN5](participant-action-system.md), [control](control-authority-and-ai-policy.md), [MV1/M3](multiplayer-and-multiview.md) | Native capture/rebind, charge interruption, prediction and independent-view witnesses; provider P2 and shared-view input policy only with their selected consumers |
 | Content preparation, linking and authoring | [Linking](capability-linking-and-prepared-facets.md), [prepared media](asset-authoring-and-prepared-media.md), [asset delivery](asset-library-editor-and-delivery.md) | A demonstrated generation/publication gap or a repeated interpretation still outside its owner |
 | Compiler, dependency and product boundaries | [Compiler/build products](compiler-boundaries-and-build-products.md), [runtime composition](capability-and-runtime-composition.md) | Fresh compile/link/size measurements after the planned cuts |
 | Narrative roles, interaction and native completion | [Story](story-sequences.md), [interaction](interaction-opportunities-and-activation.md), [native actions](native-action-completion.md) | An actual lost invocation/result/role boundary, not a general task framework |
@@ -44,8 +45,10 @@ hosted guest prediction and effective geometry, each then the first candidate.
 Their unresolved implementation work stays with the domain owners. The
 relationship pass below takes its candidate through native admission,
 transfer, reset and reconstruction. The following observation pass traces
-native sight, accepted hits, crew delivery and saved hostility. The separate
-shared-observer/control transition question remains the next candidate.
+native sight, accepted hits, crew delivery and saved hostility. The latest
+pass takes the separate shared-observer/control transition question through
+native sampling, admission, pending action and view resolution. These plans
+now need implementation evidence; source coverage is not runtime completion.
 
 ## Findings retained from recent passes
 
@@ -277,6 +280,74 @@ not claim flat total room cost, a speedup, or a need for a data-structure
 library. The plans specify native witnesses and controls, not an additional
 test campaign.
 
+### A view's selected policy owns its derived frame
+
+**Owner:** [MV1](multiplayer-and-multiview.md#mv1--resolve-the-selected-view-before-its-framing-and-continuity),
+with the existing M3 shared-orientation choice.
+
+Per-view snapshot components coexist with a resolver that first requires
+the session's default subject. A valid explicit no-driver spectator is
+cleared when that default is absent. Conversely, a named body that has
+disappeared can fall back to the still-valid default. When both resolve,
+the explicit pane can inherit the other cast's eased size and the default
+body's placement/blink reset. The common defect is resolving derived facts
+before deciding which view policy requested them.
+
+Resolve the declaration and selected population first. Omitted declaration
+and failed explicit resolution are different. Scope framing extent and
+temporal history to the view that consumes them, while sharing static
+configuration and immutable observations where useful. Preserve the default
+possession-follow policy's deliberate home/controlled-body dependencies,
+native cast settling, portal chart continuity and current handoff easing.
+No-driver views and separate 2D/2.5D adapters then use the ordinary seam.
+
+The settings adapter also overwrites every view's reference-frame component
+each Update. Make preference inheritance an explicit binding, so a declared
+view policy survives the normal host path. A component-only test without
+settings does not establish that composition.
+
+For M3, distinguish body-relative control from observer-relative control.
+One shared SubjectFrame cannot align simultaneously with upright and
+inverted bodies. The current equivalence used by `under_camera` is valid
+for the same controlled/observed basis; it is not a general shared-view
+law. Preserve deliberate body-relative controls and held-direction
+semantics. A selected observer-relative policy needs a logical admitted
+input reference, never the eased render-camera angle.
+
+### Source transitions, delivery and action continuation are separate
+
+**Owner:** [IN4/IN5](participant-action-system.md#input-continuity-across-routing-and-control-changes),
+with control authority and ACT2 retaining their existing responsibilities.
+
+The local sampler resets analog hysteresis to Released while gameplay is
+masked. Reopening can turn a continuous hold into a burst/C-stick/tap-jump
+press. Rebind map replacement supplies another false neutral sample;
+its button repair does not prime the runtime-owned analog carrier. Observe
+valid physical samples before routing, discard masked edges, and treat
+invalid map-replacement samples as a resynchronization boundary.
+
+Native consumers expose a second meaning lost by filtering. Possession
+rebuilds its combination edge from filtered held values, so focus reopening
+can release possession under a continuous hold. A home-body fireball charge
+can miss its release while captured or after possession moved its driver.
+Current admitted input does not distinguish captured neutral from real
+neutral, and the pending charge retains no initiating driver.
+
+Carry bounded current supply eligibility and a retained interruption
+through IN1's admitted input, preserving capture-and-resume between ticks.
+Withdraw the old input-dependent continuation before admitting a new valid
+edge in that same consume. Prediction must not repeat the interruption.
+Observe prior driving ownership at its accepted transition or retain the
+small continuation the native owner needs. The proposed pending fireball
+policy cancels without firing; committed moves remain on their original
+body, and an ACT2 body action hold does not itself end input ownership.
+This needs neither a universal action cancellation bus nor a device epoch.
+
+The first proofs must cross native capture/rebind, driver change and replay/
+prediction boundaries. Source-derived cases are not executed witnesses.
+There is no measured speedup: the planned state is bounded per participant
+or view, and MV1 must not repeat all cast work for unrelated panes.
+
 ## Areas audited without another architecture packet
 
 Reload and asset realization were inspected against the existing plans.
@@ -318,32 +389,40 @@ policy. The mixed timing is not a newly found leakage defect. Production
 world-value, body-query and whereabouts observation ports also remain
 authoritative controls; the SDK label `Observation` does not mean NPC sight.
 
+The provider-action audit found no production gameplay reader of
+`SemanticActionPressed`. [P2](participant-action-system.md#p2--finish-provider-actions-at-composition-boundaries)
+remains gated on a real final-hop consumer. A host event wired directly to
+an effect would bypass recorded/peer input; registering result state for
+rollback cannot recreate an omitted external cause. Refine that future
+hop to use IN1 and existing native slot/technique/special admission. Keep
+UI commands host-local, action occurrence distinct from content identity,
+and wire vocabulary bounded. This is a guard against a proposed shortcut,
+not a claim that the unbuilt bridge already fails in gameplay.
+
 ## Ranked candidates for the next audit
 
 These are research questions, not established defects or selected work.
 Each starts from an existing owner and a concrete consumer. An audit is
 successful if it rules out a proposed abstraction as well as if it finds one.
 
-### 1. Shared observers, provider actions and control ownership changes
+### 1. Fresh implemented-head composition and native witnesses
 
-**Why high value:** a body frame, a seat's observer frame and a render camera
-are distinct authorities. The present input correction leaves shared-camera
-policy and open provider actions intentionally bounded to their existing
-owners.
+The source-only candidates named by this review series have now received
+owner guidance. This is not a claim that every engine area is complete.
+On the unchanged source, another broad ownership/lifetime framework is less
+useful than finding what survives an implemented cut.
 
-Start with [participant actions](participant-action-system.md),
-[control authority](control-authority-and-ai-policy.md) and
-[multiview](multiplayer-and-multiview.md). Trace two bodies with different gravity under one view,
-then a held control through focus capture, device reassignment or possession.
+Start from the next implementation head and its native results. Inspect one
+boundary end to end: for example, source capture through IN1/IN5 into a
+charge under possession and corrected input, or MV1's actual two-view host
+through default loss and a separately selected target. Check that the
+implementation removed the old authority, that a positive control still
+works, and that its cost was not shifted into every unrelated consumer.
+Then choose any new discrepancy as the next bounded audit question.
 
-Check the planned P2 provider-action final hop: a gameplay action emitted
-from host `Update` must reach the admitted simulation input/operation cut.
-UI-only actions remain host-owned. Determine which held levels resume,
-which require release, and which edges belong to the former controller.
-
-**Useful artifact:** observer/control policy plus one transition witness.
-Do not read an eased camera in deterministic gameplay or create a second
-execution path for semantic actions.
+Do not reissue existing planned witnesses as newly discovered defects,
+reopen completed receipts without contrary evidence, or expand the
+backlog simply because no new runtime evidence is available.
 
 ### Conditional: compiler and binary costs after the planned cuts
 

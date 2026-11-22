@@ -96,6 +96,29 @@ edge, replace the body with the participant, or reopen the control-claim
 split. Prove Alice's crossing while Bob retains the source, then release away
 from arrival; inspect both room stamps and the one driving assignment.
 
+## Planned input continuation at a control handoff
+
+The same source's [IN5 audit](participant-action-system.md#in5--withdraw-input-dependent-continuations-at-an-admitted-cut)
+finds an input-dependent pending charge that can survive loss of its driver.
+The home body starts charging, possession moves control, the player releases
+fire on the target, and home retains the pending charge when control returns.
+This is a source-derived sequence, not a new gameplay receipt.
+
+The native charge owner must withdraw that pending charge without firing
+when its accepted driving supply ends. Observe old ownership at this
+relation's removal/replacement cut, or retain only the prior ownership the
+charge owner needs; a later query of the new relation is insufficient.
+Input capture/interruption reaches the same native owner through admitted
+per-seat input under IN1/IN5. A masked neutral frame is not a release.
+
+This is not a universal handoff cancellation. The existing
+`releasing_a_seat_keeps_the_active_move_on_its_original_body` receipt requires
+committed move playback to continue on its original body. Preserve that
+control and autonomous fire. Prove pending-charge cancellation on departure,
+before returning home, then a valid fresh press and replay. Do not put
+projectile implementation into the authority projector or add another
+control registry; expose/use the accepted transition at the existing owner.
+
 ## Where the writers are
 
 | authority | crate / module | production writers |

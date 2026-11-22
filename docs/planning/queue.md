@@ -154,6 +154,11 @@ The observation review of the same source adds OBS1–OBS3: native exact
 evidence admission, memory/report semantics and declared knowledge demand
 for module controllers. It also refines SS7's opening scope. Durable social
 knowledge and generated dialogue remain unselected.
+The shared-observer/control review of the same source adds IN4/IN5 and
+MV1: physical edge observation survives routing changes, pending
+input-dependent work sees admitted interruption, and each view derives
+framing/continuity from its selected target. P2's provider-action final hop
+and broader M3 shared-view control choices remain customer-gated.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -316,6 +321,17 @@ world-post admission.
     held-direction continuity and each verb's policy. This is shared engine
     work from the source `34b4ab0b7f4f` audit; it does not promote Smash-only
     polish. IN3 records the smaller qualified-press coalescing correction.
+    [IN4/IN5](engine/participant-action-system.md#input-continuity-across-routing-and-control-changes)
+    refine the same owner at `00bf92c22142`. Observe valid physical samples
+    before context filtering and treat rebind reset samples as invalid;
+    reopening gameplay must not create analog presses. Carry current
+    supply eligibility and a retained interruption through the admitted
+    input cut, including capture/resume between ticks. Withdraw a pending
+    fireball charge without firing at supply/driver loss, before accepting
+    a later fresh edge. Keep committed body moves and ACT2 action holds
+    distinct. IN4 can ship independently; IN5 coordinates with IN1 and the
+    wire/stream owners. Do not select a new provider transport merely to
+    complete P2's unused publisher.
 
 11. [Observation OBS1](engine/bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
     makes the tactical direct-observation set govern native memory refresh
@@ -335,6 +351,19 @@ world-post admission.
     Keep today's world-rule ports and controller gate. Streaming top-K is
     an owner-local measured option after admission is correct; neither a
     new collection package nor a durable social-memory system is required.
+
+12. [View ownership MV1](engine/multiplayer-and-multiview.md#mv1--resolve-the-selected-view-before-its-framing-and-continuity)
+    resolves each view's requested subject/population before deriving
+    framing, reference anchor and placement/cast continuity. A no-driver
+    explicit spectator must not depend on an unrelated session default;
+    another cast's spread or teleport must not change its frame. Bind
+    user preferences explicitly so authored per-view policies survive
+    Update. Keep default possession-follow behavior, single-view/cast
+    receipts and portal continuity. Resolve only requested populations;
+    do not repeat the full old cast prelude for every view. This can ship
+    before broader M3 adaptation and the 2.5D adapter. M3 still owns the
+    product choice of shared orientation and logical input reference when
+    bodies disagree on gravity.
 
 **Acceptance:** body permission governs the actual action spend; a refused
 press has no accepted-action side effects; an applicable hitlag or held
@@ -363,6 +392,11 @@ an offscreen death. Report source/cut and subject survive delivery. A sighted
 module receives the chosen belief projection without a live-position fallback;
 explicit authoritative controllers keep their contract. Equal authored pairs
 in separate rooms keep distinct conversation occurrences.
+Capture/resume does not manufacture a physical press or lose an admitted
+interruption; a fresh post-capture press survives cancellation of the old
+charge, including prediction/correction. A committed move remains on its
+body. Explicit view target, cast extent, continuity and preference binding
+vary independently of an unrelated default subject.
 State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 

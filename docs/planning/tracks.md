@@ -72,7 +72,19 @@ selects OBS1–OBS3 under ARCHITECTURE-COMPOSITION. It repairs native direct
 evidence admission, source-aware tactical memory/crew reports and module
 observation demand. It does not select a durable social-memory store, theft
 law, recognition system or model-backed dialogue. The next research candidate
-is shared observers and control ownership changes in the audit frontier.
+was shared observers and control ownership changes; the follow-up below
+has now audited that boundary on the same runtime source.
+
+The shared-observer/control pass selects
+[IN4/IN5](engine/participant-action-system.md#input-continuity-across-routing-and-control-changes)
+and [MV1](engine/multiplayer-and-multiview.md#mv1--resolve-the-selected-view-before-its-framing-and-continuity)
+under ARCHITECTURE-COMPOSITION. Source recognition, admitted interruption
+and body-action continuation keep separate owners; each view derives its
+framing and continuity from its selected policy. P2's provider-action final
+hop remains gated on an actual gameplay consumer, and M3 still owns the
+shared orientation/input-reference product choice. The audit frontier now
+recommends a fresh implemented-head integration review or measured compiler/
+binary investigation; it does not invent another framework on this source.
 
 ### Persistent systemic world
 
@@ -133,13 +145,18 @@ there is no all-crates extraction program.
 
 ### Multiplayer and multiview
 
-- ▢ **N-view production composition.** Each view frames its own player and
-  draws its own live room. Promote broader layout, HUD ownership, input routing
-  and an Ambition join road (`Q153`, ruled 2026-10-19) when Ambition or TwinTrack needs them.
+- ▢ **N-view production composition.** MV1's selected target/framing/
+  continuity correction is in the queue, with specified native
+  independent-view witnesses. Broader adaptive layout, HUD/prompt scope and controller/view
+  presentation follow actual Ambition or TwinTrack requirements; preserve
+  the built join and room-split roads.
   Owner:
   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md).
-- ▢ **Per-view camera/reference-frame policy.** Extend shared/split-view policy
-  from real multiview requirements. Owner:
+- ▢ **Shared-view reference and input policy.** MV1 selects explicit
+  preference inheritance. Broader M3 chooses shared orientation and each
+  participant's logical input reference when body frames disagree; preserve
+  body-relative control and held-direction semantics. Promote from the
+  actual shared/split customer. Owner:
   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md).
 - ▢ **Real network transport / Matchbox signaling.** Trigger only with an actual
   online Ambition or Smash customer. Owner: [`engine/netcode.md`](engine/netcode.md).

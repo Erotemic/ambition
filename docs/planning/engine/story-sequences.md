@@ -3,10 +3,12 @@
 **State:** SS1, SS2, SS4's first form and SS3's death record landed
 2026-11-14 (below, "What landed"); SS3's `present_when` landed 2026-11-17
 with its first customer, the game show's goat and car (below); SS5 landed
-2026-11-14; SS6 is covered by SS1 and SS4 (below). **SS7–SS8 are planned**
-(reviewed 2026-11-21 against production `b91b29d35935`): bind authored calls
-to their actual participants, and distinguish skipping presentation from
-completing gameplay work. Neither is implemented by this planning update.
+2026-11-14; SS6 is covered by SS1 and SS4 (below). **SS7–SS8 are in
+progress** (reviewed 2026-11-21 against production `b91b29d35935`): bind
+authored calls to their actual participants, and distinguish skipping
+presentation from completing gameplay work. SS7 step 1 landed for
+conversations on 2026-11-21 (below, "SS7 progress"); the scene binding,
+the brute migration and SS8 remain.
 Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
@@ -275,6 +277,37 @@ and brute roles and uses those references throughout. An illustrative
    do not exist at scene start. State whether each group binding captures
    members at that point or is deliberately a live population query. Keep
    existing broadcast forms as explicit adapters with their old meaning.
+
+**SS7 progress (2026-11-21): roles through the shared boundary and Yarn.**
+`ParamKind::Individual` is a parameter that takes a character id (its
+population) or `@role` (one occurrence its invocation binds).
+Preparation turns `@talker` into `AuthoredArg::Role`. `RoleBindings` and
+`PreparedCondition::bound` / `PreparedCommand::bound` replace each role
+with the bound `SimId`. A role the invocation did not bind is refused,
+naming the roles it did bind. The catalogs refuse an unbound role that
+reaches evaluation; it is never read as the population. The actor verbs'
+`character`, `target` and `way`, and the conditions `arrived`, `gone` and
+`beaten`, take `Individual`. The counts (`count_is`, `fallen_is`,
+`fallen_in`) stay population names.
+
+A bound body resolves by its `SimId` wherever it lives, since a directed
+body can leave into another live room. The command's room only tells apart
+two bodies that carry the identity. A fallen bound body refuses, and so
+does a retired one. It is never replaced by another body of the same
+character.
+
+The Yarn condition and command bridges bind `@talker` and `@initiator` from
+the speaking `ConversationInstanceId` (new `talker()` / `initiator()`
+accessors). The Creator's `intro.yarn` now walks and asks about `@talker`
+instead of spelling `npc_creator`.
+
+Still open:
+- Conditions carry no room, so a bound condition with two live bodies of
+  one identity is unanswerable rather than room-resolved.
+- The conversation command bridge still supplies no room.
+- Scene roles (bound at scene start, rollback-owned in `PlayingCutscene`),
+  wait answers keyed by playing scene and beat, the brute migration and
+  step 3 are next.
 
 Bindings are rollback-owned invocation state, resolved through current live
 objects at the invocation cut. Retirement refuses the old reference; it must

@@ -125,9 +125,28 @@ pub(crate) fn reference_is_not_authorable_by_dialogue(id: &str, param_name: &str
     format!(
         "`{id}` argument `{param_name}` is a prepared reference to an occurrence, \
          and authored dialogue can only pass names, numbers and truths — a quoted \
-         string is not an identity"
+         string is not an identity; a parameter that takes one body names it by \
+         the conversation's role (`@talker`, `@initiator`)"
     )
 }
+
+/// The roles a conversation binds for its authored calls: `@talker`, the
+/// body spoken to, and `@initiator`, the body that opened it, each when it
+/// has an identity. A scripted conversation with neither binds none, and a
+/// call naming a role it lacks is refused.
+pub(crate) fn conversation_roles(
+    instance: Option<&crate::ConversationInstanceId>,
+) -> ambition_platformer2d_shared_tangle::authored_logic::RoleBindings {
+    let mut roles = ambition_platformer2d_shared_tangle::authored_logic::RoleBindings::default();
+    if let Some(talker) = instance.and_then(|instance| instance.talker()) {
+        roles = roles.bind("talker", talker.clone());
+    }
+    if let Some(initiator) = instance.and_then(|instance| instance.initiator()) {
+        roles = roles.bind("initiator", initiator.clone());
+    }
+    roles
+}
+
 #[cfg(test)]
 mod yarn_harness;
 

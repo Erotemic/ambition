@@ -129,6 +129,28 @@ pub enum ParamKind {
     Name,
     Number,
     Truth,
+    /// One body or a population of them. A character id (`npc_creator`)
+    /// asks the domain to select that character's population; `@role`
+    /// names an occurrence the invocation binds before the call runs
+    /// ([`PreparedCondition::bound`]). After binding the argument is a
+    /// [`AuthoredArg::Reference`] and the domain acts on that one body, or
+    /// refuses when it is gone. It never falls back to another body of the
+    /// same character.
+    Individual,
+}
+
+impl ParamKind {
+    /// Why `arg` cannot be this parameter at evaluation, if it cannot.
+    fn refuses(self, arg: &AuthoredArg) -> Option<String> {
+        let fits = match (self, arg) {
+            (_, AuthoredArg::Role(role)) => {
+                return Some(format!("the role `@{role}` was never bound by its invocation"));
+            }
+            (Self::Individual, AuthoredArg::Name(_) | AuthoredArg::Reference(_)) => true,
+            (kind, arg) => kind == arg.kind(),
+        };
+        (!fits).then(|| format!("is a {self:?}, got a {:?}", arg.kind()))
+    }
 }
 
 /// One argument a condition takes.
@@ -148,6 +170,50 @@ pub enum AuthoredArg {
     Name(String),
     Number(f64),
     Truth(bool),
+    /// An `@role` an [`ParamKind::Individual`] parameter was written with,
+    /// waiting for its invocation to bind it to a [`SimId`].
+    Role(String),
+}
+
+/// The occurrences one invocation bound to its roles: a conversation's
+/// `talker`, a scene's `brute`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RoleBindings {
+    rows: Vec<(String, SimId)>,
+}
+
+impl RoleBindings {
+    pub fn bind(mut self, role: impl Into<String>, id: SimId) -> Self {
+        let role = role.into();
+        self.rows.retain(|(at, _)| *at != role);
+        self.rows.push((role, id));
+        self
+    }
+
+    pub fn get(&self, role: &str) -> Option<&SimId> {
+        self.rows.iter().find(|(at, _)| at == role).map(|(_, id)| id)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &SimId)> {
+        self.rows.iter().map(|(role, id)| (role.as_str(), id))
+    }
+
+    /// Replace every role in `args` with its bound occurrence.
+    pub fn bind_args(&self, args: &[AuthoredArg]) -> Result<Vec<AuthoredArg>, String> {
+        args.iter()
+            .map(|arg| match arg {
+                AuthoredArg::Role(role) => self.get(role).cloned().map(AuthoredArg::Reference).ok_or_else(|| {
+                    let bound: Vec<_> = self.rows.iter().map(|(at, _)| format!("@{at}")).collect();
+                    if bound.is_empty() {
+                        format!("`@{role}` is not bound: this invocation binds no roles")
+                    } else {
+                        format!("`@{role}` is not bound: this invocation binds {}", bound.join(", "))
+                    }
+                }),
+                other => Ok(other.clone()),
+            })
+            .collect()
+    }
 }
 
 impl AuthoredArg {
@@ -157,6 +223,7 @@ impl AuthoredArg {
             Self::Name(_) => ParamKind::Name,
             Self::Number(_) => ParamKind::Number,
             Self::Truth(_) => ParamKind::Truth,
+            Self::Role(_) => ParamKind::Individual,
         }
     }
 
@@ -475,13 +542,8 @@ impl ConditionCatalog {
             ));
         }
         for (spec, arg) in expected.iter().zip(args) {
-            if arg.kind() != spec.kind {
-                return ConditionOutcome::unanswerable(format!(
-                    "`{id}` argument `{}` is a {:?}, got a {:?}",
-                    spec.name,
-                    spec.kind,
-                    arg.kind()
-                ));
+            if let Some(why) = spec.kind.refuses(arg) {
+                return ConditionOutcome::unanswerable(format!("`{id}` argument `{}` {why}", spec.name));
             }
         }
         (row.evaluate)(world, args)
@@ -699,6 +761,7 @@ fn render_arg(f: &mut std::fmt::Formatter<'_>, arg: &AuthoredArg) -> std::fmt::R
         AuthoredArg::Name(name) => write!(f, "{name:?}"),
         AuthoredArg::Number(n) => write!(f, "{n}"),
         AuthoredArg::Truth(t) => write!(f, "{t}"),
+        AuthoredArg::Role(role) => write!(f, "@{role}"),
     }
 }
 

@@ -16,7 +16,7 @@ use crate::sim_id::SimId;
 
 use super::{
     AuthoredArg, CommandCatalog, CommandId, ConditionCatalog, ConditionId, ConditionOutcome,
-    ParamKind, ParamSpec, RunAuthoredCommand,
+    ParamKind, ParamSpec, RoleBindings, RunAuthoredCommand,
 };
 
 /// Why one authored line did not become a prepared call.
@@ -73,6 +73,12 @@ impl PreparedCondition {
     pub fn args(&self) -> &[AuthoredArg] {
         &self.args
     }
+
+    /// This question with its invocation's roles bound. Refuses a role the
+    /// invocation did not bind, naming the roles it did.
+    pub fn bound(&self, roles: &RoleBindings) -> Result<Self, String> {
+        Ok(Self { id: self.id.clone(), args: roles.bind_args(&self.args).map_err(|why| format!("`{}`: {why}", self.id))? })
+    }
 }
 
 /// One validated verb, ready to be requested.
@@ -89,6 +95,12 @@ impl PreparedCommand {
 
     pub fn args(&self) -> &[AuthoredArg] {
         &self.args
+    }
+
+    /// This verb with its invocation's roles bound; see
+    /// [`PreparedCondition::bound`].
+    pub fn bound(&self, roles: &RoleBindings) -> Result<Self, String> {
+        Ok(Self { id: self.id.clone(), args: roles.bind_args(&self.args).map_err(|why| format!("`{}`: {why}", self.id))? })
     }
 }
 
@@ -309,6 +321,13 @@ fn prepare_one(id: &str, param: &ParamSpec, text: &str) -> Result<AuthoredArg, S
             )),
         },
         ParamKind::Reference => prepare_reference(id, param, text),
+        // `@role` is an occurrence the invocation binds; anything else is a
+        // character id the domain selects by.
+        ParamKind::Individual => match text.strip_prefix('@') {
+            Some("") => Err(format!("`{id}` argument `{}`: `@` names no role", param.name)),
+            Some(role) => Ok(AuthoredArg::Role(role.to_string())),
+            None => Ok(AuthoredArg::Name(text.to_string())),
+        },
     }
 }
 

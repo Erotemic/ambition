@@ -125,6 +125,36 @@ pub struct NavGraph {
     out: Vec<Vec<usize>>,
 }
 
+/// An arrival waiting in [`NavGraph::route`]'s search: the cheapest first,
+/// and of two as cheap the lower state index, so ties never depend on the
+/// order they were pushed.
+#[derive(Clone, Copy)]
+struct RouteOpen {
+    cost: f32,
+    state: usize,
+}
+
+impl PartialEq for RouteOpen {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == std::cmp::Ordering::Equal
+    }
+}
+
+impl Eq for RouteOpen {}
+
+impl PartialOrd for RouteOpen {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for RouteOpen {
+    // Reversed: `BinaryHeap` pops its greatest.
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.cost.total_cmp(&self.cost).then(other.state.cmp(&self.state))
+    }
+}
+
 impl NavGraph {
     /// The graph of `world` for `body` under `frame`.
     ///
@@ -549,39 +579,65 @@ impl NavGraph {
         order
     }
 
-    /// The links of the fastest route from `feet` to `goal`, both on surfaces.
+    /// The links of the fastest route from `feet` to `goal`, both on
+    /// surfaces, under the graph's cost model: each leg's measured cost, and
+    /// a walk at run speed from where the body stands to the next takeoff and
+    /// from the last landing to `goal`. Empty when both are on one surface
+    /// (the body walks).
+    ///
+    /// A search state is an ARRIVAL (the start, or the landing of one link),
+    /// not a surface: the next walk depends on where on the surface the body
+    /// stands, so a cheaper arrival does not rule out a dearer one somewhere
+    /// else on the same surface. This is the fastest route over the admitted
+    /// legs, not the fastest physical motion: each leg is measured from rest,
+    /// and the build keeps one preferred leg per surface pair.
     pub fn route(&self, feet: Vec2, goal: Vec2) -> Option<Vec<usize>> {
         let (from, to) = (self.surface_at(feet)?, self.surface_at(goal)?);
-        // Cost to each surface, where the body stands on it then, and the
-        // link it came by. The surfaces are few: no heap.
-        let mut best: Vec<Option<(f32, f32, Option<usize>)>> = vec![None; self.surfaces.len()];
-        let mut done = vec![false; self.surfaces.len()];
-        best[from] = Some((0.0, self.frame.along(feet), None));
-        loop {
-            let current = (0..self.surfaces.len())
-                .filter(|index| !done[*index])
-                .filter_map(|index| best[index].map(|(cost, ..)| (index, cost)))
-                .min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)))
-                .map(|(index, _)| index)?;
-            if current == to {
+        if from == to {
+            return Some(Vec::new());
+        }
+        let start = self.links.len();
+        let goal_along = self.frame.along(goal);
+        let arrival = |state: usize| match state == start {
+            true => (from, self.frame.along(feet)),
+            false => (self.links[state].to, self.frame.along(self.links[state].leg.land)),
+        };
+        // Cost to each arrival and the arrival it came from.
+        let mut best: Vec<Option<(f32, usize)>> = vec![None; start + 1];
+        let mut done = vec![false; start + 1];
+        let mut open = std::collections::BinaryHeap::new();
+        best[start] = Some((0.0, start));
+        open.push(RouteOpen { cost: 0.0, state: start });
+        let mut finish: Option<(f32, usize)> = None;
+        while let Some(RouteOpen { cost, state }) = open.pop() {
+            if done[state] {
+                continue;
+            }
+            if finish.is_some_and(|(total, _)| total <= cost) {
                 break;
             }
-            done[current] = true;
-            let (cost, at, _) = best[current]?;
-            for index in &self.out[current] {
+            done[state] = true;
+            let (surface, at) = arrival(state);
+            if surface == to {
+                let total = cost + (goal_along - at).abs() / self.run_speed;
+                if finish.is_none_or(|(known, _)| total < known) {
+                    finish = Some((total, state));
+                }
+            }
+            for index in &self.out[surface] {
                 let link = &self.links[*index];
-                let walk = (self.frame.along(link.leg.start) - at).abs() / self.run_speed;
-                let total = cost + walk + link.cost;
-                if best[link.to].is_none_or(|(known, ..)| total < known) {
-                    best[link.to] = Some((total, self.frame.along(link.leg.land), Some(*index)));
+                let total = cost + (self.frame.along(link.leg.start) - at).abs() / self.run_speed + link.cost;
+                if !done[*index] && best[*index].is_none_or(|(known, _)| total < known) {
+                    best[*index] = Some((total, state));
+                    open.push(RouteOpen { cost: total, state: *index });
                 }
             }
         }
+        let (_, mut state) = finish?;
         let mut route = Vec::new();
-        let mut at = to;
-        while let Some((_, _, Some(link))) = best[at] {
-            route.push(link);
-            at = self.links[link].from;
+        while state != start {
+            route.push(state);
+            state = best[state]?.1;
         }
         route.reverse();
         Some(route)

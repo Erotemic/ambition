@@ -776,3 +776,137 @@ fn a_graph_built_on_a_pool_is_the_graph_one_thread_builds() {
     assert_eq!(alone.out, shared.out);
     assert_eq!(alone.cost, shared.cost);
 }
+
+/// A graph of stated surfaces and links, with no world: what `route`
+/// searches. Run speed 1, so a walk costs its distance. `surfaces` are
+/// `(left, right, top)`; `links` are `(from, to, start along, land along, cost)`.
+fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, f32)]) -> NavGraph {
+    let surfaces: Vec<StandSurface> = surfaces
+        .iter()
+        .map(|&(left, right, top)| StandSurface { id: ae::GeoId::anon(), left, right, top, one_way: false })
+        .collect();
+    let mut out = vec![Vec::new(); surfaces.len()];
+    let links: Vec<NavLink> = links
+        .iter()
+        .enumerate()
+        .map(|(index, &(from, to, start, land, cost))| {
+            out[from].push(index);
+            let (start, land) = (Vec2::new(start, surfaces[from].top), Vec2::new(land, surfaces[to].top));
+            let land_span = [surfaces[to].left, surfaces[to].right];
+            NavLink { from, to, leg: NavLeg { kind: NavLegKind::Hop, start, takeoff: start, land, land_span }, cost }
+        })
+        .collect();
+    NavGraph {
+        frame: NavFrame { side: Vec2::X, down: Vec2::Y },
+        half: Vec2::splat(1.0),
+        run_speed: 1.0,
+        braking: 0.0,
+        start_speed: 0.0,
+        apex_rise: 0.0,
+        jump_reach: 0.0,
+        surfaces,
+        links,
+        cost: BuildCost::default(),
+        flight: None,
+        out,
+    }
+}
+
+/// What a route costs under the graph's model: each leg, the walk to each
+/// takeoff, and the walk from the last landing to `goal`.
+fn route_cost(graph: &NavGraph, feet: Vec2, goal: Vec2, route: &[usize]) -> f32 {
+    let mut at = feet.x;
+    let mut cost = 0.0;
+    for link in route {
+        let link = &graph.links[*link];
+        cost += (link.leg.start.x - at).abs() + link.cost;
+        at = link.leg.land.x;
+    }
+    cost + (goal.x - at).abs()
+}
+
+/// The cheapest route by trying every chain of links that starts on the
+/// feet's surface and ends on the goal's (each link once): the reference
+/// `route` must agree with on a small graph.
+fn cheapest_by_enumeration(graph: &NavGraph, feet: Vec2, goal: Vec2) -> Option<f32> {
+    fn walk(graph: &NavGraph, feet: Vec2, goal: Vec2, to: usize, chain: &mut Vec<usize>, best: &mut Option<f32>) {
+        let surface = chain.last().map_or(graph.surface_at(feet).unwrap(), |link| graph.links[*link].to);
+        if surface == to && !chain.is_empty() {
+            let cost = route_cost(graph, feet, goal, chain);
+            *best = Some(best.map_or(cost, |known: f32| known.min(cost)));
+        }
+        for link in graph.out[surface].clone() {
+            if !chain.contains(&link) {
+                chain.push(link);
+                walk(graph, feet, goal, to, chain, best);
+                chain.pop();
+            }
+        }
+    }
+    let mut best = None;
+    walk(graph, feet, goal, graph.surface_at(goal)?, &mut Vec::new(), &mut best);
+    best
+}
+
+/// ⭐ A CHEAPER ARRIVAL DOES NOT RULE OUT A DEARER ONE ELSEWHERE (E4). S to M
+/// directly costs 1 and lands at 0; S to X to M costs 2 and lands at 100,
+/// where the leg to G starts. One best arrival per surface keeps the first
+/// and pays a 100 px walk (102); keeping both arrivals finds 3.
+#[test]
+fn a_route_keeps_a_dearer_arrival_that_lands_where_the_next_leg_starts() {
+    let graph = stated_graph(
+        &[(0.0, 0.0, 0.0), (0.0, 100.0, 50.0), (200.0, 200.0, 100.0), (500.0, 500.0, 150.0)],
+        &[(0, 1, 0.0, 0.0, 1.0), (0, 2, 0.0, 200.0, 1.5), (2, 1, 200.0, 100.0, 0.5), (1, 3, 100.0, 500.0, 1.0)],
+    );
+    let (feet, goal) = (Vec2::new(0.0, 0.0), Vec2::new(500.0, 150.0));
+    let route = graph.route(feet, goal).expect("a route");
+    assert_eq!(route, vec![1, 2, 3], "by X");
+    assert!((route_cost(&graph, feet, goal, &route) - 3.0).abs() < 1e-4);
+    // The control: the direct way is the dear one.
+    assert!((route_cost(&graph, feet, goal, &[0, 3]) - 102.0).abs() < 1e-4);
+    assert_eq!(cheapest_by_enumeration(&graph, feet, goal), Some(3.0));
+}
+
+/// The walk from the last landing to the goal is part of the cost: of two
+/// links onto the goal's surface, the dearer one that lands by the goal wins
+/// over the cheaper one 900 px away.
+#[test]
+fn a_route_pays_the_walk_from_its_last_landing_to_the_goal() {
+    let graph = stated_graph(&[(0.0, 0.0, 0.0), (0.0, 1000.0, 50.0)], &[(0, 1, 0.0, 0.0, 1.0), (0, 1, 0.0, 900.0, 2.0)]);
+    let (feet, goal) = (Vec2::new(0.0, 0.0), Vec2::new(900.0, 50.0));
+    assert_eq!(graph.route(feet, goal), Some(vec![1]));
+    assert_eq!(cheapest_by_enumeration(&graph, feet, goal), Some(2.0));
+}
+
+/// On a small graph with several ways round, `route` costs what trying every
+/// chain of links costs, from each surface to each other.
+#[test]
+fn a_route_costs_what_trying_every_chain_costs() {
+    let graph = stated_graph(
+        &[(0.0, 50.0, 0.0), (0.0, 300.0, 40.0), (100.0, 400.0, 80.0), (250.0, 600.0, 120.0), (500.0, 700.0, 160.0)],
+        &[
+            (0, 1, 50.0, 10.0, 1.0), (0, 2, 0.0, 380.0, 3.0), (1, 2, 290.0, 120.0, 1.0), (1, 3, 20.0, 590.0, 4.0),
+            (2, 1, 110.0, 280.0, 0.5), (2, 3, 390.0, 260.0, 1.0), (3, 4, 600.0, 510.0, 1.0), (1, 4, 300.0, 690.0, 6.0),
+            (4, 2, 500.0, 400.0, 1.0), (3, 1, 250.0, 0.0, 0.2),
+        ],
+    );
+    let mut compared = 0;
+    for from in 0..graph.surfaces.len() {
+        for to in 0..graph.surfaces.len() {
+            if from == to {
+                continue;
+            }
+            let (a, b) = (&graph.surfaces[from], &graph.surfaces[to]);
+            let (feet, goal) = (Vec2::new(a.left, a.top), Vec2::new(b.right, b.top));
+            let found = graph.route(feet, goal).map(|route| route_cost(&graph, feet, goal, &route));
+            let reference = cheapest_by_enumeration(&graph, feet, goal);
+            match (found, reference) {
+                (Some(found), Some(reference)) => assert!((found - reference).abs() < 1e-3, "{from} to {to}: {found} not {reference}"),
+                (None, None) => {}
+                other => panic!("{from} to {to}: {other:?}"),
+            }
+            compared += 1;
+        }
+    }
+    assert_eq!(compared, 20);
+}

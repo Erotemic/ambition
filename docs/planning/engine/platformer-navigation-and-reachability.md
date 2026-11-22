@@ -95,6 +95,20 @@ that start at rest, walks use distance/run speed, and graph construction
 retains one preferred leg per surface pair. Keep those approximation limits
 explicit. Fixing search state does not certify discarded leg variants.
 
+**Fixed (2026-11-22).** `NavGraph::route` now searches arrivals: the start,
+or the landing of one link (`links.len() + 1` states, with a binary heap
+ordered by cost and then state index). It ends with the walk from the last
+landing to the goal point, and it stops only when no open arrival can beat
+the cheapest finished route. Witnesses in `navigation/graph/tests.rs`:
+- the table above (route by X, cost 3; the direct way costs 102);
+- a dearer link that lands by the goal beats a cheaper one 900 px away;
+- on a five-surface graph, all 20 ordered surface pairs agree with an
+  exhaustive enumeration of link chains.
+
+Same-surface queries still return an empty route (the body walks). The
+model limits above are unchanged: legs are measured from rest, and the build
+keeps one leg per surface pair.
+
 ### Lift route state to movement anchors
 
 Prepare takeoff and landing anchors on each standing span. Admitted legs

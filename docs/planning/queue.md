@@ -235,8 +235,9 @@ indexes and retaining the prepared rig and binding from admission. The
 duplicate fact collectors are removed (one EventMailbox scan for all native
 fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
 Next, prepare dispatch spans and entry lookup at admission, then share correct
-occurrence views and derive active journal work. Navigation first fixes its
-cost-state reduction, then reuses motion envelopes and graph query work.
+occurrence views and derive active journal work. Navigation's cost-state
+reduction is fixed (2026-11-22: route searches arrivals and charges the final
+walk). Next it reuses motion envelopes and graph query work.
 
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets

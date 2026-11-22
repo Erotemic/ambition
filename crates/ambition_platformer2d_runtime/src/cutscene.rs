@@ -117,6 +117,15 @@ pub fn drain_cutscene_triggers(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     replay: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
     settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_cutscene::CutsceneSettings>,
+    (rooms, bodies): (
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+        Query<(
+            Entity,
+            &ambition_characters::actor::CharacterForm,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<&ambition_characters::actor::BodyHealth>,
+        )>,
+    ),
 ) {
     // One trigger starts per room; the rest wait their turn. Two rooms entered
     // on one tick each start their entry cutscene, and each room is announced
@@ -150,9 +159,62 @@ pub fn drain_cutscene_triggers(
             Some(room) => settings.in_live_room(Some(LiveRoomInstance::from_ordinal(room))),
             None => settings.of_subject(None),
         }.copied().unwrap_or_default();
-        active.start(PlayingCutscene::new(runtime, trigger.room));
+        let roles = bind_roles(script, trigger.room, &rooms, &bodies);
+        active.start(PlayingCutscene::new(runtime, trigger.room).with_roles(roles));
     }
     queue.0.extend(pending);
+}
+
+/// Bind each of `script`'s roles to one live body as it starts (SS7): the
+/// one body of a character in the scene's room (in the world, for a scene of
+/// the whole world), or the body of a placement. A role with no such body,
+/// or with more than one, stays unbound: each call naming it is refused,
+/// never given another body of the character.
+fn bind_roles(
+    script: &ambition_cutscene::CutsceneScript,
+    room: Option<u32>,
+    rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    bodies: &Query<(
+        Entity,
+        &ambition_characters::actor::CharacterForm,
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        Option<&ambition_characters::actor::BodyHealth>,
+    )>,
+) -> Vec<(String, String)> {
+    use ambition_cutscene::RoleCast;
+    let mut bound = Vec::new();
+    for (role, cast) in &script.roles {
+        let here = |body: Entity| room.is_none() || rooms.of(body).map(|at| at.ordinal()) == room;
+        let live = |health: Option<&ambition_characters::actor::BodyHealth>| health.is_none_or(|health| health.health.current > 0);
+        let found: Vec<&ambition_platformer2d_shared_tangle::sim_id::SimId> = bodies
+            .iter()
+            .filter(|(body, worn, id, health)| {
+                here(*body)
+                    && live(*health)
+                    && match cast {
+                        RoleCast::Character(character) => worn.0.as_str() == character,
+                        RoleCast::Placement(placement) => **id == ambition_platformer2d_shared_tangle::sim_id::SimId::placement(placement),
+                    }
+            })
+            .map(|(_, _, id, _)| id)
+            .collect();
+        match found.as_slice() {
+            [one] => bound.push((role.clone(), one.as_str().to_owned())),
+            none_or_many => warn!(
+                "cutscene `{}`: role `@{role}` ({cast:?}) found {} live bodies, so it is not bound",
+                script.id,
+                none_or_many.len()
+            ),
+        }
+    }
+    bound
+}
+
+/// A playing cutscene's bound roles, as the authored-call boundary takes them.
+fn role_bindings(roles: &[(String, String)]) -> ambition_platformer2d_shared_tangle::authored_logic::RoleBindings {
+    roles.iter().fold(Default::default(), |bindings, (role, id)| {
+        bindings.bind(role.clone(), ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot(id.clone()))
+    })
 }
 
 /// END a cutscene: mark it seen and tear it down. THE ONE ENDING.
@@ -404,12 +466,13 @@ pub fn tick_active_cutscene(
         // line the installed commands refuse was refused when the library
         // loaded (`prepare_cutscene_lines`); here it is logged and skipped.
         let script_id = cutscene.script_id().to_owned();
+        let roles = role_bindings(&cutscene.roles);
         let mut command = |line: &str| {
             use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, RunAuthoredCommand};
             let Some(catalog) = catalog.as_deref() else {
                 return warn!("cutscene `{script_id}` asks `{line}`, and this composition publishes no commands");
             };
-            match catalog.prepare_line(line) {
+            match catalog.prepare_line(line).map_err(|e| e.to_string()).and_then(|call| call.bound(&roles)) {
                 Ok(call) => {
                     if let Some(asked) = asked.as_deref_mut() {
                         asked.write(
@@ -483,7 +546,8 @@ pub fn tick_active_cutscene(
             continue;
         }
 
-        let events = runtime.tick_asking(beat_dt, dismiss, |line| wait.holds(line));
+        let waiting = CutsceneWaitKey { room, script: script_id.clone(), beat: runtime.beat_index };
+        let events = runtime.tick_asking(beat_dt, dismiss, |_| wait.holds(&waiting));
         #[cfg(feature = "dialogue")]
         if let Some(elapsed) = reveal_to { runtime.elapsed = elapsed; }
         let mut completed = false;
@@ -522,18 +586,28 @@ pub fn tick_active_cutscene(
     active.put(going);
 }
 
-/// This tick's answers to the playing cutscenes' `WaitFor` beats: each
-/// condition line one waits on, and whether it holds. Derived each tick from
-/// the world, just before the cutscenes tick, so it is not rollback state.
+/// One playing cutscene's `WaitFor` beat: the room it plays for, its script
+/// and the beat. Two rooms playing one script, or one line waited on at two
+/// beats, are answered apart.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CutsceneWaitKey {
+    pub room: Option<u32>,
+    pub script: String,
+    pub beat: usize,
+}
+
+/// This tick's answers to the playing cutscenes' `WaitFor` beats, each asked
+/// with its scene's bound roles. Derived each tick from the world, just
+/// before the cutscenes tick, so it is not rollback state.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
 pub struct CutsceneWaitAnswer {
-    pub lines: Vec<(String, bool)>,
+    pub waits: Vec<(CutsceneWaitKey, bool)>,
 }
 
 impl CutsceneWaitAnswer {
-    /// Whether the condition `line` holds this tick.
-    pub fn holds(&self, line: &str) -> bool {
-        self.lines.iter().any(|(asked, holds)| *holds && asked == line)
+    /// Whether the beat `key` waits on holds this tick.
+    pub fn holds(&self, key: &CutsceneWaitKey) -> bool {
+        self.waits.iter().any(|(asked, holds)| *holds && asked == key)
     }
 }
 
@@ -592,33 +666,43 @@ pub fn a_cutscene_starts_on_a_condition(library: Res<CutsceneLibrary>) -> bool {
 /// longest hold.
 pub fn answer_cutscene_wait(world: &mut World) {
     use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, ConditionCatalog};
-    let waiting: Vec<(String, String)> = world
+    let waiting: Vec<(CutsceneWaitKey, String, Vec<(String, String)>)> = world
         .get_resource::<ActiveCutscene>()
         .map(|active| {
             active
                 .iter()
                 .filter_map(|cutscene| match cutscene.runtime.current_beat()? {
-                    ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => {
-                        Some((cutscene.script_id().to_owned(), condition.clone()))
-                    }
+                    ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => Some((
+                        CutsceneWaitKey {
+                            room: cutscene.room,
+                            script: cutscene.script_id().to_owned(),
+                            beat: cutscene.runtime.beat_index,
+                        },
+                        condition.clone(),
+                        cutscene.roles.clone(),
+                    )),
                     _ => None,
                 })
                 .collect()
         })
         .unwrap_or_default();
-    let lines = waiting
+    let waits = waiting
         .into_iter()
-        .map(|(script, line)| {
+        .map(|(key, line, roles)| {
             let holds = world.get_resource::<ConditionCatalog>().is_some_and(|catalog| {
-                catalog
-                    .prepare_line(&line)
-                    .map(|prepared| catalog.ask(world, &prepared, &AuthoredAsk::new("cutscene", script)).is_satisfied())
-                    .unwrap_or(false)
+                let asked = catalog.prepare_line(&line).map_err(|e| e.to_string()).and_then(|call| call.bound(&role_bindings(&roles)));
+                match asked {
+                    Ok(prepared) => catalog.ask(world, &prepared, &AuthoredAsk::new("cutscene", key.script.clone())).is_satisfied(),
+                    Err(why) => {
+                        warn!("cutscene `{}` waits on `{line}`: {why}", key.script);
+                        false
+                    }
+                }
             });
-            (line, holds)
+            (key, holds)
         })
         .collect();
-    world.insert_resource(CutsceneWaitAnswer { lines });
+    world.insert_resource(CutsceneWaitAnswer { waits });
 }
 
 /// The cutscene lines the installed vocabulary refuses: a `Command` beat
@@ -654,7 +738,24 @@ pub fn check_cutscene_lines(
                 found.push(line);
             }
         }
+        let undeclared = |line: &str| {
+            line.split_whitespace()
+                .filter_map(|word| word.strip_prefix('@'))
+                .find(|role| !script.roles.iter().any(|(declared, _)| declared == role))
+                .map(|role| format!("`{line}` names the role `@{role}`, which the script does not declare"))
+        };
         for (index, beat) in script.beats.iter().enumerate() {
+            let named = match beat {
+                ambition_cutscene::CutsceneBeat::Command { line } => undeclared(line),
+                ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => undeclared(condition),
+                _ => None,
+            };
+            if let Some(problem) = named {
+                let line = format!("cutscene `{}` beat {index}: {problem}", script.id);
+                error!("{line}");
+                found.push(line);
+                continue;
+            }
             let problem = match beat {
                 ambition_cutscene::CutsceneBeat::Command { line } => match commands.as_deref() {
                     Some(catalog) => catalog.prepare_line(line).err().map(|e| e.to_string()),
@@ -850,6 +951,7 @@ mod tests {
                 beats: Vec::new(),
                 seen_flag: Some("probe_seen".to_string()),
                 starts_when: None,
+                roles: Vec::new(),
             }),
             None,
         );
@@ -905,6 +1007,57 @@ mod tests {
         );
     }
 
+    /// ⭐ SS7: A SCENE BINDS ITS ROLES ONCE, IN ITS OWN ROOM. Two scenes with
+    /// the same role play in two rooms, each with a body of the same
+    /// character: each scene binds the body in its own room. (One script still
+    /// plays in one room at a time.) A scene of the whole world sees both, and
+    /// leaves the role unbound rather than choosing one. The wait answers of
+    /// the two rooms' scenes are told apart by room.
+    #[test]
+    fn each_scene_binds_its_roles_in_its_own_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        let mut library = CutsceneLibrary::default();
+        for id in ["brute_scene", "brute_scene_b", "world_scene"] {
+            let mut script = ambition_cutscene::CutsceneScript::new(id, Vec::new());
+            script.roles = vec![("brute".into(), ambition_cutscene::RoleCast::Character("npc_brute".into()))];
+            library.insert(script);
+        }
+        app.insert_resource(library);
+        app.init_resource::<ActiveCutscene>();
+        for (room, name) in [(1u32, "brute_one"), (2, "brute_two")] {
+            let at = LiveRoomInstance::from_ordinal(room);
+            app.world_mut().spawn((RoomInstanceRoot, at));
+            app.world_mut().spawn((
+                ambition_characters::actor::CharacterForm("npc_brute".into()),
+                SimId::placement(name),
+                InRoomInstance(at),
+            ));
+        }
+        let mut queue = CutsceneTriggerQueue::default();
+        queue.request_in("brute_scene", 1);
+        queue.request_in("brute_scene_b", 2);
+        app.insert_resource(queue);
+        app.add_systems(bevy::prelude::Update, drain_cutscene_triggers);
+        app.update();
+        let bound: Vec<(Option<u32>, Vec<(String, String)>)> =
+            app.world().resource::<ActiveCutscene>().iter().map(|cutscene| (cutscene.room, cutscene.roles.clone())).collect();
+        let role = |id: &str| vec![("brute".to_string(), SimId::placement(id).as_str().to_owned())];
+        assert_eq!(bound, [(Some(1), role("brute_one")), (Some(2), role("brute_two"))], "each scene binds the body in its own room");
+
+        app.world_mut().resource_mut::<ActiveCutscene>().retain(|_| false);
+        app.world_mut().resource_mut::<CutsceneTriggerQueue>().request("world_scene");
+        app.update();
+        let world: Vec<Vec<(String, String)>> = app.world().resource::<ActiveCutscene>().iter().map(|cutscene| cutscene.roles.clone()).collect();
+        assert_eq!(world, [Vec::<(String, String)>::new()], "two bodies of the character: the world's scene binds neither");
+
+        let key = |room| CutsceneWaitKey { room: Some(room), script: "brute_scene".into(), beat: 3 };
+        let answer = CutsceneWaitAnswer { waits: vec![(key(1), true), (key(2), false)] };
+        assert!(answer.holds(&key(1)) && !answer.holds(&key(2)), "one room's answer is not the other's");
+    }
+
     /// Two rooms entered on one tick queue two entry cutscenes, and both play
     /// at once, one per room (SIMULATION-ISLANDS N4). A second for a room that
     /// has one waits its turn, and so does a cutscene of the whole world, with
@@ -915,7 +1068,7 @@ mod tests {
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         let mut library = CutsceneLibrary::default();
         for id in ["alices_room", "bobs_room", "alices_second", "the_world", "bobs_second"] {
-            library.insert(ambition_cutscene::CutsceneScript { id: id.into(), beats: Vec::new(), seen_flag: None, starts_when: None });
+            library.insert(ambition_cutscene::CutsceneScript { id: id.into(), beats: Vec::new(), seen_flag: None, starts_when: None, roles: Vec::new() });
         }
         app.insert_resource(library);
         app.init_resource::<ActiveCutscene>();
@@ -993,6 +1146,7 @@ mod tests {
                 beats: Vec::new(),
                 seen_flag: None,
                 starts_when: None,
+                roles: Vec::new(),
             }),
             None,
         );
@@ -1016,6 +1170,7 @@ mod tests {
                 beats: Vec::new(),
                 seen_flag: None,
                 starts_when: None,
+                roles: Vec::new(),
             }),
             None,
         ));

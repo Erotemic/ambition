@@ -8,7 +8,7 @@ crates/ambition_combat/src/extension.rs	4	a6f9c44535332e26
 crates/ambition_combat/src/projectile_spawn/pending.rs	24	cd2b9c5f11f1776b
 crates/ambition_combat/src/rollback_registration.rs	50	f11b46d13b403c94
 crates/ambition_combat/src/snapshot_impls.rs	93	e7ff67873e792072
-crates/ambition_cutscene/src/lib.rs	69	3a5f18031400e093
+crates/ambition_cutscene/src/lib.rs	81	a0fca731702dec43
 crates/ambition_encounter/src/snapshot_impls.rs	35	bb87c343bf3d9ffd
 crates/ambition_held_items/src/release.rs	4	712594d3e4f9ebca
 crates/ambition_match/src/snapshot_impls.rs	88	0fb6cd81f15b654d

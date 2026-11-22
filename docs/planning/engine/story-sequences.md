@@ -7,8 +7,8 @@ with its first customer, the game show's goat and car (below); SS5 landed
 progress** (reviewed 2026-11-21 against production `b91b29d35935`): bind
 authored calls to their actual participants, and distinguish skipping
 presentation from completing gameplay work. SS7 step 1 landed for
-conversations on 2026-11-21 (below, "SS7 progress"); the scene binding,
-the brute migration and SS8 remain.
+conversations on 2026-11-21 (below, "SS7 progress"), and step 2 (scene
+roles and the brute scene) the same day; step 3 and SS8 remain.
 Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
@@ -301,13 +301,42 @@ the speaking `ConversationInstanceId` (new `talker()` / `initiator()`
 accessors). The Creator's `intro.yarn` now walks and asks about `@talker`
 instead of spelling `npc_creator`.
 
+**SS7 step 2 (2026-11-21): scene roles and the brute scene.** A
+`CutsceneScript` declares `roles: [("brute", Character("npc_raid_brute")),
+...]` (`RoleCast::Character` or `RoleCast::Placement`). When the scene
+starts, `drain_cutscene_triggers` binds each role to one live body: the one
+body of that character in the scene's room (in the world, for a scene of the
+whole world), or the placement's body. With none, or with more than one, the
+role stays unbound and every call naming it is refused; it is never handed
+to another body.
+
+`PlayingCutscene.roles` holds the bound identities. It is rollback state, in
+`ActiveCutscene` and in the room log's `CutsceneState` (schema 523 to 524,
+codec shape re-recorded). Each `Command` line and each `WaitFor` condition
+is prepared and then bound with its own scene's roles.
+
+`CutsceneWaitAnswer` is keyed by `CutsceneWaitKey` (room, script, beat)
+instead of the raw line. Two scenes waiting on one line, or one line at two
+beats, are answered apart.
+
+`check_cutscene_lines` refuses a line that names an undeclared role. The
+brute scene in `intro.ron` now binds `@brute` and `@creator` once and uses
+them throughout.
+
+Unit witness: `cutscene::tests::each_scene_binds_its_roles_in_its_own_room`.
+Two rooms' scenes each bind the body in their own room. A scene of the whole
+world, seeing two bodies of the character, binds neither. The wait answers
+of two rooms are told apart.
+
 Still open:
+- One script still plays in one room at a time (`ActiveCutscene::plays`).
+  "Two live rooms with the same script" therefore remains blocked by that
+  rule, not by the keys.
 - Conditions carry no room, so a bound condition with two live bodies of
   one identity is unanswerable rather than room-resolved.
 - The conversation command bridge still supplies no room.
-- Scene roles (bound at scene start, rollback-owned in `PlayingCutscene`),
-  wait answers keyed by playing scene and beat, the brute migration and
-  step 3 are next.
+- Step 3 (the doorway raiders bound as a cohort after their spawn) is next.
+- Reload rebinding is not exercised.
 
 Bindings are rollback-owned invocation state, resolved through current live
 objects at the invocation cut. Retirement refuses the old reference; it must

@@ -286,6 +286,18 @@ impl CutsceneBeat {
     }
 }
 
+/// Who plays one of a script's roles (SS7). The runtime binds the role to one
+/// live body when the scene starts, and the scene's calls name it `@role`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RoleCast {
+    /// The one live body of this character in the scene's room (in the
+    /// world, for a scene of the whole world). None, or more than one, leaves
+    /// the role unbound and every call naming it refused.
+    Character(String),
+    /// The body of this placement.
+    Placement(String),
+}
+
 /// A complete cutscene: ordered beats + an id + an optional "seen"
 /// flag. Sandbox systems can skip a cutscene that's already been
 /// played by checking `AmbitionGameSaveData::flag(seen_flag)`.
@@ -305,6 +317,9 @@ pub struct CutsceneScript {
     /// script does not carry it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub starts_when: Option<String>,
+    /// The roles its calls name as `@role`, and who plays each.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<(String, RoleCast)>,
 }
 
 impl CutsceneScript {
@@ -314,6 +329,7 @@ impl CutsceneScript {
             beats,
             seen_flag: None,
             starts_when: None,
+            roles: Vec::new(),
         }
     }
 
@@ -491,6 +507,10 @@ pub struct PlayingCutscene {
     /// for a cutscene of the whole world. A room's cutscene holds the players
     /// in that room and not the others (ISL-1b).
     pub room: Option<u32>,
+    /// Its roles, each bound when it started to one body's identity (the
+    /// `SimId` text the runtime minted). Rollback state: a rewind keeps the
+    /// bodies the scene began with.
+    pub roles: Vec<(String, String)>,
     /// How long the answering seat has held cancel over this cutscene, in
     /// SIMULATION seconds. The skip fires when it reaches
     /// [`CutsceneSettings::skip_hold_seconds`]; the overlay draws its progress.
@@ -506,7 +526,13 @@ impl PlayingCutscene {
     /// before any tick, so a cutscene snapshotted the frame it starts is not
     /// blank.
     pub fn new(runtime: CutsceneRuntime, room: Option<u32>) -> Self {
-        Self { presentation: runtime.presentation(), runtime, room, skip_hold: 0.0 }
+        Self { presentation: runtime.presentation(), runtime, room, roles: Vec::new(), skip_hold: 0.0 }
+    }
+
+    /// This cutscene with its roles bound.
+    pub fn with_roles(mut self, roles: Vec<(String, String)>) -> Self {
+        self.roles = roles;
+        self
     }
 
     /// Does this cutscene hold a body in the live room `room` (by its
@@ -656,18 +682,24 @@ impl ActiveCutscene {
 pub struct CutsceneState {
     pub runtime: CutsceneRuntime,
     pub room: u32,
+    pub roles: Vec<(String, String)>,
     pub skip_hold: f32,
 }
 
 impl CutsceneState {
     /// The state of a room's playing cutscene; `None` for the world's.
     pub fn of(cutscene: &PlayingCutscene) -> Option<Self> {
-        Some(Self { runtime: cutscene.runtime.clone(), room: cutscene.room?, skip_hold: cutscene.skip_hold })
+        Some(Self {
+            runtime: cutscene.runtime.clone(),
+            room: cutscene.room?,
+            roles: cutscene.roles.clone(),
+            skip_hold: cutscene.skip_hold,
+        })
     }
 
     /// The cutscene this state plays again, its picture with it.
     pub fn playing(self) -> PlayingCutscene {
-        PlayingCutscene { skip_hold: self.skip_hold, ..PlayingCutscene::new(self.runtime, Some(self.room)) }
+        PlayingCutscene { skip_hold: self.skip_hold, roles: self.roles, ..PlayingCutscene::new(self.runtime, Some(self.room)) }
     }
 }
 
@@ -1239,6 +1271,20 @@ mod snapshot {
             for beat in &self.beats {
                 beat.encode(out);
             }
+            put_u32(out, self.roles.len() as u32);
+            for (role, cast) in &self.roles {
+                put_str(out, role);
+                match cast {
+                    RoleCast::Character(character) => {
+                        put_u32(out, 0);
+                        put_str(out, character);
+                    }
+                    RoleCast::Placement(placement) => {
+                        put_u32(out, 1);
+                        put_str(out, placement);
+                    }
+                }
+            }
         }
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
@@ -1254,11 +1300,23 @@ mod snapshot {
             for _ in 0..count {
                 beats.push(CutsceneBeat::decode(reader)?);
             }
+            let count = reader.u32()?;
+            let mut roles = Vec::with_capacity((count as usize).min(16));
+            for _ in 0..count {
+                let role = reader.str()?.to_owned();
+                let cast = match reader.u32()? {
+                    0 => RoleCast::Character(reader.str()?.to_owned()),
+                    1 => RoleCast::Placement(reader.str()?.to_owned()),
+                    _ => return None,
+                };
+                roles.push((role, cast));
+            }
             Some(Self {
                 id,
                 beats,
                 seen_flag,
                 starts_when: None,
+                roles,
             })
         }
     }
@@ -1309,6 +1367,23 @@ mod snapshot {
         }
     }
 
+    fn put_roles(roles: &[(String, String)], out: &mut Vec<u8>) {
+        put_u32(out, roles.len() as u32);
+        for (role, id) in roles {
+            put_str(out, role);
+            put_str(out, id);
+        }
+    }
+
+    fn roles(reader: &mut Reader<'_>) -> Option<Vec<(String, String)>> {
+        let count = reader.u32()? as usize;
+        let mut roles = Vec::with_capacity(count.min(16));
+        for _ in 0..count {
+            roles.push((reader.str()?.to_owned(), reader.str()?.to_owned()));
+        }
+        Some(roles)
+    }
+
     fn put_runtime_state(runtime: &CutsceneRuntime, out: &mut Vec<u8>) {
         put_u32(out, runtime.beat_index as u32);
         put_f32(out, runtime.elapsed);
@@ -1339,6 +1414,7 @@ mod snapshot {
                     }
                     None => put_bool(out, false),
                 }
+                put_roles(&cutscene.roles, out);
                 put_f32(out, cutscene.skip_hold);
             }
         }
@@ -1351,7 +1427,8 @@ mod snapshot {
                 let script = std::sync::Arc::new(CutsceneScript::decode(reader)?);
                 let runtime = runtime_state(reader, script)?;
                 let room = if reader.bool()? { Some(reader.u32()?) } else { None };
-                playing.push(PlayingCutscene { skip_hold: reader.f32()?, ..PlayingCutscene::new(runtime, room) });
+                let roles = roles(reader)?;
+                playing.push(PlayingCutscene { roles, skip_hold: reader.f32()?, ..PlayingCutscene::new(runtime, room) });
             }
             Some(Self { playing })
         }
@@ -1367,6 +1444,7 @@ mod snapshot {
                     put_u32(out, script);
                     put_runtime_state(&state.runtime, out);
                     put_u32(out, state.room);
+                    put_roles(&state.roles, out);
                     put_f32(out, state.skip_hold);
                 }
                 _ => put_bool(out, false),
@@ -1379,7 +1457,9 @@ mod snapshot {
             }
             let script = scripts.get(reader.u32()? as usize)?.clone();
             let runtime = runtime_state(reader, script)?;
-            Some(Some(Self { runtime, room: reader.u32()?, skip_hold: reader.f32()? }))
+            let room = reader.u32()?;
+            let roles = roles(reader)?;
+            Some(Some(Self { runtime, room, roles, skip_hold: reader.f32()? }))
         }
     }
 

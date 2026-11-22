@@ -2,6 +2,9 @@
 
 use crate::{Aabb, Vec2};
 
+mod range;
+pub use range::{scan_touching, touches, RangeGrid};
+
 /// Bounds supplied by a spatial object.
 pub trait Spatial {
     fn spatial_bounds(&self) -> Aabb;

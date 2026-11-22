@@ -83,6 +83,22 @@ avoid specializing the heavy algorithm for each gameplay payload.
 
 ## K1 — snapshot bounds queries
 
+**Range extraction landed (2026-11-22).** The grid moved from a private
+`Grid` in `core::layered` to `ambition_geometry::spatial::RangeGrid`, built
+from an iterator of bounds. It comes with:
+- the exact reference `scan_touching`;
+- the inclusive `touches` predicate;
+- a test: grid candidates filtered by `touches` equal the scan, for small,
+  cell-straddling, flat and large entries, and for small, flat,
+  wide and huge regions.
+
+`Layered` keeps its shared base, hidden rows, additions and the two lazy
+(current and swept) grids, and delegates the cell algorithm. Contact
+partitions now hold their envelopes, a `RangeGrid` and the refused list
+directly. The unused `Layered` overlay wrapper is gone. Cell size, the
+large-entry rule and the huge-region fallback are unchanged. No
+representation was chosen by measurement (K3).
+
 ### Exact bounds results and conservative candidates
 
 A range result is exact with respect to the supplied closed AABBs. Touching
